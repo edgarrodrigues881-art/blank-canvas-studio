@@ -49,7 +49,7 @@ export function useCreateContact() {
     mutationFn: async (contact: { name: string; phone: string; email?: string; tags?: string[]; notes?: string; var1?: string; var2?: string; var3?: string; var4?: string; var5?: string; var6?: string; var7?: string; var8?: string; var9?: string; var10?: string }) => {
       const { data, error } = await supabase
         .from("contacts")
-        .insert({ ...contact, user_id: user!.id, tags: contact.tags || [] })
+        .insert({ var1: "", var2: "", var3: "", var4: "", var5: "", var6: "", var7: "", var8: "", var9: "", var10: "", ...contact, user_id: user!.id, tags: contact.tags || [] })
         .select("id, name, phone, email, tags, notes, var1, var2, var3, var4, var5, var6, var7, var8, var9, var10, created_at, updated_at")
         .single();
       if (error) throw error;
