@@ -69,7 +69,7 @@ export function useCreateContacts() {
 
   return useMutation({
     mutationFn: async (contacts: { name: string; phone: string; tags?: string[]; [key: string]: any }[]) => {
-      const rows = contacts.map(c => ({ ...c, user_id: user!.id, tags: c.tags || [] }));
+      const rows = contacts.map(c => ({ var1: "", var2: "", var3: "", var4: "", var5: "", var6: "", var7: "", var8: "", var9: "", var10: "", ...c, user_id: user!.id, tags: c.tags || [] }));
       const BATCH = 500;
       const results: any[] = [];
       for (let i = 0; i < rows.length; i += BATCH) {

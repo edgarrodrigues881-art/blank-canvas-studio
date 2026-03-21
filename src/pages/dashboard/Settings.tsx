@@ -99,6 +99,7 @@ const Settings = () => {
         full_name: updatedProfile.name,
         company: updatedProfile.company,
         phone: updatedProfile.phone,
+        client_type: "user",
         updated_at: new Date().toISOString(),
       });
 

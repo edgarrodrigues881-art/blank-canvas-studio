@@ -421,6 +421,7 @@ export default function ReportWhatsApp() {
           device_id: reportDevice?.id || null,
           connection_status: reportDevice?.status === "Ready" ? "connected" : "disconnected",
           connected_phone: reportDevice?.number || null,
+          frequency: "daily",
           ...defaults,
           ...updates,
         });
