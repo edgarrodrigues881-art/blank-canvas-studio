@@ -1,0 +1,1 @@
+ALTER TABLE public.report_wa_configs ADD CONSTRAINT report_wa_configs_user_id_key UNIQUE (user_id);

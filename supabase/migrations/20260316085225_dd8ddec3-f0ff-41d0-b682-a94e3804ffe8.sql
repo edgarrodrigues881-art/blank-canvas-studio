@@ -1,0 +1,1 @@
+ALTER TABLE public.campaigns ADD COLUMN pause_on_disconnect boolean NOT NULL DEFAULT true;
