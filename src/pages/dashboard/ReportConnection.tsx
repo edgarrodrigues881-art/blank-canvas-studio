@@ -83,6 +83,8 @@ export default function ReportConnection() {
         await supabase.from("report_wa_configs").upsert({
           user_id: user!.id,
           device_id: created.device.id,
+          connection_status: "disconnected",
+          frequency: "daily",
         }, { onConflict: "user_id" }).select().maybeSingle();
       }
       const { data: refetched } = await supabase
