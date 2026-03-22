@@ -1,1 +1,4 @@
 project_id = "amizwispkprvyrnwypws"
+
+[functions.manage-devices]
+verify_jwt = false
