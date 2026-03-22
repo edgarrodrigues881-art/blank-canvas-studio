@@ -2800,8 +2800,8 @@ Deno.serve(async (req) => {
             pvError = JSON.stringify(resData).slice(0, 300);
           }
         } catch (e) {
-          console.log("[wa-report-send] PV error:", e.message);
-          pvError = e.message;
+          console.log("[wa-report-send] PV error:", (e as Error).message);
+          pvError = (e as Error).message;
         }
       }
 
