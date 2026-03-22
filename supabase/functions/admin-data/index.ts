@@ -687,7 +687,7 @@ Deno.serve(async (req) => {
               timestamp: new Date().toISOString(),
             }),
           });
-        } catch (e) { console.log("Make webhook error:", e.message); }
+        } catch (e) { console.log("Make webhook error:", (e as Error).message); }
       }
 
       return new Response(JSON.stringify({ success: true, device: data }), {
