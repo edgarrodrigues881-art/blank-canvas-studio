@@ -1,1 +1,0 @@
-ALTER TABLE public.profiles ADD COLUMN whatsapp_monitor_token text DEFAULT null;

@@ -1,1 +1,0 @@
-ALTER TABLE public.campaigns ADD COLUMN IF NOT EXISTS device_id uuid REFERENCES public.devices(id) ON DELETE SET NULL;

@@ -1,3 +1,0 @@
-UPDATE warmup_groups SET link = 'https://chat.whatsapp.com/JnIfueI6qZsFgWuoYimS85' WHERE id = 'ca6961f6-8ef1-44ed-a652-b958b4c6e6cc';
-UPDATE warmup_groups SET link = 'https://chat.whatsapp.com/JXMhmfWADCf2HIMkCQuiyj' WHERE id = '3b0424db-4e0f-4548-945a-ee1c84804484';
-UPDATE warmup_groups SET link = 'https://chat.whatsapp.com/J0ZrvjhFYkNIqGCAubDWNY' WHERE id = '0de92d57-8c8a-4861-a62a-a0c503f2e4a1';

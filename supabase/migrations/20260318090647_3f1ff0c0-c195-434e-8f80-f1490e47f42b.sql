@@ -1,1 +1,0 @@
-ALTER TABLE public.autoreply_flows ADD COLUMN device_id uuid REFERENCES public.devices(id) ON DELETE SET NULL;

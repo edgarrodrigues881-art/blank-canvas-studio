@@ -1,1 +1,0 @@
-ALTER TABLE public.devices ADD COLUMN IF NOT EXISTS profile_name text DEFAULT '';

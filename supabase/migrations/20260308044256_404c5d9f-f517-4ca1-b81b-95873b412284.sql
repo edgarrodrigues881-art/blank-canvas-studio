@@ -1,1 +1,0 @@
-DELETE FROM warmup_groups_pool WHERE external_group_ref LIKE 'placeholder_%';

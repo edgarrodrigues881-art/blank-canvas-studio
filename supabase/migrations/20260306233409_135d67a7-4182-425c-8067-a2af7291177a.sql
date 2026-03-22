@@ -1,1 +1,0 @@
-ALTER TABLE public.warmup_cycles ADD COLUMN IF NOT EXISTS previous_phase text NULL;

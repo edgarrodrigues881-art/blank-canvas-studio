@@ -1,3 +1,0 @@
-UPDATE warmup_groups_pool SET external_group_ref = 'https://chat.whatsapp.com/JnIfueI6qZsFgWuoYimS85' WHERE id = 'ca184b3b-8775-408f-89a0-59f34bb7c514';
-UPDATE warmup_groups_pool SET external_group_ref = 'https://chat.whatsapp.com/JXMhmfWADCf2HIMkCQuiyj' WHERE id = '6e401761-4ce5-4862-b86c-9d9d02e0f7d7';
-UPDATE warmup_groups_pool SET external_group_ref = 'https://chat.whatsapp.com/J0ZrvjhFYkNIqGCAubDWNY' WHERE id = '586f6454-67c2-4a3f-bef7-2acb4ea5275b';

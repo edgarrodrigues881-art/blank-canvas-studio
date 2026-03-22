@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX IF NOT EXISTS idx_warmup_instance_groups_unique ON warmup_instance_groups(device_id, group_id);

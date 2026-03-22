@@ -1,1 +1,0 @@
-ALTER TABLE public.proxies ADD COLUMN status text NOT NULL DEFAULT 'NOVA';

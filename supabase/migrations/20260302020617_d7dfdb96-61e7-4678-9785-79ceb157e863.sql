@@ -1,1 +1,0 @@
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS instance_override integer NOT NULL DEFAULT 0;

@@ -1,1 +1,0 @@
-ALTER TYPE public.warmup_job_type ADD VALUE IF NOT EXISTS 'post_status';

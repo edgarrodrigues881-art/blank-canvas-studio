@@ -1,1 +1,0 @@
-ALTER TABLE public.devices ADD COLUMN profile_picture text DEFAULT null;

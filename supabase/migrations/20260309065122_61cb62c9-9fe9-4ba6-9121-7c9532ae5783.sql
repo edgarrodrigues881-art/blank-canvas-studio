@@ -1,1 +1,0 @@
-ALTER TYPE public.warmup_chip_state ADD VALUE IF NOT EXISTS 'unstable';
