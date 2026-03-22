@@ -1279,14 +1279,14 @@ Deno.serve(async (req) => {
       const trimmedProviderId = String(providerInstanceId || "").trim();
       const attempted = [...new Set([trimmedToken, trimmedProviderId, trimmedLabel].filter(Boolean))];
 
-      const tokenHeaderVariants = trimmedToken
+      const tokenHeaderVariants: Record<string, string>[] = trimmedToken
         ? [
             { token: trimmedToken },
             { Authorization: `Bearer ${trimmedToken}` },
           ]
         : [];
 
-      const adminHeaderVariants = ADMIN_TOKEN
+      const adminHeaderVariants: Record<string, string>[] = ADMIN_TOKEN
         ? [
             { admintoken: ADMIN_TOKEN },
             { token: ADMIN_TOKEN },
