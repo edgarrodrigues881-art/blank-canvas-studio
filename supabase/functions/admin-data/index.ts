@@ -1145,7 +1145,7 @@ Deno.serve(async (req) => {
           else invalidCount++;
           console.log(`Validate ${t.token.substring(0, 8)}... -> ${checkRes.status} -> ${isHealthy}`);
         } catch (e) {
-          console.log(`Validate error for ${t.token.substring(0, 8)}...: ${e.message}`);
+          console.log(`Validate error for ${t.token.substring(0, 8)}...: ${(e as Error).message}`);
         }
       }
       
