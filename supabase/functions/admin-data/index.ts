@@ -310,7 +310,7 @@ Deno.serve(async (req) => {
               });
             }
           } catch (e) {
-            console.warn(`[plan-removal] Failed to disconnect device ${dev.id}:`, e.message);
+            console.warn(`[plan-removal] Failed to disconnect device ${dev.id}:`, (e as Error).message);
           }
 
           // Mark device as Disconnected and clear session data
