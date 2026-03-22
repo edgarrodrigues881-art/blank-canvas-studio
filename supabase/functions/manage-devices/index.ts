@@ -6,6 +6,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function resolveInstanceType(loginType?: string) {
+  if (loginType === "contingencia") return "contingencia";
+  if (loginType === "report_wa") return "notificacao";
+  return "principal";
+}
+
 async function oplog(client: any, userId: string, event: string, details: string, deviceId?: string | null, meta?: any) {
   try { await client.from("operation_logs").insert({ user_id: userId, device_id: deviceId || null, event, details, meta: meta || {} }); } catch (_e) { /* ignore */ }
 }
@@ -92,6 +98,7 @@ Deno.serve(async (req) => {
         .insert({
           name: name.trim(),
           login_type,
+          instance_type: resolveInstanceType(login_type),
           user_id: user.id,
         })
         .select("id, name, status, login_type, number, proxy_id, profile_picture, profile_name, created_at, updated_at, instance_type")
@@ -150,6 +157,7 @@ Deno.serve(async (req) => {
         inserts.push({
           name: `${prefix} ${idx}`,
           login_type: "qr",
+          instance_type: resolveInstanceType("qr"),
           user_id: user.id,
           proxy_id: proxyId,
         });
@@ -160,6 +168,7 @@ Deno.serve(async (req) => {
         inserts.push({
           name: `${prefix} ${idx}`,
           login_type: "qr",
+          instance_type: resolveInstanceType("qr"),
           user_id: user.id,
           proxy_id: null,
         });
