@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
 
             if (deleted) totalProviderDeleted++;
             console.log(`[trial-cleanup] Device "${device.name}" provider delete: ${deleted}`);
-          } catch (e) {
+          } catch (e: any) {
             console.warn(`[trial-cleanup] Provider error for device ${device.id}:`, e);
           }
         }
@@ -192,7 +192,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify(summary), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e) {
+  } catch (e: any) {
     console.error("[trial-cleanup] Error:", e);
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,

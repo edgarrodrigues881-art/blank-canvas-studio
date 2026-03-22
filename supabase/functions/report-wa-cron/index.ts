@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
             console.log(`[report-wa-cron] ✅ Message sent via ${attempt.path} (200 OK, no error)`);
             return true;
           }
-        } catch (e) {
+        } catch (e: any) {
           console.log(`[report-wa-cron] ${attempt.path} exception: ${e instanceof Error ? e.message : e}`);
         }
       }

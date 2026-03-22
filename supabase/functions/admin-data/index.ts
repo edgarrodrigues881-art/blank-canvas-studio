@@ -309,8 +309,8 @@ Deno.serve(async (req) => {
                 headers: { token: dev.uazapi_token, "Content-Type": "application/json" },
               });
             }
-          } catch (e) {
-            console.warn(`[plan-removal] Failed to disconnect device ${dev.id}:`, e.message);
+          } catch (e: any) {
+            console.warn(`[plan-removal] Failed to disconnect device ${dev.id}:`, (e as Error).message);
           }
 
           // Mark device as Disconnected and clear session data
@@ -687,7 +687,7 @@ Deno.serve(async (req) => {
               timestamp: new Date().toISOString(),
             }),
           });
-        } catch (e) { console.log("Make webhook error:", e.message); }
+        } catch (e: any) { console.log("Make webhook error:", (e as Error).message); }
       }
 
       return new Response(JSON.stringify({ success: true, device: data }), {
@@ -771,7 +771,7 @@ Deno.serve(async (req) => {
           }).eq("id", token.id);
 
           reassigned++;
-        } catch (e) {
+        } catch (e: any) {
           errors.push(`${device.name}: ${(e as any).message}`);
         }
       }
@@ -1091,8 +1091,8 @@ Deno.serve(async (req) => {
           });
           healthy = checkRes.status !== 401;
           console.log(`Token validation: ${token.substring(0, 8)}... -> ${checkRes.status} -> healthy=${healthy}`);
-        } catch (e) {
-          console.log(`Token validation failed for ${token.substring(0, 8)}...: ${e.message}`);
+        } catch (e: any) {
+          console.log(`Token validation failed for ${token.substring(0, 8)}...: ${(e as Error).message}`);
         }
         
         inserts.push({
@@ -1144,8 +1144,8 @@ Deno.serve(async (req) => {
           if (isHealthy) healthyCount++;
           else invalidCount++;
           console.log(`Validate ${t.token.substring(0, 8)}... -> ${checkRes.status} -> ${isHealthy}`);
-        } catch (e) {
-          console.log(`Validate error for ${t.token.substring(0, 8)}...: ${e.message}`);
+        } catch (e: any) {
+          console.log(`Validate error for ${t.token.substring(0, 8)}...: ${(e as Error).message}`);
         }
       }
       
@@ -1239,8 +1239,8 @@ Deno.serve(async (req) => {
           });
 
           created.push(instanceName);
-        } catch (e) {
-          errors.push(`${instanceName}: ${e.message}`);
+        } catch (e: any) {
+          errors.push(`${instanceName}: ${(e as Error).message}`);
         }
       }
 
@@ -1279,14 +1279,14 @@ Deno.serve(async (req) => {
       const trimmedProviderId = String(providerInstanceId || "").trim();
       const attempted = [...new Set([trimmedToken, trimmedProviderId, trimmedLabel].filter(Boolean))];
 
-      const tokenHeaderVariants = trimmedToken
+      const tokenHeaderVariants: Record<string, string>[] = trimmedToken
         ? [
             { token: trimmedToken },
             { Authorization: `Bearer ${trimmedToken}` },
           ]
         : [];
 
-      const adminHeaderVariants = ADMIN_TOKEN
+      const adminHeaderVariants: Record<string, string>[] = ADMIN_TOKEN
         ? [
             { admintoken: ADMIN_TOKEN },
             { token: ADMIN_TOKEN },
@@ -1628,7 +1628,7 @@ Deno.serve(async (req) => {
         "/instance/fetchInstances",
         "/instances",
       ];
-      const authVariants = [
+      const authVariants: Record<string, string>[] = [
         { admintoken: ADMIN_TOKEN },
         { token: ADMIN_TOKEN },
         { Authorization: `Bearer ${ADMIN_TOKEN}` },
@@ -2124,7 +2124,7 @@ Deno.serve(async (req) => {
           cycle_active: !!cycle,
           cycle_phase: cycle?.phase || null,
           cycle_day_index: cycle?.day_index || null,
-          cycle_days_total: cycle?.days_total || null,
+          cycle_days_total: (cycle as any)?.days_total || null,
           is_enrolled: membership?.is_enabled || false,
           is_eligible: membership?.is_eligible ?? true,
           membership_id: membership?.id || null,
@@ -2799,9 +2799,9 @@ Deno.serve(async (req) => {
           } else {
             pvError = JSON.stringify(resData).slice(0, 300);
           }
-        } catch (e) {
-          console.log("[wa-report-send] PV error:", e.message);
-          pvError = e.message;
+        } catch (e: any) {
+          console.log("[wa-report-send] PV error:", (e as Error).message);
+          pvError = (e as Error).message;
         }
       }
 
@@ -2831,9 +2831,9 @@ Deno.serve(async (req) => {
         } else {
           groupError = JSON.stringify(resData).slice(0, 300);
         }
-      } catch (e) {
-        console.log("[wa-report-send] Group error:", e.message);
-        groupError = e.message;
+      } catch (e: any) {
+        console.log("[wa-report-send] Group error:", (e as Error).message);
+        groupError = (e as Error).message;
       }
 
       // Save to client_messages for history
@@ -3065,8 +3065,8 @@ Deno.serve(async (req) => {
               } else {
                 console.warn(`[monitor-provision] No token in response for ${instanceName}`);
               }
-            } catch (e) {
-              console.error(`[monitor-provision] Error provisioning monitor token:`, e.message);
+            } catch (e: any) {
+              console.error(`[monitor-provision] Error provisioning monitor token:`, (e as Error).message);
             }
           }
         } else {

@@ -286,7 +286,7 @@ Deno.serve(async (req) => {
           }
 
           console.log(`[manage-devices:delete] Provider delete result: ${deleted ? "ok" : "failed"}`);
-        } catch (e) {
+        } catch (e: any) {
           console.warn("[manage-devices:delete] Provider error (non-blocking):", e);
         }
       }

@@ -292,7 +292,7 @@ Deno.serve(async (req) => {
             await new Promise(r => setTimeout(r, 2000));
             break;
           }
-        } catch (e) {
+        } catch (e: any) {
           console.log(`[groups] sync ${syncPath} skipped:`, e);
         }
       }

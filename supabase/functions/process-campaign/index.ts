@@ -94,7 +94,7 @@ async function sendCampaignAlertToWa(serviceClient: any, userId: string, campaig
     if (res.ok) {
       await serviceClient.from("report_wa_logs").insert({ user_id: userId, level: "INFO", message: `Campanha "${campaignName}" ${status} — alerta instantâneo enviado` });
     }
-  } catch (e) {
+  } catch (e: any) {
     console.log(`Failed to send instant campaign alert: ${e.message}`);
   }
 }

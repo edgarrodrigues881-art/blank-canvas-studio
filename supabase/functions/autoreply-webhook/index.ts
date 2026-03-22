@@ -779,6 +779,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[autoreply] SKIP: No trigger matched for "${messageText.substring(0, 50)}" on device ${deviceId}`);
+    return json({ ok: true, action: "no_match" });
   } catch (err) {
     console.error("[autoreply] Error:", err);
     return json({ error: "Internal error", details: err instanceof Error ? err.message : String(err) }, 500);
