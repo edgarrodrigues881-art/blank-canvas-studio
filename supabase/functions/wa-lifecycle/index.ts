@@ -64,7 +64,7 @@ async function sendText(baseUrl: string, token: string, number: string, text: st
     const data = await res.json();
     if (res.ok) return { ok: true };
     return { ok: false, error: JSON.stringify(data).slice(0, 200) };
-  } catch (e) {
+  } catch (e: any) {
     return { ok: false, error: e.message };
   }
 }
@@ -414,7 +414,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Invalid action" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e) {
+  } catch (e: any) {
     console.error("[wa-lifecycle] Error:", e);
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },

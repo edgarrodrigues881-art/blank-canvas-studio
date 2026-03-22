@@ -20,7 +20,7 @@ async function dispatchToMake(payload: Record<string, unknown>) {
     const text = await res.text();
     console.log(`[webhook-dispatch] ${payload.event} -> ${res.status}`);
     return { sent: true, status: res.status };
-  } catch (e) {
+  } catch (e: any) {
     console.error("[webhook-dispatch] Error:", e.message);
     return { sent: false, error: e.message };
   }
@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
       clientEmail = authUser?.user?.email || null;
       const { data: sub } = await adminClient.from("subscriptions").select("plan_name").eq("user_id", client_id).maybeSingle();
       plan = sub?.plan_name || null;
-    } catch (e) {
+    } catch (e: any) {
       console.log("Could not fetch client info:", e.message);
     }
 

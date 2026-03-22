@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
         monitorCreated = true; // already exists
         console.log("[provision-trial] report_wa device already exists, skipping");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("[provision-trial] Monitor provision error (non-blocking):", e.message);
     }
 
@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
       });
       const welcomeData = await welcomeRes.json();
       console.log("[provision-trial] Welcome message result:", JSON.stringify(welcomeData));
-    } catch (e) {
+    } catch (e: any) {
       console.error("[provision-trial] Welcome message error (non-blocking):", e.message);
     }
 
@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
       // Always release the advisory lock
       await adminClient.rpc("release_provision_lock", { _user_id: user.id }).catch(() => {});
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error("[provision-trial] Error:", e);
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },

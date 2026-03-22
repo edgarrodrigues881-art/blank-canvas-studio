@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
           } else {
             console.warn(`[process-group-join] auth failed: ${error?.message || "no user"}`);
           }
-        } catch (e) {
+        } catch (e: any) {
           console.warn(`[process-group-join] auth error: ${e.message}`);
         }
       }
@@ -264,7 +264,7 @@ Deno.serve(async (req) => {
                 attempt: 1,
                 duration_ms: 0,
               });
-            } catch (e) { console.error("log error:", e); }
+            } catch (e: any) { console.error("log error:", e); }
           }
         }
 

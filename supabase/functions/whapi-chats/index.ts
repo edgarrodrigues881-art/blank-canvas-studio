@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
               return null;
             }
             return await res.json();
-          } catch (e) {
+          } catch (e: any) {
             console.error(`Fetch fail ${attempt} ${endpoint}:`, e);
             if (attempt < retries) await new Promise(r => setTimeout(r, 800 * (attempt + 1)));
           }
@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
               restarted = true;
               break;
             }
-          } catch (e) {
+          } catch (e: any) {
             console.log(`[S0] ${ep} failed: ${e.message}`);
           }
         }
@@ -268,7 +268,7 @@ Deno.serve(async (req) => {
             addGroups(arr);
             console.log(`[${tag}][${deviceId}] page ${page}: ${arr.length} ret, ${seenJids.size - prev} new`);
             if (seenJids.size - prev === 0) break;
-          } catch (e) {
+          } catch (e: any) {
             console.log(`[${tag}][${deviceId}] page ${page} error: ${e.message}`);
             break;
           }
@@ -468,7 +468,7 @@ Deno.serve(async (req) => {
             console.log(`[ALL] Device ${dev.name} page ${page}: ${arr.length} ret, ${newCount} new`);
             if (newCount === 0) break;
           }
-        } catch (e) {
+        } catch (e: any) {
           console.log(`[ALL] Device ${dev.name} failed: ${e.message}`);
         }
       }

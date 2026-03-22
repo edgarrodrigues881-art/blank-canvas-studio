@@ -30,7 +30,7 @@ async function dispatchWebhook(payload: Record<string, unknown>) {
     });
     console.log(`[webhook-dispatch] ${payload.event} -> ${res.status}`);
     await res.text();
-  } catch (e) {
+  } catch (e: any) {
     console.error("[webhook-dispatch] Error:", e.message);
   }
 }
