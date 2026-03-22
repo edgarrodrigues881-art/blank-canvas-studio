@@ -1628,7 +1628,7 @@ Deno.serve(async (req) => {
         "/instance/fetchInstances",
         "/instances",
       ];
-      const authVariants = [
+      const authVariants: Record<string, string>[] = [
         { admintoken: ADMIN_TOKEN },
         { token: ADMIN_TOKEN },
         { Authorization: `Bearer ${ADMIN_TOKEN}` },
