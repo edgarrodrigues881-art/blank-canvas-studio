@@ -3066,7 +3066,7 @@ Deno.serve(async (req) => {
                 console.warn(`[monitor-provision] No token in response for ${instanceName}`);
               }
             } catch (e) {
-              console.error(`[monitor-provision] Error provisioning monitor token:`, e.message);
+              console.error(`[monitor-provision] Error provisioning monitor token:`, (e as Error).message);
             }
           }
         } else {
