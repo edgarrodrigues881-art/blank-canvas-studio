@@ -16,7 +16,7 @@ async function fetchT(url: string, opts: RequestInit, ms: number): Promise<Respo
   const c = new AbortController();
   const t = setTimeout(() => c.abort(), ms);
   try { const r = await fetch(url, { ...opts, signal: c.signal }); clearTimeout(t); return r; }
-  catch (e) { clearTimeout(t); throw e; }
+  catch (e: any) { clearTimeout(t); throw e; }
 }
 
 async function runPool<T>(items: T[], concurrency: number, fn: (item: T) => Promise<void>): Promise<void> {

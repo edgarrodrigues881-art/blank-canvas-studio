@@ -337,7 +337,7 @@ async function logResult(supabase: any, userId: string, item: JoinRequest, resul
       attempt: result.attempt,
       duration_ms: result.durationMs || 0,
     });
-  } catch (e) {
+  } catch (e: any) {
     console.error("Failed to log join result:", e);
   }
 }
