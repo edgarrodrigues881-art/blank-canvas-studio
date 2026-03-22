@@ -2124,7 +2124,7 @@ Deno.serve(async (req) => {
           cycle_active: !!cycle,
           cycle_phase: cycle?.phase || null,
           cycle_day_index: cycle?.day_index || null,
-          cycle_days_total: cycle?.days_total || null,
+          cycle_days_total: (cycle as any)?.days_total || null,
           is_enrolled: membership?.is_enabled || false,
           is_eligible: membership?.is_eligible ?? true,
           membership_id: membership?.id || null,
