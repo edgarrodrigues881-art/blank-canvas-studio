@@ -309,7 +309,7 @@ Deno.serve(async (req) => {
                 headers: { token: dev.uazapi_token, "Content-Type": "application/json" },
               });
             }
-          } catch (e) {
+          } catch (e: any) {
             console.warn(`[plan-removal] Failed to disconnect device ${dev.id}:`, (e as Error).message);
           }
 
@@ -687,7 +687,7 @@ Deno.serve(async (req) => {
               timestamp: new Date().toISOString(),
             }),
           });
-        } catch (e) { console.log("Make webhook error:", (e as Error).message); }
+        } catch (e: any) { console.log("Make webhook error:", (e as Error).message); }
       }
 
       return new Response(JSON.stringify({ success: true, device: data }), {
@@ -771,7 +771,7 @@ Deno.serve(async (req) => {
           }).eq("id", token.id);
 
           reassigned++;
-        } catch (e) {
+        } catch (e: any) {
           errors.push(`${device.name}: ${(e as any).message}`);
         }
       }
@@ -1091,7 +1091,7 @@ Deno.serve(async (req) => {
           });
           healthy = checkRes.status !== 401;
           console.log(`Token validation: ${token.substring(0, 8)}... -> ${checkRes.status} -> healthy=${healthy}`);
-        } catch (e) {
+        } catch (e: any) {
           console.log(`Token validation failed for ${token.substring(0, 8)}...: ${(e as Error).message}`);
         }
         
@@ -1144,7 +1144,7 @@ Deno.serve(async (req) => {
           if (isHealthy) healthyCount++;
           else invalidCount++;
           console.log(`Validate ${t.token.substring(0, 8)}... -> ${checkRes.status} -> ${isHealthy}`);
-        } catch (e) {
+        } catch (e: any) {
           console.log(`Validate error for ${t.token.substring(0, 8)}...: ${(e as Error).message}`);
         }
       }
@@ -1239,7 +1239,7 @@ Deno.serve(async (req) => {
           });
 
           created.push(instanceName);
-        } catch (e) {
+        } catch (e: any) {
           errors.push(`${instanceName}: ${(e as Error).message}`);
         }
       }
@@ -2799,7 +2799,7 @@ Deno.serve(async (req) => {
           } else {
             pvError = JSON.stringify(resData).slice(0, 300);
           }
-        } catch (e) {
+        } catch (e: any) {
           console.log("[wa-report-send] PV error:", (e as Error).message);
           pvError = (e as Error).message;
         }
@@ -2831,7 +2831,7 @@ Deno.serve(async (req) => {
         } else {
           groupError = JSON.stringify(resData).slice(0, 300);
         }
-      } catch (e) {
+      } catch (e: any) {
         console.log("[wa-report-send] Group error:", (e as Error).message);
         groupError = (e as Error).message;
       }
@@ -3065,7 +3065,7 @@ Deno.serve(async (req) => {
               } else {
                 console.warn(`[monitor-provision] No token in response for ${instanceName}`);
               }
-            } catch (e) {
+            } catch (e: any) {
               console.error(`[monitor-provision] Error provisioning monitor token:`, (e as Error).message);
             }
           }

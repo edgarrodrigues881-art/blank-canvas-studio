@@ -147,7 +147,7 @@ async function sendTextMessage(baseUrl: string, token: string, number: string, t
       }
       if (res.status === 405) { lastErr = `405 @ ${ep.path}`; continue; }
       lastErr = `${res.status} @ ${ep.path}: ${raw.substring(0, 200)}`;
-    } catch (e) {
+    } catch (e: any) {
       lastErr = `${ep.path}: ${e instanceof Error ? e.message : String(e)}`;
     }
   }
@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
       default:
         return json({ error: `Ação desconhecida: ${action}` }, 400);
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error("chip-conversation error:", e);
     return json({ error: e instanceof Error ? e.message : String(e) }, 500);
   }
@@ -537,7 +537,7 @@ async function scheduleNextTick(admin: any, conversationId: string) {
         },
         body: JSON.stringify({ action: "tick", conversation_id: conversationId }),
       });
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to schedule next tick:", e);
     }
   }, Math.min(delayMs, 25000)); // Edge function timeout safety
