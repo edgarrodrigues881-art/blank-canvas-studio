@@ -1,0 +1,1 @@
+ALTER TABLE public.warmup_instance_groups ADD COLUMN IF NOT EXISTS group_jid text DEFAULT NULL;

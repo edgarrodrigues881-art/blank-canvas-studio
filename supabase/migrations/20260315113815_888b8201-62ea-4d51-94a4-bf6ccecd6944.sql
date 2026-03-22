@@ -1,0 +1,1 @@
+ALTER TABLE public.warmup_folders ADD COLUMN tags jsonb NOT NULL DEFAULT '[]'::jsonb;
