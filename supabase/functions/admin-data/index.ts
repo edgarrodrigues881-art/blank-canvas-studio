@@ -2832,8 +2832,8 @@ Deno.serve(async (req) => {
           groupError = JSON.stringify(resData).slice(0, 300);
         }
       } catch (e) {
-        console.log("[wa-report-send] Group error:", e.message);
-        groupError = e.message;
+        console.log("[wa-report-send] Group error:", (e as Error).message);
+        groupError = (e as Error).message;
       }
 
       // Save to client_messages for history
