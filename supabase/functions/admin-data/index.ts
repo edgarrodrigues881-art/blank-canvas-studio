@@ -1092,7 +1092,7 @@ Deno.serve(async (req) => {
           healthy = checkRes.status !== 401;
           console.log(`Token validation: ${token.substring(0, 8)}... -> ${checkRes.status} -> healthy=${healthy}`);
         } catch (e) {
-          console.log(`Token validation failed for ${token.substring(0, 8)}...: ${e.message}`);
+          console.log(`Token validation failed for ${token.substring(0, 8)}...: ${(e as Error).message}`);
         }
         
         inserts.push({
