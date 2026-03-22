@@ -1240,7 +1240,7 @@ Deno.serve(async (req) => {
 
           created.push(instanceName);
         } catch (e) {
-          errors.push(`${instanceName}: ${e.message}`);
+          errors.push(`${instanceName}: ${(e as Error).message}`);
         }
       }
 
