@@ -23,6 +23,9 @@ export function useWarmupFolders() {
   const foldersQueryKey = ["warmup_folders", user?.id] as const;
 
   const normalizeTags = (value: unknown): FolderTag[] => Array.isArray(value) ? (value as FolderTag[]) : [];
+  const sortFolders = (folders: WarmupFolder[]) => folders
+    .slice()
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   const normalizeFolder = (folder: any): WarmupFolder => ({
     ...folder,
@@ -86,9 +89,8 @@ export function useWarmupFolders() {
     onSuccess: async (data: any) => {
       updateFoldersCache((current) => {
         const next = [...current.filter((folder) => folder.id !== data.id), normalizeFolder(data)];
-        return next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        return sortFolders(next);
       });
-      await qc.invalidateQueries({ queryKey: foldersQueryKey });
     },
   });
 
@@ -112,15 +114,20 @@ export function useWarmupFolders() {
           .eq("folder_id", id);
         
         if (deviceAssocs) {
-          for (const assoc of deviceAssocs as any[]) {
+          const updates = (deviceAssocs as any[]).flatMap((assoc) => {
             const currentTags: FolderTag[] = Array.isArray(assoc.tags) ? assoc.tags : [];
             const filtered = currentTags.filter(t => validLabels.has(t.label));
-            if (filtered.length !== currentTags.length) {
-              await supabase
+            if (filtered.length === currentTags.length) return [];
+            return [supabase
                 .from("warmup_folder_devices" as any)
                 .update({ tags: filtered } as any)
-                .eq("id", assoc.id);
-            }
+                .eq("id", assoc.id)];
+          });
+
+          if (updates.length > 0) {
+            const results = await Promise.all(updates);
+            const failed = results.find((result) => result.error);
+            if (failed?.error) throw failed.error;
           }
         }
       }
@@ -131,7 +138,6 @@ export function useWarmupFolders() {
           ? normalizeFolder({ ...folder, ...variables, tags: variables.tags ?? folder.tags })
           : folder
       )));
-      await qc.invalidateQueries({ queryKey: foldersQueryKey });
     },
   });
 
@@ -153,7 +159,6 @@ export function useWarmupFolders() {
     },
     onSuccess: async (_data, folderId) => {
       updateFoldersCache((current) => current.filter((folder) => folder.id !== folderId));
-      await qc.invalidateQueries({ queryKey: foldersQueryKey });
     },
   });
 
@@ -195,7 +200,70 @@ export function useWarmupFolders() {
 
         return normalizeFolder({ ...folder, device_ids: filteredIds, device_tags: deviceTags });
       }));
-      await qc.invalidateQueries({ queryKey: foldersQueryKey });
+    },
+  });
+
+  const syncFolderDevices = useMutation({
+    mutationFn: async (params: { folderId: string; deviceIds: string[]; previousDeviceIds: string[] }) => {
+      const uniqueDeviceIds = Array.from(new Set(params.deviceIds));
+      const previousIds = Array.from(new Set(params.previousDeviceIds));
+      const removedIds = previousIds.filter((deviceId) => !uniqueDeviceIds.includes(deviceId));
+
+      if (removedIds.length > 0) {
+        const { error: removeError } = await supabase
+          .from("warmup_folder_devices" as any)
+          .delete()
+          .eq("folder_id", params.folderId)
+          .in("device_id", removedIds);
+        if (removeError) throw removeError;
+      }
+
+      if (uniqueDeviceIds.length > 0) {
+        const { error: cleanupError } = await supabase
+          .from("warmup_folder_devices" as any)
+          .delete()
+          .in("device_id", uniqueDeviceIds)
+          .eq("user_id", user!.id)
+          .neq("folder_id", params.folderId);
+        if (cleanupError) throw cleanupError;
+
+        const rows = uniqueDeviceIds.map((deviceId) => ({
+          folder_id: params.folderId,
+          device_id: deviceId,
+          user_id: user!.id,
+        }));
+
+        const { error: upsertError } = await supabase
+          .from("warmup_folder_devices" as any)
+          .upsert(rows as any, { onConflict: "device_id" });
+        if (upsertError) throw upsertError;
+      }
+    },
+    onSuccess: async (_data, params) => {
+      const nextIds = new Set(params.deviceIds);
+      updateFoldersCache((current) => current.map((folder) => {
+        if (folder.id === params.folderId) {
+          const nextTags = new Map<string, FolderTag[]>();
+          (folder.device_ids || []).forEach((deviceId) => {
+            if (nextIds.has(deviceId)) {
+              nextTags.set(deviceId, folder.device_tags?.get(deviceId) || []);
+            }
+          });
+
+          return normalizeFolder({
+            ...folder,
+            device_ids: params.deviceIds,
+            device_tags: nextTags,
+          });
+        }
+
+        const filteredIds = (folder.device_ids || []).filter((deviceId) => !nextIds.has(deviceId));
+        if (filteredIds.length === (folder.device_ids || []).length) return folder;
+
+        const filteredTags = new Map(folder.device_tags || new Map<string, FolderTag[]>());
+        params.deviceIds.forEach((deviceId) => filteredTags.delete(deviceId));
+        return normalizeFolder({ ...folder, device_ids: filteredIds, device_tags: filteredTags });
+      }));
     },
   });
 
@@ -211,12 +279,14 @@ export function useWarmupFolders() {
     onSuccess: async (_data, params) => {
       updateFoldersCache((current) => current.map((folder) => {
         if (folder.id !== params.folderId) return folder;
+        const deviceTags = new Map(folder.device_tags || new Map<string, FolderTag[]>());
+        deviceTags.delete(params.deviceId);
         return normalizeFolder({
           ...folder,
           device_ids: (folder.device_ids || []).filter((deviceId) => deviceId !== params.deviceId),
+          device_tags: deviceTags,
         });
       }));
-      await qc.invalidateQueries({ queryKey: foldersQueryKey });
     },
   });
 
@@ -236,7 +306,6 @@ export function useWarmupFolders() {
         deviceTags.set(params.deviceId, params.tags);
         return normalizeFolder({ ...folder, device_tags: deviceTags });
       }));
-      await qc.invalidateQueries({ queryKey: foldersQueryKey });
     },
   });
   return {
@@ -246,6 +315,7 @@ export function useWarmupFolders() {
     updateFolder,
     deleteFolder,
     addDevices,
+    syncFolderDevices,
     removeDevice,
     updateDeviceTags,
   };

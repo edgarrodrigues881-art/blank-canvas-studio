@@ -29,12 +29,13 @@ export function useWarmupEngine() {
     onSuccess: (_data, variables) => {
       // Only invalidate the minimum necessary queries based on action
       qc.invalidateQueries({ queryKey: ["warmup_cycles"] });
+      qc.invalidateQueries({ queryKey: ["warmup_cycle_device"] });
+      qc.invalidateQueries({ queryKey: ["warmup_audit_logs"] });
+      qc.invalidateQueries({ queryKey: ["warmup_jobs_scheduled"] });
       
       // Heavy queries only for start/stop which change structural data
       if (variables.action === "start" || variables.action === "stop") {
-        qc.invalidateQueries({ queryKey: ["warmup_cycle_device"] });
         qc.invalidateQueries({ queryKey: ["warmup_instance_groups"] });
-        qc.invalidateQueries({ queryKey: ["warmup_audit_logs"] });
         qc.invalidateQueries({ queryKey: ["warmup_jobs"] });
       }
     },

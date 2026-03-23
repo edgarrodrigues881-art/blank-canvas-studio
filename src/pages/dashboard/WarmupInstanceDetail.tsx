@@ -45,6 +45,16 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   join_group: "Entrada em grupo",
   error: "Erro",
 };
+
+const SENT_EVENT_TYPES = new Set([
+  "group_msg_sent",
+  "group_interaction",
+  "autosave_msg_sent",
+  "autosave_interaction",
+  "community_msg_sent",
+  "community_interaction",
+]);
+
 function translateEventType(type: string) {
   return EVENT_TYPE_LABELS[type] || type.replace(/_/g, " ");
 }
@@ -185,6 +195,21 @@ const WarmupInstanceDetail = () => {
   const { data: community } = useCommunityMembership(deviceId!);
   const { data: auditLogs = [] } = useWarmupAuditLogs(cycle?.id);
   const { data: plans = [] } = useWarmupPlans();
+  const { data: lifetimeSentCount = 0 } = useQuery({
+    queryKey: ["warmup_cycle_lifetime_sent", cycle?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("warmup_audit_logs" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("cycle_id", cycle!.id)
+        .in("event_type", Array.from(SENT_EVENT_TYPES));
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!cycle?.id,
+    refetchInterval: 120_000,
+    staleTime: 60_000,
+  });
 
   // Fetch scheduled jobs for this cycle
   const { data: scheduledJobs = [] } = useQuery({
@@ -1399,6 +1424,14 @@ const WarmupInstanceDetail = () => {
             const todayKey = toBrtDayKey(nowUtc);
             const todayJobs = sortedJobs.filter((j) => toBrtDayKey(new Date(j.run_at)) === todayKey);
             const futureJobs = sortedJobs.filter((j) => new Date(j.run_at) >= nowUtc);
+            const sentTodayLogs = auditLogs.filter((log) => (
+              SENT_EVENT_TYPES.has(log.event_type) && toBrtDayKey(new Date(log.created_at)) === todayKey
+            ));
+            const dailySentByType = {
+              groups: sentTodayLogs.filter((log) => ["group_msg_sent", "group_interaction"].includes(log.event_type)).length,
+              autosave: sentTodayLogs.filter((log) => ["autosave_msg_sent", "autosave_interaction"].includes(log.event_type)).length,
+              community: sentTodayLogs.filter((log) => ["community_msg_sent", "community_interaction"].includes(log.event_type)).length,
+            };
 
             // If there is no job for "today" in BRT, show the next planned day
             let displayJobs = todayJobs;
@@ -1495,14 +1528,14 @@ const WarmupInstanceDetail = () => {
               }
             }
 
-            const doneToday = cycle?.daily_interaction_budget_used ?? displayJobs.filter((j) => j.status === "succeeded").length;
+            const doneToday = sentTodayLogs.length;
             const failedToday = displayJobs.filter((j) => j.status === "failed").length;
             const budgetTarget = cycle?.daily_interaction_budget_target || 1;
             // totalDisplay = the daily target (budget). This is the denominator.
             // doneToday comes from daily_interaction_budget_used which resets at 00:05 BRT (daily_reset job).
             // During the operating window (07:00-19:00 BRT), progress grows from 0→100% as messages are sent.
             // After all messages are sent, it stays at 100% until the next daily_reset zeros the counter.
-            const totalDisplay = budgetTarget;
+            const totalDisplay = Math.max(budgetTarget, doneToday, 1);
             // Prioritize actionable jobs (phase_transition > interaction) over daily_reset for display
             const pendingJobs = displayJobs.filter((j) => j.status === "pending");
             const nextPendingJob =
@@ -1537,9 +1570,14 @@ const WarmupInstanceDetail = () => {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-foreground leading-tight">Aquecimento</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {pc?.label} — Dia {cycle!.day_index} de {cycle!.days_total}
-                      </p>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                        <p className="text-[11px] text-muted-foreground">
+                          {pc?.label} — Dia {cycle!.day_index} de {cycle!.days_total}
+                        </p>
+                        <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary tabular-nums">
+                          Total do ciclo {lifetimeSentCount}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 {/* Volume and mode info */}
@@ -1658,12 +1696,12 @@ const WarmupInstanceDetail = () => {
                       {/* Category breakdown cards */}
                       <div className="grid grid-cols-3 gap-2">
                         {(() => {
-                          const groupDone = typeSummary["group_interaction"]?.done ?? 0;
-                          const groupTotal = typeSummary["group_interaction"]?.total ?? 0;
-                          const autosaveDone = typeSummary["autosave_interaction"]?.done ?? 0;
-                          const autosaveTotal = typeSummary["autosave_interaction"]?.total ?? 0;
-                          const communityDone = typeSummary["community_interaction"]?.done ?? 0;
-                          const communityTotal = typeSummary["community_interaction"]?.total ?? 0;
+                          const groupDone = dailySentByType.groups;
+                          const groupTotal = Math.max(typeSummary["group_interaction"]?.total ?? 0, groupDone);
+                          const autosaveDone = dailySentByType.autosave;
+                          const autosaveTotal = Math.max(typeSummary["autosave_interaction"]?.total ?? 0, autosaveDone);
+                          const communityDone = dailySentByType.community;
+                          const communityTotal = Math.max(typeSummary["community_interaction"]?.total ?? 0, communityDone);
 
                           const categories = [
                             { label: "Grupos", icon: "👥", done: groupDone, total: groupTotal, barColor: "bg-emerald-500", dotColor: "bg-emerald-400", bgTint: "bg-emerald-500/5 border-emerald-500/10" },
