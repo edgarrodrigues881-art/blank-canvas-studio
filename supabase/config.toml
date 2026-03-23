@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.manage-devices]
 verify_jwt = false
+
+[functions.legacy-login]
+verify_jwt = false

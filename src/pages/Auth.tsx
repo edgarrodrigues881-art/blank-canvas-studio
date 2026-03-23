@@ -37,6 +37,10 @@ const isTimeoutError = (msg: string) =>
   msg?.includes("fetch") ||
   msg?.includes("Database error");
 
+const isPhoneIdentifier = (value: string) => /\d/.test(value) && !value.includes("@");
+
+const normalizePhone = (value: string) => value.replace(/\D/g, "");
+
 const Auth = () => {
   const { backendDown, retryConnection } = useAuth();
   const [searchParams] = useSearchParams();
@@ -54,17 +58,19 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [showResendConfirm, setShowResendConfirm] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [resolvedLoginEmail, setResolvedLoginEmail] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleResendConfirmation = async () => {
-    if (!email.trim()) {
+    const resendEmail = resolvedLoginEmail || email.trim();
+    if (!resendEmail) {
       toast({ title: "Informe seu e-mail", description: "Digite o e-mail cadastrado.", variant: "destructive" });
       return;
     }
     setResendLoading(true);
     try {
-      const { error } = await supabase.auth.resend({ type: "signup", email: email.trim(), options: { emailRedirectTo: window.location.origin } });
+      const { error } = await supabase.auth.resend({ type: "signup", email: resendEmail, options: { emailRedirectTo: window.location.origin } });
       if (error) throw error;
       toast({ title: "E-mail reenviado!", description: "Verifique sua caixa de entrada (e spam) para confirmar o cadastro." });
       setShowResendConfirm(false);
@@ -81,6 +87,30 @@ const Auth = () => {
 
   const redirectTo = searchParams.get("redirect") || "/dashboard";
 
+  const resolveLoginEmail = async (identifier: string, rawPassword: string) => {
+    const trimmedIdentifier = identifier.trim();
+    if (!isPhoneIdentifier(trimmedIdentifier)) {
+      return trimmedIdentifier;
+    }
+
+    const { data, error } = await supabase.functions.invoke("legacy-login", {
+      body: {
+        identifier: normalizePhone(trimmedIdentifier),
+        password: rawPassword,
+      },
+    });
+
+    if (error) {
+      throw new Error(data?.error || error.message || "Não foi possível localizar sua conta antiga.");
+    }
+
+    if (!data?.email) {
+      throw new Error("Não foi possível localizar sua conta antiga.");
+    }
+
+    return data.email as string;
+  };
+
   useEffect(() => {
     const checkExistingSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -96,7 +126,7 @@ const Auth = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (password.length < 8) {
+    if (!isLogin && password.length < 8) {
       toast({ title: "Senha muito curta", description: "A senha deve ter no mínimo 8 caracteres.", variant: "destructive" });
       return;
     }
@@ -110,7 +140,11 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        setResolvedLoginEmail(null);
+        const loginEmail = await resolveLoginEmail(email, password);
+        setResolvedLoginEmail(loginEmail);
+
+        const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
         if (error) throw error;
         localStorage.setItem("dg_remember_me", rememberMe ? "true" : "false");
         if (!rememberMe) {
@@ -299,11 +333,23 @@ const Auth = () => {
 
             <div className="space-y-2">
               <Label htmlFor="email" className="text-[11px] font-semibold text-white/40 tracking-wider uppercase">
-                Endereço de e-mail
+                {isLogin ? "E-mail ou telefone" : "Endereço de e-mail"}
               </Label>
               <div className="relative group">
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 group-focus-within:text-emerald-400 transition-colors" />
-                <Input id="email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} required maxLength={255} />
+                <Input
+                  id="email"
+                  type={isLogin ? "text" : "email"}
+                  placeholder={isLogin ? "Seu e-mail ou número antigo" : "seu@email.com"}
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setResolvedLoginEmail(null);
+                  }}
+                  className={inputClass}
+                  required
+                  maxLength={255}
+                />
               </div>
             </div>
 
