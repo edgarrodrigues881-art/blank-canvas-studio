@@ -48,6 +48,15 @@ const TARGET_USER_ID_TABLES = ["admin_logs"];
 
 const digitsOnly = (value: string | null | undefined) => (value || "").replace(/\D/g, "");
 
+const normalizeIdentity = (value: string | null | undefined) =>
+  (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+
+const isEmailIdentifier = (value: string) => value.includes("@");
+
 const buildPhoneCandidates = (input: string) => {
   const digits = digitsOnly(input);
   const values = new Set<string>();
@@ -75,6 +84,39 @@ const phoneMatches = (storedPhone: string | null, candidates: string[]) => {
     if (!candidate) return false;
     return storedDigits === candidate || storedDigits.endsWith(candidate) || candidate.endsWith(storedDigits);
   });
+};
+
+const resolveProfileFromEmail = (
+  profiles: Array<{ id: string; full_name: string | null; company: string | null; phone: string | null }>,
+  email: string,
+) => {
+  const emailStem = normalizeIdentity(email.split("@")[0]);
+  if (!emailStem) return null;
+
+  const ranked = profiles
+    .map((profile) => {
+      const fullName = normalizeIdentity(profile.full_name);
+      const company = normalizeIdentity(profile.company);
+
+      let score = 0;
+      if (fullName) {
+        if (emailStem === fullName) score = Math.max(score, 100);
+        else if (emailStem.includes(fullName) || fullName.includes(emailStem)) score = Math.max(score, 90);
+      }
+
+      if (company) {
+        if (emailStem === company) score = Math.max(score, 70);
+        else if (emailStem.includes(company) || company.includes(emailStem)) score = Math.max(score, 60);
+      }
+
+      return { profile, score };
+    })
+    .filter((entry) => entry.score >= 90)
+    .sort((a, b) => b.score - a.score);
+
+  if (!ranked.length) return null;
+  if (ranked.length > 1 && ranked[0].score === ranked[1].score) return null;
+  return ranked[0].profile;
 };
 
 const json = (body: unknown, status = 200) =>
@@ -176,6 +218,14 @@ async function restoreLegacyData(adminClient: any, legacyUserId: string, newUser
   ]);
 }
 
+async function listAuthUsers(adminClient: any) {
+  const { data, error } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  if (error) {
+    throw new Error(`auth_list_failed:${error.message}`);
+  }
+  return data.users || [];
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -196,9 +246,12 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { identifier, password } = await req.json();
 
-    const normalizedIdentifier = digitsOnly(identifier);
-    if (!normalizedIdentifier || normalizedIdentifier.length < 10) {
-      return json({ error: "invalid_phone_identifier" }, 400);
+    const rawIdentifier = String(identifier || "").trim().toLowerCase();
+    const emailIdentifier = isEmailIdentifier(rawIdentifier);
+    const normalizedIdentifier = emailIdentifier ? rawIdentifier : digitsOnly(rawIdentifier);
+
+    if (!normalizedIdentifier || (!emailIdentifier && normalizedIdentifier.length < 10)) {
+      return json({ error: emailIdentifier ? "invalid_email_identifier" : "invalid_phone_identifier" }, 400);
     }
 
     if (typeof password !== "string" || password.length < 8) {
@@ -215,23 +268,40 @@ Deno.serve(async (req) => {
       return json({ error: "profile_lookup_failed" }, 500);
     }
 
-    const phoneCandidates = buildPhoneCandidates(normalizedIdentifier);
-    const legacyProfile = (profiles || []).find((profile: { phone: string | null }) => phoneMatches(profile.phone, phoneCandidates));
+    const authUsers = await listAuthUsers(adminClient);
+    const existingAuthUser = authUsers.find((user: { email?: string | null }) => (user.email || "").toLowerCase() === rawIdentifier);
+
+    const phoneCandidates = emailIdentifier ? [] : buildPhoneCandidates(normalizedIdentifier);
+    const legacyProfile = emailIdentifier
+      ? resolveProfileFromEmail(profiles || [], rawIdentifier)
+      : (profiles || []).find((profile: { phone: string | null }) => phoneMatches(profile.phone, phoneCandidates));
+
+    if (existingAuthUser) {
+      if (legacyProfile && existingAuthUser.id !== legacyProfile.id) {
+        await restoreLegacyData(adminClient, legacyProfile.id, existingAuthUser.id);
+        await adminClient.auth.admin.updateUserById(existingAuthUser.id, {
+          user_metadata: {
+            ...(existingAuthUser.user_metadata || {}),
+            full_name: legacyProfile.full_name || existingAuthUser.user_metadata?.full_name || "",
+            company: legacyProfile.company || existingAuthUser.user_metadata?.company || "",
+            phone: digitsOnly(legacyProfile.phone) || existingAuthUser.user_metadata?.phone || "",
+            legacy_restored_from: legacyProfile.id,
+          },
+        });
+      }
+
+      return json({ email: existingAuthUser.email, restored: false, linked: Boolean(legacyProfile) });
+    }
 
     if (!legacyProfile) {
       return json({ error: "legacy_profile_not_found" }, 404);
     }
 
-    const existingAuth = await adminClient.auth.admin.getUserById(legacyProfile.id);
-    if (existingAuth.data.user?.email) {
-      return json({ email: existingAuth.data.user.email, restored: false, linked: true });
-    }
-
     const normalizedPhone = digitsOnly(legacyProfile.phone) || normalizedIdentifier;
-    const syntheticEmail = `legacy.${normalizedPhone}.${legacyProfile.id.slice(0, 8)}@dg-login.local`;
+    const loginEmail = emailIdentifier ? rawIdentifier : `legacy.${normalizedPhone}.${legacyProfile.id.slice(0, 8)}@dg-login.local`;
 
     const { data: createdUserData, error: createError } = await adminClient.auth.admin.createUser({
-      email: syntheticEmail,
+      email: loginEmail,
       password,
       email_confirm: true,
       user_metadata: {
@@ -250,7 +320,7 @@ Deno.serve(async (req) => {
     await restoreLegacyData(adminClient, legacyProfile.id, createdUserData.user.id);
 
     return json({
-      email: syntheticEmail,
+      email: loginEmail,
       restored: true,
       linked: false,
       user_id: createdUserData.user.id,

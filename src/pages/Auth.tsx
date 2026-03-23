@@ -89,23 +89,26 @@ const Auth = () => {
 
   const resolveLoginEmail = async (identifier: string, rawPassword: string) => {
     const trimmedIdentifier = identifier.trim();
-    if (!isPhoneIdentifier(trimmedIdentifier)) {
-      return trimmedIdentifier;
-    }
+    const normalizedIdentifier = isPhoneIdentifier(trimmedIdentifier)
+      ? normalizePhone(trimmedIdentifier)
+      : trimmedIdentifier.toLowerCase();
 
     const { data, error } = await supabase.functions.invoke("legacy-login", {
       body: {
-        identifier: normalizePhone(trimmedIdentifier),
+        identifier: normalizedIdentifier,
         password: rawPassword,
       },
     });
 
     if (error) {
+      if (!isPhoneIdentifier(trimmedIdentifier)) {
+        return trimmedIdentifier;
+      }
       throw new Error(data?.error || error.message || "Não foi possível localizar sua conta antiga.");
     }
 
     if (!data?.email) {
-      throw new Error("Não foi possível localizar sua conta antiga.");
+      return trimmedIdentifier;
     }
 
     return data.email as string;
