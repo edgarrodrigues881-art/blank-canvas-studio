@@ -1702,7 +1702,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
       const cyclesWithJobs = new Set((pendingJobsRes.data || []).map((j: any) => j.cycle_id));
       const cyclesWithReset = new Set((pendingResetRes.data || []).map((j: any) => j.cycle_id));
       const nowMs = Date.now();
-      const STALE_RESET_MS = 26 * 60 * 60 * 1000; // 26 hours — should reset every ~24h
+      const STALE_RESET_MS = 36 * 60 * 60 * 1000; // 36 hours — more conservative to avoid day-skipping on pause/resume
 
       for (const cycle of runningCycles) {
         const chipState = cycle.chip_state || "new";
