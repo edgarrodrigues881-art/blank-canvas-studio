@@ -1,1 +1,10 @@
 project_id = "amizwispkprvyrnwypws"
+
+[functions.warmup-tick]
+verify_jwt = false
+
+[functions.warmup-engine]
+verify_jwt = false
+
+[functions.manage-devices]
+verify_jwt = false

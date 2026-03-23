@@ -1551,7 +1551,7 @@ Deno.serve(async (req) => {
       if (parts.length === 3) {
         const payload = JSON.parse(atob(parts[1]));
         // Accept if it's a Supabase JWT for this project (anon or service_role)
-        bearerOk = payload?.iss === "supabase" && payload?.ref === "ccfsxwmvgyxsoscofqoh";
+        bearerOk = payload?.iss === "supabase" && payload?.ref === "amizwispkprvyrnwypws";
       }
     } catch { /* invalid jwt */ }
   }
