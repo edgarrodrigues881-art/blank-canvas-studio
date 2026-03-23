@@ -299,7 +299,7 @@ async function ensureNextDailyResetJob(db: any, job: any, cycleId: string): Prom
 
   const nextReset = new Date();
   nextReset.setUTCDate(nextReset.getUTCDate() + 1);
-  nextReset.setUTCHours(9, 50, 0, 0);
+  nextReset.setUTCHours(9, 45, 0, 0);
 
   await db.from("warmup_jobs").insert({
     user_id: job.user_id,
@@ -1734,7 +1734,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
 
             const nextReset = new Date();
             nextReset.setUTCDate(nextReset.getUTCDate() + 1);
-            nextReset.setUTCHours(9, 50, 0, 0);
+            nextReset.setUTCHours(9, 45, 0, 0);
             await db.from("warmup_jobs").insert({
               user_id: cycle.user_id, device_id: cycle.device_id, cycle_id: cycle.id,
               job_type: "daily_reset", payload: {}, run_at: nextReset.toISOString(), status: "pending",
@@ -1813,7 +1813,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
           // Schedule next daily reset
           const nextReset = new Date();
           nextReset.setUTCDate(nextReset.getUTCDate() + 1);
-          nextReset.setUTCHours(9, 50, 0, 0);
+          nextReset.setUTCHours(9, 45, 0, 0);
           await db.from("warmup_jobs").insert({
             user_id: cycle.user_id, device_id: cycle.device_id, cycle_id: cycle.id,
             job_type: "daily_reset", payload: {}, run_at: nextReset.toISOString(), status: "pending",
@@ -1833,7 +1833,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
         if (cycle.phase !== "pre_24h" && !cyclesWithReset.has(cycle.id)) {
           const nextReset = new Date();
           nextReset.setUTCDate(nextReset.getUTCDate() + 1);
-          nextReset.setUTCHours(9, 50, 0, 0);
+          nextReset.setUTCHours(9, 45, 0, 0);
           // If reset for tomorrow is already past (unlikely), schedule for day after
           if (nextReset.getTime() < nowMs) nextReset.setUTCDate(nextReset.getUTCDate() + 1);
           await db.from("warmup_jobs").insert({
@@ -2721,7 +2721,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
         const { data: budgetResult1 } = await db.rpc("increment_warmup_budget", {
           p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: false,
         });
-        if (budgetResult1) cycle.daily_interaction_budget_used = budgetResult1.used;
+        if (budgetResult1) cycle.daily_interaction_budget_used = budgetResult1.budget_used;
 
         bufferAudit({
           user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id,
@@ -2941,8 +2941,8 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
           p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: mIdx === 0,
         });
         if (budgetResult2) {
-          cycle.daily_interaction_budget_used = budgetResult2.used;
-          cycle.daily_unique_recipients_used = budgetResult2.recipients_used;
+          cycle.daily_interaction_budget_used = budgetResult2.budget_used;
+          cycle.daily_unique_recipients_used = budgetResult2.unique_used;
         }
 
         bufferAudit({
@@ -3100,7 +3100,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
           const { data: budgetResult3 } = await db.rpc("increment_warmup_budget", {
             p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: false,
           });
-          if (budgetResult3) cycle.daily_interaction_budget_used = budgetResult3.used;
+          if (budgetResult3) cycle.daily_interaction_budget_used = budgetResult3.budget_used;
 
           if (hasNextTurn && nextCycle) {
             const replyDelaySeconds = randInt(8, 35);
@@ -3484,7 +3484,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
         const first24hEnd = new Date(cycle.first_24h_ends_at);
         if (Date.now() < first24hEnd.getTime() && cycle.phase === "pre_24h") {
           const deferred = new Date(first24hEnd);
-          deferred.setUTCHours(9, 50, 0, 0);
+          deferred.setUTCHours(9, 45, 0, 0);
           if (deferred.getTime() <= first24hEnd.getTime()) deferred.setUTCDate(deferred.getUTCDate() + 1);
 
           await db.from("warmup_jobs").update({ status: "pending", run_at: deferred.toISOString(), last_error: "" }).eq("id", job.id);
@@ -3742,7 +3742,7 @@ async function handleDailyReset(db: any) {
     // Schedule next daily reset
     const nextReset = new Date();
     nextReset.setUTCDate(nextReset.getUTCDate() + 1);
-    nextReset.setUTCHours(9, 50, 0, 0);
+    nextReset.setUTCHours(9, 45, 0, 0);
     await db.from("warmup_jobs").insert({
       user_id: cycle.user_id, device_id: cycle.device_id, cycle_id: cycle.id,
       job_type: "daily_reset", payload: {},

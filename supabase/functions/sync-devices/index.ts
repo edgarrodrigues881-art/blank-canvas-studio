@@ -634,7 +634,7 @@ Deno.serve(async (req) => {
           // Ensure a daily_reset job exists so the cycle advances to the next day
           const tomorrow = new Date();
           tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-          tomorrow.setUTCHours(9, 50, 0, 0);
+          tomorrow.setUTCHours(9, 45, 0, 0);
 
           const { data: existingReset } = await svc.from("warmup_jobs")
             .select("id")

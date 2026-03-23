@@ -865,7 +865,7 @@ async function handleStart(db: any, userId: string | null, body: any) {
   // 6. Schedule first daily_reset
   const resetBase = skipPre24h ? now : first24hEnds;
   const firstReset = new Date(resetBase);
-  firstReset.setUTCHours(9, 50, 0, 0);
+  firstReset.setUTCHours(9, 45, 0, 0);
   if (firstReset.getTime() <= now.getTime()) {
     firstReset.setUTCDate(firstReset.getUTCDate() + 1);
   }
@@ -1016,7 +1016,7 @@ async function handleResume(db: any, userId: string | null, body: any) {
   // Schedule next daily reset
   const nextReset = new Date(now);
   nextReset.setUTCDate(nextReset.getUTCDate() + 1);
-  nextReset.setUTCHours(9, 50, 0, 0);
+  nextReset.setUTCHours(9, 45, 0, 0);
   await db.from("warmup_jobs").insert({
     user_id: userId, device_id, cycle_id: cycle.id,
     job_type: "daily_reset", payload: {},
