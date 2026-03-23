@@ -41,6 +41,7 @@ const USER_ID_TABLES = [
   "warmup_community_membership",
   "warmup_cycles",
   "warmup_jobs",
+  "warmup_groups",
   "admin_dispatch_contacts",
 ];
 
