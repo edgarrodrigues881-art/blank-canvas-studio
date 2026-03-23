@@ -725,6 +725,11 @@ Deno.serve(async (req) => {
 
       const campaignDeviceIds = getCampaignDeviceIds(campaign, deviceId);
 
+      await serviceClient.from("campaign_contacts")
+        .update({ status: "pending" })
+        .eq("campaign_id", campaignId)
+        .eq("status", "active");
+
       if (campaignDeviceIds.length > 0) {
         const lockResult = await acquireDeviceLocks(serviceClient, campaignDeviceIds, campaignId, campaign.user_id);
         if (!lockResult.acquired) {
@@ -773,6 +778,11 @@ Deno.serve(async (req) => {
 
       const deviceIds = getCampaignDeviceIds(campaign, deviceId);
       const messagesPerInstance = campaign.messages_per_instance || 0;
+
+      await serviceClient.from("campaign_contacts")
+        .update({ status: "pending" })
+        .eq("campaign_id", campaignId)
+        .eq("status", "active");
 
       let allDevices: any[] = [];
       if (deviceIds.length > 0) {
