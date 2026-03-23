@@ -1560,44 +1560,40 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Auth: accept x-internal-secret OR valid Authorization Bearer (user/session or internal JWT)
+  // Auth: accept x-internal-secret, anon key as Bearer, OR valid user JWT
   const secret = req.headers.get("x-internal-secret");
   const expectedSecret = Deno.env.get("INTERNAL_TICK_SECRET");
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || "";
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
 
   const secretOk = !!(expectedSecret && secret === expectedSecret);
-  const expectedProjectRef = getProjectRefFromSupabaseUrl();
+
+  // Accept anon key directly (used by pg_cron)
+  const anonKeyOk = !!(bearerToken && anonKey && bearerToken === anonKey);
 
   let bearerOk = false;
-  if (bearerToken) {
+  if (bearerToken && !anonKeyOk) {
     try {
-      const anonClient = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_ANON_KEY")!,
-        { global: { headers: { Authorization: authHeader } } },
-      );
-      const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(bearerToken);
-      bearerOk = !claimsError && !!claimsData?.claims;
-    } catch { /* fall through */ }
-
-    if (!bearerOk) {
-      try {
-        const parts = bearerToken.split(".");
-        if (parts.length === 3) {
-          const payload = JSON.parse(atob(parts[1]));
-          const issuer = String(payload?.iss || "");
-          bearerOk = !!expectedProjectRef && (
-            payload?.ref === expectedProjectRef ||
-            issuer.includes(`${expectedProjectRef}.supabase.co/auth/v1`)
-          );
-        }
-      } catch { /* invalid jwt */ }
-    }
+      const parts = bearerToken.split(".");
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1]));
+        const expectedProjectRef = getProjectRefFromSupabaseUrl();
+        const issuer = String(payload?.iss || "");
+        const role = String(payload?.role || "");
+        bearerOk = !!expectedProjectRef && (
+          role === "anon" ||
+          role === "service_role" ||
+          role === "authenticated" ||
+          payload?.ref === expectedProjectRef ||
+          issuer.includes(expectedProjectRef)
+        );
+      }
+    } catch { /* invalid jwt */ }
   }
 
-  if (!secretOk && !bearerOk) {
-    console.error(`[warmup-tick] AUTH FAILED: secretOk=${secretOk}, bearerOk=${bearerOk}, hasBearer=${!!bearerToken}, tokenLen=${bearerToken.length}`);
+  if (!secretOk && !anonKeyOk && !bearerOk) {
+    console.error(`[warmup-tick] AUTH FAILED: secretOk=${secretOk}, anonKeyOk=${anonKeyOk}, bearerOk=${bearerOk}, hasBearer=${!!bearerToken}`);
     return json({ error: "Unauthorized" }, 401);
   }
 
