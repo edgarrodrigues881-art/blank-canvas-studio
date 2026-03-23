@@ -232,6 +232,45 @@ const HISTORIAS = [
   "ontem assisti um documentário muito bom, recomendo demais pra quem gosta de aprender coisas novas",
 ];
 
+const GANCHOS_CASUAIS = [
+  "passando rapidinho aqui",
+  "caí aqui e lembrei disso",
+  "me veio isso do nada agora",
+  "tava pensando nisso faz pouco",
+  "bati o olho nisso agora",
+  "do nada me lembrei de comentar isso",
+  "só passando pra não deixar isso solto",
+  "me deu vontade de perguntar isso agora",
+  "pensei nisso no meio da correria",
+  "me ocorreu isso enquanto resolvia umas coisas",
+];
+
+const FECHAMENTOS = [
+  "depois me conta",
+  "quando puder me fala",
+  "fiquei curioso real",
+  "quero saber sua opinião",
+  "me atualiza quando der",
+  "responde quando tiver um tempo",
+  "me dá um retorno depois",
+  "quero ver como isso ficou",
+  "volta aqui pra me contar",
+  "não deixa isso sem resposta não",
+];
+
+const OBSERVACOES_RAPIDAS = [
+  "achei isso muito aleatório",
+  "isso me pegou de surpresa",
+  "deu vontade de comentar na hora",
+  "fiquei pensando nisso por um tempo",
+  "isso combinou muito com o que você falou",
+  "foi exatamente o que me veio na cabeça",
+  "isso bateu certinho com o momento",
+  "não consegui ignorar isso",
+  "isso fez mais sentido agora",
+  "a conexão foi imediata aqui",
+];
+
 // ── Helpers ──
 function randInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -280,32 +319,30 @@ export function generateNaturalMessage(context: MessageContext = "group"): strin
   }
 
   // Fallback: combine blocks to reach minimum
-  const fallback = context === "community"
-    ? pickRandom(RESPOSTAS_CURTAS)
-    : `${pickRandom(SAUDACOES)}, ${pickRandom(COMENTARIOS)}`;
+  const fallback = finalizeMessage(
+    context === "community"
+      ? pickRandom(RESPOSTAS_CURTAS)
+      : `${pickRandom(SAUDACOES)}, ${pickRandom(COMENTARIOS)}`,
+  );
 
-  const trimmed = fallback.substring(0, maxLen);
+  const trimmed = trimWithVariation(fallback, maxLen);
   trackMessage(trimmed);
   return trimmed;
 }
 
 function buildMessage(context: MessageContext): string {
-  const strategy = randInt(1, 14);
+  const strategy = randInt(1, 20);
 
   // Strategy 1-3: Saudação + Pergunta (naturalmente 40-80 chars)
   if (strategy <= 3) {
     const saudacao = pickRandom(SAUDACOES);
     const pergunta = pickRandom(PERGUNTAS);
-    let msg = `${saudacao}, ${pergunta}?`;
-    msg = maybeAddEmoji(msg);
-    return capitalize(msg);
+    return finalizeMessage(`${saudacao}, ${pergunta}?`);
   }
 
   // Strategy 4-5: Pergunta sozinha (30-70 chars)
   if (strategy <= 5) {
-    let msg = `${pickRandom(PERGUNTAS)}?`;
-    msg = maybeAddEmoji(msg);
-    return capitalize(msg);
+    return finalizeMessage(`${pickRandom(PERGUNTAS)}?`);
   }
 
   // Strategy 6-7: Comentário + complemento (60-140 chars)
@@ -314,17 +351,14 @@ function buildMessage(context: MessageContext): string {
     if (Math.random() < 0.5) {
       msg += `. ${capitalize(pickRandom(COMPLEMENTOS))}`;
     }
-    msg = maybeAddEmoji(msg);
-    return capitalize(msg);
+    return finalizeMessage(msg);
   }
 
   // Strategy 8: Saudação + comentário (50-100 chars)
   if (strategy === 8) {
     const saudacao = pickRandom(SAUDACOES);
     const comentario = pickRandom(COMENTARIOS);
-    let msg = `${saudacao}, ${comentario}`;
-    msg = maybeAddEmoji(msg);
-    return capitalize(msg);
+    return finalizeMessage(`${saudacao}, ${comentario}`);
   }
 
   // Strategy 9: Frase com número (40-80 chars)
@@ -332,53 +366,70 @@ function buildMessage(context: MessageContext): string {
     const frase = pickRandom(FRASES_NUMERO);
     const n = randInt(2, 15);
     const a = randInt(2019, 2025);
-    let msg = frase.replace("{n}", String(n)).replace("{a}", String(a));
-    msg = maybeAddEmoji(msg);
-    return capitalize(msg);
+    const msg = frase.replace("{n}", String(n)).replace("{a}", String(a));
+    return finalizeMessage(msg);
   }
 
   // Strategy 10-11: Frases de grupo longas (40-80 chars)
   if (strategy <= 11) {
     if (context === "group") {
-      let msg = pickRandom(FRASES_GRUPO);
-      msg = maybeAddEmoji(msg);
-      return capitalize(msg);
+      return finalizeMessage(pickRandom(FRASES_GRUPO));
     }
     if (context === "community") {
-      if (Math.random() < 0.4) return pickRandom(RESPOSTAS_CURTAS);
-      let msg = pickRandom(PERGUNTAS) + "?";
-      msg = maybeAddEmoji(msg);
-      return capitalize(msg);
+      if (Math.random() < 0.4) return finalizeMessage(pickRandom(RESPOSTAS_CURTAS), false);
+      return finalizeMessage(`${pickRandom(PERGUNTAS)}?`);
     }
   }
 
   // Strategy 12: Reflexão longa (100-180 chars)
   if (strategy === 12) {
-    let msg = pickRandom(REFLEXOES);
-    msg = maybeAddEmoji(msg);
-    return capitalize(msg);
+    return finalizeMessage(pickRandom(REFLEXOES));
   }
 
   // Strategy 13: História curta (80-150 chars)
   if (strategy === 13) {
-    let msg = pickRandom(HISTORIAS);
-    msg = maybeAddEmoji(msg);
-    return capitalize(msg);
+    return finalizeMessage(pickRandom(HISTORIAS));
   }
 
   // Strategy 14: Comentário + pergunta (60-120 chars)
   if (strategy === 14) {
     const comentario = pickRandom(COMENTARIOS);
     const pergunta = pickRandom(PERGUNTAS);
-    let msg = `${comentario}. ${capitalize(pergunta)}?`;
-    msg = maybeAddEmoji(msg);
-    return capitalize(msg);
+    return finalizeMessage(`${comentario}. ${capitalize(pergunta)}?`);
+  }
+
+  if (strategy === 15) {
+    return finalizeMessage(`${pickRandom(GANCHOS_CASUAIS)}, ${pickRandom(PERGUNTAS)}? ${capitalize(pickRandom(FECHAMENTOS))}`);
+  }
+
+  if (strategy === 16) {
+    return finalizeMessage(`${pickRandom(HISTORIAS)}. ${capitalize(pickRandom(FECHAMENTOS))}`);
+  }
+
+  if (strategy === 17) {
+    return finalizeMessage(`${pickRandom(SAUDACOES)}, ${pickRandom(OBSERVACOES_RAPIDAS)}. ${capitalize(pickRandom(PERGUNTAS))}?`);
+  }
+
+  if (strategy === 18) {
+    if (context === "group") {
+      return finalizeMessage(`${pickRandom(FRASES_GRUPO)}. ${capitalize(pickRandom(FECHAMENTOS))}`);
+    }
+    return finalizeMessage(`${pickRandom(COMENTARIOS)}. ${capitalize(pickRandom(OBSERVACOES_RAPIDAS))}`);
+  }
+
+  if (strategy === 19) {
+    return finalizeMessage(`${pickRandom(GANCHOS_CASUAIS)}: ${pickRandom(COMENTARIOS)}. ${capitalize(pickRandom(FECHAMENTOS))}`);
+  }
+
+  if (strategy === 20) {
+    const base = context === "community"
+      ? `${pickRandom(RESPOSTAS_CURTAS)}, ${pickRandom(OBSERVACOES_RAPIDAS)}`
+      : `${pickRandom(SAUDACOES)}, ${pickRandom(PERGUNTAS)}? ${capitalize(pickRandom(OBSERVACOES_RAPIDAS))}`;
+    return finalizeMessage(base, context !== "community");
   }
 
   // Default: saudação + comentário
-  let msg = `${pickRandom(SAUDACOES)}, ${pickRandom(COMENTARIOS)}`;
-  msg = maybeAddEmoji(msg);
-  return capitalize(msg);
+  return finalizeMessage(`${pickRandom(SAUDACOES)}, ${pickRandom(COMENTARIOS)}`);
 }
 
 function maybeAddEmoji(msg: string): string {
@@ -386,6 +437,24 @@ function maybeAddEmoji(msg: string): string {
   if (chance < 0.55) return msg; // 55% sem emoji
   if (chance < 0.85) return `${msg} ${pickRandom(EMOJIS)}`; // 30% 1 emoji
   return `${msg} ${pickRandom(EMOJIS)}${pickRandom(EMOJIS)}`; // 15% 2 emojis
+}
+
+function appendRandomNumber(msg: string): string {
+  return `${msg} ${randInt(10, 9999)}`;
+}
+
+function trimWithVariation(msg: string, maxLen: number): string {
+  const trimmed = msg.substring(0, maxLen).trim();
+  if (/\d/.test(trimmed)) return trimmed;
+
+  const suffix = ` ${randInt(10, 9999)}`;
+  const safeBase = trimmed.substring(0, Math.max(0, maxLen - suffix.length)).trim();
+  return `${safeBase}${suffix}`.trim();
+}
+
+function finalizeMessage(msg: string, withEmoji = true): string {
+  const base = withEmoji ? maybeAddEmoji(msg) : msg;
+  return trimWithVariation(capitalize(appendRandomNumber(base)), 180);
 }
 
 /**
@@ -412,6 +481,9 @@ export function estimateCombinations(): number {
   const numeros = FRASES_NUMERO.length * 14;
   const reflexoes = REFLEXOES.length;
   const historias = HISTORIAS.length;
+  const ganchos = GANCHOS_CASUAIS.length;
+  const fechamentos = FECHAMENTOS.length;
+  const observacoes = OBSERVACOES_RAPIDAS.length;
 
   const total =
     (saudacoes * perguntas * emojiVariations) +
@@ -423,6 +495,12 @@ export function estimateCombinations(): number {
     (reflexoes * emojiVariations) +
     (historias * emojiVariations) +
     (comentarios * perguntas * emojiVariations) +
+    (ganchos * perguntas * fechamentos * emojiVariations) +
+    (historias * fechamentos * emojiVariations) +
+    (saudacoes * observacoes * perguntas * emojiVariations) +
+    (FRASES_GRUPO.length * fechamentos * emojiVariations) +
+    (ganchos * comentarios * fechamentos * emojiVariations) +
+    (RESPOSTAS_CURTAS.length * observacoes) +
     (RESPOSTAS_CURTAS.length);
 
   return total;
@@ -440,4 +518,7 @@ export const MESSAGE_BLOCKS = {
   frasesGrupo: FRASES_GRUPO,
   reflexoes: REFLEXOES,
   historias: HISTORIAS,
+  ganchosCasuais: GANCHOS_CASUAIS,
+  fechamentos: FECHAMENTOS,
+  observacoesRapidas: OBSERVACOES_RAPIDAS,
 };

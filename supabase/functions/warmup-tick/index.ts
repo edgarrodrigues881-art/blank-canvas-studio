@@ -1703,7 +1703,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
   // ── ORPHANED CYCLE RECOVERY: Running cycles with 0 pending jobs during operating hours ──
   if (withinWindow && isPrimaryShard) {
     const { data: runningCycles } = await db.from("warmup_cycles")
-      .select("id, user_id, device_id, day_index, days_total, chip_state, phase, daily_interaction_budget_target, daily_interaction_budget_used, last_daily_reset_at, first_24h_ends_at, updated_at")
+      .select("id, user_id, device_id, day_index, days_total, chip_state, phase, daily_interaction_budget_target, daily_interaction_budget_used, last_daily_reset_at, first_24h_ends_at, created_at, started_at, updated_at")
       .eq("is_running", true)
       .not("phase", "in", '("completed","paused","error")')
       .limit(500);
@@ -1770,7 +1770,8 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
         }
 
         // ── FIX A: Force daily reset for cycles stuck >26h without reset ──
-        const lastResetMs = cycle.last_daily_reset_at ? new Date(cycle.last_daily_reset_at).getTime() : 0;
+        const resetReference = cycle.last_daily_reset_at || cycle.created_at || cycle.started_at || cycle.updated_at;
+        const lastResetMs = resetReference ? new Date(resetReference).getTime() : nowMs;
         const resetAge = nowMs - lastResetMs;
 
         // Skip stale reset if cycle was recently updated (e.g. just resumed from pause)
@@ -2073,7 +2074,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
   }
 
   const [cyclesArr, subsArr, profilesArr, devicesArr, userMsgsArr, autosaveArr, instanceGroupsArr, groupsPoolArr, imagePool, audioPool] = await Promise.all([
-    batchLoad<any>("warmup_cycles", "id, user_id, device_id, phase, is_running, day_index, days_total, chip_state, daily_interaction_budget_min, daily_interaction_budget_max, daily_interaction_budget_target, daily_interaction_budget_used, daily_unique_recipients_cap, daily_unique_recipients_used, first_24h_ends_at, last_daily_reset_at, next_run_at, plan_id", "id", uniqueCycleIds),
+    batchLoad<any>("warmup_cycles", "id, user_id, device_id, phase, is_running, day_index, days_total, chip_state, daily_interaction_budget_min, daily_interaction_budget_max, daily_interaction_budget_target, daily_interaction_budget_used, daily_unique_recipients_cap, daily_unique_recipients_used, first_24h_ends_at, last_daily_reset_at, next_run_at, plan_id, created_at, started_at", "id", uniqueCycleIds),
     batchLoad<any>("subscriptions", "user_id, expires_at, created_at", "user_id", uniqueUserIds, q => q.order("created_at", { ascending: false })),
     batchLoad<any>("profiles", "id, status, instance_override", "id", uniqueUserIds),
     batchLoad<any>("devices", "id, status, uazapi_token, uazapi_base_url, number", "id", uniqueDeviceIds),
@@ -3492,6 +3493,10 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
         const lastResetBrtKey = cycle.last_daily_reset_at
           ? getBrtDateKey(new Date(cycle.last_daily_reset_at))
           : null;
+        const cycleStartRef = cycle.created_at || cycle.started_at || null;
+        const cycleStartBrtKey = cycleStartRef
+          ? getBrtDateKey(new Date(cycleStartRef))
+          : null;
 
         if (lastResetBrtKey === nowBrtKey) {
           await ensureNextDailyResetJob(db, job, cycle.id);
@@ -3502,6 +3507,19 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
             level: "info",
             event_type: "daily_reset_skipped",
             message: "Reset diário ignorado: já executado hoje (BRT)",
+          });
+          break;
+        }
+
+        if (cycleStartBrtKey === nowBrtKey) {
+          await ensureNextDailyResetJob(db, job, cycle.id);
+          bufferAudit({
+            user_id: job.user_id,
+            device_id: job.device_id,
+            cycle_id: job.cycle_id,
+            level: "info",
+            event_type: "daily_reset_skipped_same_day_start",
+            message: "Reset diário ignorado: ciclo iniciado hoje (BRT)",
           });
           break;
         }
