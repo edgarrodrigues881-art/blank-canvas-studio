@@ -135,17 +135,22 @@ const CampaignDetail = () => {
     return () => clearInterval(interval);
   }, [campaign?.scheduled_at, campaign?.status]);
 
-  const { data: contacts = [], isLoading: contactsLoading } = useQuery({
-    queryKey: ["campaign-contacts", id],
+  const [contactPage, setContactPage] = useState(0);
+  const CONTACTS_PER_PAGE = 100;
+
+  const { data: contactsResult, isLoading: contactsLoading } = useQuery({
+    queryKey: ["campaign-contacts", id, contactPage],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const from = contactPage * CONTACTS_PER_PAGE;
+      const to = from + CONTACTS_PER_PAGE - 1;
+      const { data, error, count } = await supabase
         .from("campaign_contacts")
-        .select("id, campaign_id, phone, name, status, sent_at, error_message, created_at, device_id")
+        .select("id, campaign_id, phone, name, status, sent_at, error_message, created_at, device_id", { count: "exact" })
         .eq("campaign_id", id!)
         .order("created_at", { ascending: true })
-        .limit(500);
+        .range(from, to);
       if (error) throw error;
-      return data || [];
+      return { rows: data || [], total: count || 0 };
     },
     enabled: !!id && !!user,
     refetchInterval: () => {
@@ -153,6 +158,10 @@ const CampaignDetail = () => {
       return false;
     },
   });
+
+  const contacts = contactsResult?.rows ?? [];
+  const totalContacts = contactsResult?.total ?? 0;
+  const totalContactPages = Math.max(1, Math.ceil(totalContacts / CONTACTS_PER_PAGE));
 
   const { data: devices = [] } = useQuery({
     queryKey: ["devices"],
