@@ -1901,6 +1901,15 @@ async function handleTick(
         // Skip pre_24h for orphan recovery below
         if (cycle.phase === "pre_24h") continue;
 
+        // Cancel stale join_group jobs for cycles past day 1
+        if ((cycle.day_index || 1) > 1) {
+          await db.from("warmup_jobs")
+            .update({ status: "cancelled", last_error: "Cancelado: join_group só no dia 1" })
+            .eq("cycle_id", cycle.id)
+            .eq("job_type", "join_group")
+            .in("status", ["pending", "running"]);
+        }
+
         // ── Original orphan recovery: running with 0 pending jobs ──
         if (cyclesWithJobs.has(cycle.id)) continue;
         if (cycle.daily_interaction_budget_used >= cycle.daily_interaction_budget_target && cycle.daily_interaction_budget_target > 0) continue;
