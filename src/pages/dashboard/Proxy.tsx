@@ -100,7 +100,15 @@ const Proxy = () => {
     return map;
   }, [devices]);
 
-  const proxiesWithIndex = dbProxies.map((p: any, index: number) => ({
+  // Sort proxies: NOVA first, then USANDO, then USADA, then INVALID
+  const statusOrder: Record<string, number> = { NOVA: 0, USANDO: 1, USADA: 2, INVALID: 3 };
+  const sortedProxies = [...dbProxies].sort((a: any, b: any) => {
+    const aOrder = statusOrder[a.status || "NOVA"] ?? 4;
+    const bOrder = statusOrder[b.status || "NOVA"] ?? 4;
+    return aOrder - bOrder;
+  });
+
+  const proxiesWithIndex = sortedProxies.map((p: any, index: number) => ({
     ...p,
     displayId: index + 1,
     proxyStatus: p.status || "NOVA",

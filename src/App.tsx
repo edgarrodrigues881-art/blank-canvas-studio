@@ -103,7 +103,7 @@ const App = () => (
                 <Route path="/dashboard/warmup-v2" element={<ProtectedRoute><DashboardLayout><WarmupInstances /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/warmup/:deviceId" element={<ProtectedRoute><DashboardLayout><WarmupInstanceDetail /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/warmup-v2/:deviceId" element={<ProtectedRoute><DashboardLayout><WarmupInstanceDetail /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/community-warmup" element={<ProtectedRoute><DashboardLayout><CommunityWarmup /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/community-warmup" element={<ProtectedRoute><DashboardLayout><CommunityWarmupComingSoon /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/community-warmup-soon" element={<ProtectedRoute><DashboardLayout><CommunityWarmupComingSoon /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/community" element={<ProtectedRoute><DashboardLayout><Community /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/campaigns" element={<ProtectedRoute><DashboardLayout><Campaigns /></DashboardLayout></ProtectedRoute>} />
@@ -111,20 +111,20 @@ const App = () => (
                 <Route path="/dashboard/campaigns/list" element={<ProtectedRoute><DashboardLayout><CampaignList /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/campaign/:id" element={<ProtectedRoute><DashboardLayout><CampaignDetail /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/campaigns/:id" element={<ProtectedRoute><DashboardLayout><CampaignDetail /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/group-interaction" element={<ProtectedRoute><DashboardLayout><GroupInteraction /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-interaction" element={<ProtectedRoute><DashboardLayout><GroupInteractionComingSoon /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-interaction-soon" element={<ProtectedRoute><DashboardLayout><GroupInteractionComingSoon /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/groups" element={<ProtectedRoute><DashboardLayout><GroupCapture /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-capture" element={<ProtectedRoute><DashboardLayout><GroupCapture /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/group-join" element={<ProtectedRoute><DashboardLayout><GroupJoinCampaignList /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/group-join/new" element={<ProtectedRoute><DashboardLayout><GroupJoinCampaignNew /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/group-join/:id" element={<ProtectedRoute><DashboardLayout><GroupJoinCampaignDetail /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-join" element={<ProtectedRoute><DashboardLayout><GroupJoinComingSoon /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-join/new" element={<ProtectedRoute><DashboardLayout><GroupJoinComingSoon /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-join/:id" element={<ProtectedRoute><DashboardLayout><GroupJoinComingSoon /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-join-soon" element={<ProtectedRoute><DashboardLayout><GroupJoinComingSoon /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/chip-conversation" element={<ProtectedRoute><DashboardLayout><ChipConversation /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/chip-conversation" element={<ProtectedRoute><DashboardLayout><ChipConversationComingSoon /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/chip-conversation-soon" element={<ProtectedRoute><DashboardLayout><ChipConversationComingSoon /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/auto-reply" element={<ProtectedRoute><DashboardLayout><AutoReplyList /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/auto-reply/:id" element={<ProtectedRoute><DashboardLayout><AutoReply /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/autoreply" element={<ProtectedRoute><DashboardLayout><AutoReplyList /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/autoreply/:id" element={<ProtectedRoute><DashboardLayout><AutoReply /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/auto-reply" element={<ProtectedRoute><DashboardLayout><AutoReplyComingSoon /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/auto-reply/:id" element={<ProtectedRoute><DashboardLayout><AutoReplyComingSoon /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/autoreply" element={<ProtectedRoute><DashboardLayout><AutoReplyComingSoon /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/autoreply/:id" element={<ProtectedRoute><DashboardLayout><AutoReplyComingSoon /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/autoreply-soon" element={<ProtectedRoute><DashboardLayout><AutoReplyComingSoon /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/contacts" element={<ProtectedRoute><DashboardLayout><Contacts /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/templates" element={<ProtectedRoute><DashboardLayout><Templates /></DashboardLayout></ProtectedRoute>} />
