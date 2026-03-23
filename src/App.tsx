@@ -8,53 +8,78 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import DashboardLayout from "@/components/DashboardLayout";
 
-// Lazy pages
-const Landing = lazy(() => import("@/pages/Landing"));
-const Auth = lazy(() => import("@/pages/Auth"));
-const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
-const WelcomeSplash = lazy(() => import("@/pages/WelcomeSplash"));
-const NotFound = lazy(() => import("@/pages/NotFound"));
-const BackOffice = lazy(() => import("@/pages/BackOffice"));
+// Lazy pages with preload support
+const lazyWithPreload = (factory: () => Promise<any>) => {
+  const Component = lazy(factory);
+  (Component as any).__preload = factory;
+  return Component;
+};
+
+const Landing = lazyWithPreload(() => import("@/pages/Landing"));
+const Auth = lazyWithPreload(() => import("@/pages/Auth"));
+const ResetPassword = lazyWithPreload(() => import("@/pages/ResetPassword"));
+const WelcomeSplash = lazyWithPreload(() => import("@/pages/WelcomeSplash"));
+const NotFound = lazyWithPreload(() => import("@/pages/NotFound"));
+const BackOffice = lazyWithPreload(() => import("@/pages/BackOffice"));
 
 // Dashboard pages
-const DashboardHome = lazy(() => import("@/pages/dashboard/DashboardHome"));
-const Devices = lazy(() => import("@/pages/dashboard/Devices"));
-const WarmupInstances = lazy(() => import("@/pages/dashboard/WarmupInstances"));
-const WarmupInstanceDetail = lazy(() => import("@/pages/dashboard/WarmupInstanceDetail"));
-const CommunityWarmup = lazy(() => import("@/pages/dashboard/CommunityWarmup"));
-const CommunityWarmupComingSoon = lazy(() => import("@/pages/dashboard/CommunityWarmupComingSoon"));
-const Community = lazy(() => import("@/pages/dashboard/Community"));
-const Campaigns = lazy(() => import("@/pages/dashboard/Campaigns"));
-const CampaignList = lazy(() => import("@/pages/dashboard/CampaignList"));
-const CampaignDetail = lazy(() => import("@/pages/dashboard/CampaignDetail"));
-const GroupInteraction = lazy(() => import("@/pages/dashboard/GroupInteraction"));
-const GroupInteractionComingSoon = lazy(() => import("@/pages/dashboard/GroupInteractionComingSoon"));
-const GroupCapture = lazy(() => import("@/pages/dashboard/GroupCapture"));
-const GroupJoinCampaignList = lazy(() => import("@/pages/dashboard/GroupJoinCampaignList"));
-const GroupJoinCampaignNew = lazy(() => import("@/pages/dashboard/GroupJoinCampaignNew"));
-const GroupJoinCampaignDetail = lazy(() => import("@/pages/dashboard/GroupJoinCampaignDetail"));
-const GroupJoinComingSoon = lazy(() => import("@/pages/dashboard/GroupJoinComingSoon"));
-const ChipConversation = lazy(() => import("@/pages/dashboard/ChipConversation"));
-const ChipConversationComingSoon = lazy(() => import("@/pages/dashboard/ChipConversationComingSoon"));
-const AutoReplyList = lazy(() => import("@/pages/dashboard/AutoReplyList"));
-const AutoReply = lazy(() => import("@/pages/dashboard/AutoReply"));
-const AutoReplyComingSoon = lazy(() => import("@/pages/dashboard/AutoReplyComingSoon"));
-const Contacts = lazy(() => import("@/pages/dashboard/Contacts"));
-const Templates = lazy(() => import("@/pages/dashboard/Templates"));
-const AutoSave = lazy(() => import("@/pages/dashboard/AutoSave"));
-const Reports = lazy(() => import("@/pages/dashboard/Reports"));
-const ReportWhatsApp = lazy(() => import("@/pages/dashboard/ReportWhatsApp"));
-const ReportConnection = lazy(() => import("@/pages/dashboard/ReportConnection"));
-const Notifications = lazy(() => import("@/pages/dashboard/Notifications"));
-const Settings = lazy(() => import("@/pages/dashboard/Settings"));
-const MyPlan = lazy(() => import("@/pages/dashboard/MyPlan"));
-const Proxy = lazy(() => import("@/pages/dashboard/Proxy"));
-const CustomModule = lazy(() => import("@/pages/dashboard/CustomModule"));
+const DashboardHome = lazyWithPreload(() => import("@/pages/dashboard/DashboardHome"));
+const Devices = lazyWithPreload(() => import("@/pages/dashboard/Devices"));
+const WarmupInstances = lazyWithPreload(() => import("@/pages/dashboard/WarmupInstances"));
+const WarmupInstanceDetail = lazyWithPreload(() => import("@/pages/dashboard/WarmupInstanceDetail"));
+const CommunityWarmup = lazyWithPreload(() => import("@/pages/dashboard/CommunityWarmup"));
+const CommunityWarmupComingSoon = lazyWithPreload(() => import("@/pages/dashboard/CommunityWarmupComingSoon"));
+const Community = lazyWithPreload(() => import("@/pages/dashboard/Community"));
+const Campaigns = lazyWithPreload(() => import("@/pages/dashboard/Campaigns"));
+const CampaignList = lazyWithPreload(() => import("@/pages/dashboard/CampaignList"));
+const CampaignDetail = lazyWithPreload(() => import("@/pages/dashboard/CampaignDetail"));
+const GroupInteraction = lazyWithPreload(() => import("@/pages/dashboard/GroupInteraction"));
+const GroupInteractionComingSoon = lazyWithPreload(() => import("@/pages/dashboard/GroupInteractionComingSoon"));
+const GroupCapture = lazyWithPreload(() => import("@/pages/dashboard/GroupCapture"));
+const GroupJoinCampaignList = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinCampaignList"));
+const GroupJoinCampaignNew = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinCampaignNew"));
+const GroupJoinCampaignDetail = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinCampaignDetail"));
+const GroupJoinComingSoon = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinComingSoon"));
+const ChipConversation = lazyWithPreload(() => import("@/pages/dashboard/ChipConversation"));
+const ChipConversationComingSoon = lazyWithPreload(() => import("@/pages/dashboard/ChipConversationComingSoon"));
+const AutoReplyList = lazyWithPreload(() => import("@/pages/dashboard/AutoReplyList"));
+const AutoReply = lazyWithPreload(() => import("@/pages/dashboard/AutoReply"));
+const AutoReplyComingSoon = lazyWithPreload(() => import("@/pages/dashboard/AutoReplyComingSoon"));
+const Contacts = lazyWithPreload(() => import("@/pages/dashboard/Contacts"));
+const Templates = lazyWithPreload(() => import("@/pages/dashboard/Templates"));
+const AutoSave = lazyWithPreload(() => import("@/pages/dashboard/AutoSave"));
+const Reports = lazyWithPreload(() => import("@/pages/dashboard/Reports"));
+const ReportWhatsApp = lazyWithPreload(() => import("@/pages/dashboard/ReportWhatsApp"));
+const ReportConnection = lazyWithPreload(() => import("@/pages/dashboard/ReportConnection"));
+const Notifications = lazyWithPreload(() => import("@/pages/dashboard/Notifications"));
+const Settings = lazyWithPreload(() => import("@/pages/dashboard/Settings"));
+const MyPlan = lazyWithPreload(() => import("@/pages/dashboard/MyPlan"));
+const Proxy = lazyWithPreload(() => import("@/pages/dashboard/Proxy"));
+const CustomModule = lazyWithPreload(() => import("@/pages/dashboard/CustomModule"));
 
 // Backoffice pages
-const BOCampaigns = lazy(() => import("@/pages/backoffice/BOCampaigns"));
-const BOCampaignList = lazy(() => import("@/pages/backoffice/BOCampaignList"));
-const BOCampaignDetail = lazy(() => import("@/pages/backoffice/BOCampaignDetail"));
+const BOCampaigns = lazyWithPreload(() => import("@/pages/backoffice/BOCampaigns"));
+const BOCampaignList = lazyWithPreload(() => import("@/pages/backoffice/BOCampaignList"));
+const BOCampaignDetail = lazyWithPreload(() => import("@/pages/backoffice/BOCampaignDetail"));
+
+// Route preload map — used by sidebar to preload chunks on hover
+export const routePreloadMap: Record<string, () => void> = {
+  "/dashboard": () => { (DashboardHome as any).__preload?.(); },
+  "/dashboard/devices": () => { (Devices as any).__preload?.(); },
+  "/dashboard/warmup-v2": () => { (WarmupInstances as any).__preload?.(); },
+  "/dashboard/campaigns": () => { (Campaigns as any).__preload?.(); },
+  "/dashboard/campaign-list": () => { (CampaignList as any).__preload?.(); },
+  "/dashboard/contacts": () => { (Contacts as any).__preload?.(); },
+  "/dashboard/templates": () => { (Templates as any).__preload?.(); },
+  "/dashboard/autosave": () => { (AutoSave as any).__preload?.(); },
+  "/dashboard/proxy": () => { (Proxy as any).__preload?.(); },
+  "/dashboard/groups": () => { (GroupCapture as any).__preload?.(); },
+  "/dashboard/reports": () => { (Reports as any).__preload?.(); },
+  "/dashboard/reports/whatsapp": () => { (ReportWhatsApp as any).__preload?.(); },
+  "/dashboard/my-plan": () => { (MyPlan as any).__preload?.(); },
+  "/dashboard/settings": () => { (Settings as any).__preload?.(); },
+  "/dashboard/notifications": () => { (Notifications as any).__preload?.(); },
+};
 
 const queryClient = new QueryClient({
   defaultOptions: {
