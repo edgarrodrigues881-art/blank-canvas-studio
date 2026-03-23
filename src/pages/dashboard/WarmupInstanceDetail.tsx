@@ -253,6 +253,16 @@ const WarmupInstanceDetail = () => {
     payload: any;
   };
 
+  const runWarmupJobNow = async (job: ScheduledJobLite, target?: { cycleId?: string; deviceId?: string }) => {
+    await supabase.functions.invoke("warmup-tick", {
+      body: {
+        job_id: job.id,
+        cycle_id: target?.cycleId ?? cycle?.id,
+        device_id: target?.deviceId ?? deviceId,
+      },
+    });
+  };
+
   const pickNextForcedJob = (jobs: ScheduledJobLite[]) => {
     const pendingSorted = jobs
       .filter((j) => j.status === "pending")
@@ -325,7 +335,7 @@ const WarmupInstanceDetail = () => {
           await supabase.from("warmup_jobs").update({
             run_at: new Date().toISOString(), attempts: 0, last_error: null, payload: retryPayload as any,
           }).eq("id", retryJob.id).eq("status", "pending");
-          await supabase.functions.invoke("warmup-tick", { body: {} });
+          await runWarmupJobNow(retryJob);
           await queryClient.invalidateQueries({ queryKey: ["warmup_jobs_scheduled", cycle.id] });
           const jobLabel2 = {
             join_group: "Entrada em grupo", group_interaction: "Mensagem em grupo",
@@ -387,7 +397,7 @@ const WarmupInstanceDetail = () => {
 
       // Trigger warmup-tick immediately
       try {
-        await supabase.functions.invoke("warmup-tick", { body: {} });
+        await runWarmupJobNow(nextJob);
       } catch (_e) {}
 
       await queryClient.invalidateQueries({ queryKey: ["warmup_jobs_scheduled", cycle.id] });
@@ -493,7 +503,13 @@ const WarmupInstanceDetail = () => {
           .eq("status", "pending");
         if (upErr) throw upErr;
 
-        await supabase.functions.invoke("warmup-tick", { body: {} });
+        await runWarmupJobNow({
+          id: next.id,
+          job_type: "autosave_interaction",
+          status: "pending",
+          run_at: new Date().toISOString(),
+          payload: forcedPayload,
+        });
         await queryClient.invalidateQueries({ queryKey: ["warmup_jobs_scheduled", cycle.id] });
         await queryClient.invalidateQueries({ queryKey: ["warmup_audit_logs", cycle.id] });
 
@@ -523,10 +539,19 @@ const WarmupInstanceDetail = () => {
         cursor += (5 + Math.floor(Math.random() * 6)) * 60 * 1000; // 5-10 min between contacts
       }
 
-      const { error: insertErr } = await supabase.from("warmup_jobs").insert(jobs);
+      const { data: insertedJobs, error: insertErr } = await supabase
+        .from("warmup_jobs")
+        .insert(jobs)
+        .select("id, job_type, status, run_at, payload");
       if (insertErr) throw insertErr;
 
-      await supabase.functions.invoke("warmup-tick", { body: {} });
+      const firstInserted = ((insertedJobs || []) as ScheduledJobLite[])
+        .sort((a, b) => new Date(a.run_at).getTime() - new Date(b.run_at).getTime())[0];
+
+      if (firstInserted) {
+        await runWarmupJobNow(firstInserted);
+      }
+
       await queryClient.invalidateQueries({ queryKey: ["warmup_jobs_scheduled", cycle.id] });
       await queryClient.invalidateQueries({ queryKey: ["warmup_audit_logs", cycle.id] });
 
@@ -543,55 +568,80 @@ const WarmupInstanceDetail = () => {
     if (!cycle?.id || !deviceId || !user) return;
     setTestingCommunity(true);
     try {
-      // Check for pending community jobs first
-      const { data: pendingComm, error: pendingErr } = await supabase
-        .from("warmup_jobs")
-        .select("id, payload, run_at")
-        .eq("cycle_id", cycle.id)
-        .eq("status", "pending")
-        .eq("job_type", "community_interaction")
-        .order("run_at", { ascending: true })
-        .limit(1);
-      if (pendingErr) throw pendingErr;
+      const { data: activePairs, error: pairsErr } = await supabase
+        .from("community_pairs")
+        .select("id, instance_id_a, instance_id_b, meta, created_at")
+        .eq("status", "active")
+        .or(`instance_id_a.eq.${deviceId},instance_id_b.eq.${deviceId}`)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (pairsErr) throw pairsErr;
 
-      if (pendingComm && pendingComm.length > 0) {
-        const next = pendingComm[0];
-        const basePayload = (next.payload && typeof next.payload === "object"
-          ? (next.payload as Record<string, unknown>)
-          : {});
-        const forcedPayload = { ...basePayload, forced: true };
-        const { error: upErr } = await supabase
-          .from("warmup_jobs")
-          .update({ run_at: new Date().toISOString(), attempts: 0, last_error: null, payload: forcedPayload as any })
-          .eq("id", next.id)
-          .eq("status", "pending");
-        if (upErr) throw upErr;
-
-        await supabase.functions.invoke("warmup-tick", { body: {} });
-        await queryClient.invalidateQueries({ queryKey: ["warmup_jobs_scheduled", cycle.id] });
-        await queryClient.invalidateQueries({ queryKey: ["warmup_audit_logs", cycle.id] });
-
-        toast({ title: "⚡ Comunitário forçado", description: "Executando próximo burst comunitário agora." });
+      const selectedPair = (activePairs || [])[0] as any;
+      if (!selectedPair) {
+        toast({ title: "Sem pares comunitários", description: "Ainda não existe outro chip elegível para enviar agora.", variant: "destructive" });
         return;
       }
 
-      // No pending community jobs: create a single burst job
-      const { error: insertErr } = await supabase.from("warmup_jobs").insert({
-        user_id: user.id,
-        device_id: deviceId,
-        cycle_id: cycle.id,
-        job_type: "community_interaction" as any,
-        payload: { forced: true, burst_index: 0 },
-        run_at: new Date().toISOString(),
-        status: "pending" as any,
-      });
+      const peerDeviceId = selectedPair.instance_id_a === deviceId
+        ? selectedPair.instance_id_b
+        : selectedPair.instance_id_a;
+
+      const { data: peerCycle, error: peerCycleErr } = await supabase
+        .from("warmup_cycles")
+        .select("id, user_id, device_id, is_running, phase")
+        .eq("device_id", peerDeviceId)
+        .eq("is_running", true)
+        .neq("phase", "completed")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (peerCycleErr) throw peerCycleErr;
+
+      if (!peerCycle?.id) {
+        toast({ title: "Par indisponível", description: "O outro chip do comunitário não está pronto para enviar agora.", variant: "destructive" });
+        return;
+      }
+
+      const pairMeta = selectedPair.meta && typeof selectedPair.meta === "object" ? selectedPair.meta : {};
+      const shouldForceReply = pairMeta?.conversation_id && pairMeta?.expected_sender_device_id === peerDeviceId;
+      const forcePayload = shouldForceReply
+        ? {
+            forced: true,
+            source: "community_force_inbound",
+            pair_id: selectedPair.id,
+            conversation_id: pairMeta.conversation_id,
+            turn_index: Number(pairMeta.turns_completed || 0),
+          }
+        : {
+            forced: true,
+            source: "community_force_inbound",
+            pair_id: selectedPair.id,
+          };
+
+      const { data: insertedCommunityJob, error: insertErr } = await supabase
+        .from("warmup_jobs")
+        .insert({
+          user_id: peerCycle.user_id,
+          device_id: peerDeviceId,
+          cycle_id: peerCycle.id,
+          job_type: "community_interaction" as any,
+          payload: forcePayload as any,
+          run_at: new Date().toISOString(),
+          status: "pending" as any,
+        })
+        .select("id, job_type, status, run_at, payload")
+        .single();
       if (insertErr) throw insertErr;
 
-      await supabase.functions.invoke("warmup-tick", { body: {} });
+      await runWarmupJobNow(insertedCommunityJob as ScheduledJobLite, {
+        cycleId: peerCycle.id,
+        deviceId: peerDeviceId,
+      });
       await queryClient.invalidateQueries({ queryKey: ["warmup_jobs_scheduled", cycle.id] });
       await queryClient.invalidateQueries({ queryKey: ["warmup_audit_logs", cycle.id] });
 
-      toast({ title: "🧪 Burst comunitário agendado!", description: "Um burst de mensagens comunitárias foi disparado." });
+      toast({ title: "⚡ Comunitário forçado", description: "Outro chip do comunitário foi acionado para falar com esta instância agora." });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {

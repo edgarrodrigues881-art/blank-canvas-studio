@@ -2832,8 +2832,49 @@ async function handleTick(
           });
           break;
         }
-        const selectedIndex = rIdx;
-        const target = rotatedPool[selectedIndex];
+        const payloadContactId = typeof job.payload?.contact_id === "string" ? job.payload.contact_id : null;
+        const payloadPhone = typeof job.payload?.phone_e164 === "string" ? job.payload.phone_e164 : null;
+
+        let target = payloadContactId
+          ? autosavePool.find((c: any) => c.id === payloadContactId)
+          : null;
+
+        if (!target && payloadPhone) {
+          target = autosavePool.find((c: any) => c.phone_e164 === payloadPhone);
+        }
+
+        if (!target) {
+          const selectedIndex = rIdx;
+          target = rotatedPool[selectedIndex];
+
+          if (target) {
+            const pinnedPayload = {
+              ...(job.payload || {}),
+              contact_id: target.id,
+              phone_e164: target.phone_e164,
+            };
+
+            await db.from("warmup_jobs")
+              .update({ payload: pinnedPayload })
+              .eq("cycle_id", job.cycle_id)
+              .eq("job_type", "autosave_interaction")
+              .in("status", ["pending", "running"])
+              .filter("payload->>recipient_index", "eq", String(rIdx));
+
+            job.payload = pinnedPayload;
+          }
+        }
+
+        if (!target) {
+          bufferAudit({
+            user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id,
+            level: "warn", event_type: "autosave_skip_no_contact",
+            message: `Auto Save: recipient_index=${rIdx} sem contato fixado — pulando`,
+          });
+          break;
+        }
+
+        const selectedIndex = rotatedPool.findIndex((c: any) => c.id === target.id);
 
         // ── VALIDATION STEP (msg_index=0 only): Pre-validate before sending anything ──
         if (mIdx === 0) {
@@ -2928,21 +2969,23 @@ async function handleTick(
 
         const sentPhone = target._phone;
 
-        // Mark contact as used after successful send (on last msg_index)
-        if (mIdx === maxRounds - 1 || mIdx === 0) {
+        const touchTimestamp = new Date().toISOString();
+
+        // Só marca como usado ao FINAL do bloco, para manter as 3 mensagens no mesmo contato.
+        if (mIdx === maxRounds - 1) {
           await db.from("warmup_autosave_contacts")
             .update({
               contact_status: "used",
-              last_used_at: new Date().toISOString(),
-              use_count: (target.use_count || 0) + (mIdx === 0 ? 1 : 0),
-              updated_at: new Date().toISOString(),
+              last_used_at: touchTimestamp,
+              use_count: (target.use_count || 0) + 1,
+              updated_at: touchTimestamp,
             })
             .eq("id", target.id);
 
           // Update in-memory cache
           target.contact_status = "used";
-          if (mIdx === 0) target.use_count = (target.use_count || 0) + 1;
-          target.last_used_at = new Date().toISOString();
+          target.use_count = (target.use_count || 0) + 1;
+          target.last_used_at = touchTimestamp;
 
           // Check if all valid contacts are now "used" — if so, reset for new rotation cycle
           const allContacts = autosaveMap[job.user_id] || [];
@@ -2967,6 +3010,15 @@ async function handleTick(
               meta: { total_contacts: allContacts.length },
             });
           }
+        } else {
+          await db.from("warmup_autosave_contacts")
+            .update({
+              last_used_at: touchTimestamp,
+              updated_at: touchTimestamp,
+            })
+            .eq("id", target.id);
+
+          target.last_used_at = touchTimestamp;
         }
 
         try {
@@ -3189,6 +3241,55 @@ async function handleTick(
           }
           return "ok";
         };
+
+        const forcedPairId = !isReplyTurn && typeof job.payload?.pair_id === "string"
+          ? String(job.payload.pair_id)
+          : null;
+
+        if (forcedPairId) {
+          const { data: forcedPair } = await db.from("community_pairs")
+            .select("id, instance_id_a, instance_id_b, meta")
+            .eq("id", forcedPairId)
+            .eq("status", "active")
+            .maybeSingle();
+
+          if (!forcedPair || ![forcedPair.instance_id_a, forcedPair.instance_id_b].includes(job.device_id)) {
+            bufferAudit({
+              user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id,
+              level: "warn", event_type: "community_forced_pair_missing",
+              message: "Par comunitário forçado não encontrado ou inválido",
+              meta: { pair_id: forcedPairId },
+            });
+            break;
+          }
+
+          const forcedMeta = normalizeCommunityPairMeta(forcedPair);
+          const shouldReplyNow = Boolean(
+            forcedMeta.conversation_id &&
+            forcedMeta.expected_sender_device_id === job.device_id,
+          );
+
+          const forcedResult = await processCommunityTurn(
+            forcedPair,
+            shouldReplyNow ? Number(forcedMeta.turns_completed || 0) : 0,
+            shouldReplyNow,
+          );
+
+          if (forcedResult !== "ok") {
+            const retryAt = new Date(Date.now() + randInt(20, 60) * 1000).toISOString();
+            await db.from("warmup_jobs")
+              .update({
+                status: "pending",
+                run_at: retryAt,
+                last_error: `Força comunitária sem envio efetivo: ${forcedResult}`,
+                attempts: (job.attempts || 0) + 1,
+              })
+              .eq("id", job.id);
+            return false;
+          }
+
+          break;
+        }
 
         // ── Reply turn: processar o par específico ──
         if (isReplyTurn) {
