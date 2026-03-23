@@ -137,10 +137,18 @@ export function useWarmupFolders() {
 
   const deleteFolder = useMutation({
     mutationFn: async (folderId: string) => {
+      const { error: deleteLinksError } = await supabase
+        .from("warmup_folder_devices" as any)
+        .delete()
+        .eq("folder_id", folderId)
+        .eq("user_id", user!.id);
+      if (deleteLinksError) throw deleteLinksError;
+
       const { error } = await supabase
         .from("warmup_folders" as any)
         .delete()
-        .eq("id", folderId);
+        .eq("id", folderId)
+        .eq("user_id", user!.id);
       if (error) throw error;
     },
     onSuccess: async (_data, folderId) => {
@@ -157,13 +165,14 @@ export function useWarmupFolders() {
         user_id: user!.id,
       }));
       // First remove device from any other folder (one device = one folder)
-      for (const did of params.deviceIds) {
-        await supabase
-          .from("warmup_folder_devices" as any)
-          .delete()
-          .eq("device_id", did)
-          .neq("folder_id", params.folderId);
-      }
+      const { error: cleanupError } = await supabase
+        .from("warmup_folder_devices" as any)
+        .delete()
+        .in("device_id", params.deviceIds)
+        .eq("user_id", user!.id)
+        .neq("folder_id", params.folderId);
+      if (cleanupError) throw cleanupError;
+
       const { error } = await supabase
         .from("warmup_folder_devices" as any)
         .upsert(rows as any, { onConflict: "device_id" });
@@ -171,9 +180,20 @@ export function useWarmupFolders() {
     },
     onSuccess: async (_data, params) => {
       updateFoldersCache((current) => current.map((folder) => {
-        if (folder.id !== params.folderId) return folder;
-        const nextDeviceIds = Array.from(new Set([...(folder.device_ids || []), ...params.deviceIds]));
-        return normalizeFolder({ ...folder, device_ids: nextDeviceIds });
+        const currentIds = folder.device_ids || [];
+
+        if (folder.id === params.folderId) {
+          const nextDeviceIds = Array.from(new Set([...currentIds, ...params.deviceIds]));
+          return normalizeFolder({ ...folder, device_ids: nextDeviceIds });
+        }
+
+        const filteredIds = currentIds.filter((deviceId) => !params.deviceIds.includes(deviceId));
+        if (filteredIds.length === currentIds.length) return folder;
+
+        const deviceTags = new Map(folder.device_tags || new Map<string, FolderTag[]>());
+        params.deviceIds.forEach((deviceId) => deviceTags.delete(deviceId));
+
+        return normalizeFolder({ ...folder, device_ids: filteredIds, device_tags: deviceTags });
       }));
       await qc.invalidateQueries({ queryKey: foldersQueryKey });
     },

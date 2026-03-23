@@ -1018,6 +1018,13 @@ async function handleResume(db: any, userId: string | null, body: any) {
     next_run_at: now.toISOString(),
   }).eq("id", cycle.id);
 
+  // Cancel any pending reset left from before the pause to avoid same-day jumps on resume
+  await db.from("warmup_jobs")
+    .update({ status: "cancelled", last_error: "Cancelado: reset reprogramado na retomada" })
+    .eq("cycle_id", cycle.id)
+    .eq("status", "pending")
+    .eq("job_type", "daily_reset");
+
   // Schedule next daily reset
   const nextReset = new Date(now);
   nextReset.setUTCDate(nextReset.getUTCDate() + 1);
