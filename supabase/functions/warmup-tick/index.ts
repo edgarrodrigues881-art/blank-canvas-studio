@@ -1755,7 +1755,11 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
         const lastResetMs = cycle.last_daily_reset_at ? new Date(cycle.last_daily_reset_at).getTime() : 0;
         const resetAge = nowMs - lastResetMs;
 
-        if (cycle.phase !== "pre_24h" && resetAge > STALE_RESET_MS) {
+        // Skip stale reset if cycle was recently updated (e.g. just resumed from pause)
+        const cycleUpdatedMs = cycle.updated_at ? new Date(cycle.updated_at).getTime() : 0;
+        const recentlyResumed = (nowMs - cycleUpdatedMs) < 4 * 60 * 60 * 1000; // 4h grace
+
+        if (cycle.phase !== "pre_24h" && resetAge > STALE_RESET_MS && !recentlyResumed) {
           // Check device is connected
           const { data: dev } = await db.from("devices").select("status").eq("id", cycle.device_id).maybeSingle();
           if (!dev || !CONNECTED_STATUSES.includes(dev.status)) continue;
