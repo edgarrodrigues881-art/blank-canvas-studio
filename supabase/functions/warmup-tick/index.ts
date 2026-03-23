@@ -778,7 +778,7 @@ type MsgCtx = "group" | "private" | "autosave" | "community";
 
 function generateNaturalMessage(context: MsgCtx = "group"): string {
   const maxLen = context === "autosave" ? 40 : 250;
-  const minLen = (context === "group" || context === "community") ? 60 : 5;
+  const minLen = (context === "group" || context === "community") ? 50 : 5;
   for (let attempt = 0; attempt < 120; attempt++) {
     const msg = buildMsg(context);
     if (msg.length >= minLen && msg.length <= maxLen && !recentMsgs.includes(msg)) {
