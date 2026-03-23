@@ -333,6 +333,18 @@ async function scheduleDayJobs(
 
   let { effectiveStart, effectiveEnd } = window;
 
+  // ── DEDUP GUARD: If there are already enough pending interaction jobs, skip ──
+  const { count: existingPendingCount } = await db.from("warmup_jobs")
+    .select("id", { count: "exact", head: true })
+    .eq("cycle_id", cycleId)
+    .eq("status", "pending")
+    .in("job_type", ["group_interaction", "autosave_interaction", "community_interaction"]);
+
+  if ((existingPendingCount || 0) > 10) {
+    console.log(`[scheduleDayJobs] Skipping: cycle ${cycleId} already has ${existingPendingCount} pending interaction jobs`);
+    return existingPendingCount || 0;
+  }
+
   if (dayIndex > 1) {
     await db.from("warmup_jobs")
       .update({ status: "cancelled", last_error: "Cancelado automaticamente: entrada em grupo só no dia 1" })
