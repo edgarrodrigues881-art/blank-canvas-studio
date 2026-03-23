@@ -259,6 +259,10 @@ function calculateWindow(forced = false): { effectiveStart: number; effectiveEnd
   const startMs = getBrtTodayAt(7).getTime();
   const endMs = getBrtTodayAt(19).getTime();
 
+  if (forced && nowMs < startMs) {
+    return { effectiveStart: nowMs, effectiveEnd: endMs };
+  }
+
   if (forced && nowMs >= endMs) {
     return { effectiveStart: nowMs, effectiveEnd: nowMs + 2 * 3600000 };
   }
@@ -2111,10 +2115,28 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
 
   const pausedCycles = new Set<string>();
   const auditLogBuffer: any[] = [];
-  function bufferAudit(log: any) { auditLogBuffer.push(log); }
+  const operationLogBuffer: any[] = [];
+  function bufferAudit(log: any) {
+    auditLogBuffer.push(log);
+    operationLogBuffer.push({
+      user_id: log.user_id,
+      device_id: log.device_id || null,
+      event: `warmup_${String(log.event_type || "event")}`,
+      details: String(log.message || log.event_type || "warmup_event").slice(0, 500),
+      meta: {
+        cycle_id: log.cycle_id || null,
+        level: log.level || "info",
+        event_type: log.event_type || null,
+        ...(log.meta || {}),
+      },
+    });
+  }
   async function flushAuditLogs() {
     for (let i = 0; i < auditLogBuffer.length; i += 100) {
       await db.from("warmup_audit_logs").insert(auditLogBuffer.slice(i, i + 100));
+    }
+    for (let i = 0; i < operationLogBuffer.length; i += 100) {
+      await db.from("operation_logs").insert(operationLogBuffer.slice(i, i + 100));
     }
   }
 

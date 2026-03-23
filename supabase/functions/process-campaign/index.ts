@@ -28,7 +28,66 @@ function buildMenuChoice(button: CampaignButton, index: number): string | null {
 }
 
 async function oplog(client: any, userId: string, event: string, details: string, deviceId?: string | null, meta?: any) {
-  try { await client.from("operation_logs").insert({ user_id: userId, device_id: deviceId || null, event, details, meta: meta || {} }); } catch (_e) { /* ignore */ }
+  try {
+    await client.from("operation_logs").insert({ user_id: userId, device_id: deviceId || null, event, details, meta: meta || {} });
+  } catch (e: any) {
+    console.error("operation_logs insert failed:", e?.message || e);
+  }
+}
+
+async function updateCampaignContactStatus(serviceClient: any, contactId: string, updates: Record<string, unknown>) {
+  const { data, error } = await serviceClient
+    .from("campaign_contacts")
+    .update(updates)
+    .eq("id", contactId)
+    .select("id");
+
+  if (error) {
+    throw new Error(`Falha ao registrar tracking do contato ${contactId}: ${error.message}`);
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error(`Falha ao registrar tracking do contato ${contactId}: nenhuma linha atualizada`);
+  }
+}
+
+async function recordCampaignOutcome(serviceClient: any, params: {
+  userId: string;
+  campaignId: string;
+  campaignName: string;
+  contactId: string;
+  phone: string;
+  status: "sent" | "failed";
+  deviceId?: string | null;
+  errorMessage?: string | null;
+}) {
+  const updatePayload: Record<string, unknown> = {
+    status: params.status,
+    device_id: params.deviceId || null,
+  };
+
+  if (params.status === "sent") {
+    updatePayload.sent_at = new Date().toISOString();
+    updatePayload.error_message = null;
+  } else {
+    updatePayload.error_message = params.errorMessage || "Erro";
+  }
+
+  await updateCampaignContactStatus(serviceClient, params.contactId, updatePayload);
+  await oplog(
+    serviceClient,
+    params.userId,
+    params.status === "sent" ? "campaign_message_sent" : "campaign_message_failed",
+    `${params.campaignName}: ${params.phone}${params.status === "failed" ? ` — ${params.errorMessage || "Erro"}` : ""}`,
+    params.deviceId || null,
+    {
+      campaign_id: params.campaignId,
+      contact_id: params.contactId,
+      phone: params.phone,
+      status: params.status,
+      error_message: params.errorMessage || null,
+    },
+  );
 }
 
 // Get real-time stats from campaign_contacts (source of truth) — single query
@@ -1036,7 +1095,7 @@ Deno.serve(async (req) => {
                   const result = await sendWithRetry(devBaseUrl, devToken, normalized, msg, mediaUrl, campaignButtons, msgType);
                   if (!result.success) {
                     const translated = translateErrorMessage(result.error || "Erro");
-                    await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: `${translated} (${result.attempts} tentativas)`, device_id: dev.id }).eq("id", contact.id);
+                    await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: normalized, status: "failed", deviceId: dev.id, errorMessage: `${translated} (${result.attempts} tentativas)` });
                     devFailed++;
                     if (isDisconnectError(result.error || "")) {
                       const idx = chunk.indexOf(contact);
@@ -1049,7 +1108,7 @@ Deno.serve(async (req) => {
                     continue;
                   }
                 }
-                await serviceClient.from("campaign_contacts").update({ status: "sent", sent_at: new Date().toISOString(), device_id: dev.id }).eq("id", contact.id);
+                await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: normalized, status: "sent", deviceId: dev.id });
                 devSent++;
 
                 const isLastInChunk = chunk.indexOf(contact) === chunk.length - 1;
@@ -1061,7 +1120,7 @@ Deno.serve(async (req) => {
                 }
               } catch (err) {
                 const translated = translateErrorMessage(err.message || "Erro");
-                await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: translated, device_id: dev.id }).eq("id", contact.id);
+                await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: phone, status: "failed", deviceId: dev.id, errorMessage: translated });
                 devFailed++;
                 if (isDisconnectError(err.message || "")) {
                   const idx = chunk.indexOf(contact);
@@ -1156,7 +1215,7 @@ Deno.serve(async (req) => {
 
           const phone = contact.phone.replace(/\D/g, "");
           if (phone.length < 10) {
-            await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: "Número inválido", device_id: activeDevice.id }).eq("id", contact.id);
+                await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone, status: "failed", deviceId: activeDevice.id, errorMessage: "Número inválido" });
             failedCount++;
             if (failedCount % 5 === 0) await serviceClient.from("campaigns").update({ failed_count: failedCount }).eq("id", campaignId);
             continue;
@@ -1185,7 +1244,7 @@ Deno.serve(async (req) => {
 
             const check = await checkNumberExists(activeBaseUrl, activeToken, normalizedPhone);
             if (!check.exists) {
-              await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: check.error || "Número inválido", device_id: activeDevice.id }).eq("id", contact.id);
+                await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: normalizedPhone, status: "failed", deviceId: activeDevice.id, errorMessage: check.error || "Número inválido" });
               failedCount++;
               if (failedCount % 5 === 0) await serviceClient.from("campaigns").update({ failed_count: failedCount }).eq("id", campaignId);
               if (check.error === "WhatsApp desconectado") {
@@ -1206,7 +1265,7 @@ Deno.serve(async (req) => {
                   allSendFailed = true;
                   lastSendError = result.error || "";
                   const translated = translateErrorMessage(lastSendError);
-                  await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: `${translated} (${result.attempts} tentativas)`, device_id: activeDevice.id }).eq("id", contact.id);
+                  await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: normalizedPhone, status: "failed", deviceId: activeDevice.id, errorMessage: `${translated} (${result.attempts} tentativas)` });
                   failedCount++;
                   if (failedCount % 5 === 0) await serviceClient.from("campaigns").update({ failed_count: failedCount }).eq("id", campaignId);
                   if (isDisconnectError(lastSendError)) {
@@ -1238,12 +1297,12 @@ Deno.serve(async (req) => {
                 continue;
               }
             }
-            await serviceClient.from("campaign_contacts").update({ status: "sent", sent_at: new Date().toISOString(), device_id: activeDevice.id }).eq("id", contact.id);
+            await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: normalizedPhone, status: "sent", deviceId: activeDevice.id });
             sentCount++;
             batchSent++;
             instanceMsgCount++;
             msgsSincePause++;
-            if (batchSent % 5 === 0) await serviceClient.from("campaigns").update({ sent_count: sentCount, delivered_count: sentCount, failed_count: failedCount }).eq("id", campaignId);
+            await serviceClient.from("campaigns").update({ sent_count: sentCount, delivered_count: sentCount, failed_count: failedCount, updated_at: new Date().toISOString() }).eq("id", campaignId);
 
             const isLastContact = contacts.indexOf(contact) === contacts.length - 1;
             if (!isLastContact) {
@@ -1273,9 +1332,9 @@ Deno.serve(async (req) => {
             }
           } catch (err) {
             const translated = translateErrorMessage(err.message || "Erro");
-            await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: translated }).eq("id", contact.id);
+            await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: contact.phone, status: "failed", errorMessage: translated });
             failedCount++;
-            await serviceClient.from("campaigns").update({ failed_count: failedCount }).eq("id", campaignId);
+            await serviceClient.from("campaigns").update({ failed_count: failedCount, updated_at: new Date().toISOString() }).eq("id", campaignId);
             if (isDisconnectError(err.message || "")) {
               const didPause = await handleDisconnectPause(serviceClient, campaignId, deviceIds, failedCount, campaign.name, campaign.user_id, pauseOnDisconnect);
               if (didPause) break;
