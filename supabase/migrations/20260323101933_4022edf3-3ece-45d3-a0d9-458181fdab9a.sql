@@ -1,0 +1,1 @@
+ALTER TABLE public.warmup_autosave_contacts ALTER COLUMN contact_status SET DEFAULT 'new';
