@@ -200,6 +200,13 @@ export function AppSidebar() {
     await deleteFolder.mutateAsync(id);
   }, [deleteFolder]);
 
+  const preloadedRef = useRef<Set<string>>(new Set());
+  const handlePreload = useCallback((url: string) => {
+    if (preloadedRef.current.has(url)) return;
+    preloadedRef.current.add(url);
+    routePreloadMap[url]?.();
+  }, []);
+
   const renderNavItem = (item: { title: string; url: string; icon: any; exact?: boolean; badgeKey?: BadgeKey; locked?: boolean }, indent = false) => {
     const active = isActive(item.url, item.exact);
     const badgeVal = getBadgeValue(item.badgeKey);
