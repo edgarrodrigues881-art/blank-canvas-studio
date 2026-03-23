@@ -2721,7 +2721,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
         const { data: budgetResult1 } = await db.rpc("increment_warmup_budget", {
           p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: false,
         });
-        if (budgetResult1) cycle.daily_interaction_budget_used = budgetResult1.used;
+        if (budgetResult1) cycle.daily_interaction_budget_used = budgetResult1.budget_used;
 
         bufferAudit({
           user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id,
