@@ -605,7 +605,7 @@ const DeviceTagAssignDialog = memo(({ open, onOpenChange, availableTags, current
 const WarmupInstances = () => {
   const [searchParams] = useSearchParams();
   const activeFolderId = searchParams.get("folder");
-  const { folders, addDevices, removeDevice, updateFolder, updateDeviceTags } = useWarmupFolders();
+  const { folders, syncFolderDevices, addDevices, removeDevice, updateFolder, updateDeviceTags } = useWarmupFolders();
   const activeFolder = activeFolderId ? folders.find(f => f.id === activeFolderId) : null;
   const [addToFolderOpen, setAddToFolderOpen] = useState(false);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
@@ -2143,15 +2143,11 @@ const WarmupInstances = () => {
           folderName={activeFolder.name}
           folderColor={activeFolder.color}
           onSave={async (deviceIds) => {
-            const currentIds = new Set(activeFolder.device_ids || []);
-            const newIds = deviceIds.filter(id => !currentIds.has(id));
-            const removedIds = [...currentIds].filter(id => !deviceIds.includes(id));
-            if (newIds.length > 0) {
-              await addDevices.mutateAsync({ folderId: activeFolder.id, deviceIds: newIds });
-            }
-            for (const id of removedIds) {
-              await removeDevice.mutateAsync({ folderId: activeFolder.id, deviceId: id });
-            }
+            await syncFolderDevices.mutateAsync({
+              folderId: activeFolder.id,
+              deviceIds,
+              previousDeviceIds: activeFolder.device_ids || [],
+            });
             toast({ title: "Pasta atualizada" });
           }}
           cycleByDeviceId={cycleByDeviceId}
