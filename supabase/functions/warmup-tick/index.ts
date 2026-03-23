@@ -1918,14 +1918,18 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
           .limit(1)
           .maybeSingle();
 
-        if (!sub || new Date(sub.expires_at) < new Date()) continue;
+        if (!hasWarmupAccess(sub, prof)) {
+          // Legacy accounts with instance_override checked below
+        }
 
         const { data: prof } = await db.from("profiles")
           .select("status, instance_override")
           .eq("id", cycle.user_id)
           .maybeSingle();
 
-        if (!hasWarmupAccess(sub, prof)) continue;
+        if (!hasWarmupAccess(sub, prof)) {
+          continue;
+        }
         if (prof?.status === "suspended" || prof?.status === "cancelled") continue;
 
         // All checks passed — resume cycle

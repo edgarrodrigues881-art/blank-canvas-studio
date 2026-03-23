@@ -156,9 +156,17 @@ export function useWarmupFolders() {
         device_id: did,
         user_id: user!.id,
       }));
+      // First remove device from any other folder (one device = one folder)
+      for (const did of params.deviceIds) {
+        await supabase
+          .from("warmup_folder_devices" as any)
+          .delete()
+          .eq("device_id", did)
+          .neq("folder_id", params.folderId);
+      }
       const { error } = await supabase
         .from("warmup_folder_devices" as any)
-        .upsert(rows as any, { onConflict: "folder_id,device_id" });
+        .upsert(rows as any, { onConflict: "device_id" });
       if (error) throw error;
     },
     onSuccess: async (_data, params) => {
