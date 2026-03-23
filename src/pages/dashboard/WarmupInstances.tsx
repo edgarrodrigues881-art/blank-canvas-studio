@@ -642,6 +642,7 @@ const WarmupInstances = () => {
   const { toast } = useToast();
   const engine = useWarmupEngine();
   const qc = useQueryClient();
+  const warmupCyclesQueryKey = ["warmup_cycles", user?.id] as const;
 
   // Fetch user's custom groups
   const { data: userCustomGroups = [], refetch: refetchCustomGroups } = useQuery({
@@ -650,6 +651,7 @@ const WarmupInstances = () => {
       const { data, error } = await supabase
         .from("warmup_groups" as any)
         .select("id, name, link, is_custom, created_at")
+        .eq("user_id", user!.id)
         .eq("is_custom", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -662,15 +664,16 @@ const WarmupInstances = () => {
   const selectedDeviceIds = useMemo(() => Array.from(bulkSelected), [bulkSelected]);
   const isAdvancedStart = Number(bulkStartDay) > 1;
   const { data: deviceGroupCounts = {} } = useQuery({
-    queryKey: ["device_groups_fast_check"],
+    queryKey: ["device_groups_fast_check", user?.id],
     queryFn: async () => {
       const { count } = await supabase
         .from("warmup_groups")
         .select("id", { count: "exact", head: true })
+        .eq("user_id", user!.id)
         .eq("is_custom", true);
       return { _hasGroups: (count || 0) > 0 };
     },
-    enabled: bulkOpen,
+    enabled: bulkOpen && !!user,
     staleTime: 30_000,
   });
 
@@ -774,16 +777,18 @@ const WarmupInstances = () => {
 
   // Proxies
   const { data: dbProxies = [] } = useQuery({
-    queryKey: ["proxies"],
+    queryKey: ["proxies", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("proxies")
         .select("id, host, port, username, password, type, status, display_id, active")
+        .eq("user_id", user!.id)
         .eq("active", true)
         .order("display_id", { ascending: true });
       if (error) throw error;
       return data;
     },
+    enabled: !!user,
   });
 
   const availableProxies = dbProxies.map((p, index) => ({
@@ -1036,41 +1041,41 @@ const WarmupInstances = () => {
   // Warmup actions
   const handlePause = useCallback((deviceId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    qc.setQueryData(["warmup_cycles"], (old: any[]) =>
+    qc.setQueryData(warmupCyclesQueryKey, (old: any[]) =>
       old?.map((c: any) => c.device_id === deviceId && c.is_running ? { ...c, is_running: false, phase: "paused", previous_phase: c.phase } : c)
     );
     toast({ title: "Aquecimento pausado" });
     engine.mutate(
       { action: "pause", device_id: deviceId },
-      { onError: () => { qc.invalidateQueries({ queryKey: ["warmup_cycles"] }); toast({ title: "Erro ao pausar", variant: "destructive" }); } }
+      { onError: () => { qc.invalidateQueries({ queryKey: warmupCyclesQueryKey }); toast({ title: "Erro ao pausar", variant: "destructive" }); } }
     );
-  }, [engine, qc, toast]);
+  }, [engine, qc, toast, warmupCyclesQueryKey]);
 
   const handleResume = useCallback((deviceId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    qc.setQueryData(["warmup_cycles"], (old: any[]) =>
+    qc.setQueryData(warmupCyclesQueryKey, (old: any[]) =>
       old?.map((c: any) => c.device_id === deviceId && c.phase === "paused" ? { ...c, is_running: true, phase: c.previous_phase || "groups_only" } : c)
     );
     toast({ title: "Aquecimento retomado" });
     engine.mutate(
       { action: "resume", device_id: deviceId },
-      { onError: () => { qc.invalidateQueries({ queryKey: ["warmup_cycles"] }); toast({ title: "Erro ao retomar", variant: "destructive" }); } }
+      { onError: () => { qc.invalidateQueries({ queryKey: warmupCyclesQueryKey }); toast({ title: "Erro ao retomar", variant: "destructive" }); } }
     );
-  }, [engine, qc, toast]);
+  }, [engine, qc, toast, warmupCyclesQueryKey]);
 
   const [cancelConfirmDevice, setCancelConfirmDevice] = useState<string | null>(null);
 
   const handleCancel = useCallback((deviceId: string) => {
-    qc.setQueryData(["warmup_cycles"], (old: any[]) =>
+    qc.setQueryData(warmupCyclesQueryKey, (old: any[]) =>
       old?.filter((c: any) => c.device_id !== deviceId)
     );
     setCancelConfirmDevice(null);
     toast({ title: "Aquecimento cancelado" });
     engine.mutate(
       { action: "stop", device_id: deviceId },
-      { onError: () => { qc.invalidateQueries({ queryKey: ["warmup_cycles"] }); toast({ title: "Erro ao cancelar", variant: "destructive" }); } }
+      { onError: () => { qc.invalidateQueries({ queryKey: warmupCyclesQueryKey }); toast({ title: "Erro ao cancelar", variant: "destructive" }); } }
     );
-  }, [engine, qc, toast]);
+  }, [engine, qc, toast, warmupCyclesQueryKey]);
 
   const onCancelClick = useCallback((deviceId: string) => {
     setCancelConfirmDevice(deviceId);
@@ -2061,7 +2066,7 @@ const WarmupInstances = () => {
                 </Button>
               ) : (
                 <Button
-                  disabled={bulkSelected.size === 0 || bulkLoading || userCustomGroups.length === 0}
+                  disabled={bulkSelected.size === 0 || bulkLoading || userCustomGroups.length === 0 || (isAdvancedStart && devicesWithoutGroups.length > 0)}
                   className={cn(
                     "flex-1 gap-2.5 h-12 rounded-xl font-black text-sm transition-all duration-300",
                     "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white",
@@ -2069,10 +2074,20 @@ const WarmupInstances = () => {
                     "disabled:from-muted disabled:to-muted disabled:shadow-none"
                   )}
                   onClick={async () => {
+                    if (isAdvancedStart && devicesWithoutGroups.length > 0) {
+                      toast({
+                        title: "Instâncias sem grupos",
+                        description: "Para iniciar a partir de um dia avançado, todas as instâncias selecionadas precisam ter grupos.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+
                     setBulkLoading(true);
                     const ids = Array.from(bulkSelected);
                     let ok = 0;
                     let fail = 0;
+                    let firstError: string | undefined;
                     const BATCH = 5;
                     for (let i = 0; i < ids.length; i += BATCH) {
                       const batch = ids.slice(i, i + BATCH);
@@ -2081,15 +2096,30 @@ const WarmupInstances = () => {
                           engine.mutateAsync({ action: "start", device_id: deviceId, chip_state: bulkChipState, days_total: Number(bulkDaysTotal), start_day: Number(bulkStartDay) > 1 ? Number(bulkStartDay) : undefined })
                         )
                       );
-                      results.forEach(r => r.status === "fulfilled" ? ok++ : fail++);
+                      results.forEach((r) => {
+                        if (r.status === "fulfilled") {
+                          ok++;
+                          return;
+                        }
+
+                        fail++;
+                        const message = r.reason instanceof Error
+                          ? r.reason.message
+                          : typeof r.reason?.message === "string"
+                            ? r.reason.message
+                            : typeof r.reason === "string"
+                              ? r.reason
+                              : undefined;
+                        if (!firstError && message) firstError = message;
+                      });
                     }
                     setBulkLoading(false);
                     setBulkOpen(false);
                     setBulkStep(1);
-                    qc.invalidateQueries({ queryKey: ["warmup_cycles"] });
+                    qc.invalidateQueries({ queryKey: warmupCyclesQueryKey });
                     toast({
                       title: `🔥 Aquecimento iniciado em ${ok} instância(s)`,
-                      description: fail > 0 ? `${fail} falharam` : undefined,
+                      description: fail > 0 ? `${fail} falharam${firstError ? ` · ${firstError}` : ""}` : undefined,
                       variant: fail > 0 ? "destructive" : undefined,
                     });
                   }}
