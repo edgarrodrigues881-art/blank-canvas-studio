@@ -29,8 +29,8 @@ export function AnnouncementPopup({ announcement, onClose, onDismiss, isPreview 
   const [visible, setVisible] = useState(true);
 
   const doClose = useCallback(() => {
+    if (!announcement.allow_close) return;
     setVisible(false);
-    // Small delay to allow exit animation, then call parent
     setTimeout(() => {
       if (dontShowAgain) {
         onDismiss();
@@ -38,7 +38,25 @@ export function AnnouncementPopup({ announcement, onClose, onDismiss, isPreview 
         onClose();
       }
     }, 350);
-  }, [dontShowAgain, onClose, onDismiss]);
+  }, [dontShowAgain, onClose, onDismiss, announcement.allow_close]);
+
+  // ESC key handler
+  useEffect(() => {
+    if (!visible || !announcement.allow_close) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") doClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [visible, doClose, announcement.allow_close]);
+
+  // Scroll lock
+  useEffect(() => {
+    if (visible) {
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = ""; };
+    }
+  }, [visible]);
 
   const handleButtonClick = useCallback(() => {
     if (announcement.button_action === "link" && announcement.button_link) {
