@@ -26,6 +26,19 @@ function json(data: unknown, status = 200) {
   });
 }
 
+function getProjectRefFromSupabaseUrl(): string | null {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  if (!supabaseUrl) return null;
+
+  try {
+    const hostname = new URL(supabaseUrl).hostname;
+    const [projectRef] = hostname.split(".");
+    return projectRef || null;
+  } catch {
+    return null;
+  }
+}
+
 function randInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -1542,6 +1555,7 @@ Deno.serve(async (req) => {
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
 
   const secretOk = !!(expectedSecret && secret === expectedSecret);
+  const expectedProjectRef = getProjectRefFromSupabaseUrl();
 
   // Accept any JWT that belongs to this Supabase project
   let bearerOk = false;
@@ -1551,7 +1565,7 @@ Deno.serve(async (req) => {
       if (parts.length === 3) {
         const payload = JSON.parse(atob(parts[1]));
         // Accept if it's a Supabase JWT for this project (anon or service_role)
-        bearerOk = payload?.iss === "supabase" && payload?.ref === "amizwispkprvyrnwypws";
+        bearerOk = payload?.iss === "supabase" && !!expectedProjectRef && payload?.ref === expectedProjectRef;
       }
     } catch { /* invalid jwt */ }
   }
