@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Trash2, X, Plus, Tag } from "lucide-react";
+import { toast } from "sonner";
 
 const COLORS = [
   "#10b981", "#f59e0b", "#ef4444", "#3b82f6",
@@ -79,7 +80,11 @@ export function WarmupFolderDialog({ open, onOpenChange, editingFolder, onSave, 
     setSaving(true);
     try {
       await onSave({ name: name.trim(), color, tags, deviceIds: currentDeviceIds });
+      toast.success(editingFolder ? "Pasta atualizada!" : "Pasta criada!");
       onOpenChange(false);
+    } catch (err: any) {
+      console.error("Erro ao salvar pasta:", err);
+      toast.error("Erro ao salvar pasta: " + (err?.message || "Tente novamente"));
     } finally {
       setSaving(false);
     }
