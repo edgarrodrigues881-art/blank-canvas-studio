@@ -43,7 +43,7 @@ export function useAutosaveMutations() {
 
   const bulkCreate = useMutation({
     mutationFn: async (contacts: { contact_name: string; phone_e164: string; tags?: string }[]) => {
-      const rows = contacts.map(c => ({ ...c, user_id: user!.id }));
+      const rows = contacts.map(c => ({ ...c, contact_status: "new", user_id: user!.id }));
       // Insert in batches of 50
       const batchSize = 50;
       for (let i = 0; i < rows.length; i += batchSize) {
