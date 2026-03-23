@@ -81,9 +81,9 @@ export function useWarmupFolders() {
         .select()
         .single();
       if (error) throw error;
-      return data;
+      return data as any;
     },
-    onSuccess: async (data) => {
+    onSuccess: async (data: any) => {
       updateFoldersCache((current) => {
         const next = [...current.filter((folder) => folder.id !== data.id), normalizeFolder(data)];
         return next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
