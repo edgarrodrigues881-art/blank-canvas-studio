@@ -1861,6 +1861,13 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
         if (cyclesWithJobs.has(cycle.id)) continue;
         if (cycle.daily_interaction_budget_used >= cycle.daily_interaction_budget_target && cycle.daily_interaction_budget_target > 0) continue;
 
+        // ── COOLDOWN: Skip orphan recovery if cycle was updated < 5 min ago (prevents infinite regeneration loop) ──
+        const cycleUpdatedMs2 = cycle.updated_at ? new Date(cycle.updated_at).getTime() : 0;
+        if (nowMs - cycleUpdatedMs2 < 5 * 60 * 1000) {
+          console.log(`[warmup-tick] ORPHAN SKIP: cycle ${cycle.id} updated ${Math.round((nowMs - cycleUpdatedMs2) / 1000)}s ago — cooldown`);
+          continue;
+        }
+
         const { data: dev } = await db.from("devices").select("status").eq("id", cycle.device_id).maybeSingle();
         if (!dev || !CONNECTED_STATUSES.includes(dev.status)) continue;
 
