@@ -701,7 +701,7 @@ const CampaignDetail = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredContacts.slice(0, 200).map(c => {
+                  filteredContacts.map(c => {
                     const ccfg = contactStatusConfig[c.status] || contactStatusConfig.pending;
                     const Icon = ccfg.icon;
                     const errCount = c.error_message?.match(/\((\d+) tentativa/)?.[1];
@@ -747,9 +747,24 @@ const CampaignDetail = () => {
               </TableBody>
             </Table>
           </div>
-          {filteredContacts.length > 200 && (
-            <div className="px-4 py-2 text-[9px] text-muted-foreground/40 border-t border-border/10 text-center">
-              Mostrando 200 de {filteredContacts.length} registros
+          {/* Pagination */}
+          {totalContactPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-2.5 border-t border-border/10">
+              <span className="text-[10px] text-muted-foreground/50">
+                Página {contactPage + 1} de {totalContactPages} • {totalContacts} contatos
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2"
+                  disabled={contactPage === 0}
+                  onClick={() => setContactPage(p => Math.max(0, p - 1))}>
+                  ← Anterior
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2"
+                  disabled={contactPage >= totalContactPages - 1}
+                  onClick={() => setContactPage(p => p + 1)}>
+                  Próxima →
+                </Button>
+              </div>
             </div>
           )}
         </div>
