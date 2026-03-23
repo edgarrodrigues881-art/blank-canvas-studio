@@ -350,19 +350,27 @@ async function scheduleDayJobs(
   const FULL_WINDOW_MS = 12 * 60 * 60 * 1000; // 07:00-19:00 = 12h
   const MIN_SPACING_MS = 3 * 60 * 1000; // Mínimo 3 min entre mensagens
 
-  const { data: pendingJoinJobs } = await db
-    .from("warmup_jobs")
-    .select("run_at")
-    .eq("cycle_id", cycleId)
-    .eq("job_type", "join_group")
-    .in("status", ["pending", "running"]);
+  if (dayIndex > 1) {
+    await db.from("warmup_jobs")
+      .update({ status: "cancelled", last_error: "Cancelado automaticamente: entrada em grupo só no dia 1" })
+      .eq("cycle_id", cycleId)
+      .eq("job_type", "join_group")
+      .in("status", ["pending", "running"]);
+  } else {
+    const { data: pendingJoinJobs } = await db
+      .from("warmup_jobs")
+      .select("run_at")
+      .eq("cycle_id", cycleId)
+      .eq("job_type", "join_group")
+      .in("status", ["pending", "running"]);
 
-  if (pendingJoinJobs?.length) {
-    const latestJoinMs = pendingJoinJobs
-      .map((job: any) => new Date(job.run_at).getTime())
-      .filter((value: number) => Number.isFinite(value))
-      .reduce((max: number, value: number) => Math.max(max, value), effectiveStart);
-    effectiveStart = Math.max(effectiveStart, latestJoinMs + 2 * 60 * 1000);
+    if (pendingJoinJobs?.length) {
+      const latestJoinMs = pendingJoinJobs
+        .map((job: any) => new Date(job.run_at).getTime())
+        .filter((value: number) => Number.isFinite(value))
+        .reduce((max: number, value: number) => Math.max(max, value), effectiveStart);
+      effectiveStart = Math.max(effectiveStart, latestJoinMs + 2 * 60 * 1000);
+    }
   }
 
   const windowMs = effectiveEnd - effectiveStart;
@@ -1115,17 +1123,26 @@ async function handleScheduleDay(db: any, userId: string | null, body: any) {
     .eq("status", "pending")
     .in("job_type", ["group_interaction", "autosave_interaction", "community_interaction"]);
 
-  const resolvedPhase = phase || "groups_only";
+  const resolvedDayIndex = day_index || 1;
+  const resolvedPhase = phase === "pre_24h" && resolvedDayIndex > 1 ? "groups_only" : (phase || "groups_only");
   let joinScheduled = 0;
 
-  // Sempre garante entradas pendentes antes de reagendar interações
-  if (!["completed", "paused", "error"].includes(resolvedPhase)) {
+  if (resolvedDayIndex > 1) {
+    await db.from("warmup_jobs")
+      .update({ status: "cancelled", last_error: "Cancelado automaticamente: entrada em grupo só no dia 1" })
+      .eq("cycle_id", cycle_id)
+      .eq("job_type", "join_group")
+      .in("status", ["pending", "running"]);
+  }
+
+  // Sempre garante entradas pendentes antes de reagendar interações, mas só no dia 1
+  if (resolvedDayIndex <= 1 && !["completed", "paused", "error"].includes(resolvedPhase)) {
     joinScheduled = await ensureJoinGroupJobs(db, cycle_id, userId, device_id);
   }
 
   const jobCount = await scheduleDayJobs(
     db, cycle_id, userId, device_id,
-    day_index || 1, resolvedPhase, chip_state || "new", true,
+    resolvedDayIndex, resolvedPhase, chip_state || "new", true,
   );
 
   return json({ ok: true, jobs_scheduled: (jobCount || 0) + joinScheduled });

@@ -153,6 +153,7 @@ export function useCreateCampaign() {
           campaign_id: newCampaign.id,
           phone: c.phone,
           name: c.name || null,
+          status: "pending",
           var1: c.var1 || "",
           var2: c.var2 || "",
           var3: c.var3 || "",

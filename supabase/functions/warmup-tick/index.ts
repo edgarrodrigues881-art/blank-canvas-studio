@@ -323,18 +323,26 @@ async function scheduleDayJobs(
 
   let { effectiveStart, effectiveEnd } = window;
 
-  const { data: pendingJoinJobs } = await db.from("warmup_jobs")
-    .select("run_at")
-    .eq("cycle_id", cycleId)
-    .eq("job_type", "join_group")
-    .in("status", ["pending", "running"]);
+  if (dayIndex > 1) {
+    await db.from("warmup_jobs")
+      .update({ status: "cancelled", last_error: "Cancelado automaticamente: entrada em grupo só no dia 1" })
+      .eq("cycle_id", cycleId)
+      .eq("job_type", "join_group")
+      .in("status", ["pending", "running"]);
+  } else {
+    const { data: pendingJoinJobs } = await db.from("warmup_jobs")
+      .select("run_at")
+      .eq("cycle_id", cycleId)
+      .eq("job_type", "join_group")
+      .in("status", ["pending", "running"]);
 
-  if (pendingJoinJobs?.length) {
-    const latestJoinMs = pendingJoinJobs
-      .map((job: any) => new Date(job.run_at).getTime())
-      .filter((value: number) => Number.isFinite(value))
-      .reduce((max: number, value: number) => Math.max(max, value), effectiveStart);
-    effectiveStart = Math.max(effectiveStart, latestJoinMs + 2 * 60 * 1000);
+    if (pendingJoinJobs?.length) {
+      const latestJoinMs = pendingJoinJobs
+        .map((job: any) => new Date(job.run_at).getTime())
+        .filter((value: number) => Number.isFinite(value))
+        .reduce((max: number, value: number) => Math.max(max, value), effectiveStart);
+      effectiveStart = Math.max(effectiveStart, latestJoinMs + 2 * 60 * 1000);
+    }
   }
 
   const windowMs = effectiveEnd - effectiveStart;
@@ -1548,26 +1556,40 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Auth: accept x-internal-secret OR valid Authorization Bearer (anon/service role)
+  // Auth: accept x-internal-secret OR valid Authorization Bearer (user/session or internal JWT)
   const secret = req.headers.get("x-internal-secret");
   const expectedSecret = Deno.env.get("INTERNAL_TICK_SECRET");
-  const authHeader = req.headers.get("authorization") || "";
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || "";
   const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
 
   const secretOk = !!(expectedSecret && secret === expectedSecret);
   const expectedProjectRef = getProjectRefFromSupabaseUrl();
 
-  // Accept any JWT that belongs to this Supabase project
   let bearerOk = false;
   if (bearerToken) {
     try {
-      const parts = bearerToken.split(".");
-      if (parts.length === 3) {
-        const payload = JSON.parse(atob(parts[1]));
-        // Accept if it's a Supabase JWT for this project (anon or service_role)
-        bearerOk = payload?.iss === "supabase" && !!expectedProjectRef && payload?.ref === expectedProjectRef;
-      }
-    } catch { /* invalid jwt */ }
+      const anonClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: authHeader } } },
+      );
+      const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(bearerToken);
+      bearerOk = !claimsError && !!claimsData?.claims;
+    } catch { /* fall through */ }
+
+    if (!bearerOk) {
+      try {
+        const parts = bearerToken.split(".");
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]));
+          const issuer = String(payload?.iss || "");
+          bearerOk = !!expectedProjectRef && (
+            payload?.ref === expectedProjectRef ||
+            issuer.includes(`${expectedProjectRef}.supabase.co/auth/v1`)
+          );
+        }
+      } catch { /* invalid jwt */ }
+    }
   }
 
   if (!secretOk && !bearerOk) {
@@ -3729,8 +3751,8 @@ async function handleScheduleDay(db: any, body: any) {
   if (!cycle.is_running) return json({ error: "Ciclo não está rodando" }, 400);
 
   const chipState = cycle.chip_state || "new";
-  const phase = cycle.phase;
   const dayIndex = cycle.day_index || 1;
+  const phase = cycle.phase === "pre_24h" && dayIndex > 1 ? "groups_only" : cycle.phase;
 
   // Cancel existing pending interaction jobs to avoid duplicates
   await db.from("warmup_jobs")
@@ -3739,10 +3761,18 @@ async function handleScheduleDay(db: any, body: any) {
     .eq("status", "pending")
     .in("job_type", ["group_interaction", "autosave_interaction", "community_interaction"]);
 
+  if (dayIndex > 1) {
+    await db.from("warmup_jobs")
+      .update({ status: "cancelled", last_error: "Cancelado automaticamente: entrada em grupo só no dia 1" })
+      .eq("cycle_id", cycle_id)
+      .eq("job_type", "join_group")
+      .in("status", ["pending", "running"]);
+  }
+
   let jobsCreated = 0;
 
   // Sempre garante entradas pendentes antes de reagendar interações
-  if (!["completed", "paused", "error"].includes(phase)) {
+  if (dayIndex <= 1 && !["completed", "paused", "error"].includes(phase)) {
     const created = await ensureJoinGroupJobs(db, cycle_id, cycle.user_id, device_id || cycle.device_id);
     jobsCreated += created;
   }
@@ -3750,7 +3780,7 @@ async function handleScheduleDay(db: any, body: any) {
   // Schedule interaction jobs (forced = true uses current time as start)
   const scheduled = await scheduleDayJobs(
     db, cycle_id, cycle.user_id, device_id || cycle.device_id,
-    dayIndex, phase === "pre_24h" ? "groups_only" : phase, chipState, forced
+    dayIndex, phase, chipState, forced
   );
   jobsCreated += scheduled;
 
