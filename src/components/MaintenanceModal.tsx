@@ -1,3 +1,4 @@
+import { useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Wrench, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,21 @@ interface MaintenanceModalProps {
 const DEFAULT_MESSAGE = "Esta funcionalidade está temporariamente indisponível enquanto realizamos ajustes e melhorias para garantir uma experiência mais estável e segura.\n\nEm breve ela estará disponível novamente.";
 
 export function MaintenanceModal({ open, onClose, featureName, message }: MaintenanceModalProps) {
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Escape") onClose();
+  }, [onClose]);
+
+  useEffect(() => {
+    if (open) {
+      document.addEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.removeEventListener("keydown", handleKeyDown);
+        document.body.style.overflow = "";
+      };
+    }
+  }, [open, handleKeyDown]);
+
   return (
     <AnimatePresence>
       {open && (
@@ -42,6 +58,7 @@ export function MaintenanceModal({ open, onClose, featureName, message }: Mainte
             <button
               onClick={onClose}
               className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors z-10"
+              aria-label="Fechar"
             >
               <X size={16} />
             </button>
@@ -65,7 +82,7 @@ export function MaintenanceModal({ open, onClose, featureName, message }: Mainte
 
               {/* Title */}
               <div className="space-y-2">
-                <h2 className="text-xl font-bold text-foreground">Em Manutenção</h2>
+                <h2 className="text-xl font-bold text-foreground">Em Desenvolvimento</h2>
                 <p className="text-sm text-primary font-medium">{featureName}</p>
               </div>
 
