@@ -612,15 +612,20 @@ async function validateUserPlan(db: any, userId: string): Promise<string | null>
 
   const { data: profile } = await db
     .from("profiles")
-    .select("status")
+    .select("status, instance_override")
     .eq("id", userId)
     .maybeSingle();
 
-  if (!activeSub || new Date(activeSub.expires_at) < new Date()) {
-    return "Seu plano está inativo. Ative um plano para continuar.";
-  }
   if (profile?.status === "suspended" || profile?.status === "cancelled") {
     return "Conta suspensa ou cancelada.";
+  }
+
+  // Accept legacy restored access via instance_override > 0
+  const hasLegacyAccess = (profile?.instance_override ?? 0) > 0;
+  const hasActiveSub = activeSub && new Date(activeSub.expires_at) >= new Date();
+
+  if (!hasActiveSub && !hasLegacyAccess) {
+    return "Seu plano está inativo. Ative um plano para continuar.";
   }
   return null;
 }
