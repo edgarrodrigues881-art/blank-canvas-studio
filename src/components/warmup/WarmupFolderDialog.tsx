@@ -80,7 +80,11 @@ export function WarmupFolderDialog({ open, onOpenChange, editingFolder, onSave, 
     setSaving(true);
     try {
       await onSave({ name: name.trim(), color, tags, deviceIds: currentDeviceIds });
+      toast.success(editingFolder ? "Pasta atualizada!" : "Pasta criada!");
       onOpenChange(false);
+    } catch (err: any) {
+      console.error("Erro ao salvar pasta:", err);
+      toast.error("Erro ao salvar pasta: " + (err?.message || "Tente novamente"));
     } finally {
       setSaving(false);
     }
