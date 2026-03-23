@@ -28,10 +28,11 @@ import {
   Trash2,
   Lock,
 } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { routePreloadMap } from "@/App";
 import { NavLink } from "@/components/NavLink";
 import { useSidebarStats } from "@/hooks/useSidebarStats";
 import { useWarmupFolders } from "@/hooks/useWarmupFolders";
@@ -199,6 +200,13 @@ export function AppSidebar() {
     await deleteFolder.mutateAsync(id);
   }, [deleteFolder]);
 
+  const preloadedRef = useRef<Set<string>>(new Set());
+  const handlePreload = useCallback((url: string) => {
+    if (preloadedRef.current.has(url)) return;
+    preloadedRef.current.add(url);
+    routePreloadMap[url]?.();
+  }, []);
+
   const renderNavItem = (item: { title: string; url: string; icon: any; exact?: boolean; badgeKey?: BadgeKey; locked?: boolean }, indent = false) => {
     const active = isActive(item.url, item.exact);
     const badgeVal = getBadgeValue(item.badgeKey);
@@ -221,6 +229,7 @@ export function AppSidebar() {
           <NavLink
             to={isLocked ? "#" : item.url}
             onClick={isLocked ? handleClick : undefined}
+            onMouseEnter={() => !isLocked && handlePreload(item.url)}
             className={`sidebar-nav-item flex items-center rounded-[10px] text-[13px] relative
               transition-[background-color,color,opacity] duration-[120ms] ease-out
               ${collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : `gap-[11px] ${indent ? 'pl-8' : 'px-3.5'} pr-3.5 py-[10px]`}
