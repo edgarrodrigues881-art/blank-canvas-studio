@@ -1076,6 +1076,13 @@ const WarmupInstances = () => {
     setCancelConfirmDevice(deviceId);
   }, []);
 
+  const handleWarningOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      setShowWarning(false);
+      if (!agreedResponsibility) navigate("/dashboard");
+    }
+  }, [agreedResponsibility, navigate]);
+
   const handleNavigate = useCallback((path: string) => {
     navigate(activeFolderId ? `${path}?folder=${activeFolderId}` : path);
   }, [navigate, activeFolderId]);
@@ -1110,83 +1117,98 @@ const WarmupInstances = () => {
   return (
     <div className="space-y-5">
       {/* Warning popup - chips novos */}
-      <Dialog open={showWarning} onOpenChange={(open) => { if (!open) { setShowWarning(false); if (!agreedResponsibility) navigate("/dashboard"); } }}>
-        <DialogContent className="max-w-md rounded-2xl border-none bg-[#0f1419] p-0 overflow-hidden relative" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => { setShowWarning(false); if (!agreedResponsibility) navigate("/dashboard"); }}>
-          {/* Subtle animated glow border */}
-          <div className="absolute inset-0 rounded-2xl pointer-events-none overflow-hidden">
-            <div className="absolute inset-[-2px] rounded-2xl opacity-40" style={{
-              background: 'conic-gradient(from var(--glow-angle, 0deg), transparent 0%, hsl(180 40% 45% / 0.5) 15%, transparent 30%, hsl(35 60% 50% / 0.35) 50%, transparent 65%, hsl(180 40% 45% / 0.4) 80%, transparent 100%)',
-              animation: 'warmup-glow-spin 8s linear infinite',
-            }} />
-            <div className="absolute inset-[1px] rounded-2xl bg-[#0f1419]" />
-          </div>
-
-          {/* Inner content wrapper */}
-          <div className="relative z-10">
-            {/* Logo + Header */}
-            <div className="flex flex-col items-center pt-7 pb-4 px-6">
-              <div className="relative mb-4">
-                <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-teal-500/20 via-amber-500/10 to-teal-500/15 blur-lg pointer-events-none" />
-                <img
-                  src={dgLogoNew}
-                  alt="DG Logo"
-                  className="relative w-16 h-16 rounded-2xl shadow-lg ring-1 ring-white/10"
-                />
-              </div>
-              <h2 className="text-base font-bold text-white tracking-tight text-center">Orientações antes de começar</h2>
-              <p className="text-xs text-white/40 mt-1 text-center">Leia com atenção para garantir a segurança do seu chip.</p>
+      <Dialog open={showWarning} onOpenChange={handleWarningOpenChange}>
+        <DialogContent
+          className="left-0 top-0 z-50 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 items-center justify-center border-none bg-transparent p-4 shadow-none [&>button:last-child]:hidden"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={() => handleWarningOpenChange(false)}
+        >
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[hsl(210_23%_8%)]">
+            {/* Subtle animated glow border */}
+            <div className="absolute inset-0 rounded-2xl pointer-events-none overflow-hidden">
+              <div className="absolute inset-[-2px] rounded-2xl opacity-40" style={{
+                background: 'conic-gradient(from var(--glow-angle, 0deg), transparent 0%, hsl(180 40% 45% / 0.5) 15%, transparent 30%, hsl(35 60% 50% / 0.35) 50%, transparent 65%, hsl(180 40% 45% / 0.4) 80%, transparent 100%)',
+                animation: 'warmup-glow-spin 8s linear infinite',
+              }} />
+              <div className="absolute inset-[1px] rounded-2xl bg-[hsl(210_23%_8%)]" />
             </div>
 
-            {/* Divider */}
-            <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mx-6" />
+            <button
+              type="button"
+              aria-label="Fechar orientações"
+              onClick={() => handleWarningOpenChange(false)}
+              className="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 transition-all hover:bg-white/10 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
 
-            {/* Body */}
-            <div className="px-6 py-5 space-y-4">
-              <div className="space-y-3 text-[13px] text-white/55 leading-relaxed">
-                <p>
-                  Antes de conectar o chip ao QR Code, realize ao menos uma <strong className="text-white/90 font-medium">interação manual</strong> no aparelho — como enviar uma mensagem ou fazer uma ligação.
-                </p>
-                <p>
-                  Essa etapa inicial reduz significativamente o risco de <strong className="text-white/90 font-medium">restrições durante o aquecimento</strong>.
-                </p>
+            {/* Inner content wrapper */}
+            <div className="relative z-10">
+              {/* Logo + Header */}
+              <div className="flex flex-col items-center pt-7 pb-4 px-6">
+                <div className="relative mb-4">
+                  <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-teal-500/20 via-amber-500/10 to-teal-500/15 blur-lg pointer-events-none" />
+                  <img
+                    src={dgLogoNew}
+                    alt="DG Logo"
+                    className="relative w-16 h-16 rounded-2xl shadow-lg ring-1 ring-white/10"
+                  />
+                </div>
+                <h2 className="text-base font-bold text-white tracking-tight text-center">Orientações antes de começar</h2>
+                <p className="text-xs text-white/40 mt-1 text-center">Leia com atenção para garantir a segurança do seu chip.</p>
               </div>
 
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3.5 flex items-start gap-3">
-                <Shield className="w-4 h-4 text-teal-400/80 mt-0.5 shrink-0" />
-                <p className="text-xs text-white/45 leading-relaxed">
-                  <strong className="text-white/75 font-medium">Termo de uso</strong> — Esta ferramenta auxilia no processo de aquecimento. O usuário é responsável por seguir as boas práticas recomendadas e pela utilização adequada dos recursos disponibilizados.
-                </p>
-              </div>
+              {/* Divider */}
+              <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mx-6" />
 
-              {/* Checkboxes */}
-              <div className="space-y-3 pt-1">
-                <div className="flex items-start gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3 cursor-pointer transition-colors hover:bg-white/[0.05]" onClick={() => setAgreedResponsibility(!agreedResponsibility)}>
-                  <Checkbox id="agreeResponsibility" checked={agreedResponsibility} onCheckedChange={(v) => setAgreedResponsibility(!!v)} className="mt-0.5 border-white/20 data-[state=checked]:bg-teal-500 data-[state=checked]:border-teal-500" />
-                  <label htmlFor="agreeResponsibility" className="text-[13px] text-white/50 cursor-pointer select-none leading-relaxed">
-                    Li e concordo com as orientações de uso responsável.
-                  </label>
+              {/* Body */}
+              <div className="px-6 py-5 space-y-4">
+                <div className="space-y-3 text-[13px] text-white/55 leading-relaxed">
+                  <p>
+                    Antes de conectar o chip ao QR Code, realize ao menos uma <strong className="text-white/90 font-medium">interação manual</strong> no aparelho — como enviar uma mensagem ou fazer uma ligação.
+                  </p>
+                  <p>
+                    Essa etapa inicial reduz significativamente o risco de <strong className="text-white/90 font-medium">restrições durante o aquecimento</strong>.
+                  </p>
                 </div>
 
-                <div className="flex items-center gap-2 pl-1">
-                  <Checkbox id="dontShowAgainV2" checked={dontShowAgain} onCheckedChange={(v) => setDontShowAgain(!!v)} className="border-white/15 data-[state=checked]:bg-teal-500/80 data-[state=checked]:border-teal-500/80" />
-                  <label htmlFor="dontShowAgainV2" className="text-xs text-white/30 cursor-pointer select-none">Não mostrar novamente</label>
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3.5 flex items-start gap-3">
+                  <Shield className="w-4 h-4 text-teal-400/80 mt-0.5 shrink-0" />
+                  <p className="text-xs text-white/45 leading-relaxed">
+                    <strong className="text-white/75 font-medium">Termo de uso</strong> — Esta ferramenta auxilia no processo de aquecimento. O usuário é responsável por seguir as boas práticas recomendadas e pela utilização adequada dos recursos disponibilizados.
+                  </p>
+                </div>
+
+                {/* Checkboxes */}
+                <div className="space-y-3 pt-1">
+                  <div className="flex items-start gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3 cursor-pointer transition-colors hover:bg-white/[0.05]" onClick={() => setAgreedResponsibility(!agreedResponsibility)}>
+                    <Checkbox id="agreeResponsibility" checked={agreedResponsibility} onCheckedChange={(v) => setAgreedResponsibility(!!v)} className="mt-0.5 border-white/20 data-[state=checked]:bg-teal-500 data-[state=checked]:border-teal-500" />
+                    <label htmlFor="agreeResponsibility" className="text-[13px] text-white/50 cursor-pointer select-none leading-relaxed">
+                      Li e concordo com as orientações de uso responsável.
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-2 pl-1">
+                    <Checkbox id="dontShowAgainV2" checked={dontShowAgain} onCheckedChange={(v) => setDontShowAgain(!!v)} className="border-white/15 data-[state=checked]:bg-teal-500/80 data-[state=checked]:border-teal-500/80" />
+                    <label htmlFor="dontShowAgainV2" className="text-xs text-white/30 cursor-pointer select-none">Não mostrar novamente</label>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Footer */}
-            <div className="px-6 pb-6">
-              <Button
-                className="w-full h-11 text-sm font-semibold rounded-xl transition-all duration-300 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white shadow-lg shadow-teal-500/20 disabled:opacity-40 disabled:shadow-none"
-                disabled={!agreedResponsibility}
-                onClick={() => {
-                  if (dontShowAgain) localStorage.setItem(WARNING_DISMISS_KEY, "true");
-                  setShowWarning(false);
-                }}
-              >
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                Entendi e continuar
-              </Button>
+              {/* Footer */}
+              <div className="px-6 pb-6">
+                <Button
+                  className="w-full h-11 text-sm font-semibold rounded-xl transition-all duration-300 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white shadow-lg shadow-teal-500/20 disabled:opacity-40 disabled:shadow-none"
+                  disabled={!agreedResponsibility}
+                  onClick={() => {
+                    if (dontShowAgain) localStorage.setItem(WARNING_DISMISS_KEY, "true");
+                    setShowWarning(false);
+                  }}
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Entendi e continuar
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
