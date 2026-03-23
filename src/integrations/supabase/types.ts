@@ -2619,7 +2619,7 @@ export type Database = {
           {
             foreignKeyName: "warmup_folder_devices_device_id_fkey"
             columns: ["device_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
