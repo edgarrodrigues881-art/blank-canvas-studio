@@ -70,7 +70,7 @@ export function AnnouncementPopup({ announcement, onClose, onDismiss, isPreview 
   return (
     <AnimatePresence>
       {visible && (
-        <div className="announcement-theme fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ pointerEvents: "auto" }}>
+        <div className="announcement-theme fixed inset-0 z-[9999] flex items-center justify-center p-4 isolate" style={{ pointerEvents: "auto" }}>
           {/* Overlay */}
           <motion.div
             initial={{ opacity: 0 }}
