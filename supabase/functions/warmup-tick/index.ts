@@ -1685,7 +1685,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
   // ── ORPHANED CYCLE RECOVERY: Running cycles with 0 pending jobs during operating hours ──
   if (withinWindow && isPrimaryShard) {
     const { data: runningCycles } = await db.from("warmup_cycles")
-      .select("id, user_id, device_id, day_index, days_total, chip_state, phase, daily_interaction_budget_target, daily_interaction_budget_used, last_daily_reset_at, first_24h_ends_at")
+      .select("id, user_id, device_id, day_index, days_total, chip_state, phase, daily_interaction_budget_target, daily_interaction_budget_used, last_daily_reset_at, first_24h_ends_at, updated_at")
       .eq("is_running", true)
       .not("phase", "in", '("completed","paused","error")')
       .limit(500);
@@ -1702,7 +1702,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
       const cyclesWithJobs = new Set((pendingJobsRes.data || []).map((j: any) => j.cycle_id));
       const cyclesWithReset = new Set((pendingResetRes.data || []).map((j: any) => j.cycle_id));
       const nowMs = Date.now();
-      const STALE_RESET_MS = 26 * 60 * 60 * 1000; // 26 hours — should reset every ~24h
+      const STALE_RESET_MS = 36 * 60 * 60 * 1000; // 36 hours — more conservative to avoid day-skipping on pause/resume
 
       for (const cycle of runningCycles) {
         const chipState = cycle.chip_state || "new";
@@ -1755,7 +1755,11 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
         const lastResetMs = cycle.last_daily_reset_at ? new Date(cycle.last_daily_reset_at).getTime() : 0;
         const resetAge = nowMs - lastResetMs;
 
-        if (cycle.phase !== "pre_24h" && resetAge > STALE_RESET_MS) {
+        // Skip stale reset if cycle was recently updated (e.g. just resumed from pause)
+        const cycleUpdatedMs = cycle.updated_at ? new Date(cycle.updated_at).getTime() : 0;
+        const recentlyResumed = (nowMs - cycleUpdatedMs) < 4 * 60 * 60 * 1000; // 4h grace
+
+        if (cycle.phase !== "pre_24h" && resetAge > STALE_RESET_MS && !recentlyResumed) {
           // Check device is connected
           const { data: dev } = await db.from("devices").select("status").eq("id", cycle.device_id).maybeSingle();
           if (!dev || !CONNECTED_STATUSES.includes(dev.status)) continue;
