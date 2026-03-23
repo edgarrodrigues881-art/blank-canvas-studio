@@ -1627,7 +1627,7 @@ Deno.serve(async (req) => {
   try {
     if (body.action === "daily") return await handleDailyReset(db);
     if (body.action === "schedule_day") return await handleScheduleDay(db, body);
-    return await handleTick(db, shardIndex, shardTotal);
+    return await handleTick(db, shardIndex, shardTotal, body);
   } catch (err) {
     console.error("[warmup-tick] Error:", err.message);
     return json({ error: err.message }, 500);
@@ -1638,15 +1638,21 @@ Deno.serve(async (req) => {
 // TICK HANDLER
 // ══════════════════════════════════════════════════════════
 
-async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
+async function handleTick(
+  db: any,
+  shardIndex = 0,
+  shardTotal = 1,
+  options: { cycle_id?: string; device_id?: string; job_id?: string } = {},
+) {
   const now = new Date().toISOString();
   const withinWindow = isWithinOperatingWindow();
+  const isTargetedRun = Boolean(options?.cycle_id || options?.device_id || options?.job_id);
 
   // Only shard 0 handles maintenance tasks (cancel stale, recover running, reconcile, orphans, auto-resume)
   const isPrimaryShard = shardIndex === 0;
 
   // Cancel stale interaction jobs outside window (but skip forced jobs)
-  if (!withinWindow && isPrimaryShard) {
+  if (!isTargetedRun && !withinWindow && isPrimaryShard) {
     const { data: outsideJobs } = await db.from("warmup_jobs")
       .select("id, payload")
       .eq("status", "pending").lte("run_at", now)
@@ -1665,7 +1671,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
   }
 
   // Recover stale "running" jobs (>5min) — only primary shard
-  if (isPrimaryShard) {
+  if (!isTargetedRun && isPrimaryShard) {
     const staleThreshold = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     await db.from("warmup_jobs")
       .update({ status: "pending", last_error: "Recuperado de estado running travado" })
@@ -1673,7 +1679,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
   }
 
   // Reconcile join_group jobs already joined — only primary shard
-  if (isPrimaryShard) {
+  if (!isTargetedRun && isPrimaryShard) {
     const { data: staleJoins } = await db.from("warmup_jobs")
       .select("id, device_id, payload")
       .eq("job_type", "join_group").eq("status", "pending").limit(1000);
@@ -1701,7 +1707,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
   } // end isPrimaryShard reconcile
 
   // ── ORPHANED CYCLE RECOVERY: Running cycles with 0 pending jobs during operating hours ──
-  if (withinWindow && isPrimaryShard) {
+  if (!isTargetedRun && withinWindow && isPrimaryShard) {
     const { data: runningCycles } = await db.from("warmup_cycles")
       .select("id, user_id, device_id, day_index, days_total, chip_state, phase, daily_interaction_budget_target, daily_interaction_budget_used, last_daily_reset_at, first_24h_ends_at, created_at, started_at, updated_at")
       .eq("is_running", true)
@@ -1900,7 +1906,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
   }
 
   // ── AUTO-RESUME: Reconnected devices auto-restart paused warmup cycles — only primary shard ──
-  if (isPrimaryShard) {
+  if (!isTargetedRun && isPrimaryShard) {
     const { data: pausedCyclesCheck } = await db.from("warmup_cycles")
       .select("id, user_id, device_id, day_index, days_total, chip_state, phase, previous_phase, plan_id, last_error")
       .eq("is_running", false)
@@ -1997,11 +2003,19 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
 
   // Fetch pending jobs — increased limit for 10k+ scale
   // Each shard claims its own batch using FOR UPDATE SKIP LOCKED semantics (via order + limit)
-  const jobLimit = shardTotal > 1 ? 1000 : 2000;
-  const { data: pendingJobs, error: fetchErr } = await db.from("warmup_jobs")
+  const jobLimit = options?.job_id ? 1 : (shardTotal > 1 ? 1000 : 2000);
+  let jobsQuery = db.from("warmup_jobs")
     .select("id, user_id, device_id, cycle_id, job_type, payload, run_at, status, attempts, max_attempts")
-    .eq("status", "pending").lte("run_at", now)
-    .order("run_at", { ascending: true }).limit(jobLimit);
+    .eq("status", "pending")
+    .lte("run_at", now);
+
+  if (options?.job_id) jobsQuery = jobsQuery.eq("id", options.job_id);
+  if (options?.cycle_id) jobsQuery = jobsQuery.eq("cycle_id", options.cycle_id);
+  if (options?.device_id) jobsQuery = jobsQuery.eq("device_id", options.device_id);
+
+  const { data: pendingJobs, error: fetchErr } = await jobsQuery
+    .order("run_at", { ascending: true })
+    .limit(jobLimit);
 
   if (fetchErr) throw fetchErr;
   if (!pendingJobs?.length) return json({ ok: true, processed: 0, succeeded: 0, failed: 0, shard: shardIndex });
