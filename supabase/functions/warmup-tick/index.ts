@@ -81,6 +81,12 @@ function isCommunityPhase(phase: string): boolean {
   return phase === "community_ramp_up" || phase === "community_stable" || phase === "community_enabled" || phase === "community_light";
 }
 
+function hasWarmupAccess(subscription: { expires_at?: string | null } | null | undefined, profile: { instance_override?: number | null } | null | undefined): boolean {
+  const hasActiveSubscription = !!subscription?.expires_at && new Date(subscription.expires_at) >= new Date();
+  const hasLegacyAccess = Number(profile?.instance_override ?? 0) > 0;
+  return hasActiveSubscription || hasLegacyAccess;
+}
+
 // ══════════════════════════════════════════════════════════
 // VOLUME CONFIG — 120 to 200 messages/day total (progressive 30-day)
 // Must match warmup-engine exactly
@@ -1908,10 +1914,11 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
         if (!sub || new Date(sub.expires_at) < new Date()) continue;
 
         const { data: prof } = await db.from("profiles")
-          .select("status")
+          .select("status, instance_override")
           .eq("id", cycle.user_id)
           .maybeSingle();
 
+        if (!hasWarmupAccess(sub, prof)) continue;
         if (prof?.status === "suspended" || prof?.status === "cancelled") continue;
 
         // All checks passed — resume cycle
@@ -2049,7 +2056,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
   const [cyclesArr, subsArr, profilesArr, devicesArr, userMsgsArr, autosaveArr, instanceGroupsArr, groupsPoolArr, imagePool, audioPool] = await Promise.all([
     batchLoad<any>("warmup_cycles", "id, user_id, device_id, phase, is_running, day_index, days_total, chip_state, daily_interaction_budget_min, daily_interaction_budget_max, daily_interaction_budget_target, daily_interaction_budget_used, daily_unique_recipients_cap, daily_unique_recipients_used, first_24h_ends_at, last_daily_reset_at, next_run_at, plan_id", "id", uniqueCycleIds),
     batchLoad<any>("subscriptions", "user_id, expires_at, created_at", "user_id", uniqueUserIds, q => q.order("created_at", { ascending: false })),
-    batchLoad<any>("profiles", "id, status", "id", uniqueUserIds),
+    batchLoad<any>("profiles", "id, status, instance_override", "id", uniqueUserIds),
     batchLoad<any>("devices", "id, status, uazapi_token, uazapi_base_url, number", "id", uniqueDeviceIds),
     batchLoad<any>("warmup_messages", "content, user_id", "user_id", uniqueUserIds),
     batchLoad<any>("warmup_autosave_contacts", "id, phone_e164, contact_name, user_id, created_at, updated_at, last_used_at, use_count, contact_status", "user_id", uniqueUserIds, q =>
@@ -2163,7 +2170,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
     // Plan check
     const userSub = subsMap[cycle.user_id];
     const userProf = profilesMap[cycle.user_id];
-    if (!userSub || new Date(userSub.expires_at) < new Date() || userProf?.status === "suspended" || userProf?.status === "cancelled") {
+    if (!hasWarmupAccess(userSub, userProf) || userProf?.status === "suspended" || userProf?.status === "cancelled") {
       await db.from("warmup_cycles").update({
         is_running: false, phase: "paused", previous_phase: cycle.phase,
         last_error: "Auto-pausado: plano inativo",
