@@ -1717,14 +1717,39 @@ async function handleTick(
     if (runningCycles?.length) {
       const cycleIds = runningCycles.map((c: any) => c.id);
 
-      // Batch: get all cycle IDs that have pending jobs AND pending daily_reset jobs
-      const [pendingJobsRes, pendingResetRes] = await Promise.all([
-        db.from("warmup_jobs").select("cycle_id").in("cycle_id", cycleIds).in("status", ["pending", "running"]),
-        db.from("warmup_jobs").select("cycle_id").in("cycle_id", cycleIds).eq("job_type", "daily_reset").eq("status", "pending"),
-      ]);
+      // Auto-correct stale phases that no longer exist in getPhaseForDay()
+      for (const cycle of runningCycles) {
+        const correctPhase = getPhaseForDay(cycle.day_index || 1, cycle.chip_state || "new");
+        if (cycle.phase !== correctPhase && !["pre_24h", "paused", "completed", "error"].includes(cycle.phase)) {
+          // Only correct if current phase is not a valid return from getPhaseForDay
+          const validPhases = ["pre_24h", "groups_only", "autosave_enabled", "community_ramp_up", "community_stable"];
+          if (!validPhases.includes(cycle.phase)) {
+            console.log(`[warmup-tick] PHASE CORRECTION: cycle ${cycle.id} phase "${cycle.phase}" → "${correctPhase}" (day ${cycle.day_index}, ${cycle.chip_state})`);
+            await db.from("warmup_cycles").update({ phase: correctPhase }).eq("id", cycle.id);
+            cycle.phase = correctPhase;
+          }
+        }
+      }
 
-      const cyclesWithJobs = new Set((pendingJobsRes.data || []).map((j: any) => j.cycle_id));
-      const cyclesWithReset = new Set((pendingResetRes.data || []).map((j: any) => j.cycle_id));
+      // Batch: get per-cycle pending job counts using count queries to avoid 1000-row limit
+      // Use individual count queries per cycle to avoid default row limit truncation
+      const cyclesWithJobs = new Set<string>();
+      const cyclesWithReset = new Set<string>();
+      
+      for (let i = 0; i < cycleIds.length; i += 50) {
+        const batch = cycleIds.slice(i, i + 50);
+        const [pendingRes, resetRes] = await Promise.all([
+          db.from("warmup_jobs").select("cycle_id", { count: "exact" }).in("cycle_id", batch).in("status", ["pending", "running"]).limit(1),
+          db.from("warmup_jobs").select("cycle_id", { count: "exact" }).in("cycle_id", batch).eq("job_type", "daily_reset").eq("status", "pending").limit(1),
+        ]);
+        // We need distinct cycle_ids — use a different approach: query with distinct
+        const [pendingDistinct, resetDistinct] = await Promise.all([
+          db.from("warmup_jobs").select("cycle_id").in("cycle_id", batch).in("status", ["pending", "running"]).limit(5000),
+          db.from("warmup_jobs").select("cycle_id").in("cycle_id", batch).eq("job_type", "daily_reset").eq("status", "pending").limit(5000),
+        ]);
+        (pendingDistinct.data || []).forEach((j: any) => cyclesWithJobs.add(j.cycle_id));
+        (resetDistinct.data || []).forEach((j: any) => cyclesWithReset.add(j.cycle_id));
+      }
       const nowMs = Date.now();
       const STALE_RESET_MS = 36 * 60 * 60 * 1000; // 36 hours — more conservative to avoid day-skipping on pause/resume
 
@@ -1875,6 +1900,15 @@ async function handleTick(
 
         // Skip pre_24h for orphan recovery below
         if (cycle.phase === "pre_24h") continue;
+
+        // Cancel stale join_group jobs for cycles past day 1
+        if ((cycle.day_index || 1) > 1) {
+          await db.from("warmup_jobs")
+            .update({ status: "cancelled", last_error: "Cancelado: join_group só no dia 1" })
+            .eq("cycle_id", cycle.id)
+            .eq("job_type", "join_group")
+            .in("status", ["pending", "running"]);
+        }
 
         // ── Original orphan recovery: running with 0 pending jobs ──
         if (cyclesWithJobs.has(cycle.id)) continue;

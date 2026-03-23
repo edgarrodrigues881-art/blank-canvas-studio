@@ -135,17 +135,22 @@ const CampaignDetail = () => {
     return () => clearInterval(interval);
   }, [campaign?.scheduled_at, campaign?.status]);
 
-  const { data: contacts = [], isLoading: contactsLoading } = useQuery({
-    queryKey: ["campaign-contacts", id],
+  const [contactPage, setContactPage] = useState(0);
+  const CONTACTS_PER_PAGE = 100;
+
+  const { data: contactsResult, isLoading: contactsLoading } = useQuery({
+    queryKey: ["campaign-contacts", id, contactPage],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const from = contactPage * CONTACTS_PER_PAGE;
+      const to = from + CONTACTS_PER_PAGE - 1;
+      const { data, error, count } = await supabase
         .from("campaign_contacts")
-        .select("id, campaign_id, phone, name, status, sent_at, error_message, created_at, device_id")
+        .select("id, campaign_id, phone, name, status, sent_at, error_message, created_at, device_id", { count: "exact" })
         .eq("campaign_id", id!)
         .order("created_at", { ascending: true })
-        .limit(500);
+        .range(from, to);
       if (error) throw error;
-      return data || [];
+      return { rows: data || [], total: count || 0 };
     },
     enabled: !!id && !!user,
     refetchInterval: () => {
@@ -153,6 +158,10 @@ const CampaignDetail = () => {
       return false;
     },
   });
+
+  const contacts = contactsResult?.rows ?? [];
+  const totalContacts = contactsResult?.total ?? 0;
+  const totalContactPages = Math.max(1, Math.ceil(totalContacts / CONTACTS_PER_PAGE));
 
   const { data: devices = [] } = useQuery({
     queryKey: ["devices"],
@@ -692,7 +701,7 @@ const CampaignDetail = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredContacts.slice(0, 200).map(c => {
+                  filteredContacts.map(c => {
                     const ccfg = contactStatusConfig[c.status] || contactStatusConfig.pending;
                     const Icon = ccfg.icon;
                     const errCount = c.error_message?.match(/\((\d+) tentativa/)?.[1];
@@ -738,9 +747,24 @@ const CampaignDetail = () => {
               </TableBody>
             </Table>
           </div>
-          {filteredContacts.length > 200 && (
-            <div className="px-4 py-2 text-[9px] text-muted-foreground/40 border-t border-border/10 text-center">
-              Mostrando 200 de {filteredContacts.length} registros
+          {/* Pagination */}
+          {totalContactPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-2.5 border-t border-border/10">
+              <span className="text-[10px] text-muted-foreground/50">
+                Página {contactPage + 1} de {totalContactPages} • {totalContacts} contatos
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2"
+                  disabled={contactPage === 0}
+                  onClick={() => setContactPage(p => Math.max(0, p - 1))}>
+                  ← Anterior
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2"
+                  disabled={contactPage >= totalContactPages - 1}
+                  onClick={() => setContactPage(p => p + 1)}>
+                  Próxima →
+                </Button>
+              </div>
             </div>
           )}
         </div>
