@@ -2941,8 +2941,8 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
           p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: mIdx === 0,
         });
         if (budgetResult2) {
-          cycle.daily_interaction_budget_used = budgetResult2.used;
-          cycle.daily_unique_recipients_used = budgetResult2.recipients_used;
+          cycle.daily_interaction_budget_used = budgetResult2.budget_used;
+          cycle.daily_unique_recipients_used = budgetResult2.unique_used;
         }
 
         bufferAudit({
