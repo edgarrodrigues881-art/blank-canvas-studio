@@ -55,20 +55,33 @@ export function usePlanGate() {
     staleTime: 60_000,
   });
 
+  const hasLegacyRestoredAccess = useMemo(() => (profile?.instance_override ?? 0) > 0, [profile]);
+
+  const effectiveSubscription = useMemo(() => {
+    if (subscription) return subscription;
+    if (!hasLegacyRestoredAccess) return null;
+    return {
+      plan_name: "Acesso restaurado",
+      plan_price: 0,
+      max_instances: profile?.instance_override ?? 0,
+      expires_at: "2999-12-31T23:59:59.000Z",
+    };
+  }, [subscription, hasLegacyRestoredAccess, profile]);
+
   const planState: PlanState = useMemo(() => {
     if (profile?.status === "suspended" || profile?.status === "cancelled") return "suspended";
-    if (!subscription) return "noPlan";
-    if (new Date(subscription.expires_at) < new Date()) return "expired";
+    if (!effectiveSubscription) return "noPlan";
+    if (new Date(effectiveSubscription.expires_at) < new Date()) return "expired";
     return "active";
-  }, [subscription, profile]);
+  }, [effectiveSubscription, profile]);
 
   const isBlocked = planState !== "active";
 
   // Plan natively includes reports (Scale, Elite)
   const planIncludesReports = useMemo(() => {
-    if (planState !== "active" || !subscription) return false;
-    return !!PLANS_WITH_REPORTS[subscription.plan_name];
-  }, [planState, subscription]);
+    if (planState !== "active" || !effectiveSubscription) return false;
+    return hasLegacyRestoredAccess || !!PLANS_WITH_REPORTS[effectiveSubscription.plan_name];
+  }, [planState, effectiveSubscription, hasLegacyRestoredAccess]);
 
   // Notification addon active (separate subscription or admin override)
   const notificationAddonActive = useMemo(() => {
@@ -104,9 +117,9 @@ export function usePlanGate() {
     isBlocked,
     blockReason,
     planBadgeText,
-    subscription,
+    subscription: effectiveSubscription,
     profile,
-    maxInstances: (subscription?.max_instances ?? 0) + (profile?.instance_override ?? 0),
+    maxInstances: effectiveSubscription?.max_instances ?? 0,
     planIncludesReports,
     notificationAddonActive,
     notificationSub,
