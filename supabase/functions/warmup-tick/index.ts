@@ -1685,7 +1685,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
   // ── ORPHANED CYCLE RECOVERY: Running cycles with 0 pending jobs during operating hours ──
   if (withinWindow && isPrimaryShard) {
     const { data: runningCycles } = await db.from("warmup_cycles")
-      .select("id, user_id, device_id, day_index, days_total, chip_state, phase, daily_interaction_budget_target, daily_interaction_budget_used, last_daily_reset_at, first_24h_ends_at")
+      .select("id, user_id, device_id, day_index, days_total, chip_state, phase, daily_interaction_budget_target, daily_interaction_budget_used, last_daily_reset_at, first_24h_ends_at, updated_at")
       .eq("is_running", true)
       .not("phase", "in", '("completed","paused","error")')
       .limit(500);
