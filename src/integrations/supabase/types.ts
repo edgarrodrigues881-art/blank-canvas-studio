@@ -2375,7 +2375,7 @@ export type Database = {
         }
         Insert: {
           contact_name: string
-          contact_status: string
+          contact_status?: string
           created_at?: string
           id?: string
           is_active?: boolean
