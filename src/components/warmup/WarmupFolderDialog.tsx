@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Trash2, X, Plus, Tag } from "lucide-react";
+import { toast } from "sonner";
 
 const COLORS = [
   "#10b981", "#f59e0b", "#ef4444", "#3b82f6",
