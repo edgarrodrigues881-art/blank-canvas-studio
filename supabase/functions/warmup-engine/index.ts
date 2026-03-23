@@ -301,7 +301,16 @@ function calculateWindow(forced: boolean = false): WindowResult | null {
   const startMs = getBrtTodayAt(7).getTime();
   const endMs = getBrtTodayAt(19).getTime();
 
-  // Case 1: Forced execution outside window → 2h emergency window
+  // Case 1a: Forced execution before window → start immediately, keep today's remaining window
+  if (forced && nowMs < startMs) {
+    return {
+      effectiveStart: nowMs,
+      effectiveEnd: endMs,
+      isEmergency: true,
+    };
+  }
+
+  // Case 1b: Forced execution after window → 2h emergency window
   if (forced && nowMs >= endMs) {
     return {
       effectiveStart: nowMs,
