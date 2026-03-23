@@ -95,6 +95,7 @@ Deno.serve(async (req) => {
         .insert({
           name: name.trim(),
           login_type,
+          instance_type: login_type === "contingencia" ? "contingencia" : login_type === "report_wa" ? "notificacao" : "principal",
           user_id: user.id,
         })
         .select("id, name, status, login_type, number, proxy_id, profile_picture, profile_name, created_at, updated_at, instance_type")
@@ -153,6 +154,7 @@ Deno.serve(async (req) => {
         inserts.push({
           name: `${prefix} ${idx}`,
           login_type: "qr",
+          instance_type: "principal",
           user_id: user.id,
           proxy_id: proxyId,
         });
@@ -163,6 +165,7 @@ Deno.serve(async (req) => {
         inserts.push({
           name: `${prefix} ${idx}`,
           login_type: "qr",
+          instance_type: "principal",
           user_id: user.id,
           proxy_id: null,
         });
