@@ -3100,7 +3100,7 @@ async function handleTick(db: any, shardIndex = 0, shardTotal = 1) {
           const { data: budgetResult3 } = await db.rpc("increment_warmup_budget", {
             p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: false,
           });
-          if (budgetResult3) cycle.daily_interaction_budget_used = budgetResult3.used;
+          if (budgetResult3) cycle.daily_interaction_budget_used = budgetResult3.budget_used;
 
           if (hasNextTurn && nextCycle) {
             const replyDelaySeconds = randInt(8, 35);
