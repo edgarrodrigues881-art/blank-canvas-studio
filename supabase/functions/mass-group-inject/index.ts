@@ -911,7 +911,7 @@ Deno.serve(async (req) => {
       if (!device) return new Response(JSON.stringify({ status: "unauthorized", error: "Instância não encontrada.", detail: "Sem credenciais." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const participants = await getGroupParticipants(device.uazapi_base_url, device.uazapi_token, body.groupId);
       const result = participantSetHasPhone(participants, body.phone)
-        ? { status: "already_exists", detail: "Contato já participava do grupo.", attempts: 0 }
+        ? { status: "already_exists", detail: "Contato já participava do grupo.", attempts: 0, pauseCampaign: false }
         : await executeAddWithRecovery(device.uazapi_base_url, device.uazapi_token, body.groupId, body.phone);
       return new Response(JSON.stringify({ status: result.status, detail: result.detail, error: SUCCESS_STATUSES.has(result.status) ? null : result.detail, pauseCampaign: !!result.pauseCampaign, attempts: result.attempts }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
