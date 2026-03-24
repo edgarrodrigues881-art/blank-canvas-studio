@@ -83,7 +83,13 @@ export const routePreloadMap: Record<string, () => void> = {
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, refetchOnWindowFocus: false },
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      staleTime: 60_000,        // 1min default — prevents duplicate fetches across components
+      gcTime: 300_000,          // 5min garbage collection
+    },
   },
 });
 

@@ -60,10 +60,12 @@ export function useCampaigns() {
       return data as Campaign[];
     },
     enabled: !!user,
+    staleTime: 30_000,
     refetchInterval: (query) => {
+      if (document.hidden) return false; // Don't poll when tab hidden
       const campaigns = query.state.data;
       const hasActive = campaigns?.some((c: Campaign) => ["running", "processing"].includes(c.status));
-      return hasActive ? 5000 : false; // Only poll when active campaigns exist; realtime handles the rest
+      return hasActive ? 10_000 : 120_000; // 10s when active, 2min idle
     },
   });
 }

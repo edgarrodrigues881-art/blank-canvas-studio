@@ -63,6 +63,7 @@ export function useGroupInteraction() {
       return (data || []) as unknown as GroupInteraction[];
     },
     enabled: !!user,
+    staleTime: 120_000,
   });
 
   const { data: logs = [], isLoading: logsLoading } = useQuery({
@@ -71,15 +72,16 @@ export function useGroupInteraction() {
       if (!user) return [];
       const { data, error } = await supabase
         .from("group_interaction_logs" as any)
-        .select("*")
+        .select("id, interaction_id, group_id, group_name, message_content, message_category, status, error_message, pause_applied_seconds, sent_at")
         .eq("user_id", user.id)
         .order("sent_at", { ascending: false })
-        .limit(100);
+        .limit(50);
       if (error) throw error;
       return (data || []) as unknown as GroupInteractionLog[];
     },
     enabled: !!user,
-    refetchInterval: 120_000,
+    staleTime: 120_000,
+    refetchInterval: () => document.hidden ? false : 120_000,
   });
 
   const createInteraction = useMutation({
