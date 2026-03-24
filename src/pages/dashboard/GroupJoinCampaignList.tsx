@@ -3,17 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
-  Plus, LogIn, Clock, CheckCircle2, XCircle, AlertTriangle,
-  Loader2, Trash2, StopCircle, Play, Pause, MoreHorizontal,
-  Users, Link2, ArrowRight
+  Plus, LogIn, CheckCircle2, XCircle, AlertTriangle,
+  Loader2, Trash2, StopCircle, Play, Pause, MoreVertical,
+  Users, Link2, ArrowRight, Clock, Zap
 } from "lucide-react";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -21,13 +20,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
-const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
-  draft:     { label: "Rascunho",      color: "bg-muted text-muted-foreground",       icon: Clock },
-  running:   { label: "Em andamento",  color: "bg-emerald-500/15 text-emerald-500",   icon: Play },
-  paused:    { label: "Pausada",       color: "bg-amber-500/15 text-amber-500",       icon: Pause },
-  done:      { label: "Concluída",     color: "bg-blue-500/15 text-blue-500",         icon: CheckCircle2 },
-  error:     { label: "Erro",          color: "bg-destructive/15 text-destructive",   icon: AlertTriangle },
-  cancelled: { label: "Cancelada",     color: "bg-muted text-muted-foreground",       icon: XCircle },
+const statusConfig: Record<string, { label: string; dotColor: string; icon: any }> = {
+  draft:     { label: "Rascunho",     dotColor: "bg-muted-foreground", icon: Clock },
+  running:   { label: "Em execução",  dotColor: "bg-emerald-500",      icon: Play },
+  paused:    { label: "Pausada",      dotColor: "bg-amber-500",        icon: Pause },
+  done:      { label: "Concluída",    dotColor: "bg-primary",          icon: CheckCircle2 },
+  error:     { label: "Erro",         dotColor: "bg-destructive",      icon: AlertTriangle },
+  cancelled: { label: "Cancelada",    dotColor: "bg-muted-foreground", icon: XCircle },
 };
 
 const formatDate = (d: string) =>
@@ -56,19 +55,12 @@ export default function GroupJoinCampaignList() {
 
   useEffect(() => {
     if (!user?.id) return;
-
     const channel = supabase
       .channel(`group-join-campaigns-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "group_join_campaigns", filter: `user_id=eq.${user.id}` },
-        () => queryClient.invalidateQueries({ queryKey: ["group-join-campaigns-list"] }),
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "group_join_campaigns", filter: `user_id=eq.${user.id}` },
+        () => queryClient.invalidateQueries({ queryKey: ["group-join-campaigns-list"] }))
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [queryClient, user?.id]);
 
   const cancelMut = useMutation({
@@ -102,141 +94,155 @@ export default function GroupJoinCampaignList() {
     onSuccess: () => { toast.success("Campanha retomada"); queryClient.invalidateQueries({ queryKey: ["group-join-campaigns-list"] }); },
   });
 
+  const totalSuccess = campaigns.reduce((s: number, c: any) => s + (c.success_count || 0) + (c.already_member_count || 0), 0);
+
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl space-y-8 px-4 sm:px-6 lg:px-10 pb-10">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center">
               <LogIn className="w-5 h-5 text-primary" />
             </div>
-            Entrada em Grupos
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Campanhas de entrada automática em grupos do WhatsApp</p>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">Entrada em Grupos</h1>
+              <p className="text-sm text-muted-foreground">Campanhas automáticas de entrada em grupos WhatsApp</p>
+            </div>
+          </div>
         </div>
-        <Button onClick={() => navigate("/dashboard/group-join/new")} className="gap-2 rounded-xl h-10 px-5 shadow-md">
+        <Button onClick={() => navigate("/dashboard/group-join/new")} className="gap-2 rounded-xl h-11 px-6 shadow-lg">
           <Plus className="w-4 h-4" /> Nova Campanha
         </Button>
       </div>
 
-      {/* Stats */}
+      {/* Stats Row */}
       {campaigns.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {[
-            { label: "Total", value: campaigns.length, icon: Link2 },
-            { label: "Ativas", value: campaigns.filter((c: any) => c.status === "running").length, icon: Play },
-            { label: "Concluídas", value: campaigns.filter((c: any) => c.status === "done").length, icon: CheckCircle2 },
-            { label: "Grupos processados", value: campaigns.reduce((s: number, c: any) => s + (c.success_count || 0) + (c.already_member_count || 0), 0), icon: Users },
+            { label: "Campanhas", value: campaigns.length, icon: Link2, accent: false },
+            { label: "Em execução", value: campaigns.filter((c: any) => c.status === "running").length, icon: Zap, accent: true },
+            { label: "Concluídas", value: campaigns.filter((c: any) => c.status === "done").length, icon: CheckCircle2, accent: false },
+            { label: "Grupos com sucesso", value: totalSuccess, icon: Users, accent: false },
           ].map((stat, i) => (
-            <div key={i} className="rounded-xl border border-border/20 bg-card/80 p-3.5">
-              <div className="flex items-center gap-2 text-muted-foreground/60 mb-1">
-                <stat.icon className="w-3.5 h-3.5" />
-                <span className="text-[11px] font-medium">{stat.label}</span>
+            <div key={i} className="rounded-2xl border border-border/30 bg-card p-4 transition-colors hover:border-border/50">
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${stat.accent ? 'bg-primary/15' : 'bg-muted/50'}`}>
+                  <stat.icon className={`w-4 h-4 ${stat.accent ? 'text-primary' : 'text-muted-foreground'}`} />
+                </div>
               </div>
-              <span className="text-xl font-bold text-foreground">{stat.value}</span>
+              <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
             </div>
           ))}
         </div>
       )}
 
-      {/* Campaign List */}
+      {/* Campaign Cards */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-20">
+        <div className="flex items-center justify-center py-24">
           <Loader2 className="w-6 h-6 animate-spin text-primary" />
         </div>
       ) : campaigns.length === 0 ? (
-        <Card className="border-border/20 bg-card/80">
-          <CardContent className="py-16 text-center">
-            <LogIn className="w-12 h-12 text-muted-foreground/15 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground mb-1">Nenhuma campanha criada</h3>
-            <p className="text-sm text-muted-foreground/60 mb-6">Crie sua primeira campanha para entrar em grupos automaticamente</p>
-            <Button onClick={() => navigate("/dashboard/group-join/new")} className="gap-2 rounded-xl">
-              <Plus className="w-4 h-4" /> Criar Campanha
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="rounded-2xl border border-border/30 bg-card p-16 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-muted/30 flex items-center justify-center mx-auto mb-5">
+            <LogIn className="w-8 h-8 text-muted-foreground/20" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground mb-1.5">Nenhuma campanha criada</h3>
+          <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">Crie sua primeira campanha para começar a entrar em grupos automaticamente</p>
+          <Button onClick={() => navigate("/dashboard/group-join/new")} className="gap-2 rounded-xl h-11 px-6 shadow-lg">
+            <Plus className="w-4 h-4" /> Criar Campanha
+          </Button>
+        </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {campaigns.map((camp: any) => {
             const st = statusConfig[camp.status] || statusConfig.draft;
             const total = camp.total_items || 0;
-            const processed = (camp.success_count || 0) + (camp.already_member_count || 0) + (camp.error_count || 0);
+            const success = (camp.success_count || 0) + (camp.already_member_count || 0);
+            const errors = camp.error_count || 0;
+            const processed = success + errors;
+            const pending = Math.max(0, total - processed);
             const progress = total > 0 ? (processed / total) * 100 : 0;
-            const Icon = st.icon;
 
             return (
               <div
                 key={camp.id}
-                className="rounded-2xl border border-border/20 bg-card/80 p-4 hover:border-border/30 transition-colors cursor-pointer group"
+                className="rounded-2xl border border-border/30 bg-card p-5 hover:border-border/50 hover:shadow-lg transition-all cursor-pointer group"
                 onClick={() => navigate(`/dashboard/group-join/${camp.id}`)}
               >
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${st.color}`}>
-                      <Icon className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-semibold text-foreground truncate">{camp.name || "Campanha sem nome"}</h3>
-                      <p className="text-[11px] text-muted-foreground/50">{formatDate(camp.created_at)}</p>
-                    </div>
+                {/* Top row */}
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-bold text-foreground truncate mb-1">{camp.name || "Campanha sem nome"}</h3>
+                    <p className="text-[11px] text-muted-foreground">{formatDate(camp.created_at)}</p>
                   </div>
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <Badge variant="outline" className={`text-[10px] ${st.color} border-0`}>{st.label}</Badge>
+                  <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-1.5 rounded-full border border-border/30 px-2.5 py-1">
+                      <div className={`w-1.5 h-1.5 rounded-full ${st.dotColor} ${camp.status === 'running' ? 'animate-pulse' : ''}`} />
+                      <span className="text-[10px] font-medium text-foreground">{st.label}</span>
+                    </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg opacity-0 group-hover:opacity-100">
-                          <MoreHorizontal className="w-4 h-4" />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                          <MoreVertical className="w-3.5 h-3.5" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate(`/dashboard/group-join/${camp.id}`)} className="gap-2">
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem onClick={() => navigate(`/dashboard/group-join/${camp.id}`)} className="gap-2 text-xs">
                           <ArrowRight className="w-3.5 h-3.5" /> Ver detalhes
                         </DropdownMenuItem>
                         {camp.status === "running" && (
                           <>
-                            <DropdownMenuItem onClick={() => pauseMut.mutate(camp.id)} className="gap-2">
+                            <DropdownMenuItem onClick={() => pauseMut.mutate(camp.id)} className="gap-2 text-xs">
                               <Pause className="w-3.5 h-3.5" /> Pausar
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => cancelMut.mutate(camp.id)} className="gap-2 text-destructive">
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => cancelMut.mutate(camp.id)} className="gap-2 text-xs text-destructive">
                               <StopCircle className="w-3.5 h-3.5" /> Cancelar
                             </DropdownMenuItem>
                           </>
                         )}
                         {camp.status === "paused" && (
-                          <DropdownMenuItem onClick={() => resumeMut.mutate(camp.id)} className="gap-2">
+                          <DropdownMenuItem onClick={() => resumeMut.mutate(camp.id)} className="gap-2 text-xs">
                             <Play className="w-3.5 h-3.5" /> Continuar
                           </DropdownMenuItem>
                         )}
                         {["done", "cancelled", "error", "draft"].includes(camp.status) && (
-                          <DropdownMenuItem onClick={() => setConfirmDelete(camp.id)} className="gap-2 text-destructive">
-                            <Trash2 className="w-3.5 h-3.5" /> Excluir
-                          </DropdownMenuItem>
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setConfirmDelete(camp.id)} className="gap-2 text-xs text-destructive">
+                              <Trash2 className="w-3.5 h-3.5" /> Excluir
+                            </DropdownMenuItem>
+                          </>
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                 </div>
 
-                <Progress value={progress} className="h-1.5 mb-2" />
+                {/* Progress */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] text-muted-foreground">Progresso</span>
+                    <span className="text-[10px] font-semibold text-foreground">{processed}/{total}</span>
+                  </div>
+                  <Progress value={progress} className="h-1.5" />
+                </div>
 
-                <div className="grid grid-cols-2 gap-2 text-center text-[11px] sm:grid-cols-4">
-                  <div>
-                    <span className="text-muted-foreground/50">Processados</span>
-                    <span className="font-bold text-primary ml-1">{processed}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground/50">Erro</span>
-                    <span className={`font-bold ml-1 ${camp.error_count > 0 ? "text-destructive" : "text-foreground/60"}`}>{camp.error_count || 0}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground/50">Pendente</span>
-                    <span className="font-bold ml-1 text-foreground/60">{Math.max(0, total - processed)}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground/50">Total</span>
-                    <span className="font-bold ml-1 text-foreground/60">{total}</span>
-                  </div>
+                {/* Metrics row */}
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { label: "Sucesso", value: success, color: "text-primary" },
+                    { label: "Erro", value: errors, color: errors > 0 ? "text-destructive" : "text-muted-foreground" },
+                    { label: "Pendente", value: pending, color: "text-muted-foreground" },
+                    { label: "Total", value: total, color: "text-foreground" },
+                  ].map((m, i) => (
+                    <div key={i} className="text-center">
+                      <p className={`text-base font-bold ${m.color}`}>{m.value}</p>
+                      <p className="text-[10px] text-muted-foreground">{m.label}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             );
@@ -248,7 +254,7 @@ export default function GroupJoinCampaignList() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir campanha?</AlertDialogTitle>
-            <AlertDialogDescription>Esta ação não pode ser desfeita. Todos os logs da campanha serão removidos.</AlertDialogDescription>
+            <AlertDialogDescription>Esta ação não pode ser desfeita. Todos os dados e logs serão removidos permanentemente.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
