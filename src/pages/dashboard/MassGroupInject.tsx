@@ -80,6 +80,9 @@ export default function MassGroupInject() {
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [groups, setGroups] = useState<GroupInfo[]>([]);
   const [groupSearch, setGroupSearch] = useState("");
+  const [groupLink, setGroupLink] = useState("");
+  const [isResolvingLink, setIsResolvingLink] = useState(false);
+  const [groupInputMode, setGroupInputMode] = useState<"list" | "link" | "jid">("list");
 
   // Fetch user's devices - exclude report/notification instances
   const { data: devices = [] } = useQuery({
