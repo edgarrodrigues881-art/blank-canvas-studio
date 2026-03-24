@@ -96,7 +96,7 @@ function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClas
   if (message.includes("rate-overlimit") || message.includes("429") || message.includes("too many requests")) {
     return {
       status: "temporary_error",
-      detail: "Erro temporário de integração: a instância atingiu um limite momentâneo e a campanha seguirá com nova tentativa automática.",
+      detail: "Limite de requisições atingido momentaneamente. Nova tentativa será feita automaticamente.",
       retryable: true,
     };
   }
@@ -104,7 +104,16 @@ function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClas
   if (message.includes("websocket disconnected before info query") || message.includes("connection reset") || message.includes("socket hang up")) {
     return {
       status: "temporary_error",
-      detail: "Erro temporário de integração: a consulta do contato foi interrompida antes da resposta do provedor.",
+      detail: "Consulta do contato foi interrompida antes da resposta do provedor. Nova tentativa será feita.",
+      retryable: true,
+    };
+  }
+
+  // HTTP 503 is a strong signal of disconnection
+  if (httpStatus === 503) {
+    return {
+      status: "connection_unconfirmed",
+      detail: "A instância retornou indisponível (503). Será revalidada antes de qualquer conclusão.",
       retryable: true,
     };
   }
@@ -112,7 +121,7 @@ function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClas
   if (message.includes("whatsapp disconnected") || message.includes("session disconnected") || message.includes("socket closed")) {
     return {
       status: "connection_unconfirmed",
-      detail: "A integração informou possível desconexão, mas a instância ainda será revalidada antes de qualquer pausa.",
+      detail: "A integração informou possível desconexão. Será revalidada antes de qualquer conclusão.",
       retryable: true,
     };
   }
@@ -120,7 +129,7 @@ function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClas
   if (message.includes("not admin") || message.includes("not an admin") || message.includes("admin required")) {
     return {
       status: "permission_unconfirmed",
-      detail: "A integração informou possível falta de privilégio de admin. O sistema vai revalidar antes de concluir.",
+      detail: "A integração informou possível falta de privilégio de admin. O sistema vai revalidar.",
       retryable: true,
     };
   }
@@ -131,6 +140,17 @@ function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClas
       detail: "O contato não foi encontrado no WhatsApp.",
       retryable: false,
     };
+  }
+
+  // "failed to update participant" with specific sub-errors
+  if (message.includes("failed to update participant")) {
+    if (message.includes("not admin") || message.includes("not an admin")) {
+      return { status: "permission_unconfirmed", detail: "Falha ao adicionar: possível falta de permissão de admin.", retryable: true };
+    }
+    if (message.includes("not found") || message.includes("404")) {
+      return { status: "contact_not_found", detail: "Contato não localizado no WhatsApp.", retryable: false };
+    }
+    return { status: "temporary_error", detail: "Falha ao atualizar participante. Nova tentativa será feita.", retryable: true };
   }
 
   if ((message.includes("group") && (message.includes("not found") || message.includes("invalid") || message.includes("does not exist"))) || message.includes("@g.us inválido")) {
@@ -146,7 +166,7 @@ function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClas
   if (httpStatus === 401 || message.includes("unauthorized") || message.includes("invalid token") || message.includes("token invalid")) {
     return {
       status: "unauthorized",
-      detail: "Não foi possível autenticar a instância. Verifique o token e reconecte a conta antes de retomar.",
+      detail: "Falha de autenticação da instância. Verifique o token e reconecte.",
       retryable: false,
       pauseCampaign: true,
       confirmed: true,
@@ -156,7 +176,7 @@ function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClas
   if (message.includes("blocked") || message.includes("ban")) {
     return {
       status: "blocked",
-      detail: "O contato não pode ser adicionado por bloqueio ou restrição do WhatsApp.",
+      detail: "O contato não pode ser adicionado por bloqueio ou restrição.",
       retryable: false,
     };
   }
@@ -164,7 +184,7 @@ function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClas
   if (message.includes("full") || message.includes("limit reached")) {
     return {
       status: "invalid_group",
-      detail: "O grupo não aceita novas entradas neste momento.",
+      detail: "O grupo atingiu o limite máximo de membros.",
       retryable: false,
       pauseCampaign: true,
       confirmed: true,
@@ -174,14 +194,23 @@ function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClas
   if (message.includes("timeout") || message.includes("timed out") || httpStatus === 408 || httpStatus === 504) {
     return {
       status: "temporary_error",
-      detail: "Erro temporário de integração por tempo de resposta excedido. O sistema tentará novamente.",
+      detail: "Tempo de resposta excedido. Nova tentativa será feita.",
+      retryable: true,
+    };
+  }
+
+  // For truly unknown errors, don't pretend we know the cause
+  if (httpStatus >= 500) {
+    return {
+      status: "temporary_error",
+      detail: `Erro do servidor (${httpStatus}). Nova tentativa será feita.`,
       retryable: true,
     };
   }
 
   return {
     status: "temporary_error",
-    detail: "Falha temporária de integração. O sistema tentará novamente sem marcar a instância como desconectada.",
+    detail: `Falha não classificada (HTTP ${httpStatus}): ${rawMessage.substring(0, 100)}`,
     retryable: true,
   };
 }
@@ -249,21 +278,24 @@ async function checkInstanceConnection(baseUrl: string, token: string): Promise<
 
     const inst = body?.instance || body?.data || body || {};
     const status = String(inst.status || body?.status || "unknown").toLowerCase();
-    if (["connected", "ready", "active", "open", "online"].some((value) => status.includes(value))) {
-      return { connected: true, status, detail: "Conexão confirmada na instância." };
-    }
 
+    // IMPORTANT: Check disconnected BEFORE connected (because "disconnected" contains "connected")
     if (["disconnected", "closed", "close", "offline", "qr", "pairing", "not_connected"].some((value) => status.includes(value))) {
       return { connected: false, status, detail: "A instância foi revalidada como desconectada." };
     }
 
-    const message = extractProviderMessage(body, raw).toLowerCase();
-    if (message.includes("connected")) {
-      return { connected: true, status: status || "connected", detail: "Conexão confirmada na instância." };
+    if (["connected", "ready", "active", "open", "online"].some((value) => status.includes(value))) {
+      return { connected: true, status, detail: "Conexão confirmada na instância." };
     }
 
-    if (message.includes("disconnected")) {
+    const message = extractProviderMessage(body, raw).toLowerCase();
+    // IMPORTANT: Check disconnected BEFORE connected in message too
+    if (message.includes("disconnected") || message.includes("not connected")) {
       return { connected: false, status: status || "disconnected", detail: "A instância foi revalidada como desconectada." };
+    }
+
+    if (message.includes("connected") && !message.includes("not")) {
+      return { connected: true, status: status || "connected", detail: "Conexão confirmada na instância." };
     }
 
     return {
