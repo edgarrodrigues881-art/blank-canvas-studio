@@ -88,12 +88,17 @@ export default function MassGroupInject() {
       const { data, error } = await supabase
         .from("devices")
         .select("id, name, number, status, uazapi_base_url, instance_type, login_type")
-        .not("uazapi_base_url", "is", null)
-        .order("name");
+        .not("uazapi_base_url", "is", null);
       if (error) throw error;
-      return (data || []).filter((d: any) =>
+      const filtered = (data || []).filter((d: any) =>
         d.instance_type !== "notificacao" && d.login_type !== "report_wa"
       );
+      // Sort numerically: extract trailing number from name
+      return filtered.sort((a: any, b: any) => {
+        const numA = parseInt((a.name.match(/(\d+)\s*$/) || ["0", "0"])[1]);
+        const numB = parseInt((b.name.match(/(\d+)\s*$/) || ["0", "0"])[1]);
+        return numA - numB;
+      });
     },
     enabled: !!user,
   });
