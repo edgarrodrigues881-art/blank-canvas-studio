@@ -80,6 +80,7 @@ const NAV_ITEMS = [
   { id: "community", label: "Comunidade", shortLabel: "Social", icon: Heart, group: "sistema", badge: false },
   { id: "msg-generator", label: "Gerador de Mensagens", shortLabel: "Gerador", icon: Sparkles, group: "operacao", badge: false },
   { id: "warmup-diagnostic", label: "Diagnóstico Warmup", shortLabel: "Diagnóstico", icon: Activity, group: "operacao", badge: false },
+  { id: "mass-inject", label: "Adição em Massa", shortLabel: "Massa", icon: UserPlus, group: "operacao", badge: false },
 ] as const;
 
 const GROUP_LABELS: Record<string, string> = {
