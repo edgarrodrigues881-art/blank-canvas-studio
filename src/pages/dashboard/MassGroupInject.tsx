@@ -157,7 +157,11 @@ export default function MassGroupInject() {
         body: { action: "list-groups", deviceId },
       });
       if (error) throw error;
-      setGroups(data?.groups || []);
+      const groupsList = data?.groups || [];
+      setGroups(groupsList);
+      if (groupsList.length === 0) {
+        toast.info("Nenhum grupo encontrado nesta instância. Tente outra ou use 'Link do Grupo'.");
+      }
     } catch (e: any) {
       console.error("Error fetching groups:", e);
       toast.error("Erro ao buscar grupos da instância");
@@ -166,11 +170,55 @@ export default function MassGroupInject() {
     }
   }, []);
 
+  // Load groups from ALL selected devices (merge results)
+  const handleLoadGroupsFromAll = useCallback(async (deviceIds: string[]) => {
+    if (deviceIds.length === 0) return;
+    setGroups([]);
+    setGroupId("");
+    setIsLoadingGroups(true);
+    const allGroups: GroupInfo[] = [];
+    const seenJids = new Set<string>();
+    try {
+      for (const did of deviceIds) {
+        try {
+          const { data } = await supabase.functions.invoke("mass-group-inject", {
+            body: { action: "list-groups", deviceId: did },
+          });
+          for (const g of (data?.groups || [])) {
+            if (!seenJids.has(g.jid)) {
+              seenJids.add(g.jid);
+              allGroups.push(g);
+            }
+          }
+        } catch { /* skip failed device */ }
+      }
+      setGroups(allGroups);
+      if (allGroups.length === 0) {
+        toast.info("Nenhum grupo encontrado. Tente 'Link do Grupo' ou 'JID Manual'.");
+      }
+    } finally {
+      setIsLoadingGroups(false);
+    }
+  }, []);
+
   const handleDeviceToggle = useCallback((deviceId: string) => {
     const willBeSelected = !selectedDeviceIds.includes(deviceId);
     toggleDevice(deviceId);
-    if (willBeSelected && selectedDeviceIds.length === 0) {
-      handleLoadGroups(deviceId);
+    
+    if (willBeSelected) {
+      // Always reload groups when selecting a device
+      const newIds = [...selectedDeviceIds, deviceId];
+      // Load from the newly selected device (or first selected)
+      handleLoadGroups(selectedDeviceIds.length === 0 ? deviceId : newIds[0]);
+    } else {
+      // If deselecting the primary device, reload from next primary
+      const remaining = selectedDeviceIds.filter(id => id !== deviceId);
+      if (remaining.length > 0 && selectedDeviceIds[0] === deviceId) {
+        handleLoadGroups(remaining[0]);
+      } else if (remaining.length === 0) {
+        setGroups([]);
+        setGroupId("");
+      }
     }
   }, [selectedDeviceIds, toggleDevice, handleLoadGroups]);
 
