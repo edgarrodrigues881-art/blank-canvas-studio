@@ -679,6 +679,9 @@ Deno.serve(async (req) => {
       }
     }
 
+    const statusChanges = dbUpdates.filter(u => u.patch.status).length;
+    console.log(`[sync-devices] done: total=${devices.length} synced=${synced} statusChanges=${statusChanges} timeouts=${timeouts} errors=${errors} circuitOpen=${circuitOpen}`);
+
     return jsonRes({
       success: true,
       total: devices.length,
@@ -686,6 +689,7 @@ Deno.serve(async (req) => {
       skipped,
       timeouts,
       errors,
+      statusChanges,
       proxiesUpdated,
       circuitOpen,
       total404,
