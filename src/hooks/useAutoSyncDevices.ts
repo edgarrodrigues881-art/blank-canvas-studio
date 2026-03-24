@@ -30,7 +30,7 @@ export function resumeKeepAlive() {}
  * 1. Realtime subscription on the `devices` table for instant updates
  * 2. Lightweight periodic sync as fallback
  */
-export function useAutoSyncDevices(intervalMs = 120_000) {
+export function useAutoSyncDevices(intervalMs = 15_000) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const syncingRef = useRef(false);
@@ -101,7 +101,7 @@ export function useAutoSyncDevices(intervalMs = 120_000) {
       }
     };
 
-    const initialTimeout = setTimeout(doSync, 5000);
+    const initialTimeout = setTimeout(doSync, 1500);
     const interval = setInterval(doSync, intervalMs);
 
     return () => {

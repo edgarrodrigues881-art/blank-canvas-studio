@@ -10,7 +10,7 @@ const corsHeaders = {
 const jsonRes = (data: any, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-const SYNC_DEVICES_DISABLED = true;
+const SYNC_DEVICES_DISABLED = false;
 
 async function fetchT(url: string, opts: RequestInit, ms: number): Promise<Response> {
   const c = new AbortController();
