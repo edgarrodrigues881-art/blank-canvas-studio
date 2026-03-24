@@ -69,22 +69,28 @@ function randomBetween(min: number, max: number) {
 
 function translateError(err: string): string {
   const e = (err || "").toLowerCase();
-  if (e.includes("confirmed_disconnect")) return "Instância realmente desconectada";
-  if (e.includes("connection_unconfirmed")) return "Não foi possível confirmar o status da instância";
-  if (e.includes("confirmed_no_admin")) return "Privilégio de admin realmente insuficiente";
-  if (e.includes("permission_unconfirmed")) return "Não foi possível confirmar o privilégio de admin";
-  if (e.includes("temporary_error")) return "Erro temporário de integração";
-  if (e.includes("invalid_group")) return "Grupo inválido ou inacessível";
-  if (e.includes("contact_not_found")) return "Contato não encontrado no WhatsApp";
-  if (e.includes("whatsapp disconnected") || e.includes("disconnected")) return "Não foi possível confirmar o status da instância";
-  if (e.includes("not admin")) return "Não foi possível confirmar o privilégio de admin";
-  if (e.includes("not found") || e.includes("info query")) return "Número não encontrado no WhatsApp";
+  if (e.includes("confirmed_disconnect") || e.includes("realmente desconectada")) return "Instância desconectada (confirmado)";
+  if (e.includes("connection_unconfirmed")) return "Conexão não pôde ser confirmada";
+  if (e.includes("confirmed_no_admin") || e.includes("privilégio de admin")) return "Sem privilégio de admin (confirmado)";
+  if (e.includes("permission_unconfirmed")) return "Permissão de admin não confirmada";
+  if (e.includes("invalid_group") || e.includes("grupo inválido")) return "Grupo inválido ou inacessível";
+  if (e.includes("contact_not_found") || e.includes("não foi encontrado")) return "Contato não encontrado no WhatsApp";
+  if (e.includes("unauthorized") || e.includes("autenticação")) return "Falha de autenticação da instância";
+  if (e.includes("blocked") || e.includes("ban") || e.includes("bloqueio")) return "Número bloqueado ou restrito";
+  if (e.includes("limite de requisições") || e.includes("rate") || e.includes("429")) return "Limite de requisições (temporário)";
+  if (e.includes("tempo de resposta") || e.includes("timeout")) return "Tempo de resposta excedido";
+  if (e.includes("503") || e.includes("indisponível")) return "Instância indisponível (503)";
+  if (e.includes("cancelada pelo usuário")) return "Cancelado pelo usuário";
+  if (e.includes("não classificada") || e.includes("falha não")) return "Falha não classificada";
+  // Don't use generic "Erro temporário" - show what we know
+  if (e.includes("whatsapp disconnected") || e.includes("disconnected")) return "Instância desconectada";
+  if (e.includes("not admin")) return "Sem privilégio de admin";
+  if (e.includes("not found") || e.includes("info query")) return "Número não encontrado";
   if (e.includes("full") || e.includes("limit")) return "Grupo cheio";
-  if (e.includes("blocked") || e.includes("ban")) return "Número bloqueado";
-  if (e.includes("rate") || e.includes("429")) return "Limite de requisições";
   if (e.includes("bad-request")) return "Requisição inválida";
-  if (e.includes("timeout")) return "Tempo de resposta excedido";
-  return err;
+  if (e.includes("failed to update")) return "Falha ao processar contato";
+  if (err.length > 80) return err.substring(0, 80) + "...";
+  return err || "Falha sem detalhe";
 }
 
 function formatTime(sec: number) {
