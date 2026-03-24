@@ -626,26 +626,55 @@ export default function MassGroupInject() {
                     />
                   </TabsContent>
                   <TabsContent value="file" className="mt-4">
-                    <div className="border-2 border-dashed border-border/40 rounded-2xl p-10 text-center transition-colors hover:border-primary/30 hover:bg-primary/5 cursor-pointer">
+                    <label className="block border-2 border-dashed border-border/40 rounded-2xl p-10 text-center transition-colors hover:border-primary/30 hover:bg-primary/5 cursor-pointer">
                       <FileText className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-                      <p className="text-sm text-muted-foreground mb-1">Arraste ou selecione um arquivo</p>
-                      <p className="text-[10px] text-muted-foreground/50 mb-4">CSV ou TXT com um número por linha</p>
+                      <p className="text-sm text-muted-foreground mb-1">Arraste ou clique para selecionar</p>
+                      <p className="text-[10px] text-muted-foreground/50 mb-2">CSV, TXT ou XLSX — um número por linha</p>
                       <input
                         type="file"
-                        accept=".csv,.txt"
-                        onChange={(e) => {
+                        accept=".csv,.txt,.xlsx,.xls"
+                        className="hidden"
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
-                          const reader = new FileReader();
-                          reader.onload = (ev) => {
-                            setRawInput(ev.target?.result as string || "");
-                            toast.success(`Arquivo carregado: ${file.name}`);
-                          };
-                          reader.readAsText(file);
+                          const ext = file.name.split('.').pop()?.toLowerCase();
+
+                          if (ext === 'xlsx' || ext === 'xls') {
+                            try {
+                              const XLSX = await import('xlsx');
+                              const buffer = await file.arrayBuffer();
+                              const wb = XLSX.read(buffer, { type: 'array' });
+                              const numbers: string[] = [];
+                              for (const sheetName of wb.SheetNames) {
+                                const ws = wb.Sheets[sheetName];
+                                const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+                                for (const row of rows) {
+                                  for (const cell of row) {
+                                    const val = String(cell ?? '').trim();
+                                    if (val && /\d{8,}/.test(val.replace(/\D/g, ''))) {
+                                      numbers.push(val.replace(/\D/g, ''));
+                                    }
+                                  }
+                                }
+                              }
+                              setRawInput(numbers.join('\n'));
+                              toast.success(`${numbers.length} números importados de ${file.name}`);
+                            } catch (err) {
+                              toast.error('Erro ao ler arquivo Excel');
+                            }
+                          } else {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              setRawInput(ev.target?.result as string || "");
+                              toast.success(`Arquivo carregado: ${file.name}`);
+                            };
+                            reader.readAsText(file);
+                          }
+                          e.target.value = '';
                         }}
-                        className="text-xs mx-auto"
                       />
-                    </div>
+                      {rawInput && <p className="text-xs text-primary mt-2">✓ Dados carregados</p>}
+                    </label>
                   </TabsContent>
                 </Tabs>
 
