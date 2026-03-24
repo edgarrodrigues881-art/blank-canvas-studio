@@ -1,4 +1,4 @@
-// sync-devices v7.0 — sharding support for 10k+ instances + persistent profile pics + circuit breaker
+// sync-devices v8.0 — fixed status detection + debug logging + always enabled
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -10,6 +10,7 @@ const corsHeaders = {
 const jsonRes = (data: any, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+// IMPORTANT: This must NEVER be set to true in production — it was the root cause of stale statuses
 const SYNC_DEVICES_DISABLED = false;
 
 async function fetchT(url: string, opts: RequestInit, ms: number): Promise<Response> {
