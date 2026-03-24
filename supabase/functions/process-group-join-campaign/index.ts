@@ -76,11 +76,35 @@ function randomDelay(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+async function updateCampaignCounters(supabase: any, campaignId: string, markDone = false) {
+  const { data: allItems } = await supabase
+    .from("group_join_queue")
+    .select("status")
+    .eq("campaign_id", campaignId);
+
+  const successCount = (allItems || []).filter((i: any) => i.status === "success").length;
+  const alreadyCount = (allItems || []).filter((i: any) => i.status === "already_member").length;
+  const errorCount = (allItems || []).filter((i: any) => i.status === "error" || i.status === "skipped").length;
+  const pendingCount = (allItems || []).filter((i: any) => i.status === "pending").length;
+  const pendingApprovalCount = (allItems || []).filter((i: any) => i.status === "pending_approval").length;
+
+  const shouldFinish = markDone || pendingCount === 0;
+
+  await supabase
+    .from("group_join_campaigns")
+    .update({
+      success_count: successCount + alreadyCount + pendingApprovalCount,
+      already_member_count: alreadyCount,
+      error_count: errorCount,
+      ...(shouldFinish ? { status: "done", completed_at: new Date().toISOString() } : {}),
+    })
+    .eq("id", campaignId);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Can be triggered by cron (with secret) or by authenticated user
     const body = await req.json().catch(() => ({}));
     const tickSecret = Deno.env.get("INTERNAL_TICK_SECRET");
 
@@ -102,30 +126,17 @@ Deno.serve(async (req) => {
             global: { headers: { Authorization: authHeader } },
           });
           const { data: { user }, error } = await anonClient.auth.getUser();
-          if (!error && user) {
-            userId = user.id;
-            console.log(`[process-group-join] authenticated user=${user.id.substring(0, 8)}`);
-          } else {
-            console.warn(`[process-group-join] auth failed: ${error?.message || "no user"}`);
-          }
-        } catch (e: any) {
-          console.warn(`[process-group-join] auth error: ${e.message}`);
-        }
+          if (!error && user) userId = user.id;
+        } catch {}
       }
-
-      // Fallback: if we have a campaign_id, get user_id from the campaign itself
       if (!userId && campaignId) {
         const { data: camp } = await supabase
           .from("group_join_campaigns")
           .select("user_id")
           .eq("id", campaignId)
           .maybeSingle();
-        if (camp?.user_id) {
-          userId = camp.user_id;
-          console.log(`[process-group-join] resolved user from campaign: ${userId.substring(0, 8)}`);
-        }
+        if (camp?.user_id) userId = camp.user_id;
       }
-
       if (!userId && !campaignId) {
         return new Response(JSON.stringify({ error: "Não autorizado" }), {
           status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -133,7 +144,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Find running campaigns to process
     let campaignsQuery = supabase
       .from("group_join_campaigns")
       .select("*")
@@ -141,15 +151,10 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: true })
       .limit(5);
 
-    if (userId && !isInternalCall) {
-      campaignsQuery = campaignsQuery.eq("user_id", userId);
-    }
-    if (campaignId) {
-      campaignsQuery = campaignsQuery.eq("id", campaignId);
-    }
+    if (userId && !isInternalCall) campaignsQuery = campaignsQuery.eq("user_id", userId);
+    if (campaignId) campaignsQuery = campaignsQuery.eq("id", campaignId);
 
-    const { data: campaigns, error: campErr } = await campaignsQuery;
-    console.log(`[process-group-join] found ${campaigns?.length || 0} campaigns, error=${campErr?.message || "none"}`);
+    const { data: campaigns } = await campaignsQuery;
     if (!campaigns?.length) {
       return new Response(JSON.stringify({ processed: 0, message: "No running campaigns" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -157,13 +162,12 @@ Deno.serve(async (req) => {
     }
 
     let totalProcessed = 0;
-    const MAX_EXECUTION_MS = 50000; // 50s safety limit
+    const MAX_EXECUTION_MS = 50000;
     const startTime = Date.now();
 
     for (const campaign of campaigns) {
       if (Date.now() - startTime > MAX_EXECUTION_MS) break;
 
-      // Check if campaign was cancelled/paused by user
       const { data: freshCampaign } = await supabase
         .from("group_join_campaigns")
         .select("status")
@@ -172,7 +176,6 @@ Deno.serve(async (req) => {
 
       if (freshCampaign?.status !== "running") continue;
 
-      // Get pending items for this campaign
       const { data: pendingItems } = await supabase
         .from("group_join_queue")
         .select("*")
@@ -182,30 +185,10 @@ Deno.serve(async (req) => {
         .limit(10);
 
       if (!pendingItems?.length) {
-        // No more pending items — mark campaign as done
-        const { data: allItems } = await supabase
-          .from("group_join_queue")
-          .select("status")
-          .eq("campaign_id", campaign.id);
-
-        const successCount = (allItems || []).filter((i: any) => i.status === "success").length;
-        const alreadyCount = (allItems || []).filter((i: any) => i.status === "already_member").length;
-        const errorCount = (allItems || []).filter((i: any) => i.status === "error").length;
-
-        await supabase
-          .from("group_join_campaigns")
-          .update({
-            status: "done",
-            success_count: successCount,
-            already_member_count: alreadyCount,
-            error_count: errorCount,
-            completed_at: new Date().toISOString(),
-          })
-          .eq("id", campaign.id);
+        await updateCampaignCounters(supabase, campaign.id, true);
         continue;
       }
 
-      // Fetch devices for this campaign
       const deviceIds = [...new Set(pendingItems.map((i: any) => i.device_id))];
       const { data: devices } = await supabase
         .from("devices")
@@ -213,12 +196,14 @@ Deno.serve(async (req) => {
         .in("id", deviceIds);
 
       const deviceMap = new Map((devices || []).map((d: any) => [d.id, d]));
+      let itemsProcessedThisCampaign = 0;
+      let shouldBreakForPause = false;
 
       for (const item of pendingItems) {
         if (Date.now() - startTime > MAX_EXECUTION_MS) break;
 
-        // Re-check campaign status
-        if (totalProcessed > 0 && totalProcessed % 3 === 0) {
+        // Re-check campaign status every 3 items
+        if (itemsProcessedThisCampaign > 0 && itemsProcessedThisCampaign % 3 === 0) {
           const { data: check } = await supabase
             .from("group_join_campaigns")
             .select("status")
@@ -245,28 +230,20 @@ Deno.serve(async (req) => {
             errorMsg = "Link inválido";
           } else {
             const baseUrl = (device.uazapi_base_url || "").replace(/\/+$/, "");
-            let finalStatus = "error";
-            let finalError: string | undefined;
-            let finalResponseStatus: number | undefined;
 
             for (let attempt = 1; attempt <= 2; attempt++) {
               const joinRes = await tryJoin(baseUrl, device.uazapi_token, inviteCode, normalizedLink);
               const interpreted = interpretResult(joinRes.status, joinRes.body);
-              finalStatus = interpreted.joinStatus;
-              finalError = interpreted.error;
-              finalResponseStatus = joinRes.status;
+              status = interpreted.joinStatus;
+              errorMsg = interpreted.error || null;
+              responseStatus = joinRes.status;
 
-              if (["success", "already_member", "pending_approval"].includes(finalStatus) || joinRes.status === 404 || joinRes.status === 409) break;
+              if (["success", "already_member", "pending_approval"].includes(status) || joinRes.status === 404 || joinRes.status === 409) break;
               if (attempt < 2 && (joinRes.status === 429 || joinRes.status >= 500)) {
                 await new Promise(r => setTimeout(r, 3000));
               }
             }
 
-            status = finalStatus;
-            errorMsg = finalError || null;
-            responseStatus = finalResponseStatus || null;
-
-            // Log result
             try {
               await supabase.from("group_join_logs").insert({
                 user_id: campaign.user_id,
@@ -300,15 +277,27 @@ Deno.serve(async (req) => {
           .eq("id", item.id);
 
         totalProcessed++;
+        itemsProcessedThisCampaign++;
 
-        // Pause every N groups
+        // Update counters after each item for real-time sync
+        if (itemsProcessedThisCampaign % 2 === 0) {
+          await updateCampaignCounters(supabase, campaign.id);
+        }
+
+        // Pause every N groups — break and self-invoke after delay
         const pauseEvery = campaign.pause_every || 5;
         const pauseDurationSec = campaign.pause_duration || 180;
-        if (totalProcessed > 0 && totalProcessed % pauseEvery === 0) {
-          console.log(`[process-group-join] pause for ${pauseDurationSec}s after ${totalProcessed} items`);
-          // Cap the pause at 50s to stay within execution limit; self-invoke will continue
-          const effectivePause = Math.min(pauseDurationSec, 45) * 1000;
-          await new Promise(r => setTimeout(r, effectivePause));
+        if (itemsProcessedThisCampaign > 0 && itemsProcessedThisCampaign % pauseEvery === 0) {
+          console.log(`[process-group-join] pause ${pauseDurationSec}s after ${itemsProcessedThisCampaign} items`);
+          // Wait up to 40s within this invocation, then self-invoke with remaining delay
+          const waitHere = Math.min(pauseDurationSec, 40);
+          await new Promise(r => setTimeout(r, waitHere * 1000));
+          
+          if (pauseDurationSec > 40) {
+            // Need to break and schedule continuation after remaining pause
+            shouldBreakForPause = true;
+            break;
+          }
         } else {
           // Random delay between items
           const delay = randomDelay(campaign.min_delay || 10, campaign.max_delay || 30);
@@ -316,29 +305,11 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Update campaign counters
-      const { data: allItems } = await supabase
-        .from("group_join_queue")
-        .select("status")
-        .eq("campaign_id", campaign.id);
-
-      const successCount = (allItems || []).filter((i: any) => i.status === "success").length;
-      const alreadyCount = (allItems || []).filter((i: any) => i.status === "already_member").length;
-      const errorCount = (allItems || []).filter((i: any) => i.status === "error").length;
-      const pendingCount = (allItems || []).filter((i: any) => i.status === "pending").length;
-
-      await supabase
-        .from("group_join_campaigns")
-        .update({
-          success_count: successCount,
-          already_member_count: alreadyCount,
-          error_count: errorCount,
-          ...(pendingCount === 0 ? { status: "done", completed_at: new Date().toISOString() } : {}),
-        })
-        .eq("id", campaign.id);
+      // Update counters at end of batch
+      await updateCampaignCounters(supabase, campaign.id);
     }
 
-    // If there are still running campaigns with pending items, self-invoke for continuation
+    // Self-invoke for continuation if there are still running campaigns
     const { data: remaining } = await supabase
       .from("group_join_campaigns")
       .select("id")
@@ -346,20 +317,17 @@ Deno.serve(async (req) => {
       .limit(3);
 
     if (remaining?.length) {
-      // Fire-and-forget self-call to continue processing
-      try {
-        const fnUrl = `${supabaseUrl}/functions/v1/process-group-join-campaign`;
-        for (const row of remaining) {
-          fetch(fnUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${serviceKey}`,
-            },
-            body: JSON.stringify({ campaign_id: row.id, secret: tickSecret }),
-          }).catch(() => {});
-        }
-      } catch {}
+      const fnUrl = `${supabaseUrl}/functions/v1/process-group-join-campaign`;
+      for (const row of remaining) {
+        fetch(fnUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({ campaign_id: row.id, secret: tickSecret }),
+        }).catch(() => {});
+      }
     }
 
     return new Response(JSON.stringify({ processed: totalProcessed }), {

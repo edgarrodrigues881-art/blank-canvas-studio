@@ -9,12 +9,9 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft, Play, Pause, StopCircle, RefreshCw, Copy, CheckCircle2,
-  XCircle, Clock, AlertTriangle, Loader2, LogIn, Download, Trash2,
+  XCircle, Clock, Loader2, Download, Trash2,
   Users, BarChart3, List, ChevronDown, ChevronUp, ExternalLink
 } from "lucide-react";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
@@ -22,11 +19,11 @@ import {
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
-/* ── Status map: simplified to 4 main states ── */
+/* ── Status map ── */
 const queueStatusConfig: Record<string, { label: string; color: string; bgColor: string; icon: any; order: number }> = {
   success:          { label: "Sucesso",     color: "text-primary",           bgColor: "bg-primary/10",       icon: CheckCircle2, order: 0 },
   already_member:   { label: "Sucesso",     color: "text-primary",           bgColor: "bg-primary/10",       icon: CheckCircle2, order: 0 },
-  pending_approval: { label: "Aguardando",  color: "text-amber-500",         bgColor: "bg-amber-500/10",     icon: Clock,        order: 1 },
+  pending_approval: { label: "Sucesso",     color: "text-primary",           bgColor: "bg-primary/10",       icon: CheckCircle2, order: 0 },
   pending:          { label: "Pendente",    color: "text-muted-foreground",  bgColor: "bg-muted/30",         icon: Clock,        order: 2 },
   error:            { label: "Erro",        color: "text-destructive",       bgColor: "bg-destructive/10",   icon: XCircle,      order: 3 },
   cancelled:        { label: "Pendente",    color: "text-muted-foreground",  bgColor: "bg-muted/30",         icon: Clock,        order: 2 },
@@ -46,7 +43,7 @@ function friendlyError(raw: string | null): string {
   if (lower.includes("unavailable") || lower.includes("indisponív")) return "Indisponível temporariamente";
   if (lower.includes("forbidden") || lower.includes("blocked") || lower.includes("bloqueado")) return "Acesso bloqueado";
   if (lower.includes("disconnect") || lower.includes("desconect")) return "Instância desconectada";
-  if (lower.includes("private") || lower.includes("privad") || lower.includes("approval") || lower.includes("request sent")) return "Aguardando aprovação";
+  if (lower.includes("private") || lower.includes("privad") || lower.includes("approval") || lower.includes("request sent") || lower.includes("solicita") || lower.includes("aguardando")) return "Entrada solicitada";
   if (raw.length > 60) return raw.substring(0, 55) + "…";
   return raw;
 }
@@ -78,9 +75,9 @@ export default function GroupJoinCampaignDetail() {
     refetchInterval: (query) => {
       if (document.hidden) return false;
       const camp = query.state.data as any;
-      return camp && isActive(camp.status) ? 10_000 : false;
+      return camp && isActive(camp.status) ? 5_000 : false;
     },
-    staleTime: 5_000,
+    staleTime: 3_000,
   });
 
   const { data: queueItems = [] } = useQuery({
@@ -96,9 +93,9 @@ export default function GroupJoinCampaignDetail() {
     enabled: !!id && !!user,
     refetchInterval: () => {
       if (document.hidden) return false;
-      return campaign && isActive(campaign.status) ? 5_000 : false;
+      return campaign && isActive(campaign.status) ? 3_000 : false;
     },
-    staleTime: 5_000,
+    staleTime: 2_000,
   });
 
   useEffect(() => {
@@ -114,23 +111,21 @@ export default function GroupJoinCampaignDetail() {
   }, [id, queryClient]);
 
   const stats = useMemo(() => {
-    const s = { success: 0, pendingApproval: 0, error: 0, pending: 0, total: 0 };
+    const s = { success: 0, error: 0, pending: 0, total: 0 };
     for (const item of queueItems) {
       s.total++;
-      if (item.status === "success" || item.status === "already_member") s.success++;
-      else if (item.status === "pending_approval") s.pendingApproval++;
+      if (item.status === "success" || item.status === "already_member" || item.status === "pending_approval") s.success++;
       else if (item.status === "error" || item.status === "skipped") s.error++;
-      else s.pending++; // pending + cancelled
+      else s.pending++;
     }
     return s;
   }, [queueItems]);
 
   const sortedAndFilteredItems = useMemo(() => {
     let items = statusFilter === "all" ? [...queueItems] : queueItems.filter((i: any) => {
-      if (statusFilter === "success") return i.status === "success" || i.status === "already_member";
+      if (statusFilter === "success") return i.status === "success" || i.status === "already_member" || i.status === "pending_approval";
       if (statusFilter === "error") return i.status === "error" || i.status === "skipped";
       if (statusFilter === "pending") return i.status === "pending" || i.status === "cancelled";
-      if (statusFilter === "pending_approval") return i.status === "pending_approval";
       return i.status === statusFilter;
     });
 
@@ -154,14 +149,14 @@ export default function GroupJoinCampaignDetail() {
       if (!map.has(key)) map.set(key, { name: item.device_name, assigned: 0, success: 0, error: 0, pending: 0 });
       const m = map.get(key)!;
       m.assigned++;
-      if (item.status === "success" || item.status === "already_member") m.success++;
+      if (item.status === "success" || item.status === "already_member" || item.status === "pending_approval") m.success++;
       else if (item.status === "error" || item.status === "skipped") m.error++;
       else m.pending++;
     }
     return Array.from(map.entries()).map(([id, m]) => ({ id, ...m }));
   }, [queueItems]);
 
-  const processed = stats.success + stats.pendingApproval + stats.error;
+  const processed = stats.success + stats.error;
   const progress = stats.total > 0 ? (processed / stats.total) * 100 : 0;
 
   const cancelMut = useMutation({
@@ -195,7 +190,7 @@ export default function GroupJoinCampaignDetail() {
 
   const retryFailedMut = useMutation({
     mutationFn: async () => {
-      await supabase.from("group_join_queue" as any).update({ status: "pending", error_message: null, attempt: 0 } as any).eq("campaign_id", id).eq("status", "error");
+      await supabase.from("group_join_queue" as any).update({ status: "pending", error_message: null, attempt: 0 } as any).eq("campaign_id", id).in("status", ["error", "skipped"] as any);
       await supabase.from("group_join_campaigns" as any).update({ status: "running" } as any).eq("id", id);
       supabase.functions.invoke("process-group-join-campaign", { body: { campaign_id: id } }).catch(() => {});
     },
@@ -237,7 +232,7 @@ export default function GroupJoinCampaignDetail() {
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-12 sm:px-6 lg:px-10">
-      {/* Header */}
+      {/* Header — single back button */}
       <div className="flex items-start gap-3 mb-8">
         <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/group-join")} className="rounded-xl h-10 w-10 mt-0.5">
           <ArrowLeft className="w-4 h-4" />
@@ -254,11 +249,10 @@ export default function GroupJoinCampaignDetail() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-5">
+      {/* Stats Cards — 4 cards: Sucesso, Pendente, Erro, Total */}
+      <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4">
         {[
           { label: "Sucesso", value: stats.success, color: "text-primary", borderColor: "border-primary/20" },
-          { label: "Aguardando", value: stats.pendingApproval, color: stats.pendingApproval > 0 ? "text-amber-500" : "text-muted-foreground", borderColor: stats.pendingApproval > 0 ? "border-amber-500/20" : "border-border/30" },
           { label: "Pendente", value: stats.pending, color: "text-muted-foreground", borderColor: "border-border/30" },
           { label: "Erro", value: stats.error, color: stats.error > 0 ? "text-destructive" : "text-muted-foreground", borderColor: stats.error > 0 ? "border-destructive/20" : "border-border/30" },
           { label: "Total", value: stats.total, color: "text-foreground", borderColor: "border-border/30" },
@@ -306,7 +300,7 @@ export default function GroupJoinCampaignDetail() {
             </Button>
           </>
         )}
-        {stats.error > 0 && isFinished && (
+        {stats.error > 0 && (
           <Button onClick={() => retryFailedMut.mutate()} variant="outline" className="gap-2 rounded-xl h-10">
             <RefreshCw className="w-4 h-4" /> Reprocessar falhas ({stats.error})
           </Button>
@@ -364,7 +358,6 @@ export default function GroupJoinCampaignDetail() {
                 {[
                   { key: "all", label: "Todos", count: stats.total },
                   { key: "success", label: "Sucesso", count: stats.success },
-                  { key: "pending_approval", label: "Aguardando", count: stats.pendingApproval },
                   { key: "pending", label: "Pendente", count: stats.pending },
                   { key: "error", label: "Erro", count: stats.error },
                 ].map(f => (
@@ -401,6 +394,7 @@ export default function GroupJoinCampaignDetail() {
                   const isExpanded = expandedItem === item.id;
                   const hasError = item.error_message && (item.status === "error" || item.status === "skipped");
                   const friendly = friendlyError(item.error_message);
+                  const isPendingApproval = item.status === "pending_approval";
 
                   return (
                     <div key={item.id} className="hover:bg-muted/5 transition-colors">
@@ -416,6 +410,7 @@ export default function GroupJoinCampaignDetail() {
                           <div className="flex items-center gap-2 mt-0.5">
                             {item.device_name && <span className="text-[10px] text-muted-foreground/50">{item.device_name}</span>}
                             {hasError && <span className="text-[10px] text-destructive/80">• {friendly}</span>}
+                            {isPendingApproval && <span className="text-[10px] text-primary/70">• Entrada solicitada</span>}
                           </div>
                         </div>
                         <div className="text-right shrink-0 flex items-center gap-2">
@@ -428,7 +423,6 @@ export default function GroupJoinCampaignDetail() {
                           )}
                         </div>
                       </div>
-                      {/* Expanded detail */}
                       {isExpanded && (
                         <div className="px-5 pb-3 pl-16">
                           <div className="rounded-xl bg-muted/10 border border-border/15 p-3 text-xs space-y-1.5">
@@ -450,8 +444,8 @@ export default function GroupJoinCampaignDetail() {
                             )}
                             {item.error_message && (
                               <div className="pt-1 border-t border-border/10">
-                                <p className="text-muted-foreground mb-0.5">Detalhe do erro</p>
-                                <p className="text-destructive/80 font-mono text-[10px] break-all">{item.error_message}</p>
+                                <p className="text-muted-foreground mb-0.5">Detalhe</p>
+                                <p className="text-foreground/70 font-mono text-[10px] break-all">{item.error_message}</p>
                               </div>
                             )}
                             <a href={item.group_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline pt-1">

@@ -94,7 +94,7 @@ export default function GroupJoinCampaignList() {
     onSuccess: () => { toast.success("Campanha retomada"); queryClient.invalidateQueries({ queryKey: ["group-join-campaigns-list"] }); },
   });
 
-  const totalSuccess = campaigns.reduce((s: number, c: any) => s + (c.success_count || 0) + (c.already_member_count || 0), 0);
+  const totalSuccess = campaigns.reduce((s: number, c: any) => s + (c.success_count || 0), 0);
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-8 px-4 sm:px-6 lg:px-10 pb-10">
