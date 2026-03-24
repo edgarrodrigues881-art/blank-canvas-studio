@@ -1169,9 +1169,18 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
     setIsProcessing(false);
 
     try {
+      // Mark remaining pending contacts as cancelled if user cancelled
+      if (cancelRef.current) {
+        await supabase.from("mass_inject_contacts").update({
+          status: "cancelled",
+          error_message: "Campanha cancelada pelo usuário",
+          processed_at: new Date().toISOString(),
+        } as any).eq("campaign_id", cId!).eq("status", "pending");
+      }
+
       await supabase.from("mass_inject_campaigns").update({
-        status: finalStatus === "done" ? "done" : "paused",
-        completed_at: finalStatus === "done" ? new Date().toISOString() : null,
+        status: finalStatus,
+        completed_at: finalStatus === "done" || finalStatus === "cancelled" ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       } as any).eq("id", cId!);
     } catch { /* ignore */ }
@@ -1182,7 +1191,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
     if (finalStatus === "paused") {
       toast.error(systemPauseReason || "Campanha pausada por erro confirmado.");
     } else if (finalStatus === "cancelled") {
-      toast.info("Campanha pausada manualmente.");
+      toast.info("Campanha cancelada.");
     } else {
       toast.success(`Concluído: ${ok} sucesso, ${fail} falhas`);
     }
