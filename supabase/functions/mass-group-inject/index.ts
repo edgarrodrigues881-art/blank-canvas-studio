@@ -829,7 +829,9 @@ Deno.serve(async (req) => {
         await sb.from("mass_inject_contacts").insert(rows.slice(i, i + 500) as any);
       }
 
-      await queueCampaignRun(campaign.id, 0);
+      // CRITICAL: wait 5s before first worker run to let Uazapi session stabilize
+      // after the participant check calls made above
+      await queueCampaignRun(campaign.id, 5000);
       return new Response(JSON.stringify({ success: true, campaignId: campaign.id, readyCount: readyContacts.length, alreadyExistsCount: alreadyExists.length }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
