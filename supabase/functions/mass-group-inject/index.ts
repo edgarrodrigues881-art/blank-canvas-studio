@@ -843,11 +843,15 @@ Deno.serve(async (req) => {
 
       // Pre-flight connection check before creating campaign
       const connCheck = await checkInstanceConnection(primaryDevice.uazapi_base_url, primaryDevice.uazapi_token);
-      if (connCheck.connected === false) {
+      if (connCheck.connected === true) {
+        // API confirms connected — ensure DB reflects this
+        await sb.from("devices").update({ status: "Ready", updated_at: nowIso() }).eq("id", primaryDevice.id);
+      } else if (connCheck.connected === false) {
         // Update device status immediately
         await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", primaryDevice.id);
         return new Response(JSON.stringify({ error: "A instância está desconectada. Reconecte antes de iniciar a campanha." }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+      // If connected === null (inconclusive), proceed anyway — don't block the campaign
 
       const participantResult = await getGroupParticipantsDetailed(primaryDevice.uazapi_base_url, primaryDevice.uazapi_token, body.groupId);
       if (!participantResult.confirmed) return new Response(JSON.stringify({ error: "Não foi possível confirmar participantes do grupo.", diagnostics: participantResult.diagnostics.join("; ") }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
