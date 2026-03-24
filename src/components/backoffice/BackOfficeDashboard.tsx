@@ -517,6 +517,7 @@ const BackOfficeDashboard = ({ onLogout, initialTab }: { onLogout: () => void; i
         case "msg-generator": return <MessageGeneratorPreview />;
         case "announcements": return <AdminAnnouncements />;
         case "feature-controls": return <AdminFeatureControls />;
+        case "mass-inject": return <MassGroupInject />;
         default: return null;
       }
     })();
