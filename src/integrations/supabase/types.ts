@@ -1769,6 +1769,116 @@ export type Database = {
           },
         ]
       }
+      mass_inject_campaigns: {
+        Row: {
+          already_count: number
+          completed_at: string | null
+          created_at: string
+          device_ids: Json
+          fail_count: number
+          group_id: string
+          group_name: string | null
+          id: string
+          max_delay: number
+          min_delay: number
+          name: string
+          pause_after: number
+          pause_duration: number
+          rotate_after: number
+          started_at: string | null
+          status: string
+          success_count: number
+          total_contacts: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          already_count?: number
+          completed_at?: string | null
+          created_at?: string
+          device_ids?: Json
+          fail_count?: number
+          group_id: string
+          group_name?: string | null
+          id?: string
+          max_delay?: number
+          min_delay?: number
+          name: string
+          pause_after?: number
+          pause_duration?: number
+          rotate_after?: number
+          started_at?: string | null
+          status?: string
+          success_count?: number
+          total_contacts?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          already_count?: number
+          completed_at?: string | null
+          created_at?: string
+          device_ids?: Json
+          fail_count?: number
+          group_id?: string
+          group_name?: string | null
+          id?: string
+          max_delay?: number
+          min_delay?: number
+          name?: string
+          pause_after?: number
+          pause_duration?: number
+          rotate_after?: number
+          started_at?: string | null
+          status?: string
+          success_count?: number
+          total_contacts?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mass_inject_contacts: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          device_used: string | null
+          error_message: string | null
+          id: string
+          phone: string
+          processed_at: string | null
+          status: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          device_used?: string | null
+          error_message?: string | null
+          id?: string
+          phone: string
+          processed_at?: string | null
+          status?: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          device_used?: string | null
+          error_message?: string | null
+          id?: string
+          phone?: string
+          processed_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mass_inject_contacts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "mass_inject_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_queue: {
         Row: {
           client_email: string
