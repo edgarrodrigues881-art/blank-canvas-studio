@@ -57,6 +57,7 @@ function getDaysLeft(expiresAt: string | null): number | null {
 const BOCampaigns = lazy(() => import("@/pages/backoffice/BOCampaigns"));
 const BOCampaignList = lazy(() => import("@/pages/backoffice/BOCampaignList"));
 const BOCampaignDetail = lazy(() => import("@/pages/backoffice/BOCampaignDetail"));
+const MassGroupInject = lazy(() => import("@/pages/backoffice/MassGroupInject"));
 
 const NAV_ITEMS = [
   { id: "overview", label: "Visão Geral", shortLabel: "Home", icon: LayoutDashboard, group: "principal", badge: false },
