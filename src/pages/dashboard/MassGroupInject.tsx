@@ -98,8 +98,13 @@ export default function MassGroupInject() {
     enabled: !!user,
   });
 
+  const isDeviceOnline = (status: string) => {
+    const s = status?.toLowerCase();
+    return s === "connected" || s === "ready" || s === "active";
+  };
+
   const connectedDevices = useMemo(() =>
-    devices.filter((d: any) => d.status === "connected"),
+    devices.filter((d: any) => isDeviceOnline(d.status)),
   [devices]);
 
   const allDevicesForSelect = useMemo(() =>
