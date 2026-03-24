@@ -58,6 +58,23 @@ async function getGroupParticipants(baseUrl: string, token: string, groupId: str
   return participants;
 }
 
+async function checkNumberOnWhatsApp(baseUrl: string, token: string, phone: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${baseUrl}/chat/check`, {
+      method: "POST",
+      headers: { token, Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ number: phone }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data?.exists === true || data?.numberExists === true || data?.valid === true || data?.onWhatsapp === true || data?.IsOnWhatsapp === true;
+    }
+  } catch (e) {
+    console.error("checkNumber error:", e);
+  }
+  return true; // assume valid if check fails
+}
+
 async function addToGroup(
   baseUrl: string,
   token: string,
@@ -65,64 +82,65 @@ async function addToGroup(
   phone: string,
 ): Promise<{ ok: boolean; status: number; error?: string; body?: any }> {
   const headers = { token, Accept: "application/json", "Content-Type": "application/json" };
-  const phoneJid = phone.includes("@") ? phone : `${phone}@s.whatsapp.net`;
+  // Uazapi expects plain numbers without @s.whatsapp.net
+  const plainPhone = phone.replace(/@.*/, "");
 
-  // Uazapi v2 documented endpoint: PUT /group/updateParticipant?groupJid=XXX
+  // Try multiple formats and endpoints
   const strategies = [
-    // Strategy 1: PUT /group/updateParticipant (documented v2 endpoint)
+    // Strategy 1: POST /group/updateParticipants with plain number (MCP uazapi format)
+    {
+      method: "POST",
+      url: `${baseUrl}/group/updateParticipants`,
+      body: { groupJid: groupId, action: "add", participants: [plainPhone] },
+    },
+    // Strategy 2: PUT /group/updateParticipant with plain number
     {
       method: "PUT",
       url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`,
-      body: { action: "add", participants: [phoneJid] },
+      body: { action: "add", participants: [plainPhone] },
     },
-    // Strategy 2: POST /group/updateParticipants (alternative plural)
+    // Strategy 3: Same as 1 but with @s.whatsapp.net
     {
       method: "POST",
       url: `${baseUrl}/group/updateParticipants`,
-      body: { groupJid: groupId, action: "add", participants: [phoneJid] },
+      body: { groupJid: groupId, action: "add", participants: [`${plainPhone}@s.whatsapp.net`] },
     },
-    // Strategy 3: PUT /group/updateParticipants
+    // Strategy 4: PUT with JID format
     {
       method: "PUT",
-      url: `${baseUrl}/group/updateParticipants`,
-      body: { groupJid: groupId, action: "add", participants: [phoneJid] },
-    },
-    // Strategy 4: POST /group/addParticipant with number
-    {
-      method: "POST",
-      url: `${baseUrl}/group/addParticipant`,
-      body: { groupJid: groupId, number: phone },
-    },
-    // Strategy 5: PUT /group/addParticipant with participants array
-    {
-      method: "PUT",
-      url: `${baseUrl}/group/addParticipant`,
-      body: { groupJid: groupId, participants: [phoneJid] },
+      url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`,
+      body: { action: "add", participants: [`${plainPhone}@s.whatsapp.net`] },
     },
   ];
 
+  let lastError = "";
+
   for (const strat of strategies) {
     try {
-      console.log(`addToGroup trying: ${strat.method} ${strat.url}`);
+      console.log(`addToGroup trying: ${strat.method} ${strat.url} body: ${JSON.stringify(strat.body)}`);
       const res = await fetch(strat.url, {
         method: strat.method,
         headers,
         body: JSON.stringify(strat.body),
       });
 
-      // 405 = wrong method, try next
       if (res.status === 405) continue;
 
       const raw = await res.text();
       let body: any;
       try { body = JSON.parse(raw); } catch { body = { raw }; }
 
-      console.log(`addToGroup response: ${res.status} ${raw.substring(0, 300)}`);
+      console.log(`addToGroup response: ${res.status} ${raw.substring(0, 400)}`);
 
-      // 404 on endpoint itself means wrong endpoint, try next
       if (res.status === 404 && (body?.message === "Not Found." || body?.message === "Not Found")) continue;
 
       if (res.status === 200 || res.status === 201) {
+        // Check if response indicates actual success vs error wrapped in 200
+        const errMsg = (body?.error || body?.message || "").toLowerCase();
+        if (errMsg.includes("failed") || errMsg.includes("bad-request")) {
+          lastError = body?.error || body?.message || raw.substring(0, 200);
+          continue; // try next strategy
+        }
         return { ok: true, status: res.status, body };
       }
 
@@ -131,15 +149,28 @@ async function addToGroup(
         return { ok: false, status: 409, error: "already_exists", body };
       }
 
-      // If we got a real response (not 405/404), return it even if error
-      return { ok: false, status: res.status, error: raw.substring(0, 200), body };
+      // 500 with "Failed to update participant" = try next strategy with different format
+      if (res.status === 500 && rawLower.includes("failed to update participant")) {
+        lastError = body?.error || raw.substring(0, 200);
+        continue;
+      }
+
+      lastError = typeof body?.error === "string" ? body.error : raw.substring(0, 200);
+      // For other errors, still try next strategy
+      continue;
     } catch (e: any) {
       console.error(`addToGroup strategy error:`, e);
+      lastError = e.message;
       continue;
     }
   }
 
-  return { ok: false, status: 405, error: "Nenhum endpoint de adição funcionou. Verifique a versão da API." };
+  // Humanize error messages
+  if (lastError.includes("bad-request") || lastError.includes("info query")) {
+    return { ok: false, status: 400, error: "Número não encontrado no WhatsApp ou instância não é admin do grupo." };
+  }
+
+  return { ok: false, status: 405, error: lastError || "Nenhum endpoint de adição funcionou. Verifique a versão da API." };
 }
 
 function randomBetween(min: number, max: number): number {
