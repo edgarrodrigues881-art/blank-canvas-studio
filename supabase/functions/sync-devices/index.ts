@@ -1,4 +1,4 @@
-// sync-devices v7.0 — sharding support for 10k+ instances + persistent profile pics + circuit breaker
+// sync-devices v8.0 — fixed status detection + debug logging + always enabled
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -10,6 +10,7 @@ const corsHeaders = {
 const jsonRes = (data: any, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+// IMPORTANT: This must NEVER be set to true in production — it was the root cause of stale statuses
 const SYNC_DEVICES_DISABLED = false;
 
 async function fetchT(url: string, opts: RequestInit, ms: number): Promise<Response> {
@@ -406,9 +407,18 @@ Deno.serve(async (req) => {
         // ── Parse status ──
         const data = r.apiData;
         const inst = data.instance || data || {};
-        const state = inst.status || data.state;
-        const isConnected = state === "connected" || state === "authenticated";
+        const rawState = (inst.status || data.state || data.status || "").toString().toLowerCase().trim();
         const phone = inst.owner || inst.phone || data.phone || "";
+
+        // Uazapi can return: "connected", "authenticated", "open" for online states
+        // and: "disconnected", "close", "closed", "waiting", "qr", "" for offline
+        const CONNECTED_STATES = ["connected", "authenticated", "open"];
+        const isConnected = CONNECTED_STATES.includes(rawState);
+
+        // Debug log: first 5 devices to identify what Uazapi actually returns
+        if (synced < 5) {
+          console.log(`[sync-devices:debug] "${device.name}" rawState="${rawState}" isConnected=${isConnected} phone="${phone}" prev="${device.status}"`);
+        }
 
         const newStatus = isConnected ? "Ready" : "Disconnected";
         const newPhone = isConnected && phone ? fmtPhone(phone) : (device.number || "");
@@ -669,6 +679,9 @@ Deno.serve(async (req) => {
       }
     }
 
+    const statusChanges = dbUpdates.filter(u => u.patch.status).length;
+    console.log(`[sync-devices] done: total=${devices.length} synced=${synced} statusChanges=${statusChanges} timeouts=${timeouts} errors=${errors} circuitOpen=${circuitOpen}`);
+
     return jsonRes({
       success: true,
       total: devices.length,
@@ -676,6 +689,7 @@ Deno.serve(async (req) => {
       skipped,
       timeouts,
       errors,
+      statusChanges,
       proxiesUpdated,
       circuitOpen,
       total404,
