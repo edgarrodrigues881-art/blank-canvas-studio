@@ -98,8 +98,13 @@ export default function MassGroupInject() {
     enabled: !!user,
   });
 
+  const isDeviceOnline = (status: string) => {
+    const s = status?.toLowerCase();
+    return s === "connected" || s === "ready" || s === "active";
+  };
+
   const connectedDevices = useMemo(() =>
-    devices.filter((d: any) => d.status === "connected"),
+    devices.filter((d: any) => isDeviceOnline(d.status)),
   [devices]);
 
   const allDevicesForSelect = useMemo(() =>
@@ -302,7 +307,7 @@ export default function MassGroupInject() {
                       {allDevicesForSelect.map((d: any) => (
                         <SelectItem key={d.id} value={d.id}>
                           <div className="flex items-center gap-2.5">
-                            <div className={`w-2 h-2 rounded-full ${d.status === "connected" ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+                            <div className={`w-2 h-2 rounded-full ${isDeviceOnline(d.status) ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
                             <span className="font-medium">{d.name}</span>
                             {d.number && <span className="text-muted-foreground text-xs">({d.number})</span>}
                           </div>
@@ -313,7 +318,7 @@ export default function MassGroupInject() {
                   {allDevicesForSelect.length === 0 && (
                     <p className="text-xs text-destructive mt-1.5">Nenhuma instância Uazapi encontrada</p>
                   )}
-                  {selectedDevice && selectedDevice.status !== "connected" && (
+                  {selectedDevice && !isDeviceOnline(selectedDevice.status) && (
                     <p className="text-xs text-amber-500 mt-1.5">⚠ Instância desconectada</p>
                   )}
                 </div>
