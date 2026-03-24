@@ -1290,8 +1290,8 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
               { label: "Válidos", value: validationResult.validCount, color: "text-emerald-500" },
               { label: "Inválidos", value: validationResult.invalidCount, color: "text-destructive" },
               { label: "Duplicados", value: validationResult.duplicateCount, color: "text-amber-500" },
-              { label: "Já no Grupo", value: participantCheck?.alreadyExistsCount ?? "—", color: "text-blue-500" },
-              { label: "Prontos", value: participantCheck?.readyCount ?? "—", color: "text-primary" },
+              { label: "Já no Grupo", value: participantCheck?.alreadyExistsCount ?? "Opcional", color: "text-blue-500" },
+              { label: "Na Fila", value: validationResult.validCount, color: "text-primary" },
             ].map(s => (
               <Card key={s.label} className="border-border/40 bg-card/80">
                 <CardContent className="pt-4 pb-3 px-4">
@@ -1302,11 +1302,20 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
             ))}
           </div>
 
-          {participantCheck && participantCheck.alreadyExistsCount > 0 && (
-            <div className="rounded-xl bg-blue-500/5 border border-blue-500/20 px-4 py-3 flex items-start gap-3">
-              <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-              <p className="text-xs text-blue-700">
-                <strong>{participantCheck.alreadyExistsCount}</strong> contato(s) já estão no grupo e serão contados como <strong>sucesso</strong> automaticamente.
+          {participantCheck ? (
+            participantCheck.alreadyExistsCount > 0 && (
+              <div className="rounded-xl bg-blue-500/5 border border-blue-500/20 px-4 py-3 flex items-start gap-3">
+                <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-blue-700">
+                  <strong>{participantCheck.alreadyExistsCount}</strong> contato(s) foram encontrados na pré-checagem; a confirmação final ainda acontece durante o processamento.
+                </p>
+              </div>
+            )
+          ) : (
+            <div className="rounded-xl border border-border/40 bg-card/50 px-4 py-3 flex items-start gap-3">
+              <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground">
+                A verificação de existentes no grupo é opcional. Se você iniciar agora, a checagem será feita durante a execução da fila.
               </p>
             </div>
           )}
@@ -1316,7 +1325,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
             {!participantCheck && (
               <Button onClick={handleCheckParticipants} disabled={isChecking} variant="outline" className="gap-2 h-10">
                 {isChecking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                Verificar Existentes no Grupo
+                Verificar Existentes (opcional)
               </Button>
             )}
             <Button onClick={() => setConfirmOpen(true)} disabled={totalToProcess === 0} className="gap-2 h-10 shadow-md shadow-primary/10">
