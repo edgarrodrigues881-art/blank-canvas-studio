@@ -145,12 +145,23 @@ function extractProviderMessage(body: any, raw: string): string {
 
 function normalizeProviderConnectionState(payload: any): { state: "connected" | "disconnected" | "transitional" | "unknown"; rawStatus: string; owner: string; qrcode: string | null } {
   const inst = payload?.instance || payload?.data || payload || {};
+
+  // DIRECT BOOLEAN CHECK: Uazapi returns { status: { connected: true, loggedIn: true } }
+  // This is the most reliable signal and must be checked FIRST
+  const statusObj = payload?.status;
+  if (statusObj && typeof statusObj === "object" && statusObj.connected === true) {
+    const owner = inst?.owner || statusObj?.jid?.split(":")[0] || "";
+    return { state: "connected", rawStatus: "connected", owner, qrcode: null };
+  }
+  if (statusObj && typeof statusObj === "object" && statusObj.connected === false) {
+    return { state: "disconnected", rawStatus: "disconnected", owner: "", qrcode: null };
+  }
+
   const rawStatus = [
     inst?.connectionStatus,
     inst?.status,
     payload?.connectionStatus,
     payload?.state,
-    payload?.status,
   ].find((value) => typeof value === "string" && value.trim())?.toLowerCase().trim() || "";
 
   const owner = [
