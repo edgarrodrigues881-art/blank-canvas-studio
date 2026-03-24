@@ -249,21 +249,24 @@ async function checkInstanceConnection(baseUrl: string, token: string): Promise<
 
     const inst = body?.instance || body?.data || body || {};
     const status = String(inst.status || body?.status || "unknown").toLowerCase();
-    if (["connected", "ready", "active", "open", "online"].some((value) => status.includes(value))) {
-      return { connected: true, status, detail: "Conexão confirmada na instância." };
-    }
 
+    // IMPORTANT: Check disconnected BEFORE connected (because "disconnected" contains "connected")
     if (["disconnected", "closed", "close", "offline", "qr", "pairing", "not_connected"].some((value) => status.includes(value))) {
       return { connected: false, status, detail: "A instância foi revalidada como desconectada." };
     }
 
-    const message = extractProviderMessage(body, raw).toLowerCase();
-    if (message.includes("connected")) {
-      return { connected: true, status: status || "connected", detail: "Conexão confirmada na instância." };
+    if (["connected", "ready", "active", "open", "online"].some((value) => status.includes(value))) {
+      return { connected: true, status, detail: "Conexão confirmada na instância." };
     }
 
-    if (message.includes("disconnected")) {
+    const message = extractProviderMessage(body, raw).toLowerCase();
+    // IMPORTANT: Check disconnected BEFORE connected in message too
+    if (message.includes("disconnected") || message.includes("not connected")) {
       return { connected: false, status: status || "disconnected", detail: "A instância foi revalidada como desconectada." };
+    }
+
+    if (message.includes("connected") && !message.includes("not")) {
+      return { connected: true, status: status || "connected", detail: "Conexão confirmada na instância." };
     }
 
     return {
