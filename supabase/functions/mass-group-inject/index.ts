@@ -412,9 +412,9 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ── ACTION: add-single (add one contact to group) ──
+    // ── ACTION: add-single (add one contact to group, persist to DB) ──
     if (action === "add-single") {
-      const { groupId, deviceId, phone } = body;
+      const { groupId, deviceId, phone, campaignId, contactId } = body;
       if (!groupId || !deviceId || !phone) {
         return new Response(JSON.stringify({ error: "Missing groupId, deviceId, or phone", status: "failed" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -423,26 +423,67 @@ Deno.serve(async (req) => {
 
       const device = await getDeviceCredentials(sb, deviceId, user.id, isAdmin);
       if (!device) {
-        return new Response(JSON.stringify({ error: "Device not found", status: "failed" }), {
+        return new Response(JSON.stringify({ error: "Instância não encontrada", status: "failed" }), {
           status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
       const result = await addToGroup(device.uazapi_base_url, device.uazapi_token, groupId, phone);
 
+      let status = "failed";
+      let errorMsg: string | null = null;
+
       if (result.ok) {
-        return new Response(JSON.stringify({ status: "completed" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        status = "completed";
       } else if (result.error === "already_exists" || result.status === 409) {
-        return new Response(JSON.stringify({ status: "already_exists" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        status = "already_exists";
       } else {
-        return new Response(JSON.stringify({ status: "failed", error: result.error || "Falha na adição" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        // Translate common errors to Portuguese
+        const err = (result.error || "Falha na adição").toLowerCase();
+        if (err.includes("whatsapp disconnected") || err.includes("disconnected")) {
+          errorMsg = "WhatsApp desconectado";
+        } else if (err.includes("not admin") || err.includes("not an admin")) {
+          errorMsg = "Instância não é admin do grupo";
+        } else if (err.includes("not found") || err.includes("info query")) {
+          errorMsg = "Número não encontrado no WhatsApp";
+        } else if (err.includes("full") || err.includes("limit")) {
+          errorMsg = "Grupo cheio";
+        } else if (err.includes("blocked") || err.includes("ban")) {
+          errorMsg = "Número bloqueado";
+        } else if (err.includes("rate") || err.includes("429")) {
+          errorMsg = "Limite de requisições atingido";
+        } else {
+          errorMsg = result.error || "Falha na adição";
+        }
       }
+
+      // Persist to DB if campaignId provided
+      if (campaignId && contactId) {
+        try {
+          await sb.from("mass_inject_contacts").update({
+            status,
+            error_message: errorMsg,
+            device_used: device.name || device.id,
+            processed_at: new Date().toISOString(),
+          }).eq("id", contactId);
+
+          // Update campaign counters
+          const field = status === "completed" ? "success_count" : status === "already_exists" ? "already_count" : "fail_count";
+          const { data: campaign } = await sb.from("mass_inject_campaigns").select(field).eq("id", campaignId).single();
+          if (campaign) {
+            await sb.from("mass_inject_campaigns").update({
+              [field]: (campaign[field] || 0) + 1,
+              updated_at: new Date().toISOString(),
+            }).eq("id", campaignId);
+          }
+        } catch (e) {
+          console.error("DB persist error:", e);
+        }
+      }
+
+      return new Response(JSON.stringify({ status, error: errorMsg }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     return new Response(JSON.stringify({ error: "Unknown action" }), {
