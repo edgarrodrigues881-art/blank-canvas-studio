@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import {
   Users, Upload, Search, CheckCircle2, XCircle,
   Loader2, Play, Trash2, Copy, Shield, RefreshCw,
-  FileText, BarChart3, UserPlus, ChevronRight, Globe
+  FileText, BarChart3, UserPlus, ChevronRight, Globe,
+  Clock, Pause, ArrowLeftRight, Settings2, Timer
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Slider } from "@/components/ui/slider";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -54,7 +57,7 @@ interface ProcessResult {
   total: number;
   durationSec: number;
   totalAttempts: number;
-  results: Array<{ phone: string; status: string; error?: string }>;
+  results: Array<{ phone: string; status: string; error?: string; deviceUsed?: string }>;
 }
 
 interface GroupInfo {
@@ -67,7 +70,7 @@ export default function MassGroupInject() {
   const { user } = useAuth();
   const [step, setStep] = useState<Step>("import");
   const [groupId, setGroupId] = useState("");
-  const [selectedDeviceId, setSelectedDeviceId] = useState("");
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
   const [rawInput, setRawInput] = useState("");
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [participantCheck, setParticipantCheck] = useState<ParticipantCheckResult | null>(null);
@@ -84,7 +87,16 @@ export default function MassGroupInject() {
   const [isResolvingLink, setIsResolvingLink] = useState(false);
   const [groupInputMode, setGroupInputMode] = useState<"list" | "link" | "jid">("list");
 
-  // Fetch user's devices - exclude report/notification instances
+  // Delay & rotation settings
+  const [minDelay, setMinDelay] = useState(3);
+  const [maxDelay, setMaxDelay] = useState(8);
+  const [pauseAfter, setPauseAfter] = useState(0);
+  const [pauseDuration, setPauseDuration] = useState(30);
+  const [rotateAfter, setRotateAfter] = useState(0);
+
+  // Track which steps have been completed for navigation
+  const [completedSteps, setCompletedSteps] = useState<Set<Step>>(new Set());
+
   const { data: devices = [] } = useQuery({
     queryKey: ["user-devices-inject", user?.id],
     queryFn: async () => {
@@ -96,7 +108,6 @@ export default function MassGroupInject() {
       const filtered = (data || []).filter((d: any) =>
         d.instance_type !== "notificacao" && d.login_type !== "report_wa"
       );
-      // Sort numerically: extract trailing number from name
       return filtered.sort((a: any, b: any) => {
         const numA = parseInt((a.name.match(/(\d+)\s*$/) || ["0", "0"])[1]);
         const numB = parseInt((b.name.match(/(\d+)\s*$/) || ["0", "0"])[1]);
@@ -111,16 +122,17 @@ export default function MassGroupInject() {
     return s === "connected" || s === "ready" || s === "active";
   };
 
-  const connectedDevices = useMemo(() =>
-    devices.filter((d: any) => isDeviceOnline(d.status)),
-  [devices]);
+  const toggleDevice = useCallback((deviceId: string) => {
+    setSelectedDeviceIds(prev =>
+      prev.includes(deviceId)
+        ? prev.filter(id => id !== deviceId)
+        : [...prev, deviceId]
+    );
+  }, []);
 
-  const allDevicesForSelect = useMemo(() =>
-    devices.length > 0 ? devices : [],
-  [devices]);
+  const primaryDeviceId = selectedDeviceIds[0] || "";
 
-  const handleDeviceChange = useCallback(async (deviceId: string) => {
-    setSelectedDeviceId(deviceId);
+  const handleLoadGroups = useCallback(async (deviceId: string) => {
     setGroups([]);
     setGroupId("");
     setIsLoadingGroups(true);
@@ -138,12 +150,21 @@ export default function MassGroupInject() {
     }
   }, []);
 
+  // Load groups when first device is selected
+  const handleDeviceToggle = useCallback((deviceId: string) => {
+    const willBeSelected = !selectedDeviceIds.includes(deviceId);
+    toggleDevice(deviceId);
+    if (willBeSelected && selectedDeviceIds.length === 0) {
+      handleLoadGroups(deviceId);
+    }
+  }, [selectedDeviceIds, toggleDevice, handleLoadGroups]);
+
   const handleResolveLink = useCallback(async () => {
-    if (!groupLink.trim() || !selectedDeviceId) return;
+    if (!groupLink.trim() || !primaryDeviceId) return;
     setIsResolvingLink(true);
     try {
       const { data, error } = await supabase.functions.invoke("mass-group-inject", {
-        body: { action: "resolve-link", deviceId: selectedDeviceId, link: groupLink.trim() },
+        body: { action: "resolve-link", deviceId: primaryDeviceId, link: groupLink.trim() },
       });
       if (error) throw error;
       if (data?.jid) {
@@ -157,32 +178,25 @@ export default function MassGroupInject() {
     } finally {
       setIsResolvingLink(false);
     }
-  }, [groupLink, selectedDeviceId]);
+  }, [groupLink, primaryDeviceId]);
 
   const filteredGroups = useMemo(() => {
     if (!groupSearch.trim()) return groups;
     const q = groupSearch.toLowerCase();
-    return groups.filter(g =>
-      g.name.toLowerCase().includes(q) || g.jid.toLowerCase().includes(q)
-    );
+    return groups.filter(g => g.name.toLowerCase().includes(q) || g.jid.toLowerCase().includes(q));
   }, [groups, groupSearch]);
 
-  const selectedGroup = useMemo(() =>
-    groups.find(g => g.jid === groupId),
-  [groups, groupId]);
+  const selectedGroup = useMemo(() => groups.find(g => g.jid === groupId), [groups, groupId]);
 
   const parseContacts = useCallback((input: string): string[] => {
-    return input
-      .split(/[\n,;]+/)
-      .map(c => c.trim())
-      .filter(c => c.length > 0);
+    return input.split(/[\n,;]+/).map(c => c.trim()).filter(c => c.length > 0);
   }, []);
 
   const handleValidate = useCallback(async () => {
     const contacts = parseContacts(rawInput);
     if (contacts.length === 0) return toast.error("Nenhum contato informado");
     if (!groupId.trim()) return toast.error("Selecione um grupo");
-    if (!selectedDeviceId) return toast.error("Selecione uma instância");
+    if (selectedDeviceIds.length === 0) return toast.error("Selecione pelo menos uma instância");
 
     setIsValidating(true);
     try {
@@ -191,6 +205,7 @@ export default function MassGroupInject() {
       });
       if (error) throw error;
       setValidationResult(data);
+      setCompletedSteps(prev => new Set([...prev, "import"]));
       setStep("preview");
       toast.success(`${data.validCount} contatos válidos encontrados`);
     } catch (e: any) {
@@ -198,14 +213,14 @@ export default function MassGroupInject() {
     } finally {
       setIsValidating(false);
     }
-  }, [rawInput, groupId, selectedDeviceId, parseContacts]);
+  }, [rawInput, groupId, selectedDeviceIds, parseContacts]);
 
   const handleCheckParticipants = useCallback(async () => {
     if (!validationResult?.valid.length) return;
     setIsChecking(true);
     try {
       const { data, error } = await supabase.functions.invoke("mass-group-inject", {
-        body: { action: "check-participants", groupId, deviceId: selectedDeviceId, contacts: validationResult.valid },
+        body: { action: "check-participants", groupId, deviceId: primaryDeviceId, contacts: validationResult.valid },
       });
       if (error) throw error;
       setParticipantCheck(data);
@@ -215,20 +230,33 @@ export default function MassGroupInject() {
     } finally {
       setIsChecking(false);
     }
-  }, [validationResult, groupId, selectedDeviceId]);
+  }, [validationResult, groupId, primaryDeviceId]);
 
   const handleProcess = useCallback(async () => {
     const contacts = participantCheck?.ready || validationResult?.valid || [];
     if (contacts.length === 0) return toast.error("Nenhum contato para processar");
     setConfirmOpen(false);
     setIsProcessing(true);
+    setCompletedSteps(prev => new Set([...prev, "preview"]));
     setStep("processing");
     try {
       const { data, error } = await supabase.functions.invoke("mass-group-inject", {
-        body: { action: "process", groupId, deviceId: selectedDeviceId, contacts, concurrency: 3 },
+        body: {
+          action: "process",
+          groupId,
+          deviceIds: selectedDeviceIds,
+          contacts,
+          concurrency: 1,
+          minDelay,
+          maxDelay,
+          pauseAfter,
+          pauseDuration,
+          rotateAfter,
+        },
       });
       if (error) throw error;
       setProcessResult(data);
+      setCompletedSteps(prev => new Set([...prev, "processing"]));
       setStep("done");
       toast.success(`Concluído: ${data.ok} sucesso, ${data.fail} falhas`);
     } catch (e: any) {
@@ -237,7 +265,7 @@ export default function MassGroupInject() {
     } finally {
       setIsProcessing(false);
     }
-  }, [participantCheck, validationResult, groupId, selectedDeviceId]);
+  }, [participantCheck, validationResult, groupId, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter]);
 
   const handleReset = useCallback(() => {
     setStep("import");
@@ -246,7 +274,25 @@ export default function MassGroupInject() {
     setParticipantCheck(null);
     setProcessResult(null);
     setActiveFilter("all");
+    setCompletedSteps(new Set());
   }, []);
+
+  const handleStepClick = useCallback((targetStep: Step) => {
+    if (isProcessing) return;
+    const stepOrder: Step[] = ["import", "preview", "processing", "done"];
+    const targetIdx = stepOrder.indexOf(targetStep);
+    const currentIdx = stepOrder.indexOf(step);
+
+    // Can always go back
+    if (targetIdx < currentIdx) {
+      setStep(targetStep);
+      return;
+    }
+    // Can go forward only to completed steps or the current+1
+    if (completedSteps.has(targetStep) || (targetIdx === currentIdx + 1 && completedSteps.has(step))) {
+      setStep(targetStep);
+    }
+  }, [step, completedSteps, isProcessing]);
 
   const filteredResults = useMemo(() => {
     if (!processResult?.results) return [];
@@ -255,18 +301,17 @@ export default function MassGroupInject() {
   }, [processResult, activeFilter]);
 
   const totalToProcess = participantCheck?.readyCount ?? validationResult?.validCount ?? 0;
-  const selectedDevice = devices.find((d: any) => d.id === selectedDeviceId);
   const contactCount = rawInput.trim() ? parseContacts(rawInput).length : 0;
 
   const stepItems = [
-    { key: "import", label: "Importar", icon: Upload },
-    { key: "preview", label: "Revisão", icon: Search },
-    { key: "processing", label: "Processando", icon: RefreshCw },
-    { key: "done", label: "Concluído", icon: CheckCircle2 },
+    { key: "import" as Step, label: "Importar", icon: Upload },
+    { key: "preview" as Step, label: "Revisão", icon: Search },
+    { key: "processing" as Step, label: "Processando", icon: RefreshCw },
+    { key: "done" as Step, label: "Concluído", icon: CheckCircle2 },
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 space-y-8">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 space-y-6">
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -287,23 +332,30 @@ export default function MassGroupInject() {
         )}
       </div>
 
-      {/* Step indicator */}
+      {/* Step indicator - clickable */}
       <div className="flex items-center gap-1 bg-card/50 border border-border/50 rounded-2xl p-2">
         {stepItems.map((s, i, arr) => {
           const isCurrent = step === s.key;
           const isPast = arr.findIndex(x => x.key === step) > i;
+          const canClick = !isProcessing && (isPast || completedSteps.has(s.key) || isCurrent);
           return (
             <div key={s.key} className="flex items-center gap-1 flex-1">
-              <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all w-full justify-center ${
-                isCurrent
-                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                  : isPast
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground"
-              }`}>
+              <button
+                onClick={() => canClick && handleStepClick(s.key)}
+                disabled={!canClick}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all w-full justify-center ${
+                  isCurrent
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                    : isPast
+                      ? "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
+                      : canClick
+                        ? "text-muted-foreground hover:bg-muted/50 cursor-pointer"
+                        : "text-muted-foreground/40 cursor-not-allowed"
+                }`}
+              >
                 <s.icon className="w-4 h-4" />
                 <span className="hidden sm:inline">{s.label}</span>
-              </div>
+              </button>
               {i < arr.length - 1 && <ChevronRight className="w-4 h-4 text-muted-foreground/30 shrink-0" />}
             </div>
           );
@@ -318,37 +370,45 @@ export default function MassGroupInject() {
             <Card className="border-border/40 bg-card/80 backdrop-blur-sm shadow-sm">
               <CardHeader className="pb-4">
                 <CardTitle className="text-base font-semibold flex items-center gap-2.5">
-                  <Shield className="w-4.5 h-4.5 text-primary" />
+                  <Shield className="w-4 h-4 text-primary" />
                   Configuração
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                {/* Instance selector */}
+                {/* Instance selector - multi-select with checkboxes */}
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-                    Instância
+                    Instâncias ({selectedDeviceIds.length} selecionada{selectedDeviceIds.length !== 1 ? "s" : ""})
                   </label>
-                  <Select value={selectedDeviceId} onValueChange={handleDeviceChange}>
-                    <SelectTrigger className="h-11">
-                      <SelectValue placeholder="Selecione uma instância" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allDevicesForSelect.map((d: any) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-2 h-2 rounded-full ${isDeviceOnline(d.status) ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
-                            <span className="font-medium">{d.name}</span>
-                            {d.number && <span className="text-muted-foreground text-xs">({d.number})</span>}
+                  <div className="max-h-[180px] overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/20">
+                    {devices.map((d: any) => {
+                      const online = isDeviceOnline(d.status);
+                      const selected = selectedDeviceIds.includes(d.id);
+                      return (
+                        <label
+                          key={d.id}
+                          className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer transition-colors hover:bg-muted/30 ${
+                            selected ? "bg-primary/5" : ""
+                          }`}
+                        >
+                          <Checkbox
+                            checked={selected}
+                            onCheckedChange={() => handleDeviceToggle(d.id)}
+                          />
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${online ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+                          <div className="min-w-0 flex-1">
+                            <span className="text-sm font-medium">{d.name}</span>
+                            {d.number && <span className="text-xs text-muted-foreground ml-1.5">({d.number})</span>}
                           </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {allDevicesForSelect.length === 0 && (
-                    <p className="text-xs text-destructive mt-1.5">Nenhuma instância Uazapi encontrada</p>
-                  )}
-                  {selectedDevice && !isDeviceOnline(selectedDevice.status) && (
-                    <p className="text-xs text-amber-500 mt-1.5">⚠ Instância desconectada</p>
+                        </label>
+                      );
+                    })}
+                    {devices.length === 0 && (
+                      <p className="text-xs text-destructive text-center py-4">Nenhuma instância Uazapi encontrada</p>
+                    )}
+                  </div>
+                  {selectedDeviceIds.length > 1 && (
+                    <p className="text-[10px] text-primary mt-1.5">✓ Rotação entre {selectedDeviceIds.length} instâncias ativa</p>
                   )}
                 </div>
 
@@ -357,8 +417,6 @@ export default function MassGroupInject() {
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
                     Grupo de Destino
                   </label>
-
-                  {/* Mode tabs */}
                   <div className="flex gap-1 mb-3 bg-muted/30 p-1 rounded-lg">
                     {[
                       { key: "list" as const, label: "Meus Grupos" },
@@ -382,7 +440,7 @@ export default function MassGroupInject() {
                   {/* Mode: List */}
                   {groupInputMode === "list" && (
                     <>
-                      {!selectedDeviceId ? (
+                      {!primaryDeviceId ? (
                         <div className="rounded-xl border border-dashed border-border/40 p-4 text-center">
                           <p className="text-xs text-muted-foreground">Selecione uma instância primeiro</p>
                         </div>
@@ -393,38 +451,24 @@ export default function MassGroupInject() {
                         </div>
                       ) : groups.length > 0 ? (
                         <div className="space-y-2">
-                          <Input
-                            value={groupSearch}
-                            onChange={e => setGroupSearch(e.target.value)}
-                            placeholder="Buscar grupo..."
-                            className="h-9 text-sm"
-                          />
+                          <Input value={groupSearch} onChange={e => setGroupSearch(e.target.value)} placeholder="Buscar grupo..." className="h-9 text-sm" />
                           <div className="max-h-[200px] overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/20">
                             {filteredGroups.map(g => (
-                              <button
-                                key={g.jid}
-                                onClick={() => setGroupId(g.jid)}
-                                className={`w-full text-left px-3.5 py-2.5 transition-colors hover:bg-muted/50 ${
-                                  groupId === g.jid ? "bg-primary/10 border-l-2 border-l-primary" : ""
-                                }`}
-                              >
+                              <button key={g.jid} onClick={() => setGroupId(g.jid)} className={`w-full text-left px-3.5 py-2.5 transition-colors hover:bg-muted/50 ${groupId === g.jid ? "bg-primary/10 border-l-2 border-l-primary" : ""}`}>
                                 <div className="flex items-center justify-between">
                                   <div className="min-w-0">
                                     <p className="text-sm font-medium text-foreground truncate">{g.name}</p>
                                     <p className="text-[10px] text-muted-foreground/60 font-mono truncate mt-0.5">{g.jid}</p>
                                   </div>
-                                  {g.participants > 0 && (
-                                    <Badge variant="outline" className="text-[10px] shrink-0 ml-2">
-                                      {g.participants}
-                                    </Badge>
-                                  )}
+                                  {g.participants > 0 && <Badge variant="outline" className="text-[10px] shrink-0 ml-2">{g.participants}</Badge>}
                                 </div>
                               </button>
                             ))}
-                            {filteredGroups.length === 0 && (
-                              <p className="text-xs text-muted-foreground text-center py-4">Nenhum grupo encontrado</p>
-                            )}
+                            {filteredGroups.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">Nenhum grupo encontrado</p>}
                           </div>
+                          <Button variant="ghost" size="sm" onClick={() => handleLoadGroups(primaryDeviceId)} className="w-full gap-2 text-xs h-8">
+                            <RefreshCw className="w-3 h-3" /> Recarregar Grupos
+                          </Button>
                         </div>
                       ) : (
                         <div className="rounded-xl border border-dashed border-border/40 p-4 text-center space-y-2">
@@ -439,22 +483,9 @@ export default function MassGroupInject() {
                   {/* Mode: Link */}
                   {groupInputMode === "link" && (
                     <div className="space-y-3">
-                      <Input
-                        value={groupLink}
-                        onChange={e => setGroupLink(e.target.value)}
-                        placeholder="https://chat.whatsapp.com/XXXXXXXX"
-                        className="h-11 font-mono text-sm"
-                      />
-                      <p className="text-[10px] text-muted-foreground/60">
-                        Cole o link de convite do grupo. O sistema vai resolver o JID automaticamente.
-                      </p>
-                      <Button
-                        onClick={handleResolveLink}
-                        disabled={isResolvingLink || !groupLink.trim() || !selectedDeviceId}
-                        variant="outline"
-                        className="w-full gap-2 h-10"
-                        size="sm"
-                      >
+                      <Input value={groupLink} onChange={e => setGroupLink(e.target.value)} placeholder="https://chat.whatsapp.com/XXXXXXXX" className="h-11 font-mono text-sm" />
+                      <p className="text-[10px] text-muted-foreground/60">Cole o link de convite do grupo. O sistema vai resolver o JID automaticamente.</p>
+                      <Button onClick={handleResolveLink} disabled={isResolvingLink || !groupLink.trim() || !primaryDeviceId} variant="outline" className="w-full gap-2 h-10" size="sm">
                         {isResolvingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                         {isResolvingLink ? "Resolvendo..." : "Resolver Link"}
                       </Button>
@@ -464,15 +495,8 @@ export default function MassGroupInject() {
                   {/* Mode: JID Manual */}
                   {groupInputMode === "jid" && (
                     <div className="space-y-2">
-                      <Input
-                        value={groupId}
-                        onChange={e => setGroupId(e.target.value)}
-                        placeholder="120363XXXXXXXXXX@g.us"
-                        className="h-11 font-mono text-sm"
-                      />
-                      <p className="text-[10px] text-muted-foreground/60">
-                        Identificador completo do grupo (JID)
-                      </p>
+                      <Input value={groupId} onChange={e => setGroupId(e.target.value)} placeholder="120363XXXXXXXXXX@g.us" className="h-11 font-mono text-sm" />
+                      <p className="text-[10px] text-muted-foreground/60">Identificador completo do grupo (JID)</p>
                     </div>
                   )}
                 </div>
@@ -483,12 +507,78 @@ export default function MassGroupInject() {
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">
-                          {selectedGroup?.name || "Grupo selecionado"}
-                        </p>
+                        <p className="text-sm font-semibold text-foreground truncate">{selectedGroup?.name || "Grupo selecionado"}</p>
                         <p className="text-[10px] text-muted-foreground/60 font-mono">{groupId}</p>
                       </div>
                     </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Delay & Rotation Settings */}
+            <Card className="border-border/40 bg-card/80 backdrop-blur-sm shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2.5">
+                  <Settings2 className="w-4 h-4 text-primary" />
+                  Configurações Avançadas
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {/* Delay between contacts */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Timer className="w-3.5 h-3.5 text-muted-foreground" />
+                    <label className="text-xs font-semibold text-muted-foreground">Delay entre contatos (segundos)</label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <span className="text-[10px] text-muted-foreground/60">Mín</span>
+                      <Input type="number" min={1} max={120} value={minDelay} onChange={e => setMinDelay(Number(e.target.value) || 1)} className="h-9 text-sm mt-1" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground/60">Máx</span>
+                      <Input type="number" min={1} max={300} value={maxDelay} onChange={e => setMaxDelay(Math.max(Number(e.target.value) || 1, minDelay))} className="h-9 text-sm mt-1" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pause after X */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Pause className="w-3.5 h-3.5 text-muted-foreground" />
+                    <label className="text-xs font-semibold text-muted-foreground">Pausa após X adições</label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <span className="text-[10px] text-muted-foreground/60">A cada</span>
+                      <Input type="number" min={0} value={pauseAfter} onChange={e => setPauseAfter(Number(e.target.value) || 0)} placeholder="0 = sem pausa" className="h-9 text-sm mt-1" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground/60">Duração (s)</span>
+                      <Input type="number" min={5} max={600} value={pauseDuration} onChange={e => setPauseDuration(Number(e.target.value) || 30)} className="h-9 text-sm mt-1" />
+                    </div>
+                  </div>
+                  {pauseAfter > 0 && (
+                    <p className="text-[10px] text-muted-foreground/60 mt-1">
+                      Pausa de {pauseDuration}s após cada {pauseAfter} contatos
+                    </p>
+                  )}
+                </div>
+
+                {/* Rotate after X */}
+                {selectedDeviceIds.length > 1 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <ArrowLeftRight className="w-3.5 h-3.5 text-muted-foreground" />
+                      <label className="text-xs font-semibold text-muted-foreground">Trocar instância após X adições</label>
+                    </div>
+                    <Input type="number" min={0} value={rotateAfter} onChange={e => setRotateAfter(Number(e.target.value) || 0)} placeholder="0 = sem rotação" className="h-9 text-sm" />
+                    {rotateAfter > 0 && (
+                      <p className="text-[10px] text-muted-foreground/60 mt-1">
+                        Troca de instância após cada {rotateAfter} adições bem-sucedidas
+                      </p>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -517,7 +607,7 @@ export default function MassGroupInject() {
             <Card className="border-border/40 bg-card/80 backdrop-blur-sm shadow-sm h-full">
               <CardHeader className="pb-4">
                 <CardTitle className="text-base font-semibold flex items-center gap-2.5">
-                  <Upload className="w-4.5 h-4.5 text-primary" />
+                  <Upload className="w-4 h-4 text-primary" />
                   Importar Contatos
                 </CardTitle>
               </CardHeader>
@@ -561,7 +651,7 @@ export default function MassGroupInject() {
 
                 <Button
                   onClick={handleValidate}
-                  disabled={isValidating || !rawInput.trim() || !groupId.trim() || !selectedDeviceId}
+                  disabled={isValidating || !rawInput.trim() || !groupId.trim() || selectedDeviceIds.length === 0}
                   className="w-full h-12 gap-2 text-sm font-semibold rounded-xl shadow-md shadow-primary/10"
                   size="lg"
                 >
@@ -577,7 +667,6 @@ export default function MassGroupInject() {
       {/* ══ PREVIEW ══ */}
       {step === "preview" && validationResult && (
         <div className="space-y-6">
-          {/* Stats grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
               { label: "Total", value: validationResult.total, icon: Users, color: "text-foreground", border: "border-border/40" },
@@ -599,19 +688,53 @@ export default function MassGroupInject() {
             ))}
           </div>
 
+          {/* Config summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Card className="border-border/40 bg-card/60">
+              <CardContent className="py-3 px-4 flex items-center gap-3">
+                <Timer className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs font-semibold text-foreground">Delay: {minDelay}s – {maxDelay}s</p>
+                  <p className="text-[10px] text-muted-foreground">Intervalo aleatório entre contatos</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-border/40 bg-card/60">
+              <CardContent className="py-3 px-4 flex items-center gap-3">
+                <Users className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs font-semibold text-foreground">{selectedDeviceIds.length} instância{selectedDeviceIds.length !== 1 ? "s" : ""}</p>
+                  <p className="text-[10px] text-muted-foreground">{rotateAfter > 0 ? `Rotação a cada ${rotateAfter}` : "Sem rotação"}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-border/40 bg-card/60">
+              <CardContent className="py-3 px-4 flex items-center gap-3">
+                <Pause className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs font-semibold text-foreground">{pauseAfter > 0 ? `Pausa a cada ${pauseAfter}` : "Sem pausa"}</p>
+                  <p className="text-[10px] text-muted-foreground">{pauseAfter > 0 ? `${pauseDuration}s de espera` : "Processamento contínuo"}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Selected group info */}
-          {selectedGroup && (
+          {(selectedGroup || groupId) && (
             <Card className="border-primary/15 bg-primary/5">
               <CardContent className="py-3 px-5 flex items-center gap-3">
                 <Globe className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold text-foreground">{selectedGroup.name}</span>
-                <span className="text-xs text-muted-foreground font-mono">{selectedGroup.jid}</span>
+                <span className="text-sm font-semibold text-foreground">{selectedGroup?.name || "Grupo"}</span>
+                <span className="text-xs text-muted-foreground font-mono">{groupId}</span>
               </CardContent>
             </Card>
           )}
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row gap-3">
+            <Button variant="ghost" onClick={() => setStep("import")} className="gap-2 h-10 text-muted-foreground">
+              ← Voltar
+            </Button>
             {!participantCheck && (
               <Button onClick={handleCheckParticipants} disabled={isChecking} variant="outline" className="gap-2 h-10">
                 {isChecking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
@@ -694,7 +817,11 @@ export default function MassGroupInject() {
           <div className="text-center space-y-2">
             <h2 className="text-xl font-bold text-foreground">Processando Contatos</h2>
             <p className="text-sm text-muted-foreground">Adicionando {totalToProcess} contatos ao grupo...</p>
-            <p className="text-xs text-muted-foreground/50">Não feche esta página.</p>
+            <p className="text-xs text-muted-foreground/50">
+              {selectedDeviceIds.length} instância{selectedDeviceIds.length !== 1 ? "s" : ""} • Delay {minDelay}–{maxDelay}s
+              {pauseAfter > 0 && ` • Pausa a cada ${pauseAfter}`}
+            </p>
+            <p className="text-[10px] text-muted-foreground/40 mt-4">Não feche esta página.</p>
           </div>
           <div className="w-full max-w-lg">
             <Progress value={undefined} className="h-2.5" />
@@ -729,13 +856,7 @@ export default function MassGroupInject() {
               { key: "already_exists", label: `Existente (${processResult.already})` },
               { key: "failed", label: `Falhas (${processResult.fail})` },
             ].map(f => (
-              <Button
-                key={f.key}
-                variant={activeFilter === f.key ? "default" : "outline"}
-                size="sm"
-                onClick={() => setActiveFilter(f.key)}
-                className="text-xs h-8 rounded-lg"
-              >
+              <Button key={f.key} variant={activeFilter === f.key ? "default" : "outline"} size="sm" onClick={() => setActiveFilter(f.key)} className="text-xs h-8 rounded-lg">
                 {f.label}
               </Button>
             ))}
@@ -751,6 +872,7 @@ export default function MassGroupInject() {
                       <TableHead className="text-xs w-14 font-semibold">#</TableHead>
                       <TableHead className="text-xs font-semibold">Contato</TableHead>
                       <TableHead className="text-xs font-semibold">Status</TableHead>
+                      {selectedDeviceIds.length > 1 && <TableHead className="text-xs font-semibold">Instância</TableHead>}
                       <TableHead className="text-xs font-semibold">Detalhe</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -760,23 +882,23 @@ export default function MassGroupInject() {
                         <TableCell className="text-xs text-muted-foreground font-mono">{i + 1}</TableCell>
                         <TableCell className="text-xs font-mono font-medium">{r.phone}</TableCell>
                         <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] font-semibold ${
-                              r.status === "completed" ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5" :
-                              r.status === "already_exists" ? "border-blue-500/30 text-blue-500 bg-blue-500/5" :
-                              "border-destructive/30 text-destructive bg-destructive/5"
-                            }`}
-                          >
+                          <Badge variant="outline" className={`text-[10px] font-semibold ${
+                            r.status === "completed" ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5" :
+                            r.status === "already_exists" ? "border-blue-500/30 text-blue-500 bg-blue-500/5" :
+                            "border-destructive/30 text-destructive bg-destructive/5"
+                          }`}>
                             {r.status === "completed" ? "Sucesso" : r.status === "already_exists" ? "Já existe" : "Falha"}
                           </Badge>
                         </TableCell>
+                        {selectedDeviceIds.length > 1 && (
+                          <TableCell className="text-xs text-muted-foreground">{r.deviceUsed || "—"}</TableCell>
+                        )}
                         <TableCell className="text-xs text-muted-foreground max-w-[250px] truncate">{r.error || "—"}</TableCell>
                       </TableRow>
                     ))}
                     {filteredResults.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-10 text-sm text-muted-foreground">Nenhum resultado</TableCell>
+                        <TableCell colSpan={selectedDeviceIds.length > 1 ? 5 : 4} className="text-center py-10 text-sm text-muted-foreground">Nenhum resultado</TableCell>
                       </TableRow>
                     )}
                   </TableBody>
@@ -797,9 +919,19 @@ export default function MassGroupInject() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Processamento</AlertDialogTitle>
-            <AlertDialogDescription>
-              Serão processados <strong>{totalToProcess}</strong> contatos para adição ao grupo
-              {selectedGroup && <> <strong>{selectedGroup.name}</strong></>}. Esta ação não pode ser desfeita.
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  Serão processados <strong>{totalToProcess}</strong> contatos para adição ao grupo
+                  {selectedGroup && <> <strong>{selectedGroup.name}</strong></>}.
+                </p>
+                <div className="bg-muted/50 rounded-lg p-3 space-y-1 text-xs">
+                  <p>📱 {selectedDeviceIds.length} instância{selectedDeviceIds.length !== 1 ? "s" : ""}</p>
+                  <p>⏱ Delay: {minDelay}s – {maxDelay}s (aleatório)</p>
+                  {pauseAfter > 0 && <p>⏸ Pausa de {pauseDuration}s a cada {pauseAfter} contatos</p>}
+                  {rotateAfter > 0 && <p>🔄 Troca de instância a cada {rotateAfter} adições</p>}
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
