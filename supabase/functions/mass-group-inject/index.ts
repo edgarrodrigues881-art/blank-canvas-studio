@@ -829,36 +829,20 @@ Deno.serve(async (req) => {
     }
 
     if (action === "create-campaign") {
-      const contacts = Array.isArray(body.contacts) ? Array.from(new Set(body.contacts.map(String))) : [];
+      const contacts = Array.isArray(body.contacts) ? Array.from(new Set(body.contacts.map(String).filter(Boolean))) : [];
       const deviceIds = Array.isArray(body.deviceIds) ? body.deviceIds.map(String).filter(Boolean) : [];
-      if (!body.groupId || deviceIds.length === 0) return new Response(JSON.stringify({ error: "Grupo e instância são obrigatórios." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (!body.groupId || deviceIds.length === 0) {
+        return new Response(JSON.stringify({ error: "Grupo e instância são obrigatórios." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (contacts.length === 0) {
+        return new Response(JSON.stringify({ error: "Nenhum contato válido para enfileirar." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
 
       const primaryDevice = await getDeviceCredentials(sb, deviceIds[0], user?.id || null, isAdmin);
-      if (!primaryDevice) return new Response(JSON.stringify({ error: "Instância não encontrada." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
-      // Pre-flight connection check before creating campaign
-      const connCheck = await checkInstanceConnection(primaryDevice.uazapi_base_url, primaryDevice.uazapi_token);
-      if (connCheck.connected === true) {
-        // API confirms connected — ensure DB reflects this
-        await sb.from("devices").update({ status: "Ready", updated_at: nowIso() }).eq("id", primaryDevice.id);
-      } else if (connCheck.connected === false) {
-        // Update device status immediately
-        await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", primaryDevice.id);
-        return new Response(JSON.stringify({ error: "A instância está desconectada. Reconecte antes de iniciar a campanha." }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      // If connected === null (inconclusive), proceed anyway — don't block the campaign
-
-      const participantResult = await getGroupParticipantsDetailed(primaryDevice.uazapi_base_url, primaryDevice.uazapi_token, body.groupId);
-      if (!participantResult.confirmed) return new Response(JSON.stringify({ error: "Não foi possível confirmar participantes do grupo.", diagnostics: participantResult.diagnostics.join("; ") }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
-      const readyContacts: string[] = [];
-      const alreadyExists: string[] = [];
-      for (const phone of contacts) {
-        if (participantSetHasPhone(participantResult.participants, phone)) alreadyExists.push(phone);
-        else readyContacts.push(phone);
+      if (!primaryDevice) {
+        return new Response(JSON.stringify({ error: "Instância não encontrada." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      const allContacts = [...readyContacts, ...alreadyExists];
       const { data: campaign, error } = await sb.from("mass_inject_campaigns").insert({
         user_id: user!.id,
         name: body.name || `Campanha ${new Date().toLocaleString("pt-BR")}`,
@@ -866,9 +850,9 @@ Deno.serve(async (req) => {
         group_name: body.groupName || body.groupId,
         device_ids: deviceIds,
         status: "queued",
-        total_contacts: allContacts.length,
+        total_contacts: contacts.length,
         success_count: 0,
-        already_count: alreadyExists.length,
+        already_count: 0,
         fail_count: 0,
         min_delay: Math.max(Number(body.minDelay || 8), 8),
         max_delay: Math.max(Number(body.maxDelay || 15), Number(body.minDelay || 8), 8),
@@ -879,15 +863,19 @@ Deno.serve(async (req) => {
       } as any).select().single();
       if (error || !campaign) throw error || new Error("Erro ao criar campanha.");
 
-      const rows = allContacts.map((phone) => ({ campaign_id: campaign.id, phone, status: alreadyExists.includes(phone) ? "already_exists" : "pending" }));
+      const rows = contacts.map((phone) => ({ campaign_id: campaign.id, phone, status: "pending" }));
       for (let i = 0; i < rows.length; i += 500) {
         await sb.from("mass_inject_contacts").insert(rows.slice(i, i + 500) as any);
       }
 
-      // CRITICAL: wait 5s before first worker run to let Uazapi session stabilize
-      // after the participant check calls made above
-      await queueCampaignRun(campaign.id, 5000);
-      return new Response(JSON.stringify({ success: true, campaignId: campaign.id, readyCount: readyContacts.length, alreadyExistsCount: alreadyExists.length }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      await queueCampaignRun(campaign.id, 0);
+      return new Response(JSON.stringify({
+        success: true,
+        campaignId: campaign.id,
+        readyCount: contacts.length,
+        alreadyExistsCount: 0,
+        deferredParticipantCheck: true,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (["resume-campaign", "pause-campaign", "cancel-campaign"].includes(action)) {
