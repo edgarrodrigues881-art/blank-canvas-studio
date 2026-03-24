@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -79,10 +79,39 @@ export default function GroupJoinCampaignDetail() {
     enabled: !!id && !!user,
     refetchInterval: (query) => {
       if (document.hidden) return false;
-      return campaign && isActive(campaign.status) ? 10_000 : false;
+      return campaign && isActive(campaign.status) ? 5_000 : false;
     },
     staleTime: 5_000,
   });
+
+  useEffect(() => {
+    if (!id) return;
+
+    const channel = supabase
+      .channel(`group-join-detail-${id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "group_join_campaigns", filter: `id=eq.${id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["group-join-campaign", id] });
+          queryClient.invalidateQueries({ queryKey: ["group-join-campaigns-list"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "group_join_queue", filter: `campaign_id=eq.${id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["group-join-queue", id] });
+          queryClient.invalidateQueries({ queryKey: ["group-join-campaign", id] });
+          queryClient.invalidateQueries({ queryKey: ["group-join-campaigns-list"] });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id, queryClient]);
 
   const filteredItems = useMemo(() => {
     if (statusFilter === "all") return queueItems;
@@ -90,11 +119,12 @@ export default function GroupJoinCampaignDetail() {
   }, [queueItems, statusFilter]);
 
   const stats = useMemo(() => {
-    const s = { success: 0, already: 0, error: 0, pending: 0, cancelled: 0, total: 0 };
+    const s = { success: 0, already: 0, pendingApproval: 0, error: 0, pending: 0, cancelled: 0, total: 0 };
     for (const item of queueItems) {
       s.total++;
       if (item.status === "success") s.success++;
       else if (item.status === "already_member") s.already++;
+      else if (item.status === "pending_approval") s.pendingApproval++;
       else if (item.status === "error") s.error++;
       else if (item.status === "cancelled") s.cancelled++;
       else s.pending++;
@@ -121,7 +151,7 @@ export default function GroupJoinCampaignDetail() {
     return Array.from(map.entries()).map(([id, m]) => ({ id, ...m }));
   }, [queueItems]);
 
-  const processed = stats.success + stats.already + stats.error;
+  const processed = stats.success + stats.already + stats.pendingApproval + stats.error;
   const progress = stats.total > 0 ? (processed / stats.total) * 100 : 0;
   const successRate = processed > 0 ? Math.round(((stats.success + stats.already) / processed) * 100) : 0;
 
@@ -206,7 +236,7 @@ export default function GroupJoinCampaignDetail() {
   const isFinished = ["done", "cancelled", "error"].includes(campaign.status);
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto pb-10">
+    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 pb-10 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/group-join")} className="rounded-xl h-9 w-9">
@@ -231,9 +261,10 @@ export default function GroupJoinCampaignDetail() {
         </div>
         <Progress value={progress} className="h-2" />
 
-        <div className="grid grid-cols-5 gap-2 text-center">
+        <div className="grid grid-cols-2 gap-2 text-center md:grid-cols-3 xl:grid-cols-6">
           {[
             { label: "Sucesso", value: stats.success + stats.already, color: "text-emerald-500" },
+            { label: "Aguardando", value: stats.pendingApproval, color: stats.pendingApproval > 0 ? "text-amber-500" : "text-muted-foreground" },
             { label: "Erro", value: stats.error, color: stats.error > 0 ? "text-destructive" : "text-muted-foreground" },
             { label: "Pendente", value: stats.pending, color: "text-muted-foreground" },
             { label: "Cancelado", value: stats.cancelled, color: "text-muted-foreground/50" },
@@ -292,7 +323,7 @@ export default function GroupJoinCampaignDetail() {
 
       {/* Config info */}
       <div className="rounded-2xl border border-border/20 bg-card/80 p-4">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="grid grid-cols-2 gap-3 text-xs lg:grid-cols-4">
           <div>
             <span className="text-muted-foreground/50">Delay</span>
             <p className="font-semibold text-foreground">{campaign.min_delay}s – {campaign.max_delay}s</p>
@@ -314,7 +345,7 @@ export default function GroupJoinCampaignDetail() {
 
       {/* Tabs: Links / Instances */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-muted/10 border border-border/15 rounded-xl p-1 h-auto">
+        <TabsList className="h-auto flex-wrap justify-start bg-muted/10 border border-border/15 rounded-xl p-1">
           <TabsTrigger value="links" className="text-xs rounded-lg gap-1.5 px-4 py-2">
             <List className="w-3.5 h-3.5" /> Links ({stats.total})
           </TabsTrigger>
@@ -340,6 +371,7 @@ export default function GroupJoinCampaignDetail() {
                     <SelectItem value="all">Todos ({stats.total})</SelectItem>
                     <SelectItem value="success">Sucesso ({stats.success})</SelectItem>
                     <SelectItem value="already_member">Já membro ({stats.already})</SelectItem>
+                    <SelectItem value="pending_approval">Aguardando ({stats.pendingApproval})</SelectItem>
                     <SelectItem value="error">Erro ({stats.error})</SelectItem>
                     <SelectItem value="pending">Pendente ({stats.pending})</SelectItem>
                     <SelectItem value="cancelled">Cancelado ({stats.cancelled})</SelectItem>

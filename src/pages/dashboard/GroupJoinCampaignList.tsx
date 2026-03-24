@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,9 +50,26 @@ export default function GroupJoinCampaignList() {
       return (data || []) as any[];
     },
     enabled: !!user,
-    refetchInterval: () => document.hidden ? false : 60_000,
+    refetchInterval: () => document.hidden ? false : 20_000,
     staleTime: 30_000,
   });
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`group-join-campaigns-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "group_join_campaigns", filter: `user_id=eq.${user.id}` },
+        () => queryClient.invalidateQueries({ queryKey: ["group-join-campaigns-list"] }),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient, user?.id]);
 
   const cancelMut = useMutation({
     mutationFn: async (id: string) => {
@@ -86,7 +103,7 @@ export default function GroupJoinCampaignList() {
   });
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -105,7 +122,7 @@ export default function GroupJoinCampaignList() {
 
       {/* Stats */}
       {campaigns.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           {[
             { label: "Total", value: campaigns.length, icon: Link2 },
             { label: "Ativas", value: campaigns.filter((c: any) => c.status === "running").length, icon: Play },
@@ -203,10 +220,10 @@ export default function GroupJoinCampaignList() {
 
                 <Progress value={progress} className="h-1.5 mb-2" />
 
-                <div className="grid grid-cols-4 gap-2 text-center text-[11px]">
+                <div className="grid grid-cols-2 gap-2 text-center text-[11px] sm:grid-cols-4">
                   <div>
-                    <span className="text-muted-foreground/50">Sucesso</span>
-                    <span className="font-bold text-primary ml-1">{(camp.success_count || 0) + (camp.already_member_count || 0)}</span>
+                    <span className="text-muted-foreground/50">Processados</span>
+                    <span className="font-bold text-primary ml-1">{processed}</span>
                   </div>
                   <div>
                     <span className="text-muted-foreground/50">Erro</span>
