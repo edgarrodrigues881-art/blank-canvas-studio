@@ -68,7 +68,8 @@ function randomBetween(min: number, max: number) {
 }
 
 function translateError(err: string): string {
-  const e = (err || "").toLowerCase();
+  const clean = (err || "").replace(/^\[retry:\d+\]\s*/i, "").trim();
+  const e = clean.toLowerCase();
   if (e.includes("confirmed_disconnect") || e.includes("realmente desconectada")) return "Instância desconectada (confirmado)";
   if (e.includes("connection_unconfirmed")) return "Conexão não pôde ser confirmada";
   if (e.includes("confirmed_no_admin") || e.includes("privilégio de admin")) return "Sem privilégio de admin (confirmado)";
@@ -89,8 +90,8 @@ function translateError(err: string): string {
   if (e.includes("full") || e.includes("limit")) return "Grupo cheio";
   if (e.includes("bad-request")) return "Requisição inválida";
   if (e.includes("failed to update")) return "Falha ao processar contato";
-  if (err.length > 80) return err.substring(0, 80) + "...";
-  return err || "Falha sem detalhe";
+  if (clean.length > 80) return clean.substring(0, 80) + "...";
+  return clean || "Falha sem detalhe";
 }
 
 function formatTime(sec: number) {
@@ -103,6 +104,8 @@ function statusLabel(status: string) {
   switch (status) {
     case "completed": return "Adicionado";
     case "already_exists": return "Já no grupo";
+    case "rate_limited": return "Aguardando retry";
+    case "api_temporary": return "Falha temporária";
     case "temporary_error": return "Erro temporário";
     case "connection_unconfirmed": return "Conexão não confirmada";
     case "confirmed_disconnect": return "Desconectada";
@@ -112,12 +115,15 @@ function statusLabel(status: string) {
     case "contact_not_found": return "Contato inexistente";
     case "unauthorized": return "Autenticação";
     case "blocked": return "Bloqueado";
+    case "unknown_failure": return "Falha não confirmada";
     case "failed": return "Falha";
     case "pending": return "Pendente";
     case "processing": return "Processando";
     case "paused": return "Pausado";
     case "cancelled": return "Cancelado";
     case "done": return "Concluído";
+    case "queued": return "Na fila";
+    case "completed_with_failures": return "Concluída com falhas";
     case "draft": return "Rascunho";
     default: return status;
   }
@@ -127,6 +133,8 @@ function statusBadge(status: string) {
   switch (status) {
     case "completed": return "border-emerald-500/30 text-emerald-500 bg-emerald-500/5";
     case "already_exists": return "border-blue-500/30 text-blue-500 bg-blue-500/5";
+    case "rate_limited": return "border-amber-500/30 text-amber-600 bg-amber-500/5";
+    case "api_temporary": return "border-amber-500/30 text-amber-600 bg-amber-500/5";
     case "temporary_error": return "border-amber-500/30 text-amber-600 bg-amber-500/5";
     case "connection_unconfirmed": return "border-amber-500/30 text-amber-600 bg-amber-500/5";
     case "permission_unconfirmed": return "border-amber-500/30 text-amber-600 bg-amber-500/5";
@@ -136,7 +144,10 @@ function statusBadge(status: string) {
     case "contact_not_found": return "border-destructive/30 text-destructive bg-destructive/5";
     case "unauthorized": return "border-destructive/30 text-destructive bg-destructive/5";
     case "blocked": return "border-destructive/30 text-destructive bg-destructive/5";
+    case "unknown_failure": return "border-destructive/30 text-destructive bg-destructive/5";
     case "done": return "border-emerald-500/30 text-emerald-500 bg-emerald-500/5";
+    case "completed_with_failures": return "border-amber-500/30 text-amber-600 bg-amber-500/5";
+    case "queued": return "border-primary/30 text-primary bg-primary/5";
     case "failed": case "cancelled": return "border-destructive/30 text-destructive bg-destructive/5";
     case "processing": return "border-primary/30 text-primary bg-primary/5";
     case "paused": return "border-amber-500/30 text-amber-500 bg-amber-500/5";
@@ -151,6 +162,8 @@ function isSuccessStatus(status: string) {
 function isFailureStatus(status: string) {
   return [
     "failed",
+    "rate_limited",
+    "api_temporary",
     "temporary_error",
     "connection_unconfirmed",
     "confirmed_disconnect",
@@ -160,6 +173,7 @@ function isFailureStatus(status: string) {
     "contact_not_found",
     "unauthorized",
     "blocked",
+    "unknown_failure",
     "cancelled",
   ].includes(status);
 }
@@ -333,10 +347,7 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
   const qc = useQueryClient();
   const [activeFilter, setActiveFilter] = useState("all");
   const [searchContact, setSearchContact] = useState("");
-  const [isResuming, setIsResuming] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const cancelRef = useRef(false);
-  const pauseRef = useRef(false);
+  const [isActionPending, setIsActionPending] = useState(false);
   const [liveRuntimeNote, setLiveRuntimeNote] = useState("");
 
   const { data: campaign, isLoading, refetch: refetchCampaign } = useQuery({
@@ -346,7 +357,8 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
       if (error) throw error;
       return data;
     },
-    refetchInterval: isProcessing ? 3000 : 8000,
+    refetchInterval: 3000,
+    refetchOnWindowFocus: true,
   });
 
   const { data: contacts = [], refetch: refetchContacts } = useQuery({
@@ -360,181 +372,60 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
       if (error) throw error;
       return data || [];
     },
-    refetchInterval: isProcessing ? 3000 : 8000,
+    refetchInterval: 3000,
+    refetchOnWindowFocus: true,
   });
 
-  // Auto-pause on unmount if processing
-  useEffect(() => {
-    return () => {
-      if (isProcessing) {
-        cancelRef.current = true;
-        supabase.from("mass_inject_campaigns").update({
-          status: "paused",
-          updated_at: new Date().toISOString(),
-        } as any).eq("id", campaignId).then(() => {});
-      }
-    };
-  }, [isProcessing, campaignId]);
-
   const handlePause = useCallback(async () => {
-    if (isProcessing) {
-      pauseRef.current = true;
-      setIsProcessing(false);
-      cancelRef.current = true;
-      await supabase.from("mass_inject_campaigns").update({
-        status: "paused",
-        updated_at: new Date().toISOString(),
-      } as any).eq("id", campaignId);
-      refetchCampaign();
+    setIsActionPending(true);
+    setLiveRuntimeNote("Pausando campanha no backend...");
+    try {
+      const { error } = await supabase.functions.invoke("mass-group-inject", { body: { action: "pause-campaign", campaignId } });
+      if (error) throw error;
+      await Promise.all([refetchCampaign(), refetchContacts()]);
+      qc.invalidateQueries({ queryKey: ["mass_inject_campaigns"] });
       toast.info("Campanha pausada");
-    } else {
-      await supabase.from("mass_inject_campaigns").update({
-        status: "paused",
-        updated_at: new Date().toISOString(),
-      } as any).eq("id", campaignId);
-      refetchCampaign();
-      toast.info("Campanha pausada");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao pausar campanha");
+    } finally {
+      setIsActionPending(false);
+      setLiveRuntimeNote("");
     }
-  }, [isProcessing, campaignId, refetchCampaign]);
+  }, [campaignId, qc, refetchCampaign, refetchContacts]);
 
   const handleCancel = useCallback(async () => {
-    cancelRef.current = true;
-    pauseRef.current = false;
-    setIsProcessing(false);
-    // Mark remaining pending contacts as cancelled
-    await supabase.from("mass_inject_contacts").update({
-      status: "cancelled",
-      error_message: "Campanha cancelada pelo usuário",
-      processed_at: new Date().toISOString(),
-    } as any).eq("campaign_id", campaignId).eq("status", "pending");
-    await supabase.from("mass_inject_campaigns").update({
-      status: "cancelled",
-      completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    } as any).eq("id", campaignId);
-    refetchCampaign();
-    refetchContacts();
-    qc.invalidateQueries({ queryKey: ["mass_inject_campaigns"] });
-    toast.info("Campanha cancelada");
+    setIsActionPending(true);
+    setLiveRuntimeNote("Cancelando campanha no backend...");
+    try {
+      const { error } = await supabase.functions.invoke("mass-group-inject", { body: { action: "cancel-campaign", campaignId } });
+      if (error) throw error;
+      await Promise.all([refetchCampaign(), refetchContacts()]);
+      qc.invalidateQueries({ queryKey: ["mass_inject_campaigns"] });
+      toast.info("Campanha cancelada");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao cancelar campanha");
+    } finally {
+      setIsActionPending(false);
+      setLiveRuntimeNote("");
+    }
   }, [campaignId, refetchCampaign, refetchContacts, qc]);
 
   const handleResume = useCallback(async () => {
-    if (!campaign) return;
-    setIsResuming(true);
-    cancelRef.current = false;
-    pauseRef.current = false;
-
-    // Get pending contacts
-    const { data: pendingContacts } = await supabase
-      .from("mass_inject_contacts")
-      .select("id, phone")
-      .eq("campaign_id", campaignId)
-      .eq("status", "pending")
-      .order("created_at");
-
-    if (!pendingContacts || pendingContacts.length === 0) {
-      toast.info("Nenhum contato pendente para processar");
-      await supabase.from("mass_inject_campaigns").update({
-        status: "done",
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as any).eq("id", campaignId);
-      refetchCampaign();
-      setIsResuming(false);
-      return;
+    setIsActionPending(true);
+    setLiveRuntimeNote("Retomando campanha no backend...");
+    try {
+      const { error } = await supabase.functions.invoke("mass-group-inject", { body: { action: "resume-campaign", campaignId } });
+      if (error) throw error;
+      await Promise.all([refetchCampaign(), refetchContacts()]);
+      qc.invalidateQueries({ queryKey: ["mass_inject_campaigns"] });
+      toast.success("Campanha retomada");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao retomar campanha");
+    } finally {
+      setIsActionPending(false);
+      setLiveRuntimeNote("");
     }
-
-    await supabase.from("mass_inject_campaigns").update({
-      status: "processing",
-      updated_at: new Date().toISOString(),
-    } as any).eq("id", campaignId);
-
-    setIsProcessing(true);
-    setIsResuming(false);
-    setLiveRuntimeNote("Retomando campanha...");
-
-    const deviceIds = (campaign as any).device_ids || [];
-    const groupId = (campaign as any).group_id;
-    const minDelay = (campaign as any).min_delay || 3;
-    const maxDelay = (campaign as any).max_delay || 8;
-    const pauseAfter = (campaign as any).pause_after || 0;
-    const pauseDuration = (campaign as any).pause_duration || 30;
-    const rotateAfter = (campaign as any).rotate_after || 0;
-
-    let currentDeviceIndex = 0;
-    let addedWithCurrentDevice = 0;
-    let processedSincePause = 0;
-
-    for (let i = 0; i < pendingContacts.length; i++) {
-      if (cancelRef.current || pauseRef.current) break;
-
-      const { phone, id: contactId } = pendingContacts[i];
-      const deviceId = deviceIds[currentDeviceIndex % Math.max(deviceIds.length, 1)];
-      setLiveRuntimeNote(`Processando ${phone}...`);
-
-      try {
-        const { data } = await supabase.functions.invoke("mass-group-inject", {
-          body: { action: "add-single", groupId, deviceId, phone, campaignId, contactId },
-        });
-
-        if (isSuccessStatus(data?.status || "")) {
-          addedWithCurrentDevice++;
-          processedSincePause++;
-          if (rotateAfter > 0 && addedWithCurrentDevice >= rotateAfter) { currentDeviceIndex++; addedWithCurrentDevice = 0; }
-        } else {
-          processedSincePause++;
-        }
-
-        if (data?.pauseCampaign) {
-          setLiveRuntimeNote(data?.detail || "Campanha pausada por erro confirmado.");
-          toast.error(data?.detail || "Campanha pausada por erro confirmado.");
-          break;
-        }
-      } catch (e: any) {
-        processedSincePause++;
-        setLiveRuntimeNote(`Erro: ${e.message}`);
-      }
-
-      // Delay
-      if (i < pendingContacts.length - 1 && !cancelRef.current && !pauseRef.current) {
-        const delay = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
-        await new Promise(r => setTimeout(r, delay * 1000));
-      }
-
-      // Batch pause
-      if (pauseAfter > 0 && processedSincePause >= pauseAfter && i < pendingContacts.length - 1 && !cancelRef.current && !pauseRef.current) {
-        setLiveRuntimeNote(`Pausa automática de ${pauseDuration}s...`);
-        await new Promise(r => setTimeout(r, pauseDuration * 1000));
-        processedSincePause = 0;
-      }
-
-      // Refresh data periodically
-      if (i % 5 === 4) { refetchCampaign(); refetchContacts(); }
-    }
-
-    setIsProcessing(false);
-    setLiveRuntimeNote("");
-
-    // Check remaining pending
-    const { data: remaining } = await supabase
-      .from("mass_inject_contacts")
-      .select("id")
-      .eq("campaign_id", campaignId)
-      .eq("status", "pending")
-      .limit(1);
-
-    const finalStatus = cancelRef.current ? "cancelled" : (remaining && remaining.length > 0) ? "paused" : "done";
-    await supabase.from("mass_inject_campaigns").update({
-      status: finalStatus,
-      completed_at: finalStatus === "done" ? new Date().toISOString() : null,
-      updated_at: new Date().toISOString(),
-    } as any).eq("id", campaignId);
-
-    refetchCampaign();
-    refetchContacts();
-    qc.invalidateQueries({ queryKey: ["mass_inject_campaigns"] });
-    toast.success(finalStatus === "done" ? "Campanha concluída!" : finalStatus === "cancelled" ? "Campanha cancelada" : "Campanha pausada");
-  }, [campaign, campaignId, refetchCampaign, refetchContacts, qc]);
+  }, [campaignId, qc, refetchCampaign, refetchContacts]);
 
   const filteredContacts = useMemo(() => {
     let list = contacts;
@@ -563,9 +454,10 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
   const cancelledCount = contacts.filter((c: any) => c.status === "cancelled").length;
   const progress = campaign.total_contacts > 0 ? Math.round((processed / campaign.total_contacts) * 100) : 0;
 
-  const canResume = (campaign.status === "paused" || campaign.status === "draft") && pendingCount > 0 && !isProcessing;
-  const canPause = campaign.status === "processing" || isProcessing;
-  const canCancel = (campaign.status === "processing" || campaign.status === "paused" || isProcessing) && campaign.status !== "cancelled" && campaign.status !== "done";
+  const isRunning = campaign.status === "processing" || campaign.status === "queued";
+  const canResume = (campaign.status === "paused" || campaign.status === "draft") && pendingCount > 0 && !isActionPending;
+  const canPause = isRunning && !isActionPending;
+  const canCancel = (isRunning || campaign.status === "paused") && campaign.status !== "cancelled" && campaign.status !== "done" && !isActionPending;
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -585,9 +477,9 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
       {/* Action buttons */}
       <div className="flex items-center gap-3 flex-wrap">
         {canResume && (
-          <Button onClick={handleResume} disabled={isResuming} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-            {isResuming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-            {isResuming ? "Preparando..." : "Retomar Campanha"}
+            <Button onClick={handleResume} disabled={isActionPending} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+              {isActionPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              {isActionPending ? "Preparando..." : "Retomar Campanha"}
           </Button>
         )}
         {canPause && (
@@ -606,7 +498,7 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
       </div>
 
       {/* Runtime note */}
-      {(isProcessing || liveRuntimeNote) && (
+      {(isActionPending || liveRuntimeNote) && (
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="py-3 px-5 flex items-center gap-3">
             <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
@@ -635,7 +527,7 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
         ))}
       </div>
 
-      {(campaign.status === "processing" || isProcessing) && (
+      {isRunning && (
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="py-4 px-5">
             <div className="flex items-center gap-3 mb-3">
@@ -790,6 +682,8 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
         });
     },
     enabled: !!user,
+    refetchInterval: 10_000,
+    refetchOnWindowFocus: true,
   });
 
   const isDeviceOnline = (status: string) => {
@@ -1007,195 +901,36 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
   }, [validationResult, groupId, primaryDeviceId]);
 
   const handleProcess = useCallback(async () => {
-    const contacts = participantCheck?.ready || validationResult?.valid || [];
-    if (contacts.length === 0) return toast.error("Nenhum contato para processar");
+    const contacts = validationResult?.valid || [];
+    if (contacts.length === 0) return toast.error("Nenhum contato válido para processar");
     setConfirmOpen(false);
     setIsProcessing(true);
-    setIsPaused(false);
-    cancelRef.current = false;
-    pauseRef.current = false;
-    setCompletedSteps(prev => new Set([...prev, "preview"]));
-    setStep("processing");
-
-    let cId = campaignId;
     try {
-      if (!cId) {
-        const alreadyInGroup = participantCheck?.alreadyExists || [];
-        const allContacts = [...contacts, ...alreadyInGroup];
-
-        const { data: camp, error } = await supabase.from("mass_inject_campaigns").insert({
-          user_id: user!.id,
+      const { data, error } = await supabase.functions.invoke("mass-group-inject", {
+        body: {
+          action: "create-campaign",
           name: campaignName || `Campanha ${new Date().toLocaleString("pt-BR")}`,
-          group_id: groupId,
-          group_name: groupName || selectedGroup?.name || groupId,
-          device_ids: selectedDeviceIds,
-          status: "processing",
-          total_contacts: allContacts.length,
-          already_count: alreadyInGroup.length,
-          success_count: 0,
-          min_delay: minDelay,
-          max_delay: maxDelay,
-          pause_after: pauseAfter,
-          pause_duration: pauseDuration,
-          rotate_after: rotateAfter,
-          started_at: new Date().toISOString(),
-        } as any).select().single();
-        if (error) throw error;
-        cId = camp.id;
-        setCampaignId(cId);
-
-        const contactRows = allContacts.map(phone => ({
-          campaign_id: cId!,
-          phone,
-          status: alreadyInGroup.includes(phone) ? "already_exists" : "pending",
-        }));
-        if (contactRows.length > 0) {
-          // Insert in batches of 500
-          for (let b = 0; b < contactRows.length; b += 500) {
-            await supabase.from("mass_inject_contacts").insert(contactRows.slice(b, b + 500) as any);
-          }
-        }
-
-        // Update already_count in campaign after inserting contacts
-        if (alreadyInGroup.length > 0) {
-          await supabase.from("mass_inject_campaigns").update({
-            already_count: alreadyInGroup.length,
-          } as any).eq("id", cId!);
-        }
-      }
+          groupId,
+          groupName: groupName || selectedGroup?.name || groupId,
+          deviceIds: selectedDeviceIds,
+          contacts,
+          minDelay,
+          maxDelay,
+          pauseAfter,
+          pauseDuration,
+          rotateAfter,
+        },
+      });
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["mass_inject_campaigns"] });
+      toast.success(`Campanha criada: ${data?.readyCount ?? 0} na fila, ${data?.alreadyExistsCount ?? 0} já estavam no grupo.`);
+      onCampaignCreated(data.campaignId);
     } catch (e: any) {
       toast.error("Erro ao criar campanha: " + e.message);
+    } finally {
       setIsProcessing(false);
-      setStep("preview");
-      return;
     }
-
-    // Get pending contacts
-    const { data: pendingContacts } = await supabase
-      .from("mass_inject_contacts")
-      .select("id, phone")
-      .eq("campaign_id", cId!)
-      .eq("status", "pending")
-      .order("created_at");
-
-    const contactsToProcess = pendingContacts || [];
-
-    setLiveResults([]);
-    setLiveOk(participantCheck?.alreadyExistsCount || 0);
-    setLiveFail(0);
-    setLiveAlready(participantCheck?.alreadyExistsCount || 0);
-    setLiveTotal(contactsToProcess.length + (participantCheck?.alreadyExistsCount || 0));
-    setLiveStatus("running");
-    setLiveRuntimeNote("Campanha iniciada. Cada contato será validado sem contaminar o restante da fila.");
-    const start = Date.now();
-    setLiveElapsed(0);
-    timerRef.current = setInterval(() => setLiveElapsed(Math.round((Date.now() - start) / 1000)), 1000);
-
-    let ok = participantCheck?.alreadyExistsCount || 0;
-    let fail = 0;
-    let currentDeviceIndex = 0;
-    let addedWithCurrentDevice = 0;
-    let processedSincePause = 0;
-    let campaignPausedBySystem = false;
-    let systemPauseReason = "";
-
-    for (let i = 0; i < contactsToProcess.length; i++) {
-      if (cancelRef.current) { setLiveStatus("cancelled"); break; }
-      while (pauseRef.current) {
-        setLiveStatus("paused");
-        await new Promise(r => setTimeout(r, 500));
-        if (cancelRef.current) break;
-      }
-      if (cancelRef.current) { setLiveStatus("cancelled"); break; }
-      setLiveStatus("running");
-
-      const { phone, id: contactId } = contactsToProcess[i];
-      const deviceId = selectedDeviceIds[currentDeviceIndex % selectedDeviceIds.length];
-      const deviceName = (devices as any[]).find((d: any) => d.id === deviceId)?.name || deviceId;
-
-      setLiveCurrentPhone(phone);
-      setLiveCurrentDevice(deviceName);
-      setLiveRuntimeNote("Processando contato com revalidação segura de conexão e grupo.");
-
-      try {
-        const { data } = await supabase.functions.invoke("mass-group-inject", {
-          body: { action: "add-single", groupId, deviceId, phone, campaignId: cId, contactId },
-        });
-
-        const result: ContactResult = { phone, status: data?.status || "temporary_error", error: data?.detail || data?.error, deviceUsed: deviceName, contactId };
-        setLiveResults(prev => [...prev, result]);
-        setLiveRuntimeNote(data?.detail || "Contato processado.");
-
-        if (isSuccessStatus(data?.status || "")) {
-          ok++; setLiveOk(prev => prev + 1);
-          if (data?.status === "already_exists") setLiveAlready(prev => prev + 1);
-          addedWithCurrentDevice++; processedSincePause++;
-          if (rotateAfter > 0 && addedWithCurrentDevice >= rotateAfter) { currentDeviceIndex++; addedWithCurrentDevice = 0; }
-        } else {
-          fail++; setLiveFail(prev => prev + 1); processedSincePause++;
-        }
-
-        if (data?.pauseCampaign) {
-          campaignPausedBySystem = true;
-          systemPauseReason = data?.detail || "Campanha pausada por erro confirmado.";
-          setLiveStatus("paused");
-          setLiveRuntimeNote(systemPauseReason);
-          break;
-        }
-      } catch (e: any) {
-        fail++; setLiveFail(prev => prev + 1); processedSincePause++;
-        const fallbackMessage = "Erro temporário ao comunicar com a integração. A fila seguirá para o próximo contato.";
-        setLiveResults(prev => [...prev, { phone, status: "temporary_error", error: e.message || fallbackMessage, deviceUsed: deviceName }]);
-        setLiveRuntimeNote(fallbackMessage);
-      }
-
-      // Delay between contacts
-      if (i < contactsToProcess.length - 1 && !cancelRef.current) {
-        await new Promise(r => setTimeout(r, randomBetween(minDelay, maxDelay) * 1000));
-      }
-
-      // Batch pause
-      if (pauseAfter > 0 && processedSincePause >= pauseAfter && i < contactsToProcess.length - 1 && !cancelRef.current) {
-        setLiveStatus("waiting_pause");
-        await new Promise(r => setTimeout(r, pauseDuration * 1000));
-        processedSincePause = 0;
-      }
-    }
-
-    clearInterval(timerRef.current);
-    setLiveElapsed(Math.round((Date.now() - start) / 1000));
-    const finalStatus = campaignPausedBySystem ? "paused" : cancelRef.current ? "cancelled" : "done";
-    setLiveStatus(finalStatus);
-    setIsProcessing(false);
-
-    try {
-      // Mark remaining pending contacts as cancelled if user cancelled
-      if (cancelRef.current) {
-        await supabase.from("mass_inject_contacts").update({
-          status: "cancelled",
-          error_message: "Campanha cancelada pelo usuário",
-          processed_at: new Date().toISOString(),
-        } as any).eq("campaign_id", cId!).eq("status", "pending");
-      }
-
-      await supabase.from("mass_inject_campaigns").update({
-        status: finalStatus,
-        completed_at: finalStatus === "done" || finalStatus === "cancelled" ? new Date().toISOString() : null,
-        updated_at: new Date().toISOString(),
-      } as any).eq("id", cId!);
-    } catch { /* ignore */ }
-
-    qc.invalidateQueries({ queryKey: ["mass_inject_campaigns"] });
-    setCompletedSteps(prev => new Set([...prev, "processing"]));
-    setStep(finalStatus === "done" ? "done" : "processing");
-    if (finalStatus === "paused") {
-      toast.error(systemPauseReason || "Campanha pausada por erro confirmado.");
-    } else if (finalStatus === "cancelled") {
-      toast.info("Campanha cancelada.");
-    } else {
-      toast.success(`Concluído: ${ok} sucesso, ${fail} falhas`);
-    }
-  }, [participantCheck, validationResult, groupId, groupName, selectedDeviceIds, devices, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, campaignName, selectedGroup, user, campaignId, qc]);
+  }, [validationResult, groupId, groupName, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, campaignName, selectedGroup, qc, onCampaignCreated]);
 
   const handlePause = useCallback(() => { pauseRef.current = !pauseRef.current; setIsPaused(pauseRef.current); }, []);
   const handleCancel = useCallback(() => { cancelRef.current = true; pauseRef.current = false; setIsPaused(false); }, []);
