@@ -6,22 +6,36 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function stripTrailingNoise(value: string): string {
+  return value.trim().replace(/[),.;:!?\]}">']+$/g, "");
+}
+
 function extractInviteCode(link: string): string | null {
   try {
-    const cleaned = link.trim().replace(/^https?:\/\//, "").replace(/^chat\.whatsapp\.com\//, "");
-    const code = cleaned.split("?")[0].split("/")[0].trim();
-    return code && code.length >= 10 ? code : null;
+    const cleaned = stripTrailingNoise(link)
+      .replace(/^https?:\/\//i, "")
+      .replace(/^chat\.whatsapp\.com\//i, "");
+    const code = cleaned.split(/[/?#\s]/)[0]?.trim();
+    return code && /^[A-Za-z0-9_-]{10,}$/.test(code) ? code : null;
   } catch { return null; }
+}
+
+function normalizeGroupLink(link: string): string {
+  const matched = String(link || "").match(/((?:https?:\/\/)?chat\.whatsapp\.com\/[^\s]+)/i)?.[1] ?? String(link || "");
+  const inviteCode = extractInviteCode(matched);
+  return inviteCode ? `https://chat.whatsapp.com/${inviteCode}` : stripTrailingNoise(matched.replace(/^http:\/\//i, "https://"));
 }
 
 async function tryJoin(
   baseUrl: string, token: string, inviteCode: string, groupLink: string
 ): Promise<{ ok: boolean; status: number; body: any; raw: string }> {
   const headers = { token, Accept: "application/json", "Content-Type": "application/json" };
-  const cleanLink = groupLink.split("?")[0];
+  const cleanLink = normalizeGroupLink(groupLink);
+  const cleanCode = extractInviteCode(cleanLink) || inviteCode;
 
   const endpoints = [
-    { method: "POST", url: `${baseUrl}/group/join`, body: JSON.stringify({ invitecode: inviteCode }) },
+    { method: "POST", url: `${baseUrl}/group/join`, body: JSON.stringify({ invitecode: cleanCode }) },
+    { method: "POST", url: `${baseUrl}/group/join`, body: JSON.stringify({ inviteCode: cleanCode }) },
     { method: "POST", url: `${baseUrl}/group/join`, body: JSON.stringify({ invitecode: cleanLink }) },
     { method: "PUT", url: `${baseUrl}/group/acceptInviteGroup`, body: JSON.stringify({ inviteCode }) },
   ];
@@ -44,10 +58,12 @@ async function tryJoin(
 }
 
 function interpretResult(status: number, body: any): { joinStatus: string; error?: string } {
+  const payload = JSON.stringify(body || {}).toLowerCase();
+  if (payload.includes("already") || payload.includes("já")) return { joinStatus: "already_member" };
+  if (["approval", "pending", "request sent", "solicita", "aguardando", "private", "privado"].some((term) => payload.includes(term))) {
+    return { joinStatus: "pending_approval", error: "Solicitação enviada para aprovação" };
+  }
   if (status >= 200 && status < 300) {
-    const msg = (body?.message || body?.msg || "").toLowerCase();
-    if (msg.includes("already") || msg.includes("já")) return { joinStatus: "already_member" };
-    if (msg.includes("pending") || msg.includes("approval")) return { joinStatus: "pending_approval", error: "Aguardando aprovação" };
     return { joinStatus: "success" };
   }
   if (status === 404) return { joinStatus: "error", error: "Convite inválido ou expirado" };
@@ -67,17 +83,18 @@ Deno.serve(async (req) => {
     // Can be triggered by cron (with secret) or by authenticated user
     const body = await req.json().catch(() => ({}));
     const tickSecret = Deno.env.get("INTERNAL_TICK_SECRET");
-    const isInternalCall = body.secret === tickSecret && !!tickSecret;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
+    const authHeader = req.headers.get("Authorization");
+    const bearerToken = authHeader?.replace(/^Bearer\s+/i, "").trim() || "";
+    const isInternalCall = (body.secret === tickSecret && !!tickSecret) || bearerToken === serviceKey;
 
     let userId: string | null = null;
     let campaignId: string | null = body.campaign_id || null;
 
     if (!isInternalCall) {
-      const authHeader = req.headers.get("Authorization");
       if (authHeader) {
         try {
           const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
@@ -222,7 +239,8 @@ Deno.serve(async (req) => {
         } else if (!["Connected", "authenticated", "Ready", "ready"].includes(device.status)) {
           errorMsg = "Instância desconectada";
         } else {
-          const inviteCode = extractInviteCode(item.group_link);
+          const normalizedLink = normalizeGroupLink(item.group_link);
+          const inviteCode = extractInviteCode(normalizedLink);
           if (!inviteCode) {
             errorMsg = "Link inválido";
           } else {
@@ -232,7 +250,7 @@ Deno.serve(async (req) => {
             let finalResponseStatus: number | undefined;
 
             for (let attempt = 1; attempt <= 2; attempt++) {
-              const joinRes = await tryJoin(baseUrl, device.uazapi_token, inviteCode, item.group_link);
+              const joinRes = await tryJoin(baseUrl, device.uazapi_token, inviteCode, normalizedLink);
               const interpreted = interpretResult(joinRes.status, joinRes.body);
               finalStatus = interpreted.joinStatus;
               finalError = interpreted.error;
@@ -255,7 +273,7 @@ Deno.serve(async (req) => {
                 device_id: item.device_id,
                 device_name: device.name || item.device_name,
                 group_name: item.group_name,
-                group_link: item.group_link,
+                group_link: normalizedLink,
                 invite_code: inviteCode,
                 endpoint_called: "group/join",
                 response_status: responseStatus || 0,
@@ -272,6 +290,7 @@ Deno.serve(async (req) => {
         await supabase
           .from("group_join_queue")
           .update({
+            group_link: normalizeGroupLink(item.group_link),
             status,
             error_message: errorMsg,
             response_status: responseStatus,
@@ -324,20 +343,22 @@ Deno.serve(async (req) => {
       .from("group_join_campaigns")
       .select("id")
       .eq("status", "running")
-      .limit(1);
+      .limit(3);
 
     if (remaining?.length) {
       // Fire-and-forget self-call to continue processing
       try {
         const fnUrl = `${supabaseUrl}/functions/v1/process-group-join-campaign`;
-        fetch(fnUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${serviceKey}`,
-          },
-          body: JSON.stringify({ secret: tickSecret }),
-        }).catch(() => {});
+        for (const row of remaining) {
+          fetch(fnUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${serviceKey}`,
+            },
+            body: JSON.stringify({ campaign_id: row.id, secret: tickSecret }),
+          }).catch(() => {});
+        }
       } catch {}
     }
 

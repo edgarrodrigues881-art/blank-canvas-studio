@@ -22,20 +22,36 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
 /* ── Helpers ── */
+const LINK_REGEX = /(?:https?:\/\/)?chat\.whatsapp\.com\/[A-Za-z0-9_-]+(?:\?[^\s]*)?/gi;
+const TRAILING_LINK_NOISE_REGEX = /[),.;:!?\]\}"'>]+$/g;
+
+function stripTrailingLinkNoise(value: string): string {
+  return value.trim().replace(TRAILING_LINK_NOISE_REGEX, "");
+}
+
 function extractInviteCode(link: string): string | null {
   try {
-    const cleaned = link.trim();
-    if (!cleaned.includes("chat.whatsapp.com/")) return null;
-    const code = cleaned.split("chat.whatsapp.com/")[1]?.split("?")[0]?.split("/")[0]?.trim();
-    return code && code.length >= 10 ? code : null;
-  } catch { return null; }
+    const cleaned = stripTrailingLinkNoise(link)
+      .replace(/^https?:\/\//i, "")
+      .replace(/^chat\.whatsapp\.com\//i, "");
+    const code = cleaned.split(/[/?#\s]/)[0]?.trim();
+    return code && /^[A-Za-z0-9_-]{10,}$/.test(code) ? code : null;
+  } catch {
+    return null;
+  }
 }
 
 function normalizeLink(link: string): string {
-  let l = link.trim();
-  if (l.startsWith("http://")) l = l.replace("http://", "https://");
-  if (!l.startsWith("https://") && l.includes("chat.whatsapp.com/")) l = "https://" + l;
-  return l;
+  const candidate = stripTrailingLinkNoise(String(link || "").trim());
+  if (!candidate) return "";
+  const matched = candidate.match(/((?:https?:\/\/)?chat\.whatsapp\.com\/[^\s]+)/i)?.[1] ?? candidate;
+  const inviteCode = extractInviteCode(matched);
+  if (!inviteCode) return stripTrailingLinkNoise(matched.replace(/^http:\/\//i, "https://"));
+  return `https://chat.whatsapp.com/${inviteCode}`;
+}
+
+function extractLinksFromText(raw: string): string[] {
+  return (raw.match(LINK_REGEX) || []).map(normalizeLink).filter(Boolean);
 }
 
 type ParsedResult = {
@@ -46,7 +62,15 @@ type ParsedResult = {
 };
 
 function parseLinks(raw: string): ParsedResult {
-  const lines = raw.split("\n").map(l => normalizeLink(l)).filter(Boolean);
+  const lines = raw
+    .split("\n")
+    .flatMap((line) => {
+      const extracted = extractLinksFromText(line);
+      if (extracted.length > 0) return extracted;
+      const normalized = normalizeLink(line);
+      return normalized ? [normalized] : [];
+    })
+    .filter(Boolean);
   const total = lines.length;
   const seen = new Set<string>();
   const unique: string[] = [];
@@ -175,7 +199,7 @@ export default function GroupJoinCampaignNew() {
           for (const cell of row) {
             const val = String(cell || "").trim();
             if (val.includes("chat.whatsapp.com/")) {
-              links.push(normalizeLink(val));
+              links.push(...extractLinksFromText(val));
             }
           }
         }
@@ -229,7 +253,7 @@ export default function GroupJoinCampaignNew() {
               device_id: deviceId,
               device_name: dev?.name || deviceId,
               group_link: link,
-              group_name: link.split("chat.whatsapp.com/")[1]?.substring(0, 12) || link,
+              group_name: extractInviteCode(link)?.substring(0, 12) || link,
             });
           }
         }
@@ -242,7 +266,7 @@ export default function GroupJoinCampaignNew() {
             device_id: deviceId,
             device_name: dev?.name || deviceId,
             group_link: links[i],
-            group_name: links[i].split("chat.whatsapp.com/")[1]?.substring(0, 12) || links[i],
+              group_name: extractInviteCode(links[i])?.substring(0, 12) || links[i],
           });
         }
       }
@@ -299,7 +323,7 @@ export default function GroupJoinCampaignNew() {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto pb-10">
+    <div className="mx-auto w-full max-w-5xl space-y-6 px-4 pb-10 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/group-join")} className="rounded-xl h-9 w-9">
@@ -432,7 +456,7 @@ export default function GroupJoinCampaignNew() {
         </div>
 
         {/* Distribution Mode */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <button
             onClick={() => setDistributionMode("single")}
             className={`rounded-xl border p-3 text-left transition-all ${
@@ -523,7 +547,7 @@ export default function GroupJoinCampaignNew() {
           <Settings2 className="w-4 h-4 text-primary" /> Configurações de Execução
         </h2>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-2 block">Delay mínimo: {minDelay}s</label>
             <Slider value={[minDelay]} onValueChange={([v]) => { setMinDelay(v); if (v > maxDelay) setMaxDelay(v); }} min={5} max={180} step={1} />
@@ -534,7 +558,7 @@ export default function GroupJoinCampaignNew() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-2 block">Pausar a cada: {pauseEvery} tentativas</label>
             <Slider value={[pauseEvery]} onValueChange={([v]) => setPauseEvery(v)} min={3} max={50} step={1} />
