@@ -164,6 +164,68 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── ACTION: resolve-link ──
+    if (action === "resolve-link") {
+      const { deviceId, link } = body;
+      if (!deviceId || !link) {
+        return new Response(JSON.stringify({ error: "Missing deviceId or link" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const device = await getDeviceCredentials(sb, deviceId, user.id, isAdmin);
+      if (!device) {
+        return new Response(JSON.stringify({ error: "Device not found" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Extract invite code from link
+      const cleanLink = link.trim().replace(/[,;)\]}>'"]+$/, "");
+      const match = cleanLink.match(/chat\.whatsapp\.com\/([A-Za-z0-9_-]+)/);
+      const inviteCode = match ? match[1] : cleanLink;
+
+      try {
+        // Try to get group info via invite code
+        const res = await fetch(`${device.uazapi_base_url}/group/inviteInfo?inviteCode=${inviteCode}`, {
+          headers: { token: device.uazapi_token, Accept: "application/json" },
+        });
+        const data = await res.json();
+        
+        if (res.ok && (data?.jid || data?.id || data?.groupJid)) {
+          const jid = data.jid || data.id || data.groupJid;
+          const name = data.name || data.subject || data.groupName || "Grupo";
+          return new Response(JSON.stringify({ jid, name, participants: data.participants?.length || 0 }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Fallback: try acceptInvite to join and get JID
+        const joinRes = await fetch(`${device.uazapi_base_url}/group/acceptInvite`, {
+          method: "POST",
+          headers: { token: device.uazapi_token, Accept: "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify({ inviteCode }),
+        });
+        const joinData = await joinRes.json();
+        
+        if (joinRes.ok && (joinData?.jid || joinData?.id || joinData?.gid)) {
+          const jid = joinData.jid || joinData.id || joinData.gid;
+          return new Response(JSON.stringify({ jid, name: joinData.name || joinData.subject || "Grupo", joined: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        return new Response(JSON.stringify({ error: "Não foi possível resolver o link. Verifique se é válido." }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (e: any) {
+        console.error("resolve-link error:", e);
+        return new Response(JSON.stringify({ error: e.message }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // ── ACTION: validate ──
     if (action === "validate") {
       const { contacts: rawContacts } = body;
