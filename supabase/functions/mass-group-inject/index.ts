@@ -500,9 +500,9 @@ async function queueCampaignRun(campaignId: string, delayMs = 0) {
 }
 
 function computeNextDelayMs(campaign: any, cooldownMs?: number) {
-  // CRITICAL: enforce minimum 5s between contacts to avoid flooding Uazapi
-  const minDelay = Math.max(Number(campaign.min_delay || 5), 5);
-  const maxDelay = Math.max(Number(campaign.max_delay || 12), minDelay);
+  // CRITICAL: enforce minimum 8s between contacts to avoid flooding Uazapi and causing disconnection
+  const minDelay = Math.max(Number(campaign.min_delay || 8), 8);
+  const maxDelay = Math.max(Number(campaign.max_delay || 15), minDelay);
   let nextDelay = randomBetween(minDelay, maxDelay) * 1000;
   const processed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0);
   const pauseAfter = Number(campaign.pause_after || 0);
@@ -519,7 +519,6 @@ async function runCampaignWorker(sb: any, campaignId: string) {
   if (!campaign || FINAL_CAMPAIGN_STATUSES.has(campaign.status)) return;
   if (!["queued", "processing"].includes(campaign.status)) return;
 
-  // ── Pre-flight: check instance connection BEFORE processing ──
   const deviceId = pickDeviceId(campaign);
   if (!deviceId) {
     await sb.from("mass_inject_campaigns").update({ status: "failed", updated_at: nowIso(), completed_at: nowIso() }).eq("id", campaignId);
@@ -532,14 +531,21 @@ async function runCampaignWorker(sb: any, campaignId: string) {
     return;
   }
 
-  // Pre-flight connection check on first contact or after errors
-  const connectionCheck = await checkInstanceConnection(device.uazapi_base_url, device.uazapi_token);
-  if (connectionCheck.connected === false) {
-    console.log(`[worker] Pre-flight: instance "${device.name}" is disconnected. Pausing campaign.`);
-    // Also update the device status in DB so the UI reflects it immediately
-    await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", device.id);
-    await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
-    return;
+  // CRITICAL FIX: Only do pre-flight connection check on first contact (queued→processing)
+  // or after a previous error. NOT on every single contact — that floods the API.
+  const processed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0) + Number(campaign.already_count || 0);
+  const shouldCheckConnection = campaign.status === "queued" || processed === 0 || (processed > 0 && processed % 10 === 0);
+  
+  if (shouldCheckConnection) {
+    const connectionCheck = await checkInstanceConnection(device.uazapi_base_url, device.uazapi_token);
+    if (connectionCheck.connected === false) {
+      console.log(`[worker] Pre-flight: instance "${device.name}" is disconnected. Pausing campaign.`);
+      await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", device.id);
+      await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
+      return;
+    }
+    // Add a small breathing room after connection check before doing work
+    await sleep(2000);
   }
 
   if (campaign.status === "queued") {
@@ -568,11 +574,9 @@ async function runCampaignWorker(sb: any, campaignId: string) {
     device_used: device.name || device.id,
   }).eq("id", contact.id);
 
-  // Use endpoint cache keyed by campaign+group to avoid trying all strategies each time
   const cacheKey = `${campaignId}:${campaign.group_id}`;
   const result = await executeAddWithRecovery(device.uazapi_base_url, device.uazapi_token, campaign.group_id, contact.phone, cacheKey);
 
-  // If instance disconnected, update device status immediately
   if (result.status === "confirmed_disconnect") {
     await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", device.id);
   }
@@ -585,7 +589,7 @@ async function runCampaignWorker(sb: any, campaignId: string) {
       status: result.status, error_message: withRetryMeta(stripRetryMeta(result.detail), retryCount + 1),
       device_used: device.name || device.id, processed_at: nowIso(),
     }).eq("id", contact.id);
-    await queueCampaignRun(campaignId, nextDelayMs || 5000);
+    await queueCampaignRun(campaignId, nextDelayMs || 8000);
     return;
   }
 
@@ -612,7 +616,7 @@ async function runCampaignWorker(sb: any, campaignId: string) {
     .limit(1);
 
   if (remaining && remaining.length > 0) {
-    await queueCampaignRun(campaignId, nextDelayMs || 5000);
+    await queueCampaignRun(campaignId, nextDelayMs || 8000);
     return;
   }
 
@@ -811,8 +815,8 @@ Deno.serve(async (req) => {
         success_count: 0,
         already_count: alreadyExists.length,
         fail_count: 0,
-        min_delay: Math.max(Number(body.minDelay || 5), 5),
-        max_delay: Math.max(Number(body.maxDelay || 12), Number(body.minDelay || 5), 5),
+        min_delay: Math.max(Number(body.minDelay || 8), 8),
+        max_delay: Math.max(Number(body.maxDelay || 15), Number(body.minDelay || 8), 8),
         pause_after: Math.max(Number(body.pauseAfter || 0), 0),
         pause_duration: Math.max(Number(body.pauseDuration || 30), 0),
         rotate_after: Math.max(Number(body.rotateAfter || 0), 0),
@@ -825,7 +829,9 @@ Deno.serve(async (req) => {
         await sb.from("mass_inject_contacts").insert(rows.slice(i, i + 500) as any);
       }
 
-      await queueCampaignRun(campaign.id, 0);
+      // CRITICAL: wait 5s before first worker run to let Uazapi session stabilize
+      // after the participant check calls made above
+      await queueCampaignRun(campaign.id, 5000);
       return new Response(JSON.stringify({ success: true, campaignId: campaign.id, readyCount: readyContacts.length, alreadyExistsCount: alreadyExists.length }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
