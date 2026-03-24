@@ -412,106 +412,37 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ── ACTION: process (multi-instance with delays & rotation) ──
-    if (action === "process") {
-      const {
-        groupId,
-        deviceIds: rawDeviceIds,
-        deviceId: singleDeviceId,
-        contacts,
-        concurrency = 1,
-        minDelay = 3,
-        maxDelay = 8,
-        pauseAfter = 0,
-        pauseDuration = 30,
-        rotateAfter = 0,
-      } = body;
-
-      const deviceIdList: string[] = Array.isArray(rawDeviceIds) && rawDeviceIds.length > 0
-        ? rawDeviceIds
-        : singleDeviceId ? [singleDeviceId] : [];
-
-      if (!groupId || deviceIdList.length === 0 || !Array.isArray(contacts) || contacts.length === 0) {
-        return new Response(JSON.stringify({ error: "Missing required fields" }), {
+    // ── ACTION: add-single (add one contact to group) ──
+    if (action === "add-single") {
+      const { groupId, deviceId, phone } = body;
+      if (!groupId || !deviceId || !phone) {
+        return new Response(JSON.stringify({ error: "Missing groupId, deviceId, or phone", status: "failed" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const devices = await getMultipleDeviceCredentials(sb, deviceIdList, user.id, isAdmin);
-      if (devices.length === 0) {
-        return new Response(JSON.stringify({ error: "No valid devices found" }), {
+      const device = await getDeviceCredentials(sb, deviceId, user.id, isAdmin);
+      if (!device) {
+        return new Response(JSON.stringify({ error: "Device not found", status: "failed" }), {
           status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const queue = [...contacts];
-      const results: ContactResult[] = [];
-      let ok = 0, fail = 0, already = 0, totalAttempts = 0;
-      const startTime = Date.now();
-      let currentDeviceIndex = 0;
-      let addedWithCurrentDevice = 0;
+      const result = await addToGroup(device.uazapi_base_url, device.uazapi_token, groupId, phone);
 
-      function getNextDevice() {
-        const device = devices[currentDeviceIndex % devices.length];
-        return device;
+      if (result.ok) {
+        return new Response(JSON.stringify({ status: "completed" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } else if (result.error === "already_exists" || result.status === 409) {
+        return new Response(JSON.stringify({ status: "already_exists" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } else {
+        return new Response(JSON.stringify({ status: "failed", error: result.error || "Falha na adição" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
-
-      function maybeRotateDevice() {
-        if (rotateAfter > 0 && addedWithCurrentDevice >= rotateAfter) {
-          currentDeviceIndex++;
-          addedWithCurrentDevice = 0;
-          console.log(`Rotated to device index ${currentDeviceIndex % devices.length}`);
-        }
-      }
-
-      let processedSincePause = 0;
-
-      while (queue.length > 0) {
-        const phone = queue.shift();
-        if (!phone) break;
-        totalAttempts++;
-
-        const device = getNextDevice();
-        const result = await addToGroup(device.uazapi_base_url, device.uazapi_token, groupId, phone);
-
-        if (result.ok) {
-          ok++;
-          addedWithCurrentDevice++;
-          processedSincePause++;
-          results.push({ phone, status: "completed", deviceUsed: device.name || device.id });
-          maybeRotateDevice();
-        } else if (result.error === "already_exists" || result.status === 409) {
-          already++;
-          processedSincePause++;
-          results.push({ phone, status: "already_exists", deviceUsed: device.name || device.id });
-        } else if (result.status === 429) {
-          queue.push(phone);
-          const retryWait = 60;
-          console.log(`Rate limited, waiting ${retryWait}s`);
-          await new Promise(r => setTimeout(r, retryWait * 1000));
-        } else {
-          fail++;
-          processedSincePause++;
-          results.push({ phone, status: "failed", error: typeof result.error === "string" ? result.error.substring(0, 150) : "Falha", deviceUsed: device.name || device.id });
-        }
-
-        // Random delay between contacts
-        const delay = randomBetween(minDelay, maxDelay);
-        await new Promise(r => setTimeout(r, delay * 1000));
-
-        // Pause after X contacts
-        if (pauseAfter > 0 && processedSincePause >= pauseAfter && queue.length > 0) {
-          console.log(`Pausing for ${pauseDuration}s after ${processedSincePause} contacts`);
-          await new Promise(r => setTimeout(r, pauseDuration * 1000));
-          processedSincePause = 0;
-        }
-      }
-
-      const durationSec = Math.round((Date.now() - startTime) / 1000);
-
-      return new Response(JSON.stringify({ ok, fail, already, total: contacts.length, durationSec, totalAttempts, results }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
     return new Response(JSON.stringify({ error: "Unknown action" }), {

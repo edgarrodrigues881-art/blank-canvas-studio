@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -7,7 +7,8 @@ import {
   Users, Upload, Search, CheckCircle2, XCircle,
   Loader2, Play, Trash2, Copy, Shield, RefreshCw,
   FileText, BarChart3, UserPlus, ChevronRight, Globe,
-  Clock, Pause, ArrowLeftRight, Settings2, Timer
+  Clock, Pause, ArrowLeftRight, Settings2, Timer,
+  StopCircle, AlertTriangle, TrendingUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +18,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Slider } from "@/components/ui/slider";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -50,20 +50,21 @@ interface ParticipantCheckResult {
   totalParticipants: number;
 }
 
-interface ProcessResult {
-  ok: number;
-  fail: number;
-  already: number;
-  total: number;
-  durationSec: number;
-  totalAttempts: number;
-  results: Array<{ phone: string; status: string; error?: string; deviceUsed?: string }>;
+interface ContactResult {
+  phone: string;
+  status: string;
+  error?: string;
+  deviceUsed?: string;
 }
 
 interface GroupInfo {
   jid: string;
   name: string;
   participants: number;
+}
+
+function randomBetween(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 export default function MassGroupInject() {
@@ -74,10 +75,10 @@ export default function MassGroupInject() {
   const [rawInput, setRawInput] = useState("");
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [participantCheck, setParticipantCheck] = useState<ParticipantCheckResult | null>(null);
-  const [processResult, setProcessResult] = useState<ProcessResult | null>(null);
   const [isValidating, setIsValidating] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
@@ -94,7 +95,22 @@ export default function MassGroupInject() {
   const [pauseDuration, setPauseDuration] = useState(30);
   const [rotateAfter, setRotateAfter] = useState(0);
 
-  // Track which steps have been completed for navigation
+  // Real-time processing state
+  const [liveResults, setLiveResults] = useState<ContactResult[]>([]);
+  const [liveOk, setLiveOk] = useState(0);
+  const [liveFail, setLiveFail] = useState(0);
+  const [liveAlready, setLiveAlready] = useState(0);
+  const [liveTotal, setLiveTotal] = useState(0);
+  const [liveCurrentPhone, setLiveCurrentPhone] = useState("");
+  const [liveCurrentDevice, setLiveCurrentDevice] = useState("");
+  const [liveStatus, setLiveStatus] = useState<"running" | "paused" | "waiting_pause" | "done" | "cancelled">("running");
+  const [liveStartTime, setLiveStartTime] = useState(0);
+  const [liveElapsed, setLiveElapsed] = useState(0);
+
+  const cancelRef = useRef(false);
+  const pauseRef = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setInterval>>();
+
   const [completedSteps, setCompletedSteps] = useState<Set<Step>>(new Set());
 
   const { data: devices = [] } = useQuery({
@@ -150,7 +166,6 @@ export default function MassGroupInject() {
     }
   }, []);
 
-  // Load groups when first device is selected
   const handleDeviceToggle = useCallback((deviceId: string) => {
     const willBeSelected = !selectedDeviceIds.includes(deviceId);
     toggleDevice(deviceId);
@@ -190,6 +205,28 @@ export default function MassGroupInject() {
 
   const parseContacts = useCallback((input: string): string[] => {
     return input.split(/[\n,;]+/).map(c => c.trim()).filter(c => c.length > 0);
+  }, []);
+
+  // Client-side dedup on paste/change
+  const handleRawInputChange = useCallback((value: string) => {
+    const lines = value.split(/[\n,;]+/).map(c => c.trim()).filter(c => c.length > 0);
+    const seen = new Set<string>();
+    const unique: string[] = [];
+    let removedCount = 0;
+    for (const line of lines) {
+      const digits = line.replace(/\D/g, "");
+      const key = digits.length >= 10 ? digits : line;
+      if (seen.has(key)) {
+        removedCount++;
+        continue;
+      }
+      seen.add(key);
+      unique.push(line);
+    }
+    setRawInput(unique.join("\n"));
+    if (removedCount > 0) {
+      toast.info(`${removedCount} número(s) duplicado(s) removido(s)`);
+    }
   }, []);
 
   const handleValidate = useCallback(async () => {
@@ -232,49 +269,164 @@ export default function MassGroupInject() {
     }
   }, [validationResult, groupId, primaryDeviceId]);
 
+  // ═══ PROCESS CONTACTS ONE BY ONE FROM CLIENT ═══
   const handleProcess = useCallback(async () => {
     const contacts = participantCheck?.ready || validationResult?.valid || [];
     if (contacts.length === 0) return toast.error("Nenhum contato para processar");
     setConfirmOpen(false);
     setIsProcessing(true);
+    setIsPaused(false);
+    cancelRef.current = false;
+    pauseRef.current = false;
     setCompletedSteps(prev => new Set([...prev, "preview"]));
     setStep("processing");
-    try {
-      const { data, error } = await supabase.functions.invoke("mass-group-inject", {
-        body: {
-          action: "process",
-          groupId,
-          deviceIds: selectedDeviceIds,
-          contacts,
-          concurrency: 1,
-          minDelay,
-          maxDelay,
-          pauseAfter,
-          pauseDuration,
-          rotateAfter,
-        },
-      });
-      if (error) throw error;
-      setProcessResult(data);
-      setCompletedSteps(prev => new Set([...prev, "processing"]));
-      setStep("done");
-      toast.success(`Concluído: ${data.ok} sucesso, ${data.fail} falhas`);
-    } catch (e: any) {
-      toast.error(e.message || "Erro no processamento");
-      setStep("preview");
-    } finally {
-      setIsProcessing(false);
+
+    // Reset live state
+    setLiveResults([]);
+    setLiveOk(0);
+    setLiveFail(0);
+    setLiveAlready(0);
+    setLiveTotal(contacts.length);
+    setLiveCurrentPhone("");
+    setLiveCurrentDevice("");
+    setLiveStatus("running");
+    const start = Date.now();
+    setLiveStartTime(start);
+    setLiveElapsed(0);
+
+    // Timer for elapsed
+    timerRef.current = setInterval(() => {
+      setLiveElapsed(Math.round((Date.now() - start) / 1000));
+    }, 1000);
+
+    let ok = 0, fail = 0, already = 0;
+    const results: ContactResult[] = [];
+    let currentDeviceIndex = 0;
+    let addedWithCurrentDevice = 0;
+    let processedSincePause = 0;
+
+    for (let i = 0; i < contacts.length; i++) {
+      // Check cancel
+      if (cancelRef.current) {
+        setLiveStatus("cancelled");
+        break;
+      }
+
+      // Check pause
+      while (pauseRef.current) {
+        setLiveStatus("paused");
+        await new Promise(r => setTimeout(r, 500));
+        if (cancelRef.current) break;
+      }
+      if (cancelRef.current) {
+        setLiveStatus("cancelled");
+        break;
+      }
+      setLiveStatus("running");
+
+      const phone = contacts[i];
+      const deviceId = selectedDeviceIds[currentDeviceIndex % selectedDeviceIds.length];
+      const deviceName = (devices as any[]).find((d: any) => d.id === deviceId)?.name || deviceId;
+
+      setLiveCurrentPhone(phone);
+      setLiveCurrentDevice(deviceName);
+
+      try {
+        const { data, error } = await supabase.functions.invoke("mass-group-inject", {
+          body: { action: "add-single", groupId, deviceId, phone },
+        });
+        if (error) throw error;
+
+        const result: ContactResult = {
+          phone,
+          status: data?.status || "failed",
+          error: data?.error,
+          deviceUsed: deviceName,
+        };
+
+        results.push(result);
+        setLiveResults(prev => [...prev, result]);
+
+        if (data?.status === "completed") {
+          ok++;
+          setLiveOk(prev => prev + 1);
+          addedWithCurrentDevice++;
+          processedSincePause++;
+          // Maybe rotate
+          if (rotateAfter > 0 && addedWithCurrentDevice >= rotateAfter) {
+            currentDeviceIndex++;
+            addedWithCurrentDevice = 0;
+          }
+        } else if (data?.status === "already_exists") {
+          already++;
+          setLiveAlready(prev => prev + 1);
+          processedSincePause++;
+        } else {
+          fail++;
+          setLiveFail(prev => prev + 1);
+          processedSincePause++;
+        }
+      } catch (e: any) {
+        fail++;
+        setLiveFail(prev => prev + 1);
+        processedSincePause++;
+        const result: ContactResult = { phone, status: "failed", error: e.message || "Erro", deviceUsed: deviceName };
+        results.push(result);
+        setLiveResults(prev => [...prev, result]);
+      }
+
+      // Delay between contacts (skip on last)
+      if (i < contacts.length - 1 && !cancelRef.current) {
+        const delay = randomBetween(minDelay, maxDelay);
+        await new Promise(r => setTimeout(r, delay * 1000));
+      }
+
+      // Pause after X contacts
+      if (pauseAfter > 0 && processedSincePause >= pauseAfter && i < contacts.length - 1 && !cancelRef.current) {
+        setLiveStatus("waiting_pause");
+        await new Promise(r => setTimeout(r, pauseDuration * 1000));
+        processedSincePause = 0;
+      }
     }
-  }, [participantCheck, validationResult, groupId, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter]);
+
+    clearInterval(timerRef.current);
+    setLiveElapsed(Math.round((Date.now() - start) / 1000));
+    setLiveStatus(cancelRef.current ? "cancelled" : "done");
+    setIsProcessing(false);
+    setCompletedSteps(prev => new Set([...prev, "processing"]));
+    setStep("done");
+    toast.success(`Concluído: ${ok} sucesso, ${fail} falhas, ${already} já existentes`);
+  }, [participantCheck, validationResult, groupId, selectedDeviceIds, devices, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter]);
+
+  const handlePause = useCallback(() => {
+    pauseRef.current = !pauseRef.current;
+    setIsPaused(pauseRef.current);
+  }, []);
+
+  const handleCancel = useCallback(() => {
+    cancelRef.current = true;
+    pauseRef.current = false;
+    setIsPaused(false);
+  }, []);
 
   const handleReset = useCallback(() => {
+    cancelRef.current = true;
+    pauseRef.current = false;
+    clearInterval(timerRef.current);
     setStep("import");
     setRawInput("");
     setValidationResult(null);
     setParticipantCheck(null);
-    setProcessResult(null);
     setActiveFilter("all");
     setCompletedSteps(new Set());
+    setLiveResults([]);
+    setLiveOk(0);
+    setLiveFail(0);
+    setLiveAlready(0);
+    setLiveTotal(0);
+    setIsProcessing(false);
+    setIsPaused(false);
+    setLiveStatus("running");
   }, []);
 
   const handleStepClick = useCallback((targetStep: Step) => {
@@ -282,26 +434,22 @@ export default function MassGroupInject() {
     const stepOrder: Step[] = ["import", "preview", "processing", "done"];
     const targetIdx = stepOrder.indexOf(targetStep);
     const currentIdx = stepOrder.indexOf(step);
-
-    // Can always go back
-    if (targetIdx < currentIdx) {
-      setStep(targetStep);
-      return;
-    }
-    // Can go forward only to completed steps or the current+1
+    if (targetIdx < currentIdx) { setStep(targetStep); return; }
     if (completedSteps.has(targetStep) || (targetIdx === currentIdx + 1 && completedSteps.has(step))) {
       setStep(targetStep);
     }
   }, [step, completedSteps, isProcessing]);
 
   const filteredResults = useMemo(() => {
-    if (!processResult?.results) return [];
-    if (activeFilter === "all") return processResult.results;
-    return processResult.results.filter(r => r.status === activeFilter);
-  }, [processResult, activeFilter]);
+    const results = step === "done" ? liveResults : liveResults;
+    if (activeFilter === "all") return results;
+    return results.filter(r => r.status === activeFilter);
+  }, [liveResults, activeFilter, step]);
 
   const totalToProcess = participantCheck?.readyCount ?? validationResult?.validCount ?? 0;
   const contactCount = rawInput.trim() ? parseContacts(rawInput).length : 0;
+  const liveProcessed = liveOk + liveFail + liveAlready;
+  const liveProgress = liveTotal > 0 ? Math.round((liveProcessed / liveTotal) * 100) : 0;
 
   const stepItems = [
     { key: "import" as Step, label: "Importar", icon: Upload },
@@ -309,6 +457,12 @@ export default function MassGroupInject() {
     { key: "processing" as Step, label: "Processando", icon: RefreshCw },
     { key: "done" as Step, label: "Concluído", icon: CheckCircle2 },
   ];
+
+  const formatTime = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -324,7 +478,7 @@ export default function MassGroupInject() {
             <p className="text-sm text-muted-foreground">Adicione membros em lote a um grupo do WhatsApp</p>
           </div>
         </div>
-        {step !== "import" && (
+        {step !== "import" && !isProcessing && (
           <Button variant="outline" size="sm" onClick={handleReset} className="gap-2">
             <RefreshCw className="w-3.5 h-3.5" />
             Novo Lote
@@ -332,7 +486,7 @@ export default function MassGroupInject() {
         )}
       </div>
 
-      {/* Step indicator - clickable */}
+      {/* Step indicator */}
       <div className="flex items-center gap-1 bg-card/50 border border-border/50 rounded-2xl p-2">
         {stepItems.map((s, i, arr) => {
           const isCurrent = step === s.key;
@@ -375,7 +529,7 @@ export default function MassGroupInject() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                {/* Instance selector - multi-select with checkboxes */}
+                {/* Instance selector */}
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
                     Instâncias ({selectedDeviceIds.length} selecionada{selectedDeviceIds.length !== 1 ? "s" : ""})
@@ -385,16 +539,8 @@ export default function MassGroupInject() {
                       const online = isDeviceOnline(d.status);
                       const selected = selectedDeviceIds.includes(d.id);
                       return (
-                        <label
-                          key={d.id}
-                          className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer transition-colors hover:bg-muted/30 ${
-                            selected ? "bg-primary/5" : ""
-                          }`}
-                        >
-                          <Checkbox
-                            checked={selected}
-                            onCheckedChange={() => handleDeviceToggle(d.id)}
-                          />
+                        <label key={d.id} className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer transition-colors hover:bg-muted/30 ${selected ? "bg-primary/5" : ""}`}>
+                          <Checkbox checked={selected} onCheckedChange={() => handleDeviceToggle(d.id)} />
                           <div className={`w-2 h-2 rounded-full shrink-0 ${online ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
                           <div className="min-w-0 flex-1">
                             <span className="text-sm font-medium">{d.name}</span>
@@ -418,11 +564,11 @@ export default function MassGroupInject() {
                     Grupo de Destino
                   </label>
                   <div className="flex gap-1 mb-3 bg-muted/30 p-1 rounded-lg">
-                    {[
+                    {([
                       { key: "list" as const, label: "Meus Grupos" },
                       { key: "link" as const, label: "Link do Grupo" },
                       { key: "jid" as const, label: "JID Manual" },
-                    ].map(m => (
+                    ]).map(m => (
                       <button
                         key={m.key}
                         onClick={() => setGroupInputMode(m.key)}
@@ -437,7 +583,6 @@ export default function MassGroupInject() {
                     ))}
                   </div>
 
-                  {/* Mode: List */}
                   {groupInputMode === "list" && (
                     <>
                       {!primaryDeviceId ? (
@@ -480,11 +625,10 @@ export default function MassGroupInject() {
                     </>
                   )}
 
-                  {/* Mode: Link */}
                   {groupInputMode === "link" && (
                     <div className="space-y-3">
                       <Input value={groupLink} onChange={e => setGroupLink(e.target.value)} placeholder="https://chat.whatsapp.com/XXXXXXXX" className="h-11 font-mono text-sm" />
-                      <p className="text-[10px] text-muted-foreground/60">Cole o link de convite do grupo. O sistema vai resolver o JID automaticamente.</p>
+                      <p className="text-[10px] text-muted-foreground/60">Cole o link de convite do grupo.</p>
                       <Button onClick={handleResolveLink} disabled={isResolvingLink || !groupLink.trim() || !primaryDeviceId} variant="outline" className="w-full gap-2 h-10" size="sm">
                         {isResolvingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                         {isResolvingLink ? "Resolvendo..." : "Resolver Link"}
@@ -492,7 +636,6 @@ export default function MassGroupInject() {
                     </div>
                   )}
 
-                  {/* Mode: JID Manual */}
                   {groupInputMode === "jid" && (
                     <div className="space-y-2">
                       <Input value={groupId} onChange={e => setGroupId(e.target.value)} placeholder="120363XXXXXXXXXX@g.us" className="h-11 font-mono text-sm" />
@@ -501,7 +644,6 @@ export default function MassGroupInject() {
                   )}
                 </div>
 
-                {/* Selected group summary */}
                 {groupId && (
                   <div className="rounded-xl bg-primary/5 border border-primary/15 px-4 py-3">
                     <div className="flex items-center gap-2">
@@ -525,7 +667,6 @@ export default function MassGroupInject() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                {/* Delay between contacts */}
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <Timer className="w-3.5 h-3.5 text-muted-foreground" />
@@ -543,7 +684,6 @@ export default function MassGroupInject() {
                   </div>
                 </div>
 
-                {/* Pause after X */}
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <Pause className="w-3.5 h-3.5 text-muted-foreground" />
@@ -560,13 +700,10 @@ export default function MassGroupInject() {
                     </div>
                   </div>
                   {pauseAfter > 0 && (
-                    <p className="text-[10px] text-muted-foreground/60 mt-1">
-                      Pausa de {pauseDuration}s após cada {pauseAfter} contatos
-                    </p>
+                    <p className="text-[10px] text-muted-foreground/60 mt-1">Pausa de {pauseDuration}s após cada {pauseAfter} contatos</p>
                   )}
                 </div>
 
-                {/* Rotate after X */}
                 {selectedDeviceIds.length > 1 && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
@@ -575,16 +712,13 @@ export default function MassGroupInject() {
                     </div>
                     <Input type="number" min={0} value={rotateAfter} onChange={e => setRotateAfter(Number(e.target.value) || 0)} placeholder="0 = sem rotação" className="h-9 text-sm" />
                     {rotateAfter > 0 && (
-                      <p className="text-[10px] text-muted-foreground/60 mt-1">
-                        Troca de instância após cada {rotateAfter} adições bem-sucedidas
-                      </p>
+                      <p className="text-[10px] text-muted-foreground/60 mt-1">Troca de instância após cada {rotateAfter} adições</p>
                     )}
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Quick stats */}
             {contactCount > 0 && (
               <Card className="border-border/40 bg-card/80">
                 <CardContent className="py-4 px-5">
@@ -615,13 +749,14 @@ export default function MassGroupInject() {
                 <Tabs defaultValue="paste">
                   <TabsList className="w-full grid grid-cols-2 h-10 bg-muted/50">
                     <TabsTrigger value="paste" className="text-xs font-semibold">Colar Números</TabsTrigger>
-                    <TabsTrigger value="file" className="text-xs font-semibold">Arquivo CSV/TXT</TabsTrigger>
+                    <TabsTrigger value="file" className="text-xs font-semibold">Arquivo CSV/TXT/XLSX</TabsTrigger>
                   </TabsList>
                   <TabsContent value="paste" className="mt-4">
                     <Textarea
                       value={rawInput}
                       onChange={e => setRawInput(e.target.value)}
-                      placeholder={"5562999999999\n5521988888888\n\nSepare por linha, vírgula ou ;"}
+                      onBlur={() => { if (rawInput.trim()) handleRawInputChange(rawInput); }}
+                      placeholder={"5562999999999\n5521988888888\n\nSepare por linha, vírgula ou ;\nDuplicados são removidos automaticamente."}
                       className="min-h-[300px] font-mono text-xs resize-none bg-muted/20 border-border/40"
                     />
                   </TabsContent>
@@ -657,7 +792,7 @@ export default function MassGroupInject() {
                                   }
                                 }
                               }
-                              setRawInput(numbers.join('\n'));
+                              handleRawInputChange(numbers.join('\n'));
                               toast.success(`${numbers.length} números importados de ${file.name}`);
                             } catch (err) {
                               toast.error('Erro ao ler arquivo Excel');
@@ -665,7 +800,7 @@ export default function MassGroupInject() {
                           } else {
                             const reader = new FileReader();
                             reader.onload = (ev) => {
-                              setRawInput(ev.target?.result as string || "");
+                              handleRawInputChange(ev.target?.result as string || "");
                               toast.success(`Arquivo carregado: ${file.name}`);
                             };
                             reader.readAsText(file);
@@ -748,7 +883,6 @@ export default function MassGroupInject() {
             </Card>
           </div>
 
-          {/* Selected group info */}
           {(selectedGroup || groupId) && (
             <Card className="border-primary/15 bg-primary/5">
               <CardContent className="py-3 px-5 flex items-center gap-3">
@@ -759,8 +893,8 @@ export default function MassGroupInject() {
             </Card>
           )}
 
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row gap-3">
+          {/* Actions - CENTERED */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
             <Button variant="ghost" onClick={() => setStep("import")} className="gap-2 h-10 text-muted-foreground">
               ← Voltar
             </Button>
@@ -837,36 +971,140 @@ export default function MassGroupInject() {
         </div>
       )}
 
-      {/* ══ PROCESSING ══ */}
+      {/* ══ PROCESSING — Real-time progress ══ */}
       {step === "processing" && (
-        <div className="flex flex-col items-center justify-center py-20 space-y-8">
-          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center">
-            <Loader2 className="w-12 h-12 text-primary animate-spin" />
+        <div className="space-y-6">
+          {/* Live stats cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            {[
+              { label: "Processados", value: `${liveProcessed}/${liveTotal}`, color: "text-foreground", bg: "border-border/40" },
+              { label: "Sucesso", value: liveOk, color: "text-emerald-500", bg: "border-emerald-500/20" },
+              { label: "Já Existe", value: liveAlready, color: "text-blue-500", bg: "border-blue-500/20" },
+              { label: "Falhas", value: liveFail, color: "text-destructive", bg: "border-destructive/20" },
+              { label: "Tempo", value: formatTime(liveElapsed), color: "text-muted-foreground", bg: "border-border/40" },
+            ].map(s => (
+              <Card key={s.label} className={`${s.bg} bg-card/80`}>
+                <CardContent className="pt-4 pb-3 px-4">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{s.label}</span>
+                  <p className={`text-2xl font-bold ${s.color} mt-1`}>{s.value}</p>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-          <div className="text-center space-y-2">
-            <h2 className="text-xl font-bold text-foreground">Processando Contatos</h2>
-            <p className="text-sm text-muted-foreground">Adicionando {totalToProcess} contatos ao grupo...</p>
-            <p className="text-xs text-muted-foreground/50">
-              {selectedDeviceIds.length} instância{selectedDeviceIds.length !== 1 ? "s" : ""} • Delay {minDelay}–{maxDelay}s
-              {pauseAfter > 0 && ` • Pausa a cada ${pauseAfter}`}
-            </p>
-            <p className="text-[10px] text-muted-foreground/40 mt-4">Não feche esta página.</p>
+
+          {/* Progress bar */}
+          <Card className="border-border/40 bg-card/80">
+            <CardContent className="py-5 px-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {liveStatus === "running" && <Loader2 className="w-5 h-5 text-primary animate-spin" />}
+                  {liveStatus === "paused" && <Pause className="w-5 h-5 text-amber-500" />}
+                  {liveStatus === "waiting_pause" && <Clock className="w-5 h-5 text-amber-500 animate-pulse" />}
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {liveStatus === "running" && "Processando..."}
+                      {liveStatus === "paused" && "Pausado"}
+                      {liveStatus === "waiting_pause" && `Pausa automática (${pauseDuration}s)...`}
+                      {liveStatus === "cancelled" && "Cancelado"}
+                    </p>
+                    {liveCurrentPhone && liveStatus === "running" && (
+                      <p className="text-xs text-muted-foreground">
+                        Adicionando <span className="font-mono">{liveCurrentPhone}</span> via <span className="text-primary">{liveCurrentDevice}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <span className="text-lg font-bold text-primary">{liveProgress}%</span>
+              </div>
+              <Progress value={liveProgress} className="h-3" />
+              <p className="text-[10px] text-muted-foreground/50 text-center">
+                Você pode fechar esta tela — o processo continuará em segundo plano, mas perderá o acompanhamento visual.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Pause / Cancel buttons - CENTERED */}
+          <div className="flex gap-3 justify-center">
+            <Button
+              onClick={handlePause}
+              variant="outline"
+              className="gap-2 h-11 min-w-[140px]"
+              disabled={!isProcessing}
+            >
+              {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+              {isPaused ? "Retomar" : "Pausar"}
+            </Button>
+            <Button
+              onClick={handleCancel}
+              variant="destructive"
+              className="gap-2 h-11 min-w-[140px]"
+              disabled={!isProcessing}
+            >
+              <StopCircle className="w-4 h-4" />
+              Cancelar
+            </Button>
           </div>
-          <div className="w-full max-w-lg">
-            <Progress value={undefined} className="h-2.5" />
-          </div>
+
+          {/* Live results feed */}
+          {liveResults.length > 0 && (
+            <Card className="border-border/40 bg-card/80">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-primary" />
+                  Resultados em Tempo Real
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="max-h-[300px] overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-border/30 bg-muted/30">
+                        <TableHead className="text-xs w-14 font-semibold">#</TableHead>
+                        <TableHead className="text-xs font-semibold">Contato</TableHead>
+                        <TableHead className="text-xs font-semibold">Status</TableHead>
+                        {selectedDeviceIds.length > 1 && <TableHead className="text-xs font-semibold">Instância</TableHead>}
+                        <TableHead className="text-xs font-semibold">Detalhe</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {[...liveResults].reverse().slice(0, 50).map((r, i) => (
+                        <TableRow key={liveResults.length - i} className="border-border/15 hover:bg-muted/20">
+                          <TableCell className="text-xs text-muted-foreground font-mono">{liveResults.length - i}</TableCell>
+                          <TableCell className="text-xs font-mono font-medium">{r.phone}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={`text-[10px] font-semibold ${
+                              r.status === "completed" ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5" :
+                              r.status === "already_exists" ? "border-blue-500/30 text-blue-500 bg-blue-500/5" :
+                              "border-destructive/30 text-destructive bg-destructive/5"
+                            }`}>
+                              {r.status === "completed" ? "✓ Sucesso" : r.status === "already_exists" ? "Já existe" : "✗ Falha"}
+                            </Badge>
+                          </TableCell>
+                          {selectedDeviceIds.length > 1 && (
+                            <TableCell className="text-xs text-muted-foreground">{r.deviceUsed || "—"}</TableCell>
+                          )}
+                          <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{r.error || "—"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
       {/* ══ DONE ══ */}
-      {step === "done" && processResult && (
+      {step === "done" && liveResults.length > 0 && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             {[
-              { label: "Sucesso", value: processResult.ok, color: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20" },
-              { label: "Já Existente", value: processResult.already, color: "text-blue-500", bg: "bg-blue-500/10 border-blue-500/20" },
-              { label: "Falhas", value: processResult.fail, color: "text-destructive", bg: "bg-destructive/10 border-destructive/20" },
-              { label: "Duração", value: `${processResult.durationSec}s`, color: "text-muted-foreground", bg: "bg-muted/50 border-border/40" },
+              { label: "Sucesso", value: liveOk, color: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20" },
+              { label: "Já Existente", value: liveAlready, color: "text-blue-500", bg: "bg-blue-500/10 border-blue-500/20" },
+              { label: "Falhas", value: liveFail, color: "text-destructive", bg: "bg-destructive/10 border-destructive/20" },
+              { label: "Total", value: liveProcessed, color: "text-foreground", bg: "bg-muted/50 border-border/40" },
+              { label: "Duração", value: formatTime(liveElapsed), color: "text-muted-foreground", bg: "bg-muted/50 border-border/40" },
             ].map(s => (
               <Card key={s.label} className={`border ${s.bg}`}>
                 <CardContent className="pt-5 pb-4 px-5">
@@ -877,13 +1115,22 @@ export default function MassGroupInject() {
             ))}
           </div>
 
+          {liveStatus === "cancelled" && (
+            <Card className="border-amber-500/20 bg-amber-500/5">
+              <CardContent className="py-3 px-5 flex items-center gap-3">
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                <p className="text-sm text-amber-500 font-medium">Processamento cancelado pelo usuário. {liveTotal - liveProcessed} contatos não foram processados.</p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Filters */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap justify-center">
             {[
-              { key: "all", label: `Todos (${processResult.results.length})` },
-              { key: "completed", label: `Sucesso (${processResult.ok})` },
-              { key: "already_exists", label: `Existente (${processResult.already})` },
-              { key: "failed", label: `Falhas (${processResult.fail})` },
+              { key: "all", label: `Todos (${liveResults.length})` },
+              { key: "completed", label: `Sucesso (${liveOk})` },
+              { key: "already_exists", label: `Existente (${liveAlready})` },
+              { key: "failed", label: `Falhas (${liveFail})` },
             ].map(f => (
               <Button key={f.key} variant={activeFilter === f.key ? "default" : "outline"} size="sm" onClick={() => setActiveFilter(f.key)} className="text-xs h-8 rounded-lg">
                 {f.label}
@@ -936,10 +1183,12 @@ export default function MassGroupInject() {
             </CardContent>
           </Card>
 
-          <Button onClick={handleReset} className="gap-2 h-11 rounded-xl">
-            <RefreshCw className="w-4 h-4" />
-            Novo Lote
-          </Button>
+          <div className="flex justify-center">
+            <Button onClick={handleReset} className="gap-2 h-11 rounded-xl">
+              <RefreshCw className="w-4 h-4" />
+              Novo Lote
+            </Button>
+          </div>
         </div>
       )}
 
