@@ -9,7 +9,7 @@ import {
   FileText, BarChart3, UserPlus, ChevronRight, Globe,
   Clock, Pause, ArrowLeftRight, Settings2, Timer,
   StopCircle, AlertTriangle, TrendingUp, Plus, ArrowLeft,
-  Eye, MoreVertical
+  Eye, Info, WifiOff, Link2, Hash, AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,7 +68,7 @@ function randomBetween(min: number, max: number) {
 }
 
 function translateError(err: string): string {
-  const e = err.toLowerCase();
+  const e = (err || "").toLowerCase();
   if (e.includes("whatsapp disconnected") || e.includes("disconnected")) return "WhatsApp desconectado";
   if (e.includes("not admin")) return "Instância não é admin do grupo";
   if (e.includes("not found") || e.includes("info query")) return "Número não encontrado no WhatsApp";
@@ -76,6 +76,7 @@ function translateError(err: string): string {
   if (e.includes("blocked") || e.includes("ban")) return "Número bloqueado";
   if (e.includes("rate") || e.includes("429")) return "Limite de requisições";
   if (e.includes("bad-request")) return "Requisição inválida";
+  if (e.includes("timeout")) return "Tempo de resposta excedido";
   return err;
 }
 
@@ -87,7 +88,8 @@ function formatTime(sec: number) {
 
 function statusLabel(status: string) {
   switch (status) {
-    case "completed": case "already_exists": return "Sucesso";
+    case "completed": return "Adicionado";
+    case "already_exists": return "Já no grupo";
     case "failed": return "Falha";
     case "pending": return "Pendente";
     case "processing": return "Processando";
@@ -101,8 +103,9 @@ function statusLabel(status: string) {
 
 function statusBadge(status: string) {
   switch (status) {
-    case "completed": case "done": return "border-emerald-500/30 text-emerald-500 bg-emerald-500/5";
-    case "already_exists": return "border-emerald-500/30 text-emerald-500 bg-emerald-500/5";
+    case "completed": return "border-emerald-500/30 text-emerald-500 bg-emerald-500/5";
+    case "already_exists": return "border-blue-500/30 text-blue-500 bg-blue-500/5";
+    case "done": return "border-emerald-500/30 text-emerald-500 bg-emerald-500/5";
     case "failed": case "cancelled": return "border-destructive/30 text-destructive bg-destructive/5";
     case "processing": return "border-primary/30 text-primary bg-primary/5";
     case "paused": return "border-amber-500/30 text-amber-500 bg-amber-500/5";
@@ -115,6 +118,10 @@ function statusBadge(status: string) {
 // ═══════════════════════════════════════════════════════════════
 function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void; onViewCampaign: (id: string) => void }) {
   const { user } = useAuth();
+  const qc = useQueryClient();
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: campaigns = [], isLoading } = useQuery({
     queryKey: ["mass_inject_campaigns", user?.id],
@@ -130,6 +137,27 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
     refetchInterval: 10000,
   });
 
+  const filteredCampaigns = useMemo(() => {
+    let list = campaigns;
+    if (statusFilter !== "all") list = list.filter((c: any) => c.status === statusFilter);
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter((c: any) => c.name?.toLowerCase().includes(q) || c.group_name?.toLowerCase().includes(q));
+    }
+    return list;
+  }, [campaigns, statusFilter, searchQuery]);
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    try {
+      await supabase.from("mass_inject_contacts").delete().eq("campaign_id", deleteId);
+      await supabase.from("mass_inject_campaigns").delete().eq("id", deleteId);
+      qc.invalidateQueries({ queryKey: ["mass_inject_campaigns"] });
+      toast.success("Campanha excluída");
+    } catch { toast.error("Erro ao excluir"); }
+    setDeleteId(null);
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -139,65 +167,88 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground tracking-tight">Adição em Massa</h1>
-            <p className="text-sm text-muted-foreground">Campanhas de adição de membros a grupos do WhatsApp</p>
+            <p className="text-sm text-muted-foreground">Campanhas de adição de membros a grupos</p>
           </div>
         </div>
         <Button onClick={onCreateNew} className="gap-2 shadow-md shadow-primary/10">
-          <Plus className="w-4 h-4" />
-          Criar Campanha
+          <Plus className="w-4 h-4" /> Criar Campanha
         </Button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Buscar campanha..." className="h-9 max-w-xs" />
+        <div className="flex gap-1.5 flex-wrap">
+          {[
+            { key: "all", label: "Todas" },
+            { key: "processing", label: "Em andamento" },
+            { key: "paused", label: "Pausadas" },
+            { key: "done", label: "Concluídas" },
+            { key: "draft", label: "Rascunho" },
+          ].map(f => (
+            <Button key={f.key} variant={statusFilter === f.key ? "default" : "outline"} size="sm" onClick={() => setStatusFilter(f.key)} className="text-xs h-8 rounded-lg">
+              {f.label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
         </div>
-      ) : campaigns.length === 0 ? (
+      ) : filteredCampaigns.length === 0 ? (
         <Card className="border-border/40 bg-card/80">
           <CardContent className="py-16 text-center space-y-4">
             <UserPlus className="w-12 h-12 text-muted-foreground/30 mx-auto" />
-            <h3 className="text-lg font-semibold text-foreground">Nenhuma campanha criada</h3>
-            <p className="text-sm text-muted-foreground">Crie sua primeira campanha para adicionar membros em lote a um grupo.</p>
-            <Button onClick={onCreateNew} className="gap-2 mt-4">
-              <Plus className="w-4 h-4" /> Criar Campanha
-            </Button>
+            <h3 className="text-lg font-semibold text-foreground">
+              {campaigns.length === 0 ? "Nenhuma campanha criada" : "Nenhuma campanha encontrada"}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {campaigns.length === 0 ? "Crie sua primeira campanha para adicionar membros em lote a um grupo." : "Tente alterar os filtros de busca."}
+            </p>
+            {campaigns.length === 0 && (
+              <Button onClick={onCreateNew} className="gap-2 mt-4"><Plus className="w-4 h-4" /> Criar Campanha</Button>
+            )}
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {campaigns.map((c: any) => {
-            const total = (c.success_count || 0) + (c.already_count || 0) + (c.fail_count || 0);
+        <div className="grid gap-3">
+          {filteredCampaigns.map((c: any) => {
             const successTotal = (c.success_count || 0) + (c.already_count || 0);
-            const progress = c.total_contacts > 0 ? Math.round((total / c.total_contacts) * 100) : 0;
+            const processed = successTotal + (c.fail_count || 0);
+            const progress = c.total_contacts > 0 ? Math.round((processed / c.total_contacts) * 100) : 0;
             return (
-              <Card key={c.id} className="border-border/40 bg-card/80 hover:bg-card/90 transition-colors cursor-pointer" onClick={() => onViewCampaign(c.id)}>
+              <Card key={c.id} className="border-border/40 bg-card/80 hover:bg-card/90 transition-colors cursor-pointer group" onClick={() => onViewCampaign(c.id)}>
                 <CardContent className="py-4 px-5">
                   <div className="flex items-center justify-between gap-4">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-3 mb-1">
+                      <div className="flex items-center gap-3 mb-1.5">
                         <h3 className="text-sm font-semibold text-foreground truncate">{c.name}</h3>
                         <Badge variant="outline" className={`text-[10px] font-semibold shrink-0 ${statusBadge(c.status)}`}>
                           {statusLabel(c.status)}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>Grupo: {c.group_name || c.group_id?.substring(0, 15) + "..."}</span>
-                        <span>{c.total_contacts} contatos</span>
-                        <span>✓ {successTotal} sucesso</span>
-                        {c.fail_count > 0 && <span className="text-destructive">✗ {c.fail_count} falhas</span>}
+                        <span className="truncate max-w-[200px]">📁 {c.group_name || c.group_id?.substring(0, 15) + "..."}</span>
+                        <span>📋 {c.total_contacts} contatos</span>
+                        <span className="text-emerald-500">✓ {successTotal}</span>
+                        {c.fail_count > 0 && <span className="text-destructive">✗ {c.fail_count}</span>}
                         <span>{new Date(c.created_at).toLocaleDateString("pt-BR")}</span>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
                       {c.status === "processing" && (
-                        <div className="w-24">
-                          <Progress value={progress} className="h-2" />
-                          <p className="text-[10px] text-muted-foreground text-center mt-0.5">{progress}%</p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Progress value={progress} className="h-1.5 flex-1 max-w-[200px]" />
+                          <span className="text-[10px] text-primary font-semibold">{progress}%</span>
                         </div>
                       )}
-                      <Button variant="ghost" size="sm" className="gap-1.5 text-xs">
-                        <Eye className="w-3.5 h-3.5" /> Ver
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button variant="ghost" size="sm" className="gap-1.5 text-xs opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); setDeleteId(c.id); }}>
+                        <Trash2 className="w-3.5 h-3.5" />
                       </Button>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
                     </div>
                   </div>
                 </CardContent>
@@ -206,17 +257,30 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
           })}
         </div>
       )}
+
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir campanha?</AlertDialogTitle>
+            <AlertDialogDescription>Esta ação é irreversível. Todos os contatos e resultados serão removidos.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CAMPAIGN DETAIL VIEW (resume/view results)
+// CAMPAIGN DETAIL VIEW
 // ═══════════════════════════════════════════════════════════════
 function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: () => void }) {
   const { user } = useAuth();
-  const qc = useQueryClient();
   const [activeFilter, setActiveFilter] = useState("all");
+  const [searchContact, setSearchContact] = useState("");
 
   const { data: campaign, isLoading } = useQuery({
     queryKey: ["mass_inject_campaign", campaignId],
@@ -243,10 +307,15 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
   });
 
   const filteredContacts = useMemo(() => {
-    if (activeFilter === "all") return contacts;
-    if (activeFilter === "success") return contacts.filter((c: any) => c.status === "completed" || c.status === "already_exists");
-    return contacts.filter((c: any) => c.status === activeFilter);
-  }, [contacts, activeFilter]);
+    let list = contacts;
+    if (activeFilter === "success") list = list.filter((c: any) => c.status === "completed" || c.status === "already_exists");
+    else if (activeFilter !== "all") list = list.filter((c: any) => c.status === activeFilter);
+    if (searchContact.trim()) {
+      const q = searchContact.toLowerCase();
+      list = list.filter((c: any) => c.phone?.includes(q));
+    }
+    return list;
+  }, [contacts, activeFilter, searchContact]);
 
   if (isLoading || !campaign) {
     return (
@@ -257,8 +326,9 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
   }
 
   const successTotal = (campaign.success_count || 0) + (campaign.already_count || 0);
-  const total = successTotal + (campaign.fail_count || 0);
-  const progress = campaign.total_contacts > 0 ? Math.round((total / campaign.total_contacts) * 100) : 0;
+  const processed = successTotal + (campaign.fail_count || 0);
+  const pending = Math.max(0, campaign.total_contacts - processed);
+  const progress = campaign.total_contacts > 0 ? Math.round((processed / campaign.total_contacts) * 100) : 0;
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -275,18 +345,20 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
         </Badge>
       </div>
 
+      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
           { label: "Total", value: campaign.total_contacts, color: "text-foreground" },
-          { label: "Sucesso", value: successTotal, color: "text-emerald-500" },
+          { label: "Sucesso", value: successTotal, color: "text-emerald-500", sub: campaign.already_count > 0 ? `(${campaign.success_count || 0} adicionados + ${campaign.already_count} já no grupo)` : undefined },
           { label: "Falhas", value: campaign.fail_count || 0, color: "text-destructive" },
-          { label: "Pendentes", value: campaign.total_contacts - total, color: "text-amber-500" },
+          { label: "Pendentes", value: pending, color: "text-amber-500" },
           { label: "Progresso", value: `${progress}%`, color: "text-primary" },
         ].map(s => (
           <Card key={s.label} className="border-border/40 bg-card/80">
             <CardContent className="pt-4 pb-3 px-4">
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{s.label}</span>
               <p className={`text-2xl font-bold ${s.color} mt-1`}>{s.value}</p>
+              {(s as any).sub && <p className="text-[9px] text-muted-foreground mt-0.5">{(s as any).sub}</p>}
             </CardContent>
           </Card>
         ))}
@@ -297,7 +369,7 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
           <CardContent className="py-4 px-5">
             <div className="flex items-center gap-3 mb-3">
               <Loader2 className="w-5 h-5 text-primary animate-spin" />
-              <span className="text-sm font-semibold text-foreground">Processando...</span>
+              <span className="text-sm font-semibold text-foreground">Campanha em andamento...</span>
               <span className="text-sm text-primary font-bold ml-auto">{progress}%</span>
             </div>
             <Progress value={progress} className="h-2.5" />
@@ -305,19 +377,24 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
         </Card>
       )}
 
-      <div className="flex items-center gap-2 flex-wrap justify-center">
-        {[
-          { key: "all", label: `Todos (${contacts.length})` },
-          { key: "success", label: `Sucesso (${successTotal})` },
-          { key: "failed", label: `Falhas (${campaign.fail_count || 0})` },
-          { key: "pending", label: `Pendentes (${campaign.total_contacts - total})` },
-        ].map(f => (
-          <Button key={f.key} variant={activeFilter === f.key ? "default" : "outline"} size="sm" onClick={() => setActiveFilter(f.key)} className="text-xs h-8 rounded-lg">
-            {f.label}
-          </Button>
-        ))}
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="flex items-center gap-2 flex-wrap">
+          {[
+            { key: "all", label: `Todos (${contacts.length})` },
+            { key: "success", label: `Sucesso (${successTotal})` },
+            { key: "failed", label: `Falhas (${campaign.fail_count || 0})` },
+            { key: "pending", label: `Pendentes (${pending})` },
+          ].map(f => (
+            <Button key={f.key} variant={activeFilter === f.key ? "default" : "outline"} size="sm" onClick={() => setActiveFilter(f.key)} className="text-xs h-8 rounded-lg">
+              {f.label}
+            </Button>
+          ))}
+        </div>
+        <Input value={searchContact} onChange={e => setSearchContact(e.target.value)} placeholder="Buscar número..." className="h-8 max-w-[200px] text-xs" />
       </div>
 
+      {/* Results table */}
       <Card className="border-border/40 bg-card/80">
         <CardContent className="p-0">
           <div className="max-h-[500px] overflow-y-auto">
@@ -347,7 +424,7 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
                 ))}
                 {filteredContacts.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-10 text-sm text-muted-foreground">Nenhum resultado</TableCell>
+                    <TableCell colSpan={5} className="text-center py-10 text-sm text-muted-foreground">Nenhum resultado encontrado</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -367,6 +444,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
   const [step, setStep] = useState<Step>("import");
   const [campaignName, setCampaignName] = useState("");
   const [groupId, setGroupId] = useState("");
+  const [groupName, setGroupName] = useState("");
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
   const [rawInput, setRawInput] = useState("");
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
@@ -377,19 +455,26 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
   const [isPaused, setIsPaused] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>("all");
+
+  // Group state
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [groups, setGroups] = useState<GroupInfo[]>([]);
   const [groupSearch, setGroupSearch] = useState("");
   const [groupLink, setGroupLink] = useState("");
+  const [groupJidManual, setGroupJidManual] = useState("");
   const [isResolvingLink, setIsResolvingLink] = useState(false);
   const [groupInputMode, setGroupInputMode] = useState<"list" | "link" | "jid">("list");
+  const [groupLoadError, setGroupLoadError] = useState("");
+  const [groupLoadDiagnostics, setGroupLoadDiagnostics] = useState("");
 
+  // Config
   const [minDelay, setMinDelay] = useState(3);
   const [maxDelay, setMaxDelay] = useState(8);
   const [pauseAfter, setPauseAfter] = useState(0);
   const [pauseDuration, setPauseDuration] = useState(30);
   const [rotateAfter, setRotateAfter] = useState(0);
 
+  // Processing state
   const [liveResults, setLiveResults] = useState<ContactResult[]>([]);
   const [liveOk, setLiveOk] = useState(0);
   const [liveFail, setLiveFail] = useState(0);
@@ -405,7 +490,6 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
   const pauseRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const qc = useQueryClient();
-
   const [completedSteps, setCompletedSteps] = useState<Set<Step>>(new Set());
 
   const { data: devices = [] } = useQuery({
@@ -432,71 +516,153 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
     return s === "connected" || s === "ready" || s === "active";
   };
 
-  const toggleDevice = useCallback((deviceId: string) => {
-    setSelectedDeviceIds(prev => prev.includes(deviceId) ? prev.filter(id => id !== deviceId) : [...prev, deviceId]);
+  // ── Warn on page close during processing ──
+  useEffect(() => {
+    if (!isProcessing) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "A campanha está em andamento. Se sair, ela será pausada e poderá ser retomada depois.";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isProcessing]);
+
+  // ── Auto-pause campaign on unmount ──
+  useEffect(() => {
+    return () => {
+      if (campaignId && isProcessing) {
+        cancelRef.current = true;
+        supabase.from("mass_inject_campaigns").update({
+          status: "paused",
+          updated_at: new Date().toISOString(),
+        } as any).eq("id", campaignId).then(() => {});
+      }
+    };
+  }, [campaignId, isProcessing]);
+
+  // ── Load groups for a SINGLE device (clear previous state) ──
+  const handleLoadGroups = useCallback(async (deviceId: string) => {
+    // ALWAYS clear previous groups to prevent cross-instance contamination
+    setGroups([]);
+    setGroupId("");
+    setGroupName("");
+    setGroupLoadError("");
+    setGroupLoadDiagnostics("");
+    setIsLoadingGroups(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("mass-group-inject", {
+        body: { action: "list-groups", deviceId },
+      });
+      if (error) throw error;
+
+      const groupsList = data?.groups || [];
+      setGroups(groupsList);
+
+      if (data?.error) {
+        setGroupLoadError(data.error);
+      }
+      if (data?.diagnostics) {
+        setGroupLoadDiagnostics(data.diagnostics);
+      }
+
+      if (groupsList.length > 0) {
+        toast.success(`${groupsList.length} grupo(s) encontrado(s)`);
+      }
+    } catch (e: any) {
+      setGroupLoadError(`Erro ao buscar grupos: ${e.message || "Erro desconhecido"}`);
+      toast.error("Erro ao buscar grupos da instância");
+    } finally {
+      setIsLoadingGroups(false);
+    }
   }, []);
+
+  // ── Device toggle with proper state isolation ──
+  const handleDeviceToggle = useCallback((deviceId: string) => {
+    const isCurrentlySelected = selectedDeviceIds.includes(deviceId);
+
+    if (isCurrentlySelected) {
+      // Removing device
+      const remaining = selectedDeviceIds.filter(id => id !== deviceId);
+      setSelectedDeviceIds(remaining);
+
+      if (remaining.length === 0) {
+        // No devices left: clear everything
+        setGroups([]);
+        setGroupId("");
+        setGroupName("");
+        setGroupLoadError("");
+        setGroupLoadDiagnostics("");
+      } else if (selectedDeviceIds[0] === deviceId) {
+        // Removed the primary device: reload groups from new primary
+        handleLoadGroups(remaining[0]);
+      }
+    } else {
+      // Adding device
+      const newIds = [...selectedDeviceIds, deviceId];
+      setSelectedDeviceIds(newIds);
+
+      // If this is the first device or we had none, load its groups
+      if (selectedDeviceIds.length === 0) {
+        handleLoadGroups(deviceId);
+      }
+    }
+  }, [selectedDeviceIds, handleLoadGroups]);
 
   const primaryDeviceId = selectedDeviceIds[0] || "";
 
-  const handleLoadGroups = useCallback(async (deviceId: string) => {
-    setGroups([]);
-    setGroupId("");
-    setIsLoadingGroups(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("mass-group-inject", { body: { action: "list-groups", deviceId } });
-      if (error) throw error;
-      const groupsList = data?.groups || [];
-      setGroups(groupsList);
-      if (groupsList.length === 0) toast.info("Nenhum grupo encontrado. Tente outra instância ou 'Link do Grupo'.");
-    } catch { toast.error("Erro ao buscar grupos"); }
-    finally { setIsLoadingGroups(false); }
-  }, []);
-
-  const handleLoadGroupsFromAll = useCallback(async (deviceIds: string[]) => {
-    if (deviceIds.length === 0) return;
-    setGroups([]);
-    setGroupId("");
-    setIsLoadingGroups(true);
-    const allGroups: GroupInfo[] = [];
-    const seenJids = new Set<string>();
-    try {
-      for (const did of deviceIds) {
-        try {
-          const { data } = await supabase.functions.invoke("mass-group-inject", { body: { action: "list-groups", deviceId: did } });
-          for (const g of (data?.groups || [])) {
-            if (!seenJids.has(g.jid)) { seenJids.add(g.jid); allGroups.push(g); }
-          }
-        } catch { /* skip */ }
-      }
-      setGroups(allGroups);
-      if (allGroups.length === 0) toast.info("Nenhum grupo encontrado.");
-    } finally { setIsLoadingGroups(false); }
-  }, []);
-
-  const handleDeviceToggle = useCallback((deviceId: string) => {
-    const willBeSelected = !selectedDeviceIds.includes(deviceId);
-    toggleDevice(deviceId);
-    if (willBeSelected) {
-      const newIds = [...selectedDeviceIds, deviceId];
-      handleLoadGroups(selectedDeviceIds.length === 0 ? deviceId : newIds[0]);
-    } else {
-      const remaining = selectedDeviceIds.filter(id => id !== deviceId);
-      if (remaining.length > 0 && selectedDeviceIds[0] === deviceId) handleLoadGroups(remaining[0]);
-      else if (remaining.length === 0) { setGroups([]); setGroupId(""); }
-    }
-  }, [selectedDeviceIds, toggleDevice, handleLoadGroups]);
-
+  // ── Resolve group link ──
   const handleResolveLink = useCallback(async () => {
-    if (!groupLink.trim() || !primaryDeviceId) return;
+    if (!groupLink.trim() || !primaryDeviceId) {
+      toast.error("Informe o link e selecione uma instância");
+      return;
+    }
     setIsResolvingLink(true);
+    setGroupLoadError("");
     try {
-      const { data, error } = await supabase.functions.invoke("mass-group-inject", { body: { action: "resolve-link", deviceId: primaryDeviceId, link: groupLink.trim() } });
+      const { data, error } = await supabase.functions.invoke("mass-group-inject", {
+        body: { action: "resolve-link", deviceId: primaryDeviceId, link: groupLink.trim() },
+      });
       if (error) throw error;
-      if (data?.jid) { setGroupId(data.jid); toast.success(`Grupo encontrado: ${data.name || data.jid}`); }
-      else toast.error(data?.error || "Não foi possível resolver o link");
-    } catch (e: any) { toast.error(e.message || "Erro ao resolver link"); }
-    finally { setIsResolvingLink(false); }
+      if (data?.jid) {
+        setGroupId(data.jid);
+        setGroupName(data.name || "Grupo");
+        toast.success(`Grupo encontrado: ${data.name || data.jid}`);
+      } else {
+        setGroupLoadError(data?.error || "Não foi possível resolver o link do grupo.");
+        toast.error(data?.error || "Não foi possível resolver o link");
+      }
+    } catch (e: any) {
+      setGroupLoadError(`Erro ao resolver link: ${e.message}`);
+      toast.error(e.message || "Erro ao resolver link");
+    } finally {
+      setIsResolvingLink(false);
+    }
   }, [groupLink, primaryDeviceId]);
+
+  // ── Set JID manually ──
+  const handleSetJidManual = useCallback(() => {
+    const jid = groupJidManual.trim();
+    if (!jid) { toast.error("Informe o JID do grupo"); return; }
+    if (!jid.includes("@g.us")) {
+      toast.error("JID inválido. O formato correto é: 120363...@g.us");
+      return;
+    }
+    setGroupId(jid);
+    setGroupName("Grupo (JID manual)");
+    toast.success("JID do grupo definido");
+  }, [groupJidManual]);
+
+  // ── Clear group when switching input mode ──
+  const handleGroupModeChange = useCallback((mode: "list" | "link" | "jid") => {
+    setGroupInputMode(mode);
+    setGroupId("");
+    setGroupName("");
+    setGroupLoadError("");
+    if (mode === "list" && primaryDeviceId && groups.length === 0) {
+      handleLoadGroups(primaryDeviceId);
+    }
+  }, [primaryDeviceId, groups.length, handleLoadGroups]);
 
   const filteredGroups = useMemo(() => {
     if (!groupSearch.trim()) return groups;
@@ -529,7 +695,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
   const handleValidate = useCallback(async () => {
     const contacts = parseContacts(rawInput);
     if (contacts.length === 0) return toast.error("Nenhum contato informado");
-    if (!groupId.trim()) return toast.error("Selecione um grupo");
+    if (!groupId.trim()) return toast.error("Selecione um grupo de destino");
     if (selectedDeviceIds.length === 0) return toast.error("Selecione pelo menos uma instância");
     if (!campaignName.trim()) return toast.error("Dê um nome para a campanha");
 
@@ -549,17 +715,19 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
     if (!validationResult?.valid.length) return;
     setIsChecking(true);
     try {
-      const { data, error } = await supabase.functions.invoke("mass-group-inject", { body: { action: "check-participants", groupId, deviceId: primaryDeviceId, contacts: validationResult.valid } });
+      const { data, error } = await supabase.functions.invoke("mass-group-inject", {
+        body: { action: "check-participants", groupId, deviceId: primaryDeviceId, contacts: validationResult.valid },
+      });
       if (error) throw error;
       setParticipantCheck(data);
-      toast.success(`${data.readyCount} prontos, ${data.alreadyExistsCount} já no grupo`);
-    } catch (e: any) { toast.error(e.message || "Erro ao verificar"); }
+      toast.success(`${data.readyCount} para adicionar, ${data.alreadyExistsCount} já no grupo (contam como sucesso)`);
+    } catch (e: any) { toast.error(e.message || "Erro ao verificar participantes"); }
     finally { setIsChecking(false); }
   }, [validationResult, groupId, primaryDeviceId]);
 
   const handleProcess = useCallback(async () => {
     const contacts = participantCheck?.ready || validationResult?.valid || [];
-    if (contacts.length === 0) return toast.error("Nenhum contato");
+    if (contacts.length === 0) return toast.error("Nenhum contato para processar");
     setConfirmOpen(false);
     setIsProcessing(true);
     setIsPaused(false);
@@ -568,7 +736,6 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
     setCompletedSteps(prev => new Set([...prev, "preview"]));
     setStep("processing");
 
-    // Create campaign in DB
     let cId = campaignId;
     try {
       if (!cId) {
@@ -579,12 +746,12 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
           user_id: user!.id,
           name: campaignName || `Campanha ${new Date().toLocaleString("pt-BR")}`,
           group_id: groupId,
-          group_name: selectedGroup?.name || groupId,
+          group_name: groupName || selectedGroup?.name || groupId,
           device_ids: selectedDeviceIds,
           status: "processing",
           total_contacts: allContacts.length,
           already_count: alreadyInGroup.length,
-          success_count: alreadyInGroup.length, // already in group = success
+          success_count: 0,
           min_delay: minDelay,
           max_delay: maxDelay,
           pause_after: pauseAfter,
@@ -596,14 +763,23 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
         cId = camp.id;
         setCampaignId(cId);
 
-        // Insert contacts
         const contactRows = allContacts.map(phone => ({
           campaign_id: cId!,
           phone,
           status: alreadyInGroup.includes(phone) ? "already_exists" : "pending",
         }));
         if (contactRows.length > 0) {
-          await supabase.from("mass_inject_contacts").insert(contactRows as any);
+          // Insert in batches of 500
+          for (let b = 0; b < contactRows.length; b += 500) {
+            await supabase.from("mass_inject_contacts").insert(contactRows.slice(b, b + 500) as any);
+          }
+        }
+
+        // Update already_count in campaign after inserting contacts
+        if (alreadyInGroup.length > 0) {
+          await supabase.from("mass_inject_campaigns").update({
+            already_count: alreadyInGroup.length,
+          } as any).eq("id", cId!);
         }
       }
     } catch (e: any) {
@@ -613,21 +789,21 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
       return;
     }
 
-    // Get pending contacts from DB
+    // Get pending contacts
     const { data: pendingContacts } = await supabase
       .from("mass_inject_contacts")
       .select("id, phone")
       .eq("campaign_id", cId!)
       .eq("status", "pending")
       .order("created_at");
-    
+
     const contactsToProcess = pendingContacts || [];
 
     setLiveResults([]);
     setLiveOk(participantCheck?.alreadyExistsCount || 0);
     setLiveFail(0);
     setLiveAlready(participantCheck?.alreadyExistsCount || 0);
-    setLiveTotal(contacts.length + (participantCheck?.alreadyExistsCount || 0));
+    setLiveTotal(contactsToProcess.length + (participantCheck?.alreadyExistsCount || 0));
     setLiveStatus("running");
     const start = Date.now();
     setLiveElapsed(0);
@@ -675,12 +851,15 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
         }
       } catch (e: any) {
         fail++; setLiveFail(prev => prev + 1); processedSincePause++;
-        setLiveResults(prev => [...prev, { phone, status: "failed", error: e.message || "Erro", deviceUsed: deviceName }]);
+        setLiveResults(prev => [...prev, { phone, status: "failed", error: e.message || "Erro de conexão", deviceUsed: deviceName }]);
       }
 
+      // Delay between contacts
       if (i < contactsToProcess.length - 1 && !cancelRef.current) {
         await new Promise(r => setTimeout(r, randomBetween(minDelay, maxDelay) * 1000));
       }
+
+      // Batch pause
       if (pauseAfter > 0 && processedSincePause >= pauseAfter && i < contactsToProcess.length - 1 && !cancelRef.current) {
         setLiveStatus("waiting_pause");
         await new Promise(r => setTimeout(r, pauseDuration * 1000));
@@ -694,7 +873,6 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
     setLiveStatus(finalStatus);
     setIsProcessing(false);
 
-    // Update campaign status in DB
     try {
       await supabase.from("mass_inject_campaigns").update({
         status: finalStatus === "cancelled" ? "paused" : "done",
@@ -707,7 +885,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
     setCompletedSteps(prev => new Set([...prev, "processing"]));
     setStep("done");
     toast.success(`Concluído: ${ok} sucesso, ${fail} falhas`);
-  }, [participantCheck, validationResult, groupId, selectedDeviceIds, devices, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, campaignName, selectedGroup, user, campaignId, qc]);
+  }, [participantCheck, validationResult, groupId, groupName, selectedDeviceIds, devices, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, campaignName, selectedGroup, user, campaignId, qc]);
 
   const handlePause = useCallback(() => { pauseRef.current = !pauseRef.current; setIsPaused(pauseRef.current); }, []);
   const handleCancel = useCallback(() => { cancelRef.current = true; pauseRef.current = false; setIsPaused(false); }, []);
@@ -744,7 +922,12 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5" disabled={isProcessing}>
+          <Button variant="ghost" size="sm" onClick={() => {
+            if (isProcessing) {
+              toast.info("Campanha pausada. Você pode retomá-la pela lista de campanhas.", { duration: 4000 });
+            }
+            onBack();
+          }} className="gap-1.5">
             <ArrowLeft className="w-4 h-4" /> Voltar
           </Button>
           <div>
@@ -794,109 +977,187 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
                 <CardTitle className="text-base font-semibold flex items-center gap-2.5"><Shield className="w-4 h-4 text-primary" />Configuração</CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
+                {/* Instances */}
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Instâncias ({selectedDeviceIds.length})</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+                    Instâncias ({selectedDeviceIds.length} selecionada{selectedDeviceIds.length !== 1 ? "s" : ""})
+                  </label>
                   <div className="max-h-[180px] overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/20">
                     {devices.map((d: any) => (
                       <label key={d.id} className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer transition-colors hover:bg-muted/30 ${selectedDeviceIds.includes(d.id) ? "bg-primary/5" : ""}`}>
                         <Checkbox checked={selectedDeviceIds.includes(d.id)} onCheckedChange={() => handleDeviceToggle(d.id)} />
                         <div className={`w-2 h-2 rounded-full shrink-0 ${isDeviceOnline(d.status) ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
-                        <span className="text-sm font-medium">{d.name}</span>
+                        <span className="text-sm font-medium truncate">{d.name}</span>
                         {d.number && <span className="text-xs text-muted-foreground">({d.number})</span>}
                       </label>
                     ))}
-                    {devices.length === 0 && <p className="text-xs text-destructive text-center py-4">Nenhuma instância encontrada</p>}
+                    {devices.length === 0 && <p className="text-xs text-destructive text-center py-4">Nenhuma instância com Uazapi encontrada</p>}
                   </div>
                 </div>
 
+                {/* Group selection */}
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Grupo de Destino</label>
                   <div className="flex gap-1 mb-3 bg-muted/30 p-1 rounded-lg">
-                    {([{ key: "list" as const, label: "Meus Grupos" }, { key: "link" as const, label: "Link do Grupo" }, { key: "jid" as const, label: "JID Manual" }]).map(m => (
-                      <button key={m.key} onClick={() => setGroupInputMode(m.key)}
-                        className={`flex-1 text-[11px] font-semibold py-1.5 rounded-md transition-all ${groupInputMode === m.key ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                    {([
+                      { key: "list" as const, label: "Meus Grupos", icon: Users },
+                      { key: "link" as const, label: "Link do Grupo", icon: Link2 },
+                      { key: "jid" as const, label: "JID Manual", icon: Hash },
+                    ]).map(m => (
+                      <button key={m.key} onClick={() => handleGroupModeChange(m.key)}
+                        className={`flex-1 flex items-center justify-center gap-1.5 text-[11px] font-semibold py-2 rounded-md transition-all ${
+                          groupInputMode === m.key ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                        }`}>
+                        <m.icon className="w-3 h-3" />
                         {m.label}
                       </button>
                     ))}
                   </div>
 
+                  {/* Mode: Meus Grupos */}
                   {groupInputMode === "list" && (
-                    !primaryDeviceId ? <p className="text-xs text-muted-foreground text-center py-4">Selecione uma instância primeiro</p>
-                    : isLoadingGroups ? <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" />Carregando...</div>
-                    : groups.length > 0 ? (
+                    !primaryDeviceId ? (
+                      <div className="rounded-xl bg-muted/30 border border-border/30 px-4 py-5 text-center">
+                        <Info className="w-5 h-5 text-muted-foreground/40 mx-auto mb-2" />
+                        <p className="text-xs text-muted-foreground">Selecione uma instância acima para carregar os grupos.</p>
+                      </div>
+                    ) : isLoadingGroups ? (
+                      <div className="flex items-center gap-3 py-5 justify-center">
+                        <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                        <span className="text-sm text-muted-foreground">Carregando grupos da instância...</span>
+                      </div>
+                    ) : groups.length > 0 ? (
                       <div className="space-y-2">
                         <Input value={groupSearch} onChange={e => setGroupSearch(e.target.value)} placeholder="Buscar grupo..." className="h-9 text-sm" />
                         <div className="max-h-[200px] overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/20">
                           {filteredGroups.map(g => (
-                            <button key={g.jid} onClick={() => setGroupId(g.jid)} className={`w-full text-left px-3.5 py-2.5 transition-colors hover:bg-muted/50 ${groupId === g.jid ? "bg-primary/10 border-l-2 border-l-primary" : ""}`}>
+                            <button key={g.jid} onClick={() => { setGroupId(g.jid); setGroupName(g.name); }}
+                              className={`w-full text-left px-3.5 py-2.5 transition-colors hover:bg-muted/50 ${groupId === g.jid ? "bg-primary/10 border-l-2 border-l-primary" : ""}`}>
                               <p className="text-sm font-medium truncate">{g.name}</p>
                               <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{g.jid}</p>
                             </button>
                           ))}
+                          {filteredGroups.length === 0 && groupSearch && (
+                            <p className="text-xs text-muted-foreground text-center py-3">Nenhum grupo com esse nome</p>
+                          )}
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => selectedDeviceIds.length > 1 ? handleLoadGroupsFromAll(selectedDeviceIds) : handleLoadGroups(primaryDeviceId)} className="w-full gap-2 text-xs h-8">
-                          <RefreshCw className="w-3 h-3" /> Recarregar
+                        <Button variant="ghost" size="sm" onClick={() => handleLoadGroups(primaryDeviceId)} className="w-full gap-2 text-xs h-8">
+                          <RefreshCw className="w-3 h-3" /> Recarregar Grupos
                         </Button>
                       </div>
-                    ) : <p className="text-xs text-muted-foreground text-center py-4">Nenhum grupo. Use "Link do Grupo" ou "JID Manual".</p>
+                    ) : (
+                      <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 px-4 py-4 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-xs font-semibold text-amber-600">
+                              {groupLoadError || "Esta instância não retornou grupos disponíveis."}
+                            </p>
+                            <div className="text-[11px] text-muted-foreground mt-2 space-y-1">
+                              <p>• Tente recarregar a lista clicando abaixo</p>
+                              <p>• Troque de instância — outra pode ter acesso</p>
+                              <p>• Use <strong>"Link do Grupo"</strong> ou <strong>"JID Manual"</strong> como alternativa</p>
+                              <p>• Verifique se a instância está conectada ao WhatsApp</p>
+                            </div>
+                          </div>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => handleLoadGroups(primaryDeviceId)} className="w-full gap-2 text-xs h-8 mt-2">
+                          <RefreshCw className="w-3 h-3" /> Tentar Novamente
+                        </Button>
+                      </div>
+                    )
                   )}
 
+                  {/* Mode: Link do Grupo */}
                   {groupInputMode === "link" && (
                     <div className="space-y-3">
-                      <Input value={groupLink} onChange={e => setGroupLink(e.target.value)} placeholder="https://chat.whatsapp.com/..." className="h-11 font-mono text-sm" />
+                      {!primaryDeviceId && (
+                        <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 px-3 py-2">
+                          <p className="text-[11px] text-amber-600">Selecione uma instância acima. Ela será usada para resolver o link.</p>
+                        </div>
+                      )}
+                      <Input value={groupLink} onChange={e => setGroupLink(e.target.value)} placeholder="https://chat.whatsapp.com/AbCdEfGhIjK..." className="h-11 font-mono text-sm" />
                       <Button onClick={handleResolveLink} disabled={isResolvingLink || !groupLink.trim() || !primaryDeviceId} variant="outline" className="w-full gap-2 h-10" size="sm">
                         {isResolvingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                         {isResolvingLink ? "Resolvendo..." : "Resolver Link"}
                       </Button>
+                      {groupLoadError && (
+                        <div className="rounded-xl bg-destructive/5 border border-destructive/20 px-3 py-2">
+                          <p className="text-[11px] text-destructive">{groupLoadError}</p>
+                        </div>
+                      )}
+                      <div className="text-[10px] text-muted-foreground/60 space-y-0.5">
+                        <p>• Cole o link de convite do grupo do WhatsApp</p>
+                        <p>• A instância selecionada tentará validar e resolver o grupo</p>
+                        <p>• Se a instância já é membro, use "Meus Grupos"</p>
+                      </div>
                     </div>
                   )}
 
+                  {/* Mode: JID Manual */}
                   {groupInputMode === "jid" && (
-                    <Input value={groupId} onChange={e => setGroupId(e.target.value)} placeholder="120363...@g.us" className="h-11 font-mono text-sm" />
+                    <div className="space-y-3">
+                      <Input value={groupJidManual} onChange={e => setGroupJidManual(e.target.value)} placeholder="120363...@g.us" className="h-11 font-mono text-sm" />
+                      <Button onClick={handleSetJidManual} disabled={!groupJidManual.trim()} variant="outline" className="w-full gap-2 h-10" size="sm">
+                        <CheckCircle2 className="w-4 h-4" /> Definir Grupo
+                      </Button>
+                      <div className="text-[10px] text-muted-foreground/60 space-y-0.5">
+                        <p>• O JID é o identificador único do grupo (ex: 120363...@g.us)</p>
+                        <p>• Você pode encontrá-lo nas configurações do grupo ou em logs anteriores</p>
+                      </div>
+                    </div>
                   )}
                 </div>
 
+                {/* Selected group indicator */}
                 {groupId && (
-                  <div className="rounded-xl bg-primary/5 border border-primary/15 px-4 py-3 flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold truncate">{selectedGroup?.name || "Grupo selecionado"}</p>
-                      <p className="text-[10px] text-muted-foreground/60 font-mono">{groupId}</p>
+                  <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 px-4 py-3 flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-foreground truncate">{groupName || selectedGroup?.name || "Grupo selecionado"}</p>
+                      <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{groupId}</p>
                     </div>
+                    <Button variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground" onClick={() => { setGroupId(""); setGroupName(""); }}>
+                      <XCircle className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
                 )}
               </CardContent>
             </Card>
 
+            {/* Advanced config */}
             <Card className="border-border/40 bg-card/80 backdrop-blur-sm shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2.5"><Settings2 className="w-4 h-4 text-primary" />Configurações Avançadas</CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div>
-                  <div className="flex items-center gap-2 mb-2"><Timer className="w-3.5 h-3.5 text-muted-foreground" /><label className="text-xs font-semibold text-muted-foreground">Delay entre contatos (s)</label></div>
+                  <div className="flex items-center gap-2 mb-2"><Timer className="w-3.5 h-3.5 text-muted-foreground" /><label className="text-xs font-semibold text-muted-foreground">Delay entre contatos (segundos)</label></div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div><span className="text-[10px] text-muted-foreground/60">Mín</span><Input type="number" min={1} max={120} value={minDelay} onChange={e => setMinDelay(Number(e.target.value) || 1)} className="h-9 text-sm mt-1" /></div>
-                    <div><span className="text-[10px] text-muted-foreground/60">Máx</span><Input type="number" min={1} max={300} value={maxDelay} onChange={e => setMaxDelay(Math.max(Number(e.target.value) || 1, minDelay))} className="h-9 text-sm mt-1" /></div>
+                    <div><span className="text-[10px] text-muted-foreground/60">Mínimo</span><Input type="number" min={1} max={120} value={minDelay} onChange={e => setMinDelay(Number(e.target.value) || 1)} className="h-9 text-sm mt-1" /></div>
+                    <div><span className="text-[10px] text-muted-foreground/60">Máximo</span><Input type="number" min={1} max={300} value={maxDelay} onChange={e => setMaxDelay(Math.max(Number(e.target.value) || 1, minDelay))} className="h-9 text-sm mt-1" /></div>
                   </div>
                 </div>
                 <div>
-                  <div className="flex items-center gap-2 mb-2"><Pause className="w-3.5 h-3.5 text-muted-foreground" /><label className="text-xs font-semibold text-muted-foreground">Pausa após X adições</label></div>
+                  <div className="flex items-center gap-2 mb-2"><Pause className="w-3.5 h-3.5 text-muted-foreground" /><label className="text-xs font-semibold text-muted-foreground">Pausa automática</label></div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div><span className="text-[10px] text-muted-foreground/60">A cada</span><Input type="number" min={0} value={pauseAfter} onChange={e => setPauseAfter(Number(e.target.value) || 0)} className="h-9 text-sm mt-1" /></div>
-                    <div><span className="text-[10px] text-muted-foreground/60">Duração (s)</span><Input type="number" min={5} max={600} value={pauseDuration} onChange={e => setPauseDuration(Number(e.target.value) || 30)} className="h-9 text-sm mt-1" /></div>
+                    <div><span className="text-[10px] text-muted-foreground/60">A cada X adições</span><Input type="number" min={0} value={pauseAfter} onChange={e => setPauseAfter(Number(e.target.value) || 0)} className="h-9 text-sm mt-1" /></div>
+                    <div><span className="text-[10px] text-muted-foreground/60">Duração (segundos)</span><Input type="number" min={5} max={600} value={pauseDuration} onChange={e => setPauseDuration(Number(e.target.value) || 30)} className="h-9 text-sm mt-1" /></div>
                   </div>
+                  <p className="text-[10px] text-muted-foreground/50 mt-1">Deixe "A cada" em 0 para desativar</p>
                 </div>
                 {selectedDeviceIds.length > 1 && (
                   <div>
-                    <div className="flex items-center gap-2 mb-2"><ArrowLeftRight className="w-3.5 h-3.5 text-muted-foreground" /><label className="text-xs font-semibold text-muted-foreground">Trocar instância após X</label></div>
+                    <div className="flex items-center gap-2 mb-2"><ArrowLeftRight className="w-3.5 h-3.5 text-muted-foreground" /><label className="text-xs font-semibold text-muted-foreground">Rotação de instância</label></div>
                     <Input type="number" min={0} value={rotateAfter} onChange={e => setRotateAfter(Number(e.target.value) || 0)} className="h-9 text-sm" />
+                    <p className="text-[10px] text-muted-foreground/50 mt-1">Trocar de instância a cada X adições (0 = desativado)</p>
                   </div>
                 )}
               </CardContent>
             </Card>
           </div>
 
+          {/* Import contacts */}
           <div className="xl:col-span-3">
             <Card className="border-border/40 bg-card/80 backdrop-blur-sm shadow-sm h-full">
               <CardHeader className="pb-4">
@@ -911,14 +1172,14 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
                   <TabsContent value="paste" className="mt-4">
                     <Textarea value={rawInput} onChange={e => setRawInput(e.target.value)}
                       onBlur={() => { if (rawInput.trim()) handleRawInputChange(rawInput); }}
-                      placeholder={"5562999999999\n5521988888888\n\nDuplicados são removidos automaticamente."}
+                      placeholder={"5562999999999\n5521988888888\n\nDuplicados são removidos automaticamente.\nUm número por linha."}
                       className="min-h-[300px] font-mono text-xs resize-none bg-muted/20 border-border/40" />
                   </TabsContent>
                   <TabsContent value="file" className="mt-4">
                     <label className="block border-2 border-dashed border-border/40 rounded-2xl p-10 text-center transition-colors hover:border-primary/30 hover:bg-primary/5 cursor-pointer">
                       <FileText className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
                       <p className="text-sm text-muted-foreground mb-1">Arraste ou clique para selecionar</p>
-                      <p className="text-[10px] text-muted-foreground/50">CSV, TXT ou XLSX</p>
+                      <p className="text-[10px] text-muted-foreground/50">CSV, TXT ou XLSX — duplicados removidos automaticamente</p>
                       <input type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
@@ -936,11 +1197,14 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
                               }
                             }
                             handleRawInputChange(nums.join('\n'));
-                            toast.success(`${nums.length} números importados`);
-                          } catch { toast.error('Erro ao ler Excel'); }
+                            toast.success(`${nums.length} números importados do arquivo`);
+                          } catch { toast.error('Erro ao ler arquivo Excel'); }
                         } else {
                           const reader = new FileReader();
-                          reader.onload = (ev) => { handleRawInputChange(ev.target?.result as string || ""); toast.success(`Arquivo carregado`); };
+                          reader.onload = (ev) => {
+                            handleRawInputChange(ev.target?.result as string || "");
+                            toast.success(`Arquivo carregado com sucesso`);
+                          };
                           reader.readAsText(file);
                         }
                         e.target.value = '';
@@ -958,7 +1222,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
 
                 <Button onClick={handleValidate} disabled={isValidating || !rawInput.trim() || !groupId.trim() || selectedDeviceIds.length === 0 || !campaignName.trim()} className="w-full h-12 gap-2 text-sm font-semibold rounded-xl shadow-md shadow-primary/10" size="lg">
                   {isValidating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                  {isValidating ? "Validando..." : "Validar e Revisar"}
+                  {isValidating ? "Validando contatos..." : "Validar e Revisar"}
                 </Button>
               </CardContent>
             </Card>
@@ -987,16 +1251,25 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
             ))}
           </div>
 
+          {participantCheck && participantCheck.alreadyExistsCount > 0 && (
+            <div className="rounded-xl bg-blue-500/5 border border-blue-500/20 px-4 py-3 flex items-start gap-3">
+              <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-blue-700">
+                <strong>{participantCheck.alreadyExistsCount}</strong> contato(s) já estão no grupo e serão contados como <strong>sucesso</strong> automaticamente.
+              </p>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
             <Button variant="ghost" onClick={() => setStep("import")} className="gap-2 h-10 text-muted-foreground">← Voltar</Button>
             {!participantCheck && (
               <Button onClick={handleCheckParticipants} disabled={isChecking} variant="outline" className="gap-2 h-10">
                 {isChecking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                Verificar Existentes
+                Verificar Existentes no Grupo
               </Button>
             )}
             <Button onClick={() => setConfirmOpen(true)} disabled={totalToProcess === 0} className="gap-2 h-10 shadow-md shadow-primary/10">
-              <Play className="w-4 h-4" /> Iniciar ({totalToProcess} contatos)
+              <Play className="w-4 h-4" /> Iniciar Campanha ({totalToProcess} contatos)
             </Button>
           </div>
         </div>
@@ -1032,12 +1305,12 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
                   <div>
                     <p className="text-sm font-semibold">
                       {liveStatus === "running" && "Processando..."}
-                      {liveStatus === "paused" && "Pausado"}
+                      {liveStatus === "paused" && "Campanha pausada"}
                       {liveStatus === "waiting_pause" && `Pausa automática (${pauseDuration}s)...`}
                     </p>
                     {liveCurrentPhone && liveStatus === "running" && (
                       <p className="text-xs text-muted-foreground">
-                        Adicionando <span className="font-mono">{liveCurrentPhone}</span> via <span className="text-primary">{liveCurrentDevice}</span>
+                        Adicionando <span className="font-mono">{liveCurrentPhone}</span> via <span className="text-primary font-medium">{liveCurrentDevice}</span>
                       </p>
                     )}
                   </div>
@@ -1045,7 +1318,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
                 <span className="text-lg font-bold text-primary">{liveProgress}%</span>
               </div>
               <Progress value={liveProgress} className="h-3" />
-              <p className="text-[10px] text-muted-foreground/50 text-center">Você pode sair — a campanha será salva e pode ser retomada depois.</p>
+              <p className="text-[10px] text-muted-foreground/50 text-center">Se você sair, a campanha será pausada automaticamente e poderá ser retomada depois.</p>
             </CardContent>
           </Card>
 
@@ -1069,6 +1342,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
                       <TableHead className="text-xs w-14">#</TableHead>
                       <TableHead className="text-xs">Contato</TableHead>
                       <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs">Instância</TableHead>
                       <TableHead className="text-xs">Detalhe</TableHead>
                     </TableRow></TableHeader>
                     <TableBody>
@@ -1077,6 +1351,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
                           <TableCell className="text-xs font-mono">{liveResults.length - i}</TableCell>
                           <TableCell className="text-xs font-mono font-medium">{r.phone}</TableCell>
                           <TableCell><Badge variant="outline" className={`text-[10px] font-semibold ${statusBadge(r.status)}`}>{statusLabel(r.status)}</Badge></TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{r.deviceUsed || "—"}</TableCell>
                           <TableCell className="text-xs text-muted-foreground truncate max-w-[200px]">{r.error ? translateError(r.error) : "—"}</TableCell>
                         </TableRow>
                       ))}
@@ -1094,9 +1369,9 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: "Sucesso", value: liveOk, color: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20" },
+              { label: "Sucesso Total", value: liveOk, color: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20" },
               { label: "Falhas", value: liveFail, color: "text-destructive", bg: "bg-destructive/10 border-destructive/20" },
-              { label: "Total", value: liveProcessed, color: "text-foreground", bg: "bg-muted/50 border-border/40" },
+              { label: "Processados", value: liveProcessed, color: "text-foreground", bg: "bg-muted/50 border-border/40" },
               { label: "Duração", value: formatTime(liveElapsed), color: "text-muted-foreground", bg: "bg-muted/50 border-border/40" },
             ].map(s => (
               <Card key={s.label} className={`border ${s.bg}`}>
@@ -1107,6 +1382,15 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
               </Card>
             ))}
           </div>
+
+          {liveAlready > 0 && (
+            <div className="rounded-xl bg-blue-500/5 border border-blue-500/20 px-4 py-3 flex items-start gap-3">
+              <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-blue-700">
+                Do total de <strong>{liveOk}</strong> sucessos, <strong>{liveAlready}</strong> já estavam no grupo e foram contados automaticamente.
+              </p>
+            </div>
+          )}
 
           <div className="flex items-center gap-2 flex-wrap justify-center">
             {[
@@ -1128,6 +1412,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
                     <TableHead className="text-xs w-14">#</TableHead>
                     <TableHead className="text-xs">Contato</TableHead>
                     <TableHead className="text-xs">Status</TableHead>
+                    <TableHead className="text-xs">Instância</TableHead>
                     <TableHead className="text-xs">Detalhe</TableHead>
                   </TableRow></TableHeader>
                   <TableBody>
@@ -1136,6 +1421,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
                         <TableCell className="text-xs font-mono">{i + 1}</TableCell>
                         <TableCell className="text-xs font-mono font-medium">{r.phone}</TableCell>
                         <TableCell><Badge variant="outline" className={`text-[10px] font-semibold ${statusBadge(r.status)}`}>{statusLabel(r.status)}</Badge></TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{r.deviceUsed || "—"}</TableCell>
                         <TableCell className="text-xs text-muted-foreground truncate max-w-[250px]">{r.error ? translateError(r.error) : "—"}</TableCell>
                       </TableRow>
                     ))}
@@ -1158,20 +1444,20 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm">
                 <p>Campanha: <strong>{campaignName}</strong></p>
-                <p><strong>{totalToProcess}</strong> contatos para adição{selectedGroup && <> ao grupo <strong>{selectedGroup.name}</strong></>}.</p>
+                <p><strong>{totalToProcess}</strong> contatos para adição ao grupo <strong>{groupName || selectedGroup?.name || groupId}</strong>.</p>
                 <div className="bg-muted/50 rounded-lg p-3 space-y-1 text-xs">
                   <p>📱 {selectedDeviceIds.length} instância{selectedDeviceIds.length !== 1 ? "s" : ""}</p>
                   <p>⏱ Delay: {minDelay}s – {maxDelay}s</p>
-                  {pauseAfter > 0 && <p>⏸ Pausa de {pauseDuration}s a cada {pauseAfter}</p>}
-                  {rotateAfter > 0 && <p>🔄 Troca a cada {rotateAfter}</p>}
-                  {(participantCheck?.alreadyExistsCount || 0) > 0 && <p>✓ {participantCheck?.alreadyExistsCount} já no grupo (contados como sucesso)</p>}
+                  {pauseAfter > 0 && <p>⏸ Pausa de {pauseDuration}s a cada {pauseAfter} adições</p>}
+                  {rotateAfter > 0 && <p>🔄 Troca de instância a cada {rotateAfter} adições</p>}
+                  {(participantCheck?.alreadyExistsCount || 0) > 0 && <p>✅ {participantCheck?.alreadyExistsCount} já no grupo (contados como sucesso)</p>}
                 </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleProcess}>Confirmar</AlertDialogAction>
+            <AlertDialogAction onClick={handleProcess}>Iniciar Campanha</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
