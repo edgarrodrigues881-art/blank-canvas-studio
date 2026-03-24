@@ -158,8 +158,8 @@ export default function GroupJoinCampaignList() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {campaigns.map((camp: any) => {
             const st = statusConfig[camp.status] || statusConfig.draft;
-            const total = camp.total_items || 0;
-            const success = (camp.success_count || 0) + (camp.already_member_count || 0);
+          const total = camp.total_items || 0;
+            const success = camp.success_count || 0;
             const errors = camp.error_count || 0;
             const processed = success + errors;
             const pending = Math.max(0, total - processed);
