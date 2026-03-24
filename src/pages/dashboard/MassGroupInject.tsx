@@ -878,6 +878,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
     try {
       const { data, error } = await supabase.functions.invoke("mass-group-inject", { body: { action: "validate", contacts } });
       if (error) throw error;
+      setParticipantCheck(null);
       setValidationResult(data);
       setCompletedSteps(prev => new Set([...prev, "import"]));
       setStep("preview");
@@ -895,7 +896,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
       });
       if (error) throw error;
       setParticipantCheck(data);
-      toast.success(`${data.readyCount} para adicionar, ${data.alreadyExistsCount} já no grupo (contam como sucesso)`);
+      toast.success(`${data.readyCount} livres e ${data.alreadyExistsCount} já localizados no grupo`);
     } catch (e: any) { toast.error(e.message || "Erro ao verificar participantes"); }
     finally { setIsChecking(false); }
   }, [validationResult, groupId, primaryDeviceId]);
@@ -923,7 +924,11 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
       });
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ["mass_inject_campaigns"] });
-      toast.success(`Campanha criada: ${data?.readyCount ?? 0} na fila, ${data?.alreadyExistsCount ?? 0} já estavam no grupo.`);
+      toast.success(
+        data?.deferredParticipantCheck
+          ? `Campanha iniciada: ${data?.readyCount ?? contacts.length} contatos na fila. A checagem no grupo acontecerá durante a execução.`
+          : `Campanha criada: ${data?.readyCount ?? 0} na fila, ${data?.alreadyExistsCount ?? 0} já estavam no grupo.`
+      );
       onCampaignCreated(data.campaignId);
     } catch (e: any) {
       toast.error("Erro ao criar campanha: " + e.message);
@@ -951,7 +956,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
     return liveResults.filter(r => r.status === activeFilter);
   }, [liveResults, activeFilter]);
 
-  const totalToProcess = participantCheck?.readyCount ?? validationResult?.validCount ?? 0;
+  const totalToProcess = validationResult?.validCount ?? 0;
   const contactCount = rawInput.trim() ? parseContacts(rawInput).length : 0;
   const liveProcessed = liveOk + liveFail;
   const liveProgress = liveTotal > 0 ? Math.round((liveProcessed / liveTotal) * 100) : 0;
