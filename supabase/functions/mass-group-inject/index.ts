@@ -143,6 +143,51 @@ function extractProviderMessage(body: any, raw: string): string {
   return candidates.find((v) => typeof v === "string" && v.trim().length > 0)?.trim() || "";
 }
 
+function normalizeProviderConnectionState(payload: any): { state: "connected" | "disconnected" | "transitional" | "unknown"; rawStatus: string; owner: string; qrcode: string | null } {
+  const inst = payload?.instance || payload?.data || payload || {};
+  const rawStatus = [
+    inst?.connectionStatus,
+    inst?.status,
+    payload?.connectionStatus,
+    payload?.state,
+    payload?.status,
+  ].find((value) => typeof value === "string" && value.trim())?.toLowerCase().trim() || "";
+
+  const owner = [
+    inst?.owner,
+    inst?.phone,
+    payload?.phone,
+    payload?.owner,
+  ].find((value) => typeof value === "string" && value.trim())?.trim() || "";
+
+  const qrcode = [inst?.qrcode, payload?.qrcode].find((value) => typeof value === "string" && value.trim())?.trim() || null;
+
+  const textBlob = [
+    payload?.message,
+    payload?.error,
+    payload?.msg,
+    payload?.details,
+    payload?.data?.message,
+    payload?.data?.error,
+    inst?.message,
+    inst?.error,
+  ]
+    .filter((value) => typeof value === "string" && value.trim())
+    .join(" ")
+    .toLowerCase();
+
+  const hasSignal = (signals: string[]) => signals.some((signal) => rawStatus.includes(signal) || textBlob.includes(signal));
+  const connectedSignals = ["connected", "authenticated", "open", "ready", "active", "online"];
+  const disconnectedSignals = ["disconnected", "closed", "close", "offline", "logout", "logged_out", "loggedout", "not_connected"];
+  const transitionalSignals = ["connecting", "pairing", "waiting", "initializing", "starting", "syncing", "qr", "qrcode", "pending"];
+
+  if (hasSignal(connectedSignals)) return { state: "connected", rawStatus, owner, qrcode };
+  if (hasSignal(disconnectedSignals)) return { state: "disconnected", rawStatus, owner, qrcode };
+  if (qrcode || hasSignal(transitionalSignals)) return { state: "transitional", rawStatus, owner, qrcode };
+  if (owner) return { state: "connected", rawStatus, owner, qrcode };
+  return { state: "unknown", rawStatus, owner, qrcode };
+}
+
 function collectParticipantsFromValue(value: any, participants: Set<string>) {
   if (!value) return;
   if (Array.isArray(value)) { value.forEach((entry) => collectParticipantsFromValue(entry, participants)); return; }
@@ -242,16 +287,16 @@ async function checkInstanceConnection(baseUrl: string, token: string): Promise<
   try {
     const res = await fetch(`${baseUrl}/instance/status?t=${Date.now()}`, { method: "GET", headers: buildHeaders(token) });
     const { raw, body } = await readApiResponse(res);
+    const normalized = normalizeProviderConnectionState(body);
     if (res.status === 401) return { connected: null, status: "token_invalid", detail: "Falha de autenticação." };
-    if (!res.ok) return { connected: null, status: `http_${res.status}`, detail: extractProviderMessage(body, raw) || "Sem confirmação." };
-    const inst = body?.instance || body?.data || body || {};
-    const status = String(inst.status || body?.status || "unknown").toLowerCase();
-    const pm = extractProviderMessage(body, raw).toLowerCase();
-    const disconnected = ["disconnected", "closed", "close", "offline", "qr", "pairing", "not_connected"].some((v) => status.includes(v) || pm.includes(v));
-    const connected = !disconnected && ["connected", "ready", "active", "open", "online", "authenticated"].some((v) => status.includes(v) || pm.includes(v));
-    if (disconnected) return { connected: false, status, detail: "Instância revalidada como desconectada." };
-    if (connected) return { connected: true, status, detail: "Conexão confirmada." };
-    return { connected: null, status, detail: "Status não pôde ser confirmado." };
+    if (!res.ok) {
+      if (normalized.state === "disconnected") return { connected: false, status: normalized.rawStatus || `http_${res.status}`, detail: "Instância revalidada como desconectada." };
+      if (normalized.state === "connected") return { connected: true, status: normalized.rawStatus || `http_${res.status}`, detail: "Conexão confirmada." };
+      return { connected: null, status: normalized.rawStatus || `http_${res.status}`, detail: extractProviderMessage(body, raw) || "Sem confirmação." };
+    }
+    if (normalized.state === "disconnected") return { connected: false, status: normalized.rawStatus || "disconnected", detail: "Instância revalidada como desconectada." };
+    if (normalized.state === "connected") return { connected: true, status: normalized.rawStatus || "connected", detail: "Conexão confirmada." };
+    return { connected: null, status: normalized.rawStatus || "unknown", detail: "Status não pôde ser confirmado." };
   } catch (error: any) {
     return { connected: null, status: "request_failed", detail: `Não foi possível validar: ${error.message}` };
   }
