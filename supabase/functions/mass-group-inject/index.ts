@@ -12,28 +12,25 @@ interface ContactResult {
   error?: string;
 }
 
-interface ProgressState {
-  queued: number;
-  ok: number;
-  fail: number;
-  already: number;
-  activeThreads: number;
-  results: ContactResult[];
-  done: boolean;
-  durationSec: number;
-  totalAttempts: number;
-}
-
 function normalizePhone(raw: string): string | null {
-  // Strip everything except digits
   const digits = raw.replace(/[^\d]/g, "");
-  // Must be at least 10 digits (DDD + number) and max 15
   if (digits.length < 10 || digits.length > 15) return null;
-  // If it doesn't start with 55, prepend it
   const phone = digits.startsWith("55") ? digits : `55${digits}`;
-  // Final validation: 55 + DDD(2) + number(8-9) = 12-13 digits
   if (phone.length < 12 || phone.length > 13) return null;
   return phone;
+}
+
+async function getDeviceCredentials(
+  sb: any,
+  deviceId: string,
+  userId: string,
+  isAdmin: boolean,
+) {
+  const deviceQuery = sb.from("devices").select("uazapi_base_url, uazapi_token, user_id").eq("id", deviceId);
+  if (!isAdmin) deviceQuery.eq("user_id", userId);
+  const { data: device } = await deviceQuery.single();
+  if (!device?.uazapi_base_url || !device?.uazapi_token) return null;
+  return device;
 }
 
 async function getGroupParticipants(
@@ -48,7 +45,6 @@ async function getGroupParticipants(
     });
     if (res.ok) {
       const data = await res.json();
-      // Uazapi returns participants array with number field
       const list = Array.isArray(data) ? data : data?.participants || data?.data || [];
       for (const p of list) {
         const num = (p.number || p.id || p.jid || "").replace(/@.*/, "").replace(/[^\d]/g, "");
@@ -85,7 +81,6 @@ async function addToGroup(
       return { ok: true, status: res.status, body };
     }
     
-    // Check for "already in group" patterns
     const rawLower = raw.toLowerCase();
     if (rawLower.includes("already") || rawLower.includes("já") || res.status === 409) {
       return { ok: false, status: 409, error: "already_exists", body };
@@ -103,12 +98,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, serviceKey);
 
-    // Auth check
     const authHeader = req.headers.get("authorization") || "";
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await sb.auth.getUser(token);
@@ -119,21 +112,64 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check if admin — if not, user can still use but scoped to own devices
     const { data: roleData } = await sb.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
     const isAdmin = !!roleData;
 
     const body = await req.json();
     const { action } = body;
 
+    // ── ACTION: list-groups ──
+    if (action === "list-groups") {
+      const { deviceId } = body;
+      if (!deviceId) {
+        return new Response(JSON.stringify({ error: "Missing deviceId" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const device = await getDeviceCredentials(sb, deviceId, user.id, isAdmin);
+      if (!device) {
+        return new Response(JSON.stringify({ error: "Device not found or missing credentials" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      try {
+        const res = await fetch(`${device.uazapi_base_url}/group/listAll`, {
+          headers: { token: device.uazapi_token, Accept: "application/json" },
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error("list-groups error:", errText);
+          return new Response(JSON.stringify({ error: "Failed to fetch groups", groups: [] }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const data = await res.json();
+        const rawGroups = Array.isArray(data) ? data : data?.groups || data?.data || [];
+        const groups = rawGroups.map((g: any) => ({
+          jid: g.jid || g.id || g.groupJid || "",
+          name: g.name || g.subject || g.groupName || "Sem nome",
+          participants: g.participants?.length || g.size || g.memberCount || 0,
+        })).filter((g: any) => g.jid);
+
+        return new Response(JSON.stringify({ groups }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (e: any) {
+        console.error("list-groups exception:", e);
+        return new Response(JSON.stringify({ error: e.message, groups: [] }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // ── ACTION: validate ──
-    // Normalizes, deduplicates, validates contacts. Returns preview before processing.
     if (action === "validate") {
       const { contacts: rawContacts } = body;
       if (!Array.isArray(rawContacts) || rawContacts.length === 0) {
         return new Response(JSON.stringify({ error: "No contacts provided" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
@@ -144,120 +180,78 @@ Deno.serve(async (req) => {
 
       for (const raw of rawContacts) {
         const normalized = normalizePhone(String(raw));
-        if (!normalized) {
-          invalid.push(String(raw));
-          continue;
-        }
-        if (seen.has(normalized)) {
-          duplicates.push(String(raw));
-          continue;
-        }
+        if (!normalized) { invalid.push(String(raw)); continue; }
+        if (seen.has(normalized)) { duplicates.push(String(raw)); continue; }
         seen.add(normalized);
         valid.push(normalized);
       }
 
       return new Response(JSON.stringify({
-        total: rawContacts.length,
-        valid,
-        invalid,
-        duplicates,
-        validCount: valid.length,
-        invalidCount: invalid.length,
-        duplicateCount: duplicates.length,
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+        total: rawContacts.length, valid, invalid, duplicates,
+        validCount: valid.length, invalidCount: invalid.length, duplicateCount: duplicates.length,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ── ACTION: check-participants ──
-    // Checks which contacts already exist in the group
     if (action === "check-participants") {
       const { groupId, deviceId, contacts } = body;
       if (!groupId || !deviceId || !Array.isArray(contacts)) {
         return new Response(JSON.stringify({ error: "Missing groupId, deviceId, or contacts" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Get device credentials — scope to user's own devices if not admin
-      const deviceQuery = sb.from("devices").select("uazapi_base_url, uazapi_token, user_id").eq("id", deviceId);
-      if (!isAdmin) deviceQuery.eq("user_id", user.id);
-      const { data: device } = await deviceQuery.single();
-      if (!device?.uazapi_base_url || !device?.uazapi_token) {
+      const device = await getDeviceCredentials(sb, deviceId, user.id, isAdmin);
+      if (!device) {
         return new Response(JSON.stringify({ error: "Device not found or missing credentials" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
       const participants = await getGroupParticipants(device.uazapi_base_url, device.uazapi_token, groupId);
-      
       const ready: string[] = [];
       const alreadyExists: string[] = [];
 
       for (const phone of contacts) {
-        if (participants.has(phone)) {
-          alreadyExists.push(phone);
-        } else {
-          ready.push(phone);
-        }
+        if (participants.has(phone)) { alreadyExists.push(phone); } else { ready.push(phone); }
       }
 
       return new Response(JSON.stringify({
-        ready,
-        alreadyExists,
-        readyCount: ready.length,
-        alreadyExistsCount: alreadyExists.length,
-        totalParticipants: participants.size,
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+        ready, alreadyExists,
+        readyCount: ready.length, alreadyExistsCount: alreadyExists.length, totalParticipants: participants.size,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ── ACTION: process ──
-    // Actually adds contacts to the group with concurrent workers
     if (action === "process") {
       const { groupId, deviceId, contacts, concurrency = 3 } = body;
       if (!groupId || !deviceId || !Array.isArray(contacts) || contacts.length === 0) {
         return new Response(JSON.stringify({ error: "Missing required fields" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const deviceQuery2 = sb.from("devices").select("uazapi_base_url, uazapi_token, user_id").eq("id", deviceId);
-      if (!isAdmin) deviceQuery2.eq("user_id", user.id);
-      const { data: device } = await deviceQuery2.single();
-      if (!device?.uazapi_base_url || !device?.uazapi_token) {
+      const device = await getDeviceCredentials(sb, deviceId, user.id, isAdmin);
+      if (!device) {
         return new Response(JSON.stringify({ error: "Device not found" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
       const baseUrl = device.uazapi_base_url;
       const apiToken = device.uazapi_token;
-
-      // Build queue
       const queue = [...contacts];
       const results: ContactResult[] = [];
-      let ok = 0;
-      let fail = 0;
-      let already = 0;
-      let totalAttempts = 0;
+      let ok = 0, fail = 0, already = 0, totalAttempts = 0;
       const startTime = Date.now();
       const maxConcurrency = Math.min(concurrency, 5);
 
-      // Worker function
       async function worker() {
         while (queue.length > 0) {
           const phone = queue.shift();
           if (!phone) break;
-
           totalAttempts++;
           const result = await addToGroup(baseUrl, apiToken, groupId, phone);
-
           if (result.ok) {
             ok++;
             results.push({ phone, status: "completed" });
@@ -265,52 +259,31 @@ Deno.serve(async (req) => {
             already++;
             results.push({ phone, status: "already_exists" });
           } else if (result.status === 429) {
-            // Rate limited — put back in queue and wait
             queue.push(phone);
-            const waitTime = 60; // seconds
-            console.log(`Rate limited, waiting ${waitTime}s before retry for ${phone}`);
-            await new Promise(r => setTimeout(r, waitTime * 1000));
+            await new Promise(r => setTimeout(r, 60000));
           } else {
             fail++;
-            const errorMsg = typeof result.error === "string" 
-              ? result.error.substring(0, 100) 
-              : "Falha desconhecida";
-            results.push({ phone, status: "failed", error: errorMsg });
+            results.push({ phone, status: "failed", error: typeof result.error === "string" ? result.error.substring(0, 100) : "Falha desconhecida" });
           }
-
-          // Small delay between requests to avoid hammering the API
           await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
         }
       }
 
-      // Run workers concurrently
-      const workers = Array.from({ length: maxConcurrency }, () => worker());
-      await Promise.all(workers);
-
+      await Promise.all(Array.from({ length: maxConcurrency }, () => worker()));
       const durationSec = Math.round((Date.now() - startTime) / 1000);
 
-      return new Response(JSON.stringify({
-        ok,
-        fail,
-        already,
-        total: contacts.length,
-        durationSec,
-        totalAttempts,
-        results,
-      }), {
+      return new Response(JSON.stringify({ ok, fail, already, total: contacts.length, durationSec, totalAttempts, results }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     return new Response(JSON.stringify({ error: "Unknown action" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
     console.error("mass-group-inject error:", e);
     return new Response(JSON.stringify({ error: e.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
