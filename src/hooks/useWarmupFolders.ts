@@ -42,6 +42,7 @@ export function useWarmupFolders() {
   const foldersQuery = useQuery({
     queryKey: foldersQueryKey,
     enabled: !!user,
+    staleTime: 120_000,
     queryFn: async () => {
       const { data: folders, error } = await supabase
         .from("warmup_folders" as any)

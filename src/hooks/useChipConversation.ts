@@ -61,7 +61,8 @@ export function useChipConversationLogs(conversationId: string | null) {
   return useQuery({
     queryKey: ["chip_conversation_logs", conversationId],
     enabled: !!conversationId,
-    refetchInterval: 120_000,
+    refetchInterval: () => document.hidden ? false : 120_000,
+    staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("chip_conversation_logs")
