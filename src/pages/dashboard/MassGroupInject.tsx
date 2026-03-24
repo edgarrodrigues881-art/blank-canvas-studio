@@ -1511,7 +1511,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
                   <p>⏱ Delay: {minDelay}s – {maxDelay}s</p>
                   {pauseAfter > 0 && <p>⏸ Pausa de {pauseDuration}s a cada {pauseAfter} adições</p>}
                   {rotateAfter > 0 && <p>🔄 Troca de instância a cada {rotateAfter} adições</p>}
-                  {(participantCheck?.alreadyExistsCount || 0) > 0 && <p>✅ {participantCheck?.alreadyExistsCount} já no grupo (contados como sucesso)</p>}
+                  <p>🔎 {participantCheck ? "Pré-checagem opcional concluída; a confirmação final ocorrerá durante a execução." : "Sem pré-checagem: a verificação no grupo será feita durante a execução."}</p>
                 </div>
               </div>
             </AlertDialogDescription>
