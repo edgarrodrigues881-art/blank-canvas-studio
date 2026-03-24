@@ -37,6 +37,45 @@ function fmtPhone(phone: string): string {
   return `+${r}`;
 }
 
+function normalizeProviderConnectionState(payload: any): { state: "connected" | "disconnected" | "transitional" | "unknown"; rawStatus: string; owner: string } {
+  const inst = payload?.instance || payload?.data || payload || {};
+  const rawStatus = [
+    inst?.connectionStatus,
+    inst?.status,
+    payload?.connectionStatus,
+    payload?.state,
+    payload?.status,
+  ].find((value) => typeof value === "string" && value.trim())?.toLowerCase().trim() || "";
+
+  const owner = [inst?.owner, inst?.phone, payload?.phone, payload?.owner]
+    .find((value) => typeof value === "string" && value.trim())?.trim() || "";
+
+  const textBlob = [
+    payload?.message,
+    payload?.error,
+    payload?.msg,
+    payload?.details,
+    payload?.data?.message,
+    payload?.data?.error,
+    inst?.message,
+    inst?.error,
+  ]
+    .filter((value) => typeof value === "string" && value.trim())
+    .join(" ")
+    .toLowerCase();
+
+  const hasSignal = (signals: string[]) => signals.some((signal) => rawStatus.includes(signal) || textBlob.includes(signal));
+  const connectedSignals = ["connected", "authenticated", "open", "ready", "active", "online"];
+  const disconnectedSignals = ["disconnected", "closed", "close", "offline", "logout", "logged_out", "loggedout", "not_connected"];
+  const transitionalSignals = ["connecting", "pairing", "waiting", "initializing", "starting", "syncing", "qr", "qrcode", "pending"];
+
+  if (hasSignal(connectedSignals)) return { state: "connected", rawStatus, owner };
+  if (hasSignal(disconnectedSignals)) return { state: "disconnected", rawStatus, owner };
+  if (hasSignal(transitionalSignals)) return { state: "transitional", rawStatus, owner };
+  if (owner) return { state: "connected", rawStatus, owner };
+  return { state: "unknown", rawStatus, owner };
+}
+
 function parseProfileSnapshot(payload: any): { pic: string | null | undefined; name: string | undefined } {
   const picCandidates = [
     payload?.profilePictureUrl,
@@ -371,7 +410,7 @@ Deno.serve(async (req) => {
 
         // ── 401: token invalid ──
         if (r.httpStatus === 401) {
-          dbUpdates.push({ id: device.id, patch: { status: "Disconnected", uazapi_token: null, uazapi_base_url: null, proxy_id: null } });
+          dbUpdates.push({ id: device.id, patch: { status: "Disconnected", uazapi_token: null, uazapi_base_url: null, proxy_id: null, updated_at: new Date().toISOString() } });
           svc.from("user_api_tokens").update({ status: "invalid", device_id: null, assigned_at: null }).eq("device_id", device.id).then(() => {});
           if (device.proxy_id) svc.from("proxies").update({ status: "USADA" }).eq("id", device.proxy_id).then(() => {});
           opLogs.push({ user_id: userId, device_id: device.id, event: "uazapi_error", details: `Token inválido (401) "${device.name}"` });
@@ -390,7 +429,7 @@ Deno.serve(async (req) => {
 
           if (strikes >= 5) {
             // Only after 5 consecutive 404s in 30 min, actually release
-            dbUpdates.push({ id: device.id, patch: { status: "Disconnected", uazapi_token: null, uazapi_base_url: null, proxy_id: null } });
+            dbUpdates.push({ id: device.id, patch: { status: "Disconnected", uazapi_token: null, uazapi_base_url: null, proxy_id: null, updated_at: new Date().toISOString() } });
             svc.from("user_api_tokens").update({ status: "available", device_id: null, assigned_at: null, healthy: false }).eq("device_id", device.id).then(() => {});
             if (device.proxy_id) svc.from("proxies").update({ status: "USADA" }).eq("id", device.proxy_id).then(() => {});
             warmupPauses.push(device.id);
@@ -406,21 +445,18 @@ Deno.serve(async (req) => {
 
         // ── Parse status ──
         const data = r.apiData;
-        const inst = data.instance || data || {};
-        const rawState = (inst.status || data.state || data.status || "").toString().toLowerCase().trim();
-        const phone = inst.owner || inst.phone || data.phone || "";
-
-        // Uazapi can return: "connected", "authenticated", "open" for online states
-        // and: "disconnected", "close", "closed", "waiting", "qr", "" for offline
-        const CONNECTED_STATES = ["connected", "authenticated", "open"];
-        const isConnected = CONNECTED_STATES.includes(rawState);
+        const normalizedState = normalizeProviderConnectionState(data);
+        const rawState = normalizedState.rawStatus;
+        const phone = normalizedState.owner;
+        const isConnected = normalizedState.state === "connected";
+        const isDisconnected = normalizedState.state === "disconnected";
 
         // Debug log: first 5 devices to identify what Uazapi actually returns
         if (synced < 5) {
-          console.log(`[sync-devices:debug] "${device.name}" rawState="${rawState}" isConnected=${isConnected} phone="${phone}" prev="${device.status}"`);
+          console.log(`[sync-devices:debug] "${device.name}" rawState="${rawState}" normalized="${normalizedState.state}" isConnected=${isConnected} phone="${phone}" prev="${device.status}"`);
         }
 
-        const newStatus = isConnected ? "Ready" : "Disconnected";
+        const newStatus = isConnected ? "Ready" : isDisconnected ? "Disconnected" : device.status;
         const newPhone = isConnected && phone ? fmtPhone(phone) : (device.number || "");
 
         // ── Profile picture sync logic (tri-state to avoid accidental wipes) ──
@@ -526,7 +562,7 @@ Deno.serve(async (req) => {
           || (newName || "") !== (device.profile_name || "");
 
         if (anyChanged) {
-          dbUpdates.push({ id: device.id, patch: { status: newStatus, number: newPhone, profile_picture: newPic, profile_name: newName } });
+          dbUpdates.push({ id: device.id, patch: { status: newStatus, number: newPhone, profile_picture: newPic, profile_name: newName, updated_at: new Date().toISOString() } });
 
           if (statusChanged) {
             opLogs.push({ user_id: userId, device_id: device.id, event: newStatus === "Disconnected" ? "instance_disconnected" : "instance_connected", details: `"${device.name}" → ${newStatus}`, meta: { previous: device.status } });

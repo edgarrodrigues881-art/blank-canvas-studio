@@ -255,6 +255,61 @@ function formatBrPhone(phone: string): string {
   return `+${raw}`;
 }
 
+function normalizeProviderConnectionState(payload: any): {
+  state: "connected" | "disconnected" | "transitional" | "unknown";
+  rawStatus: string;
+  owner: string;
+  qrcode: string | null;
+  profileName: string;
+  profilePicUrl: string;
+} {
+  const inst = payload?.instance || payload?.data || payload || {};
+  const rawStatus = [
+    inst?.connectionStatus,
+    inst?.status,
+    payload?.connectionStatus,
+    payload?.state,
+    payload?.status,
+  ].find((value) => typeof value === "string" && value.trim())?.toLowerCase().trim() || "";
+
+  const owner = [inst?.owner, inst?.phone, payload?.phone, payload?.owner]
+    .find((value) => typeof value === "string" && value.trim())?.trim() || "";
+
+  const qrcode = [inst?.qrcode, payload?.qrcode]
+    .find((value) => typeof value === "string" && value.trim())?.trim() || null;
+
+  const profileName = [inst?.profileName, inst?.pushname, payload?.profileName, payload?.pushname]
+    .find((value) => typeof value === "string" && value.trim())?.trim() || "";
+
+  const profilePicUrl = [inst?.profilePicUrl, inst?.profilePicture, payload?.profilePicUrl, payload?.profilePicture]
+    .find((value) => typeof value === "string" && value.trim())?.trim() || "";
+
+  const textBlob = [
+    payload?.message,
+    payload?.error,
+    payload?.msg,
+    payload?.details,
+    payload?.data?.message,
+    payload?.data?.error,
+    inst?.message,
+    inst?.error,
+  ]
+    .filter((value) => typeof value === "string" && value.trim())
+    .join(" ")
+    .toLowerCase();
+
+  const hasSignal = (signals: string[]) => signals.some((signal) => rawStatus.includes(signal) || textBlob.includes(signal));
+  const connectedSignals = ["connected", "authenticated", "open", "ready", "active", "online"];
+  const disconnectedSignals = ["disconnected", "closed", "close", "offline", "logout", "logged_out", "loggedout", "not_connected"];
+  const transitionalSignals = ["connecting", "pairing", "waiting", "initializing", "starting", "syncing", "qr", "qrcode", "pending"];
+
+  if (hasSignal(connectedSignals)) return { state: "connected", rawStatus, owner, qrcode, profileName, profilePicUrl };
+  if (hasSignal(disconnectedSignals)) return { state: "disconnected", rawStatus, owner, qrcode, profileName, profilePicUrl };
+  if (qrcode || hasSignal(transitionalSignals)) return { state: "transitional", rawStatus, owner, qrcode, profileName, profilePicUrl };
+  if (owner) return { state: "connected", rawStatus, owner, qrcode, profileName, profilePicUrl };
+  return { state: "unknown", rawStatus, owner, qrcode, profileName, profilePicUrl };
+}
+
 async function oplog(client: any, userId: string, event: string, details: string, deviceId?: string | null, meta?: any) {
   try { await client.from("operation_logs").insert({ user_id: userId, device_id: deviceId || null, event, details, meta: meta || {} }); } catch { /* ignore */ }
 }
@@ -440,19 +495,20 @@ Deno.serve(async (req) => {
     }
 
     // ── Quick status check helper ──
-    const checkStatus = async (timeout = 6000): Promise<{ valid: boolean; status: string; qrcode?: string; owner?: string; profileName?: string; profilePicUrl?: string }> => {
-      if (!instanceToken) return { valid: false, status: "no_token" };
+    const checkStatus = async (timeout = 6000): Promise<{ valid: boolean; status: string; rawStatus: string; qrcode?: string; owner?: string; profileName?: string; profilePicUrl?: string }> => {
+      if (!instanceToken) return { valid: false, status: "no_token", rawStatus: "no_token" };
       const r = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: timeout, retries: 1 });
-      if (r.status === 401) return { valid: false, status: "token_invalid" };
-      if (!r.ok) return { valid: false, status: "error" };
-      const inst = r.data?.instance || r.data || {};
+      if (r.status === 401) return { valid: false, status: "token_invalid", rawStatus: "token_invalid" };
+      if (!r.ok) return { valid: false, status: "error", rawStatus: "error" };
+      const normalized = normalizeProviderConnectionState(r.data);
       return {
         valid: true,
-        status: inst.status || r.data?.status || "unknown",
-        qrcode: inst.qrcode || r.data?.qrcode,
-        owner: inst.owner || inst.phone || r.data?.phone || "",
-        profileName: inst.profileName || inst.pushname || "",
-        profilePicUrl: inst.profilePicUrl || "",
+        status: normalized.state,
+        rawStatus: normalized.rawStatus || normalized.state,
+        qrcode: normalized.qrcode || undefined,
+        owner: normalized.owner || "",
+        profileName: normalized.profileName || "",
+        profilePicUrl: normalized.profilePicUrl || "",
       };
     };
 
@@ -656,17 +712,17 @@ Deno.serve(async (req) => {
       }
 
       const connInst = connectRes.data?.instance || connectRes.data || {};
-      const connStatus = connInst.status || connectRes.data?.status;
+      const connState = normalizeProviderConnectionState(connectRes.data);
 
       // Already connected?
-      if (connStatus === "connected") {
-        const phone = connInst.owner || connInst.phone || "";
-        const pName = connInst.profileName || connInst.pushname || "";
+      if (connState.state === "connected") {
+        const phone = connState.owner || connInst.owner || connInst.phone || "";
+        const pName = connState.profileName || connInst.profileName || connInst.pushname || "";
         const resp = await handleAlreadyConnected(svc, user.id, deviceId, deviceName, phone, pName, device?.login_type || "", instanceUrl, instanceToken);
         if (resp) return resp;
       }
 
-      let qr = connInst.qrcode || connectRes.data?.qrcode;
+      let qr = connState.qrcode || connInst.qrcode || connectRes.data?.qrcode;
 
       // CRITICAL FIX: Poll for QR with more attempts and longer delays
       // Uazapi sometimes takes 5-8 seconds to generate QR after connect
@@ -675,12 +731,12 @@ Deno.serve(async (req) => {
           await new Promise(r => setTimeout(r, 1200));
           const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 5000, retries: 0 });
           const pi = poll.data?.instance || poll.data || {};
-          qr = pi.qrcode || poll.data?.qrcode;
-          const st = pi.status || poll.data?.status;
-          console.log(`[evolution-connect] QR poll attempt=${attempt + 1} status="${st}" hasQR=${!!qr}`);
-          if (st === "connected") {
-            const phone = pi.owner || pi.phone || "";
-            const pName = pi.profileName || pi.pushname || "";
+          const pollState = normalizeProviderConnectionState(poll.data);
+          qr = pollState.qrcode || pi.qrcode || poll.data?.qrcode;
+          console.log(`[evolution-connect] QR poll attempt=${attempt + 1} status="${pollState.rawStatus || pollState.state}" normalized="${pollState.state}" hasQR=${!!qr}`);
+          if (pollState.state === "connected") {
+            const phone = pollState.owner || pi.owner || pi.phone || "";
+            const pName = pollState.profileName || pi.profileName || pi.pushname || "";
             const resp = await handleAlreadyConnected(svc, user.id, deviceId, deviceName, phone, pName, device?.login_type || "", instanceUrl, instanceToken);
             if (resp) return resp;
             break;
@@ -720,12 +776,15 @@ Deno.serve(async (req) => {
       // Already connected?
       if (currentCheck.status === "connected") {
         const fmt = currentCheck.owner ? formatBrPhone(currentCheck.owner) : "";
-        await svc.from("devices").update({ status: "Ready", number: fmt }).eq("id", deviceId);
+        await svc.from("devices").update({ status: "Ready", number: fmt, updated_at: new Date().toISOString() }).eq("id", deviceId);
         return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
       }
 
       // Disconnect if needed
-      if (currentCheck.status !== "disconnected" && currentCheck.status) {
+      if (currentCheck.status === "transitional" || currentCheck.status === "unknown") {
+        await uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
+        await new Promise(r => setTimeout(r, 1000));
+      } else if (currentCheck.status !== "disconnected" && currentCheck.status) {
         await uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
         await new Promise(r => setTimeout(r, 1000));
       }
@@ -752,11 +811,11 @@ Deno.serve(async (req) => {
           const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 4000, retries: 0 });
           pairingCode = extractCode(poll.data);
           if (pairingCode) break;
-          const st = poll.data?.instance?.status || poll.data?.status;
-          if (st === "connected") {
-            const phone = poll.data?.instance?.owner || poll.data?.instance?.phone || "";
+          const pollState = normalizeProviderConnectionState(poll.data);
+          if (pollState.state === "connected") {
+            const phone = pollState.owner || poll.data?.instance?.owner || poll.data?.instance?.phone || "";
             const fmt = phone ? formatBrPhone(phone) : "";
-            await svc.from("devices").update({ status: "Ready", number: fmt }).eq("id", deviceId);
+            await svc.from("devices").update({ status: "Ready", number: fmt, updated_at: new Date().toISOString() }).eq("id", deviceId);
             return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
           }
         }
@@ -805,8 +864,9 @@ Deno.serve(async (req) => {
         await new Promise(r => setTimeout(r, 600));
         const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 4000, retries: 0 });
         const pi = poll.data?.instance || poll.data || {};
-        qr = pi.qrcode || poll.data?.qrcode;
-        if ((pi.status || poll.data?.status) === "connected") {
+        const pollState = normalizeProviderConnectionState(poll.data);
+        qr = pollState.qrcode || pi.qrcode || poll.data?.qrcode;
+        if (pollState.state === "connected") {
           return json({ success: true, alreadyConnected: true, status: "authenticated" });
         }
       }
@@ -821,8 +881,10 @@ Deno.serve(async (req) => {
       const check = await checkStatus(5000);
       if (check.status === "connected") return json({ success: true, status: "authenticated", alive: true });
 
-      await svc.from("devices").update({ status: "Disconnected" }).eq("id", deviceId);
-      return json({ success: true, status: check.status, alive: false });
+      if (check.status === "disconnected") {
+        await svc.from("devices").update({ status: "Disconnected", updated_at: new Date().toISOString() }).eq("id", deviceId);
+      }
+      return json({ success: true, status: check.rawStatus || check.status, alive: false });
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -833,6 +895,7 @@ Deno.serve(async (req) => {
       if (!check.valid) return json({ success: true, status: "token_invalid", tokenInvalid: true });
 
       const isConnected = check.status === "connected";
+      const isDisconnected = check.status === "disconnected";
 
       if (isConnected && check.owner) {
         const fmt = formatBrPhone(check.owner);
@@ -843,16 +906,19 @@ Deno.serve(async (req) => {
         await svc.from("devices").update({
           status: "Ready", number: fmt,
           profile_name: check.profileName || device?.profile_name || "",
+          updated_at: new Date().toISOString(),
         }).eq("id", deviceId);
 
         if (wasDisconnected && device?.login_type !== "report_wa") {
           notifyConnectionChange(svc, user.id, deviceName, fmt, check.profileName || "", true).catch(() => {});
         }
+      } else if (isDisconnected) {
+        await svc.from("devices").update({ status: "Disconnected", updated_at: new Date().toISOString() }).eq("id", deviceId);
       }
 
       return json({
         success: true,
-        status: isConnected ? "authenticated" : check.status,
+        status: isConnected ? "authenticated" : (check.rawStatus || check.status),
         phone: check.owner || "",
         base64: check.qrcode || null,
         qr: check.qrcode || null,
