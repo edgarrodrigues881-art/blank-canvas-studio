@@ -138,6 +138,27 @@ export default function MassGroupInject() {
     }
   }, []);
 
+  const handleResolveLink = useCallback(async () => {
+    if (!groupLink.trim() || !selectedDeviceId) return;
+    setIsResolvingLink(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("mass-group-inject", {
+        body: { action: "resolve-link", deviceId: selectedDeviceId, link: groupLink.trim() },
+      });
+      if (error) throw error;
+      if (data?.jid) {
+        setGroupId(data.jid);
+        toast.success(`Grupo encontrado: ${data.name || data.jid}`);
+      } else {
+        toast.error(data?.error || "Não foi possível resolver o link");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao resolver link do grupo");
+    } finally {
+      setIsResolvingLink(false);
+    }
+  }, [groupLink, selectedDeviceId]);
+
   const filteredGroups = useMemo(() => {
     if (!groupSearch.trim()) return groups;
     const q = groupSearch.toLowerCase();
