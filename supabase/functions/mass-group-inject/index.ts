@@ -65,23 +65,45 @@ async function addToGroup(
   phone: string,
 ): Promise<{ ok: boolean; status: number; error?: string; body?: any }> {
   const headers = { token, Accept: "application/json", "Content-Type": "application/json" };
+  const phoneJid = phone.includes("@") ? phone : `${phone}@s.whatsapp.net`;
 
-  // Try multiple endpoint strategies for Uazapi
+  // Uazapi v2 documented endpoint: PUT /group/updateParticipant?groupJid=XXX
   const strategies = [
-    // Strategy 1: POST /group/addParticipant with number field
-    { method: "POST", url: `${baseUrl}/group/addParticipant`, body: { groupJid: groupId, number: phone } },
-    // Strategy 2: PUT /group/addParticipant
-    { method: "PUT", url: `${baseUrl}/group/addParticipant`, body: { groupJid: groupId, number: phone } },
-    // Strategy 3: POST /group/participants/add
-    { method: "POST", url: `${baseUrl}/group/participants/add`, body: { groupJid: groupId, participants: [phone] } },
-    // Strategy 4: POST /group/add
-    { method: "POST", url: `${baseUrl}/group/add`, body: { groupJid: groupId, number: phone } },
-    // Strategy 5: PUT with participants array
-    { method: "PUT", url: `${baseUrl}/group/addParticipant`, body: { groupJid: groupId, participants: [`${phone}@s.whatsapp.net`] } },
+    // Strategy 1: PUT /group/updateParticipant (documented v2 endpoint)
+    {
+      method: "PUT",
+      url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`,
+      body: { action: "add", participants: [phoneJid] },
+    },
+    // Strategy 2: POST /group/updateParticipants (alternative plural)
+    {
+      method: "POST",
+      url: `${baseUrl}/group/updateParticipants`,
+      body: { groupJid: groupId, action: "add", participants: [phoneJid] },
+    },
+    // Strategy 3: PUT /group/updateParticipants
+    {
+      method: "PUT",
+      url: `${baseUrl}/group/updateParticipants`,
+      body: { groupJid: groupId, action: "add", participants: [phoneJid] },
+    },
+    // Strategy 4: POST /group/addParticipant with number
+    {
+      method: "POST",
+      url: `${baseUrl}/group/addParticipant`,
+      body: { groupJid: groupId, number: phone },
+    },
+    // Strategy 5: PUT /group/addParticipant with participants array
+    {
+      method: "PUT",
+      url: `${baseUrl}/group/addParticipant`,
+      body: { groupJid: groupId, participants: [phoneJid] },
+    },
   ];
 
   for (const strat of strategies) {
     try {
+      console.log(`addToGroup trying: ${strat.method} ${strat.url}`);
       const res = await fetch(strat.url, {
         method: strat.method,
         headers,
@@ -95,6 +117,8 @@ async function addToGroup(
       let body: any;
       try { body = JSON.parse(raw); } catch { body = { raw }; }
 
+      console.log(`addToGroup response: ${res.status} ${raw.substring(0, 300)}`);
+
       // 404 on endpoint itself means wrong endpoint, try next
       if (res.status === 404 && (body?.message === "Not Found." || body?.message === "Not Found")) continue;
 
@@ -107,8 +131,10 @@ async function addToGroup(
         return { ok: false, status: 409, error: "already_exists", body };
       }
 
+      // If we got a real response (not 405/404), return it even if error
       return { ok: false, status: res.status, error: raw.substring(0, 200), body };
     } catch (e: any) {
+      console.error(`addToGroup strategy error:`, e);
       continue;
     }
   }
