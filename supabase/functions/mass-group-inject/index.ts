@@ -26,6 +26,7 @@ interface AddAttemptResult {
   body?: any;
   rawMessage: string;
   errorCode?: string;
+  strategyIndex?: number; // which strategy worked
 }
 
 interface FailureClassification {
@@ -55,26 +56,23 @@ interface ExecuteResult {
   attempts: number;
   pauseCampaign?: boolean;
   cooldownMs?: number;
+  workingStrategy?: number;
 }
 
 const SUCCESS_STATUSES = new Set(["completed", "already_exists"]);
 const FAILURE_STATUSES = new Set([
-  "rate_limited",
-  "api_temporary",
-  "connection_unconfirmed",
-  "confirmed_disconnect",
-  "permission_unconfirmed",
-  "confirmed_no_admin",
-  "invalid_group",
-  "contact_not_found",
-  "unauthorized",
-  "blocked",
-  "unknown_failure",
+  "rate_limited", "api_temporary", "connection_unconfirmed", "confirmed_disconnect",
+  "permission_unconfirmed", "confirmed_no_admin", "invalid_group", "contact_not_found",
+  "unauthorized", "blocked", "unknown_failure",
 ]);
 
 const FINAL_CAMPAIGN_STATUSES = new Set(["done", "completed_with_failures", "paused", "cancelled", "failed"]);
 const RETRYABLE_QUEUE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"] as const;
 const MAX_QUEUE_RETRIES = 3;
+
+// ── Endpoint cache: avoid trying all 5 strategies every time ──
+// Maps campaignId+groupId to the strategy index that worked
+const endpointCache = new Map<string, number>();
 
 const nowIso = () => new Date().toISOString();
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -106,32 +104,17 @@ function buildPhoneFingerprints(raw: string): string[] {
   if (!digits) return [];
   const set = new Set<string>();
   const local = digits.startsWith("55") ? digits.slice(2) : digits;
-
-  const add = (value: string) => {
-    const clean = value.replace(/\D/g, "");
-    if (clean.length >= 10) set.add(clean);
-  };
-
-  add(digits);
-  add(local);
+  const add = (value: string) => { const clean = value.replace(/\D/g, ""); if (clean.length >= 10) set.add(clean); };
+  add(digits); add(local);
   add(local.startsWith("55") ? local.slice(2) : local);
   add(local.length >= 10 && !local.startsWith("55") ? `55${local}` : local);
-
-  if (local.length === 11 && local[2] === "9") {
-    add(local.slice(0, 2) + local.slice(3));
-    add(`55${local.slice(0, 2) + local.slice(3)}`);
-  }
-
-  if (local.length === 10) {
-    add(local.slice(0, 2) + "9" + local.slice(2));
-    add(`55${local.slice(0, 2) + "9" + local.slice(2)}`);
-  }
-
+  if (local.length === 11 && local[2] === "9") { add(local.slice(0, 2) + local.slice(3)); add(`55${local.slice(0, 2) + local.slice(3)}`); }
+  if (local.length === 10) { add(local.slice(0, 2) + "9" + local.slice(2)); add(`55${local.slice(0, 2) + "9" + local.slice(2)}`); }
   return Array.from(set);
 }
 
 function participantSetHasPhone(participants: Set<string>, phone: string) {
-  return buildPhoneFingerprints(phone).some((fingerprint) => participants.has(fingerprint));
+  return buildPhoneFingerprints(phone).some((fp) => participants.has(fp));
 }
 
 function buildHeaders(token: string, includeJson = false) {
@@ -143,11 +126,7 @@ function buildHeaders(token: string, includeJson = false) {
 async function readApiResponse(res: Response) {
   const raw = await res.text();
   let body: any = null;
-  try {
-    body = raw ? JSON.parse(raw) : null;
-  } catch {
-    body = { raw };
-  }
+  try { body = raw ? JSON.parse(raw) : null; } catch { body = { raw }; }
   return { raw, body };
 }
 
@@ -161,32 +140,19 @@ function extractProviderMessage(body: any, raw: string): string {
     typeof body?.data?.message === "string" ? body.data.message : "",
     raw,
   ];
-
-  return candidates.find((value) => typeof value === "string" && value.trim().length > 0)?.trim() || "";
+  return candidates.find((v) => typeof v === "string" && v.trim().length > 0)?.trim() || "";
 }
 
 function collectParticipantsFromValue(value: any, participants: Set<string>) {
   if (!value) return;
-
-  if (Array.isArray(value)) {
-    value.forEach((entry) => collectParticipantsFromValue(entry, participants));
-    return;
-  }
-
-  if (typeof value === "string") {
-    for (const fingerprint of buildPhoneFingerprints(value)) participants.add(fingerprint);
-    return;
-  }
-
+  if (Array.isArray(value)) { value.forEach((entry) => collectParticipantsFromValue(entry, participants)); return; }
+  if (typeof value === "string") { for (const fp of buildPhoneFingerprints(value)) participants.add(fp); return; }
   if (typeof value === "object") {
     for (const key of ["id", "jid", "number", "phone", "participant", "user", "pn"]) {
-      if (typeof value[key] === "string") {
-        for (const fingerprint of buildPhoneFingerprints(value[key])) participants.add(fingerprint);
-      }
+      if (typeof value[key] === "string") { for (const fp of buildPhoneFingerprints(value[key])) participants.add(fp); }
     }
-
-    for (const nestedKey of ["participants", "Participants", "members", "data", "group", "memberAddMode"]) {
-      if (value[nestedKey]) collectParticipantsFromValue(value[nestedKey], participants);
+    for (const nk of ["participants", "Participants", "members", "data", "group", "memberAddMode"]) {
+      if (value[nk]) collectParticipantsFromValue(value[nk], participants);
     }
   }
 }
@@ -201,7 +167,6 @@ async function getGroupParticipantsDetailed(baseUrl: string, token: string, grou
     { method: "GET", url: `${baseUrl}/group/info?groupJid=${encodeURIComponent(groupId)}` },
     { method: "POST", url: `${baseUrl}/chat/info`, body: { chatId: groupId } },
   ];
-
   for (const strategy of strategies) {
     try {
       const res = await fetch(strategy.url, {
@@ -210,137 +175,59 @@ async function getGroupParticipantsDetailed(baseUrl: string, token: string, grou
         ...(strategy.body ? { body: JSON.stringify(strategy.body) } : {}),
       });
       const { raw, body } = await readApiResponse(res);
-      if (!res.ok) {
-        diagnostics.push(`${strategy.method} ${strategy.url}: HTTP ${res.status}`);
-        continue;
-      }
+      if (!res.ok) { diagnostics.push(`${strategy.method} ${strategy.url}: HTTP ${res.status}`); continue; }
       collectParticipantsFromValue(body, participants);
       collectParticipantsFromValue(raw, participants);
       if (participants.size > 0) return { participants, confirmed: true, diagnostics };
       diagnostics.push(`${strategy.method} ${strategy.url}: resposta sem participantes`);
     } catch (error) {
-      console.error("getGroupParticipants error:", error);
       diagnostics.push(`${strategy.method} ${strategy.url}: ${error instanceof Error ? error.message : "erro"}`);
     }
   }
-
   return { participants, confirmed: false, diagnostics };
 }
 
 async function getGroupParticipants(baseUrl: string, token: string, groupId: string): Promise<Set<string>> {
-  const result = await getGroupParticipantsDetailed(baseUrl, token, groupId);
-  return result.participants;
+  return (await getGroupParticipantsDetailed(baseUrl, token, groupId)).participants;
 }
 
 function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClassification {
   const message = (rawMessage || "").toLowerCase();
 
-  if (message.includes("rate-overlimit") || message.includes("429") || message.includes("too many requests")) {
-    return {
-      status: "rate_limited",
-      detail: "Limite de requisições atingido na Uazapi. O contato foi isolado e a fila seguirá após um respiro maior.",
-      retryable: true,
-      cooldownMs: randomBetween(18_000, 30_000),
-    };
+  if (message.includes("rate-overlimit") || message.includes("429") || message.includes("too many requests") || httpStatus === 429) {
+    return { status: "rate_limited", detail: "Limite de requisições atingido. Aguardando cooldown antes de continuar.", retryable: true, cooldownMs: randomBetween(25_000, 45_000) };
   }
-
   if (message.includes("websocket disconnected before info query") || message.includes("connection reset") || message.includes("socket hang up")) {
-    return {
-      status: "api_temporary",
-      detail: "A integração interrompeu a consulta do contato antes de concluir a operação.",
-      retryable: true,
-      cooldownMs: randomBetween(7_000, 12_000),
-    };
+    return { status: "api_temporary", detail: "A integração interrompeu a consulta antes de concluir.", retryable: true, cooldownMs: randomBetween(10_000, 18_000) };
   }
-
   if (httpStatus === 503 || message.includes("whatsapp disconnected") || message.includes("session disconnected") || message.includes("socket closed")) {
-    return {
-      status: "connection_unconfirmed",
-      detail: "A integração sinalizou possível desconexão. O status real será revalidado antes de concluir.",
-      retryable: true,
-      cooldownMs: randomBetween(8_000, 14_000),
-    };
+    return { status: "connection_unconfirmed", detail: "Possível desconexão sinalizada. Status real será revalidado.", retryable: true, cooldownMs: randomBetween(12_000, 20_000) };
   }
-
   if (message.includes("not admin") || message.includes("not an admin") || message.includes("admin required")) {
-    return {
-      status: "permission_unconfirmed",
-      detail: "A integração sinalizou possível falta de privilégio de admin. A permissão será revalidada.",
-      retryable: true,
-      cooldownMs: randomBetween(5_000, 9_000),
-    };
+    return { status: "permission_unconfirmed", detail: "Possível falta de privilégio de admin.", retryable: true, cooldownMs: randomBetween(8_000, 14_000) };
   }
-
   if (message.includes("info query returned status 404") || ((message.includes("number") || message.includes("participant") || message.includes("contact")) && (message.includes("not found") || message.includes("does not exist")))) {
-    return {
-      status: "contact_not_found",
-      detail: "O número não foi encontrado no WhatsApp.",
-      retryable: false,
-    };
+    return { status: "contact_not_found", detail: "O número não foi encontrado no WhatsApp.", retryable: false };
   }
-
   if ((message.includes("group") && (message.includes("not found") || message.includes("invalid") || message.includes("does not exist"))) || message.includes("@g.us inválido")) {
-    return {
-      status: "invalid_group",
-      detail: "O grupo informado é inválido ou não está acessível para esta instância.",
-      retryable: false,
-      pauseCampaign: true,
-      confirmed: true,
-    };
+    return { status: "invalid_group", detail: "Grupo inválido ou inacessível.", retryable: false, pauseCampaign: true, confirmed: true };
   }
-
   if (httpStatus === 401 || message.includes("unauthorized") || message.includes("invalid token") || message.includes("token invalid")) {
-    return {
-      status: "unauthorized",
-      detail: "A autenticação da instância falhou. Reconecte ou revise o token antes de continuar.",
-      retryable: false,
-      pauseCampaign: true,
-      confirmed: true,
-    };
+    return { status: "unauthorized", detail: "Falha de autenticação. Reconecte ou revise o token.", retryable: false, pauseCampaign: true, confirmed: true };
   }
-
   if (message.includes("blocked") || message.includes("ban")) {
-    return {
-      status: "blocked",
-      detail: "O contato não pôde ser adicionado por restrição do WhatsApp.",
-      retryable: false,
-    };
+    return { status: "blocked", detail: "Contato bloqueado ou restrito pelo WhatsApp.", retryable: false };
   }
-
   if (message.includes("full") || message.includes("limit reached")) {
-    return {
-      status: "invalid_group",
-      detail: "O grupo atingiu o limite de participantes permitido.",
-      retryable: false,
-      pauseCampaign: true,
-      confirmed: true,
-    };
+    return { status: "invalid_group", detail: "Grupo atingiu limite de participantes.", retryable: false, pauseCampaign: true, confirmed: true };
   }
-
   if (message.includes("timeout") || message.includes("timed out") || httpStatus === 408 || httpStatus === 504) {
-    return {
-      status: "api_temporary",
-      detail: "A Uazapi não respondeu a tempo nesta tentativa.",
-      retryable: true,
-      cooldownMs: randomBetween(7_000, 12_000),
-    };
+    return { status: "api_temporary", detail: "Uazapi não respondeu a tempo.", retryable: true, cooldownMs: randomBetween(10_000, 18_000) };
   }
-
   if (httpStatus >= 500) {
-    return {
-      status: "api_temporary",
-      detail: `A Uazapi respondeu com erro de servidor (${httpStatus}).`,
-      retryable: true,
-      cooldownMs: randomBetween(8_000, 15_000),
-    };
+    return { status: "api_temporary", detail: `Erro de servidor Uazapi (${httpStatus}).`, retryable: true, cooldownMs: randomBetween(12_000, 20_000) };
   }
-
-  return {
-    status: "unknown_failure",
-    detail: `Falha não confirmada: ${rawMessage.substring(0, 140) || `HTTP ${httpStatus}`}`,
-    retryable: true,
-    cooldownMs: randomBetween(6_000, 10_000),
-  };
+  return { status: "unknown_failure", detail: `Falha não confirmada: ${rawMessage.substring(0, 140) || `HTTP ${httpStatus}`}`, retryable: true, cooldownMs: randomBetween(10_000, 16_000) };
 }
 
 async function getDeviceCredentials(sb: any, deviceId: string, userId: string | null, bypassUserFilter: boolean) {
@@ -348,40 +235,25 @@ async function getDeviceCredentials(sb: any, deviceId: string, userId: string | 
   if (!bypassUserFilter && userId) query.eq("user_id", userId);
   const { data: device } = await query.single();
   if (!device?.uazapi_base_url || !device?.uazapi_token) return null;
-  return {
-    ...device,
-    uazapi_base_url: String(device.uazapi_base_url).replace(/\/+$/, ""),
-  };
+  return { ...device, uazapi_base_url: String(device.uazapi_base_url).replace(/\/+$/, "") };
 }
 
 async function checkInstanceConnection(baseUrl: string, token: string): Promise<ConnectionCheckResult> {
   try {
-    const res = await fetch(`${baseUrl}/instance/status?t=${Date.now()}`, {
-      method: "GET",
-      headers: buildHeaders(token),
-    });
-
+    const res = await fetch(`${baseUrl}/instance/status?t=${Date.now()}`, { method: "GET", headers: buildHeaders(token) });
     const { raw, body } = await readApiResponse(res);
-    if (res.status === 401) {
-      return { connected: null, status: "token_invalid", detail: "Falha de autenticação ao validar a instância." };
-    }
-
-    if (!res.ok) {
-      return { connected: null, status: `http_${res.status}`, detail: extractProviderMessage(body, raw) || "Sem confirmação do status da instância." };
-    }
-
+    if (res.status === 401) return { connected: null, status: "token_invalid", detail: "Falha de autenticação." };
+    if (!res.ok) return { connected: null, status: `http_${res.status}`, detail: extractProviderMessage(body, raw) || "Sem confirmação." };
     const inst = body?.instance || body?.data || body || {};
     const status = String(inst.status || body?.status || "unknown").toLowerCase();
-    const providerMessage = extractProviderMessage(body, raw).toLowerCase();
-    const disconnected = ["disconnected", "closed", "close", "offline", "qr", "pairing", "not_connected"].some((value) => status.includes(value) || providerMessage.includes(value));
-    const connected = !disconnected && ["connected", "ready", "active", "open", "online", "authenticated"].some((value) => status.includes(value) || providerMessage.includes(value));
-
-    if (disconnected) return { connected: false, status, detail: "A instância foi revalidada como desconectada." };
-    if (connected) return { connected: true, status, detail: "A conexão da instância foi confirmada." };
-
-    return { connected: null, status, detail: "A instância respondeu, mas o status não pôde ser confirmado com segurança." };
+    const pm = extractProviderMessage(body, raw).toLowerCase();
+    const disconnected = ["disconnected", "closed", "close", "offline", "qr", "pairing", "not_connected"].some((v) => status.includes(v) || pm.includes(v));
+    const connected = !disconnected && ["connected", "ready", "active", "open", "online", "authenticated"].some((v) => status.includes(v) || pm.includes(v));
+    if (disconnected) return { connected: false, status, detail: "Instância revalidada como desconectada." };
+    if (connected) return { connected: true, status, detail: "Conexão confirmada." };
+    return { connected: null, status, detail: "Status não pôde ser confirmado." };
   } catch (error: any) {
-    return { connected: null, status: "request_failed", detail: `Não foi possível validar a conexão: ${error.message}` };
+    return { connected: null, status: "request_failed", detail: `Não foi possível validar: ${error.message}` };
   }
 }
 
@@ -391,85 +263,106 @@ async function checkGroupAccess(baseUrl: string, token: string, groupId: string)
     { method: "GET", url: `${baseUrl}/group/info?groupJid=${encodeURIComponent(groupId)}` },
     { method: "POST", url: `${baseUrl}/chat/info`, body: { chatId: groupId } },
   ];
-
-  for (const endpoint of endpoints) {
+  for (const ep of endpoints) {
     try {
-      const res = await fetch(endpoint.url, {
-        method: endpoint.method,
-        headers: endpoint.body ? buildHeaders(token, true) : buildHeaders(token),
-        ...(endpoint.body ? { body: JSON.stringify(endpoint.body) } : {}),
+      const res = await fetch(ep.url, {
+        method: ep.method,
+        headers: ep.body ? buildHeaders(token, true) : buildHeaders(token),
+        ...(ep.body ? { body: JSON.stringify(ep.body) } : {}),
       });
-
       const { raw, body } = await readApiResponse(res);
-      const message = extractProviderMessage(body, raw).toLowerCase();
+      const msg = extractProviderMessage(body, raw).toLowerCase();
       const group = body?.group || body?.data || body || {};
       const jid = group?.JID || group?.jid || group?.id || group?.groupJid || group?.chatId || "";
-
-      if (res.ok && (jid || raw.toLowerCase().includes(groupId.toLowerCase()))) {
-        return { accessible: true, invalid: false, detail: "Acesso ao grupo confirmado." };
-      }
-
-      if (message.includes("not found") || message.includes("invalid") || message.includes("does not exist") || message.includes("not a participant")) {
-        return { accessible: false, invalid: true, detail: "O grupo não foi encontrado ou esta instância não tem acesso a ele." };
-      }
-    } catch (error) {
-      console.error("checkGroupAccess error:", error);
-    }
+      if (res.ok && (jid || raw.toLowerCase().includes(groupId.toLowerCase()))) return { accessible: true, invalid: false, detail: "Acesso ao grupo confirmado." };
+      if (msg.includes("not found") || msg.includes("invalid") || msg.includes("does not exist") || msg.includes("not a participant")) return { accessible: false, invalid: true, detail: "Grupo não encontrado ou sem acesso." };
+    } catch { /* continue */ }
   }
-
-  return { accessible: null, invalid: false, detail: "Não foi possível confirmar o acesso ao grupo nesta validação." };
+  return { accessible: null, invalid: false, detail: "Não foi possível confirmar acesso ao grupo." };
 }
 
-async function addToGroup(baseUrl: string, token: string, groupId: string, phone: string): Promise<AddAttemptResult> {
-  const headers = buildHeaders(token, true);
+// ── CRITICAL FIX: addToGroup now uses endpoint caching to avoid flooding ──
+// Instead of trying 5 strategies every time, it tries the cached one first,
+// and only discovers new endpoints on the first call or if the cached one fails with 405.
+function buildAddStrategies(baseUrl: string, groupId: string, phone: string) {
   const plainPhone = phone.replace(/@.*/, "");
-
-  const strategies = [
+  return [
     { method: "POST", url: `${baseUrl}/group/updateParticipants`, body: { groupJid: groupId, action: "add", participants: [plainPhone] } },
     { method: "PUT", url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`, body: { action: "add", participants: [plainPhone] } },
     { method: "POST", url: `${baseUrl}/group/updateParticipants`, body: { groupJid: groupId, action: "add", participants: [`${plainPhone}@s.whatsapp.net`] } },
     { method: "PUT", url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`, body: { action: "add", participants: [`${plainPhone}@s.whatsapp.net`] } },
     { method: "POST", url: `${baseUrl}/group/addParticipant`, body: { groupJid: groupId, participant: plainPhone } },
   ];
+}
 
+async function addToGroup(baseUrl: string, token: string, groupId: string, phone: string, cachedStrategyIndex?: number): Promise<AddAttemptResult> {
+  const headers = buildHeaders(token, true);
+  const strategies = buildAddStrategies(baseUrl, groupId, phone);
+
+  // If we have a cached strategy, try ONLY that one first
+  if (cachedStrategyIndex !== undefined && cachedStrategyIndex >= 0 && cachedStrategyIndex < strategies.length) {
+    const strategy = strategies[cachedStrategyIndex];
+    try {
+      console.log(`addToGroup using cached strategy[${cachedStrategyIndex}]: ${strategy.method} ${strategy.url}`);
+      const res = await fetch(strategy.url, { method: strategy.method, headers, body: JSON.stringify(strategy.body) });
+      if (res.status !== 405) {
+        const { raw, body } = await readApiResponse(res);
+        const pm = extractProviderMessage(body, raw);
+        const rawLower = `${raw} ${pm}`.toLowerCase();
+
+        if (res.status === 200 || res.status === 201) {
+          if (!rawLower.includes("failed") && !rawLower.includes("bad-request")) {
+            return { ok: true, status: res.status, body, rawMessage: pm || raw, strategyIndex: cachedStrategyIndex };
+          }
+        }
+        if (rawLower.includes("already") || rawLower.includes("já") || rawLower.includes("memberaddmode") || res.status === 409) {
+          return { ok: false, status: 409, body, rawMessage: pm || raw, errorCode: "already_exists", strategyIndex: cachedStrategyIndex };
+        }
+        // Return the error from cached strategy - don't try others unless it's 405
+        return { ok: false, status: res.status, body, rawMessage: pm || raw, strategyIndex: cachedStrategyIndex };
+      }
+      // 405 = method not allowed, fall through to discovery
+    } catch (error: any) {
+      return { ok: false, status: 0, rawMessage: error.message, strategyIndex: cachedStrategyIndex };
+    }
+  }
+
+  // Discovery mode: try each strategy but stop at first non-405 response
   let lastError = "";
   let lastStatus = 405;
 
-  for (const strategy of strategies) {
+  for (let i = 0; i < strategies.length; i++) {
+    const strategy = strategies[i];
     try {
-      console.log(`addToGroup trying: ${strategy.method} ${strategy.url}`);
-      const res = await fetch(strategy.url, {
-        method: strategy.method,
-        headers,
-        body: JSON.stringify(strategy.body),
-      });
+      console.log(`addToGroup discovery[${i}]: ${strategy.method} ${strategy.url}`);
+      const res = await fetch(strategy.url, { method: strategy.method, headers, body: JSON.stringify(strategy.body) });
+      if (res.status === 405) continue; // Method not allowed, try next
 
-      if (res.status === 405) continue;
       const { raw, body } = await readApiResponse(res);
-      const providerMessage = extractProviderMessage(body, raw);
-      const rawLower = `${raw} ${providerMessage}`.toLowerCase();
+      const pm = extractProviderMessage(body, raw);
+      const rawLower = `${raw} ${pm}`.toLowerCase();
       lastStatus = res.status;
 
       if (res.status === 200 || res.status === 201) {
         if (rawLower.includes("failed") || rawLower.includes("bad-request")) {
-          lastError = providerMessage || raw.substring(0, 240);
-          continue;
+          lastError = pm || raw.substring(0, 240);
+          // This endpoint exists but returned an application-level error - DON'T try more endpoints
+          // to avoid flooding. Return the error.
+          return { ok: false, status: res.status, rawMessage: lastError, strategyIndex: i };
         }
-        return { ok: true, status: res.status, body, rawMessage: providerMessage || raw };
+        return { ok: true, status: res.status, body, rawMessage: pm || raw, strategyIndex: i };
       }
 
       if (rawLower.includes("already") || rawLower.includes("já") || rawLower.includes("memberaddmode") || res.status === 409) {
-        return { ok: false, status: 409, body, rawMessage: providerMessage || raw, errorCode: "already_exists" };
+        return { ok: false, status: 409, body, rawMessage: pm || raw, errorCode: "already_exists", strategyIndex: i };
       }
 
-      if (rawLower.includes("rate-overlimit") || rawLower.includes("429") || rawLower.includes("whatsapp disconnected") || rawLower.includes("not admin") || rawLower.includes("info query returned status 404") || rawLower.includes("unauthorized")) {
-        return { ok: false, status: res.status, body, rawMessage: providerMessage || raw };
-      }
-
-      lastError = providerMessage || raw.substring(0, 240);
+      // Got a real response (not 405) - this is the right endpoint, return its error
+      // DON'T try more endpoints
+      return { ok: false, status: res.status, body, rawMessage: pm || raw, strategyIndex: i };
     } catch (error: any) {
-      console.error("addToGroup strategy error:", error);
       lastError = error.message;
+      // Network error - could be any endpoint, try next
     }
   }
 
@@ -477,114 +370,87 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
 }
 
 async function confirmAlreadyInGroup(baseUrl: string, token: string, groupId: string, phone: string) {
-  const participants = await getGroupParticipants(baseUrl, token, groupId);
-  return participantSetHasPhone(participants, phone);
+  return participantSetHasPhone(await getGroupParticipants(baseUrl, token, groupId), phone);
 }
 
-async function executeAddWithRecovery(baseUrl: string, token: string, groupId: string, phone: string): Promise<ExecuteResult> {
-  const maxAttempts = 3;
+async function executeAddWithRecovery(baseUrl: string, token: string, groupId: string, phone: string, cacheKey?: string): Promise<ExecuteResult> {
+  const maxAttempts = 2; // Reduced from 3 to avoid flooding
   let adminSignals = 0;
   let lastFailure: FailureClassification | null = null;
+  const cachedStrategy = cacheKey ? endpointCache.get(cacheKey) : undefined;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const addResult = await addToGroup(baseUrl, token, groupId, phone);
+    const addResult = await addToGroup(baseUrl, token, groupId, phone, cachedStrategy);
+
+    // Cache the working strategy for future contacts
+    if (addResult.ok && addResult.strategyIndex !== undefined && cacheKey) {
+      endpointCache.set(cacheKey, addResult.strategyIndex);
+    }
 
     if (addResult.ok) {
-      return { status: "completed", detail: attempt === 1 ? "Contato adicionado com sucesso." : `Contato adicionado após ${attempt} tentativa(s).`, attempts: attempt };
+      return { status: "completed", detail: attempt === 1 ? "Contato adicionado com sucesso." : `Contato adicionado após ${attempt} tentativa(s).`, attempts: attempt, workingStrategy: addResult.strategyIndex };
     }
 
     if (addResult.errorCode === "already_exists" || addResult.status === 409) {
+      // Also cache this strategy - it's the right endpoint
+      if (addResult.strategyIndex !== undefined && cacheKey) endpointCache.set(cacheKey, addResult.strategyIndex);
       return { status: "already_exists", detail: "Contato já participava do grupo.", attempts: attempt };
     }
 
-    const providerMessage = addResult.rawMessage || "Falha sem detalhe retornado pela integração.";
-    const providerMessageLower = providerMessage.toLowerCase();
+    const providerMessage = addResult.rawMessage || "Falha sem detalhe.";
     let failure = classifyAddFailure(providerMessage, addResult.status);
     let connectionCheck: ConnectionCheckResult | null = null;
-    let groupCheck: GroupCheckResult | null = null;
 
-    if (failure.status === "unknown_failure" && attempt === maxAttempts) {
-      try {
-        if (await confirmAlreadyInGroup(baseUrl, token, groupId, phone)) {
-          return { status: "already_exists", detail: "O contato passou a constar no grupo após a revalidação e foi contado como sucesso.", attempts: attempt };
-        }
-      } catch (error) {
-        console.error("confirmAlreadyInGroup error:", error);
-      }
-    }
-
-    if (failure.status === "connection_unconfirmed") {
+    // Only do connection revalidation on last attempt to avoid more API calls
+    if (failure.status === "connection_unconfirmed" && attempt === maxAttempts) {
       connectionCheck = await checkInstanceConnection(baseUrl, token);
       if (connectionCheck.connected === true) {
-        failure = { status: "api_temporary", detail: "A integração acusou desconexão, mas a instância continua conectada. A falha foi tratada como temporária.", retryable: true, cooldownMs: randomBetween(8_000, 14_000) };
+        failure = { status: "api_temporary", detail: "A integração acusou desconexão, mas a instância continua conectada.", retryable: true, cooldownMs: randomBetween(15_000, 25_000) };
       } else if (connectionCheck.connected === false) {
-        failure = { status: "confirmed_disconnect", detail: "A instância foi revalidada e está realmente desconectada.", retryable: false, pauseCampaign: true, confirmed: true };
+        failure = { status: "confirmed_disconnect", detail: "Instância revalidada e está realmente desconectada.", retryable: false, pauseCampaign: true, confirmed: true };
       }
     }
 
-    if ((failure.status === "permission_unconfirmed" || failure.status === "invalid_group") && attempt === maxAttempts) {
-      groupCheck = await checkGroupAccess(baseUrl, token, groupId);
+    if (failure.status === "permission_unconfirmed" && attempt === maxAttempts) {
+      const groupCheck = await checkGroupAccess(baseUrl, token, groupId);
       if (groupCheck.invalid) {
         failure = { status: "invalid_group", detail: groupCheck.detail, retryable: false, pauseCampaign: true, confirmed: true };
-      } else if (failure.status === "permission_unconfirmed") {
-        if (providerMessageLower.includes("not admin") || providerMessageLower.includes("not an admin")) adminSignals += 1;
-        if (adminSignals >= 2 && groupCheck.accessible === true) {
-          failure = { status: "confirmed_no_admin", detail: "A integração confirmou em múltiplas tentativas que a instância não tem privilégio de admin neste grupo.", retryable: false, pauseCampaign: true, confirmed: true };
-        } else {
-          failure = { status: "permission_unconfirmed", detail: "Não foi possível confirmar a falta de privilégio de admin com segurança.", retryable: attempt < maxAttempts, cooldownMs: randomBetween(7_000, 12_000) };
-        }
-      } else if (failure.status === "invalid_group" && groupCheck.accessible === true) {
-        failure = { status: "api_temporary", detail: "O grupo respondeu à revalidação; a falha foi tratada como instabilidade temporária da integração.", retryable: true, cooldownMs: randomBetween(8_000, 12_000) };
       }
     }
 
     lastFailure = failure;
 
     console.log(JSON.stringify({
-      type: "mass-group-inject.attempt_failed",
-      phone,
-      attempt,
-      providerMessage,
-      classifiedAs: failure.status,
-      retryable: failure.retryable,
+      type: "mass-group-inject.attempt_failed", phone, attempt,
+      providerMessage: providerMessage.substring(0, 200),
+      classifiedAs: failure.status, retryable: failure.retryable,
       connectionStatus: connectionCheck?.status || null,
-      groupAccessible: groupCheck?.accessible ?? null,
-      groupInvalid: groupCheck?.invalid ?? false,
     }));
 
     if (failure.retryable && attempt < maxAttempts) {
-      await sleep(failure.cooldownMs || randomBetween(5_000, 9_000));
+      // Wait longer between retries to avoid flooding
+      await sleep(failure.cooldownMs || randomBetween(10_000, 18_000));
       continue;
     }
 
-    return {
-      status: failure.status,
-      detail: failure.detail,
-      attempts: attempt,
-      pauseCampaign: failure.pauseCampaign,
-      cooldownMs: failure.cooldownMs,
-    };
+    // On last attempt with unknown failure, check if contact was actually added
+    if (failure.status === "unknown_failure" && attempt === maxAttempts) {
+      try {
+        if (await confirmAlreadyInGroup(baseUrl, token, groupId, phone)) {
+          return { status: "already_exists", detail: "Contato encontrado no grupo após revalidação.", attempts: attempt };
+        }
+      } catch { /* ignore */ }
+    }
+
+    return { status: failure.status, detail: failure.detail, attempts: attempt, pauseCampaign: failure.pauseCampaign, cooldownMs: failure.cooldownMs };
   }
 
-  return {
-    status: lastFailure?.status || "unknown_failure",
-    detail: lastFailure?.detail || "Falha não confirmada ao adicionar contato.",
-    attempts: maxAttempts,
-    pauseCampaign: lastFailure?.pauseCampaign,
-    cooldownMs: lastFailure?.cooldownMs,
-  };
+  return { status: lastFailure?.status || "unknown_failure", detail: lastFailure?.detail || "Falha não confirmada.", attempts: maxAttempts, pauseCampaign: lastFailure?.pauseCampaign, cooldownMs: lastFailure?.cooldownMs };
 }
 
 function parseDeviceIds(value: any): string[] {
   if (Array.isArray(value)) return value.map(String).filter(Boolean);
-  if (typeof value === "string") {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
-    } catch {
-      return [];
-    }
-  }
+  if (typeof value === "string") { try { const p = JSON.parse(value); if (Array.isArray(p)) return p.map(String).filter(Boolean); } catch {} }
   return [];
 }
 
@@ -612,16 +478,9 @@ async function finalizeCampaignIfNeeded(sb: any, campaignId: string) {
     .select("id", { count: "exact", head: true })
     .eq("campaign_id", campaignId)
     .in("status", [...RETRYABLE_QUEUE_STATUSES, "processing"]);
-
-  const remainingCount = Number(count || 0);
-  if (remainingCount > 0) return false;
-
-  const { data: campaign } = await sb
-    .from("mass_inject_campaigns")
-    .select("id, status, fail_count")
-    .eq("id", campaignId)
-    .single();
-
+  const remaining = Number(count || 0);
+  if (remaining > 0) return false;
+  const { data: campaign } = await sb.from("mass_inject_campaigns").select("id, status, fail_count").eq("id", campaignId).single();
   if (!campaign || FINAL_CAMPAIGN_STATUSES.has(campaign.status)) return true;
   const nextStatus = Number(campaign.fail_count || 0) > 0 ? "completed_with_failures" : "done";
   await sb.from("mass_inject_campaigns").update({ status: nextStatus, updated_at: nowIso(), completed_at: nowIso() }).eq("id", campaignId);
@@ -633,22 +492,17 @@ async function queueCampaignRun(campaignId: string, delayMs = 0) {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   if (delayMs > 0) await sleep(delayMs);
-
   await fetch(`${supabaseUrl}/functions/v1/mass-group-inject`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${serviceKey}`,
-      apikey: anonKey,
-      "x-internal-run": "true",
-      "Content-Type": "application/json",
-    },
+    headers: { Authorization: `Bearer ${serviceKey}`, apikey: anonKey, "x-internal-run": "true", "Content-Type": "application/json" },
     body: JSON.stringify({ action: "run-campaign", campaignId }),
   }).catch((error) => console.error("queueCampaignRun error:", error));
 }
 
 function computeNextDelayMs(campaign: any, cooldownMs?: number) {
-  const minDelay = Math.max(Number(campaign.min_delay || 3), 1);
-  const maxDelay = Math.max(Number(campaign.max_delay || 8), minDelay);
+  // CRITICAL: enforce minimum 5s between contacts to avoid flooding Uazapi
+  const minDelay = Math.max(Number(campaign.min_delay || 5), 5);
+  const maxDelay = Math.max(Number(campaign.max_delay || 12), minDelay);
   let nextDelay = randomBetween(minDelay, maxDelay) * 1000;
   const processed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0);
   const pauseAfter = Number(campaign.pause_after || 0);
@@ -663,8 +517,31 @@ function computeNextDelayMs(campaign: any, cooldownMs?: number) {
 async function runCampaignWorker(sb: any, campaignId: string) {
   const { data: campaign } = await sb.from("mass_inject_campaigns").select("*").eq("id", campaignId).single();
   if (!campaign || FINAL_CAMPAIGN_STATUSES.has(campaign.status)) return;
-
   if (!["queued", "processing"].includes(campaign.status)) return;
+
+  // ── Pre-flight: check instance connection BEFORE processing ──
+  const deviceId = pickDeviceId(campaign);
+  if (!deviceId) {
+    await sb.from("mass_inject_campaigns").update({ status: "failed", updated_at: nowIso(), completed_at: nowIso() }).eq("id", campaignId);
+    return;
+  }
+
+  const device = await getDeviceCredentials(sb, deviceId, campaign.user_id, true);
+  if (!device) {
+    await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
+    return;
+  }
+
+  // Pre-flight connection check on first contact or after errors
+  const connectionCheck = await checkInstanceConnection(device.uazapi_base_url, device.uazapi_token);
+  if (connectionCheck.connected === false) {
+    console.log(`[worker] Pre-flight: instance "${device.name}" is disconnected. Pausing campaign.`);
+    // Also update the device status in DB so the UI reflects it immediately
+    await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", device.id);
+    await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
+    return;
+  }
+
   if (campaign.status === "queued") {
     await sb.from("mass_inject_campaigns").update({ status: "processing", updated_at: nowIso() }).eq("id", campaignId);
   }
@@ -682,72 +559,67 @@ async function runCampaignWorker(sb: any, campaignId: string) {
     return;
   }
 
-  const deviceId = pickDeviceId(campaign);
-  if (!deviceId) {
-    await sb.from("mass_inject_campaigns").update({ status: "failed", updated_at: nowIso(), completed_at: nowIso() }).eq("id", campaignId);
-    return;
-  }
-
-  const device = await getDeviceCredentials(sb, deviceId, campaign.user_id, true);
-  if (!device) {
-    await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
-    return;
-  }
-
   const contact = contacts[0];
-  let nextDelayMs = 0;
-  const { data: latestCampaign } = await sb.from("mass_inject_campaigns").select("*").eq("id", campaignId).single();
-  if (!latestCampaign || latestCampaign.status !== "processing") return;
-
   const retryCount = extractRetryCount(contact.error_message);
-  await sb.from("mass_inject_contacts").update({ status: "processing", error_message: retryCount > 0 ? `Reprocessando contato após falha transitória (${retryCount}/${MAX_QUEUE_RETRIES})...` : "Enviando solicitação para a Uazapi com revalidação segura...", device_used: device.name || device.id }).eq("id", contact.id);
 
-  const result = await executeAddWithRecovery(device.uazapi_base_url, device.uazapi_token, latestCampaign.group_id, contact.phone);
+  await sb.from("mass_inject_contacts").update({
+    status: "processing",
+    error_message: retryCount > 0 ? `Reprocessando (${retryCount}/${MAX_QUEUE_RETRIES})...` : "Processando...",
+    device_used: device.name || device.id,
+  }).eq("id", contact.id);
+
+  // Use endpoint cache keyed by campaign+group to avoid trying all strategies each time
+  const cacheKey = `${campaignId}:${campaign.group_id}`;
+  const result = await executeAddWithRecovery(device.uazapi_base_url, device.uazapi_token, campaign.group_id, contact.phone, cacheKey);
+
+  // If instance disconnected, update device status immediately
+  if (result.status === "confirmed_disconnect") {
+    await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", device.id);
+  }
+
   const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"].includes(result.status) && !result.pauseCampaign;
 
   if (isTransient && retryCount < MAX_QUEUE_RETRIES) {
-    nextDelayMs = computeNextDelayMs(latestCampaign, result.cooldownMs);
+    const nextDelayMs = computeNextDelayMs(campaign, result.cooldownMs);
     await sb.from("mass_inject_contacts").update({
-      status: result.status,
-      error_message: withRetryMeta(stripRetryMeta(result.detail), retryCount + 1),
-      device_used: device.name || device.id,
-      processed_at: nowIso(),
+      status: result.status, error_message: withRetryMeta(stripRetryMeta(result.detail), retryCount + 1),
+      device_used: device.name || device.id, processed_at: nowIso(),
     }).eq("id", contact.id);
-    await queueCampaignRun(campaignId, nextDelayMs || 1000);
+    await queueCampaignRun(campaignId, nextDelayMs || 5000);
     return;
   }
 
   const finalError = SUCCESS_STATUSES.has(result.status) ? null : stripRetryMeta(result.detail);
   await sb.from("mass_inject_contacts").update({
-    status: result.status,
-    error_message: finalError,
-    device_used: device.name || device.id,
-    processed_at: nowIso(),
+    status: result.status, error_message: finalError,
+    device_used: device.name || device.id, processed_at: nowIso(),
   }).eq("id", contact.id);
 
+  const { data: latestCampaign } = await sb.from("mass_inject_campaigns").select("*").eq("id", campaignId).single();
+  if (!latestCampaign) return;
   await updateCampaignCounters(sb, latestCampaign, result.status, !!result.pauseCampaign);
   if (result.pauseCampaign) return;
 
-  const { data: afterUpdateCampaign } = await sb.from("mass_inject_campaigns").select("*").eq("id", campaignId).single();
-  if (!afterUpdateCampaign || afterUpdateCampaign.status !== "processing") return;
+  if (latestCampaign.status !== "processing") return;
 
-  nextDelayMs = computeNextDelayMs(afterUpdateCampaign, result.cooldownMs);
+  const nextDelayMs = computeNextDelayMs(latestCampaign, result.cooldownMs);
 
-  const { data: remainingPending } = await sb
+  const { data: remaining } = await sb
     .from("mass_inject_contacts")
     .select("id")
     .eq("campaign_id", campaignId)
     .in("status", [...RETRYABLE_QUEUE_STATUSES])
     .limit(1);
 
-  if (remainingPending && remainingPending.length > 0) {
-    await queueCampaignRun(campaignId, nextDelayMs || 1000);
+  if (remaining && remaining.length > 0) {
+    await queueCampaignRun(campaignId, nextDelayMs || 5000);
     return;
   }
 
   await finalizeCampaignIfNeeded(sb, campaignId);
 }
 
+// ── HTTP Handler ──
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -787,9 +659,7 @@ Deno.serve(async (req) => {
 
     if (action === "list-groups") {
       const device = await getDeviceCredentials(sb, body.deviceId, user?.id || null, isAdmin);
-      if (!device) {
-        return new Response(JSON.stringify({ error: "Instância não encontrada ou sem credenciais configuradas.", groups: [], diagnostics: "device_not_found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      if (!device) return new Response(JSON.stringify({ error: "Instância não encontrada.", groups: [], diagnostics: "device_not_found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       try {
         const allGroups: any[] = [];
@@ -807,19 +677,13 @@ Deno.serve(async (req) => {
         for (let page = 0; page < 10; page++) {
           try {
             const res = await fetch(`${device.uazapi_base_url}/group/list?GetParticipants=false&page=${page}&count=500`, { headers: buildHeaders(device.uazapi_token) });
-            if (!res.ok) {
-              diagnostics += `group/list page ${page}: HTTP ${res.status}; `;
-              break;
-            }
+            if (!res.ok) { diagnostics += `group/list page ${page}: HTTP ${res.status}; `; break; }
             const data = await res.json();
             const groups = Array.isArray(data) ? data : data?.groups || data?.data || [];
             if (!Array.isArray(groups) || groups.length === 0) break;
             addGroups(groups);
             if (groups.length < 500) break;
-          } catch (error: any) {
-            diagnostics += `group/list page ${page} error: ${error.message}; `;
-            break;
-          }
+          } catch (error: any) { diagnostics += `group/list page ${page} error: ${error.message}; `; break; }
         }
 
         if (allGroups.length === 0) {
@@ -830,21 +694,16 @@ Deno.serve(async (req) => {
                 headers: endpoint === "/group/fetchAllGroups" ? buildHeaders(device.uazapi_token, true) : buildHeaders(device.uazapi_token),
                 ...(endpoint === "/group/fetchAllGroups" ? { body: JSON.stringify({}) } : {}),
               });
-              if (!res.ok) {
-                diagnostics += `${endpoint}: HTTP ${res.status}; `;
-                continue;
-              }
+              if (!res.ok) { diagnostics += `${endpoint}: HTTP ${res.status}; `; continue; }
               const data = await res.json();
               const groups = Array.isArray(data) ? data : data?.groups || data?.data || data?.chats || [];
               addGroups(Array.isArray(groups) ? groups : []);
               if (allGroups.length > 0) break;
-            } catch (error: any) {
-              diagnostics += `${endpoint} error: ${error.message}; `;
-            }
+            } catch (error: any) { diagnostics += `${endpoint} error: ${error.message}; `; }
           }
         }
 
-        const error = allGroups.length > 0 ? undefined : "A instância não retornou grupos neste momento. Verifique conexão, permissão no grupo ou use Link/JID manual.";
+        const error = allGroups.length > 0 ? undefined : "A instância não retornou grupos. Verifique conexão ou use Link/JID manual.";
         return new Response(JSON.stringify({ groups: allGroups, error, diagnostics, deviceName: device.name }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (error: any) {
         return new Response(JSON.stringify({ error: `Erro ao buscar grupos: ${error.message}`, groups: [], diagnostics: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -853,16 +712,11 @@ Deno.serve(async (req) => {
 
     if (action === "resolve-link") {
       const device = await getDeviceCredentials(sb, body.deviceId, user?.id || null, isAdmin);
-      if (!device) {
-        return new Response(JSON.stringify({ error: "Instância não encontrada ou sem credenciais." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-
+      if (!device) return new Response(JSON.stringify({ error: "Instância não encontrada." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const cleanLink = String(body.link || "").trim().replace(/[,;)\]}>'"]+$/, "").split("?")[0];
       const match = cleanLink.match(/chat\.whatsapp\.com\/([A-Za-z0-9_-]+)/);
       const inviteCode = match ? match[1] : cleanLink;
-      if (!inviteCode || inviteCode.length < 10) {
-        return new Response(JSON.stringify({ error: "Link inválido. Use o formato https://chat.whatsapp.com/CODIGO" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      if (!inviteCode || inviteCode.length < 10) return new Response(JSON.stringify({ error: "Link inválido." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       const strategies = [
         { method: "GET", url: `${device.uazapi_base_url}/group/inviteInfo?inviteCode=${inviteCode}` },
@@ -870,7 +724,6 @@ Deno.serve(async (req) => {
         { method: "POST", url: `${device.uazapi_base_url}/group/join`, body: { invitecode: cleanLink } },
         { method: "PUT", url: `${device.uazapi_base_url}/group/acceptInviteGroup`, body: { inviteCode } },
       ];
-
       for (const strategy of strategies) {
         try {
           const res = await fetch(strategy.url, {
@@ -884,15 +737,10 @@ Deno.serve(async (req) => {
           const name = data?.group?.Name || data?.group?.name || data?.group?.Subject || data?.group?.subject || data?.Name || data?.name || data?.Subject || data?.subject || data?.data?.Name || "";
           if (jid) return new Response(JSON.stringify({ jid, name: name || "Grupo", joined: res.ok }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
           const msg = extractProviderMessage(data, raw).toLowerCase();
-          if (msg.includes("already") || msg.includes("já")) {
-            return new Response(JSON.stringify({ error: "A instância já participa desse grupo. Use a aba Meus Grupos para selecioná-lo." }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-          }
-        } catch (error) {
-          console.error("resolve-link strategy error:", error);
-        }
+          if (msg.includes("already") || msg.includes("já")) return new Response(JSON.stringify({ error: "A instância já participa desse grupo. Use Meus Grupos." }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        } catch { /* continue */ }
       }
-
-      return new Response(JSON.stringify({ error: "Não foi possível validar o link do grupo com esta instância." }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Não foi possível validar o link do grupo." }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (action === "validate") {
@@ -913,13 +761,9 @@ Deno.serve(async (req) => {
 
     if (action === "check-participants") {
       const device = await getDeviceCredentials(sb, body.deviceId, user?.id || null, isAdmin);
-      if (!device) {
-        return new Response(JSON.stringify({ error: "Instância não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      if (!device) return new Response(JSON.stringify({ error: "Instância não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const participantResult = await getGroupParticipantsDetailed(device.uazapi_base_url, device.uazapi_token, body.groupId);
-      if (!participantResult.confirmed) {
-        return new Response(JSON.stringify({ error: "Não foi possível confirmar a lista atual de participantes do grupo. Tente novamente antes de iniciar a campanha.", diagnostics: participantResult.diagnostics.join("; ") }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      if (!participantResult.confirmed) return new Response(JSON.stringify({ error: "Não foi possível confirmar participantes. Tente novamente.", diagnostics: participantResult.diagnostics.join("; ") }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const ready: string[] = [];
       const alreadyExists: string[] = [];
       for (const phone of body.contacts || []) {
@@ -932,19 +776,21 @@ Deno.serve(async (req) => {
     if (action === "create-campaign") {
       const contacts = Array.isArray(body.contacts) ? Array.from(new Set(body.contacts.map(String))) : [];
       const deviceIds = Array.isArray(body.deviceIds) ? body.deviceIds.map(String).filter(Boolean) : [];
-      if (!body.groupId || deviceIds.length === 0) {
-        return new Response(JSON.stringify({ error: "Grupo e instância principal são obrigatórios para iniciar a campanha." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      if (!body.groupId || deviceIds.length === 0) return new Response(JSON.stringify({ error: "Grupo e instância são obrigatórios." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       const primaryDevice = await getDeviceCredentials(sb, deviceIds[0], user?.id || null, isAdmin);
-      if (!primaryDevice) {
-        return new Response(JSON.stringify({ error: "Instância principal não encontrada ou sem credenciais." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (!primaryDevice) return new Response(JSON.stringify({ error: "Instância não encontrada." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      // Pre-flight connection check before creating campaign
+      const connCheck = await checkInstanceConnection(primaryDevice.uazapi_base_url, primaryDevice.uazapi_token);
+      if (connCheck.connected === false) {
+        // Update device status immediately
+        await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", primaryDevice.id);
+        return new Response(JSON.stringify({ error: "A instância está desconectada. Reconecte antes de iniciar a campanha." }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       const participantResult = await getGroupParticipantsDetailed(primaryDevice.uazapi_base_url, primaryDevice.uazapi_token, body.groupId);
-      if (!participantResult.confirmed) {
-        return new Response(JSON.stringify({ error: "Não foi possível confirmar quem já está no grupo. A campanha não será iniciada sem essa pré-validação.", diagnostics: participantResult.diagnostics.join("; ") }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      if (!participantResult.confirmed) return new Response(JSON.stringify({ error: "Não foi possível confirmar participantes do grupo.", diagnostics: participantResult.diagnostics.join("; ") }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       const readyContacts: string[] = [];
       const alreadyExists: string[] = [];
@@ -965,18 +811,18 @@ Deno.serve(async (req) => {
         success_count: 0,
         already_count: alreadyExists.length,
         fail_count: 0,
-        min_delay: Math.max(Number(body.minDelay || 3), 1),
-        max_delay: Math.max(Number(body.maxDelay || 8), Number(body.minDelay || 3), 1),
+        min_delay: Math.max(Number(body.minDelay || 5), 5),
+        max_delay: Math.max(Number(body.maxDelay || 12), Number(body.minDelay || 5), 5),
         pause_after: Math.max(Number(body.pauseAfter || 0), 0),
         pause_duration: Math.max(Number(body.pauseDuration || 30), 0),
         rotate_after: Math.max(Number(body.rotateAfter || 0), 0),
         started_at: nowIso(),
       } as any).select().single();
-      if (error || !campaign) throw error || new Error("Não foi possível criar a campanha.");
+      if (error || !campaign) throw error || new Error("Erro ao criar campanha.");
 
       const rows = allContacts.map((phone) => ({ campaign_id: campaign.id, phone, status: alreadyExists.includes(phone) ? "already_exists" : "pending" }));
-      for (let index = 0; index < rows.length; index += 500) {
-        await sb.from("mass_inject_contacts").insert(rows.slice(index, index + 500) as any);
+      for (let i = 0; i < rows.length; i += 500) {
+        await sb.from("mass_inject_contacts").insert(rows.slice(i, i + 500) as any);
       }
 
       await queueCampaignRun(campaign.id, 0);
@@ -985,9 +831,7 @@ Deno.serve(async (req) => {
 
     if (["resume-campaign", "pause-campaign", "cancel-campaign"].includes(action)) {
       const { data: campaign } = await sb.from("mass_inject_campaigns").select("id, user_id, status").eq("id", body.campaignId).single();
-      if (!campaign || (!isAdmin && campaign.user_id !== user!.id)) {
-        return new Response(JSON.stringify({ error: "Campanha não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      if (!campaign || (!isAdmin && campaign.user_id !== user!.id)) return new Response(JSON.stringify({ error: "Campanha não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       if (action === "pause-campaign") {
         await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso(), completed_at: null }).eq("id", campaign.id);
@@ -996,11 +840,12 @@ Deno.serve(async (req) => {
       }
 
       if (action === "cancel-campaign") {
-        await sb.from("mass_inject_contacts").update({ status: "cancelled", error_message: "Processamento cancelado pelo usuário.", processed_at: nowIso() } as any).eq("campaign_id", campaign.id).in("status", [...RETRYABLE_QUEUE_STATUSES, "processing"]);
+        await sb.from("mass_inject_contacts").update({ status: "cancelled", error_message: "Cancelado pelo usuário.", processed_at: nowIso() } as any).eq("campaign_id", campaign.id).in("status", [...RETRYABLE_QUEUE_STATUSES, "processing"]);
         await sb.from("mass_inject_campaigns").update({ status: "cancelled", updated_at: nowIso(), completed_at: nowIso() }).eq("id", campaign.id);
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      // resume
       await sb.from("mass_inject_contacts").update({ status: "pending", error_message: null } as any).eq("campaign_id", campaign.id).eq("status", "processing");
       await sb.from("mass_inject_campaigns").update({ status: "queued", updated_at: nowIso(), completed_at: null }).eq("id", campaign.id);
       await queueCampaignRun(campaign.id, 0);
@@ -1009,9 +854,7 @@ Deno.serve(async (req) => {
 
     if (action === "add-single") {
       const device = await getDeviceCredentials(sb, body.deviceId, user?.id || null, isAdmin);
-      if (!device) {
-        return new Response(JSON.stringify({ status: "unauthorized", error: "Instância não encontrada ou sem credenciais.", detail: "Instância sem credenciais válidas." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      if (!device) return new Response(JSON.stringify({ status: "unauthorized", error: "Instância não encontrada.", detail: "Sem credenciais." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const participants = await getGroupParticipants(device.uazapi_base_url, device.uazapi_token, body.groupId);
       const result = participantSetHasPhone(participants, body.phone)
         ? { status: "already_exists", detail: "Contato já participava do grupo.", attempts: 0 }

@@ -28,9 +28,10 @@ export function resumeKeepAlive() {}
 /**
  * Auto-syncs device statuses via:
  * 1. Realtime subscription on the `devices` table for instant updates
- * 2. Lightweight periodic sync as fallback
+ * 2. Periodic sync every 10s as fallback
+ * 3. Immediate sync on tab focus
  */
-export function useAutoSyncDevices(intervalMs = 15_000) {
+export function useAutoSyncDevices(intervalMs = 10_000) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const syncingRef = useRef(false);
@@ -81,12 +82,12 @@ export function useAutoSyncDevices(intervalMs = 15_000) {
     };
   }, [session?.user?.id, queryClient]);
 
-  // ── Periodic background sync (fallback, every 2 min) ──
+  // ── Periodic background sync + immediate sync on tab focus ──
   useEffect(() => {
     if (!session?.access_token) return;
 
     const doSync = async () => {
-      if (syncingRef.current || document.hidden) return;
+      if (syncingRef.current) return;
       if (Date.now() < mutedUntil) return;
       syncingRef.current = true;
       try {
@@ -101,12 +102,24 @@ export function useAutoSyncDevices(intervalMs = 15_000) {
       }
     };
 
-    const initialTimeout = setTimeout(doSync, 1500);
-    const interval = setInterval(doSync, intervalMs);
+    // Sync on tab becoming visible (instant update when user returns)
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        doSync();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    const initialTimeout = setTimeout(doSync, 1000);
+    const interval = setInterval(() => {
+      if (!document.hidden) doSync();
+    }, intervalMs);
 
     return () => {
       clearTimeout(initialTimeout);
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [session?.access_token, intervalMs, queryClient]);
 }
