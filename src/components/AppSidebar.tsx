@@ -17,7 +17,7 @@ import {
   Settings,
   ChevronUp,
   Crown,
-  
+  UserPlus,
   ChevronRight,
   CreditCard,
   HelpCircle,
