@@ -500,9 +500,9 @@ async function queueCampaignRun(campaignId: string, delayMs = 0) {
 }
 
 function computeNextDelayMs(campaign: any, cooldownMs?: number) {
-  // CRITICAL: enforce minimum 5s between contacts to avoid flooding Uazapi
-  const minDelay = Math.max(Number(campaign.min_delay || 5), 5);
-  const maxDelay = Math.max(Number(campaign.max_delay || 12), minDelay);
+  // CRITICAL: enforce minimum 8s between contacts to avoid flooding Uazapi and causing disconnection
+  const minDelay = Math.max(Number(campaign.min_delay || 8), 8);
+  const maxDelay = Math.max(Number(campaign.max_delay || 15), minDelay);
   let nextDelay = randomBetween(minDelay, maxDelay) * 1000;
   const processed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0);
   const pauseAfter = Number(campaign.pause_after || 0);
