@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
@@ -44,7 +43,6 @@ export interface CampaignContact {
 
 export function useCampaigns() {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
 
   // Realtime DESATIVADO — polling condicional já cobre campanhas ativas
   // A subscription realtime gera carga constante no banco.
