@@ -72,6 +72,7 @@ const menuGroups = [
       { title: "Template", url: "/dashboard/templates", icon: FileText },
       { title: "Meus Contatos", url: "/dashboard/contacts", icon: BookUser },
       { title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn },
+      { title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus },
     ],
   },
 ];
