@@ -224,9 +224,10 @@ const Devices = () => {
         })) as Device[];
     },
     enabled: !!session,
-    refetchInterval: 120_000,
+    refetchInterval: 30_000,
     refetchIntervalInBackground: false,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    staleTime: 10_000,
   });
 
   // Fetch warmup sessions to identify devices in warmup
@@ -1236,21 +1237,27 @@ const Devices = () => {
     setLogoutOpen(false);
     setLoggingOutDevice(null);
 
-    // Instant optimistic cache update (no await, no mutation overhead)
+    // Instant optimistic cache update
     queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
       old ? old.map(d => d.id === device.id ? { ...d, status: "Disconnected" as const, number: "", proxy_id: null, profile_picture: null, profile_name: null } : d) : old
     );
     toast({ title: "Desconectado", description: `${device.name} foi desconectado.` });
 
-    // Fire everything in background (don't block UI)
-    muteAutoSync(5000);
+    // Fire DB update + API logout in background, then confirm real state
     supabase.from("devices").update({ status: "Disconnected", number: "", proxy_id: null, profile_picture: null, profile_name: null } as any).eq("id", device.id)
-      .then(() => queryClient.invalidateQueries({ queryKey: ["devices"] }));
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["devices"] });
+        queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
+      });
     callApi({ action: "logout", deviceId: device.id }).catch(err => console.error("Logout API error:", err));
     if (device.proxy_id) {
       supabase.from("proxies").update({ status: "USADA" } as any).eq("id", device.proxy_id)
         .then(() => queryClient.invalidateQueries({ queryKey: ["proxies"] }));
     }
+    // Confirm real status from DB after 3s to catch any desync
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+    }, 3000);
   };
 
   // Helper to call evolution-connect edge function with retry on 503/concurrency errors

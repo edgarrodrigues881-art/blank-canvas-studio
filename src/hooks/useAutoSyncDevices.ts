@@ -5,8 +5,6 @@ import { useAuth } from "@/lib/auth";
 
 // Global mute flag: when set, realtime + auto-sync skip invalidation
 let mutedUntil = 0;
-// Global flag: pause keepAlive while user is in connection flow
-let keepAlivePaused = false;
 // Track recently deleted device IDs to filter from query results
 const recentlyDeletedIds = new Set<string>();
 
@@ -23,36 +21,67 @@ export function getRecentlyDeletedIds(): Set<string> {
   return recentlyDeletedIds;
 }
 
-export function pauseKeepAlive() {
-  keepAlivePaused = true;
-}
-
-export function resumeKeepAlive() {
-  keepAlivePaused = false;
-}
+// Keep-alive pause/resume (kept for backward compat but no-op now)
+export function pauseKeepAlive() {}
+export function resumeKeepAlive() {}
 
 /**
- * Auto-syncs device statuses.
- * - Scales to 10k+ instances via sharding (splits sync across parallel calls).
- * - Pauses sync when tab is hidden.
+ * Auto-syncs device statuses via:
+ * 1. Realtime subscription on the `devices` table for instant updates
+ * 2. Lightweight periodic sync as fallback
  */
-export function useAutoSyncDevices(intervalMs = 300_000) {
+export function useAutoSyncDevices(intervalMs = 120_000) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const syncingRef = useRef(false);
-  const deviceCountRef = useRef(0);
 
-  // Track device count for sharding decisions
+  // ── Realtime subscription for instant status changes ──
   useEffect(() => {
-    const unsub = queryClient.getQueryCache().subscribe((event) => {
-      if (event?.query?.queryKey?.[0] === "devices" && event?.query?.state?.data) {
-        deviceCountRef.current = (event.query.state.data as any[])?.length || 0;
-      }
-    });
-    return () => unsub();
-  }, [queryClient]);
+    if (!session?.user?.id) return;
 
-  // ── Periodic sync ──
+    const channel = supabase
+      .channel("devices-status-sync")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "devices",
+          filter: `user_id=eq.${session.user.id}`,
+        },
+        (payload) => {
+          if (Date.now() < mutedUntil) return;
+          const updated = payload.new as any;
+          if (!updated?.id) return;
+
+          // Surgically update just the changed device in cache
+          queryClient.setQueryData(["devices"], (old: any[] | undefined) => {
+            if (!old) return old;
+            return old.map((d: any) =>
+              d.id === updated.id
+                ? {
+                    ...d,
+                    status: updated.status,
+                    number: updated.number || d.number,
+                    profile_picture: updated.profile_picture ?? d.profile_picture,
+                    profile_name: updated.profile_name ?? d.profile_name,
+                    updated_at: updated.updated_at || d.updated_at,
+                  }
+                : d
+            );
+          });
+          // Also invalidate sidebar stats
+          queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id, queryClient]);
+
+  // ── Periodic background sync (fallback, every 2 min) ──
   useEffect(() => {
     if (!session?.access_token) return;
 
@@ -61,20 +90,7 @@ export function useAutoSyncDevices(intervalMs = 300_000) {
       if (Date.now() < mutedUntil) return;
       syncingRef.current = true;
       try {
-        const count = deviceCountRef.current;
-        // Shard when device count exceeds 2000
-        if (count > 2000) {
-          const shards = Math.min(5, Math.ceil(count / 2000));
-          await Promise.all(
-            Array.from({ length: shards }, (_, i) =>
-              supabase.functions.invoke("sync-devices", {
-                body: { shard: i, shards },
-              })
-            )
-          );
-        } else {
-          await supabase.functions.invoke("sync-devices");
-        }
+        await supabase.functions.invoke("sync-devices");
         if (Date.now() >= mutedUntil) {
           queryClient.invalidateQueries({ queryKey: ["devices"] });
         }
@@ -85,21 +101,12 @@ export function useAutoSyncDevices(intervalMs = 300_000) {
       }
     };
 
-    // Delay initial sync by 3s to not block page load
-    // EMERGENCY: sync disabled to relieve backend load
-    const initialTimeout: ReturnType<typeof setTimeout> | null = null;
-    const interval: ReturnType<typeof setInterval> | null = null;
+    const initialTimeout = setTimeout(doSync, 5000);
+    const interval = setInterval(doSync, intervalMs);
 
     return () => {
-      if (initialTimeout) clearTimeout(initialTimeout);
-      if (interval) clearInterval(interval);
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
     };
   }, [session?.access_token, intervalMs, queryClient]);
-
-  // Keep-alive removed: sync-devices already handles status checks for all devices
-  // This eliminates ~24 concurrent Edge Function calls that were overwhelming the runtime
-
-  // ── Realtime DESATIVADO para reduzir consumo do banco ──
-  // A subscription realtime gera carga constante no banco.
-  // Reativar quando a infraestrutura estiver estável.
 }
