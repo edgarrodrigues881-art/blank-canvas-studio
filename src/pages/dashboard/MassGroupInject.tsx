@@ -659,8 +659,8 @@ export default function MassGroupInject() {
                             ))}
                             {filteredGroups.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">Nenhum grupo encontrado</p>}
                           </div>
-                          <Button variant="ghost" size="sm" onClick={() => handleLoadGroups(primaryDeviceId)} className="w-full gap-2 text-xs h-8">
-                            <RefreshCw className="w-3 h-3" /> Recarregar Grupos
+                          <Button variant="ghost" size="sm" onClick={() => selectedDeviceIds.length > 1 ? handleLoadGroupsFromAll(selectedDeviceIds) : handleLoadGroups(primaryDeviceId)} className="w-full gap-2 text-xs h-8">
+                            <RefreshCw className="w-3 h-3" /> Recarregar Grupos {selectedDeviceIds.length > 1 ? "(todas instâncias)" : ""}
                           </Button>
                         </div>
                       ) : (
