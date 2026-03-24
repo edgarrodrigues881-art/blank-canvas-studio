@@ -119,14 +119,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Admin check
+    // Check if admin — if not, user can still use but scoped to own devices
     const { data: roleData } = await sb.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
-    if (!roleData) {
-      return new Response(JSON.stringify({ error: "Admin only" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const isAdmin = !!roleData;
 
     const body = await req.json();
     const { action } = body;
