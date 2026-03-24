@@ -71,12 +71,12 @@ const menuGroups = [
       { title: "Campanhas", url: "/dashboard/campaign-list", icon: Megaphone, badgeKey: "activeCampaigns" as const },
       { title: "Template", url: "/dashboard/templates", icon: FileText },
       { title: "Meus Contatos", url: "/dashboard/contacts", icon: BookUser },
+      { title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn },
     ],
   },
 ];
 
 const developmentItems = [
-  { title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn, locked: true },
   { title: "Aquecimento Comunitário", url: "/dashboard/community-warmup", icon: Heart, locked: true },
   { title: "Conversa entre Chips", url: "/dashboard/chip-conversation", icon: ArrowRightLeft, locked: true },
   { title: "Interação de Grupos", url: "/dashboard/group-interaction", icon: UsersRound, locked: true },

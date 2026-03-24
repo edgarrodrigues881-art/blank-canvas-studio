@@ -78,6 +78,7 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/reports/whatsapp": () => { (ReportWhatsApp as any).__preload?.(); },
   "/dashboard/my-plan": () => { (MyPlan as any).__preload?.(); },
   "/dashboard/settings": () => { (Settings as any).__preload?.(); },
+  "/dashboard/group-join": () => { (GroupJoinCampaignList as any).__preload?.(); },
   "/dashboard/notifications": () => { (Notifications as any).__preload?.(); },
 };
 
