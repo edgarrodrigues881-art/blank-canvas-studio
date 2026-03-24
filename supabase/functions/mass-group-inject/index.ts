@@ -226,7 +226,9 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: device } = await sb.from("devices").select("uazapi_base_url, uazapi_token").eq("id", deviceId).single();
+      const deviceQuery2 = sb.from("devices").select("uazapi_base_url, uazapi_token, user_id").eq("id", deviceId);
+      if (!isAdmin) deviceQuery2.eq("user_id", user.id);
+      const { data: device } = await deviceQuery2.single();
       if (!device?.uazapi_base_url || !device?.uazapi_token) {
         return new Response(JSON.stringify({ error: "Device not found" }), {
           status: 404,
