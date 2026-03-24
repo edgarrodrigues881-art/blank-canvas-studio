@@ -589,9 +589,20 @@ Deno.serve(async (req) => {
       let tokenAttempt = 0;
       let connectRes: any = null;
 
+      // CRITICAL FIX: Pre-disconnect to clear stale sessions that block QR generation
+      // If the instance is in a half-state (not connected, not fully disconnected),
+      // Uazapi won't generate a new QR code. Force disconnect first.
+      const preCheck = await uazapi(instanceUrl, "/instance/status", currentToken, "GET", undefined, { timeoutMs: 5000, retries: 0 });
+      const preStatus = (preCheck.data?.instance?.status || preCheck.data?.status || "").toLowerCase();
+      if (preCheck.ok && preStatus !== "disconnected" && preStatus !== "connected") {
+        console.log(`[evolution-connect] pre-disconnect: status="${preStatus}" — forcing disconnect before connect`);
+        await uazapi(instanceUrl, "/instance/disconnect", currentToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
+        await new Promise(r => setTimeout(r, 1500));
+      }
+
       while (tokenAttempt < MAX_TOKEN_RETRIES) {
         tokenAttempt++;
-        connectRes = await uazapi(instanceUrl, "/instance/connect", currentToken, "POST", {}, { timeoutMs: 8000, retries: 1 });
+        connectRes = await uazapi(instanceUrl, "/instance/connect", currentToken, "POST", {}, { timeoutMs: 10000, retries: 1 });
         
         if (connectRes.status !== 401) break; // Success or non-token error — exit loop
 
@@ -657,14 +668,16 @@ Deno.serve(async (req) => {
 
       let qr = connInst.qrcode || connectRes.data?.qrcode;
 
-      // Poll for QR if not returned immediately (up to 3 attempts, ~3s total)
+      // CRITICAL FIX: Poll for QR with more attempts and longer delays
+      // Uazapi sometimes takes 5-8 seconds to generate QR after connect
       if (!qr) {
-        for (let attempt = 0; attempt < 3 && !qr; attempt++) {
-          await new Promise(r => setTimeout(r, 800));
-          const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 4000, retries: 0 });
+        for (let attempt = 0; attempt < 6 && !qr; attempt++) {
+          await new Promise(r => setTimeout(r, 1200));
+          const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 5000, retries: 0 });
           const pi = poll.data?.instance || poll.data || {};
           qr = pi.qrcode || poll.data?.qrcode;
           const st = pi.status || poll.data?.status;
+          console.log(`[evolution-connect] QR poll attempt=${attempt + 1} status="${st}" hasQR=${!!qr}`);
           if (st === "connected") {
             const phone = pi.owner || pi.phone || "";
             const pName = pi.profileName || pi.pushname || "";
