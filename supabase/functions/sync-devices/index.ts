@@ -39,12 +39,22 @@ function fmtPhone(phone: string): string {
 
 function normalizeProviderConnectionState(payload: any): { state: "connected" | "disconnected" | "transitional" | "unknown"; rawStatus: string; owner: string } {
   const inst = payload?.instance || payload?.data || payload || {};
+
+  // DIRECT BOOLEAN CHECK: Uazapi returns { status: { connected: true, loggedIn: true } }
+  const statusObj = payload?.status;
+  if (statusObj && typeof statusObj === "object" && statusObj.connected === true) {
+    const owner = inst?.owner || statusObj?.jid?.split(":")[0] || "";
+    return { state: "connected", rawStatus: "connected", owner };
+  }
+  if (statusObj && typeof statusObj === "object" && statusObj.connected === false) {
+    return { state: "disconnected", rawStatus: "disconnected", owner: "" };
+  }
+
   const rawStatus = [
     inst?.connectionStatus,
     inst?.status,
     payload?.connectionStatus,
     payload?.state,
-    payload?.status,
   ].find((value) => typeof value === "string" && value.trim())?.toLowerCase().trim() || "";
 
   const owner = [inst?.owner, inst?.phone, payload?.phone, payload?.owner]
