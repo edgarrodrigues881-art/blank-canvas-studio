@@ -117,10 +117,15 @@ function participantSetHasPhone(participants: Set<string>, phone: string) {
   return buildPhoneFingerprints(phone).some((fp) => participants.has(fp));
 }
 
-function buildHeaders(token: string, includeJson = false) {
-  return includeJson
-    ? { token, Accept: "application/json", "Content-Type": "application/json", "Cache-Control": "no-cache", Pragma: "no-cache" }
-    : { token, Accept: "application/json", "Cache-Control": "no-cache", Pragma: "no-cache" };
+function buildHeaders(token: string, includeJson = false): Record<string, string> {
+  const headers: Record<string, string> = {
+    token,
+    Accept: "application/json",
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
+  };
+  if (includeJson) headers["Content-Type"] = "application/json";
+  return headers;
 }
 
 async function readApiResponse(res: Response) {
