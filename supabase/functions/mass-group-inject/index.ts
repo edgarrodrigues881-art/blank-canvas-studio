@@ -180,8 +180,10 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Get device credentials
-      const { data: device } = await sb.from("devices").select("uazapi_base_url, uazapi_token").eq("id", deviceId).single();
+      // Get device credentials — scope to user's own devices if not admin
+      const deviceQuery = sb.from("devices").select("uazapi_base_url, uazapi_token, user_id").eq("id", deviceId);
+      if (!isAdmin) deviceQuery.eq("user_id", user.id);
+      const { data: device } = await deviceQuery.single();
       if (!device?.uazapi_base_url || !device?.uazapi_token) {
         return new Response(JSON.stringify({ error: "Device not found or missing credentials" }), {
           status: 404,
