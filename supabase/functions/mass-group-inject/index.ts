@@ -135,25 +135,56 @@ Deno.serve(async (req) => {
       }
 
       try {
-        const res = await fetch(`${device.uazapi_base_url}/group/listAll`, {
-          headers: { token: device.uazapi_token, Accept: "application/json" },
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          console.error("list-groups error:", errText);
-          return new Response(JSON.stringify({ error: "Failed to fetch groups", groups: [] }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        const data = await res.json();
-        const rawGroups = Array.isArray(data) ? data : data?.groups || data?.data || [];
-        const groups = rawGroups.map((g: any) => ({
-          jid: g.jid || g.id || g.groupJid || "",
-          name: g.name || g.subject || g.groupName || "Sem nome",
-          participants: g.participants?.length || g.size || g.memberCount || 0,
-        })).filter((g: any) => g.jid);
+        const allGroups: any[] = [];
+        const seenIds = new Set<string>();
 
-        return new Response(JSON.stringify({ groups }), {
+        // Primary: paginated /group/list endpoint
+        for (let page = 0; page < 10; page++) {
+          const res = await fetch(
+            `${device.uazapi_base_url}/group/list?GetParticipants=false&page=${page}&count=200`,
+            { headers: { token: device.uazapi_token, Accept: "application/json" } }
+          );
+          if (!res.ok) break;
+          const data = await res.json();
+          const arr = Array.isArray(data) ? data : data?.groups || data?.data || [];
+          if (!Array.isArray(arr) || arr.length === 0) break;
+          for (const g of arr) {
+            const gid = g.id || g.jid || "";
+            if (gid && !seenIds.has(gid)) {
+              seenIds.add(gid);
+              allGroups.push({
+                jid: gid,
+                name: g.subject || g.name || g.groupName || "Sem nome",
+                participants: g.participants?.length || g.size || 0,
+              });
+            }
+          }
+          if (arr.length < 200) break;
+        }
+
+        // Fallback: /group/listAll
+        if (allGroups.length === 0) {
+          const res2 = await fetch(`${device.uazapi_base_url}/group/listAll`, {
+            headers: { token: device.uazapi_token, Accept: "application/json" },
+          });
+          if (res2.ok) {
+            const data2 = await res2.json();
+            const arr2 = Array.isArray(data2) ? data2 : data2?.groups || [];
+            for (const g of arr2) {
+              const gid = g.id || g.jid || "";
+              if (gid && !seenIds.has(gid)) {
+                seenIds.add(gid);
+                allGroups.push({
+                  jid: gid,
+                  name: g.subject || g.name || g.groupName || "Sem nome",
+                  participants: g.participants?.length || g.size || 0,
+                });
+              }
+            }
+          }
+        }
+
+        return new Response(JSON.stringify({ groups: allGroups }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } catch (e: any) {
