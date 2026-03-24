@@ -592,23 +592,6 @@ async function runCampaignWorker(sb: any, campaignId: string) {
     return;
   }
 
-  // CRITICAL FIX: Only do pre-flight connection check on first contact (queued→processing)
-  // or after a previous error. NOT on every single contact — that floods the API.
-  const processed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0) + Number(campaign.already_count || 0);
-  const shouldCheckConnection = campaign.status === "queued" || processed === 0 || (processed > 0 && processed % 10 === 0);
-  
-  if (shouldCheckConnection) {
-    const connectionCheck = await checkInstanceConnection(device.uazapi_base_url, device.uazapi_token);
-    if (connectionCheck.connected === false) {
-      console.log(`[worker] Pre-flight: instance "${device.name}" is disconnected. Pausing campaign.`);
-      await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", device.id);
-      await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
-      return;
-    }
-    // Add a small breathing room after connection check before doing work
-    await sleep(2000);
-  }
-
   if (campaign.status === "queued") {
     await sb.from("mass_inject_campaigns").update({ status: "processing", updated_at: nowIso() }).eq("id", campaignId);
   }
@@ -640,6 +623,8 @@ async function runCampaignWorker(sb: any, campaignId: string) {
 
   if (result.status === "confirmed_disconnect") {
     await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", device.id);
+  } else if (result.status === "completed" || result.status === "already_exists") {
+    await sb.from("devices").update({ status: "Ready", updated_at: nowIso() }).eq("id", device.id);
   }
 
   const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"].includes(result.status) && !result.pauseCampaign;
@@ -647,8 +632,10 @@ async function runCampaignWorker(sb: any, campaignId: string) {
   if (isTransient && retryCount < MAX_QUEUE_RETRIES) {
     const nextDelayMs = computeNextDelayMs(campaign, result.cooldownMs);
     await sb.from("mass_inject_contacts").update({
-      status: result.status, error_message: withRetryMeta(stripRetryMeta(result.detail), retryCount + 1),
-      device_used: device.name || device.id, processed_at: nowIso(),
+      status: result.status,
+      error_message: withRetryMeta(stripRetryMeta(result.detail), retryCount + 1),
+      device_used: device.name || device.id,
+      processed_at: nowIso(),
     }).eq("id", contact.id);
     await queueCampaignRun(campaignId, nextDelayMs || 8000);
     return;
@@ -656,8 +643,10 @@ async function runCampaignWorker(sb: any, campaignId: string) {
 
   const finalError = SUCCESS_STATUSES.has(result.status) ? null : stripRetryMeta(result.detail);
   await sb.from("mass_inject_contacts").update({
-    status: result.status, error_message: finalError,
-    device_used: device.name || device.id, processed_at: nowIso(),
+    status: result.status,
+    error_message: finalError,
+    device_used: device.name || device.id,
+    processed_at: nowIso(),
   }).eq("id", contact.id);
 
   const { data: latestCampaign } = await sb.from("mass_inject_campaigns").select("*").eq("id", campaignId).single();
@@ -665,7 +654,8 @@ async function runCampaignWorker(sb: any, campaignId: string) {
   await updateCampaignCounters(sb, latestCampaign, result.status, !!result.pauseCampaign);
   if (result.pauseCampaign) return;
 
-  if (latestCampaign.status !== "processing") return;
+  const { data: refreshedCampaign } = await sb.from("mass_inject_campaigns").select("status").eq("id", campaignId).single();
+  if (!refreshedCampaign || refreshedCampaign.status !== "processing") return;
 
   const nextDelayMs = computeNextDelayMs(latestCampaign, result.cooldownMs);
 
