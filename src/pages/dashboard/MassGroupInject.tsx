@@ -878,6 +878,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
     try {
       const { data, error } = await supabase.functions.invoke("mass-group-inject", { body: { action: "validate", contacts } });
       if (error) throw error;
+      setParticipantCheck(null);
       setValidationResult(data);
       setCompletedSteps(prev => new Set([...prev, "import"]));
       setStep("preview");
@@ -895,7 +896,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
       });
       if (error) throw error;
       setParticipantCheck(data);
-      toast.success(`${data.readyCount} para adicionar, ${data.alreadyExistsCount} já no grupo (contam como sucesso)`);
+      toast.success(`${data.readyCount} livres e ${data.alreadyExistsCount} já localizados no grupo`);
     } catch (e: any) { toast.error(e.message || "Erro ao verificar participantes"); }
     finally { setIsChecking(false); }
   }, [validationResult, groupId, primaryDeviceId]);
@@ -923,7 +924,11 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
       });
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ["mass_inject_campaigns"] });
-      toast.success(`Campanha criada: ${data?.readyCount ?? 0} na fila, ${data?.alreadyExistsCount ?? 0} já estavam no grupo.`);
+      toast.success(
+        data?.deferredParticipantCheck
+          ? `Campanha iniciada: ${data?.readyCount ?? contacts.length} contatos na fila. A checagem no grupo acontecerá durante a execução.`
+          : `Campanha criada: ${data?.readyCount ?? 0} na fila, ${data?.alreadyExistsCount ?? 0} já estavam no grupo.`
+      );
       onCampaignCreated(data.campaignId);
     } catch (e: any) {
       toast.error("Erro ao criar campanha: " + e.message);
@@ -951,7 +956,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
     return liveResults.filter(r => r.status === activeFilter);
   }, [liveResults, activeFilter]);
 
-  const totalToProcess = participantCheck?.readyCount ?? validationResult?.validCount ?? 0;
+  const totalToProcess = validationResult?.validCount ?? 0;
   const contactCount = rawInput.trim() ? parseContacts(rawInput).length : 0;
   const liveProcessed = liveOk + liveFail;
   const liveProgress = liveTotal > 0 ? Math.round((liveProcessed / liveTotal) * 100) : 0;
@@ -1285,8 +1290,8 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
               { label: "Válidos", value: validationResult.validCount, color: "text-emerald-500" },
               { label: "Inválidos", value: validationResult.invalidCount, color: "text-destructive" },
               { label: "Duplicados", value: validationResult.duplicateCount, color: "text-amber-500" },
-              { label: "Já no Grupo", value: participantCheck?.alreadyExistsCount ?? "—", color: "text-blue-500" },
-              { label: "Prontos", value: participantCheck?.readyCount ?? "—", color: "text-primary" },
+              { label: "Já no Grupo", value: participantCheck?.alreadyExistsCount ?? "Opcional", color: "text-blue-500" },
+              { label: "Na Fila", value: validationResult.validCount, color: "text-primary" },
             ].map(s => (
               <Card key={s.label} className="border-border/40 bg-card/80">
                 <CardContent className="pt-4 pb-3 px-4">
@@ -1297,11 +1302,20 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
             ))}
           </div>
 
-          {participantCheck && participantCheck.alreadyExistsCount > 0 && (
-            <div className="rounded-xl bg-blue-500/5 border border-blue-500/20 px-4 py-3 flex items-start gap-3">
-              <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-              <p className="text-xs text-blue-700">
-                <strong>{participantCheck.alreadyExistsCount}</strong> contato(s) já estão no grupo e serão contados como <strong>sucesso</strong> automaticamente.
+          {participantCheck ? (
+            participantCheck.alreadyExistsCount > 0 && (
+              <div className="rounded-xl bg-blue-500/5 border border-blue-500/20 px-4 py-3 flex items-start gap-3">
+                <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-blue-700">
+                  <strong>{participantCheck.alreadyExistsCount}</strong> contato(s) foram encontrados na pré-checagem; a confirmação final ainda acontece durante o processamento.
+                </p>
+              </div>
+            )
+          ) : (
+            <div className="rounded-xl border border-border/40 bg-card/50 px-4 py-3 flex items-start gap-3">
+              <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground">
+                A verificação de existentes no grupo é opcional. Se você iniciar agora, a checagem será feita durante a execução da fila.
               </p>
             </div>
           )}
@@ -1311,7 +1325,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
             {!participantCheck && (
               <Button onClick={handleCheckParticipants} disabled={isChecking} variant="outline" className="gap-2 h-10">
                 {isChecking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                Verificar Existentes no Grupo
+                Verificar Existentes (opcional)
               </Button>
             )}
             <Button onClick={() => setConfirmOpen(true)} disabled={totalToProcess === 0} className="gap-2 h-10 shadow-md shadow-primary/10">
@@ -1497,7 +1511,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
                   <p>⏱ Delay: {minDelay}s – {maxDelay}s</p>
                   {pauseAfter > 0 && <p>⏸ Pausa de {pauseDuration}s a cada {pauseAfter} adições</p>}
                   {rotateAfter > 0 && <p>🔄 Troca de instância a cada {rotateAfter} adições</p>}
-                  {(participantCheck?.alreadyExistsCount || 0) > 0 && <p>✅ {participantCheck?.alreadyExistsCount} já no grupo (contados como sucesso)</p>}
+                  <p>🔎 {participantCheck ? "Pré-checagem opcional concluída; a confirmação final ocorrerá durante a execução." : "Sem pré-checagem: a verificação no grupo será feita durante a execução."}</p>
                 </div>
               </div>
             </AlertDialogDescription>
