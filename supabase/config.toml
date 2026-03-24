@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.legacy-login]
 verify_jwt = false
+
+[functions.mass-group-inject]
+verify_jwt = false
