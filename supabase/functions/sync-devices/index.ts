@@ -407,9 +407,18 @@ Deno.serve(async (req) => {
         // ── Parse status ──
         const data = r.apiData;
         const inst = data.instance || data || {};
-        const state = inst.status || data.state;
-        const isConnected = state === "connected" || state === "authenticated";
+        const rawState = (inst.status || data.state || data.status || "").toString().toLowerCase().trim();
         const phone = inst.owner || inst.phone || data.phone || "";
+
+        // Uazapi can return: "connected", "authenticated", "open" for online states
+        // and: "disconnected", "close", "closed", "waiting", "qr", "" for offline
+        const CONNECTED_STATES = ["connected", "authenticated", "open"];
+        const isConnected = CONNECTED_STATES.includes(rawState);
+
+        // Debug log: first 5 devices to identify what Uazapi actually returns
+        if (synced < 5) {
+          console.log(`[sync-devices:debug] "${device.name}" rawState="${rawState}" isConnected=${isConnected} phone="${phone}" prev="${device.status}"`);
+        }
 
         const newStatus = isConnected ? "Ready" : "Disconnected";
         const newPhone = isConnected && phone ? fmtPhone(phone) : (device.number || "");
