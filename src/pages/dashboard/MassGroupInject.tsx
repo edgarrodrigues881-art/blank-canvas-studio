@@ -69,8 +69,15 @@ function randomBetween(min: number, max: number) {
 
 function translateError(err: string): string {
   const e = (err || "").toLowerCase();
-  if (e.includes("whatsapp disconnected") || e.includes("disconnected")) return "WhatsApp desconectado";
-  if (e.includes("not admin")) return "Instância não é admin do grupo";
+  if (e.includes("confirmed_disconnect")) return "Instância realmente desconectada";
+  if (e.includes("connection_unconfirmed")) return "Não foi possível confirmar o status da instância";
+  if (e.includes("confirmed_no_admin")) return "Privilégio de admin realmente insuficiente";
+  if (e.includes("permission_unconfirmed")) return "Não foi possível confirmar o privilégio de admin";
+  if (e.includes("temporary_error")) return "Erro temporário de integração";
+  if (e.includes("invalid_group")) return "Grupo inválido ou inacessível";
+  if (e.includes("contact_not_found")) return "Contato não encontrado no WhatsApp";
+  if (e.includes("whatsapp disconnected") || e.includes("disconnected")) return "Não foi possível confirmar o status da instância";
+  if (e.includes("not admin")) return "Não foi possível confirmar o privilégio de admin";
   if (e.includes("not found") || e.includes("info query")) return "Número não encontrado no WhatsApp";
   if (e.includes("full") || e.includes("limit")) return "Grupo cheio";
   if (e.includes("blocked") || e.includes("ban")) return "Número bloqueado";
@@ -90,6 +97,15 @@ function statusLabel(status: string) {
   switch (status) {
     case "completed": return "Adicionado";
     case "already_exists": return "Já no grupo";
+    case "temporary_error": return "Erro temporário";
+    case "connection_unconfirmed": return "Conexão não confirmada";
+    case "confirmed_disconnect": return "Desconectada";
+    case "permission_unconfirmed": return "Admin não confirmado";
+    case "confirmed_no_admin": return "Sem privilégio";
+    case "invalid_group": return "Grupo inválido";
+    case "contact_not_found": return "Contato inexistente";
+    case "unauthorized": return "Autenticação";
+    case "blocked": return "Bloqueado";
     case "failed": return "Falha";
     case "pending": return "Pendente";
     case "processing": return "Processando";
@@ -105,12 +121,41 @@ function statusBadge(status: string) {
   switch (status) {
     case "completed": return "border-emerald-500/30 text-emerald-500 bg-emerald-500/5";
     case "already_exists": return "border-blue-500/30 text-blue-500 bg-blue-500/5";
+    case "temporary_error": return "border-amber-500/30 text-amber-600 bg-amber-500/5";
+    case "connection_unconfirmed": return "border-amber-500/30 text-amber-600 bg-amber-500/5";
+    case "permission_unconfirmed": return "border-amber-500/30 text-amber-600 bg-amber-500/5";
+    case "confirmed_disconnect": return "border-destructive/30 text-destructive bg-destructive/5";
+    case "confirmed_no_admin": return "border-destructive/30 text-destructive bg-destructive/5";
+    case "invalid_group": return "border-destructive/30 text-destructive bg-destructive/5";
+    case "contact_not_found": return "border-destructive/30 text-destructive bg-destructive/5";
+    case "unauthorized": return "border-destructive/30 text-destructive bg-destructive/5";
+    case "blocked": return "border-destructive/30 text-destructive bg-destructive/5";
     case "done": return "border-emerald-500/30 text-emerald-500 bg-emerald-500/5";
     case "failed": case "cancelled": return "border-destructive/30 text-destructive bg-destructive/5";
     case "processing": return "border-primary/30 text-primary bg-primary/5";
     case "paused": return "border-amber-500/30 text-amber-500 bg-amber-500/5";
     default: return "border-border/30 text-muted-foreground bg-muted/5";
   }
+}
+
+function isSuccessStatus(status: string) {
+  return status === "completed" || status === "already_exists";
+}
+
+function isFailureStatus(status: string) {
+  return [
+    "failed",
+    "temporary_error",
+    "connection_unconfirmed",
+    "confirmed_disconnect",
+    "permission_unconfirmed",
+    "confirmed_no_admin",
+    "invalid_group",
+    "contact_not_found",
+    "unauthorized",
+    "blocked",
+    "cancelled",
+  ].includes(status);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -308,7 +353,8 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
 
   const filteredContacts = useMemo(() => {
     let list = contacts;
-    if (activeFilter === "success") list = list.filter((c: any) => c.status === "completed" || c.status === "already_exists");
+    if (activeFilter === "success") list = list.filter((c: any) => isSuccessStatus(c.status));
+    else if (activeFilter === "failed") list = list.filter((c: any) => isFailureStatus(c.status));
     else if (activeFilter !== "all") list = list.filter((c: any) => c.status === activeFilter);
     if (searchContact.trim()) {
       const q = searchContact.toLowerCase();
@@ -419,7 +465,7 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{r.device_used || "—"}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[250px] truncate">{r.error_message ? translateError(r.error_message) : "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-[320px] whitespace-normal break-words">{r.error_message ? translateError(r.error_message) : r.status === "completed" ? "Adicionado com sucesso." : r.status === "already_exists" ? "Contato já estava no grupo." : "—"}</TableCell>
                   </TableRow>
                 ))}
                 {filteredContacts.length === 0 && (
@@ -485,6 +531,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
   const [liveStatus, setLiveStatus] = useState<"running" | "paused" | "waiting_pause" | "done" | "cancelled">("running");
   const [liveElapsed, setLiveElapsed] = useState(0);
   const [campaignId, setCampaignId] = useState<string | null>(null);
+  const [liveRuntimeNote, setLiveRuntimeNote] = useState("A fila será processada com validação isolada por contato.");
 
   const cancelRef = useRef(false);
   const pauseRef = useRef(false);
@@ -805,6 +852,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
     setLiveAlready(participantCheck?.alreadyExistsCount || 0);
     setLiveTotal(contactsToProcess.length + (participantCheck?.alreadyExistsCount || 0));
     setLiveStatus("running");
+    setLiveRuntimeNote("Campanha iniciada. Cada contato será validado sem contaminar o restante da fila.");
     const start = Date.now();
     setLiveElapsed(0);
     timerRef.current = setInterval(() => setLiveElapsed(Math.round((Date.now() - start) / 1000)), 1000);
@@ -814,6 +862,8 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
     let currentDeviceIndex = 0;
     let addedWithCurrentDevice = 0;
     let processedSincePause = 0;
+    let campaignPausedBySystem = false;
+    let systemPauseReason = "";
 
     for (let i = 0; i < contactsToProcess.length; i++) {
       if (cancelRef.current) { setLiveStatus("cancelled"); break; }
@@ -831,27 +881,38 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
 
       setLiveCurrentPhone(phone);
       setLiveCurrentDevice(deviceName);
+      setLiveRuntimeNote("Processando contato com revalidação segura de conexão e grupo.");
 
       try {
         const { data } = await supabase.functions.invoke("mass-group-inject", {
           body: { action: "add-single", groupId, deviceId, phone, campaignId: cId, contactId },
         });
 
-        const result: ContactResult = { phone, status: data?.status || "failed", error: data?.error, deviceUsed: deviceName, contactId };
+        const result: ContactResult = { phone, status: data?.status || "temporary_error", error: data?.detail || data?.error, deviceUsed: deviceName, contactId };
         setLiveResults(prev => [...prev, result]);
+        setLiveRuntimeNote(data?.detail || "Contato processado.");
 
-        if (data?.status === "completed") {
+        if (isSuccessStatus(data?.status || "")) {
           ok++; setLiveOk(prev => prev + 1);
+          if (data?.status === "already_exists") setLiveAlready(prev => prev + 1);
           addedWithCurrentDevice++; processedSincePause++;
           if (rotateAfter > 0 && addedWithCurrentDevice >= rotateAfter) { currentDeviceIndex++; addedWithCurrentDevice = 0; }
-        } else if (data?.status === "already_exists") {
-          ok++; setLiveOk(prev => prev + 1); setLiveAlready(prev => prev + 1); processedSincePause++;
         } else {
           fail++; setLiveFail(prev => prev + 1); processedSincePause++;
         }
+
+        if (data?.pauseCampaign) {
+          campaignPausedBySystem = true;
+          systemPauseReason = data?.detail || "Campanha pausada por erro confirmado.";
+          setLiveStatus("paused");
+          setLiveRuntimeNote(systemPauseReason);
+          break;
+        }
       } catch (e: any) {
         fail++; setLiveFail(prev => prev + 1); processedSincePause++;
-        setLiveResults(prev => [...prev, { phone, status: "failed", error: e.message || "Erro de conexão", deviceUsed: deviceName }]);
+        const fallbackMessage = "Erro temporário ao comunicar com a integração. A fila seguirá para o próximo contato.";
+        setLiveResults(prev => [...prev, { phone, status: "temporary_error", error: e.message || fallbackMessage, deviceUsed: deviceName }]);
+        setLiveRuntimeNote(fallbackMessage);
       }
 
       // Delay between contacts
@@ -869,13 +930,13 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
 
     clearInterval(timerRef.current);
     setLiveElapsed(Math.round((Date.now() - start) / 1000));
-    const finalStatus = cancelRef.current ? "cancelled" : "done";
+    const finalStatus = campaignPausedBySystem ? "paused" : cancelRef.current ? "cancelled" : "done";
     setLiveStatus(finalStatus);
     setIsProcessing(false);
 
     try {
       await supabase.from("mass_inject_campaigns").update({
-        status: finalStatus === "cancelled" ? "paused" : "done",
+        status: finalStatus === "done" ? "done" : "paused",
         completed_at: finalStatus === "done" ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       } as any).eq("id", cId!);
@@ -883,8 +944,14 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
 
     qc.invalidateQueries({ queryKey: ["mass_inject_campaigns"] });
     setCompletedSteps(prev => new Set([...prev, "processing"]));
-    setStep("done");
-    toast.success(`Concluído: ${ok} sucesso, ${fail} falhas`);
+    setStep(finalStatus === "done" ? "done" : "processing");
+    if (finalStatus === "paused") {
+      toast.error(systemPauseReason || "Campanha pausada por erro confirmado.");
+    } else if (finalStatus === "cancelled") {
+      toast.info("Campanha pausada manualmente.");
+    } else {
+      toast.success(`Concluído: ${ok} sucesso, ${fail} falhas`);
+    }
   }, [participantCheck, validationResult, groupId, groupName, selectedDeviceIds, devices, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, campaignName, selectedGroup, user, campaignId, qc]);
 
   const handlePause = useCallback(() => { pauseRef.current = !pauseRef.current; setIsPaused(pauseRef.current); }, []);
@@ -901,7 +968,8 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
 
   const filteredResults = useMemo(() => {
     if (activeFilter === "all") return liveResults;
-    if (activeFilter === "success") return liveResults.filter(r => r.status === "completed" || r.status === "already_exists");
+    if (activeFilter === "success") return liveResults.filter(r => isSuccessStatus(r.status));
+    if (activeFilter === "failed") return liveResults.filter(r => isFailureStatus(r.status));
     return liveResults.filter(r => r.status === activeFilter);
   }, [liveResults, activeFilter]);
 
@@ -1313,6 +1381,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
                         Adicionando <span className="font-mono">{liveCurrentPhone}</span> via <span className="text-primary font-medium">{liveCurrentDevice}</span>
                       </p>
                     )}
+                    <p className="text-xs text-muted-foreground mt-1">{liveRuntimeNote}</p>
                   </div>
                 </div>
                 <span className="text-lg font-bold text-primary">{liveProgress}%</span>
@@ -1352,7 +1421,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
                           <TableCell className="text-xs font-mono font-medium">{r.phone}</TableCell>
                           <TableCell><Badge variant="outline" className={`text-[10px] font-semibold ${statusBadge(r.status)}`}>{statusLabel(r.status)}</Badge></TableCell>
                           <TableCell className="text-xs text-muted-foreground">{r.deviceUsed || "—"}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground truncate max-w-[200px]">{r.error ? translateError(r.error) : "—"}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[280px] whitespace-normal break-words">{r.error ? translateError(r.error) : r.status === "completed" ? "Adicionado com sucesso." : r.status === "already_exists" ? "Contato já estava no grupo." : "—"}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1422,7 +1491,7 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
                         <TableCell className="text-xs font-mono font-medium">{r.phone}</TableCell>
                         <TableCell><Badge variant="outline" className={`text-[10px] font-semibold ${statusBadge(r.status)}`}>{statusLabel(r.status)}</Badge></TableCell>
                         <TableCell className="text-xs text-muted-foreground">{r.deviceUsed || "—"}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground truncate max-w-[250px]">{r.error ? translateError(r.error) : "—"}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[280px] whitespace-normal break-words">{r.error ? translateError(r.error) : r.status === "completed" ? "Adicionado com sucesso." : r.status === "already_exists" ? "Contato já estava no grupo." : "—"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
