@@ -119,14 +119,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Admin check
+    // Check if admin — if not, user can still use but scoped to own devices
     const { data: roleData } = await sb.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
-    if (!roleData) {
-      return new Response(JSON.stringify({ error: "Admin only" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const isAdmin = !!roleData;
 
     const body = await req.json();
     const { action } = body;
@@ -185,8 +180,10 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Get device credentials
-      const { data: device } = await sb.from("devices").select("uazapi_base_url, uazapi_token").eq("id", deviceId).single();
+      // Get device credentials — scope to user's own devices if not admin
+      const deviceQuery = sb.from("devices").select("uazapi_base_url, uazapi_token, user_id").eq("id", deviceId);
+      if (!isAdmin) deviceQuery.eq("user_id", user.id);
+      const { data: device } = await deviceQuery.single();
       if (!device?.uazapi_base_url || !device?.uazapi_token) {
         return new Response(JSON.stringify({ error: "Device not found or missing credentials" }), {
           status: 404,
@@ -229,7 +226,9 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: device } = await sb.from("devices").select("uazapi_base_url, uazapi_token").eq("id", deviceId).single();
+      const deviceQuery2 = sb.from("devices").select("uazapi_base_url, uazapi_token, user_id").eq("id", deviceId);
+      if (!isAdmin) deviceQuery2.eq("user_id", user.id);
+      const { data: device } = await deviceQuery2.single();
       if (!device?.uazapi_base_url || !device?.uazapi_token) {
         return new Response(JSON.stringify({ error: "Device not found" }), {
           status: 404,

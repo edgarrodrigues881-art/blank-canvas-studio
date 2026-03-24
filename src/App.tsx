@@ -39,6 +39,7 @@ const GroupCapture = lazyWithPreload(() => import("@/pages/dashboard/GroupCaptur
 const GroupJoinCampaignList = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinCampaignList"));
 const GroupJoinCampaignNew = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinCampaignNew"));
 const GroupJoinCampaignDetail = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinCampaignDetail"));
+const MassGroupInject = lazyWithPreload(() => import("@/pages/dashboard/MassGroupInject"));
 const GroupJoinComingSoon = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinComingSoon"));
 const ChipConversation = lazyWithPreload(() => import("@/pages/dashboard/ChipConversation"));
 const ChipConversationComingSoon = lazyWithPreload(() => import("@/pages/dashboard/ChipConversationComingSoon"));
@@ -151,6 +152,7 @@ const App = () => (
                 <Route path="/dashboard/group-join/new" element={<ProtectedRoute><DashboardLayout><GroupJoinCampaignNew /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-join/:id" element={<ProtectedRoute><DashboardLayout><GroupJoinCampaignDetail /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-join-soon" element={<ProtectedRoute><DashboardLayout><GroupJoinCampaignList /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/mass-inject" element={<ProtectedRoute><DashboardLayout><MassGroupInject /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/chip-conversation" element={<ProtectedRoute><DashboardLayout><ChipConversationComingSoon /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/chip-conversation-soon" element={<ProtectedRoute><DashboardLayout><ChipConversationComingSoon /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/auto-reply" element={<ProtectedRoute><DashboardLayout><AutoReplyComingSoon /></DashboardLayout></ProtectedRoute>} />
