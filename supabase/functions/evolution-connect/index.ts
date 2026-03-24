@@ -496,7 +496,7 @@ Deno.serve(async (req) => {
 
     // ── Quick status check helper ──
     const checkStatus = async (timeout = 6000): Promise<{ valid: boolean; status: string; rawStatus: string; qrcode?: string; owner?: string; profileName?: string; profilePicUrl?: string }> => {
-      if (!instanceToken) return { valid: false, status: "no_token" };
+      if (!instanceToken) return { valid: false, status: "no_token", rawStatus: "no_token" };
       const r = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: timeout, retries: 1 });
       if (r.status === 401) return { valid: false, status: "token_invalid", rawStatus: "token_invalid" };
       if (!r.ok) return { valid: false, status: "error", rawStatus: "error" };
