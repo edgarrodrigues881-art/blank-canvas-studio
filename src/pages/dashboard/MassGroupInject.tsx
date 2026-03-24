@@ -307,7 +307,7 @@ export default function MassGroupInject() {
                       {allDevicesForSelect.map((d: any) => (
                         <SelectItem key={d.id} value={d.id}>
                           <div className="flex items-center gap-2.5">
-                            <div className={`w-2 h-2 rounded-full ${d.status === "connected" ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+                            <div className={`w-2 h-2 rounded-full ${isDeviceOnline(d.status) ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
                             <span className="font-medium">{d.name}</span>
                             {d.number && <span className="text-muted-foreground text-xs">({d.number})</span>}
                           </div>
