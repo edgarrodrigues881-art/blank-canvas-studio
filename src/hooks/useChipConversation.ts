@@ -48,11 +48,12 @@ export function useChipConversations() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("chip_conversations")
-        .select("*")
+        .select("id, user_id, name, status, device_ids, min_delay_seconds, max_delay_seconds, pause_after_messages_min, pause_after_messages_max, pause_duration_min, pause_duration_max, duration_hours, duration_minutes, start_hour, end_hour, messages_per_cycle_min, messages_per_cycle_max, active_days, started_at, completed_at, total_messages_sent, last_error, created_at, updated_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data || []) as unknown as ChipConversation[];
     },
+    staleTime: 120_000,
   });
 }
 
@@ -60,7 +61,8 @@ export function useChipConversationLogs(conversationId: string | null) {
   return useQuery({
     queryKey: ["chip_conversation_logs", conversationId],
     enabled: !!conversationId,
-    refetchInterval: 120_000,
+    refetchInterval: () => document.hidden ? false : 120_000,
+    staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("chip_conversation_logs")

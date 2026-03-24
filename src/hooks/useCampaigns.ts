@@ -46,20 +46,8 @@ export function useCampaigns() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (!user) return;
-    const channel = supabase
-      .channel("campaigns-list-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "campaigns", filter: `user_id=eq.${user.id}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-        }
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user, queryClient]);
+  // Realtime DESATIVADO — polling condicional já cobre campanhas ativas
+  // A subscription realtime gera carga constante no banco.
 
   return useQuery({
     queryKey: ["campaigns", user?.id],
@@ -72,10 +60,12 @@ export function useCampaigns() {
       return data as Campaign[];
     },
     enabled: !!user,
+    staleTime: 30_000,
     refetchInterval: (query) => {
+      if (document.hidden) return false; // Don't poll when tab hidden
       const campaigns = query.state.data;
       const hasActive = campaigns?.some((c: Campaign) => ["running", "processing"].includes(c.status));
-      return hasActive ? 5000 : false; // Only poll when active campaigns exist; realtime handles the rest
+      return hasActive ? 10_000 : 120_000; // 10s when active, 2min idle
     },
   });
 }

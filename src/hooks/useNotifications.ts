@@ -126,10 +126,12 @@ export function useNotifications() {
     setUnreadCount(0);
   }, [user]);
 
-  // Initial fetch + light polling as safety net (realtime handles instant delivery)
+  // Initial fetch + light polling (only when tab visible, realtime handles instant delivery)
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 120_000); // 2min — emergency mode
+    const interval = setInterval(() => {
+      if (!document.hidden) fetchNotifications();
+    }, 300_000); // 5min — realtime handles the rest
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 

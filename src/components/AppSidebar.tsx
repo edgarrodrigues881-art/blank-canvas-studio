@@ -112,6 +112,7 @@ export function AppSidebar() {
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<{ id: string; name: string; color: string; tags?: any[] } | null>(null);
 
+  // Fetch profile data once — no realtime needed for sidebar display
   useEffect(() => {
     if (!user) return;
     supabase
@@ -122,16 +123,6 @@ export function AppSidebar() {
       .then(({ data }) => {
         if (data) setProfileData(data);
       });
-
-    const channel = supabase
-      .channel('profile-sidebar')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` }, (payload) => {
-        const d = payload.new as any;
-        setProfileData({ company: d.company, avatar_url: d.avatar_url, full_name: d.full_name });
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
   }, [user]);
 
   // Auto-expand folders only on warmup instance routes (not autosave/groups)

@@ -27,7 +27,7 @@ export function useFeatureControls() {
       if (error) throw error;
       return (data || []) as unknown as FeatureControl[];
     },
-    staleTime: 1000 * 30,
+    staleTime: 300_000, // 5min — rarely changes, queried by sidebar + layout + feature gates
   });
 
   const updateFeature = useMutation({

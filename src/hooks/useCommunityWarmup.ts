@@ -86,6 +86,7 @@ export function useCommunityWarmup() {
       return data;
     },
     enabled: !!user,
+    staleTime: 120_000,
   });
 
   // Fetch all configs for user
@@ -94,12 +95,13 @@ export function useCommunityWarmup() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("community_warmup_configs")
-        .select("*")
+        .select("id, user_id, device_id, is_active, intensity, start_hour, end_hour, active_days, daily_limit, min_delay_seconds, max_delay_seconds, pause_after_messages_min, pause_after_messages_max, pause_duration_min, pause_duration_max, interactions_today, last_interaction_at, status, status_message, created_at, updated_at")
         .eq("user_id", user!.id);
       if (error) throw error;
       return (data || []) as unknown as CommunityWarmupConfig[];
     },
     enabled: !!user,
+    staleTime: 120_000,
   });
 
   // Fetch recent logs
@@ -116,6 +118,7 @@ export function useCommunityWarmup() {
       return (data || []) as unknown as CommunityWarmupLog[];
     },
     enabled: !!user,
+    staleTime: 120_000,
   });
 
   // Join community (create config for device)
