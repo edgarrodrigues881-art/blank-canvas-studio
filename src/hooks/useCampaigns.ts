@@ -43,7 +43,6 @@ export interface CampaignContact {
 
 export function useCampaigns() {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
 
   // Realtime DESATIVADO — polling condicional já cobre campanhas ativas
   // A subscription realtime gera carga constante no banco.
