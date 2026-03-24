@@ -430,78 +430,83 @@ async function confirmAlreadyInGroup(baseUrl: string, token: string, groupId: st
 }
 
 async function executeAddWithRecovery(baseUrl: string, token: string, groupId: string, phone: string, cacheKey?: string): Promise<ExecuteResult> {
-  const maxAttempts = 2; // Reduced from 3 to avoid flooding
-  let adminSignals = 0;
-  let lastFailure: FailureClassification | null = null;
   const cachedStrategy = cacheKey ? endpointCache.get(cacheKey) : undefined;
+  const addResult = await addToGroup(baseUrl, token, groupId, phone, cachedStrategy);
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const addResult = await addToGroup(baseUrl, token, groupId, phone, cachedStrategy);
-
-    // Cache the working strategy for future contacts
-    if (addResult.ok && addResult.strategyIndex !== undefined && cacheKey) {
+  if (addResult.ok) {
+    if (addResult.strategyIndex !== undefined && cacheKey) {
       endpointCache.set(cacheKey, addResult.strategyIndex);
     }
-
-    if (addResult.ok) {
-      return { status: "completed", detail: attempt === 1 ? "Contato adicionado com sucesso." : `Contato adicionado após ${attempt} tentativa(s).`, attempts: attempt, workingStrategy: addResult.strategyIndex };
-    }
-
-    if (addResult.errorCode === "already_exists" || addResult.status === 409) {
-      // Also cache this strategy - it's the right endpoint
-      if (addResult.strategyIndex !== undefined && cacheKey) endpointCache.set(cacheKey, addResult.strategyIndex);
-      return { status: "already_exists", detail: "Contato já participava do grupo.", attempts: attempt };
-    }
-
-    const providerMessage = addResult.rawMessage || "Falha sem detalhe.";
-    let failure = classifyAddFailure(providerMessage, addResult.status);
-    let connectionCheck: ConnectionCheckResult | null = null;
-
-    // Only do connection revalidation on last attempt to avoid more API calls
-    if (failure.status === "connection_unconfirmed" && attempt === maxAttempts) {
-      connectionCheck = await checkInstanceConnection(baseUrl, token);
-      if (connectionCheck.connected === true) {
-        failure = { status: "api_temporary", detail: "A integração acusou desconexão, mas a instância continua conectada.", retryable: true, cooldownMs: randomBetween(15_000, 25_000) };
-      } else if (connectionCheck.connected === false) {
-        failure = { status: "confirmed_disconnect", detail: "Instância revalidada e está realmente desconectada.", retryable: false, pauseCampaign: true, confirmed: true };
-      }
-    }
-
-    if (failure.status === "permission_unconfirmed" && attempt === maxAttempts) {
-      const groupCheck = await checkGroupAccess(baseUrl, token, groupId);
-      if (groupCheck.invalid) {
-        failure = { status: "invalid_group", detail: groupCheck.detail, retryable: false, pauseCampaign: true, confirmed: true };
-      }
-    }
-
-    lastFailure = failure;
-
-    console.log(JSON.stringify({
-      type: "mass-group-inject.attempt_failed", phone, attempt,
-      providerMessage: providerMessage.substring(0, 200),
-      classifiedAs: failure.status, retryable: failure.retryable,
-      connectionStatus: connectionCheck?.status || null,
-    }));
-
-    if (failure.retryable && attempt < maxAttempts) {
-      // Wait longer between retries to avoid flooding
-      await sleep(failure.cooldownMs || randomBetween(10_000, 18_000));
-      continue;
-    }
-
-    // On last attempt with unknown failure, check if contact was actually added
-    if (failure.status === "unknown_failure" && attempt === maxAttempts) {
-      try {
-        if (await confirmAlreadyInGroup(baseUrl, token, groupId, phone)) {
-          return { status: "already_exists", detail: "Contato encontrado no grupo após revalidação.", attempts: attempt };
-        }
-      } catch { /* ignore */ }
-    }
-
-    return { status: failure.status, detail: failure.detail, attempts: attempt, pauseCampaign: failure.pauseCampaign, cooldownMs: failure.cooldownMs };
+    return {
+      status: "completed",
+      detail: "Contato adicionado com sucesso.",
+      attempts: 1,
+      workingStrategy: addResult.strategyIndex,
+    };
   }
 
-  return { status: lastFailure?.status || "unknown_failure", detail: lastFailure?.detail || "Falha não confirmada.", attempts: maxAttempts, pauseCampaign: lastFailure?.pauseCampaign, cooldownMs: lastFailure?.cooldownMs };
+  if (addResult.errorCode === "already_exists" || addResult.status === 409) {
+    if (addResult.strategyIndex !== undefined && cacheKey) endpointCache.set(cacheKey, addResult.strategyIndex);
+    return { status: "already_exists", detail: "Contato já participava do grupo.", attempts: 1 };
+  }
+
+  const providerMessage = addResult.rawMessage || "Falha sem detalhe.";
+  let failure = classifyAddFailure(providerMessage, addResult.status);
+  let connectionCheck: ConnectionCheckResult | null = null;
+
+  // IMPORTANT: no internal retry loop here.
+  // Each worker invocation processes a single attempt and lets the queue handle retries,
+  // preventing burst calls that were causing 429 + false disconnect cascades.
+  if (failure.status === "connection_unconfirmed") {
+    connectionCheck = await checkInstanceConnection(baseUrl, token);
+    if (connectionCheck.connected === true) {
+      failure = {
+        status: "api_temporary",
+        detail: "A integração acusou desconexão, mas a instância continua conectada.",
+        retryable: true,
+        cooldownMs: randomBetween(20_000, 35_000),
+      };
+    } else if (connectionCheck.connected === false) {
+      failure = {
+        status: "confirmed_disconnect",
+        detail: "Instância revalidada e está realmente desconectada.",
+        retryable: false,
+        pauseCampaign: true,
+        confirmed: true,
+      };
+    }
+  }
+
+  if (failure.status === "permission_unconfirmed") {
+    const groupCheck = await checkGroupAccess(baseUrl, token, groupId);
+    if (groupCheck.invalid) {
+      failure = {
+        status: "invalid_group",
+        detail: groupCheck.detail,
+        retryable: false,
+        pauseCampaign: true,
+        confirmed: true,
+      };
+    }
+  }
+
+  console.log(JSON.stringify({
+    type: "mass-group-inject.attempt_failed",
+    phone,
+    attempt: 1,
+    providerMessage: providerMessage.substring(0, 200),
+    classifiedAs: failure.status,
+    retryable: failure.retryable,
+    connectionStatus: connectionCheck?.status || null,
+  }));
+
+  return {
+    status: failure.status,
+    detail: failure.detail,
+    attempts: 1,
+    pauseCampaign: failure.pauseCampaign,
+    cooldownMs: failure.cooldownMs,
+  };
 }
 
 function parseDeviceIds(value: any): string[] {
