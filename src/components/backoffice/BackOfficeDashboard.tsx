@@ -8,7 +8,7 @@ import {
   Flame, ListTodo, Server, Heart, Loader2, LogOut,
   ChevronRight, Menu, X, BookOpen, MessageCircle, Clock,
   AlertTriangle, XCircle, Skull, Check, Mail, Plug, Sparkles, Key,
-  Send, FileText, Cable, Megaphone, List, Trash2, ToggleLeft, Activity
+  Send, FileText, Cable, Megaphone, List, Trash2, ToggleLeft, Activity, UserPlus
 } from "lucide-react";
 import logoNew from "@/assets/logo-new.png";
 import { Button } from "@/components/ui/button";
