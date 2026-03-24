@@ -50,7 +50,8 @@ export default function GroupJoinCampaignList() {
       return (data || []) as any[];
     },
     enabled: !!user,
-    refetchInterval: 60_000,
+    refetchInterval: () => document.hidden ? false : 60_000,
+    staleTime: 30_000,
   });
 
   const cancelMut = useMutation({
