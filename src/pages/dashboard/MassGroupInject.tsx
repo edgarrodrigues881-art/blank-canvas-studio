@@ -318,7 +318,7 @@ export default function MassGroupInject() {
                   {allDevicesForSelect.length === 0 && (
                     <p className="text-xs text-destructive mt-1.5">Nenhuma instância Uazapi encontrada</p>
                   )}
-                  {selectedDevice && selectedDevice.status !== "connected" && (
+                  {selectedDevice && !isDeviceOnline(selectedDevice.status) && (
                     <p className="text-xs text-amber-500 mt-1.5">⚠ Instância desconectada</p>
                   )}
                 </div>
