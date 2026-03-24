@@ -73,10 +73,25 @@ const FAILURE_STATUSES = new Set([
 ]);
 
 const FINAL_CAMPAIGN_STATUSES = new Set(["done", "completed_with_failures", "paused", "cancelled", "failed"]);
+const RETRYABLE_QUEUE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"] as const;
+const MAX_QUEUE_RETRIES = 3;
 
 const nowIso = () => new Date().toISOString();
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const randomBetween = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+function extractRetryCount(message: string | null | undefined) {
+  const match = String(message || "").match(/^\[retry:(\d+)\]\s*/i);
+  return match ? Number(match[1]) : 0;
+}
+
+function stripRetryMeta(message: string | null | undefined) {
+  return String(message || "").replace(/^\[retry:\d+\]\s*/i, "").trim();
+}
+
+function withRetryMeta(message: string, retryCount: number) {
+  return `[retry:${retryCount}] ${message} Aguardando nova tentativa (${retryCount}/${MAX_QUEUE_RETRIES}).`;
+}
 
 function normalizePhone(raw: string): string | null {
   const digits = String(raw || "").replace(/\D/g, "");
@@ -176,8 +191,9 @@ function collectParticipantsFromValue(value: any, participants: Set<string>) {
   }
 }
 
-async function getGroupParticipants(baseUrl: string, token: string, groupId: string): Promise<Set<string>> {
+async function getGroupParticipantsDetailed(baseUrl: string, token: string, groupId: string): Promise<{ participants: Set<string>; confirmed: boolean; diagnostics: string[] }> {
   const participants = new Set<string>();
+  const diagnostics: string[] = [];
   const strategies = [
     { method: "GET", url: `${baseUrl}/group/participants?groupJid=${encodeURIComponent(groupId)}` },
     { method: "GET", url: `${baseUrl}/group/participantsList?groupJid=${encodeURIComponent(groupId)}` },
@@ -194,16 +210,26 @@ async function getGroupParticipants(baseUrl: string, token: string, groupId: str
         ...(strategy.body ? { body: JSON.stringify(strategy.body) } : {}),
       });
       const { raw, body } = await readApiResponse(res);
-      if (!res.ok) continue;
+      if (!res.ok) {
+        diagnostics.push(`${strategy.method} ${strategy.url}: HTTP ${res.status}`);
+        continue;
+      }
       collectParticipantsFromValue(body, participants);
       collectParticipantsFromValue(raw, participants);
-      if (participants.size > 0) return participants;
+      if (participants.size > 0) return { participants, confirmed: true, diagnostics };
+      diagnostics.push(`${strategy.method} ${strategy.url}: resposta sem participantes`);
     } catch (error) {
       console.error("getGroupParticipants error:", error);
+      diagnostics.push(`${strategy.method} ${strategy.url}: ${error instanceof Error ? error.message : "erro"}`);
     }
   }
 
-  return participants;
+  return { participants, confirmed: false, diagnostics };
+}
+
+async function getGroupParticipants(baseUrl: string, token: string, groupId: string): Promise<Set<string>> {
+  const result = await getGroupParticipantsDetailed(baseUrl, token, groupId);
+  return result.participants;
 }
 
 function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClassification {
@@ -477,7 +503,7 @@ async function executeAddWithRecovery(baseUrl: string, token: string, groupId: s
     let connectionCheck: ConnectionCheckResult | null = null;
     let groupCheck: GroupCheckResult | null = null;
 
-    if (["rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"].includes(failure.status)) {
+    if (failure.status === "unknown_failure" && attempt === maxAttempts) {
       try {
         if (await confirmAlreadyInGroup(baseUrl, token, groupId, phone)) {
           return { status: "already_exists", detail: "O contato passou a constar no grupo após a revalidação e foi contado como sucesso.", attempts: attempt };
@@ -487,7 +513,7 @@ async function executeAddWithRecovery(baseUrl: string, token: string, groupId: s
       }
     }
 
-    if (failure.status === "connection_unconfirmed" || providerMessageLower.includes("disconnected")) {
+    if (failure.status === "connection_unconfirmed") {
       connectionCheck = await checkInstanceConnection(baseUrl, token);
       if (connectionCheck.connected === true) {
         failure = { status: "api_temporary", detail: "A integração acusou desconexão, mas a instância continua conectada. A falha foi tratada como temporária.", retryable: true, cooldownMs: randomBetween(8_000, 14_000) };
@@ -496,7 +522,7 @@ async function executeAddWithRecovery(baseUrl: string, token: string, groupId: s
       }
     }
 
-    if (failure.status === "permission_unconfirmed" || failure.status === "invalid_group") {
+    if ((failure.status === "permission_unconfirmed" || failure.status === "invalid_group") && attempt === maxAttempts) {
       groupCheck = await checkGroupAccess(baseUrl, token, groupId);
       if (groupCheck.invalid) {
         failure = { status: "invalid_group", detail: groupCheck.detail, retryable: false, pauseCampaign: true, confirmed: true };
@@ -581,13 +607,13 @@ async function updateCampaignCounters(sb: any, campaign: any, status: string, pa
 }
 
 async function finalizeCampaignIfNeeded(sb: any, campaignId: string) {
-  const { data: remaining } = await sb
+  const { count } = await sb
     .from("mass_inject_contacts")
     .select("id", { count: "exact", head: true })
     .eq("campaign_id", campaignId)
-    .in("status", ["pending", "processing"]);
+    .in("status", [...RETRYABLE_QUEUE_STATUSES, "processing"]);
 
-  const remainingCount = Number((remaining as any)?.length || 0);
+  const remainingCount = Number(count || 0);
   if (remainingCount > 0) return false;
 
   const { data: campaign } = await sb
@@ -645,11 +671,11 @@ async function runCampaignWorker(sb: any, campaignId: string) {
 
   const { data: contacts } = await sb
     .from("mass_inject_contacts")
-    .select("id, phone, status, created_at")
+    .select("id, phone, status, created_at, error_message")
     .eq("campaign_id", campaignId)
-    .eq("status", "pending")
+    .in("status", [...RETRYABLE_QUEUE_STATUSES])
     .order("created_at", { ascending: true })
-    .limit(2);
+    .limit(1);
 
   if (!contacts || contacts.length === 0) {
     await finalizeCampaignIfNeeded(sb, campaignId);
@@ -668,50 +694,50 @@ async function runCampaignWorker(sb: any, campaignId: string) {
     return;
   }
 
-  let participants = await getGroupParticipants(device.uazapi_base_url, device.uazapi_token, campaign.group_id);
+  const contact = contacts[0];
   let nextDelayMs = 0;
+  const { data: latestCampaign } = await sb.from("mass_inject_campaigns").select("*").eq("id", campaignId).single();
+  if (!latestCampaign || latestCampaign.status !== "processing") return;
 
-  for (const contact of contacts) {
-    const { data: latestCampaign } = await sb.from("mass_inject_campaigns").select("*").eq("id", campaignId).single();
-    if (!latestCampaign || latestCampaign.status !== "processing") return;
+  const retryCount = extractRetryCount(contact.error_message);
+  await sb.from("mass_inject_contacts").update({ status: "processing", error_message: retryCount > 0 ? `Reprocessando contato após falha transitória (${retryCount}/${MAX_QUEUE_RETRIES})...` : "Enviando solicitação para a Uazapi com revalidação segura...", device_used: device.name || device.id }).eq("id", contact.id);
 
-    await sb.from("mass_inject_contacts").update({ status: "processing", error_message: "Verificando se o número já está no grupo...", device_used: device.name || device.id }).eq("id", contact.id);
+  const result = await executeAddWithRecovery(device.uazapi_base_url, device.uazapi_token, latestCampaign.group_id, contact.phone);
+  const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"].includes(result.status) && !result.pauseCampaign;
 
-    let result: ExecuteResult;
-    if (participantSetHasPhone(participants, contact.phone)) {
-      result = { status: "already_exists", detail: "Contato já participava do grupo.", attempts: 0 };
-    } else {
-      await sb.from("mass_inject_contacts").update({ error_message: "Enviando solicitação para a Uazapi com revalidação automática..." }).eq("id", contact.id);
-      result = await executeAddWithRecovery(device.uazapi_base_url, device.uazapi_token, latestCampaign.group_id, contact.phone);
-      if (SUCCESS_STATUSES.has(result.status)) {
-        for (const fingerprint of buildPhoneFingerprints(contact.phone)) participants.add(fingerprint);
-      }
-    }
-
-    const finalError = SUCCESS_STATUSES.has(result.status) ? null : result.detail;
+  if (isTransient && retryCount < MAX_QUEUE_RETRIES) {
+    nextDelayMs = computeNextDelayMs(latestCampaign, result.cooldownMs);
     await sb.from("mass_inject_contacts").update({
       status: result.status,
-      error_message: finalError,
+      error_message: withRetryMeta(stripRetryMeta(result.detail), retryCount + 1),
       device_used: device.name || device.id,
       processed_at: nowIso(),
     }).eq("id", contact.id);
-
-    await updateCampaignCounters(sb, latestCampaign, result.status, !!result.pauseCampaign);
-    if (result.pauseCampaign) return;
-
-    const { data: afterUpdateCampaign } = await sb.from("mass_inject_campaigns").select("*").eq("id", campaignId).single();
-    if (!afterUpdateCampaign || afterUpdateCampaign.status !== "processing") return;
-
-    nextDelayMs = computeNextDelayMs(afterUpdateCampaign, result.status === "rate_limited" ? result.cooldownMs : undefined);
-    if (result.status === "rate_limited") break;
-    if (contact.id !== contacts[contacts.length - 1].id) await sleep(nextDelayMs);
+    await queueCampaignRun(campaignId, nextDelayMs || 1000);
+    return;
   }
+
+  const finalError = SUCCESS_STATUSES.has(result.status) ? null : stripRetryMeta(result.detail);
+  await sb.from("mass_inject_contacts").update({
+    status: result.status,
+    error_message: finalError,
+    device_used: device.name || device.id,
+    processed_at: nowIso(),
+  }).eq("id", contact.id);
+
+  await updateCampaignCounters(sb, latestCampaign, result.status, !!result.pauseCampaign);
+  if (result.pauseCampaign) return;
+
+  const { data: afterUpdateCampaign } = await sb.from("mass_inject_campaigns").select("*").eq("id", campaignId).single();
+  if (!afterUpdateCampaign || afterUpdateCampaign.status !== "processing") return;
+
+  nextDelayMs = computeNextDelayMs(afterUpdateCampaign, result.cooldownMs);
 
   const { data: remainingPending } = await sb
     .from("mass_inject_contacts")
     .select("id")
     .eq("campaign_id", campaignId)
-    .eq("status", "pending")
+    .in("status", [...RETRYABLE_QUEUE_STATUSES])
     .limit(1);
 
   if (remainingPending && remainingPending.length > 0) {
@@ -890,26 +916,50 @@ Deno.serve(async (req) => {
       if (!device) {
         return new Response(JSON.stringify({ error: "Instância não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      const participants = await getGroupParticipants(device.uazapi_base_url, device.uazapi_token, body.groupId);
+      const participantResult = await getGroupParticipantsDetailed(device.uazapi_base_url, device.uazapi_token, body.groupId);
+      if (!participantResult.confirmed) {
+        return new Response(JSON.stringify({ error: "Não foi possível confirmar a lista atual de participantes do grupo. Tente novamente antes de iniciar a campanha.", diagnostics: participantResult.diagnostics.join("; ") }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       const ready: string[] = [];
       const alreadyExists: string[] = [];
       for (const phone of body.contacts || []) {
-        if (participantSetHasPhone(participants, phone)) alreadyExists.push(phone);
+        if (participantSetHasPhone(participantResult.participants, phone)) alreadyExists.push(phone);
         else ready.push(phone);
       }
-      return new Response(JSON.stringify({ ready, alreadyExists, readyCount: ready.length, alreadyExistsCount: alreadyExists.length, totalParticipants: participants.size }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ ready, alreadyExists, readyCount: ready.length, alreadyExistsCount: alreadyExists.length, totalParticipants: participantResult.participants.size }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (action === "create-campaign") {
-      const contacts = Array.isArray(body.contacts) ? body.contacts.map(String) : [];
-      const alreadyExists = Array.isArray(body.alreadyExists) ? body.alreadyExists.map(String) : [];
-      const allContacts = [...contacts, ...alreadyExists];
+      const contacts = Array.isArray(body.contacts) ? Array.from(new Set(body.contacts.map(String))) : [];
+      const deviceIds = Array.isArray(body.deviceIds) ? body.deviceIds.map(String).filter(Boolean) : [];
+      if (!body.groupId || deviceIds.length === 0) {
+        return new Response(JSON.stringify({ error: "Grupo e instância principal são obrigatórios para iniciar a campanha." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const primaryDevice = await getDeviceCredentials(sb, deviceIds[0], user?.id || null, isAdmin);
+      if (!primaryDevice) {
+        return new Response(JSON.stringify({ error: "Instância principal não encontrada ou sem credenciais." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const participantResult = await getGroupParticipantsDetailed(primaryDevice.uazapi_base_url, primaryDevice.uazapi_token, body.groupId);
+      if (!participantResult.confirmed) {
+        return new Response(JSON.stringify({ error: "Não foi possível confirmar quem já está no grupo. A campanha não será iniciada sem essa pré-validação.", diagnostics: participantResult.diagnostics.join("; ") }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const readyContacts: string[] = [];
+      const alreadyExists: string[] = [];
+      for (const phone of contacts) {
+        if (participantSetHasPhone(participantResult.participants, phone)) alreadyExists.push(phone);
+        else readyContacts.push(phone);
+      }
+
+      const allContacts = [...readyContacts, ...alreadyExists];
       const { data: campaign, error } = await sb.from("mass_inject_campaigns").insert({
         user_id: user!.id,
         name: body.name || `Campanha ${new Date().toLocaleString("pt-BR")}`,
         group_id: body.groupId,
         group_name: body.groupName || body.groupId,
-        device_ids: body.deviceIds || [],
+        device_ids: deviceIds,
         status: "queued",
         total_contacts: allContacts.length,
         success_count: 0,
@@ -930,7 +980,7 @@ Deno.serve(async (req) => {
       }
 
       await queueCampaignRun(campaign.id, 0);
-      return new Response(JSON.stringify({ success: true, campaignId: campaign.id }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ success: true, campaignId: campaign.id, readyCount: readyContacts.length, alreadyExistsCount: alreadyExists.length }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (["resume-campaign", "pause-campaign", "cancel-campaign"].includes(action)) {
@@ -941,17 +991,18 @@ Deno.serve(async (req) => {
 
       if (action === "pause-campaign") {
         await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso(), completed_at: null }).eq("id", campaign.id);
+        await sb.from("mass_inject_contacts").update({ status: "pending", error_message: null } as any).eq("campaign_id", campaign.id).eq("status", "processing");
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       if (action === "cancel-campaign") {
-        await sb.from("mass_inject_contacts").update({ status: "cancelled", error_message: "Processamento cancelado pelo usuário.", processed_at: nowIso() } as any).eq("campaign_id", campaign.id).eq("status", "pending");
+        await sb.from("mass_inject_contacts").update({ status: "cancelled", error_message: "Processamento cancelado pelo usuário.", processed_at: nowIso() } as any).eq("campaign_id", campaign.id).in("status", [...RETRYABLE_QUEUE_STATUSES, "processing"]);
         await sb.from("mass_inject_campaigns").update({ status: "cancelled", updated_at: nowIso(), completed_at: nowIso() }).eq("id", campaign.id);
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       await sb.from("mass_inject_contacts").update({ status: "pending", error_message: null } as any).eq("campaign_id", campaign.id).eq("status", "processing");
-      await sb.from("mass_inject_campaigns").update({ status: "processing", updated_at: nowIso(), completed_at: null }).eq("id", campaign.id);
+      await sb.from("mass_inject_campaigns").update({ status: "queued", updated_at: nowIso(), completed_at: null }).eq("id", campaign.id);
       await queueCampaignRun(campaign.id, 0);
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
