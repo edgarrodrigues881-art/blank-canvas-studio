@@ -357,66 +357,136 @@ export default function MassGroupInject() {
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
                     Grupo de Destino
                   </label>
-                  {isLoadingGroups ? (
-                    <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Carregando grupos...
+
+                  {/* Mode tabs */}
+                  <div className="flex gap-1 mb-3 bg-muted/30 p-1 rounded-lg">
+                    {[
+                      { key: "list" as const, label: "Meus Grupos" },
+                      { key: "link" as const, label: "Link do Grupo" },
+                      { key: "jid" as const, label: "JID Manual" },
+                    ].map(m => (
+                      <button
+                        key={m.key}
+                        onClick={() => setGroupInputMode(m.key)}
+                        className={`flex-1 text-[11px] font-semibold py-1.5 rounded-md transition-all ${
+                          groupInputMode === m.key
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Mode: List */}
+                  {groupInputMode === "list" && (
+                    <>
+                      {!selectedDeviceId ? (
+                        <div className="rounded-xl border border-dashed border-border/40 p-4 text-center">
+                          <p className="text-xs text-muted-foreground">Selecione uma instância primeiro</p>
+                        </div>
+                      ) : isLoadingGroups ? (
+                        <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Carregando grupos...
+                        </div>
+                      ) : groups.length > 0 ? (
+                        <div className="space-y-2">
+                          <Input
+                            value={groupSearch}
+                            onChange={e => setGroupSearch(e.target.value)}
+                            placeholder="Buscar grupo..."
+                            className="h-9 text-sm"
+                          />
+                          <div className="max-h-[200px] overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/20">
+                            {filteredGroups.map(g => (
+                              <button
+                                key={g.jid}
+                                onClick={() => setGroupId(g.jid)}
+                                className={`w-full text-left px-3.5 py-2.5 transition-colors hover:bg-muted/50 ${
+                                  groupId === g.jid ? "bg-primary/10 border-l-2 border-l-primary" : ""
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-foreground truncate">{g.name}</p>
+                                    <p className="text-[10px] text-muted-foreground/60 font-mono truncate mt-0.5">{g.jid}</p>
+                                  </div>
+                                  {g.participants > 0 && (
+                                    <Badge variant="outline" className="text-[10px] shrink-0 ml-2">
+                                      {g.participants}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </button>
+                            ))}
+                            {filteredGroups.length === 0 && (
+                              <p className="text-xs text-muted-foreground text-center py-4">Nenhum grupo encontrado</p>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-border/40 p-4 text-center space-y-2">
+                          <Globe className="w-5 h-5 text-muted-foreground/40 mx-auto" />
+                          <p className="text-xs text-muted-foreground">Nenhum grupo encontrado</p>
+                          <p className="text-[10px] text-muted-foreground/50">Use "Link do Grupo" ou "JID Manual"</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Mode: Link */}
+                  {groupInputMode === "link" && (
+                    <div className="space-y-3">
+                      <Input
+                        value={groupLink}
+                        onChange={e => setGroupLink(e.target.value)}
+                        placeholder="https://chat.whatsapp.com/XXXXXXXX"
+                        className="h-11 font-mono text-sm"
+                      />
+                      <p className="text-[10px] text-muted-foreground/60">
+                        Cole o link de convite do grupo. O sistema vai resolver o JID automaticamente.
+                      </p>
+                      <Button
+                        onClick={handleResolveLink}
+                        disabled={isResolvingLink || !groupLink.trim() || !selectedDeviceId}
+                        variant="outline"
+                        className="w-full gap-2 h-10"
+                        size="sm"
+                      >
+                        {isResolvingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                        {isResolvingLink ? "Resolvendo..." : "Resolver Link"}
+                      </Button>
                     </div>
-                  ) : groups.length > 0 ? (
+                  )}
+
+                  {/* Mode: JID Manual */}
+                  {groupInputMode === "jid" && (
                     <div className="space-y-2">
                       <Input
-                        value={groupSearch}
-                        onChange={e => setGroupSearch(e.target.value)}
-                        placeholder="Buscar grupo..."
-                        className="h-9 text-sm"
+                        value={groupId}
+                        onChange={e => setGroupId(e.target.value)}
+                        placeholder="120363XXXXXXXXXX@g.us"
+                        className="h-11 font-mono text-sm"
                       />
-                      <div className="max-h-[240px] overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/20">
-                        {filteredGroups.map(g => (
-                          <button
-                            key={g.jid}
-                            onClick={() => setGroupId(g.jid)}
-                            className={`w-full text-left px-3.5 py-3 transition-colors hover:bg-muted/50 ${
-                              groupId === g.jid ? "bg-primary/10 border-l-2 border-l-primary" : ""
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium text-foreground truncate">{g.name}</p>
-                                <p className="text-[10px] text-muted-foreground/60 font-mono truncate mt-0.5">{g.jid}</p>
-                              </div>
-                              {g.participants > 0 && (
-                                <Badge variant="outline" className="text-[10px] shrink-0 ml-2">
-                                  {g.participants} <Users className="w-2.5 h-2.5 ml-0.5 inline" />
-                                </Badge>
-                              )}
-                            </div>
-                          </button>
-                        ))}
-                        {filteredGroups.length === 0 && (
-                          <p className="text-xs text-muted-foreground text-center py-4">Nenhum grupo encontrado</p>
-                        )}
-                      </div>
-                    </div>
-                  ) : selectedDeviceId ? (
-                    <div className="rounded-xl border border-dashed border-border/40 p-4 text-center">
-                      <Globe className="w-5 h-5 text-muted-foreground/40 mx-auto mb-1.5" />
-                      <p className="text-xs text-muted-foreground">Nenhum grupo encontrado nesta instância</p>
-                    </div>
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-border/40 p-4 text-center">
-                      <p className="text-xs text-muted-foreground">Selecione uma instância primeiro</p>
+                      <p className="text-[10px] text-muted-foreground/60">
+                        Identificador completo do grupo (JID)
+                      </p>
                     </div>
                   )}
                 </div>
 
                 {/* Selected group summary */}
-                {selectedGroup && (
+                {groupId && (
                   <div className="rounded-xl bg-primary/5 border border-primary/15 px-4 py-3">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">{selectedGroup.name}</p>
-                        <p className="text-[10px] text-muted-foreground/60 font-mono">{selectedGroup.jid}</p>
+                        <p className="text-sm font-semibold text-foreground truncate">
+                          {selectedGroup?.name || "Grupo selecionado"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground/60 font-mono">{groupId}</p>
                       </div>
                     </div>
                   </div>
