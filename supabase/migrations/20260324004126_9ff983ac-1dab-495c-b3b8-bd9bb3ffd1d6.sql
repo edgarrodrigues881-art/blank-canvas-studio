@@ -1,0 +1,1 @@
+UPDATE feature_controls SET status = 'active' WHERE id = '3a219a49-6459-4f78-a844-cfa8acfa9e19';
