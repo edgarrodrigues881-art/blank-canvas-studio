@@ -244,19 +244,25 @@ const Auth = () => {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="flex flex-col items-center mb-8"
         >
-          <div className="relative w-[240px] h-[240px] flex items-center justify-center mb-5">
+          <div className="relative flex items-center justify-center mb-5">
+            {/* Gold glow behind logo */}
+            <div className="absolute -inset-6 bg-gradient-to-br from-amber-500/20 via-yellow-500/15 to-amber-600/20 blur-[40px] rounded-full" />
+            <div className="absolute -inset-10 bg-amber-500/10 blur-[60px] rounded-full" />
+            {/* Gold particles */}
             <FloatingParticles />
-            {/* Soft radial glow */}
-            <div
-              className="absolute w-40 h-40 rounded-full opacity-15"
-              style={{ background: "radial-gradient(circle, #22c55e 0%, transparent 70%)" }}
-            />
-            {/* Clean logo — no border box */}
-            <img
-              src={logo}
-              alt="DG Contingência Pro"
-              className="relative w-[140px] h-[140px] rounded-2xl drop-shadow-lg"
-            />
+            {/* Gold frame */}
+            <div className="relative w-28 h-28 sm:w-40 sm:h-40 rounded-2xl overflow-hidden" style={{
+              padding: '2px',
+              background: 'linear-gradient(135deg, #fbbf24, #f59e0b, #d97706, #fbbf24)',
+            }}>
+              <div className="w-full h-full rounded-[14px] overflow-hidden bg-background">
+                <img
+                  src={logo}
+                  alt="DG Contingência Pro"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
           </div>
           <span className="text-xs font-semibold tracking-[0.4em] uppercase select-none">
             <span style={{ color: "#34d399" }}>DG</span>
