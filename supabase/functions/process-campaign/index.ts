@@ -880,6 +880,14 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "Device lock lost", lockedBy: lockResult.lockedBy }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      // RE-CHECK status after acquiring locks (prevents race with pause)
+      const { data: freshStatus } = await serviceClient.from("campaigns").select("status").eq("id", campaignId).single();
+      if (freshStatus?.status !== "running") {
+        console.log(`Campaign ${campaignId} status changed to ${freshStatus?.status} during lock acquisition, aborting.`);
+        await releaseDeviceLocks(serviceClient, deviceIds, campaignId);
+        return new Response(JSON.stringify({ success: true, status: freshStatus?.status }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       const device = allDevices[0];
       console.log(`Campaign ${campaignId} using device: ${device.name} (${device.id})${allDevices.length > 1 ? `, total: ${allDevices.length}` : ''}`);
 
