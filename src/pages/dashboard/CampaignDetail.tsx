@@ -226,13 +226,14 @@ const CampaignDetail = () => {
   }, [id, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, toast]);
 
   const saveMessagesPerInstance = useCallback(async () => {
-    if (!id || (campaign?.messages_per_instance ?? 0) <= 0) return;
+    if (!id) return;
     const parsed = Number(messagesPerInstanceInput.replace(/\D/g, ""));
     const value = parsed > 0 ? Math.min(500, parsed) : 50;
     setMessagesPerInstanceInput(String(value));
     await supabase.from("campaigns").update({ messages_per_instance: value }).eq("id", id);
     queryClient.invalidateQueries({ queryKey: ["campaign", id] });
-  }, [campaign?.messages_per_instance, id, messagesPerInstanceInput, queryClient]);
+    toast({ title: "✅ Configuração salva" });
+  }, [id, messagesPerInstanceInput, queryClient, toast]);
 
   const [logSearch, setLogSearch] = useState("");
   const [logFilter, setLogFilter] = useState("all");
@@ -680,7 +681,7 @@ const CampaignDetail = () => {
                         const dev = devices.find(d => d.id === did);
                         return (
                           <span key={did} className="inline-flex items-center gap-1 rounded-md bg-muted/30 border border-border/20 px-2 py-0.5 text-[10px] text-muted-foreground">
-                            <span className={cn("w-1.5 h-1.5 rounded-full", dev?.status === "connected" ? "bg-primary" : "bg-muted-foreground")} />
+                            <span className={cn("w-1.5 h-1.5 rounded-full", dev?.status && ["connected", "Ready", "Connected", "authenticated"].includes(dev.status) ? "bg-primary" : "bg-muted-foreground")} />
                             {dev?.name || dev?.number || `Instância ${i + 1}`}
                           </span>
                         );
