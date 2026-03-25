@@ -1,4 +1,4 @@
-// mass-group-inject v15.0 — multi-check disconnect recovery + session_dropped status
+// mass-group-inject v16.0 — human-like behavior: non-linear delays, block pauses, instance rotation, hourly limits
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
