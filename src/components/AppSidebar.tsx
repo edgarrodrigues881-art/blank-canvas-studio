@@ -79,7 +79,6 @@ const menuGroups = [
 
 const developmentItems = [
   { title: "Aquecimento Comunitário", url: "/dashboard/community-warmup", icon: Heart, locked: true },
-  { title: "Conversa entre Chips", url: "/dashboard/chip-conversation", icon: ArrowRightLeft, locked: true },
   { title: "Resposta Automática", url: "/dashboard/auto-reply", icon: BotMessageSquare, locked: true },
 ];
 
