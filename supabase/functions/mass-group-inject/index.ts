@@ -956,10 +956,22 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       processed_at: nowIso(),
     }).eq("id", contact.id);
 
-    await updateCampaignCounters(sb, campaign, result.status, !!result.pauseCampaign);
+    // Check for consecutive real failures auto-pause (NOT for rate_limited/timeout)
+    const shouldAutoPause = !result.pauseCampaign && REAL_FAILURE_STATUSES.has(result.status);
+    let autoPauseReason: string | undefined;
+    if (shouldAutoPause) {
+      const newConsecutive = Number(campaign.consecutive_failures || 0) + 1;
+      if (newConsecutive >= MAX_CONSECUTIVE_FAILURES) {
+        autoPauseReason = `Pausada por ${MAX_CONSECUTIVE_FAILURES} falhas consecutivas reais`;
+        console.log(`[mass-inject] campaign=${campaignId} AUTO-PAUSE: ${newConsecutive} consecutive real failures`);
+      }
+    }
 
-    if (result.pauseCampaign) {
-      console.log(`[mass-inject] campaign=${campaignId} pauseCampaign flag set — stopping`);
+    const pauseReason = result.pauseCampaign ? getPauseReason(result.status) : autoPauseReason;
+    await updateCampaignCounters(sb, campaign, result.status, !!(result.pauseCampaign || autoPauseReason), pauseReason);
+
+    if (result.pauseCampaign || autoPauseReason) {
+      console.log(`[mass-inject] campaign=${campaignId} paused: ${pauseReason}`);
       return;
     }
 
