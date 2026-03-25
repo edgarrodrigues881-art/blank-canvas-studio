@@ -262,28 +262,34 @@ const Devices = () => {
   const { data: warmupCycles = [] } = useQuery({
     queryKey: ["warmup_cycles_active"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("warmup_cycles")
-        .select("device_id, phase, is_running")
-        .eq("is_running", true);
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data, error } = await supabase
+          .from("warmup_cycles")
+          .select("device_id, phase, is_running")
+          .eq("is_running", true);
+        if (error) { console.warn("[Devices] warmup_cycles error:", error.message); return []; }
+        return data || [];
+      } catch { return []; }
     },
     enabled: !!session,
+    retry: 1,
   });
 
   // Fetch campaigns with active states (sending, scheduled, paused)
   const { data: activeCampaigns = [] } = useQuery({
     queryKey: ["active_campaigns_for_devices"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("campaigns")
-        .select("id, name, status, device_id, device_ids")
-        .in("status", ["sending", "scheduled", "paused", "processing"]);
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data, error } = await supabase
+          .from("campaigns")
+          .select("id, name, status, device_id, device_ids")
+          .in("status", ["sending", "scheduled", "paused", "processing"]);
+        if (error) { console.warn("[Devices] campaigns error:", error.message); return []; }
+        return data || [];
+      } catch { return []; }
     },
     enabled: !!session,
+    retry: 1,
   });
 
   const warmupDeviceIds = useMemo(() => {
