@@ -2081,7 +2081,84 @@ const Campaigns = () => {
               </SurfaceCard>
             </div>
 
-            {/* Safety: Pause on disconnect */}
+            {/* Instance Rotation — only when 2+ devices selected */}
+            {selectedDevices.length >= 2 && (
+              <SurfaceCard className="relative p-5 space-y-4 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.03] to-transparent pointer-events-none" />
+                <div className="relative z-10 space-y-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                      <RefreshCw className="w-4 h-4 text-violet-400" />
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-bold text-foreground">Trocar de conta</p>
+                      <p className="text-[10px] text-muted-foreground/50">Alterna entre instâncias após X mensagens</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {([
+                      { value: "single", label: "Única", desc: "Usa apenas a primeira" },
+                      { value: "rotation", label: "Rodízio", desc: "Troca após X msgs" },
+                      { value: "parallel", label: "Paralelo", desc: "Todas ao mesmo tempo" },
+                    ] as const).map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setSendMode(opt.value)}
+                        className={cn(
+                          "flex-1 p-3 rounded-xl border text-center transition-all duration-150",
+                          sendMode === opt.value
+                            ? "border-violet-400/40 bg-violet-500/10 shadow-sm shadow-violet-500/10"
+                            : "border-border/20 hover:border-violet-400/20 bg-card"
+                        )}
+                      >
+                        <p className={cn("text-[11px] font-semibold", sendMode === opt.value ? "text-violet-300" : "text-foreground/70")}>{opt.label}</p>
+                        <p className="text-[9px] text-muted-foreground/40 mt-0.5">{opt.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+
+                  {sendMode === "rotation" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] text-muted-foreground/70">Trocar após quantas mensagens?</p>
+                        <Badge variant="secondary" className="text-[10px] h-5 bg-violet-500/10 text-violet-400 border-violet-500/20">
+                          {messagesPerInstance || 50} msgs
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={1000}
+                          value={messagesPerInstance || 50}
+                          onChange={e => setMessagesPerInstance(Math.max(1, parseInt(e.target.value) || 50))}
+                          className="h-9 text-xs bg-background/50 border-border/30 w-24"
+                        />
+                        <Slider
+                          value={[messagesPerInstance || 50]}
+                          onValueChange={([v]) => setMessagesPerInstance(v)}
+                          min={5}
+                          max={500}
+                          step={5}
+                          className="flex-1"
+                        />
+                      </div>
+                      <p className="text-[9px] text-muted-foreground/40">
+                        A cada {messagesPerInstance || 50} mensagens, o sistema troca para a próxima instância automaticamente
+                      </p>
+                    </div>
+                  )}
+
+                  {sendMode === "parallel" && (
+                    <p className="text-[10px] text-violet-400/60 flex items-center gap-1.5">
+                      <Zap className="w-3 h-3" />
+                      Todas as {selectedDevices.length} instâncias enviarão simultaneamente — contatos divididos igualmente
+                    </p>
+                  )}
+                </div>
+              </SurfaceCard>
+            )}
             <SurfaceCard className="p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
