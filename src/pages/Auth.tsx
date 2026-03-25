@@ -321,16 +321,6 @@ const Auth = () => {
                     <Input id="phone" type="tel" placeholder="(00) 00000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} required maxLength={20} />
                   </div>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="company" className="text-[11px] font-semibold text-white/40 tracking-wider uppercase">
-                    Nome fantasia
-                  </Label>
-                  <div className="relative group">
-                    <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 group-focus-within:text-emerald-400 transition-colors" />
-                    <Input id="company" type="text" placeholder="Nome da empresa" value={company} onChange={(e) => setCompany(e.target.value)} className={inputClass} required maxLength={100} />
-                  </div>
-                </div>
               </>
             )}
 
