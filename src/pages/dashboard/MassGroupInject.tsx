@@ -899,11 +899,15 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
 function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillName }: { onBack: () => void; onCampaignCreated: (id: string) => void; prefillContacts?: string[]; prefillName?: string }) {
   const { user } = useAuth();
   const [step, setStep] = useState<Step>("import");
-  const [campaignName, setCampaignName] = useState(prefillName ? `Retry - ${prefillName}` : "");
-  const [groupId, setGroupId] = useState("");
-  const [groupName, setGroupName] = useState("");
-  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
-  const [rawInput, setRawInput] = useState(prefillContacts?.join("\n") || "");
+  const initDraft = useRef(() => {
+    try { const r = localStorage.getItem("mass-inject-draft"); return r ? JSON.parse(r) : null; } catch { return null; }
+  });
+  const _d = useRef(prefillContacts?.length ? null : initDraft.current());
+  const [campaignName, setCampaignName] = useState(prefillName ? `Retry - ${prefillName}` : (_d.current?.campaignName || ""));
+  const [groupId, setGroupId] = useState(_d.current?.groupId || "");
+  const [groupName, setGroupName] = useState(_d.current?.groupName || "");
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>(_d.current?.selectedDeviceIds || []);
+  const [rawInput, setRawInput] = useState(prefillContacts?.join("\n") || (_d.current?.rawInput || ""));
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [participantCheck, setParticipantCheck] = useState<ParticipantCheckResult | null>(null);
   const [isValidating, setIsValidating] = useState(false);
