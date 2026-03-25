@@ -1777,6 +1777,7 @@ export type Database = {
           already_count: number
           assignment_mode: string
           completed_at: string | null
+          consecutive_failures: number
           created_at: string
           device_ids: Json
           fail_count: number
@@ -1793,10 +1794,13 @@ export type Database = {
           next_run_at: string | null
           pause_after: number
           pause_duration: number
+          pause_reason: string | null
+          rate_limit_count: number
           rotate_after: number
           started_at: string | null
           status: string
           success_count: number
+          timeout_count: number
           total_contacts: number
           updated_at: string
           user_id: string
@@ -1805,6 +1809,7 @@ export type Database = {
           already_count?: number
           assignment_mode?: string
           completed_at?: string | null
+          consecutive_failures?: number
           created_at?: string
           device_ids?: Json
           fail_count?: number
@@ -1821,10 +1826,13 @@ export type Database = {
           next_run_at?: string | null
           pause_after?: number
           pause_duration?: number
+          pause_reason?: string | null
+          rate_limit_count?: number
           rotate_after?: number
           started_at?: string | null
           status?: string
           success_count?: number
+          timeout_count?: number
           total_contacts?: number
           updated_at?: string
           user_id: string
@@ -1833,6 +1841,7 @@ export type Database = {
           already_count?: number
           assignment_mode?: string
           completed_at?: string | null
+          consecutive_failures?: number
           created_at?: string
           device_ids?: Json
           fail_count?: number
@@ -1849,10 +1858,13 @@ export type Database = {
           next_run_at?: string | null
           pause_after?: number
           pause_duration?: number
+          pause_reason?: string | null
+          rate_limit_count?: number
           rotate_after?: number
           started_at?: string | null
           status?: string
           success_count?: number
+          timeout_count?: number
           total_contacts?: number
           updated_at?: string
           user_id?: string

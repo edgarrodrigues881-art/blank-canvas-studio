@@ -421,8 +421,12 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
       ) : (
         <div className="grid gap-3">
           {filteredCampaigns.map((c: any) => {
-            const successTotal = (c.success_count || 0) + (c.already_count || 0);
-            const processed = successTotal + (c.fail_count || 0);
+            const sc = c.success_count || 0;
+            const ac = c.already_count || 0;
+            const fc = c.fail_count || 0;
+            const rl = c.rate_limit_count || 0;
+            const to = c.timeout_count || 0;
+            const processed = sc + ac + fc + rl + to;
             const progress = c.total_contacts > 0 ? Math.round((processed / c.total_contacts) * 100) : 0;
             return (
               <Card key={c.id} className="border-border/40 bg-card/80 hover:bg-card/90 transition-colors cursor-pointer group" onClick={() => onViewCampaign(c.id)}>
@@ -438,10 +442,17 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span className="truncate max-w-[200px]">{c.group_name || c.group_id?.substring(0, 15) + "..."}</span>
                         <span>{c.total_contacts} contatos</span>
-                        <span className="text-emerald-500">{successTotal} ok</span>
-                        {c.fail_count > 0 && <span className="text-destructive">{c.fail_count} falha{c.fail_count !== 1 ? "s" : ""}</span>}
+                        <span className="text-emerald-500">{sc} adicionados</span>
+                        {ac > 0 && <span className="text-blue-500">{ac} já no grupo</span>}
+                        {fc > 0 && <span className="text-destructive">{fc} falha{fc !== 1 ? "s" : ""}</span>}
+                        {rl > 0 && <span className="text-amber-500">{rl} rate limit</span>}
                         <span>{new Date(c.created_at).toLocaleDateString("pt-BR")}</span>
                       </div>
+                      {c.pause_reason && c.status === "paused" && (
+                        <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" /> {c.pause_reason}
+                        </p>
+                      )}
                       {c.status === "processing" && (
                         <div className="mt-2 flex items-center gap-2">
                           <Progress value={progress} className="h-1.5 flex-1 max-w-[200px]" />
@@ -728,8 +739,13 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     );
   }
 
-  const successTotal = (campaign.success_count || 0) + (campaign.already_count || 0);
-  const processed = successTotal + (campaign.fail_count || 0);
+  const successCount = campaign.success_count || 0;
+  const alreadyCount = campaign.already_count || 0;
+  const failCount = campaign.fail_count || 0;
+  const rateLimitCount = campaign.rate_limit_count || 0;
+  const timeoutCount = campaign.timeout_count || 0;
+  const successTotal = successCount + alreadyCount;
+  const processed = successTotal + failCount + rateLimitCount + timeoutCount;
   const pendingCount = contacts.filter((c: any) => c.status === "pending").length;
   const cancelledCount = contacts.filter((c: any) => c.status === "cancelled").length;
   const progress = campaign.total_contacts > 0 ? Math.round((processed / campaign.total_contacts) * 100) : 0;
@@ -803,24 +819,35 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
         {[
           { label: "Total", value: campaign.total_contacts, color: "text-foreground" },
-          { label: "Sucesso", value: successTotal, color: "text-emerald-500", sub: campaign.already_count > 0 ? `(${campaign.success_count || 0} novos + ${campaign.already_count} já no grupo)` : undefined },
-          { label: "Falhas", value: campaign.fail_count || 0, color: "text-destructive" },
-          { label: "Pendentes", value: pendingCount, color: "text-amber-500" },
-          { label: "Cancelados", value: cancelledCount, color: "text-muted-foreground" },
+          { label: "Adicionados", value: successCount, color: "text-emerald-500" },
+          { label: "Já no Grupo", value: alreadyCount, color: "text-blue-500" },
+          { label: "Falhas Reais", value: failCount, color: "text-destructive" },
+          { label: "Rate Limit", value: rateLimitCount, color: "text-amber-500" },
+          { label: "Timeout", value: timeoutCount, color: "text-amber-500" },
+          { label: "Pendentes", value: pendingCount, color: "text-muted-foreground" },
           { label: "Progresso", value: `${progress}%`, color: "text-primary" },
         ].map(s => (
           <Card key={s.label} className="border-border/40 bg-card/80">
             <CardContent className="pt-4 pb-3 px-4">
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{s.label}</span>
               <p className={`text-2xl font-bold ${s.color} mt-1`}>{s.value}</p>
-              {(s as any).sub && <p className="text-[9px] text-muted-foreground mt-0.5">{(s as any).sub}</p>}
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Pause reason */}
+      {campaign.status === "paused" && campaign.pause_reason && (
+        <Card className="border-amber-500/20 bg-amber-500/5">
+          <CardContent className="py-3 px-5 flex items-center gap-3">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+            <span className="text-sm text-amber-600 font-medium">{campaign.pause_reason}</span>
+          </CardContent>
+        </Card>
+      )}
 
       {isRunning && (
         <Card className="border-primary/20 bg-primary/5">
@@ -841,8 +868,11 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
         <div className="flex items-center gap-2 flex-wrap">
           {[
             { key: "all", label: `Todos (${contacts.length})` },
-            { key: "success", label: `Sucesso (${successTotal})` },
-            { key: "failed", label: `Falhas (${campaign.fail_count || 0})` },
+            { key: "completed", label: `Adicionados (${successCount})` },
+            { key: "already_exists", label: `Já no Grupo (${alreadyCount})` },
+            { key: "failed", label: `Falhas (${failCount})` },
+            { key: "rate_limited", label: `Rate Limit (${rateLimitCount})` },
+            ...(timeoutCount > 0 ? [{ key: "timeout", label: `Timeout (${timeoutCount})` }] : []),
             { key: "pending", label: `Pendentes (${pendingCount})` },
             ...(cancelledCount > 0 ? [{ key: "cancelled", label: `Cancelados (${cancelledCount})` }] : []),
           ].map(f => (
