@@ -1300,7 +1300,7 @@ Deno.serve(async (req) => {
       if (!campaign || (!isAdmin && campaign.user_id !== user!.id)) return new Response(JSON.stringify({ error: "Campanha não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       if (action === "pause-campaign") {
-        await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso(), completed_at: null, next_run_at: null }).eq("id", campaign.id);
+        await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso(), completed_at: null, next_run_at: null, pause_reason: "Pausada manualmente pelo usuário" }).eq("id", campaign.id);
         await emitCampaignEvent(sb, campaign.id, "campaign_paused", "warning");
         await sb.from("mass_inject_contacts").update({ status: "pending", error_message: null } as any).eq("campaign_id", campaign.id).eq("status", "processing");
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -1314,7 +1314,7 @@ Deno.serve(async (req) => {
 
       // resume
       await sb.from("mass_inject_contacts").update({ status: "pending", error_message: null } as any).eq("campaign_id", campaign.id).eq("status", "processing");
-      await sb.from("mass_inject_campaigns").update({ status: "queued", updated_at: nowIso(), completed_at: null, next_run_at: null }).eq("id", campaign.id);
+      await sb.from("mass_inject_campaigns").update({ status: "queued", updated_at: nowIso(), completed_at: null, next_run_at: null, pause_reason: null, consecutive_failures: 0 }).eq("id", campaign.id);
       await emitCampaignEvent(sb, campaign.id, "campaign_resumed", "info");
       await queueCampaignRun(campaign.id, 0);
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
