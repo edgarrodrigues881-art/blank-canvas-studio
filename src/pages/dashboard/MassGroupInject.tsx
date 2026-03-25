@@ -9,7 +9,7 @@ import {
   FileText, BarChart3, UserPlus, ChevronRight, Globe,
   Clock, Pause, ArrowLeftRight, Settings2, Timer,
   StopCircle, AlertTriangle, TrendingUp, Plus, ArrowLeft,
-  Eye, Info, WifiOff, Link2, Hash, AlertCircle
+  Eye, Info, WifiOff, Link2, Hash, AlertCircle, Download, RotateCcw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -177,6 +177,18 @@ function isFailureStatus(status: string) {
     "cancelled",
   ].includes(status);
 }
+
+// Statuses eligible for retry / export (not terminal successes or unrecoverable)
+const RETRYABLE_EXPORT_STATUSES = new Set([
+  "rate_limited",
+  "api_temporary",
+  "connection_unconfirmed",
+  "confirmed_disconnect",
+  "permission_unconfirmed",
+  "unknown_failure",
+  "blocked",
+  "unauthorized",
+]);
 
 // ═══════════════════════════════════════════════════════════════
 // NEXT ACTION COUNTDOWN
@@ -440,7 +452,7 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
 // ═══════════════════════════════════════════════════════════════
 // CAMPAIGN DETAIL VIEW
 // ═══════════════════════════════════════════════════════════════
-function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: () => void }) {
+function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campaignId: string; onBack: () => void; onNewCampaignFromFailed?: (phones: string[], sourceName: string) => void }) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [activeFilter, setActiveFilter] = useState("all");
@@ -652,6 +664,29 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
     return list;
   }, [contacts, activeFilter, searchContact]);
 
+  const retryableContacts = useMemo(() => {
+    return contacts.filter((c: any) => RETRYABLE_EXPORT_STATUSES.has(c.status));
+  }, [contacts]);
+
+  const handleExportNotAdded = useCallback(() => {
+    if (retryableContacts.length === 0) { toast.info("Nenhum contato disponível para exportação"); return; }
+    const lines = retryableContacts.map((c: any) => c.phone);
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nao_adicionados_${campaign?.name?.replace(/\s+/g, "_") || campaignId}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${lines.length} contatos exportados`);
+  }, [retryableContacts, campaign, campaignId]);
+
+  const handleNewCampaignFromFailed = useCallback(() => {
+    if (retryableContacts.length === 0) { toast.info("Nenhum contato disponível para nova campanha"); return; }
+    const phones = retryableContacts.map((c: any) => c.phone);
+    onNewCampaignFromFailed?.(phones, campaign?.name || "Campanha anterior");
+  }, [retryableContacts, campaign, onNewCampaignFromFailed]);
+
   if (isLoading || !campaign) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -670,6 +705,7 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
   const canResume = (campaign.status === "paused" || campaign.status === "draft") && pendingCount > 0 && !isActionPending;
   const canPause = isRunning && !isActionPending;
   const canCancel = (isRunning || campaign.status === "paused") && campaign.status !== "cancelled" && campaign.status !== "done" && !isActionPending;
+  const isDone = ["done", "completed_with_failures", "cancelled", "failed"].includes(campaign.status || "");
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -708,6 +744,19 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
           <RefreshCw className={`w-3.5 h-3.5 ${isManualRefreshing ? "animate-spin" : ""}`} />
           {isManualRefreshing ? "Atualizando..." : "Atualizar"}
         </Button>
+        {isDone && retryableContacts.length > 0 && (
+          <>
+            <div className="w-px h-6 bg-border/40" />
+            <Button variant="outline" size="sm" onClick={handleExportNotAdded} className="gap-1.5 text-xs">
+              <Download className="w-3.5 h-3.5" /> Exportar não adicionados ({retryableContacts.length})
+            </Button>
+            {onNewCampaignFromFailed && (
+              <Button variant="outline" size="sm" onClick={handleNewCampaignFromFailed} className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10">
+                <RotateCcw className="w-3.5 h-3.5" /> Nova campanha com não adicionados
+              </Button>
+            )}
+          </>
+        )}
       </div>
 
       {/* Runtime note */}
@@ -825,14 +874,14 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
 // ═══════════════════════════════════════════════════════════════
 // CREATE CAMPAIGN VIEW
 // ═══════════════════════════════════════════════════════════════
-function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onCampaignCreated: (id: string) => void }) {
+function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillName }: { onBack: () => void; onCampaignCreated: (id: string) => void; prefillContacts?: string[]; prefillName?: string }) {
   const { user } = useAuth();
   const [step, setStep] = useState<Step>("import");
-  const [campaignName, setCampaignName] = useState("");
+  const [campaignName, setCampaignName] = useState(prefillName ? `Retry - ${prefillName}` : "");
   const [groupId, setGroupId] = useState("");
   const [groupName, setGroupName] = useState("");
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
-  const [rawInput, setRawInput] = useState("");
+  const [rawInput, setRawInput] = useState(prefillContacts?.join("\n") || "");
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [participantCheck, setParticipantCheck] = useState<ParticipantCheckResult | null>(null);
   const [isValidating, setIsValidating] = useState(false);
@@ -1746,13 +1795,34 @@ function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onC
 export default function MassGroupInject() {
   const [view, setView] = useState<View>("list");
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
+  const [prefillContacts, setPrefillContacts] = useState<string[] | undefined>();
+  const [prefillName, setPrefillName] = useState<string | undefined>();
+
+  const handleNewCampaignFromFailed = useCallback((phones: string[], sourceName: string) => {
+    setPrefillContacts(phones);
+    setPrefillName(sourceName);
+    setView("create");
+  }, []);
 
   if (view === "create") {
-    return <CreateCampaign onBack={() => setView("list")} onCampaignCreated={(id) => { setSelectedCampaignId(id); setView("detail"); }} />;
+    return (
+      <CreateCampaign
+        onBack={() => { setView("list"); setPrefillContacts(undefined); setPrefillName(undefined); }}
+        onCampaignCreated={(id) => { setSelectedCampaignId(id); setView("detail"); setPrefillContacts(undefined); setPrefillName(undefined); }}
+        prefillContacts={prefillContacts}
+        prefillName={prefillName}
+      />
+    );
   }
 
   if (view === "detail" && selectedCampaignId) {
-    return <CampaignDetail campaignId={selectedCampaignId} onBack={() => { setSelectedCampaignId(null); setView("list"); }} />;
+    return (
+      <CampaignDetail
+        campaignId={selectedCampaignId}
+        onBack={() => { setSelectedCampaignId(null); setView("list"); }}
+        onNewCampaignFromFailed={handleNewCampaignFromFailed}
+      />
+    );
   }
 
   return <CampaignList onCreateNew={() => setView("create")} onViewCampaign={(id) => { setSelectedCampaignId(id); setView("detail"); }} />;
