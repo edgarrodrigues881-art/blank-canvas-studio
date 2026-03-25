@@ -808,24 +808,35 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
         {[
           { label: "Total", value: campaign.total_contacts, color: "text-foreground" },
-          { label: "Sucesso", value: successTotal, color: "text-emerald-500", sub: campaign.already_count > 0 ? `(${campaign.success_count || 0} novos + ${campaign.already_count} já no grupo)` : undefined },
-          { label: "Falhas", value: campaign.fail_count || 0, color: "text-destructive" },
-          { label: "Pendentes", value: pendingCount, color: "text-amber-500" },
-          { label: "Cancelados", value: cancelledCount, color: "text-muted-foreground" },
+          { label: "Adicionados", value: successCount, color: "text-emerald-500" },
+          { label: "Já no Grupo", value: alreadyCount, color: "text-blue-500" },
+          { label: "Falhas Reais", value: failCount, color: "text-destructive" },
+          { label: "Rate Limit", value: rateLimitCount, color: "text-amber-500" },
+          { label: "Timeout", value: timeoutCount, color: "text-amber-500" },
+          { label: "Pendentes", value: pendingCount, color: "text-muted-foreground" },
           { label: "Progresso", value: `${progress}%`, color: "text-primary" },
         ].map(s => (
           <Card key={s.label} className="border-border/40 bg-card/80">
             <CardContent className="pt-4 pb-3 px-4">
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{s.label}</span>
               <p className={`text-2xl font-bold ${s.color} mt-1`}>{s.value}</p>
-              {(s as any).sub && <p className="text-[9px] text-muted-foreground mt-0.5">{(s as any).sub}</p>}
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Pause reason */}
+      {campaign.status === "paused" && campaign.pause_reason && (
+        <Card className="border-amber-500/20 bg-amber-500/5">
+          <CardContent className="py-3 px-5 flex items-center gap-3">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+            <span className="text-sm text-amber-600 font-medium">{campaign.pause_reason}</span>
+          </CardContent>
+        </Card>
+      )}
 
       {isRunning && (
         <Card className="border-primary/20 bg-primary/5">
