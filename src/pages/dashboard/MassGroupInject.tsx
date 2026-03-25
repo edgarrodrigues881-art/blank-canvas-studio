@@ -744,6 +744,19 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
           <RefreshCw className={`w-3.5 h-3.5 ${isManualRefreshing ? "animate-spin" : ""}`} />
           {isManualRefreshing ? "Atualizando..." : "Atualizar"}
         </Button>
+        {isDone && retryableContacts.length > 0 && (
+          <>
+            <div className="w-px h-6 bg-border/40" />
+            <Button variant="outline" size="sm" onClick={handleExportNotAdded} className="gap-1.5 text-xs">
+              <Download className="w-3.5 h-3.5" /> Exportar não adicionados ({retryableContacts.length})
+            </Button>
+            {onNewCampaignFromFailed && (
+              <Button variant="outline" size="sm" onClick={handleNewCampaignFromFailed} className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10">
+                <RotateCcw className="w-3.5 h-3.5" /> Nova campanha com não adicionados
+              </Button>
+            )}
+          </>
+        )}
       </div>
 
       {/* Runtime note */}
