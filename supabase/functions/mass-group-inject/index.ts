@@ -657,6 +657,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
   await setCampaignEvent(sb, campaignId, "campaign_started", "info");
 
   let consecutiveFailures = 0;
+  let consecutiveDisconnects = 0;
   const workerStartedAt = Date.now();
   let contactsProcessedThisRun = 0;
 
@@ -696,11 +697,26 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       const deviceId = pickDeviceId(campaign);
       if (!deviceId) {
         await sb.from("mass_inject_campaigns").update({ status: "failed", updated_at: nowIso(), completed_at: nowIso() }).eq("id", campaignId);
+        await emitCampaignEvent(sb, campaignId, "campaign_failed_no_devices", "error");
         break;
       }
 
       const device = await getDeviceCredentials(sb, deviceId, campaign.user_id, true);
       if (!device) {
+        // Check if ANY device in the campaign is available
+        const allDeviceIds = parseDeviceIds(campaign.device_ids);
+        let anyDeviceAvailable = false;
+        for (const did of allDeviceIds) {
+          if (did === deviceId) continue;
+          const alt = await getDeviceCredentials(sb, did, campaign.user_id, true);
+          if (alt) { anyDeviceAvailable = true; break; }
+        }
+        if (!anyDeviceAvailable) {
+          console.log(`[mass-inject] campaign=${campaignId} NO devices available — failing campaign`);
+          await sb.from("mass_inject_campaigns").update({ status: "failed", updated_at: nowIso(), completed_at: nowIso() }).eq("id", campaignId);
+          await emitCampaignEvent(sb, campaignId, "campaign_failed_no_devices", "error");
+          break;
+        }
         await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
         break;
       }
@@ -712,14 +728,50 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       if (shouldCheckConnection) {
         const connCheck = await checkInstanceConnection(device.uazapi_base_url, device.uazapi_token);
         if (connCheck.connected === false) {
-          console.log(`[mass-inject] campaign=${campaignId} device=${device.name} DISCONNECTED — pausing campaign`);
+          console.log(`[mass-inject] campaign=${campaignId} device=${device.name} DISCONNECTED`);
           await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", device.id);
+          consecutiveDisconnects++;
+
+          // Check if ALL devices are disconnected
+          const allDeviceIds = parseDeviceIds(campaign.device_ids);
+          let anyConnected = false;
+          for (const did of allDeviceIds) {
+            if (did === device.id) continue;
+            const altDevice = await getDeviceCredentials(sb, did, campaign.user_id, true);
+            if (altDevice) {
+              const altConn = await checkInstanceConnection(altDevice.uazapi_base_url, altDevice.uazapi_token);
+              if (altConn.connected !== false) { anyConnected = true; break; }
+              await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", altDevice.id);
+            }
+          }
+
+          if (!anyConnected) {
+            console.log(`[mass-inject] campaign=${campaignId} ALL devices disconnected — failing campaign`);
+            // Mark all pending contacts as failed with clear message
+            await sb.from("mass_inject_contacts")
+              .update({ status: "confirmed_disconnect", error_message: "Todas as instâncias desconectadas. Campanha finalizada.", processed_at: nowIso() } as any)
+              .eq("campaign_id", campaignId)
+              .in("status", ["pending", "processing"]);
+            const pendingAsFailed = contacts?.length || 0;
+            await sb.from("mass_inject_campaigns").update({
+              status: "failed",
+              updated_at: nowIso(),
+              completed_at: nowIso(),
+              fail_count: (campaign.fail_count || 0) + pendingAsFailed,
+            }).eq("id", campaignId);
+            await emitCampaignEvent(sb, campaignId, "all_instances_disconnected", "error");
+            break;
+          }
+
+          // Only current device disconnected, pause to let user fix
           await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
+          await emitCampaignEvent(sb, campaignId, "instance_disconnected", "error");
           break;
         }
         // If connected, reset consecutive failures
         if (connCheck.connected === true && consecutiveFailures > 0) {
           console.log(`[mass-inject] campaign=${campaignId} connection confirmed after ${consecutiveFailures} failures`);
+          consecutiveDisconnects = 0;
         }
       }
 
@@ -739,6 +791,20 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       if (!contact?.id) {
         // No more contacts to process
         await finalizeCampaignIfNeeded(sb, campaignId);
+        break;
+      }
+
+      // 5b. RE-CHECK campaign status AFTER claiming contact (prevents adding during pause)
+      const { data: recheckCampaign } = await sb.from("mass_inject_campaigns").select("status").eq("id", campaignId).single();
+      if (!recheckCampaign || !["queued", "processing"].includes(recheckCampaign.status)) {
+        // Campaign was paused/cancelled between claim and execution — release contact back
+        console.log(`[mass-inject] campaign=${campaignId} status changed to ${recheckCampaign?.status} after claim — releasing contact ${contact.id}`);
+        await sb.from("mass_inject_contacts").update({
+          status: "pending",
+          error_message: null,
+          device_used: null,
+          processed_at: null,
+        } as any).eq("id", contact.id);
         break;
       }
 
@@ -813,6 +879,33 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         continue;
       }
 
+      // If transient but max retries exceeded, mark as final failure
+      if (isTransient && retryCount >= MAX_QUEUE_RETRIES) {
+        // Exhausted retries — mark with a clear final status
+        const finalDetail = result.status === "rate_limited"
+          ? "Conta restringida pelo WhatsApp. Tentativas esgotadas."
+          : `${stripRetryMeta(result.detail)} Tentativas esgotadas (${MAX_QUEUE_RETRIES}/${MAX_QUEUE_RETRIES}).`;
+        await sb.from("mass_inject_contacts").update({
+          status: result.status === "rate_limited" ? "blocked" : result.status,
+          error_message: finalDetail,
+          device_used: device.name || device.id,
+          processed_at: nowIso(),
+        }).eq("id", contact.id);
+
+        const { data: latestCampaign } = await sb.from("mass_inject_campaigns").select("*").eq("id", campaignId).single();
+        if (latestCampaign) await updateCampaignCounters(sb, latestCampaign, "blocked", false);
+        consecutiveFailures++;
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
+          await emitCampaignEvent(sb, campaignId, "campaign_paused", "warning");
+          break;
+        }
+        const skipDelay = randomBetween(2000, 5000);
+        await setNextRunAt(sb, campaignId, skipDelay);
+        await sleep(skipDelay);
+        continue;
+      }
+
       // 10. Write final contact result
       const finalError = SUCCESS_STATUSES.has(result.status) ? null : stripRetryMeta(result.detail);
       await sb.from("mass_inject_contacts").update({
@@ -835,6 +928,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       // Track consecutive failures / reset on success
       if (SUCCESS_STATUSES.has(result.status)) {
         consecutiveFailures = 0;
+        consecutiveDisconnects = 0;
       } else {
         consecutiveFailures++;
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
@@ -845,17 +939,22 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         }
       }
 
-      // 11. BLOCKING delay before next contact — DIFFERENTIATED BY RESULT TYPE
+      // 12. BLOCKING delay before next contact — DIFFERENTIATED BY RESULT TYPE
+      // Add extra randomness: ±20% variation on top of the base random range
       let nextDelayMs: number;
       if (result.status === "already_exists" || result.status === "contact_not_found") {
         // Fast skip: no API-heavy operation needed, short delay
-        nextDelayMs = randomBetween(1000, 3000);
+        nextDelayMs = randomBetween(1000, 4000);
       } else if (result.status === "blocked" || result.status === "unauthorized") {
         // Terminal non-retryable: skip quickly
-        nextDelayMs = randomBetween(1000, 2000);
+        nextDelayMs = randomBetween(1000, 3000);
       } else {
-        // Success or other: use normal campaign delay
+        // Success or other: use normal campaign delay with extra jitter
         nextDelayMs = computeNextDelayMs(latestCampaign, result.cooldownMs);
+        // Add ±20% variation for more human-like behavior
+        const variation = Math.floor(nextDelayMs * 0.2);
+        nextDelayMs += randomBetween(-variation, variation);
+        nextDelayMs = Math.max(nextDelayMs, 8000); // never less than 8s
       }
       console.log(`[mass-inject] campaign=${campaignId} result=${result.status} waiting ${nextDelayMs}ms`);
       await setNextRunAt(sb, campaignId, nextDelayMs);
