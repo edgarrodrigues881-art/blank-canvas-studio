@@ -486,75 +486,100 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
     return () => clearInterval(id);
   }, [campaign?.status, isFetchingCampaign, isFetchingContacts, refetchCampaign, refetchContacts]);
 
-  // ── Toast notifications from backend events (with throttle + grouping) ──
-  const lastSeenEventRef = useRef<string | null>(null);
-  const lastToastTimeRef = useRef<number>(0);
-  const eventCountRef = useRef<{ event: string; count: number; timer: ReturnType<typeof setTimeout> | null }>({ event: "", count: 0, timer: null });
+  // ── Toast notifications from events table (reliable, no event loss) ──
+  const eventGroupRef = useRef<{ counts: Record<string, { count: number; level: string }>; timer: ReturnType<typeof setTimeout> | null }>({ counts: {}, timer: null });
 
+  const EVENT_LABELS: Record<string, { msg: string; groupable?: boolean }> = {
+    contact_added: { msg: "Contato adicionado com sucesso", groupable: true },
+    contact_already_exists: { msg: "Contato já está no grupo", groupable: true },
+    contact_not_found: { msg: "Número não encontrado no WhatsApp", groupable: true },
+    contact_error: { msg: "Erro ao adicionar contato", groupable: true },
+    rate_limited: { msg: "Limite temporário atingido, aguardando retry" },
+    retry_waiting: { msg: "Aguardando cooldown antes de nova tentativa" },
+    retry_resumed: { msg: "Processamento retomado" },
+    instance_disconnected: { msg: "Instância desconectada" },
+    instance_reconnected: { msg: "Instância reconectada" },
+    no_admin_permission: { msg: "Sem privilégio de administrador no grupo" },
+    campaign_started: { msg: "Campanha iniciada" },
+    campaign_paused: { msg: "Campanha pausada" },
+    campaign_resumed: { msg: "Campanha retomada" },
+    campaign_completed: { msg: "Campanha concluída!" },
+  };
+
+  const showToastByLevel = useCallback((level: string, msg: string) => {
+    if (level === "success") toast.success(msg);
+    else if (level === "error") toast.error(msg);
+    else if (level === "warning") toast.warning(msg);
+    else toast.info(msg);
+  }, []);
+
+  const flushGroupedEvents = useCallback(() => {
+    const ref = eventGroupRef.current;
+    Object.entries(ref.counts).forEach(([eventType, { count, level }]) => {
+      const label = EVENT_LABELS[eventType];
+      if (!label) return;
+      const msg = count > 1 ? `${count}x ${label.msg}` : label.msg;
+      showToastByLevel(level, msg);
+    });
+    ref.counts = {};
+    ref.timer = null;
+  }, [showToastByLevel]);
+
+  // Poll unconsumed events every 2.5s (same as campaign polling)
   useEffect(() => {
-    if (!campaign?.last_event || !campaign?.last_event_at) return;
-    const eventKey = `${campaign.last_event}:${campaign.last_event_at}`;
-    if (lastSeenEventRef.current === eventKey) return;
-    lastSeenEventRef.current = eventKey;
+    if (!campaignId) return;
+    const consumeEvents = async () => {
+      const { data: events } = await supabase
+        .from("mass_inject_events")
+        .select("id, event_type, event_level, message")
+        .eq("campaign_id", campaignId)
+        .eq("consumed", false)
+        .order("created_at", { ascending: true })
+        .limit(50);
 
-    const eventMessages: Record<string, { msg: string; type: "success" | "error" | "warning" | "info"; groupable?: boolean }> = {
-      contact_added: { msg: "Contato adicionado com sucesso", type: "success", groupable: true },
-      contact_already_exists: { msg: "Contato já está no grupo", type: "info", groupable: true },
-      contact_not_found: { msg: "Número não encontrado no WhatsApp", type: "error", groupable: true },
-      contact_error: { msg: "Erro ao adicionar contato", type: "error", groupable: true },
-      rate_limited: { msg: "Limite temporário atingido, aguardando retry", type: "warning" },
-      retry_waiting: { msg: "Aguardando cooldown antes de nova tentativa", type: "warning" },
-      retry_resumed: { msg: "Processamento retomado", type: "info" },
-      instance_disconnected: { msg: "Instância desconectada", type: "error" },
-      instance_reconnected: { msg: "Instância reconectada", type: "success" },
-      no_admin_permission: { msg: "Sem privilégio de administrador no grupo", type: "error" },
-      campaign_started: { msg: "Campanha iniciada", type: "info" },
-      campaign_paused: { msg: "Campanha pausada", type: "warning" },
-      campaign_resumed: { msg: "Campanha retomada", type: "info" },
-      campaign_completed: { msg: "Campanha concluída!", type: "success" },
+      if (!events || events.length === 0) return;
+
+      // Mark all as consumed immediately
+      const ids = events.map((e: any) => e.id);
+      await supabase
+        .from("mass_inject_events")
+        .update({ consumed: true })
+        .in("id", ids);
+
+      // Process events
+      const ref = eventGroupRef.current;
+      for (const ev of events) {
+        const label = EVENT_LABELS[ev.event_type];
+        if (!label) continue;
+
+        if (label.groupable) {
+          if (!ref.counts[ev.event_type]) {
+            ref.counts[ev.event_type] = { count: 0, level: ev.event_level };
+          }
+          ref.counts[ev.event_type].count++;
+        } else {
+          showToastByLevel(ev.event_level, ev.message || label.msg);
+        }
+      }
+
+      // Flush grouped events after a short delay
+      if (Object.keys(ref.counts).length > 0 && !ref.timer) {
+        ref.timer = setTimeout(flushGroupedEvents, 3000);
+      }
     };
 
-    const ev = eventMessages[campaign.last_event];
-    if (!ev) return;
-
-    const now = Date.now();
-    const elapsed = now - lastToastTimeRef.current;
-
-    // Groupable events: accumulate and show summary
-    if (ev.groupable) {
-      const ref = eventCountRef.current;
-      if (ref.event === campaign.last_event) {
-        ref.count++;
-      } else {
-        // Flush previous group if pending
-        if (ref.timer) clearTimeout(ref.timer);
-        ref.event = campaign.last_event;
-        ref.count = 1;
+    // Only poll while campaign is active
+    if (!isActiveStatus(campaign?.status)) return;
+    const interval = setInterval(consumeEvents, 2500);
+    consumeEvents(); // initial fetch
+    return () => {
+      clearInterval(interval);
+      if (eventGroupRef.current.timer) {
+        clearTimeout(eventGroupRef.current.timer);
+        flushGroupedEvents();
       }
-      if (ref.timer) clearTimeout(ref.timer);
-      ref.timer = setTimeout(() => {
-        const count = ref.count;
-        const msg = count > 1 ? `${count}x ${ev.msg}` : ev.msg;
-        if (ev.type === "success") toast.success(msg);
-        else if (ev.type === "error") toast.error(msg);
-        else toast.info(msg);
-        lastToastTimeRef.current = Date.now();
-        ref.count = 0;
-        ref.event = "";
-        ref.timer = null;
-      }, 3000);
-      return;
-    }
-
-    // Non-groupable: throttle at 3s
-    if (elapsed < 3000) return;
-    lastToastTimeRef.current = now;
-
-    if (ev.type === "success") toast.success(ev.msg);
-    else if (ev.type === "error") toast.error(ev.msg);
-    else if (ev.type === "warning") toast.warning(ev.msg);
-    else toast.info(ev.msg);
-  }, [campaign?.last_event, campaign?.last_event_at]);
+    };
+  }, [campaignId, campaign?.status, showToastByLevel, flushGroupedEvents]);
 
   const handleManualRefresh = useCallback(async () => {
     setIsManualRefreshing(true);
