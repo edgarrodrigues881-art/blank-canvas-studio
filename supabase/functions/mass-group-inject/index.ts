@@ -1,4 +1,4 @@
-// mass-group-inject v13.0 — serial queue + advisory locks + per-device global rate limiter + processing timeout + structured logs + next_run_at sync
+// mass-group-inject v14.0 — fetch timeout + delay by result type + robust finalization
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -19,7 +19,8 @@ type ContactProcessingStatus =
   | "contact_not_found"
   | "unauthorized"
   | "blocked"
-  | "unknown_failure";
+  | "unknown_failure"
+  | "timeout";
 
 interface AddAttemptResult {
   ok: boolean;
@@ -27,7 +28,7 @@ interface AddAttemptResult {
   body?: any;
   rawMessage: string;
   errorCode?: string;
-  strategyIndex?: number; // which strategy worked
+  strategyIndex?: number;
 }
 
 interface FailureClassification {
@@ -64,20 +65,36 @@ const SUCCESS_STATUSES = new Set(["completed", "already_exists"]);
 const FAILURE_STATUSES = new Set([
   "rate_limited", "api_temporary", "connection_unconfirmed", "confirmed_disconnect",
   "permission_unconfirmed", "confirmed_no_admin", "invalid_group", "contact_not_found",
-  "unauthorized", "blocked", "unknown_failure",
+  "unauthorized", "blocked", "unknown_failure", "timeout",
 ]);
 
 const FINAL_CAMPAIGN_STATUSES = new Set(["done", "completed_with_failures", "paused", "cancelled", "failed"]);
-const RETRYABLE_QUEUE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"] as const;
+const RETRYABLE_QUEUE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure", "timeout"] as const;
 const MAX_QUEUE_RETRIES = 3;
 const STALE_PROCESSING_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+const API_TIMEOUT_MS = 25_000; // 25s timeout for all external API calls
 
 // ── Endpoint cache: avoid trying all 5 strategies every time ──
-// Maps campaignId+groupId to the strategy index that worked
 const endpointCache = new Map<string, number>();
 
 const nowIso = () => new Date().toISOString();
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Fetch with hard timeout — never allows infinite await */
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = API_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error: any) {
+    if (error.name === "AbortError") {
+      throw new Error(`Timeout: API não respondeu em ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /** Update the next_run_at timestamp so frontend can show a precise countdown */
 async function setNextRunAt(sb: any, campaignId: string, delayMs: number) {
