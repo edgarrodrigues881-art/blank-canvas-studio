@@ -890,6 +890,9 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   const [isPaused, setIsPaused] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [isImporting, setIsImporting] = useState(false);
+  const [hasImported, setHasImported] = useState(!!prefillContacts?.length);
+  const [reimportMode, setReimportMode] = useState<"ask" | null>(null);
 
   // Group state
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
@@ -1114,21 +1117,44 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     return input.split(/[\n,;]+/).map(c => c.trim()).filter(c => c.length > 0);
   }, []);
 
-  const handleRawInputChange = useCallback((value: string) => {
-    const lines = value.split(/[\n,;]+/).map(c => c.trim()).filter(c => c.length > 0);
+  const deduplicateNumbers = useCallback((lines: string[], existingLines?: string[]): { unique: string[]; removed: number } => {
     const seen = new Set<string>();
     const unique: string[] = [];
     let removed = 0;
+    // Add existing lines to seen set first (for merge mode)
+    if (existingLines) {
+      for (const line of existingLines) {
+        const digits = line.replace(/\D/g, "");
+        seen.add(digits.length >= 8 ? digits : line);
+      }
+    }
     for (const line of lines) {
       const digits = line.replace(/\D/g, "");
-      const key = digits.length >= 10 ? digits : line;
+      const key = digits.length >= 8 ? digits : line;
       if (seen.has(key)) { removed++; continue; }
       seen.add(key);
-      unique.push(line);
+      unique.push(digits.length >= 8 ? digits : line);
     }
-    setRawInput(unique.join("\n"));
-    if (removed > 0) toast.info(`${removed} duplicado(s) removido(s)`);
+    return { unique, removed };
   }, []);
+
+  const handleRawInputChange = useCallback((value: string, mode: "replace" | "merge" = "replace") => {
+    setIsImporting(true);
+    const lines = value.split(/[\n,;]+/).map(c => c.trim()).filter(c => c.length > 0);
+    if (mode === "merge") {
+      const existingLines = rawInput.split(/[\n,;]+/).map(c => c.trim()).filter(c => c.length > 0);
+      const { unique: newUnique, removed } = deduplicateNumbers(lines, existingLines);
+      setRawInput([...existingLines, ...newUnique].join("\n"));
+      if (removed > 0) toast.info(`${removed} duplicado(s) já existente(s) removido(s)`);
+      toast.success(`${newUnique.length} novo(s) contato(s) adicionado(s)`);
+    } else {
+      const { unique, removed } = deduplicateNumbers(lines);
+      setRawInput(unique.join("\n"));
+      if (removed > 0) toast.info(`${removed} duplicado(s) removido(s)`);
+    }
+    setHasImported(true);
+    setIsImporting(false);
+  }, [rawInput, deduplicateNumbers]);
 
   const handleValidate = useCallback(async () => {
     const contacts = parseContacts(rawInput);
@@ -1478,63 +1504,86 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                 <CardTitle className="text-base font-semibold flex items-center gap-2.5"><Upload className="w-4 h-4 text-primary" />Importar Contatos</CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                <Tabs defaultValue="paste">
-                  <TabsList className="w-full grid grid-cols-2 h-10 bg-muted/50">
-                    <TabsTrigger value="paste" className="text-xs font-semibold">Colar Números</TabsTrigger>
-                    <TabsTrigger value="file" className="text-xs font-semibold">Arquivo CSV/TXT/XLSX</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="paste" className="mt-4">
+                {/* Import contacts */}
+                {hasImported ? (
+                  <div className="space-y-4">
+                    <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 px-4 py-4 flex items-center gap-3">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground">{contactCount} contatos importados</p>
+                        <p className="text-[10px] text-muted-foreground">Duplicados já foram removidos automaticamente</p>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => setReimportMode("ask")} className="gap-1.5 text-xs shrink-0">
+                        <RotateCcw className="w-3.5 h-3.5" /> Reimportar
+                      </Button>
+                    </div>
                     <Textarea value={rawInput} onChange={e => setRawInput(e.target.value)}
                       onBlur={() => { if (rawInput.trim()) handleRawInputChange(rawInput); }}
-                      placeholder={"5562999999999\n5521988888888\n\nDuplicados são removidos automaticamente.\nUm número por linha."}
-                      className="min-h-[300px] font-mono text-xs resize-none bg-muted/20 border-border/40" />
-                  </TabsContent>
-                  <TabsContent value="file" className="mt-4">
-                    <label className="block border-2 border-dashed border-border/40 rounded-2xl p-10 text-center transition-colors hover:border-primary/30 hover:bg-primary/5 cursor-pointer">
-                      <FileText className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-                      <p className="text-sm text-muted-foreground mb-1">Arraste ou clique para selecionar</p>
-                      <p className="text-[10px] text-muted-foreground/50">CSV, TXT ou XLSX — duplicados removidos automaticamente</p>
-                      <input type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        const ext = file.name.split('.').pop()?.toLowerCase();
-                        if (ext === 'xlsx' || ext === 'xls') {
+                      placeholder="Um número por linha"
+                      className="min-h-[200px] font-mono text-xs resize-none bg-muted/20 border-border/40" />
+                  </div>
+                ) : (
+                  <Tabs defaultValue="paste">
+                    <TabsList className="w-full grid grid-cols-2 h-10 bg-muted/50">
+                      <TabsTrigger value="paste" className="text-xs font-semibold">Colar Números</TabsTrigger>
+                      <TabsTrigger value="file" className="text-xs font-semibold">Arquivo CSV/TXT/XLSX</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="paste" className="mt-4">
+                      <Textarea value={rawInput} onChange={e => setRawInput(e.target.value)}
+                        onBlur={() => { if (rawInput.trim()) handleRawInputChange(rawInput); }}
+                        placeholder={"5562999999999\n5521988888888\n\nDuplicados são removidos automaticamente.\nUm número por linha."}
+                        className="min-h-[300px] font-mono text-xs resize-none bg-muted/20 border-border/40" />
+                    </TabsContent>
+                    <TabsContent value="file" className="mt-4">
+                      <label className={`block border-2 border-dashed border-border/40 rounded-2xl p-10 text-center transition-colors hover:border-primary/30 hover:bg-primary/5 ${isImporting ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
+                        {isImporting ? (
+                          <Loader2 className="w-10 h-10 text-primary animate-spin mx-auto mb-3" />
+                        ) : (
+                          <FileText className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                        )}
+                        <p className="text-sm text-muted-foreground mb-1">{isImporting ? "Importando..." : "Arraste ou clique para selecionar"}</p>
+                        <p className="text-[10px] text-muted-foreground/50">CSV, TXT ou XLSX — duplicados removidos automaticamente</p>
+                        <input type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" disabled={isImporting} onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setIsImporting(true);
+                          const ext = file.name.split('.').pop()?.toLowerCase();
                           try {
-                            const XLSX = await import('xlsx');
-                            const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
-                            const nums: string[] = [];
-                            for (const sn of wb.SheetNames) {
-                              const rows: any[][] = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1 });
-                              for (const row of rows) for (const cell of row) {
-                                const v = String(cell ?? '').trim();
-                                if (v && /\d{8,}/.test(v.replace(/\D/g, ''))) nums.push(v.replace(/\D/g, ''));
+                            if (ext === 'xlsx' || ext === 'xls') {
+                              const XLSX = await import('xlsx');
+                              const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+                              const nums: string[] = [];
+                              for (const sn of wb.SheetNames) {
+                                const rows: any[][] = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1 });
+                                for (const row of rows) for (const cell of row) {
+                                  const v = String(cell ?? '').trim();
+                                  if (v && /\d{8,}/.test(v.replace(/\D/g, ''))) nums.push(v.replace(/\D/g, ''));
+                                }
                               }
+                              handleRawInputChange(nums.join('\n'));
+                              toast.success(`${nums.length} números importados do arquivo`);
+                            } else {
+                              const text = await file.text();
+                              handleRawInputChange(text);
+                              toast.success(`Arquivo carregado com sucesso`);
                             }
-                            handleRawInputChange(nums.join('\n'));
-                            toast.success(`${nums.length} números importados do arquivo`);
-                          } catch { toast.error('Erro ao ler arquivo Excel'); }
-                        } else {
-                          const reader = new FileReader();
-                          reader.onload = (ev) => {
-                            handleRawInputChange(ev.target?.result as string || "");
-                            toast.success(`Arquivo carregado com sucesso`);
-                          };
-                          reader.readAsText(file);
-                        }
-                        e.target.value = '';
-                      }} />
-                    </label>
-                  </TabsContent>
-                </Tabs>
+                          } catch { toast.error('Erro ao ler arquivo'); }
+                          finally { setIsImporting(false); }
+                          e.target.value = '';
+                        }} />
+                      </label>
+                    </TabsContent>
+                  </Tabs>
+                )}
 
-                {contactCount > 0 && (
+                {contactCount > 0 && !hasImported && (
                   <div className="flex items-center gap-3 bg-primary/5 rounded-xl px-4 py-3">
                     <BarChart3 className="w-4 h-4 text-primary" />
                     <span className="text-sm font-semibold">{contactCount} contatos detectados</span>
                   </div>
                 )}
 
-                <Button onClick={handleValidate} disabled={isValidating || !rawInput.trim() || !groupId.trim() || selectedDeviceIds.length === 0 || !campaignName.trim()} className="w-full h-12 gap-2 text-sm font-semibold rounded-xl shadow-md shadow-primary/10" size="lg">
+                <Button onClick={handleValidate} disabled={isValidating || isImporting || !rawInput.trim() || !groupId.trim() || selectedDeviceIds.length === 0 || !campaignName.trim()} className="w-full h-12 gap-2 text-sm font-semibold rounded-xl shadow-md shadow-primary/10" size="lg">
                   {isValidating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                   {isValidating ? "Validando contatos..." : "Validar e Revisar"}
                 </Button>
@@ -1543,6 +1592,39 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
           </div>
         </div>
       )}
+
+      {/* Reimport dialog */}
+      <AlertDialog open={reimportMode === "ask"} onOpenChange={(open) => { if (!open) setReimportMode(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reimportar contatos</AlertDialogTitle>
+            <AlertDialogDescription>
+              Já existem {contactCount} contatos importados. O que deseja fazer?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Button variant="outline" onClick={() => {
+              setReimportMode(null);
+              setHasImported(false);
+              // Keep existing contacts, user will add via file (merge mode will be used)
+              toast.info("Importe um novo arquivo para adicionar aos contatos existentes");
+            }} className="gap-1.5">
+              <Plus className="w-4 h-4" /> Adicionar aos existentes
+            </Button>
+            <AlertDialogAction onClick={() => {
+              setReimportMode(null);
+              setRawInput("");
+              setHasImported(false);
+              setValidationResult(null);
+              setParticipantCheck(null);
+              toast.info("Contatos anteriores removidos. Importe novamente.");
+            }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Substituir tudo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ══ PREVIEW ══ */}
       {step === "preview" && validationResult && (
