@@ -1504,17 +1504,6 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                 <CardTitle className="text-base font-semibold flex items-center gap-2.5"><Upload className="w-4 h-4 text-primary" />Importar Contatos</CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                <Tabs defaultValue="paste">
-                  <TabsList className="w-full grid grid-cols-2 h-10 bg-muted/50">
-                    <TabsTrigger value="paste" className="text-xs font-semibold">Colar Números</TabsTrigger>
-                    <TabsTrigger value="file" className="text-xs font-semibold">Arquivo CSV/TXT/XLSX</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="paste" className="mt-4">
-                    <Textarea value={rawInput} onChange={e => setRawInput(e.target.value)}
-                      onBlur={() => { if (rawInput.trim()) handleRawInputChange(rawInput); }}
-                      placeholder={"5562999999999\n5521988888888\n\nDuplicados são removidos automaticamente.\nUm número por linha."}
-                      className="min-h-[300px] font-mono text-xs resize-none bg-muted/20 border-border/40" />
-                  </TabsContent>
                 {/* Import contacts */}
                 {hasImported ? (
                   <div className="space-y-4">
