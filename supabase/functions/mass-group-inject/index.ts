@@ -70,6 +70,7 @@ const FAILURE_STATUSES = new Set([
 const FINAL_CAMPAIGN_STATUSES = new Set(["done", "completed_with_failures", "paused", "cancelled", "failed"]);
 const RETRYABLE_QUEUE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"] as const;
 const MAX_QUEUE_RETRIES = 3;
+const STALE_PROCESSING_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
 // ── Endpoint cache: avoid trying all 5 strategies every time ──
 // Maps campaignId+groupId to the strategy index that worked
