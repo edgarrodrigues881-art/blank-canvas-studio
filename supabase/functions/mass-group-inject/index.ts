@@ -789,7 +789,7 @@ Deno.serve(async (req) => {
     const { action } = body;
 
     if (action === "run-campaign") {
-      await runCampaignWorker(sb, body.campaignId);
+      await runCampaignWorker(sb, body.campaignId, Number(body.initialDelayMs || 0));
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
