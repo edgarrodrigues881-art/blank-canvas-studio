@@ -183,45 +183,50 @@ const Devices = () => {
   const qrCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Fetch devices from database
-  const { data: devices = [] } = useQuery({
+  const { data: devices = [], isLoading: devicesLoading, isError: devicesError } = useQuery({
     queryKey: ["devices"],
     queryFn: async () => {
       const userId = session?.user?.id;
       if (!userId) return [];
-      const [devicesRes, tokensRes] = await Promise.all([
-        supabase
-          .from("devices")
-          .select("id, name, number, status, login_type, proxy_id, profile_picture, profile_name, created_at, updated_at, instance_type")
-          .eq("user_id", userId)
-          .neq("login_type", "report_wa")
-          .order("created_at", { ascending: true })
-          .order("id", { ascending: true }),
-        supabase
-          .from("user_api_tokens")
-          .select("device_id")
-          .not("device_id", "is", null)
-          .eq("status", "in_use"),
-      ]);
-      if (devicesRes.error) throw devicesRes.error;
-      const configuredDeviceIds = new Set(
-        (tokensRes.data || []).map((t: any) => t.device_id)
-      );
-      const deletedIds = getRecentlyDeletedIds();
-      return (devicesRes.data || [])
-        .filter((d: any) => !deletedIds.has(d.id))
-        .map((d: any) => ({
-          id: d.id,
-          name: d.name,
-          number: d.number || "",
-          status: d.status as "Ready" | "Disconnected" | "Loading",
-          login_type: d.login_type,
-          proxy_id: d.proxy_id,
-          profile_picture: d.profile_picture || null,
-          profile_name: d.profile_name || null,
-          created_at: d.created_at,
-          updated_at: d.updated_at,
-          has_api_config: configuredDeviceIds.has(d.id),
-        })) as Device[];
+      try {
+        const [devicesRes, tokensRes] = await Promise.all([
+          supabase
+            .from("devices")
+            .select("id, name, number, status, login_type, proxy_id, profile_picture, profile_name, created_at, updated_at, instance_type")
+            .eq("user_id", userId)
+            .neq("login_type", "report_wa")
+            .order("created_at", { ascending: true })
+            .order("id", { ascending: true }),
+          supabase
+            .from("user_api_tokens")
+            .select("device_id")
+            .not("device_id", "is", null)
+            .eq("status", "in_use"),
+        ]);
+        if (devicesRes.error) throw devicesRes.error;
+        const configuredDeviceIds = new Set(
+          (tokensRes.data || []).map((t: any) => t.device_id)
+        );
+        const deletedIds = getRecentlyDeletedIds();
+        return (devicesRes.data || [])
+          .filter((d: any) => !deletedIds.has(d.id))
+          .map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            number: d.number || "",
+            status: d.status as "Ready" | "Disconnected" | "Loading",
+            login_type: d.login_type,
+            proxy_id: d.proxy_id,
+            profile_picture: d.profile_picture || null,
+            profile_name: d.profile_name || null,
+            created_at: d.created_at,
+            updated_at: d.updated_at,
+            has_api_config: configuredDeviceIds.has(d.id),
+          })) as Device[];
+      } catch (err) {
+        console.error("[Devices] Erro ao carregar instâncias:", err);
+        throw err;
+      }
     },
     enabled: !!session,
     refetchInterval: 30_000,
