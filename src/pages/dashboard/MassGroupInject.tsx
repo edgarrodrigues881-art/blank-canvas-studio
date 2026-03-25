@@ -728,8 +728,13 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     );
   }
 
-  const successTotal = (campaign.success_count || 0) + (campaign.already_count || 0);
-  const processed = successTotal + (campaign.fail_count || 0);
+  const successCount = campaign.success_count || 0;
+  const alreadyCount = campaign.already_count || 0;
+  const failCount = campaign.fail_count || 0;
+  const rateLimitCount = campaign.rate_limit_count || 0;
+  const timeoutCount = campaign.timeout_count || 0;
+  const successTotal = successCount + alreadyCount;
+  const processed = successTotal + failCount + rateLimitCount + timeoutCount;
   const pendingCount = contacts.filter((c: any) => c.status === "pending").length;
   const cancelledCount = contacts.filter((c: any) => c.status === "cancelled").length;
   const progress = campaign.total_contacts > 0 ? Math.round((processed / campaign.total_contacts) * 100) : 0;
