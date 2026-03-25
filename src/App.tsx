@@ -34,7 +34,6 @@ const Campaigns = lazyWithPreload(() => import("@/pages/dashboard/Campaigns"));
 const CampaignList = lazyWithPreload(() => import("@/pages/dashboard/CampaignList"));
 const CampaignDetail = lazyWithPreload(() => import("@/pages/dashboard/CampaignDetail"));
 const GroupInteraction = lazyWithPreload(() => import("@/pages/dashboard/GroupInteraction"));
-const GroupInteractionComingSoon = lazyWithPreload(() => import("@/pages/dashboard/GroupInteractionComingSoon"));
 const GroupCapture = lazyWithPreload(() => import("@/pages/dashboard/GroupCapture"));
 const GroupJoinCampaignList = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinCampaignList"));
 const GroupJoinCampaignNew = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinCampaignNew"));
@@ -74,6 +73,7 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/templates": () => { (Templates as any).__preload?.(); },
   "/dashboard/autosave": () => { (AutoSave as any).__preload?.(); },
   "/dashboard/proxy": () => { (Proxy as any).__preload?.(); },
+  "/dashboard/group-interaction": () => { (GroupInteraction as any).__preload?.(); },
   "/dashboard/groups": () => { (GroupCapture as any).__preload?.(); },
   "/dashboard/reports": () => { (Reports as any).__preload?.(); },
   "/dashboard/reports/whatsapp": () => { (ReportWhatsApp as any).__preload?.(); },
@@ -144,8 +144,8 @@ const App = () => (
                 <Route path="/dashboard/campaigns/list" element={<ProtectedRoute><DashboardLayout><CampaignList /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/campaign/:id" element={<ProtectedRoute><DashboardLayout><CampaignDetail /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/campaigns/:id" element={<ProtectedRoute><DashboardLayout><CampaignDetail /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/group-interaction" element={<ProtectedRoute><DashboardLayout><GroupInteractionComingSoon /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/group-interaction-soon" element={<ProtectedRoute><DashboardLayout><GroupInteractionComingSoon /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-interaction" element={<ProtectedRoute><DashboardLayout><GroupInteraction /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-interaction-soon" element={<ProtectedRoute><DashboardLayout><GroupInteraction /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/groups" element={<ProtectedRoute><DashboardLayout><GroupCapture /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-capture" element={<ProtectedRoute><DashboardLayout><GroupCapture /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-join" element={<ProtectedRoute><DashboardLayout><GroupJoinCampaignList /></DashboardLayout></ProtectedRoute>} />
