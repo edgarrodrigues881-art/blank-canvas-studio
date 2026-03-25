@@ -53,6 +53,8 @@ const SENT_EVENT_TYPES = new Set([
   "autosave_interaction",
   "community_msg_sent",
   "community_interaction",
+  "community_turn_sent",
+  "community_conversation_completed",
 ]);
 
 function translateEventType(type: string) {
@@ -1430,7 +1432,7 @@ const WarmupInstanceDetail = () => {
             const dailySentByType = {
               groups: sentTodayLogs.filter((log) => ["group_msg_sent", "group_interaction"].includes(log.event_type)).length,
               autosave: sentTodayLogs.filter((log) => ["autosave_msg_sent", "autosave_interaction"].includes(log.event_type)).length,
-              community: sentTodayLogs.filter((log) => ["community_msg_sent", "community_interaction"].includes(log.event_type)).length,
+              community: sentTodayLogs.filter((log) => ["community_msg_sent", "community_interaction", "community_turn_sent", "community_conversation_completed"].includes(log.event_type)).length,
             };
 
             // If there is no job for "today" in BRT, show the next planned day

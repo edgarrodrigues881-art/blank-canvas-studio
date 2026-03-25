@@ -240,17 +240,21 @@ const DeviceCard = memo(({ device, cycle, onPause, onResume, onCancel, onConnect
   return (
     <div
       className={cn(
-        "group relative rounded-2xl border overflow-hidden cursor-pointer transition-colors duration-100",
-        "bg-card shadow-sm",
+        "group relative rounded-2xl border overflow-hidden cursor-pointer transition-all duration-200",
+        "bg-gradient-to-b from-card to-card/80 backdrop-blur-sm",
+        "shadow-[0_4px_24px_-4px_rgba(0,0,0,0.3),0_2px_8px_-2px_rgba(0,0,0,0.2)]",
+        "hover:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.4),0_4px_12px_-2px_rgba(0,0,0,0.25)]",
+        "hover:-translate-y-0.5",
         connected
-          ? "border-primary/15 hover:border-primary/30"
+          ? "border-primary/20 hover:border-primary/40"
           : "border-border/30 hover:border-border/50"
       )}
+      style={{ perspective: "1000px", transformStyle: "preserve-3d" }}
       onClick={() => onNavigate(`/dashboard/warmup-v2/${device.id}`)}
     >
       <div className={cn(
-        "h-[2px] w-full",
-        isWarming ? "bg-primary/60" : connected ? "bg-primary/25" : "bg-border/30"
+        "h-[3px] w-full rounded-t-2xl",
+        isWarming ? "bg-gradient-to-r from-primary/40 via-primary/80 to-primary/40 shadow-[0_0_12px_hsl(var(--primary)/0.3)]" : connected ? "bg-gradient-to-r from-primary/15 via-primary/30 to-primary/15" : "bg-border/20"
       )} />
 
       <div className="px-3 sm:px-4 pt-3 sm:pt-3.5 flex flex-wrap items-start justify-between gap-1">
@@ -319,7 +323,7 @@ const DeviceCard = memo(({ device, cycle, onPause, onResume, onCancel, onConnect
         </div>
       </div>
 
-      <div className="px-4 pt-5 pb-3 flex items-center gap-4">
+      <div className="px-4 pt-5 pb-4 flex items-center gap-4">
         <div className={cn(
           "w-[52px] h-[52px] rounded-full flex items-center justify-center shrink-0",
           "ring-[2.5px] ring-offset-2 ring-offset-card",

@@ -879,12 +879,16 @@ async function uazapiSendText(baseUrl: string, token: string, number: string, te
         { path: "/message/sendText", body: { chatId: number, text: safeText } },
         { path: "/message/sendText", body: { number, text: safeText } },
       ]
-    : [
-        { path: "/send/text", body: { number, text: safeText } },
-        { path: "/chat/send-text", body: { number, to: number, chatId: number, body: safeText, text: safeText } },
-        { path: "/message/sendText", body: { chatId: number, text: safeText } },
-        { path: "/message/sendText", body: { number, text: safeText } },
-      ];
+    : (() => {
+        const chatId = number.includes("@") ? number : `${number}@s.whatsapp.net`;
+        return [
+          { path: "/send/text", body: { number, text: safeText } },
+          { path: "/send/text", body: { chatId, text: safeText } },
+          { path: "/chat/send-text", body: { number, to: number, chatId, body: safeText, text: safeText } },
+          { path: "/message/sendText", body: { chatId, text: safeText } },
+          { path: "/message/sendText", body: { number, text: safeText } },
+        ];
+      })();
 
   let lastErr = "";
   for (const at of attempts) {
