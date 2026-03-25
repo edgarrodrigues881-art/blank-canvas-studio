@@ -169,11 +169,12 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, conversation_id } = body;
 
-    // For tick action, validate internal secret
+    // For tick action, validate via anon key in Authorization header
     if (action === "tick") {
-      const secret = req.headers.get("x-internal-secret");
-      const expectedSecret = Deno.env.get("INTERNAL_TICK_SECRET");
-      if (!expectedSecret || secret !== expectedSecret) {
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+      const authHeader = req.headers.get("authorization") ?? "";
+      const bearerToken = authHeader.replace("Bearer ", "");
+      if (!anonKey || bearerToken !== anonKey) {
         return json({ error: "Unauthorized" }, 401);
       }
       return await handleTick(admin, conversation_id);
@@ -536,9 +537,8 @@ function generateConversationFlow(length: number): Array<{ text: string; categor
 }
 
 async function scheduleNextTick(admin: any, conversationId: string) {
-  // Self-invoke after a random delay (2-5 minutes)
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
   
   const delayMs = randInt(120, 300) * 1000;
   
@@ -550,12 +550,11 @@ async function scheduleNextTick(admin: any, conversationId: string) {
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${anonKey}`,
-          "x-internal-secret": Deno.env.get("INTERNAL_TICK_SECRET") || "",
         },
         body: JSON.stringify({ action: "tick", conversation_id: conversationId }),
       });
     } catch (e: any) {
       console.error("Failed to schedule next tick:", e);
     }
-  }, Math.min(delayMs, 25000)); // Edge function timeout safety
+  }, Math.min(delayMs, 25000));
 }
