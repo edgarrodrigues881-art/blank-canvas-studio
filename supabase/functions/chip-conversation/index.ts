@@ -335,19 +335,28 @@ async function handleTick(admin: any, conversationId: string) {
   if (error || !conv) return json({ error: "Conversa não encontrada" }, 404);
   if (conv.status !== "running") return json({ ok: true, skipped: true, reason: "not running" });
 
-  // Check time window
+  // Check time window (supports dual windows: "08:00,13:00" / "12:00,19:00")
   const nowBrt = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
   const currentHour = nowBrt.getHours();
   const currentMinute = nowBrt.getMinutes();
   const currentTime = currentHour * 60 + currentMinute;
 
-  const [startH, startM] = (conv.start_hour as string).split(":").map(Number);
-  const [endH, endM] = (conv.end_hour as string).split(":").map(Number);
-  const startTime = startH * 60 + startM;
-  const endTime = endH * 60 + endM;
+  const startParts = String(conv.start_hour || "08:00").split(",").map(s => s.trim());
+  const endParts = String(conv.end_hour || "18:00").split(",").map(s => s.trim());
 
-  if (currentTime < startTime || currentTime >= endTime) {
-    // Outside operating window, schedule for next day
+  let insideWindow = false;
+  for (let i = 0; i < startParts.length; i++) {
+    const [sH, sM] = startParts[i].split(":").map(Number);
+    const [eH, eM] = (endParts[i] || endParts[0]).split(":").map(Number);
+    const startTime = sH * 60 + sM;
+    const endTime = eH * 60 + eM;
+    if (currentTime >= startTime && currentTime < endTime) {
+      insideWindow = true;
+      break;
+    }
+  }
+
+  if (!insideWindow) {
     return json({ ok: true, skipped: true, reason: "outside_hours" });
   }
 
@@ -452,10 +461,9 @@ async function handleTick(admin: any, conversationId: string) {
 
       msgIndex++;
 
-      // Bigger pause after N messages
-      if (msgIndex > 0 && msgIndex % randInt(conv.pause_after_messages_min, conv.pause_after_messages_max) === 0) {
-        const bigPause = randInt(conv.pause_duration_min, conv.pause_duration_max) * 1000;
-        await new Promise(r => setTimeout(r, Math.min(bigPause, 30000))); // cap at 30s in edge function
+      // Small natural pause between messages in same conversation
+      if (msgIndex > 0 && msgIndex % randInt(5, 12) === 0) {
+        await new Promise(r => setTimeout(r, randInt(3000, 8000)));
       }
     }
 
