@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Mail, Lock, User, ShieldCheck, Phone, Eye, EyeOff, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { AlertTriangle, RefreshCw } from "lucide-react";
-import logo from "@/assets/logo-new.png";
+import logo from "@/assets/dg-contingencia-avatar.png";
 
 /* ── helpers (unchanged) ── */
 const translateAuthError = (msg: string): string => {
@@ -36,43 +36,27 @@ const isTimeoutError = (msg: string) =>
 const isPhoneIdentifier = (value: string) => /\d/.test(value) && !value.includes("@");
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
-/* ── Minimal floating particles ── */
-const PARTICLES = Array.from({ length: 6 }, (_, i) => {
-  const angle = (i / 6) * Math.PI * 2;
-  const r = 90 + Math.random() * 20;
-  return {
-    x: Math.cos(angle) * r,
-    y: Math.sin(angle) * r,
-    size: 2.5 + Math.random() * 2,
-    delay: i * 0.8,
-    duration: 4 + Math.random() * 2,
-  };
-});
-
+/* ── Gold floating particles (matches Welcome) ── */
 const FloatingParticles = () => (
-  <div className="absolute inset-0 pointer-events-none">
-    {PARTICLES.map((p, i) => (
-      <motion.div
+  <div className="absolute -inset-12 pointer-events-none overflow-hidden">
+    {Array.from({ length: 16 }).map((_, i) => (
+      <motion.span
         key={i}
-        className="absolute rounded-full"
+        className="absolute w-1 h-1 rounded-full bg-amber-400"
         style={{
-          width: p.size,
-          height: p.size,
-          left: "50%",
-          top: "50%",
-          marginLeft: p.x - p.size / 2,
-          marginTop: p.y - p.size / 2,
-          background: "rgba(34, 197, 94, 0.4)",
-          boxShadow: "0 0 8px rgba(34, 197, 94, 0.25)",
+          left: `${10 + Math.random() * 80}%`,
+          top: `${10 + Math.random() * 80}%`,
         }}
         animate={{
-          opacity: [0, 0.5, 0],
-          y: [0, -6, 0],
+          y: [0, -18 - Math.random() * 25, 0],
+          x: [0, (Math.random() - 0.5) * 16, 0],
+          opacity: [0.05, 0.4 + Math.random() * 0.3, 0.05],
+          scale: [0.4, 1 + Math.random() * 0.5, 0.4],
         }}
         transition={{
-          duration: p.duration,
-          delay: p.delay,
+          duration: 3 + Math.random() * 3,
           repeat: Infinity,
+          delay: Math.random() * 3,
           ease: "easeInOut",
         }}
       />
@@ -260,19 +244,25 @@ const Auth = () => {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="flex flex-col items-center mb-8"
         >
-          <div className="relative w-[240px] h-[240px] flex items-center justify-center mb-5">
+          <div className="relative flex items-center justify-center mb-5">
+            {/* Gold glow behind logo */}
+            <div className="absolute -inset-6 bg-gradient-to-br from-amber-500/20 via-yellow-500/15 to-amber-600/20 blur-[40px] rounded-full" />
+            <div className="absolute -inset-10 bg-amber-500/10 blur-[60px] rounded-full" />
+            {/* Gold particles */}
             <FloatingParticles />
-            {/* Soft radial glow */}
-            <div
-              className="absolute w-40 h-40 rounded-full opacity-15"
-              style={{ background: "radial-gradient(circle, #22c55e 0%, transparent 70%)" }}
-            />
-            {/* Clean logo — no border box */}
-            <img
-              src={logo}
-              alt="DG Contingência Pro"
-              className="relative w-[140px] h-[140px] rounded-2xl drop-shadow-lg"
-            />
+            {/* Gold frame */}
+            <div className="relative w-28 h-28 sm:w-40 sm:h-40 rounded-2xl overflow-hidden" style={{
+              padding: '2px',
+              background: 'linear-gradient(135deg, #fbbf24, #f59e0b, #d97706, #fbbf24)',
+            }}>
+              <div className="w-full h-full rounded-[14px] overflow-hidden bg-background">
+                <img
+                  src={logo}
+                  alt="DG Contingência Pro"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
           </div>
           <span className="text-xs font-semibold tracking-[0.4em] uppercase select-none">
             <span style={{ color: "#34d399" }}>DG</span>
