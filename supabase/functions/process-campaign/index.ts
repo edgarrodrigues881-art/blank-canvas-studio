@@ -1231,14 +1231,16 @@ Deno.serve(async (req) => {
             const personalizedMessage = replaceVariables(chosenMessage, contact, rand4, rand3);
             const normalizedPhone = normalizeBrazilianPhone(phone);
 
-            if (heartbeatCounter % 10 === 1) {
+            if (heartbeatCounter % 3 === 1) {
               const { data: deviceStatus } = await serviceClient.from("devices").select("status").eq("id", activeDevice.id).single();
               if (deviceStatus && !connectedStatuses.includes(deviceStatus.status)) {
-                console.log(`⚠️ Device ${activeDevice.name} is ${deviceStatus.status}, pausing`);
+                console.log(`⚠️ Device ${activeDevice.name} is ${deviceStatus.status}, pausing campaign`);
                 await serviceClient.from("campaign_contacts").update({ status: "pending" }).eq("id", contact.id).eq("status", "processing");
-                await serviceClient.from("campaigns").update({ status: "paused", updated_at: new Date().toISOString() }).eq("id", campaignId);
-                await releaseDeviceLocks(serviceClient, deviceIds, campaignId);
-                break;
+                const didPause = await handleDisconnectPause(serviceClient, campaignId, deviceIds, failedCount, campaign.name, campaign.user_id, pauseOnDisconnect);
+                if (didPause) {
+                  await oplog(serviceClient, campaign.user_id, "campaign_paused_disconnect", `Campanha "${campaign.name}" pausada — instância ${activeDevice.name} desconectou`, activeDevice.id, { campaign_id: campaignId });
+                  break;
+                }
               }
             }
 

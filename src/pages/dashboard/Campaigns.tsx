@@ -442,10 +442,12 @@ const Campaigns = () => {
   };
 
   const allTags = useMemo(() => Array.from(new Set(savedContacts.flatMap(c => c.tags || []))), [savedContacts]);
-  const connectedDevices = useMemo(() => 
-    devices.filter(d => ["Connected", "Ready", "authenticated"].includes(d.status)).sort((a, b) => a.name.localeCompare(b.name)),
-    [devices]
-  );
+  const connectedDevices = useMemo(() => {
+    const extractNum = (name: string) => { const m = name.match(/(\d+)/); return m ? parseInt(m[1], 10) : 0; };
+    return devices
+      .filter(d => ["Connected", "Ready", "authenticated"].includes(d.status))
+      .sort((a, b) => extractNum(a.name) - extractNum(b.name));
+  }, [devices]);
   const selectedDevicesData = devices.filter(d => selectedDevices.includes(d.id));
   const selectedDeviceData = selectedDevicesData[0];
   const validContacts = useMemo(() => contacts.filter(c => c.numero.trim()), [contacts]);
@@ -2060,6 +2062,9 @@ const Campaigns = () => {
                               <div className="flex items-center gap-1.5 mt-0.5">
                                 <st.icon className={cn("w-3 h-3", st.color)} />
                                 <span className={cn("text-[10px] font-medium", st.color)}>{st.label}</span>
+                                {d.number && (
+                                  <span className="text-[10px] text-muted-foreground/50 ml-1 truncate">{d.number}</span>
+                                )}
                               </div>
                             </div>
                             <div className={cn("w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0",
