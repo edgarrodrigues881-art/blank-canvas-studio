@@ -1146,12 +1146,13 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   }, []);
 
   /** Import contacts: classify ALL, discard NONE */
-  const handleImportContacts = useCallback((rawLines: string[], mode: "replace" | "merge" = "replace") => {
+  const handleImportContacts = useCallback((rawLines: string[], modeOverride?: "replace" | "merge") => {
     if (isImporting) return;
     setIsImporting(true);
+    const mode = modeOverride || (pendingMergeRef.current ? "merge" : "replace");
+    pendingMergeRef.current = false;
     try {
       if (mode === "merge") {
-        // Merge: re-classify entire combined list so duplicates across old+new are tagged
         const existingRaw = importedContacts.map(c => c.raw);
         const combined = [...existingRaw, ...rawLines];
         const classified = classifyContacts(combined);
@@ -1163,12 +1164,9 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
         setImportedContacts(classified);
         toast.success(`${classified.length} linha(s) importadas`);
       }
-      // Also sync rawInput for downstream compatibility
-      const allNormalized = (mode === "merge"
-        ? [...importedContacts.map(c => c.raw), ...rawLines]
-        : rawLines
+      setRawInput(
+        (mode === "merge" ? [...importedContacts.map(c => c.raw), ...rawLines] : rawLines).join("\n")
       );
-      setRawInput(allNormalized.join("\n"));
       setHasImported(true);
       setImportFilter("all");
     } finally {
