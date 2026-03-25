@@ -1449,8 +1449,8 @@ Deno.serve(async (req) => {
         success_count: 0,
         already_count: 0,
         fail_count: 0,
-        min_delay: Math.max(Number(body.minDelay || 30), 10),
-        max_delay: Math.max(Number(body.maxDelay || 60), Number(body.minDelay || 30), 10),
+        min_delay: Math.max(Number(body.minDelay || 30), 20), // minimum 20s for human-like behavior
+        max_delay: Math.max(Number(body.maxDelay || 60), Number(body.minDelay || 30), 20),
         pause_after: Math.max(Number(body.pauseAfter || 0), 0),
         pause_duration: Math.max(Number(body.pauseDuration || 30), 0),
         rotate_after: Math.max(Number(body.rotateAfter || 0), 0),
