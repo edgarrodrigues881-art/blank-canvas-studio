@@ -1147,6 +1147,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
       if (data?.jid) {
         setGroupId(data.jid);
         setGroupName(data.name || "Grupo");
+        setSelectedGroups([{ jid: data.jid, name: data.name || "Grupo" }]);
         toast.success(`Grupo encontrado: ${data.name || data.jid}`);
       } else {
         setGroupLoadError(data?.error || "Não foi possível resolver o link do grupo.");
@@ -1170,6 +1171,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     }
     setGroupId(jid);
     setGroupName("Grupo (JID manual)");
+    setSelectedGroups([{ jid, name: "Grupo (JID manual)" }]);
     toast.success("JID do grupo definido");
   }, [groupJidManual]);
 
@@ -1178,6 +1180,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     setGroupInputMode(mode);
     setGroupId("");
     setGroupName("");
+    setSelectedGroups([]);
     setGroupLoadError("");
     if (mode === "list" && primaryDeviceId && groups.length === 0) {
       handleLoadGroups(primaryDeviceId);
