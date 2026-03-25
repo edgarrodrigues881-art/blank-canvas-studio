@@ -261,12 +261,12 @@ const Auth = () => {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="flex flex-col items-center mb-8"
         >
-          <div className="relative w-[160px] h-[160px] flex items-center justify-center mb-3">
-            <ParticleRing />
-            {/* Glow behind logo */}
+          <div className="relative w-[140px] h-[140px] flex items-center justify-center mb-3">
+            <FloatingParticles />
+            {/* Soft glow behind logo */}
             <div
-              className="absolute w-24 h-24 rounded-2xl opacity-30"
-              style={{ background: "radial-gradient(circle, #22c55e 0%, #fbbf24 50%, transparent 80%)" }}
+              className="absolute w-20 h-20 rounded-2xl opacity-20"
+              style={{ background: "radial-gradient(circle, #22c55e 0%, #fbbf24 60%, transparent 100%)" }}
             />
             {/* Gold border */}
             <div
