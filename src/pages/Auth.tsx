@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -36,64 +36,50 @@ const isTimeoutError = (msg: string) =>
 const isPhoneIdentifier = (value: string) => /\d/.test(value) && !value.includes("@");
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
-/* ── Particle ring component (lightweight canvas) ── */
-const ParticleRing = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+/* ── Subtle floating particles (CSS-only, GPU-friendly) ── */
+const PARTICLES = Array.from({ length: 8 }, (_, i) => {
+  const angle = (i / 8) * Math.PI * 2;
+  const r = 48 + Math.random() * 12;
+  return {
+    x: Math.cos(angle) * r,
+    y: Math.sin(angle) * r,
+    size: 2 + Math.random() * 2,
+    delay: i * 0.6,
+    duration: 3 + Math.random() * 2,
+  };
+});
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const size = 160;
-    canvas.width = size;
-    canvas.height = size;
-    const cx = size / 2;
-    const cy = size / 2;
-    const radius = 52;
-    const particleCount = 28;
-
-    interface P { angle: number; speed: number; r: number; size: number; opacity: number; drift: number; }
-    const particles: P[] = Array.from({ length: particleCount }, () => ({
-      angle: Math.random() * Math.PI * 2,
-      speed: 0.002 + Math.random() * 0.004,
-      r: radius + (Math.random() - 0.5) * 16,
-      size: 0.8 + Math.random() * 1.4,
-      opacity: 0.15 + Math.random() * 0.35,
-      drift: (Math.random() - 0.5) * 0.3,
-    }));
-
-    let raf: number;
-    const draw = () => {
-      ctx.clearRect(0, 0, size, size);
-      for (const p of particles) {
-        p.angle += p.speed;
-        p.r += Math.sin(p.angle * 3) * 0.04;
-        const x = cx + Math.cos(p.angle) * p.r;
-        const y = cy + Math.sin(p.angle) * p.r + p.drift;
-        ctx.beginPath();
-        ctx.arc(x, y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 215, 0, ${p.opacity})`;
-        ctx.shadowColor = "rgba(255, 215, 0, 0.4)";
-        ctx.shadowBlur = 4;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
-      raf = requestAnimationFrame(draw);
-    };
-    draw();
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full pointer-events-none"
-      style={{ width: 160, height: 160 }}
-    />
-  );
-};
+const FloatingParticles = () => (
+  <div className="absolute inset-0 pointer-events-none">
+    {PARTICLES.map((p, i) => (
+      <motion.div
+        key={i}
+        className="absolute rounded-full"
+        style={{
+          width: p.size,
+          height: p.size,
+          left: "50%",
+          top: "50%",
+          marginLeft: p.x - p.size / 2,
+          marginTop: p.y - p.size / 2,
+          background: "rgba(251, 191, 36, 0.35)",
+          boxShadow: "0 0 4px rgba(251, 191, 36, 0.2)",
+        }}
+        animate={{
+          opacity: [0, 0.45, 0],
+          y: [0, -6, 0],
+          scale: [0.8, 1, 0.8],
+        }}
+        transition={{
+          duration: p.duration,
+          delay: p.delay,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      />
+    ))}
+  </div>
+);
 
 /* ── Stagger wrapper ── */
 const stagger = {
@@ -275,12 +261,12 @@ const Auth = () => {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="flex flex-col items-center mb-8"
         >
-          <div className="relative w-[160px] h-[160px] flex items-center justify-center mb-3">
-            <ParticleRing />
-            {/* Glow behind logo */}
+          <div className="relative w-[140px] h-[140px] flex items-center justify-center mb-3">
+            <FloatingParticles />
+            {/* Soft glow behind logo */}
             <div
-              className="absolute w-24 h-24 rounded-2xl opacity-30"
-              style={{ background: "radial-gradient(circle, #22c55e 0%, #fbbf24 50%, transparent 80%)" }}
+              className="absolute w-20 h-20 rounded-2xl opacity-20"
+              style={{ background: "radial-gradient(circle, #22c55e 0%, #fbbf24 60%, transparent 100%)" }}
             />
             {/* Gold border */}
             <div
