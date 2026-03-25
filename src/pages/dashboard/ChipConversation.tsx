@@ -35,6 +35,7 @@ import {
   Loader2,
   Trash2,
   RotateCcw,
+  Pencil,
 } from "lucide-react";
 import {
   Dialog,
