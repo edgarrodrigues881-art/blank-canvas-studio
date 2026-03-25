@@ -432,15 +432,23 @@ const Auth = () => {
           {/* Divider */}
           <div className="my-7 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
 
-          <p className="text-center text-sm font-medium text-white/35">
-            {isLogin ? "Não tem conta? " : "Já tem conta? "}
+          <div className="text-center">
+            <p className="text-sm font-medium text-white/35 mb-3">
+              {isLogin ? "Não tem conta?" : "Já tem conta?"}
+            </p>
             <button
               onClick={() => setIsLogin(!isLogin)}
-              className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors duration-300"
+              className="w-full py-3 rounded-2xl text-sm font-bold border transition-all duration-300 hover:scale-[1.01]"
+              style={{
+                borderColor: "rgba(251, 191, 36, 0.3)",
+                background: "linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(217, 119, 6, 0.05))",
+                color: "#fbbf24",
+                boxShadow: "0 4px 20px -6px rgba(251, 191, 36, 0.15)",
+              }}
             >
-              {isLogin ? "Criar agora" : "Faça login"}
+              {isLogin ? "✨ Criar conta gratuita" : "Fazer login"}
             </button>
-          </p>
+          </div>
         </motion.div>
       </div>
 
