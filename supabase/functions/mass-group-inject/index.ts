@@ -1135,7 +1135,8 @@ Deno.serve(async (req) => {
 
       // resume
       await sb.from("mass_inject_contacts").update({ status: "pending", error_message: null } as any).eq("campaign_id", campaign.id).eq("status", "processing");
-      await sb.from("mass_inject_campaigns").update({ status: "queued", updated_at: nowIso(), completed_at: null, last_event: "campaign_resumed", last_event_type: "info", last_event_at: nowIso() }).eq("id", campaign.id);
+      await sb.from("mass_inject_campaigns").update({ status: "queued", updated_at: nowIso(), completed_at: null }).eq("id", campaign.id);
+      await emitCampaignEvent(sb, campaign.id, "campaign_resumed", "info");
       await queueCampaignRun(campaign.id, 0);
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
