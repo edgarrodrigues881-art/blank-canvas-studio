@@ -595,10 +595,30 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
   console.log(`[mass-inject] campaign=${campaignId} lock acquired — starting serial processing`);
 
   let consecutiveFailures = 0;
+  const workerStartedAt = Date.now();
+  let contactsProcessedThisRun = 0;
 
   try {
+    console.log(JSON.stringify({
+      type: "mass-group-inject.worker_start",
+      campaignId,
+      timestamp: nowIso(),
+    }));
+
     // ── Main processing loop: one contact at a time ──
     while (true) {
+      // 0. PROCESSING TIMEOUT: reset contacts stuck in "processing" for > 3 minutes
+      const staleThreshold = new Date(Date.now() - STALE_PROCESSING_TIMEOUT_MS).toISOString();
+      const { data: resetData } = await sb.from("mass_inject_contacts")
+        .update({ status: "pending", error_message: "Reprocessando (timeout de processamento)." } as any)
+        .eq("campaign_id", campaignId)
+        .eq("status", "processing")
+        .lt("processed_at", staleThreshold)
+        .select("id");
+      const resetCount = resetData?.length || 0;
+      if (resetCount > 0) {
+        console.log(`[mass-inject] campaign=${campaignId} reset ${resetCount} stale processing contacts back to pending`);
+      }
       // 1. Re-fetch campaign to check for pause/cancel
       const { data: campaign } = await sb.from("mass_inject_campaigns").select("*").eq("id", campaignId).single();
       if (!campaign || FINAL_CAMPAIGN_STATUSES.has(campaign.status)) {
