@@ -627,6 +627,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
     return;
   }
   console.log(`[mass-inject] campaign=${campaignId} lock acquired — starting serial processing`);
+  await setCampaignEvent(sb, campaignId, "campaign_started", "info");
 
   let consecutiveFailures = 0;
   const workerStartedAt = Date.now();
