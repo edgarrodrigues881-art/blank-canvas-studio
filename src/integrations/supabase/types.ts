@@ -1784,6 +1784,7 @@ export type Database = {
           id: string
           last_event: string | null
           last_event_at: string | null
+          last_event_type: string | null
           max_delay: number
           min_delay: number
           name: string
@@ -1809,6 +1810,7 @@ export type Database = {
           id?: string
           last_event?: string | null
           last_event_at?: string | null
+          last_event_type?: string | null
           max_delay?: number
           min_delay?: number
           name: string
@@ -1834,6 +1836,7 @@ export type Database = {
           id?: string
           last_event?: string | null
           last_event_at?: string | null
+          last_event_type?: string | null
           max_delay?: number
           min_delay?: number
           name?: string
