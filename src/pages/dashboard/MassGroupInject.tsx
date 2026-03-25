@@ -1251,9 +1251,26 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
       setCompletedSteps(prev => new Set([...prev, "import"]));
       setStep("preview");
       toast.success(`${data.validCount} contatos válidos encontrados`);
+
+      // Auto-check participants in group
+      if (data.valid?.length > 0 && primaryDeviceId) {
+        setIsChecking(true);
+        try {
+          const { data: checkData, error: checkError } = await supabase.functions.invoke("mass-group-inject", {
+            body: { action: "check-participants", groupId, deviceId: primaryDeviceId, contacts: data.valid },
+          });
+          if (!checkError && checkData) {
+            setParticipantCheck(checkData);
+            if (checkData.alreadyExistsCount > 0) {
+              toast.info(`${checkData.alreadyExistsCount} contato(s) já estão no grupo`);
+            }
+          }
+        } catch { /* silently fail - participant check is best-effort */ }
+        finally { setIsChecking(false); }
+      }
     } catch (e: any) { toast.error(e.message || "Erro na validação"); }
     finally { setIsValidating(false); }
-  }, [importedContacts, groupId, selectedDeviceIds, campaignName]);
+  }, [importedContacts, groupId, selectedDeviceIds, campaignName, primaryDeviceId]);
 
   const handleCheckParticipants = useCallback(async () => {
     if (!validationResult?.valid.length) return;
@@ -1324,7 +1341,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     return liveResults.filter(r => r.status === activeFilter);
   }, [liveResults, activeFilter]);
 
-  const totalToProcess = validationResult?.validCount ?? 0;
+  const totalToProcess = participantCheck ? participantCheck.readyCount : (validationResult?.validCount ?? 0);
   const contactCount = importedContacts.length;
   const liveProcessed = liveOk + liveFail;
   const liveProgress = liveTotal > 0 ? Math.round((liveProcessed / liveTotal) * 100) : 0;
