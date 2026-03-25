@@ -1308,13 +1308,20 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     if (contacts.length === 0) return toast.error("Nenhum contato válido para processar");
     setConfirmOpen(false);
     setIsProcessing(true);
+
+    // Build groupTargets from selectedGroups or fallback to single groupId
+    const groupTargets = selectedGroups.length > 0
+      ? selectedGroups.map(g => ({ group_id: g.jid, group_name: g.name }))
+      : groupId ? [{ group_id: groupId, group_name: groupName || selectedGroup?.name || groupId }] : [];
+
     try {
       const { data, error } = await supabase.functions.invoke("mass-group-inject", {
         body: {
           action: "create-campaign",
           name: campaignName || `Campanha ${new Date().toLocaleString("pt-BR")}`,
-          groupId,
-          groupName: groupName || selectedGroup?.name || groupId,
+          groupId: groupTargets[0]?.group_id || groupId,
+          groupName: groupTargets[0]?.group_name || groupName,
+          groupTargets,
           deviceIds: selectedDeviceIds,
           contacts,
           minDelay,
@@ -1327,9 +1334,11 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ["mass_inject_campaigns"] });
       toast.success(
-        data?.deferredParticipantCheck
-          ? `Campanha iniciada: ${data?.readyCount ?? contacts.length} contatos na fila. A checagem no grupo acontecerá durante a execução.`
-          : `Campanha criada: ${data?.readyCount ?? 0} na fila, ${data?.alreadyExistsCount ?? 0} já estavam no grupo.`
+        selectedGroups.length > 1
+          ? `Campanha criada: ${contacts.length} contatos distribuídos em ${selectedGroups.length} grupos.`
+          : data?.deferredParticipantCheck
+            ? `Campanha iniciada: ${data?.readyCount ?? contacts.length} contatos na fila.`
+            : `Campanha criada: ${data?.readyCount ?? 0} na fila, ${data?.alreadyExistsCount ?? 0} já estavam no grupo.`
       );
       onCampaignCreated(data.campaignId);
     } catch (e: any) {
@@ -1337,7 +1346,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     } finally {
       setIsProcessing(false);
     }
-  }, [validationResult, groupId, groupName, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, campaignName, selectedGroup, qc, onCampaignCreated]);
+  }, [validationResult, participantCheck, groupId, groupName, selectedGroups, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, campaignName, selectedGroup, qc, onCampaignCreated]);
 
   const handlePause = useCallback(() => { pauseRef.current = !pauseRef.current; setIsPaused(pauseRef.current); }, []);
   const handleCancel = useCallback(() => { cancelRef.current = true; pauseRef.current = false; setIsPaused(false); }, []);
