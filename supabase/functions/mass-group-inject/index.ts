@@ -625,8 +625,8 @@ async function emitCampaignEvent(sb: any, campaignId: string, eventType: string,
 }
 
 // Statuses that are NOT real failures (temporary/retryable or informational)
-const TEMPORARY_STATUSES = new Set(["rate_limited", "timeout", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"]);
-// Statuses that represent REAL definitive failures
+const TEMPORARY_STATUSES = new Set(["rate_limited", "timeout", "api_temporary", "connection_unconfirmed", "session_dropped", "permission_unconfirmed", "unknown_failure"]);
+// Statuses that represent REAL definitive failures — session_dropped is NOT here (it's transient)
 const REAL_FAILURE_STATUSES = new Set(["confirmed_disconnect", "confirmed_no_admin", "invalid_group", "contact_not_found", "unauthorized", "blocked"]);
 
 async function updateCampaignCounters(sb: any, campaign: any, status: string, pauseCampaign = false, pauseReason?: string) {
@@ -841,12 +841,17 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
     const shouldCheckConnection = processed === 0 || processed % 10 === 0;
 
     if (shouldCheckConnection) {
-      const connCheck = await checkInstanceConnection(device.uazapi_base_url, device.uazapi_token);
-      if (connCheck.connected === false) {
-        console.log(`[mass-inject] campaign=${campaignId} device=${device.name} DISCONNECTED`);
-        await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", device.id);
+      // Use multi-check revalidation instead of single check
+      const { finalResult: connCheck, confirmedDisconnect } = await checkInstanceConnectionWithRetries(
+        device.uazapi_base_url, device.uazapi_token, `preflight:${device.name}`
+      );
+      
+      if (confirmedDisconnect) {
+        console.log(`[mass-inject] campaign=${campaignId} device=${device.name} SESSION DROPPED (confirmed by ${DISCONNECT_RECHECK_COUNT} checks)`);
+        // Don't immediately mark as Disconnected — give it a chance to recover
         failedDeviceIds.add(device.id);
 
+        // Check if other devices are available
         let anyConnected = false;
         for (const did of parseDeviceIds(campaign.device_ids)) {
           if (failedDeviceIds.has(did)) continue;
@@ -857,35 +862,36 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
             anyConnected = true;
             break;
           }
-          await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", altDevice.id);
           failedDeviceIds.add(did);
         }
 
         if (!anyConnected) {
-          console.log(`[mass-inject] campaign=${campaignId} ALL devices disconnected — failing campaign`);
-          const { count: pendingAsFailed } = await sb.from("mass_inject_contacts")
-            .select("id", { count: "exact", head: true })
-            .eq("campaign_id", campaignId)
-            .in("status", [...RETRYABLE_QUEUE_STATUSES, "processing"]);
-
-          await sb.from("mass_inject_contacts")
-            .update({ status: "confirmed_disconnect", error_message: "Todas as instâncias desconectadas. Campanha finalizada.", processed_at: nowIso(), device_used: null } as any)
-            .eq("campaign_id", campaignId)
-            .in("status", [...RETRYABLE_QUEUE_STATUSES, "processing"]);
-
+          // ALL devices offline — but DON'T fail the campaign, just pause with recovery option
+          console.log(`[mass-inject] campaign=${campaignId} ALL devices sessions dropped — pausing (NOT failing)`);
           await sb.from("mass_inject_campaigns").update({
-            status: "failed",
+            status: "paused",
             updated_at: nowIso(),
-            completed_at: nowIso(),
-            fail_count: Number(campaign.fail_count || 0) + Number(pendingAsFailed || 0),
+            pause_reason: "Sessão da API desconectada em todas as instâncias. Reconecte e retome.",
             next_run_at: null,
           }).eq("id", campaignId);
-          await emitCampaignEvent(sb, campaignId, "all_instances_disconnected", "error");
+          await emitCampaignEvent(sb, campaignId, "all_sessions_dropped", "warning", 
+            "Todas as instâncias com sessão desconectada. Reconecte as instâncias e retome a campanha.");
           return;
         }
 
-        const retryDelay = randomBetween(2000, 5000);
-        await emitCampaignEvent(sb, campaignId, "instance_disconnected", "warning", `Instância ${device.name} desconectada. Redistribuindo para outra automaticamente.`);
+        // Some devices still connected — redistribute with cooldown
+        const retryDelay = randomBetween(15_000, 30_000);
+        await emitCampaignEvent(sb, campaignId, "session_dropped", "warning", 
+          `Sessão da instância ${device.name} desconectada. Tentando com outra instância em ${Math.round(retryDelay/1000)}s.`);
+        await scheduleCampaignRun(sb, campaignId, retryDelay);
+        nextRunScheduled = true;
+        return;
+      } else if (connCheck.connected === null) {
+        // Unstable connection — wait and retry
+        const retryDelay = randomBetween(20_000, 40_000);
+        console.log(`[mass-inject] campaign=${campaignId} device=${device.name} connection unstable, retrying in ${retryDelay}ms`);
+        await emitCampaignEvent(sb, campaignId, "connection_unstable", "warning",
+          `Conexão da instância ${device.name} instável. Revalidando em ${Math.round(retryDelay/1000)}s.`);
         await scheduleCampaignRun(sb, campaignId, retryDelay);
         nextRunScheduled = true;
         return;
