@@ -1341,6 +1341,12 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                 <CardTitle className="text-base font-semibold flex items-center gap-2.5"><Shield className="w-4 h-4 text-primary" />Configuração</CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
+                {/* Campaign name */}
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Nome da Campanha</label>
+                  <Input value={campaignName} onChange={e => setCampaignName(e.target.value)} placeholder="Ex: Adição Grupo VIP - Março" className="h-11" />
+                </div>
+
                 {/* Instances */}
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
