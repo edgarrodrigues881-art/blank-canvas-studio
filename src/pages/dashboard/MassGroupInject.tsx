@@ -1240,7 +1240,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   const handleValidate = useCallback(async () => {
     const validContacts = importedContacts.filter(c => c.classification === "valid").map(c => c.normalized);
     if (validContacts.length === 0) return toast.error("Nenhum contato válido para processar");
-    if (!groupId.trim()) return toast.error("Selecione um grupo de destino");
+    const activeGroupId = selectedGroups.length > 0 ? selectedGroups[0].jid : groupId;
+    if (!activeGroupId) return toast.error("Selecione pelo menos um grupo de destino");
     if (selectedDeviceIds.length === 0) return toast.error("Selecione pelo menos uma instância");
     if (!campaignName.trim()) return toast.error("Dê um nome para a campanha");
 
@@ -1254,25 +1255,36 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
       setStep("preview");
       toast.success(`${data.validCount} contatos válidos encontrados`);
 
-      // Auto-check participants in group
-      if (data.valid?.length > 0 && primaryDeviceId) {
+      // Auto-check participants in the first group
+      if (data.valid?.length > 0 && primaryDeviceId && activeGroupId) {
         setIsChecking(true);
         try {
           const { data: checkData, error: checkError } = await supabase.functions.invoke("mass-group-inject", {
-            body: { action: "check-participants", groupId, deviceId: primaryDeviceId, contacts: data.valid },
+            body: { action: "check-participants", groupId: activeGroupId, deviceId: primaryDeviceId, contacts: data.valid },
           });
-          if (!checkError && checkData) {
+          if (checkError) {
+            console.warn("check-participants error:", checkError);
+            toast.warning("Não foi possível verificar participantes do grupo. Você pode tentar novamente manualmente.");
+          } else if (checkData?.error) {
+            console.warn("check-participants API error:", checkData.error);
+            toast.warning(`Verificação de participantes: ${checkData.error}`);
+          } else if (checkData) {
             setParticipantCheck(checkData);
             if (checkData.alreadyExistsCount > 0) {
               toast.info(`${checkData.alreadyExistsCount} contato(s) já estão no grupo`);
+            } else {
+              toast.success("Nenhum contato duplicado no grupo!");
             }
           }
-        } catch { /* silently fail - participant check is best-effort */ }
+        } catch (checkErr: any) {
+          console.warn("check-participants exception:", checkErr);
+          toast.warning("Falha ao verificar participantes: " + (checkErr?.message || "erro desconhecido"));
+        }
         finally { setIsChecking(false); }
       }
     } catch (e: any) { toast.error(e.message || "Erro na validação"); }
     finally { setIsValidating(false); }
-  }, [importedContacts, groupId, selectedDeviceIds, campaignName, primaryDeviceId]);
+  }, [importedContacts, groupId, selectedGroups, selectedDeviceIds, campaignName, primaryDeviceId]);
 
   const handleCheckParticipants = useCallback(async () => {
     if (!validationResult?.valid.length) return;
