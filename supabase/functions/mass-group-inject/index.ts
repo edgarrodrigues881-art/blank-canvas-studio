@@ -1493,11 +1493,12 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // resume
+      // resume — start with a recovery delay (30-60s) to avoid immediate burst after reconnect
       await sb.from("mass_inject_contacts").update({ status: "pending", error_message: null } as any).eq("campaign_id", campaign.id).eq("status", "processing");
       await sb.from("mass_inject_campaigns").update({ status: "queued", updated_at: nowIso(), completed_at: null, next_run_at: null, pause_reason: null, consecutive_failures: 0 }).eq("id", campaign.id);
       await emitCampaignEvent(sb, campaign.id, "campaign_resumed", "info");
-      await queueCampaignRun(campaign.id, 0);
+      const resumeDelay = randomBetween(30_000, 60_000); // slow ramp-up after resume
+      await queueCampaignRun(campaign.id, resumeDelay);
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
