@@ -890,6 +890,9 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   const [isPaused, setIsPaused] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [isImporting, setIsImporting] = useState(false);
+  const [hasImported, setHasImported] = useState(!!prefillContacts?.length);
+  const [reimportMode, setReimportMode] = useState<"ask" | null>(null);
 
   // Group state
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
