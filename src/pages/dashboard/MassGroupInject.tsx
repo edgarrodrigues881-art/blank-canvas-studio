@@ -1064,6 +1064,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     setGroups([]);
     setGroupId("");
     setGroupName("");
+    setSelectedGroups([]);
     setGroupLoadError("");
     setGroupLoadDiagnostics("");
     setIsLoadingGroups(true);
