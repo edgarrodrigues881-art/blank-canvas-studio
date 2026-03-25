@@ -86,8 +86,10 @@ export default function GroupInteractionPage() {
       if (!user) return [];
       const { data } = await supabase
         .from("devices")
-        .select("id, name, number, status")
+        .select("id, name, number, status, instance_type")
         .eq("user_id", user.id)
+        .eq("status", "connected")
+        .neq("instance_type", "notificacao")
         .order("name");
       return (data || []) as any[];
     },
@@ -394,8 +396,9 @@ export default function GroupInteractionPage() {
                           }
                         />
                         <span className="text-xs truncate">
-                          {d.name} {d.number ? `(${d.number})` : ""} {d.status === "connected" ? "🟢" : "🔴"}
+                          {d.name} {d.number ? `(${d.number})` : ""}
                         </span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                       </label>
                     ))
                   )}
@@ -493,7 +496,7 @@ export default function GroupInteractionPage() {
                     <SelectContent>
                       {devices.map((d: any) => (
                         <SelectItem key={d.id} value={d.id}>
-                          {d.name} {d.number ? `(${d.number})` : ""} {d.status === "connected" ? "🟢" : "🔴"}
+                          {d.name} {d.number ? `(${d.number})` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
