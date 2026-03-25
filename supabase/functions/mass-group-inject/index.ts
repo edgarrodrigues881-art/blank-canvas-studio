@@ -642,6 +642,11 @@ async function updateCampaignCounters(sb: any, campaign: any, status: string, pa
     patch.already_count = Number(campaign.already_count || 0) + 1;
     patch.consecutive_failures = 0; // Reset on already_exists (not a failure)
     eventType = "contact_already_exists"; eventLevel = "info";
+  } else if (status === "session_dropped") {
+    // session_dropped is TRANSIENT — track separately, do NOT count as real fail
+    patch.timeout_count = Number(campaign.timeout_count || 0) + 1; // reuse timeout counter
+    eventType = "session_dropped"; eventLevel = "warning";
+    // Do NOT increment consecutive_failures — session drops are recoverable
   } else if (status === "rate_limited") {
     // rate_limited is API throttling — track separately, do NOT count as fail
     patch.rate_limit_count = Number(campaign.rate_limit_count || 0) + 1;
@@ -962,13 +967,17 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       timestamp: nowIso(),
     }));
 
-    if (result.status === "confirmed_disconnect") {
+    // session_dropped is transient — do NOT mark device as Disconnected
+    if (result.status === "session_dropped") {
+      // Keep device status unchanged — session may recover
+      console.log(`[mass-inject] campaign=${campaignId} device=${device.name} session_dropped — NOT marking device offline`);
+    } else if (result.status === "confirmed_disconnect") {
       await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", device.id);
     } else if (result.status === "completed" || result.status === "already_exists") {
       await sb.from("devices").update({ status: "Ready", updated_at: nowIso() }).eq("id", device.id);
     }
 
-    const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure", "timeout"].includes(result.status) && !result.pauseCampaign;
+    const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped", "permission_unconfirmed", "unknown_failure", "timeout"].includes(result.status) && !result.pauseCampaign;
 
     // rate_limited (429) gets MORE retries since it's just API throttling, NOT account restriction
     const maxRetriesForStatus = result.status === "rate_limited" ? MAX_RATE_LIMIT_RETRIES : MAX_QUEUE_RETRIES;
