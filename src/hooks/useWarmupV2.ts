@@ -358,7 +358,7 @@ export function useToggleAutosave() {
 
 
 // ── Audit Logs ──
-export function useWarmupAuditLogs(cycleId?: string, limit = 200) {
+export function useWarmupAuditLogs(cycleId?: string, limit = 500) {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["warmup_audit_logs", cycleId, limit],
@@ -367,15 +367,16 @@ export function useWarmupAuditLogs(cycleId?: string, limit = 200) {
         .from("warmup_audit_logs" as any)
         .select("id, device_id, cycle_id, level, event_type, message, meta, created_at")
         .eq("user_id", user!.id)
-        .order("created_at", { ascending: true })
+        .order("created_at", { ascending: false })
         .limit(limit);
       if (cycleId) query = query.eq("cycle_id", cycleId);
       const { data, error } = await query;
       if (error) throw error;
-      return data as unknown as WarmupAuditLog[];
+      // Return in ascending order for timeline display
+      return ((data as unknown as WarmupAuditLog[]) || []).reverse();
     },
     enabled: !!user,
-    refetchInterval: 120_000,
-    staleTime: 60_000,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
   });
 }
