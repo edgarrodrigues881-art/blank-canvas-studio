@@ -1000,7 +1000,7 @@ Deno.serve(async (req) => {
         if (allGroups.length === 0) {
           for (const endpoint of ["/group/listAll", "/group/fetchAllGroups", "/chat/list?type=group&count=500"]) {
             try {
-              const res = await fetch(`${device.uazapi_base_url}${endpoint}`, {
+              const res = await fetchWithTimeout(`${device.uazapi_base_url}${endpoint}`, {
                 method: endpoint === "/group/fetchAllGroups" ? "POST" : "GET",
                 headers: endpoint === "/group/fetchAllGroups" ? buildHeaders(device.uazapi_token, true) : buildHeaders(device.uazapi_token),
                 ...(endpoint === "/group/fetchAllGroups" ? { body: JSON.stringify({}) } : {}),
