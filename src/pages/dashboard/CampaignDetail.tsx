@@ -640,41 +640,8 @@ const CampaignDetail = () => {
                       </Badge>
                     </div>
 
-                    <div className={cn("grid grid-cols-2 gap-2 transition-opacity", isActive && "opacity-30 pointer-events-none select-none")}>
-                      {[
-                        { key: "single", label: "Única", desc: "Usa apenas a primeira" },
-                        { key: "rotation", label: "Rodízio", desc: `Troca após ${campaign.messages_per_instance || 50} msgs` },
-                      ].map(mode => {
-                        const currentVal = campaign.messages_per_instance ?? 0;
-                        const isModeActive = mode.key === "single" ? currentVal === 0 : currentVal > 0;
-                        return (
-                          <button
-                            key={mode.key}
-                            onClick={async () => {
-                              if (!id) return;
-                              const rotationValue = Math.max(1, Number(messagesPerInstanceInput.replace(/\D/g, "")) || 50);
-                              const newVal = mode.key === "single" ? 0 : rotationValue;
-                              setMessagesPerInstanceInput(String(rotationValue));
-                              await supabase.from("campaigns").update({ messages_per_instance: newVal }).eq("id", id);
-                              queryClient.invalidateQueries({ queryKey: ["campaign", id] });
-                              setDelayDirty(false);
-                              toast({ title: mode.key === "single" ? "Modo única ativado" : "Modo rodízio ativado" });
-                            }}
-                            className={cn(
-                              "rounded-lg border px-3 py-2 text-center transition-all",
-                              isModeActive
-                                ? "border-primary/40 bg-primary/5"
-                                : "border-border/20 bg-background/20 opacity-50 hover:opacity-70",
-                            )}
-                          >
-                            <p className="text-[11px] font-semibold text-foreground">{mode.label}</p>
-                            <p className="text-[9px] text-muted-foreground">{mode.desc}</p>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {(campaign.messages_per_instance ?? 0) > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-muted-foreground/70">Trocar de conta após quantas mensagens?</p>
                       <div className={cn("flex items-center gap-2 transition-opacity", isActive && "opacity-30 pointer-events-none select-none")}>
                         <span className="text-[10px] text-muted-foreground whitespace-nowrap">Trocar após</span>
                         <Input
@@ -688,7 +655,13 @@ const CampaignDetail = () => {
                           }}
                           onBlur={async () => {
                             setIsEditingMessagesPerInstance(false);
-                            await saveMessagesPerInstance();
+                            const parsed = Number(messagesPerInstanceInput.replace(/\D/g, ""));
+                            const value = parsed > 0 ? Math.min(500, parsed) : 50;
+                            setMessagesPerInstanceInput(String(value));
+                            if (id) {
+                              await supabase.from("campaigns").update({ messages_per_instance: value }).eq("id", id);
+                              queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+                            }
                           }}
                           onKeyDown={async (e) => {
                             if (e.key === "Enter") {
@@ -699,7 +672,8 @@ const CampaignDetail = () => {
                         />
                         <span className="text-[10px] text-muted-foreground">msgs</span>
                       </div>
-                    )}
+                    </div>
+
 
                     <div className="flex flex-wrap gap-1.5">
                       {(campaign.device_ids as string[]).map((did, i) => {
