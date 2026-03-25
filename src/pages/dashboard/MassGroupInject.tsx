@@ -1831,8 +1831,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
               { label: "Válidos", value: validationResult.validCount, color: "text-emerald-500" },
               { label: "Inválidos", value: validationResult.invalidCount, color: "text-destructive" },
               { label: "Duplicados", value: validationResult.duplicateCount, color: "text-amber-500" },
-              { label: "Já no Grupo", value: participantCheck?.alreadyExistsCount ?? "Opcional", color: "text-blue-500" },
-              { label: "Na Fila", value: validationResult.validCount, color: "text-primary" },
+              { label: "Já no Grupo", value: participantCheck ? participantCheck.alreadyExistsCount : (isChecking ? "..." : "—"), color: "text-blue-500" },
+              { label: "Na Fila", value: totalToProcess, color: "text-primary" },
             ].map(s => (
               <Card key={s.label} className="border-border/40 bg-card/80">
                 <CardContent className="pt-4 pb-3 px-4">
