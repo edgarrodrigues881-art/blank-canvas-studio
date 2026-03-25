@@ -563,6 +563,7 @@ async function updateCampaignCounters(sb: any, campaign: any, status: string, pa
     patch.fail_count = Number(campaign.fail_count || 0) + 1;
     eventLevel = "error";
     if (status === "rate_limited") { eventType = "rate_limited"; eventLevel = "warning"; }
+    else if (status === "timeout") { eventType = "timeout"; eventLevel = "warning"; }
     else if (status === "contact_not_found") eventType = "contact_not_found";
     else if (status === "confirmed_disconnect") eventType = "instance_disconnected";
     else if (status === "confirmed_no_admin") eventType = "no_admin_permission";
