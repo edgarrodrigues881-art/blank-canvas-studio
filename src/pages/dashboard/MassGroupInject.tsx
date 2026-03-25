@@ -1337,7 +1337,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
       {/* ══ IMPORT ══ */}
       {step === "import" && (
         <div className="space-y-5">
-          <div className="xl:col-span-2 space-y-5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {/* Campaign name */}
             <Card className="border-border/40 bg-card/80 backdrop-blur-sm shadow-sm">
               <CardContent className="pt-5 pb-4 px-5">
