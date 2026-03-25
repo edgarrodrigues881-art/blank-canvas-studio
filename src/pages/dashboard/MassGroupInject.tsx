@@ -350,18 +350,21 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
   const [isActionPending, setIsActionPending] = useState(false);
   const [liveRuntimeNote, setLiveRuntimeNote] = useState("");
 
-  const { data: campaign, isLoading, refetch: refetchCampaign } = useQuery({
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+
+  const isActiveStatus = (s?: string) => s === "processing" || s === "queued";
+
+  const { data: campaign, isLoading, refetch: refetchCampaign, isFetching: isFetchingCampaign } = useQuery({
     queryKey: ["mass_inject_campaign", campaignId],
     queryFn: async () => {
       const { data, error } = await supabase.from("mass_inject_campaigns").select("*").eq("id", campaignId).single();
       if (error) throw error;
       return data;
     },
-    refetchInterval: 3000,
     refetchOnWindowFocus: true,
   });
 
-  const { data: contacts = [], refetch: refetchContacts } = useQuery({
+  const { data: contacts = [], refetch: refetchContacts, isFetching: isFetchingContacts } = useQuery({
     queryKey: ["mass_inject_contacts", campaignId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -372,9 +375,24 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
       if (error) throw error;
       return data || [];
     },
-    refetchInterval: 3000,
     refetchOnWindowFocus: true,
   });
+
+  // Auto-refresh only while campaign is active
+  useEffect(() => {
+    if (!isActiveStatus(campaign?.status)) return;
+    const id = setInterval(() => {
+      if (!isFetchingCampaign) refetchCampaign();
+      if (!isFetchingContacts) refetchContacts();
+    }, 2500);
+    return () => clearInterval(id);
+  }, [campaign?.status, isFetchingCampaign, isFetchingContacts, refetchCampaign, refetchContacts]);
+
+  const handleManualRefresh = useCallback(async () => {
+    setIsManualRefreshing(true);
+    await Promise.all([refetchCampaign(), refetchContacts()]);
+    setIsManualRefreshing(false);
+  }, [refetchCampaign, refetchContacts]);
 
   const handlePause = useCallback(async () => {
     setIsActionPending(true);
