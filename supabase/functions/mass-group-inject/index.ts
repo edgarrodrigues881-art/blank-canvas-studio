@@ -78,6 +78,17 @@ const endpointCache = new Map<string, number>();
 
 const nowIso = () => new Date().toISOString();
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Update the next_run_at timestamp so frontend can show a precise countdown */
+async function setNextRunAt(sb: any, campaignId: string, delayMs: number) {
+  const nextAt = new Date(Date.now() + delayMs).toISOString();
+  await sb.from("mass_inject_campaigns").update({ next_run_at: nextAt }).eq("id", campaignId);
+}
+
+/** Clear next_run_at (campaign idle / done) */
+async function clearNextRunAt(sb: any, campaignId: string) {
+  await sb.from("mass_inject_campaigns").update({ next_run_at: null }).eq("id", campaignId);
+}
 const randomBetween = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 
 function extractRetryCount(message: string | null | undefined) {
