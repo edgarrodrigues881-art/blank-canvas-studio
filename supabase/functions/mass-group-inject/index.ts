@@ -1,4 +1,4 @@
-// mass-group-inject v9.0 — truly serial queue with advisory locks + blocking delays + connection pre-check
+// mass-group-inject v10.0 — serial queue + advisory locks + per-device global rate limiter
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -661,19 +661,31 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
       const retryCount = extractRetryCount(contact.error_message);
 
-      // 6. Execute the add operation (fully awaited)
+      // 6. GLOBAL PER-DEVICE RATE LIMITER: claim send slot before any API call
+      const { data: waitMs } = await sb.rpc("claim_device_send_slot", {
+        p_device_id: device.id,
+        p_min_interval_ms: 12000, // 12s minimum between any API calls per device
+      });
+      if (waitMs && waitMs > 0) {
+        // Add jitter to the wait time
+        const jitteredWait = waitMs + randomBetween(1000, 3000);
+        console.log(`[mass-inject] campaign=${campaignId} device=${device.name} global rate limit: waiting ${jitteredWait}ms`);
+        await sleep(jitteredWait);
+      }
+
+      // 7. Execute the add operation (fully awaited)
       const cacheKey = `${campaignId}:${campaign.group_id}`;
       console.log(`[mass-inject] campaign=${campaignId} processing contact=${contact.phone} (retry=${retryCount})`);
       const result = await executeAddWithRecovery(device.uazapi_base_url, device.uazapi_token, campaign.group_id, contact.phone, cacheKey);
 
-      // 7. Update device status based on result
+      // 8. Update device status based on result
       if (result.status === "confirmed_disconnect") {
         await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", device.id);
       } else if (result.status === "completed" || result.status === "already_exists") {
         await sb.from("devices").update({ status: "Ready", updated_at: nowIso() }).eq("id", device.id);
       }
 
-      // 8. Handle transient errors with retry
+      // 9. Handle transient errors with retry
       const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"].includes(result.status) && !result.pauseCampaign;
 
       if (isTransient && retryCount < MAX_QUEUE_RETRIES) {
@@ -700,7 +712,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         continue;
       }
 
-      // 9. Write final contact result
+      // 10. Write final contact result
       const finalError = SUCCESS_STATUSES.has(result.status) ? null : stripRetryMeta(result.detail);
       await sb.from("mass_inject_contacts").update({
         status: result.status,
@@ -709,7 +721,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         processed_at: nowIso(),
       }).eq("id", contact.id);
 
-      // 10. Update campaign counters
+      // 11. Update campaign counters
       const { data: latestCampaign } = await sb.from("mass_inject_campaigns").select("*").eq("id", campaignId).single();
       if (!latestCampaign) break;
       await updateCampaignCounters(sb, latestCampaign, result.status, !!result.pauseCampaign);

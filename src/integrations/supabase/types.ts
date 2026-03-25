@@ -1340,6 +1340,7 @@ export type Database = {
           created_at: string
           id: string
           instance_type: string
+          last_api_call_at: string | null
           login_type: string
           name: string
           number: string | null
@@ -1357,6 +1358,7 @@ export type Database = {
           created_at?: string
           id?: string
           instance_type: string
+          last_api_call_at?: string | null
           login_type: string
           name: string
           number?: string | null
@@ -1374,6 +1376,7 @@ export type Database = {
           created_at?: string
           id?: string
           instance_type?: string
+          last_api_call_at?: string | null
           login_type?: string
           name?: string
           number?: string | null
@@ -3186,6 +3189,10 @@ export type Database = {
         Returns: boolean
       }
       check_phone_available: { Args: { _phone: string }; Returns: boolean }
+      claim_device_send_slot: {
+        Args: { p_device_id: string; p_min_interval_ms?: number }
+        Returns: number
+      }
       claim_next_mass_inject_contact: {
         Args: {
           p_campaign_id: string
