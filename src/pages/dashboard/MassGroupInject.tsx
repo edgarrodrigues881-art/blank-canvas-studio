@@ -1287,8 +1287,6 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   const stepItems = [
     { key: "import" as Step, label: "Importar", icon: Upload },
     { key: "preview" as Step, label: "Revisão", icon: Search },
-    { key: "processing" as Step, label: "Processando", icon: RefreshCw },
-    { key: "done" as Step, label: "Concluído", icon: CheckCircle2 },
   ];
 
   return (
