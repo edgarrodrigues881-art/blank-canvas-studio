@@ -356,7 +356,7 @@ async function checkGroupAccess(baseUrl: string, token: string, groupId: string)
   ];
   for (const ep of endpoints) {
     try {
-      const res = await fetch(ep.url, {
+      const res = await fetchWithTimeout(ep.url, {
         method: ep.method,
         headers: ep.body ? buildHeaders(token, true) : buildHeaders(token),
         ...(ep.body ? { body: JSON.stringify(ep.body) } : {}),
