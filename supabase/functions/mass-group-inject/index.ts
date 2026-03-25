@@ -721,7 +721,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         processed_at: nowIso(),
       }).eq("id", contact.id);
 
-      // 10. Update campaign counters
+      // 11. Update campaign counters
       const { data: latestCampaign } = await sb.from("mass_inject_campaigns").select("*").eq("id", campaignId).single();
       if (!latestCampaign) break;
       await updateCampaignCounters(sb, latestCampaign, result.status, !!result.pauseCampaign);
