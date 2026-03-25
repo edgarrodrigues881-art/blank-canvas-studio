@@ -530,53 +530,6 @@ const CampaignDetail = () => {
         <StatCard label="Falhas" value={stats.failed} icon={XCircle} colorClass="bg-destructive/10 text-destructive" />
       </div>
 
-      {/* ── Rotation / Multi-instance Info ────────────────────────── */}
-      {campaign.device_ids && Array.isArray(campaign.device_ids) && (campaign.device_ids as string[]).length >= 2 && (
-        <div className="rounded-xl border border-border/30 bg-card/50 p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <RefreshCw className="w-3.5 h-3.5 text-primary" />
-            <span className="text-xs font-semibold text-foreground">Trocar de conta</span>
-            <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-primary/20 text-primary">
-              {(campaign.device_ids as string[]).length} instâncias
-            </Badge>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {[
-              { key: "single", label: "Única", desc: "Usa apenas a primeira", active: !campaign.messages_per_instance || campaign.messages_per_instance <= 0 },
-              { key: "rotation", label: "Rodízio", desc: `Troca após ${campaign.messages_per_instance || 50} msgs`, active: (campaign.messages_per_instance ?? 0) > 0 },
-              { key: "parallel", label: "Paralelo", desc: "Todas ao mesmo tempo", active: false },
-            ].map(mode => (
-              <div
-                key={mode.key}
-                className={cn(
-                  "rounded-lg border px-3 py-2 text-center",
-                  mode.active
-                    ? "border-primary/40 bg-primary/5"
-                    : "border-border/20 bg-background/20 opacity-40"
-                )}
-              >
-                <p className="text-[11px] font-semibold text-foreground">{mode.label}</p>
-                <p className="text-[9px] text-muted-foreground">{mode.desc}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Instance list */}
-          <div className="flex flex-wrap gap-1.5">
-            {(campaign.device_ids as string[]).map((did, i) => {
-              const dev = devices.find(d => d.id === did);
-              return (
-                <span key={did} className="inline-flex items-center gap-1 rounded-md bg-muted/30 border border-border/20 px-2 py-0.5 text-[10px] text-muted-foreground">
-                  <span className={cn("w-1.5 h-1.5 rounded-full", dev?.status === "connected" ? "bg-primary" : "bg-muted-foreground")} />
-                  {dev?.name || dev?.number || `Instância ${i + 1}`}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
 
       {/* ── Delay Config (collapsible) ───────────────────────────── */}
       <div className="rounded-xl border border-border/30 bg-card/50 overflow-hidden">
