@@ -34,6 +34,10 @@ interface Props {
 export function DeviceInstanceCards({ chips, isLoading }: Props) {
   const navigate = useNavigate();
 
+  const sortedChips = useMemo(() => 
+    [...chips].sort((a, b) => extractNumber(a.name) - extractNumber(b.name)),
+  [chips]);
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -59,10 +63,6 @@ export function DeviceInstanceCards({ chips, isLoading }: Props) {
       </Card>
     );
   }
-
-  const sortedChips = useMemo(() => 
-    [...chips].sort((a, b) => extractNumber(a.name) - extractNumber(b.name)),
-  [chips]);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
