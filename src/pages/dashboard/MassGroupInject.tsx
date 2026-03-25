@@ -1624,34 +1624,25 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                     </div>
                   </div>
                 ) : (
-                  <Tabs defaultValue="paste">
-                    <TabsList className="w-full grid grid-cols-2 h-10 bg-muted/50">
-                      <TabsTrigger value="paste" className="text-xs font-semibold">Colar Números</TabsTrigger>
-                      <TabsTrigger value="file" className="text-xs font-semibold">Arquivo CSV/TXT/XLSX</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="paste" className="mt-4 space-y-3">
-                      <Textarea value={rawInput} onChange={e => setRawInput(e.target.value)}
-                        placeholder={"5562999999999\n5521988888888\n\nUm número por linha."}
-                        className="min-h-[280px] font-mono text-xs resize-none bg-muted/20 border-border/40" />
+                  <div className="space-y-4">
+                    {/* Paste area */}
+                    <Textarea value={rawInput} onChange={e => setRawInput(e.target.value)}
+                      placeholder={"Um número por linha\n5562999999999\n5521988888888"}
+                      className="min-h-[180px] font-mono text-xs resize-none bg-muted/20 border-border/40" />
+                    
+                    <div className="flex gap-3">
                       {rawInput.trim() && (
                         <Button onClick={() => {
                           const lines = rawInput.split(/[\n,;]+/).map(c => c.trim());
                           handleImportContacts(lines);
-                        }} disabled={isImporting} variant="outline" className="w-full gap-2 h-10">
+                        }} disabled={isImporting} className="flex-1 gap-2 h-10 bg-emerald-600 hover:bg-emerald-700 text-white">
                           {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                           Importar {rawInput.split(/[\n,;]+/).filter(c => c.trim()).length} contatos
                         </Button>
                       )}
-                    </TabsContent>
-                    <TabsContent value="file" className="mt-4">
-                      <label className={`block border-2 border-dashed border-border/40 rounded-2xl p-10 text-center transition-colors hover:border-primary/30 hover:bg-primary/5 ${isImporting ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
-                        {isImporting ? (
-                          <Loader2 className="w-10 h-10 text-primary animate-spin mx-auto mb-3" />
-                        ) : (
-                          <FileText className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-                        )}
-                        <p className="text-sm text-muted-foreground mb-1">{isImporting ? "Importando..." : "Arraste ou clique para selecionar"}</p>
-                        <p className="text-[10px] text-muted-foreground/50">CSV, TXT ou XLSX — todos os números serão importados</p>
+                      <label className={`flex items-center gap-2 px-4 h-10 rounded-md border border-border/40 text-xs font-medium text-muted-foreground hover:bg-muted/30 transition-colors ${isImporting ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
+                        <Upload className="w-3.5 h-3.5" />
+                        Importar Arquivo
                         <input type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" disabled={isImporting} onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
@@ -1680,11 +1671,11 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                           e.target.value = '';
                         }} />
                       </label>
-                    </TabsContent>
-                  </Tabs>
+                    </div>
+                  </div>
                 )}
 
-                <Button onClick={handleValidate} disabled={isValidating || isImporting || importStats.valid === 0 || !groupId.trim() || selectedDeviceIds.length === 0 || !campaignName.trim()} className="w-full h-12 gap-2 text-sm font-semibold rounded-xl shadow-md shadow-primary/10" size="lg">
+                <Button onClick={handleValidate} disabled={isValidating || isImporting || importStats.valid === 0 || !groupId.trim() || selectedDeviceIds.length === 0 || !campaignName.trim()} className="w-full h-11 gap-2 text-sm font-semibold rounded-xl" size="lg">
                   {isValidating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                   {isValidating ? "Validando contatos..." : `Validar e Revisar (${importStats.valid} válidos)`}
                 </Button>
