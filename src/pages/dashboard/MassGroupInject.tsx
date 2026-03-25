@@ -1288,17 +1288,20 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
 
   const handleCheckParticipants = useCallback(async () => {
     if (!validationResult?.valid.length) return;
+    const activeGroupId = selectedGroups.length > 0 ? selectedGroups[0].jid : groupId;
+    if (!activeGroupId || !primaryDeviceId) return toast.error("Grupo e instância necessários");
     setIsChecking(true);
     try {
       const { data, error } = await supabase.functions.invoke("mass-group-inject", {
-        body: { action: "check-participants", groupId, deviceId: primaryDeviceId, contacts: validationResult.valid },
+        body: { action: "check-participants", groupId: activeGroupId, deviceId: primaryDeviceId, contacts: validationResult.valid },
       });
       if (error) throw error;
+      if (data?.error) { toast.error(data.error); return; }
       setParticipantCheck(data);
       toast.success(`${data.readyCount} livres e ${data.alreadyExistsCount} já localizados no grupo`);
     } catch (e: any) { toast.error(e.message || "Erro ao verificar participantes"); }
     finally { setIsChecking(false); }
-  }, [validationResult, groupId, primaryDeviceId]);
+  }, [validationResult, groupId, selectedGroups, primaryDeviceId]);
 
   const handleProcess = useCallback(async () => {
     const contacts = participantCheck?.ready?.length ? participantCheck.ready : (validationResult?.valid || []);
