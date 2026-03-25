@@ -36,16 +36,16 @@ const isTimeoutError = (msg: string) =>
 const isPhoneIdentifier = (value: string) => /\d/.test(value) && !value.includes("@");
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
-/* ── Floating particles (lightweight, GPU-friendly) ── */
-const PARTICLES = Array.from({ length: 14 }, (_, i) => {
-  const angle = (i / 14) * Math.PI * 2;
-  const r = 65 + Math.random() * 25;
+/* ── Minimal floating particles ── */
+const PARTICLES = Array.from({ length: 6 }, (_, i) => {
+  const angle = (i / 6) * Math.PI * 2;
+  const r = 90 + Math.random() * 20;
   return {
     x: Math.cos(angle) * r,
     y: Math.sin(angle) * r,
-    size: 3 + Math.random() * 3,
-    delay: i * 0.45,
-    duration: 3.5 + Math.random() * 2.5,
+    size: 2.5 + Math.random() * 2,
+    delay: i * 0.8,
+    duration: 4 + Math.random() * 2,
   };
 });
 
@@ -62,13 +62,12 @@ const FloatingParticles = () => (
           top: "50%",
           marginLeft: p.x - p.size / 2,
           marginTop: p.y - p.size / 2,
-          background: "rgba(251, 191, 36, 0.45)",
-          boxShadow: "0 0 6px rgba(251, 191, 36, 0.3)",
+          background: "rgba(34, 197, 94, 0.4)",
+          boxShadow: "0 0 8px rgba(34, 197, 94, 0.25)",
         }}
         animate={{
-          opacity: [0, 0.55, 0],
-          y: [0, -8, 0],
-          scale: [0.7, 1.1, 0.7],
+          opacity: [0, 0.5, 0],
+          y: [0, -6, 0],
         }}
         transition={{
           duration: p.duration,
