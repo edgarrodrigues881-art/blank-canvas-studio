@@ -373,8 +373,8 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Buscar campanha..." className="h-9 max-w-xs" />
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Buscar campanha..." className="h-9 max-w-xs bg-muted/30 border-border/30" />
         <div className="flex gap-1.5 flex-wrap">
           {[
             { key: "all", label: "Todas" },
@@ -427,10 +427,10 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
                         </Badge>
                       </div>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span className="truncate max-w-[200px]">📁 {c.group_name || c.group_id?.substring(0, 15) + "..."}</span>
-                        <span>📋 {c.total_contacts} contatos</span>
-                        <span className="text-emerald-500">✓ {successTotal}</span>
-                        {c.fail_count > 0 && <span className="text-destructive">✗ {c.fail_count}</span>}
+                        <span className="truncate max-w-[200px]">{c.group_name || c.group_id?.substring(0, 15) + "..."}</span>
+                        <span>{c.total_contacts} contatos</span>
+                        <span className="text-emerald-500">{successTotal} ok</span>
+                        {c.fail_count > 0 && <span className="text-destructive">{c.fail_count} falha{c.fail_count !== 1 ? "s" : ""}</span>}
                         <span>{new Date(c.created_at).toLocaleDateString("pt-BR")}</span>
                       </div>
                       {c.status === "processing" && (
@@ -934,8 +934,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   const [groupLoadDiagnostics, setGroupLoadDiagnostics] = useState("");
 
   // Config
-  const [minDelay, setMinDelay] = useState(3);
-  const [maxDelay, setMaxDelay] = useState(8);
+  const [minDelay, setMinDelay] = useState(30);
+  const [maxDelay, setMaxDelay] = useState(60);
   const [pauseAfter, setPauseAfter] = useState(0);
   const [pauseDuration, setPauseDuration] = useState(30);
   const [rotateAfter, setRotateAfter] = useState(0);
@@ -964,7 +964,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     queryFn: async () => {
       const { data, error } = await supabase
         .from("devices")
-        .select("id, name, number, status, uazapi_base_url, instance_type, login_type")
+        .select("id, name, number, status, uazapi_base_url, instance_type, login_type, profile_picture")
         .not("uazapi_base_url", "is", null);
       if (error) throw error;
       return (data || [])
@@ -979,6 +979,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     refetchInterval: 10_000,
     refetchOnWindowFocus: true,
   });
+
+  const connectedDevices = useMemo(() => devices.filter((d: any) => isDeviceOnline(d.status)), [devices]);
 
   const isDeviceOnline = (status: string) => {
     const s = status?.toLowerCase();
@@ -1334,8 +1336,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
 
       {/* ══ IMPORT ══ */}
       {step === "import" && (
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-          <div className="xl:col-span-2 space-y-5">
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {/* Campaign name */}
             <Card className="border-border/40 bg-card/80 backdrop-blur-sm shadow-sm">
               <CardContent className="pt-5 pb-4 px-5">
@@ -1354,17 +1356,25 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
                     Instâncias ({selectedDeviceIds.length} selecionada{selectedDeviceIds.length !== 1 ? "s" : ""})
                   </label>
-                  <div className="max-h-[180px] overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/20">
-                    {devices.map((d: any) => (
-                      <label key={d.id} className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer transition-colors hover:bg-muted/30 ${selectedDeviceIds.includes(d.id) ? "bg-primary/5" : ""}`}>
-                        <Checkbox checked={selectedDeviceIds.includes(d.id)} onCheckedChange={() => handleDeviceToggle(d.id)} />
-                        <div className={`w-2 h-2 rounded-full shrink-0 ${isDeviceOnline(d.status) ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
-                        <span className="text-sm font-medium truncate">{d.name}</span>
-                        {d.number && <span className="text-xs text-muted-foreground">({d.number})</span>}
-                      </label>
-                    ))}
-                    {devices.length === 0 && <p className="text-xs text-destructive text-center py-4">Nenhuma instância com Uazapi encontrada</p>}
-                  </div>
+                  {connectedDevices.length === 0 ? (
+                    <div className="rounded-xl bg-muted/30 border border-border/30 px-4 py-5 text-center">
+                      <WifiOff className="w-5 h-5 text-muted-foreground/40 mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground">Nenhuma instância conectada</p>
+                    </div>
+                  ) : (
+                    <div className="max-h-[220px] overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/20">
+                      {connectedDevices.map((d: any) => (
+                        <label key={d.id} className={`flex items-center gap-3 px-3.5 py-3 cursor-pointer transition-colors hover:bg-muted/30 ${selectedDeviceIds.includes(d.id) ? "bg-primary/5" : ""}`}>
+                          <Checkbox checked={selectedDeviceIds.includes(d.id)} onCheckedChange={() => handleDeviceToggle(d.id)} />
+                          <div className={`w-2 h-2 rounded-full shrink-0 bg-emerald-500`} />
+                          <div className="min-w-0 flex-1">
+                            <span className="text-sm font-semibold block truncate">{d.name}</span>
+                            {d.number && <span className="text-[11px] text-muted-foreground block">{d.number}</span>}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Group selection */}
@@ -1506,8 +1516,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                 <div>
                   <div className="flex items-center gap-2 mb-2"><Timer className="w-3.5 h-3.5 text-muted-foreground" /><label className="text-xs font-semibold text-muted-foreground">Delay entre contatos (segundos)</label></div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div><span className="text-[10px] text-muted-foreground/60">Mínimo</span><Input type="number" min={1} max={120} value={minDelay} onChange={e => setMinDelay(Number(e.target.value) || 1)} className="h-9 text-sm mt-1" /></div>
-                    <div><span className="text-[10px] text-muted-foreground/60">Máximo</span><Input type="number" min={1} max={300} value={maxDelay} onChange={e => setMaxDelay(Math.max(Number(e.target.value) || 1, minDelay))} className="h-9 text-sm mt-1" /></div>
+                    <div><span className="text-[10px] text-muted-foreground/60">Mínimo (30s+)</span><Input type="number" min={30} max={300} value={minDelay} onChange={e => { const v = Math.max(30, Number(e.target.value) || 30); setMinDelay(v); if (maxDelay < v) setMaxDelay(v); }} className="h-9 text-sm mt-1" /></div>
+                    <div><span className="text-[10px] text-muted-foreground/60">Máximo</span><Input type="number" min={30} max={600} value={maxDelay} onChange={e => setMaxDelay(Math.max(Number(e.target.value) || 30, minDelay))} className="h-9 text-sm mt-1" /></div>
                   </div>
                 </div>
                 <div>
@@ -1529,8 +1539,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
             </Card>
           </div>
 
-          {/* Import contacts */}
-          <div className="xl:col-span-3">
+          {/* Import contacts - full width below */}
+          <div className="lg:col-span-2">
             <Card className="border-border/40 bg-card/80 backdrop-blur-sm shadow-sm h-full">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
@@ -1614,34 +1624,25 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                     </div>
                   </div>
                 ) : (
-                  <Tabs defaultValue="paste">
-                    <TabsList className="w-full grid grid-cols-2 h-10 bg-muted/50">
-                      <TabsTrigger value="paste" className="text-xs font-semibold">Colar Números</TabsTrigger>
-                      <TabsTrigger value="file" className="text-xs font-semibold">Arquivo CSV/TXT/XLSX</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="paste" className="mt-4 space-y-3">
-                      <Textarea value={rawInput} onChange={e => setRawInput(e.target.value)}
-                        placeholder={"5562999999999\n5521988888888\n\nUm número por linha."}
-                        className="min-h-[280px] font-mono text-xs resize-none bg-muted/20 border-border/40" />
+                  <div className="space-y-4">
+                    {/* Paste area */}
+                    <Textarea value={rawInput} onChange={e => setRawInput(e.target.value)}
+                      placeholder={"Um número por linha\n5562999999999\n5521988888888"}
+                      className="min-h-[180px] font-mono text-xs resize-none bg-muted/20 border-border/40" />
+                    
+                    <div className="flex gap-3">
                       {rawInput.trim() && (
                         <Button onClick={() => {
                           const lines = rawInput.split(/[\n,;]+/).map(c => c.trim());
                           handleImportContacts(lines);
-                        }} disabled={isImporting} variant="outline" className="w-full gap-2 h-10">
+                        }} disabled={isImporting} className="flex-1 gap-2 h-10 bg-emerald-600 hover:bg-emerald-700 text-white">
                           {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                           Importar {rawInput.split(/[\n,;]+/).filter(c => c.trim()).length} contatos
                         </Button>
                       )}
-                    </TabsContent>
-                    <TabsContent value="file" className="mt-4">
-                      <label className={`block border-2 border-dashed border-border/40 rounded-2xl p-10 text-center transition-colors hover:border-primary/30 hover:bg-primary/5 ${isImporting ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
-                        {isImporting ? (
-                          <Loader2 className="w-10 h-10 text-primary animate-spin mx-auto mb-3" />
-                        ) : (
-                          <FileText className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-                        )}
-                        <p className="text-sm text-muted-foreground mb-1">{isImporting ? "Importando..." : "Arraste ou clique para selecionar"}</p>
-                        <p className="text-[10px] text-muted-foreground/50">CSV, TXT ou XLSX — todos os números serão importados</p>
+                      <label className={`flex items-center gap-2 px-4 h-10 rounded-md border border-border/40 text-xs font-medium text-muted-foreground hover:bg-muted/30 transition-colors ${isImporting ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
+                        <Upload className="w-3.5 h-3.5" />
+                        Importar Arquivo
                         <input type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" disabled={isImporting} onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
@@ -1670,11 +1671,11 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                           e.target.value = '';
                         }} />
                       </label>
-                    </TabsContent>
-                  </Tabs>
+                    </div>
+                  </div>
                 )}
 
-                <Button onClick={handleValidate} disabled={isValidating || isImporting || importStats.valid === 0 || !groupId.trim() || selectedDeviceIds.length === 0 || !campaignName.trim()} className="w-full h-12 gap-2 text-sm font-semibold rounded-xl shadow-md shadow-primary/10" size="lg">
+                <Button onClick={handleValidate} disabled={isValidating || isImporting || importStats.valid === 0 || !groupId.trim() || selectedDeviceIds.length === 0 || !campaignName.trim()} className="w-full h-11 gap-2 text-sm font-semibold rounded-xl" size="lg">
                   {isValidating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                   {isValidating ? "Validando contatos..." : `Validar e Revisar (${importStats.valid} válidos)`}
                 </Button>
@@ -1757,15 +1758,17 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-            <Button variant="ghost" onClick={() => setStep("import")} className="gap-2 h-10 text-muted-foreground">← Voltar</Button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center pt-2">
+            <Button variant="outline" onClick={() => setStep("import")} className="gap-2 h-11 px-6">
+              <ArrowLeft className="w-4 h-4" /> Voltar
+            </Button>
             {!participantCheck && (
-              <Button onClick={handleCheckParticipants} disabled={isChecking} variant="outline" className="gap-2 h-10">
+              <Button onClick={handleCheckParticipants} disabled={isChecking} variant="outline" className="gap-2 h-11 px-6 border-blue-500/30 text-blue-500 hover:bg-blue-500/10">
                 {isChecking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                 Verificar Existentes (opcional)
               </Button>
             )}
-            <Button onClick={() => setConfirmOpen(true)} disabled={totalToProcess === 0} className="gap-2 h-10 shadow-md shadow-primary/10">
+            <Button onClick={() => setConfirmOpen(true)} disabled={totalToProcess === 0} className="gap-2 h-11 px-8 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg">
               <Play className="w-4 h-4" /> Iniciar Campanha ({totalToProcess} contatos)
             </Button>
           </div>
@@ -1940,22 +1943,22 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Processamento</AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="space-y-2 text-sm">
+               <div className="space-y-2 text-sm">
                 <p>Campanha: <strong>{campaignName}</strong></p>
                 <p><strong>{totalToProcess}</strong> contatos para adição ao grupo <strong>{groupName || selectedGroup?.name || groupId}</strong>.</p>
-                <div className="bg-muted/50 rounded-lg p-3 space-y-1 text-xs">
-                  <p>📱 {selectedDeviceIds.length} instância{selectedDeviceIds.length !== 1 ? "s" : ""}</p>
-                  <p>⏱ Delay: {minDelay}s – {maxDelay}s</p>
-                  {pauseAfter > 0 && <p>⏸ Pausa de {pauseDuration}s a cada {pauseAfter} adições</p>}
-                  {rotateAfter > 0 && <p>🔄 Troca de instância a cada {rotateAfter} adições</p>}
-                  <p>🔎 {participantCheck ? "Pré-checagem opcional concluída; a confirmação final ocorrerá durante a execução." : "Sem pré-checagem: a verificação no grupo será feita durante a execução."}</p>
+                <div className="bg-muted/50 rounded-lg p-3 space-y-1.5 text-xs">
+                  <p>{selectedDeviceIds.length} instância{selectedDeviceIds.length !== 1 ? "s" : ""}</p>
+                  <p>Delay: {minDelay}s – {maxDelay}s</p>
+                  {pauseAfter > 0 && <p>Pausa de {pauseDuration}s a cada {pauseAfter} adições</p>}
+                  {rotateAfter > 0 && <p>Troca de instância a cada {rotateAfter} adições</p>}
+                  <p>{participantCheck ? "Pré-checagem concluída. Confirmação final durante a execução." : "Sem pré-checagem. Verificação será feita durante a execução."}</p>
                 </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleProcess}>Iniciar Campanha</AlertDialogAction>
+            <AlertDialogAction onClick={handleProcess} className="bg-emerald-600 hover:bg-emerald-700 text-white">Iniciar Campanha</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
