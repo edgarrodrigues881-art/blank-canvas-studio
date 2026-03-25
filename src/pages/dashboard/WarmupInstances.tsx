@@ -22,8 +22,9 @@ import {
   Phone, Search, Filter, Pause, Play, Pencil, X,
   QrCode, Key, Shield, Ban, CheckCircle2, XCircle,
   Smartphone, RefreshCw, Lock, Target, Timer, Zap,
-  FolderOpen, Tag, Users, ArrowLeft, ArrowRight,
+  FolderOpen, Tag, Users, ArrowLeft, ArrowRight, MoreHorizontal,
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 /* ── Add to Folder Dialog ── */
@@ -379,87 +380,99 @@ const DeviceCard = memo(({ device, cycle, onPause, onResume, onCancel, onConnect
       </div>
 
 
-      <div className="px-3 md:px-4 pb-3 md:pb-4 space-y-1.5">
-        {/* Tag button for folder view */}
-        {availableTags && availableTags.length > 0 && onTagClick && (
-          <button
-            className="group/btn w-full flex items-center gap-3 px-3.5 h-9 rounded-[14px] text-[11px] md:text-xs font-medium bg-gradient-to-r from-card/80 to-card/40 backdrop-blur-sm border border-border/10 text-muted-foreground hover:text-foreground hover:border-primary/25 hover:from-primary/8 hover:to-primary/3 transition-all duration-200"
-            onClick={(e) => { e.stopPropagation(); onTagClick(device.id); }}
-          >
-            <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10 group-hover/btn:bg-primary/20 transition-colors">
-              <Tag className="w-3 h-3 text-primary/70 group-hover/btn:text-primary transition-colors" />
-            </span>
-            Gerenciar tags
-          </button>
-        )}
-        {!connected ? (
-          <button
-            className="w-full flex items-center justify-center gap-2.5 px-3.5 h-10 rounded-[14px] text-[11px] md:text-xs font-bold bg-gradient-to-r from-primary to-primary/85 text-primary-foreground shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/30 hover:brightness-110 active:scale-[0.98] transition-all duration-200"
-            onClick={(e) => { e.stopPropagation(); onConnect(device); }}
-          >
-            <Wifi className="w-4 h-4 shrink-0" /> Conectar
-          </button>
-        ) : cycle && isWarming ? (
-          <button
-            className="group/btn w-full flex items-center gap-3 px-3.5 h-10 rounded-[14px] text-[11px] md:text-xs font-semibold bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 text-primary hover:border-primary/35 hover:from-primary/15 hover:to-primary/8 active:scale-[0.98] transition-all duration-200"
-            onClick={(e) => onPause(device.id, e)}
-          >
-            <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/15">
-              <Pause className="w-3 h-3" />
-            </span>
-            <span className="truncate">Parar aquecimento</span>
-          </button>
-        ) : cycle?.phase === "paused" ? (
-          <button
-            className="group/btn w-full flex items-center gap-3 px-3.5 h-10 rounded-[14px] text-[11px] md:text-xs font-semibold bg-gradient-to-r from-card/80 to-card/40 border border-border/15 text-foreground hover:border-primary/25 hover:from-primary/8 hover:to-primary/3 active:scale-[0.98] transition-all duration-200"
-            onClick={(e) => onResume(device.id, e)}
-          >
-            <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/15">
-              <Play className="w-3 h-3 text-primary" />
-            </span>
-            <span className="truncate">Retomar aquecimento</span>
-          </button>
-        ) : connected && !cycle ? (
-          <button
-            className="w-full flex items-center justify-center gap-2.5 px-3.5 h-10 rounded-[14px] text-[11px] md:text-xs font-bold bg-gradient-to-r from-amber-600 to-amber-500 text-white shadow-md shadow-amber-600/25 hover:shadow-lg hover:shadow-amber-600/30 hover:brightness-110 active:scale-[0.98] transition-all duration-200"
-            onClick={(e) => { e.stopPropagation(); onNavigate(`/dashboard/warmup-v2/${device.id}`); }}
-          >
-            <Flame className="w-4 h-4 shrink-0" /> Aquecer
-          </button>
-        ) : null}
-        {cycle && (
-          <button
-            className="group/btn w-full flex items-center gap-3 px-3.5 h-9 rounded-[14px] text-[11px] md:text-xs font-medium bg-gradient-to-r from-destructive/8 to-destructive/3 border border-destructive/12 text-destructive/70 hover:text-destructive hover:border-destructive/25 hover:from-destructive/12 hover:to-destructive/6 active:scale-[0.98] transition-all duration-200"
-            onClick={(e) => { e.stopPropagation(); onCancel(device.id); }}
-          >
-            <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-destructive/10 group-hover/btn:bg-destructive/15 transition-colors">
-              <XCircle className="w-3 h-3" />
-            </span>
-            <span className="truncate">Cancelar aquecimento</span>
-          </button>
-        )}
-        {cycle && (
-          <button
-            className="group/btn w-full flex items-center gap-3 px-3.5 h-9 rounded-[14px] text-[11px] md:text-xs font-medium bg-gradient-to-r from-card/80 to-card/40 border border-border/10 text-muted-foreground hover:text-foreground hover:border-border/25 hover:from-muted/15 hover:to-muted/5 active:scale-[0.98] transition-all duration-200"
-            onClick={(e) => { e.stopPropagation(); onNavigate(`/dashboard/warmup-v2/${device.id}`); }}
-          >
-            <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-muted/20 group-hover/btn:bg-muted/30 transition-colors">
-              <Pencil className="w-3 h-3 text-muted-foreground/60 group-hover/btn:text-foreground transition-colors" />
-            </span>
-            Editar
-          </button>
-        )}
-        {onRemoveFromFolder && (
-          <button
-            className="group/btn w-full flex items-center gap-3 px-3.5 h-9 rounded-[14px] text-[11px] md:text-xs font-medium bg-gradient-to-r from-amber-500/8 to-amber-500/3 border border-amber-500/12 text-amber-500/70 hover:text-amber-500 hover:border-amber-500/25 hover:from-amber-500/12 hover:to-amber-500/6 active:scale-[0.98] transition-all duration-200"
-            onClick={(e) => { e.stopPropagation(); onRemoveFromFolder(device.id); }}
-          >
-            <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-amber-500/10 group-hover/btn:bg-amber-500/15 transition-colors">
-              <FolderOpen className="w-3 h-3" />
-            </span>
-            <span className="truncate">Remover da pasta</span>
-          </button>
-        )}
+      <div className="px-3 md:px-4 pb-3 md:pb-4">
+        <div className="flex items-center gap-1.5">
+          {/* Primary action button */}
+          <div className="flex-1 min-w-0">
+            {!connected ? (
+              <button
+                className="w-full flex items-center justify-center gap-2.5 px-3.5 h-10 rounded-[14px] text-[11px] md:text-xs font-bold bg-gradient-to-r from-primary to-primary/85 text-primary-foreground shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/30 hover:brightness-110 active:scale-[0.98] transition-all duration-200"
+                onClick={(e) => { e.stopPropagation(); onConnect(device); }}
+              >
+                <Wifi className="w-4 h-4 shrink-0" /> Conectar
+              </button>
+            ) : cycle && isWarming ? (
+              <button
+                className="group/btn w-full flex items-center gap-3 px-3.5 h-10 rounded-[14px] text-[11px] md:text-xs font-semibold bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 text-primary hover:border-primary/35 hover:from-primary/15 hover:to-primary/8 active:scale-[0.98] transition-all duration-200"
+                onClick={(e) => onPause(device.id, e)}
+              >
+                <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/15">
+                  <Pause className="w-3 h-3" />
+                </span>
+                <span className="truncate">Parar aquecimento</span>
+              </button>
+            ) : cycle?.phase === "paused" ? (
+              <button
+                className="group/btn w-full flex items-center gap-3 px-3.5 h-10 rounded-[14px] text-[11px] md:text-xs font-semibold bg-gradient-to-r from-card/80 to-card/40 border border-border/15 text-foreground hover:border-primary/25 hover:from-primary/8 hover:to-primary/3 active:scale-[0.98] transition-all duration-200"
+                onClick={(e) => onResume(device.id, e)}
+              >
+                <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/15">
+                  <Play className="w-3 h-3 text-primary" />
+                </span>
+                <span className="truncate">Retomar aquecimento</span>
+              </button>
+            ) : connected && !cycle ? (
+              <button
+                className="w-full flex items-center justify-center gap-2.5 px-3.5 h-10 rounded-[14px] text-[11px] md:text-xs font-bold bg-gradient-to-r from-amber-600 to-amber-500 text-white shadow-md shadow-amber-600/25 hover:shadow-lg hover:shadow-amber-600/30 hover:brightness-110 active:scale-[0.98] transition-all duration-200"
+                onClick={(e) => { e.stopPropagation(); onNavigate(`/dashboard/warmup-v2/${device.id}`); }}
+              >
+                <Flame className="w-4 h-4 shrink-0" /> Aquecer
+              </button>
+            ) : null}
+          </div>
+
+          {/* Secondary actions dropdown */}
+          {(cycle || (availableTags && availableTags.length > 0 && onTagClick) || onRemoveFromFolder) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="flex items-center justify-center w-10 h-10 rounded-[14px] border border-border/20 bg-card hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[180px]" onClick={(e) => e.stopPropagation()}>
+                {cycle && (
+                  <DropdownMenuItem
+                    className="gap-2 text-xs cursor-pointer"
+                    onClick={() => onNavigate(`/dashboard/warmup-v2/${device.id}`)}
+                  >
+                    <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                    Editar
+                  </DropdownMenuItem>
+                )}
+                {availableTags && availableTags.length > 0 && onTagClick && (
+                  <DropdownMenuItem
+                    className="gap-2 text-xs cursor-pointer"
+                    onClick={() => onTagClick(device.id)}
+                  >
+                    <Tag className="w-3.5 h-3.5 text-primary/70" />
+                    Gerenciar tags
+                  </DropdownMenuItem>
+                )}
+                {onRemoveFromFolder && (
+                  <DropdownMenuItem
+                    className="gap-2 text-xs cursor-pointer text-amber-500"
+                    onClick={() => onRemoveFromFolder(device.id)}
+                  >
+                    <FolderOpen className="w-3.5 h-3.5" />
+                    Remover da pasta
+                  </DropdownMenuItem>
+                )}
+                {cycle && (
+                  <DropdownMenuItem
+                    className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
+                    onClick={() => onCancel(device.id)}
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    Cancelar aquecimento
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
     </div>
   );
