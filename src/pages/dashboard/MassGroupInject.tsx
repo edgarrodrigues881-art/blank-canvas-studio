@@ -664,6 +664,29 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     return list;
   }, [contacts, activeFilter, searchContact]);
 
+  const retryableContacts = useMemo(() => {
+    return contacts.filter((c: any) => RETRYABLE_EXPORT_STATUSES.has(c.status));
+  }, [contacts]);
+
+  const handleExportNotAdded = useCallback(() => {
+    if (retryableContacts.length === 0) { toast.info("Nenhum contato disponível para exportação"); return; }
+    const lines = retryableContacts.map((c: any) => c.phone);
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nao_adicionados_${campaign?.name?.replace(/\s+/g, "_") || campaignId}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${lines.length} contatos exportados`);
+  }, [retryableContacts, campaign, campaignId]);
+
+  const handleNewCampaignFromFailed = useCallback(() => {
+    if (retryableContacts.length === 0) { toast.info("Nenhum contato disponível para nova campanha"); return; }
+    const phones = retryableContacts.map((c: any) => c.phone);
+    onNewCampaignFromFailed?.(phones, campaign?.name || "Campanha anterior");
+  }, [retryableContacts, campaign, onNewCampaignFromFailed]);
+
   if (isLoading || !campaign) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -682,6 +705,7 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
   const canResume = (campaign.status === "paused" || campaign.status === "draft") && pendingCount > 0 && !isActionPending;
   const canPause = isRunning && !isActionPending;
   const canCancel = (isRunning || campaign.status === "paused") && campaign.status !== "cancelled" && campaign.status !== "done" && !isActionPending;
+  const isDone = ["done", "completed_with_failures", "cancelled", "failed"].includes(campaign.status || "");
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 space-y-6">
