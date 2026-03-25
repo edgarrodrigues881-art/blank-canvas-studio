@@ -442,14 +442,6 @@ function ConversationCard({
             </div>
             <div className="border-t border-border/40 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border/40">
               <div className="px-4 py-3">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 mb-1">Duração total</p>
-                <p className="text-sm text-foreground font-medium">{conv.duration_hours}h {conv.duration_minutes}min</p>
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 mb-1">Msgs por ciclo</p>
-                <p className="text-sm text-foreground font-medium">{conv.messages_per_cycle_min} – {conv.messages_per_cycle_max}</p>
-              </div>
-              <div className="px-4 py-3">
                 <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 mb-1">Dias ativos</p>
                 <p className="text-sm text-foreground font-medium">
                   {(conv.active_days || []).map((d) => DAY_OPTIONS.find((o) => o.key === d)?.label || d).join(", ")}
@@ -569,12 +561,8 @@ function CreateConversationForm({
   const [pauseAfterMax, setPauseAfterMax] = useState(initialData?.pause_after_messages_max ?? 8);
   const [pauseDurationMin, setPauseDurationMin] = useState(initialData?.pause_duration_min ?? 120);
   const [pauseDurationMax, setPauseDurationMax] = useState(initialData?.pause_duration_max ?? 300);
-  const [durationHours, setDurationHours] = useState(initialData?.duration_hours ?? 1);
-  const [durationMinutes, setDurationMinutes] = useState(initialData?.duration_minutes ?? 0);
   const [startHour, setStartHour] = useState(initialData?.start_hour || "08:00");
   const [endHour, setEndHour] = useState(initialData?.end_hour || "18:00");
-  const [msgsMin, setMsgsMin] = useState(initialData?.messages_per_cycle_min ?? 10);
-  const [msgsMax, setMsgsMax] = useState(initialData?.messages_per_cycle_max ?? 30);
   const [activeDays, setActiveDays] = useState(initialData?.active_days || ["mon", "tue", "wed", "thu", "fri"]);
 
   const toggleDevice = (id: string) => {
@@ -603,12 +591,8 @@ function CreateConversationForm({
       pause_after_messages_max: pauseAfterMax,
       pause_duration_min: pauseDurationMin,
       pause_duration_max: pauseDurationMax,
-      duration_hours: durationHours,
-      duration_minutes: durationMinutes,
       start_hour: startHour,
       end_hour: endHour,
-      messages_per_cycle_min: msgsMin,
-      messages_per_cycle_max: msgsMax,
       active_days: activeDays,
     });
   };
@@ -714,34 +698,12 @@ function CreateConversationForm({
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label className="text-xs">Duração (horas)</Label>
-            <Input type="number" min={0} value={durationHours} onChange={(e) => setDurationHours(Number(e.target.value))} />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Duração (minutos)</Label>
-            <Input type="number" min={0} max={59} value={durationMinutes} onChange={(e) => setDurationMinutes(Number(e.target.value))} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
             <Label className="text-xs">Horário de início</Label>
             <Input type="time" value={startHour} onChange={(e) => setStartHour(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label className="text-xs">Horário de término</Label>
             <Input type="time" value={endHour} onChange={(e) => setEndHour(e.target.value)} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-xs">Msgs por ciclo (mín)</Label>
-            <Input type="number" min={5} value={msgsMin} onChange={(e) => setMsgsMin(Number(e.target.value))} />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Msgs por ciclo (máx)</Label>
-            <Input type="number" min={10} value={msgsMax} onChange={(e) => setMsgsMax(Number(e.target.value))} />
           </div>
         </div>
 
