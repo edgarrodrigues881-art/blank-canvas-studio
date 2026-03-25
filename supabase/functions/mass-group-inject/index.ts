@@ -409,7 +409,8 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
       // Any error from cached endpoint → return immediately, NEVER fallback to discovery
       return { ok: false, status: res.status, body, rawMessage: pm || raw, strategyIndex: cachedStrategyIndex };
     } catch (error: any) {
-      return { ok: false, status: 0, rawMessage: error.message, strategyIndex: cachedStrategyIndex };
+      const isTimeout = error.message?.includes("Timeout");
+      return { ok: false, status: isTimeout ? 408 : 0, rawMessage: error.message, strategyIndex: cachedStrategyIndex };
     }
   }
 
