@@ -361,74 +361,58 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
   const headers = buildHeaders(token, true);
   const strategies = buildAddStrategies(baseUrl, groupId, phone);
 
-  // If we have a cached strategy, try ONLY that one first
+  // ── STRICT 1-REQUEST MODE: if cache exists, use ONLY that endpoint ──
   if (cachedStrategyIndex !== undefined && cachedStrategyIndex >= 0 && cachedStrategyIndex < strategies.length) {
     const strategy = strategies[cachedStrategyIndex];
     try {
-      console.log(`addToGroup using cached strategy[${cachedStrategyIndex}]: ${strategy.method} ${strategy.url}`);
+      console.log(`addToGroup CACHED[${cachedStrategyIndex}]: ${strategy.method} ${strategy.url}`);
       const res = await fetch(strategy.url, { method: strategy.method, headers, body: JSON.stringify(strategy.body) });
-      if (res.status !== 405) {
-        const { raw, body } = await readApiResponse(res);
-        const pm = extractProviderMessage(body, raw);
-        const rawLower = `${raw} ${pm}`.toLowerCase();
+      const { raw, body } = await readApiResponse(res);
+      const pm = extractProviderMessage(body, raw);
+      const rawLower = `${raw} ${pm}`.toLowerCase();
 
-        if (res.status === 200 || res.status === 201) {
-          if (!rawLower.includes("failed") && !rawLower.includes("bad-request")) {
-            return { ok: true, status: res.status, body, rawMessage: pm || raw, strategyIndex: cachedStrategyIndex };
-          }
-        }
-        if (rawLower.includes("already") || rawLower.includes("já") || rawLower.includes("memberaddmode") || res.status === 409) {
-          return { ok: false, status: 409, body, rawMessage: pm || raw, errorCode: "already_exists", strategyIndex: cachedStrategyIndex };
-        }
-        // Return the error from cached strategy - don't try others unless it's 405
-        return { ok: false, status: res.status, body, rawMessage: pm || raw, strategyIndex: cachedStrategyIndex };
+      if ((res.status === 200 || res.status === 201) && !rawLower.includes("failed") && !rawLower.includes("bad-request")) {
+        return { ok: true, status: res.status, body, rawMessage: pm || raw, strategyIndex: cachedStrategyIndex };
       }
-      // 405 = method not allowed, fall through to discovery
+      if (rawLower.includes("already") || rawLower.includes("já") || rawLower.includes("memberaddmode") || res.status === 409) {
+        return { ok: false, status: 409, body, rawMessage: pm || raw, errorCode: "already_exists", strategyIndex: cachedStrategyIndex };
+      }
+      // Any error from cached endpoint → return immediately, NEVER fallback to discovery
+      return { ok: false, status: res.status, body, rawMessage: pm || raw, strategyIndex: cachedStrategyIndex };
     } catch (error: any) {
       return { ok: false, status: 0, rawMessage: error.message, strategyIndex: cachedStrategyIndex };
     }
   }
 
-  // Discovery mode: try each strategy but stop at first non-405 response
-  let lastError = "";
-  let lastStatus = 405;
-
+  // ── DISCOVERY MODE (first contact only): find the working endpoint ──
+  // Try strategies sequentially but STOP at the first that responds (even with error).
+  // Only skip 405 (method not allowed) since that means the endpoint doesn't exist.
   for (let i = 0; i < strategies.length; i++) {
     const strategy = strategies[i];
     try {
-      console.log(`addToGroup discovery[${i}]: ${strategy.method} ${strategy.url}`);
+      console.log(`addToGroup DISCOVERY[${i}]: ${strategy.method} ${strategy.url}`);
       const res = await fetch(strategy.url, { method: strategy.method, headers, body: JSON.stringify(strategy.body) });
-      if (res.status === 405) continue; // Method not allowed, try next
+      if (res.status === 405) continue; // Endpoint doesn't exist, try next
 
       const { raw, body } = await readApiResponse(res);
       const pm = extractProviderMessage(body, raw);
       const rawLower = `${raw} ${pm}`.toLowerCase();
-      lastStatus = res.status;
 
-      if (res.status === 200 || res.status === 201) {
-        if (rawLower.includes("failed") || rawLower.includes("bad-request")) {
-          lastError = pm || raw.substring(0, 240);
-          // This endpoint exists but returned an application-level error - DON'T try more endpoints
-          // to avoid flooding. Return the error.
-          return { ok: false, status: res.status, rawMessage: lastError, strategyIndex: i };
-        }
+      if ((res.status === 200 || res.status === 201) && !rawLower.includes("failed") && !rawLower.includes("bad-request")) {
         return { ok: true, status: res.status, body, rawMessage: pm || raw, strategyIndex: i };
       }
-
       if (rawLower.includes("already") || rawLower.includes("já") || rawLower.includes("memberaddmode") || res.status === 409) {
         return { ok: false, status: 409, body, rawMessage: pm || raw, errorCode: "already_exists", strategyIndex: i };
       }
-
-      // Got a real response (not 405) - this is the right endpoint, return its error
-      // DON'T try more endpoints
+      // Got a real response → this is the correct endpoint. Return error, do NOT try more.
       return { ok: false, status: res.status, body, rawMessage: pm || raw, strategyIndex: i };
     } catch (error: any) {
-      lastError = error.message;
-      // Network error - could be any endpoint, try next
+      // Network error → also STOP. Do not flood with more requests.
+      return { ok: false, status: 0, rawMessage: error.message };
     }
   }
 
-  return { ok: false, status: lastStatus, rawMessage: lastError || "Nenhum endpoint de adição retornou sucesso." };
+  return { ok: false, status: 405, rawMessage: "Nenhum endpoint de adição encontrado (todos retornaram 405)." };
 }
 
 async function confirmAlreadyInGroup(baseUrl: string, token: string, groupId: string, phone: string) {
