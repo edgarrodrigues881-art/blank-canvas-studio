@@ -1279,7 +1279,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   }, [liveResults, activeFilter]);
 
   const totalToProcess = validationResult?.validCount ?? 0;
-  const contactCount = rawInput.trim() ? parseContacts(rawInput).length : 0;
+  const contactCount = importedContacts.length;
   const liveProcessed = liveOk + liveFail;
   const liveProgress = liveTotal > 0 ? Math.round((liveProcessed / liveTotal) * 100) : 0;
 
