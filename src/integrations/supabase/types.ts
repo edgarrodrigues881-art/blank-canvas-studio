@@ -1785,6 +1785,7 @@ export type Database = {
           max_delay: number
           min_delay: number
           name: string
+          next_run_at: string | null
           pause_after: number
           pause_duration: number
           rotate_after: number
@@ -1807,6 +1808,7 @@ export type Database = {
           max_delay?: number
           min_delay?: number
           name: string
+          next_run_at?: string | null
           pause_after?: number
           pause_duration?: number
           rotate_after?: number
@@ -1829,6 +1831,7 @@ export type Database = {
           max_delay?: number
           min_delay?: number
           name?: string
+          next_run_at?: string | null
           pause_after?: number
           pause_duration?: number
           rotate_after?: number
