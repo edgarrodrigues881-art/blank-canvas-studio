@@ -71,6 +71,7 @@ const FAILURE_STATUSES = new Set([
 const FINAL_CAMPAIGN_STATUSES = new Set(["done", "completed_with_failures", "paused", "cancelled", "failed"]);
 const RETRYABLE_QUEUE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure", "timeout"] as const;
 const MAX_QUEUE_RETRIES = 3;
+const MAX_RATE_LIMIT_RETRIES = 8; // 429 is API throttling, not account restriction — allow more retries with increasing cooldown
 const STALE_PROCESSING_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 const API_TIMEOUT_MS = 25_000; // 25s timeout for all external API calls
 
@@ -286,7 +287,7 @@ function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClas
   const message = (rawMessage || "").toLowerCase();
 
   if (message.includes("rate-overlimit") || message.includes("429") || message.includes("too many requests") || httpStatus === 429) {
-    return { status: "rate_limited", detail: "Limite de requisições atingido. Aguardando cooldown antes de continuar.", retryable: true, cooldownMs: randomBetween(25_000, 45_000) };
+    return { status: "rate_limited", detail: "API temporariamente sobrecarregada (429). Aguardando cooldown.", retryable: true, cooldownMs: randomBetween(40_000, 70_000) };
   }
   if (message.includes("websocket disconnected before info query") || message.includes("connection reset") || message.includes("socket hang up")) {
     return { status: "api_temporary", detail: "A integração interrompeu a consulta antes de concluir.", retryable: true, cooldownMs: randomBetween(10_000, 18_000) };
@@ -861,7 +862,18 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
     const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure", "timeout"].includes(result.status) && !result.pauseCampaign;
 
-    if (isTransient && retryCount < MAX_QUEUE_RETRIES) {
+    // rate_limited (429) gets MORE retries since it's just API throttling, NOT account restriction
+    const maxRetriesForStatus = result.status === "rate_limited" ? MAX_RATE_LIMIT_RETRIES : MAX_QUEUE_RETRIES;
+
+    if (isTransient && retryCount < maxRetriesForStatus) {
+      // For rate_limited, increase cooldown progressively with each retry
+      let cooldownDelay = result.cooldownMs || computeNextDelayMs(campaign, result.cooldownMs);
+      if (result.status === "rate_limited") {
+        // Progressive backoff: 40-70s base × (1 + retry * 0.5) → gets longer each retry
+        const backoffMultiplier = 1 + (retryCount * 0.5);
+        cooldownDelay = Math.round(cooldownDelay * backoffMultiplier);
+      }
+
       await sb.from("mass_inject_contacts").update({
         status: result.status,
         error_message: withRetryMeta(stripRetryMeta(result.detail), retryCount + 1),
@@ -870,8 +882,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       }).eq("id", contact.id);
 
       if (await campaignCanKeepRunning(sb, campaignId)) {
-        const cooldownDelay = result.cooldownMs || computeNextDelayMs(campaign, result.cooldownMs);
-        console.log(`[mass-inject] campaign=${campaignId} transient error, requeue in ${cooldownDelay}ms`);
+        console.log(`[mass-inject] campaign=${campaignId} transient error (${result.status}), retry ${retryCount+1}/${maxRetriesForStatus}, requeue in ${cooldownDelay}ms`);
         await setCampaignEvent(sb, campaignId, "retry_waiting", "warning");
         await scheduleCampaignRun(sb, campaignId, cooldownDelay);
         nextRunScheduled = true;
@@ -879,11 +890,10 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       return;
     }
 
-    if (isTransient && retryCount >= MAX_QUEUE_RETRIES) {
-      const finalStatus = result.status === "rate_limited" ? "blocked" : result.status;
-      const finalDetail = result.status === "rate_limited"
-        ? "Conta restringida pelo WhatsApp. Tentativas esgotadas."
-        : `${stripRetryMeta(result.detail)} Tentativas esgotadas (${MAX_QUEUE_RETRIES}/${MAX_QUEUE_RETRIES}).`;
+    if (isTransient && retryCount >= maxRetriesForStatus) {
+      // rate_limited stays as rate_limited — it's API throttling, NOT WhatsApp account restriction
+      const finalStatus = result.status;
+      const finalDetail = `${stripRetryMeta(result.detail)} Tentativas esgotadas (${maxRetriesForStatus}x).`;
 
       await sb.from("mass_inject_contacts").update({
         status: finalStatus,
