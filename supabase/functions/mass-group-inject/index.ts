@@ -685,6 +685,7 @@ async function updateCampaignCounters(sb: any, campaign: any, status: string, pa
 function getPauseReason(status: string): string {
   switch (status) {
     case "confirmed_disconnect": return "Pausada por desconexão confirmada da instância";
+    case "session_dropped": return "Sessão da API desconectada. Reconecte a instância e retome.";
     case "confirmed_no_admin": return "Pausada por falta de privilégio de admin no grupo";
     case "invalid_group": return "Pausada por grupo inválido ou inacessível";
     case "unauthorized": return "Pausada por falha de autenticação da instância";
@@ -985,8 +986,8 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
     if (isTransient && retryCount < maxRetriesForStatus) {
       // For rate_limited, increase cooldown progressively with each retry
       let cooldownDelay = result.cooldownMs || computeNextDelayMs(campaign, result.cooldownMs);
-      if (result.status === "rate_limited") {
-        // Progressive backoff: 40-70s base × (1 + retry * 0.5) → gets longer each retry
+      if (result.status === "rate_limited" || result.status === "session_dropped") {
+        // Progressive backoff: base × (1 + retry * 0.5) → gets longer each retry
         const backoffMultiplier = 1 + (retryCount * 0.5);
         cooldownDelay = Math.round(cooldownDelay * backoffMultiplier);
       }
