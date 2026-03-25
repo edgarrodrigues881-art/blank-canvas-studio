@@ -1117,21 +1117,44 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     return input.split(/[\n,;]+/).map(c => c.trim()).filter(c => c.length > 0);
   }, []);
 
-  const handleRawInputChange = useCallback((value: string) => {
-    const lines = value.split(/[\n,;]+/).map(c => c.trim()).filter(c => c.length > 0);
+  const deduplicateNumbers = useCallback((lines: string[], existingLines?: string[]): { unique: string[]; removed: number } => {
     const seen = new Set<string>();
     const unique: string[] = [];
     let removed = 0;
+    // Add existing lines to seen set first (for merge mode)
+    if (existingLines) {
+      for (const line of existingLines) {
+        const digits = line.replace(/\D/g, "");
+        seen.add(digits.length >= 8 ? digits : line);
+      }
+    }
     for (const line of lines) {
       const digits = line.replace(/\D/g, "");
-      const key = digits.length >= 10 ? digits : line;
+      const key = digits.length >= 8 ? digits : line;
       if (seen.has(key)) { removed++; continue; }
       seen.add(key);
-      unique.push(line);
+      unique.push(digits.length >= 8 ? digits : line);
     }
-    setRawInput(unique.join("\n"));
-    if (removed > 0) toast.info(`${removed} duplicado(s) removido(s)`);
+    return { unique, removed };
   }, []);
+
+  const handleRawInputChange = useCallback((value: string, mode: "replace" | "merge" = "replace") => {
+    setIsImporting(true);
+    const lines = value.split(/[\n,;]+/).map(c => c.trim()).filter(c => c.length > 0);
+    if (mode === "merge") {
+      const existingLines = rawInput.split(/[\n,;]+/).map(c => c.trim()).filter(c => c.length > 0);
+      const { unique: newUnique, removed } = deduplicateNumbers(lines, existingLines);
+      setRawInput([...existingLines, ...newUnique].join("\n"));
+      if (removed > 0) toast.info(`${removed} duplicado(s) já existente(s) removido(s)`);
+      toast.success(`${newUnique.length} novo(s) contato(s) adicionado(s)`);
+    } else {
+      const { unique, removed } = deduplicateNumbers(lines);
+      setRawInput(unique.join("\n"));
+      if (removed > 0) toast.info(`${removed} duplicado(s) removido(s)`);
+    }
+    setHasImported(true);
+    setIsImporting(false);
+  }, [rawInput, deduplicateNumbers]);
 
   const handleValidate = useCallback(async () => {
     const contacts = parseContacts(rawInput);
