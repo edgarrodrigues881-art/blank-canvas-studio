@@ -1110,6 +1110,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
         setGroups([]);
         setGroupId("");
         setGroupName("");
+        setSelectedGroups([]);
         setGroupLoadError("");
         setGroupLoadDiagnostics("");
       } else if (selectedDeviceIds[0] === deviceId) {
