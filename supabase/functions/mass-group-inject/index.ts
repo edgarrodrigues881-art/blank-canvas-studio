@@ -678,7 +678,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       console.log(`[mass-inject] campaign=${campaignId} processing contact=${contact.phone} (retry=${retryCount})`);
       const result = await executeAddWithRecovery(device.uazapi_base_url, device.uazapi_token, campaign.group_id, contact.phone, cacheKey);
 
-      // 7. Update device status based on result
+      // 8. Update device status based on result
       if (result.status === "confirmed_disconnect") {
         await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", device.id);
       } else if (result.status === "completed" || result.status === "already_exists") {
