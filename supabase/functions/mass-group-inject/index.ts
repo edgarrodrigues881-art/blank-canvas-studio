@@ -617,12 +617,11 @@ async function queueCampaignRun(campaignId: string, delayMs = 0) {
 }
 
 function computeNextDelayMs(campaign: any, cooldownMs?: number) {
-  // CRITICAL: enforce minimum 10s between contacts to avoid flooding and disconnection
-  const minDelay = Math.max(Number(campaign.min_delay || 10), 10);
-  const maxDelay = Math.max(Number(campaign.max_delay || 18), minDelay);
+  // Use EXACT user-configured range — no extra jitter or variation
+  const minDelay = Math.max(Number(campaign.min_delay || 30), 10);
+  const maxDelay = Math.max(Number(campaign.max_delay || 60), minDelay);
+  // Random between min and max (in seconds), then convert to ms
   let nextDelay = randomBetween(minDelay, maxDelay) * 1000;
-  // JITTER: add 1–4s of random noise to make timing less predictable/detectable
-  nextDelay += randomBetween(1000, 4000);
   const processed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0) + Number(campaign.already_count || 0);
   const pauseAfter = Number(campaign.pause_after || 0);
   const pauseDuration = Math.max(Number(campaign.pause_duration || 0), 0);
@@ -956,12 +955,8 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         // Terminal non-retryable: skip quickly
         nextDelayMs = randomBetween(1000, 3000);
       } else {
-        // Success or other: use normal campaign delay with extra jitter
+        // Success or other: use EXACT campaign delay range (no extra jitter)
         nextDelayMs = computeNextDelayMs(latestCampaign, result.cooldownMs);
-        // Add ±20% variation for more human-like behavior
-        const variation = Math.floor(nextDelayMs * 0.2);
-        nextDelayMs += randomBetween(-variation, variation);
-        nextDelayMs = Math.max(nextDelayMs, 8000); // never less than 8s
       }
       console.log(`[mass-inject] campaign=${campaignId} result=${result.status} waiting ${nextDelayMs}ms`);
       await setNextRunAt(sb, campaignId, nextDelayMs);
@@ -1248,8 +1243,8 @@ Deno.serve(async (req) => {
         success_count: 0,
         already_count: 0,
         fail_count: 0,
-        min_delay: Math.max(Number(body.minDelay || 8), 8),
-        max_delay: Math.max(Number(body.maxDelay || 15), Number(body.minDelay || 8), 8),
+        min_delay: Math.max(Number(body.minDelay || 30), 10),
+        max_delay: Math.max(Number(body.maxDelay || 60), Number(body.minDelay || 30), 10),
         pause_after: Math.max(Number(body.pauseAfter || 0), 0),
         pause_duration: Math.max(Number(body.pauseDuration || 30), 0),
         rotate_after: Math.max(Number(body.rotateAfter || 0), 0),
