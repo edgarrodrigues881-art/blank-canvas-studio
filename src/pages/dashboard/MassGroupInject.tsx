@@ -86,9 +86,12 @@ function translateError(err: string): string {
   if (e.includes("contact_not_found") || e.includes("não foi encontrado")) return "Contato não encontrado no WhatsApp";
   if (e.includes("unauthorized") || e.includes("autenticação")) return "Falha de autenticação da instância";
   if (e.includes("blocked") || e.includes("ban") || e.includes("bloqueio")) return "Número bloqueado ou restrito";
-  if (e.includes("limite de requisições") || e.includes("rate") || e.includes("429")) return "Limite de requisições (temporário)";
+  if (e.includes("limite de requisições") || e.includes("rate") || e.includes("429")) return "Conta restringida pelo WhatsApp";
+  if (e.includes("conta restringida")) return "Conta restringida pelo WhatsApp";
+  if (e.includes("tentativas esgotadas")) return clean;
   if (e.includes("tempo de resposta") || e.includes("timeout")) return "Tempo de resposta excedido";
   if (e.includes("503") || e.includes("indisponível")) return "Instância indisponível (503)";
+  if (e.includes("todas as instâncias")) return "Todas as instâncias desconectadas";
   if (e.includes("cancelada pelo usuário")) return "Cancelado pelo usuário";
   if (e.includes("não classificada") || e.includes("falha não")) return "Falha não classificada";
   // Don't use generic "Erro temporário" - show what we know
