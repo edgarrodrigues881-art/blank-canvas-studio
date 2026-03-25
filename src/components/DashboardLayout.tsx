@@ -49,8 +49,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { isFeatureBlocked } = useFeatureControls();
   const [maintenanceModal, setMaintenanceModal] = useState<{ name: string; message: string | null } | null>(null);
 
-  // Auto-sync temporariamente desativado para isolar a sobrecarga do backend.
-
+  // Auto-sync devices every 3s with global semaphore protection
+  useAutoSyncDevices();
   // Check if current route is blocked
   const blockedFeature = isFeatureBlocked(location.pathname);
   const showMaintenance = !!blockedFeature;
