@@ -239,14 +239,23 @@ const Devices = () => {
   const { data: warmupSessions = [] } = useQuery({
     queryKey: ["warmup_sessions_active"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("warmup_sessions")
-        .select("device_id, status")
-        .in("status", ["running", "paused"]);
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data, error } = await supabase
+          .from("warmup_sessions")
+          .select("device_id, status")
+          .in("status", ["running", "paused"]);
+        if (error) {
+          console.warn("[Devices] warmup_sessions query error:", error.message);
+          return [];
+        }
+        return data || [];
+      } catch (err) {
+        console.warn("[Devices] warmup_sessions fetch failed:", err);
+        return [];
+      }
     },
     enabled: !!session,
+    retry: 1,
   });
 
   // Fetch warmup cycles (V2)
