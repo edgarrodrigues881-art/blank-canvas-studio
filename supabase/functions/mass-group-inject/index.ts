@@ -1037,7 +1037,7 @@ Deno.serve(async (req) => {
       ];
       for (const strategy of strategies) {
         try {
-          const res = await fetch(strategy.url, {
+          const res = await fetchWithTimeout(strategy.url, {
             method: strategy.method,
             headers: strategy.body ? buildHeaders(device.uazapi_token, true) : buildHeaders(device.uazapi_token),
             ...(strategy.body ? { body: JSON.stringify(strategy.body) } : {}),
