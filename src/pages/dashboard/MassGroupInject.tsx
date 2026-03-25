@@ -510,8 +510,9 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
             <StopCircle className="w-4 h-4" /> Cancelar
           </Button>
         )}
-        <Button variant="ghost" size="sm" onClick={() => { refetchCampaign(); refetchContacts(); }} className="gap-1.5 text-xs">
-          <RefreshCw className="w-3.5 h-3.5" /> Atualizar
+        <Button variant="ghost" size="sm" onClick={handleManualRefresh} disabled={isManualRefreshing} className="gap-1.5 text-xs">
+          <RefreshCw className={`w-3.5 h-3.5 ${isManualRefreshing ? "animate-spin" : ""}`} />
+          {isManualRefreshing ? "Atualizando..." : "Atualizar"}
         </Button>
       </div>
 
