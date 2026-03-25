@@ -9,7 +9,7 @@
  *   - tick: Processa o próximo ciclo de mensagens (chamado por cron ou self-invoke)
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

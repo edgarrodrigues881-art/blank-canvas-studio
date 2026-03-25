@@ -11,7 +11,7 @@
  * NÃO processa jobs — isso é responsabilidade do warmup-tick.
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 // ══════════════════════════════════════════════════════════
 // CORS
