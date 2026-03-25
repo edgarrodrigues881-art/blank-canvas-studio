@@ -475,7 +475,7 @@ async function handleTick(admin: any, conversationId: string) {
   // Schedule next tick with delay based on user config
   const nextDelay = randInt(conv.min_delay_seconds || 30, conv.max_delay_seconds || 90);
   console.log(`[tick] Done! Sent ${totalSent}/${messagesThisCycle}. Next tick in ${nextDelay}s`);
-  scheduleNextTick(conversationId, nextDelay);
+  await scheduleNextTick(conversationId, nextDelay);
 
   return json({ ok: true, messages_sent: totalSent });
 }
@@ -484,53 +484,53 @@ async function handleTick(admin: any, conversationId: string) {
 // TICK SCHEDULING
 // ══════════════════════════════════════════════════════════
 
-/** Fire a tick immediately (no delay), used on start/resume */
-function fireTickNow(conversationId: string) {
+/** Fire a tick via fire-and-forget fetch (no setTimeout — those get killed when the function exits) */
+async function fireTickNow(conversationId: string) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
 
-  // Use setTimeout 0 to not block the current response
-  setTimeout(async () => {
-    try {
-      console.log("[fireTickNow] Calling tick for", conversationId);
-      const res = await fetch(`${supabaseUrl}/functions/v1/chip-conversation`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${anonKey}`,
-        },
-        body: JSON.stringify({ action: "tick", conversation_id: conversationId }),
-      });
-      const body = await res.text();
-      console.log("[fireTickNow] Response:", res.status, body.substring(0, 200));
-    } catch (e: any) {
-      console.error("[fireTickNow] Failed:", e);
-    }
-  }, 100);
+  try {
+    console.log("[fireTickNow] Calling tick for", conversationId);
+    // Fire-and-forget: we send the request but DON'T await the response body
+    // This ensures the HTTP request is dispatched before the function exits
+    fetch(`${supabaseUrl}/functions/v1/chip-conversation`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${anonKey}`,
+      },
+      body: JSON.stringify({ action: "tick", conversation_id: conversationId }),
+    }).catch(e => console.error("[fireTickNow] fetch error:", e));
+    console.log("[fireTickNow] Request dispatched");
+  } catch (e: any) {
+    console.error("[fireTickNow] Failed:", e);
+  }
 }
 
-/** Schedule next tick with a delay in seconds */
-function scheduleNextTick(conversationId: string, delaySec: number) {
+/** Schedule next tick — waits the delay INSIDE the current invocation, then fires next tick */
+async function scheduleNextTick(conversationId: string, delaySec: number) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
 
-  // Cap delay at 20s to stay within edge function lifetime
-  const delayMs = Math.min(delaySec * 1000, 20000);
-  console.log(`[scheduleNextTick] Next tick in ${delayMs}ms for ${conversationId}`);
+  // Cap delay at 25s to stay within edge function wall-clock limit
+  const delayMs = Math.min(delaySec * 1000, 25000);
+  console.log(`[scheduleNextTick] Waiting ${delayMs}ms then firing tick for ${conversationId}`);
 
-  setTimeout(async () => {
-    try {
-      const res = await fetch(`${supabaseUrl}/functions/v1/chip-conversation`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${anonKey}`,
-        },
-        body: JSON.stringify({ action: "tick", conversation_id: conversationId }),
-      });
-      console.log("[scheduleNextTick] Tick response:", res.status);
-    } catch (e: any) {
-      console.error("[scheduleNextTick] Failed:", e);
-    }
-  }, delayMs);
+  // Wait the delay synchronously (within the same invocation)
+  await new Promise(r => setTimeout(r, delayMs));
+
+  try {
+    // Fire-and-forget: dispatch the request, don't wait for response
+    fetch(`${supabaseUrl}/functions/v1/chip-conversation`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${anonKey}`,
+      },
+      body: JSON.stringify({ action: "tick", conversation_id: conversationId }),
+    }).catch(e => console.error("[scheduleNextTick] fetch error:", e));
+    console.log("[scheduleNextTick] Next tick dispatched");
+  } catch (e: any) {
+    console.error("[scheduleNextTick] Failed:", e);
+  }
 }
