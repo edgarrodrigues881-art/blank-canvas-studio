@@ -531,27 +531,31 @@ async function updateCampaignCounters(sb: any, campaign: any, status: string, pa
   if (status === "completed") {
     patch.success_count = Number(campaign.success_count || 0) + 1;
     patch.last_event = "contact_added";
+    patch.last_event_type = "success";
   } else if (status === "already_exists") {
     patch.already_count = Number(campaign.already_count || 0) + 1;
     patch.last_event = "contact_already_exists";
+    patch.last_event_type = "info";
   } else if (FAILURE_STATUSES.has(status)) {
     patch.fail_count = Number(campaign.fail_count || 0) + 1;
-    if (status === "rate_limited") patch.last_event = "rate_limited";
+    patch.last_event_type = "error";
+    if (status === "rate_limited") { patch.last_event = "rate_limited"; patch.last_event_type = "warning"; }
     else if (status === "contact_not_found") patch.last_event = "contact_not_found";
-    else if (status === "confirmed_disconnect") patch.last_event = "device_disconnected";
+    else if (status === "confirmed_disconnect") patch.last_event = "instance_disconnected";
     else if (status === "confirmed_no_admin") patch.last_event = "no_admin_permission";
     else patch.last_event = "contact_error";
   }
   if (pauseCampaign) {
     patch.status = "paused";
     patch.last_event = "campaign_paused";
+    patch.last_event_type = "warning";
   }
   await sb.from("mass_inject_campaigns").update(patch).eq("id", campaign.id);
 }
 
-/** Set a transient event (rate limit wait, retry, etc) */
-async function setCampaignEvent(sb: any, campaignId: string, event: string) {
-  await sb.from("mass_inject_campaigns").update({ last_event: event, last_event_at: nowIso() }).eq("id", campaignId);
+/** Set a transient event with type */
+async function setCampaignEvent(sb: any, campaignId: string, event: string, eventType: string = "info") {
+  await sb.from("mass_inject_campaigns").update({ last_event: event, last_event_type: eventType, last_event_at: nowIso() }).eq("id", campaignId);
 }
 
 async function finalizeCampaignIfNeeded(sb: any, campaignId: string) {
