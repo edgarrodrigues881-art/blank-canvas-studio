@@ -829,7 +829,7 @@ Deno.serve(async (req) => {
       }
 
       const deviceIds = getCampaignDeviceIds(campaign, deviceId);
-      const messagesPerInstance = campaign.messages_per_instance || 0;
+      const messagesPerInstance = Math.max(campaign.messages_per_instance || 50, 1);
 
       await serviceClient.from("campaign_contacts")
         .update({ status: "pending" })
@@ -905,8 +905,8 @@ Deno.serve(async (req) => {
       let msgsSincePause = body.msgsSincePause || 0;
       let pendingPauseMs = body.pendingPauseMs || 0;
 
-      const useRotation = messagesPerInstance > 0 && allDevices.length > 1;
-      const useParallel = messagesPerInstance === -1 && allDevices.length > 1;
+      const useRotation = allDevices.length > 1;
+      const useParallel = false; // Parallel mode removed
 
       const dynamicBatchSize = Math.min(1000, Math.max(100, allDevices.length * 3));
       const { data: contacts, error: contactsErr } = await serviceClient

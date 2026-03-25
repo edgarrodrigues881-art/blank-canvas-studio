@@ -255,7 +255,7 @@ const Campaigns = () => {
   const [pauseDurationMin, setPauseDurationMin] = useState(30);
   const [pauseDurationMax, setPauseDurationMax] = useState(120);
   const [messagesPerInstance, setMessagesPerInstance] = useState(0);
-  const [sendMode, setSendMode] = useState<"single" | "rotation" | "parallel">("single");
+  const [sendMode, setSendMode] = useState<"single" | "rotation" | "parallel">("rotation");
 
   // Delay profile mutations (after delay state is declared)
   const saveDelayProfile = useMutation({
@@ -431,7 +431,7 @@ const Campaigns = () => {
   const clearStep3 = () => {
     setSelectedDevices([]); setMinDelay(8); setMaxDelay(25);
     setPauseEveryMin(10); setPauseEveryMax(20); setPauseDurationMin(30); setPauseDurationMax(120);
-    setMessagesPerInstance(0); setSendMode("single"); setScheduleEnabled(false); setScheduleDate("");
+    setMessagesPerInstance(0); setSendMode("rotation"); setScheduleEnabled(false); setScheduleDate("");
     toast({ title: "Parâmetros limpos" });
   };
   const clearAllForm = () => {
@@ -571,7 +571,7 @@ const Campaigns = () => {
       pause_duration_max: pauseDurationMax,
       device_id: selectedDevices[0],
       device_ids: selectedDevices,
-      messages_per_instance: sendMode === "rotation" ? messagesPerInstance : (sendMode === "parallel" ? -1 : 0),
+      messages_per_instance: messagesPerInstance > 0 ? messagesPerInstance : 50,
       pause_on_disconnect: pauseOnDisconnect,
     }, {
       onSuccess: (newCampaign) => {
@@ -2096,30 +2096,7 @@ const Campaigns = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
-                    {([
-                      { value: "single", label: "Única", desc: "Usa apenas a primeira" },
-                      { value: "rotation", label: "Rodízio", desc: "Troca após X msgs" },
-                      { value: "parallel", label: "Paralelo", desc: "Todas ao mesmo tempo" },
-                    ] as const).map(opt => (
-                      <button
-                        key={opt.value}
-                        onClick={() => setSendMode(opt.value)}
-                        className={cn(
-                          "flex-1 p-3 rounded-xl border text-center transition-all duration-150",
-                          sendMode === opt.value
-                            ? "border-violet-400/40 bg-violet-500/10 shadow-sm shadow-violet-500/10"
-                            : "border-border/20 hover:border-violet-400/20 bg-card"
-                        )}
-                      >
-                        <p className={cn("text-[11px] font-semibold", sendMode === opt.value ? "text-violet-300" : "text-foreground/70")}>{opt.label}</p>
-                        <p className="text-[9px] text-muted-foreground/40 mt-0.5">{opt.desc}</p>
-                      </button>
-                    ))}
-                  </div>
-
-                  {sendMode === "rotation" && (
-                    <div className="space-y-2">
+                  <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <p className="text-[11px] text-muted-foreground/70">Trocar após quantas mensagens?</p>
                         <Badge variant="secondary" className="text-[10px] h-5 bg-violet-500/10 text-violet-400 border-violet-500/20">
@@ -2138,9 +2115,9 @@ const Campaigns = () => {
                         <Slider
                           value={[messagesPerInstance || 50]}
                           onValueChange={([v]) => setMessagesPerInstance(v)}
-                          min={5}
+                          min={1}
                           max={500}
-                          step={5}
+                          step={1}
                           className="flex-1"
                         />
                       </div>
@@ -2148,14 +2125,6 @@ const Campaigns = () => {
                         A cada {messagesPerInstance || 50} mensagens, o sistema troca para a próxima instância automaticamente
                       </p>
                     </div>
-                  )}
-
-                  {sendMode === "parallel" && (
-                    <p className="text-[10px] text-violet-400/60 flex items-center gap-1.5">
-                      <Zap className="w-3 h-3" />
-                      Todas as {selectedDevices.length} instâncias enviarão simultaneamente — contatos divididos igualmente
-                    </p>
-                  )}
                 </div>
               </SurfaceCard>
             )}
