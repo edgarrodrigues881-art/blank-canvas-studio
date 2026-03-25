@@ -920,6 +920,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     return classifyContacts(prefillContacts);
   });
   const [importFilter, setImportFilter] = useState<ImportClassification | "all">("all");
+  const pendingMergeRef = useRef(false);
 
   // Group state
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
