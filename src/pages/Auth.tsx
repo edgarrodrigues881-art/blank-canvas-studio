@@ -36,16 +36,16 @@ const isTimeoutError = (msg: string) =>
 const isPhoneIdentifier = (value: string) => /\d/.test(value) && !value.includes("@");
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
-/* ── Subtle floating particles (CSS-only, GPU-friendly) ── */
-const PARTICLES = Array.from({ length: 8 }, (_, i) => {
-  const angle = (i / 8) * Math.PI * 2;
-  const r = 48 + Math.random() * 12;
+/* ── Floating particles (lightweight, GPU-friendly) ── */
+const PARTICLES = Array.from({ length: 14 }, (_, i) => {
+  const angle = (i / 14) * Math.PI * 2;
+  const r = 65 + Math.random() * 25;
   return {
     x: Math.cos(angle) * r,
     y: Math.sin(angle) * r,
-    size: 2 + Math.random() * 2,
-    delay: i * 0.6,
-    duration: 3 + Math.random() * 2,
+    size: 3 + Math.random() * 3,
+    delay: i * 0.45,
+    duration: 3.5 + Math.random() * 2.5,
   };
 });
 
@@ -62,13 +62,13 @@ const FloatingParticles = () => (
           top: "50%",
           marginLeft: p.x - p.size / 2,
           marginTop: p.y - p.size / 2,
-          background: "rgba(251, 191, 36, 0.35)",
-          boxShadow: "0 0 4px rgba(251, 191, 36, 0.2)",
+          background: "rgba(251, 191, 36, 0.45)",
+          boxShadow: "0 0 6px rgba(251, 191, 36, 0.3)",
         }}
         animate={{
-          opacity: [0, 0.45, 0],
-          y: [0, -6, 0],
-          scale: [0.8, 1, 0.8],
+          opacity: [0, 0.55, 0],
+          y: [0, -8, 0],
+          scale: [0.7, 1.1, 0.7],
         }}
         transition={{
           duration: p.duration,
@@ -261,22 +261,22 @@ const Auth = () => {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="flex flex-col items-center mb-8"
         >
-          <div className="relative w-[140px] h-[140px] flex items-center justify-center mb-3">
+          <div className="relative w-[200px] h-[200px] flex items-center justify-center mb-4">
             <FloatingParticles />
             {/* Soft glow behind logo */}
             <div
-              className="absolute w-20 h-20 rounded-2xl opacity-20"
-              style={{ background: "radial-gradient(circle, #22c55e 0%, #fbbf24 60%, transparent 100%)" }}
+              className="absolute w-32 h-32 rounded-3xl opacity-25"
+              style={{ background: "radial-gradient(circle, #22c55e 0%, #fbbf24 50%, transparent 100%)" }}
             />
             {/* Gold border */}
             <div
-              className="relative p-[1.5px] rounded-2xl"
+              className="relative p-[2px] rounded-2xl"
               style={{ background: "linear-gradient(145deg, #fbbf24 0%, #b8860b 40%, #fbbf24 100%)" }}
             >
               <img
                 src={logo}
                 alt="DG Contingência Pro"
-                className="w-[72px] h-[72px] rounded-[13px]"
+                className="w-[110px] h-[110px] rounded-[14px]"
                 style={{ background: "#0c0f0d" }}
               />
             </div>
