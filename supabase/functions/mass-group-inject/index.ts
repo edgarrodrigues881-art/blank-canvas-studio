@@ -980,7 +980,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
     const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped", "permission_unconfirmed", "unknown_failure", "timeout"].includes(result.status) && !result.pauseCampaign;
 
     // rate_limited (429) gets MORE retries since it's just API throttling, NOT account restriction
-    const maxRetriesForStatus = result.status === "rate_limited" ? MAX_RATE_LIMIT_RETRIES : MAX_QUEUE_RETRIES;
+    const maxRetriesForStatus = result.status === "rate_limited" ? MAX_RATE_LIMIT_RETRIES : result.status === "session_dropped" ? MAX_SESSION_DROP_RETRIES : MAX_QUEUE_RETRIES;
 
     if (isTransient && retryCount < maxRetriesForStatus) {
       // For rate_limited, increase cooldown progressively with each retry
