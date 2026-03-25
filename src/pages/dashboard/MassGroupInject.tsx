@@ -911,6 +911,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   const [campaignName, setCampaignName] = useState(prefillName ? `Retry - ${prefillName}` : (_d.current?.campaignName || ""));
   const [groupId, setGroupId] = useState(_d.current?.groupId || "");
   const [groupName, setGroupName] = useState(_d.current?.groupName || "");
+  const [selectedGroups, setSelectedGroups] = useState<Array<{jid: string, name: string}>>(_d.current?.selectedGroups || []);
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>(_d.current?.selectedDeviceIds || []);
   const [rawInput, setRawInput] = useState(prefillContacts?.join("\n") || (_d.current?.rawInput || ""));
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
@@ -960,15 +961,16 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
 
   // Persist draft to localStorage
   useEffect(() => {
-    const data = { campaignName, groupId, groupName, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, rawInput };
+    const data = { campaignName, groupId, groupName, selectedGroups, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, rawInput };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
-  }, [campaignName, groupId, groupName, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, rawInput]);
+  }, [campaignName, groupId, groupName, selectedGroups, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, rawInput]);
 
   const clearDraft = useCallback(() => {
     localStorage.removeItem(DRAFT_KEY);
     setCampaignName("");
     setGroupId("");
     setGroupName("");
+    setSelectedGroups([]);
     setSelectedDeviceIds([]);
     setRawInput("");
     setImportedContacts([]);
@@ -1062,6 +1064,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     setGroups([]);
     setGroupId("");
     setGroupName("");
+    setSelectedGroups([]);
     setGroupLoadError("");
     setGroupLoadDiagnostics("");
     setIsLoadingGroups(true);
@@ -1107,6 +1110,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
         setGroups([]);
         setGroupId("");
         setGroupName("");
+        setSelectedGroups([]);
         setGroupLoadError("");
         setGroupLoadDiagnostics("");
       } else if (selectedDeviceIds[0] === deviceId) {
@@ -1143,6 +1147,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
       if (data?.jid) {
         setGroupId(data.jid);
         setGroupName(data.name || "Grupo");
+        setSelectedGroups([{ jid: data.jid, name: data.name || "Grupo" }]);
         toast.success(`Grupo encontrado: ${data.name || data.jid}`);
       } else {
         setGroupLoadError(data?.error || "Não foi possível resolver o link do grupo.");
@@ -1166,6 +1171,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     }
     setGroupId(jid);
     setGroupName("Grupo (JID manual)");
+    setSelectedGroups([{ jid, name: "Grupo (JID manual)" }]);
     toast.success("JID do grupo definido");
   }, [groupJidManual]);
 
@@ -1174,6 +1180,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     setGroupInputMode(mode);
     setGroupId("");
     setGroupName("");
+    setSelectedGroups([]);
     setGroupLoadError("");
     if (mode === "list" && primaryDeviceId && groups.length === 0) {
       handleLoadGroups(primaryDeviceId);
@@ -1238,7 +1245,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   const handleValidate = useCallback(async () => {
     const validContacts = importedContacts.filter(c => c.classification === "valid").map(c => c.normalized);
     if (validContacts.length === 0) return toast.error("Nenhum contato válido para processar");
-    if (!groupId.trim()) return toast.error("Selecione um grupo de destino");
+    const activeGroupId = selectedGroups.length > 0 ? selectedGroups[0].jid : groupId;
+    if (!activeGroupId) return toast.error("Selecione pelo menos um grupo de destino");
     if (selectedDeviceIds.length === 0) return toast.error("Selecione pelo menos uma instância");
     if (!campaignName.trim()) return toast.error("Dê um nome para a campanha");
 
@@ -1252,52 +1260,73 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
       setStep("preview");
       toast.success(`${data.validCount} contatos válidos encontrados`);
 
-      // Auto-check participants in group
-      if (data.valid?.length > 0 && primaryDeviceId) {
+      // Auto-check participants in the first group
+      if (data.valid?.length > 0 && primaryDeviceId && activeGroupId) {
         setIsChecking(true);
         try {
           const { data: checkData, error: checkError } = await supabase.functions.invoke("mass-group-inject", {
-            body: { action: "check-participants", groupId, deviceId: primaryDeviceId, contacts: data.valid },
+            body: { action: "check-participants", groupId: activeGroupId, deviceId: primaryDeviceId, contacts: data.valid },
           });
-          if (!checkError && checkData) {
+          if (checkError) {
+            console.warn("check-participants error:", checkError);
+            toast.warning("Não foi possível verificar participantes do grupo. Você pode tentar novamente manualmente.");
+          } else if (checkData?.error) {
+            console.warn("check-participants API error:", checkData.error);
+            toast.warning(`Verificação de participantes: ${checkData.error}`);
+          } else if (checkData) {
             setParticipantCheck(checkData);
             if (checkData.alreadyExistsCount > 0) {
               toast.info(`${checkData.alreadyExistsCount} contato(s) já estão no grupo`);
+            } else {
+              toast.success("Nenhum contato duplicado no grupo!");
             }
           }
-        } catch { /* silently fail - participant check is best-effort */ }
+        } catch (checkErr: any) {
+          console.warn("check-participants exception:", checkErr);
+          toast.warning("Falha ao verificar participantes: " + (checkErr?.message || "erro desconhecido"));
+        }
         finally { setIsChecking(false); }
       }
     } catch (e: any) { toast.error(e.message || "Erro na validação"); }
     finally { setIsValidating(false); }
-  }, [importedContacts, groupId, selectedDeviceIds, campaignName, primaryDeviceId]);
+  }, [importedContacts, groupId, selectedGroups, selectedDeviceIds, campaignName, primaryDeviceId]);
 
   const handleCheckParticipants = useCallback(async () => {
     if (!validationResult?.valid.length) return;
+    const activeGroupId = selectedGroups.length > 0 ? selectedGroups[0].jid : groupId;
+    if (!activeGroupId || !primaryDeviceId) return toast.error("Grupo e instância necessários");
     setIsChecking(true);
     try {
       const { data, error } = await supabase.functions.invoke("mass-group-inject", {
-        body: { action: "check-participants", groupId, deviceId: primaryDeviceId, contacts: validationResult.valid },
+        body: { action: "check-participants", groupId: activeGroupId, deviceId: primaryDeviceId, contacts: validationResult.valid },
       });
       if (error) throw error;
+      if (data?.error) { toast.error(data.error); return; }
       setParticipantCheck(data);
       toast.success(`${data.readyCount} livres e ${data.alreadyExistsCount} já localizados no grupo`);
     } catch (e: any) { toast.error(e.message || "Erro ao verificar participantes"); }
     finally { setIsChecking(false); }
-  }, [validationResult, groupId, primaryDeviceId]);
+  }, [validationResult, groupId, selectedGroups, primaryDeviceId]);
 
   const handleProcess = useCallback(async () => {
     const contacts = participantCheck?.ready?.length ? participantCheck.ready : (validationResult?.valid || []);
     if (contacts.length === 0) return toast.error("Nenhum contato válido para processar");
     setConfirmOpen(false);
     setIsProcessing(true);
+
+    // Build groupTargets from selectedGroups or fallback to single groupId
+    const groupTargets = selectedGroups.length > 0
+      ? selectedGroups.map(g => ({ group_id: g.jid, group_name: g.name }))
+      : groupId ? [{ group_id: groupId, group_name: groupName || selectedGroup?.name || groupId }] : [];
+
     try {
       const { data, error } = await supabase.functions.invoke("mass-group-inject", {
         body: {
           action: "create-campaign",
           name: campaignName || `Campanha ${new Date().toLocaleString("pt-BR")}`,
-          groupId,
-          groupName: groupName || selectedGroup?.name || groupId,
+          groupId: groupTargets[0]?.group_id || groupId,
+          groupName: groupTargets[0]?.group_name || groupName,
+          groupTargets,
           deviceIds: selectedDeviceIds,
           contacts,
           minDelay,
@@ -1310,9 +1339,11 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ["mass_inject_campaigns"] });
       toast.success(
-        data?.deferredParticipantCheck
-          ? `Campanha iniciada: ${data?.readyCount ?? contacts.length} contatos na fila. A checagem no grupo acontecerá durante a execução.`
-          : `Campanha criada: ${data?.readyCount ?? 0} na fila, ${data?.alreadyExistsCount ?? 0} já estavam no grupo.`
+        selectedGroups.length > 1
+          ? `Campanha criada: ${contacts.length} contatos distribuídos em ${selectedGroups.length} grupos.`
+          : data?.deferredParticipantCheck
+            ? `Campanha iniciada: ${data?.readyCount ?? contacts.length} contatos na fila.`
+            : `Campanha criada: ${data?.readyCount ?? 0} na fila, ${data?.alreadyExistsCount ?? 0} já estavam no grupo.`
       );
       onCampaignCreated(data.campaignId);
     } catch (e: any) {
@@ -1320,7 +1351,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     } finally {
       setIsProcessing(false);
     }
-  }, [validationResult, groupId, groupName, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, campaignName, selectedGroup, qc, onCampaignCreated]);
+  }, [validationResult, participantCheck, groupId, groupName, selectedGroups, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, campaignName, selectedGroup, qc, onCampaignCreated]);
 
   const handlePause = useCallback(() => { pauseRef.current = !pauseRef.current; setIsPaused(pauseRef.current); }, []);
   const handleCancel = useCallback(() => { cancelRef.current = true; pauseRef.current = false; setIsPaused(false); }, []);
@@ -1473,22 +1504,53 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                       </div>
                     ) : groups.length > 0 ? (
                       <div className="space-y-2">
-                        <Input value={groupSearch} onChange={e => setGroupSearch(e.target.value)} placeholder="Buscar grupo..." className="h-9 text-sm" />
+                        <div className="flex items-center justify-between">
+                          <Input value={groupSearch} onChange={e => setGroupSearch(e.target.value)} placeholder="Buscar grupo..." className="h-9 text-sm flex-1" />
+                          {selectedGroups.length > 0 && (
+                            <Badge variant="outline" className="ml-2 text-xs shrink-0">{selectedGroups.length} selecionado(s)</Badge>
+                          )}
+                        </div>
                         <div className="max-h-[200px] overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/20">
-                          {filteredGroups.map(g => (
-                            <button key={g.jid} onClick={() => { setGroupId(g.jid); setGroupName(g.name); }}
-                              className={`w-full text-left px-3.5 py-2.5 transition-colors hover:bg-muted/50 ${groupId === g.jid ? "bg-primary/10 border-l-2 border-l-primary" : ""}`}>
-                              <p className="text-sm font-medium truncate">{g.name}</p>
-                              <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{g.jid}</p>
-                            </button>
-                          ))}
+                          {filteredGroups.map(g => {
+                            const isSelected = selectedGroups.some(sg => sg.jid === g.jid);
+                            return (
+                              <button key={g.jid} onClick={() => {
+                                if (isSelected) {
+                                  const updated = selectedGroups.filter(sg => sg.jid !== g.jid);
+                                  setSelectedGroups(updated);
+                                  if (groupId === g.jid) {
+                                    setGroupId(updated[0]?.jid || "");
+                                    setGroupName(updated[0]?.name || "");
+                                  }
+                                } else {
+                                  const updated = [...selectedGroups, { jid: g.jid, name: g.name }];
+                                  setSelectedGroups(updated);
+                                  if (!groupId) { setGroupId(g.jid); setGroupName(g.name); }
+                                }
+                              }}
+                                className={`w-full text-left px-3.5 py-2.5 transition-colors hover:bg-muted/50 flex items-center gap-3 ${isSelected ? "bg-primary/10 border-l-2 border-l-primary" : ""}`}>
+                                <Checkbox checked={isSelected} className="shrink-0 pointer-events-none" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium truncate">{g.name}</p>
+                                  <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{g.jid}</p>
+                                </div>
+                              </button>
+                            );
+                          })}
                           {filteredGroups.length === 0 && groupSearch && (
                             <p className="text-xs text-muted-foreground text-center py-3">Nenhum grupo com esse nome</p>
                           )}
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => handleLoadGroups(primaryDeviceId)} className="w-full gap-2 text-xs h-8">
-                          <RefreshCw className="w-3 h-3" /> Recarregar Grupos
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => handleLoadGroups(primaryDeviceId)} className="flex-1 gap-2 text-xs h-8">
+                            <RefreshCw className="w-3 h-3" /> Recarregar
+                          </Button>
+                          {selectedGroups.length > 0 && (
+                            <Button variant="ghost" size="sm" onClick={() => { setSelectedGroups([]); setGroupId(""); setGroupName(""); }} className="text-xs h-8 text-destructive hover:text-destructive">
+                              Limpar seleção
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 px-4 py-4 space-y-2">
@@ -1554,7 +1616,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                   )}
                 </div>
 
-                {/* Selected group indicator - only show when using link/jid mode */}
+                {/* Selected group indicator - for link/jid mode */}
                 {groupId && groupInputMode !== "list" && (
                   <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 px-4 py-3 flex items-center gap-3">
                     <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
@@ -1562,9 +1624,38 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                       <p className="text-sm font-semibold text-foreground truncate">{groupName || selectedGroup?.name || "Grupo selecionado"}</p>
                       <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{groupId}</p>
                     </div>
-                    <Button variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground" onClick={() => { setGroupId(""); setGroupName(""); }}>
+                    <Button variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground" onClick={() => { setGroupId(""); setGroupName(""); setSelectedGroups([]); }}>
                       <XCircle className="w-3.5 h-3.5" />
                     </Button>
+                  </div>
+                )}
+
+                {/* Selected groups summary - for list mode with multi-select */}
+                {groupInputMode === "list" && selectedGroups.length > 0 && (
+                  <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 px-4 py-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <p className="text-xs font-semibold text-foreground">{selectedGroups.length} grupo(s) selecionado(s)</p>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedGroups.map(g => (
+                        <Badge key={g.jid} variant="outline" className="text-[10px] gap-1 bg-emerald-500/5 border-emerald-500/20">
+                          {g.name}
+                          <button onClick={() => {
+                            const updated = selectedGroups.filter(sg => sg.jid !== g.jid);
+                            setSelectedGroups(updated);
+                            if (groupId === g.jid) { setGroupId(updated[0]?.jid || ""); setGroupName(updated[0]?.name || ""); }
+                          }} className="ml-0.5 hover:text-destructive">
+                            <XCircle className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                    {selectedGroups.length > 1 && (
+                      <p className="text-[10px] text-muted-foreground">
+                        Os contatos serão distribuídos entre os grupos em rodízio (round-robin).
+                      </p>
+                    )}
                   </div>
                 )}
               </CardContent>
