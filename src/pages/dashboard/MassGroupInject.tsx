@@ -1767,15 +1767,17 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-            <Button variant="ghost" onClick={() => setStep("import")} className="gap-2 h-10 text-muted-foreground">← Voltar</Button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center pt-2">
+            <Button variant="outline" onClick={() => setStep("import")} className="gap-2 h-11 px-6">
+              <ArrowLeft className="w-4 h-4" /> Voltar
+            </Button>
             {!participantCheck && (
-              <Button onClick={handleCheckParticipants} disabled={isChecking} variant="outline" className="gap-2 h-10">
+              <Button onClick={handleCheckParticipants} disabled={isChecking} variant="outline" className="gap-2 h-11 px-6 border-blue-500/30 text-blue-500 hover:bg-blue-500/10">
                 {isChecking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                 Verificar Existentes (opcional)
               </Button>
             )}
-            <Button onClick={() => setConfirmOpen(true)} disabled={totalToProcess === 0} className="gap-2 h-10 shadow-md shadow-primary/10">
+            <Button onClick={() => setConfirmOpen(true)} disabled={totalToProcess === 0} className="gap-2 h-11 px-8 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg">
               <Play className="w-4 h-4" /> Iniciar Campanha ({totalToProcess} contatos)
             </Button>
           </div>
