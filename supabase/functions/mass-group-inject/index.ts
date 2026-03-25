@@ -1,4 +1,4 @@
-// mass-group-inject v12.0 — serial queue + advisory locks + per-device global rate limiter + processing timeout + structured logs
+// mass-group-inject v13.0 — serial queue + advisory locks + per-device global rate limiter + processing timeout + structured logs + next_run_at sync
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -78,6 +78,17 @@ const endpointCache = new Map<string, number>();
 
 const nowIso = () => new Date().toISOString();
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Update the next_run_at timestamp so frontend can show a precise countdown */
+async function setNextRunAt(sb: any, campaignId: string, delayMs: number) {
+  const nextAt = new Date(Date.now() + delayMs).toISOString();
+  await sb.from("mass_inject_campaigns").update({ next_run_at: nextAt }).eq("id", campaignId);
+}
+
+/** Clear next_run_at (campaign idle / done) */
+async function clearNextRunAt(sb: any, campaignId: string) {
+  await sb.from("mass_inject_campaigns").update({ next_run_at: null }).eq("id", campaignId);
+}
 const randomBetween = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 
 function extractRetryCount(message: string | null | undefined) {
@@ -688,9 +699,9 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         p_min_interval_ms: 12000, // 12s minimum between any API calls per device
       });
       if (waitMs && waitMs > 0) {
-        // Add jitter to the wait time
         const jitteredWait = waitMs + randomBetween(1000, 3000);
         console.log(`[mass-inject] campaign=${campaignId} device=${device.name} global rate limit: waiting ${jitteredWait}ms`);
+        await setNextRunAt(sb, campaignId, jitteredWait);
         await sleep(jitteredWait);
       }
 
@@ -743,6 +754,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         // Apply cooldown delay (blocking)
         const cooldownDelay = result.cooldownMs || computeNextDelayMs(campaign, result.cooldownMs);
         console.log(`[mass-inject] campaign=${campaignId} transient error, waiting ${cooldownDelay}ms before retry`);
+        await setNextRunAt(sb, campaignId, cooldownDelay);
         await sleep(cooldownDelay);
         continue;
       }
@@ -781,6 +793,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       // 11. BLOCKING delay before next contact
       const nextDelayMs = computeNextDelayMs(latestCampaign, result.cooldownMs);
       console.log(`[mass-inject] campaign=${campaignId} waiting ${nextDelayMs}ms before next contact`);
+      await setNextRunAt(sb, campaignId, nextDelayMs);
       await sleep(nextDelayMs);
     }
   } catch (error: any) {
@@ -792,6 +805,9 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       timestamp: nowIso(),
     }));
   } finally {
+    // ── Clear next_run_at since worker is ending ──
+    await clearNextRunAt(sb, campaignId).catch(() => {});
+
     // ── Ensure campaign is finalized if all contacts are done ──
     try {
       await finalizeCampaignIfNeeded(sb, campaignId);

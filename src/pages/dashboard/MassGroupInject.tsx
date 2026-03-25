@@ -189,7 +189,7 @@ function NextActionCountdown({ contacts, campaign }: { contacts: any[]; campaign
     return () => clearInterval(id);
   }, []);
 
-  // Find the most recently processed contact
+  // Find the most recently processed contact for context
   const lastProcessed = useMemo(() => {
     const processed = contacts
       .filter((c: any) => c.processed_at && c.status !== "pending")
@@ -197,16 +197,19 @@ function NextActionCountdown({ contacts, campaign }: { contacts: any[]; campaign
     return processed[0] || null;
   }, [contacts]);
 
-  // Determine the last status for contextual message
   const lastStatus = lastProcessed?.status;
   const isRetryable = lastStatus && ["rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"].includes(lastStatus);
 
-  // Estimate the expected delay (use campaign settings + device slot ~12s + jitter)
+  // ── Primary source: backend next_run_at ──
+  const nextRunAt = campaign?.next_run_at ? new Date(campaign.next_run_at).getTime() : null;
+  const hasBackendTimer = nextRunAt && nextRunAt > now;
+
+  // ── Fallback: estimate from delay settings ──
   const baseMin = Math.max(campaign.min_delay || 8, 8);
   const baseMax = Math.max(campaign.max_delay || 15, baseMin);
-  const estimatedDelay = Math.round((baseMin + baseMax) / 2) + 3; // +3s for jitter/slot
+  const estimatedDelay = Math.round((baseMin + baseMax) / 2) + 3;
 
-  if (!lastProcessed?.processed_at) {
+  if (!lastProcessed?.processed_at && !hasBackendTimer) {
     return (
       <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
         <Timer className="w-3.5 h-3.5 text-primary/60" />
@@ -215,27 +218,40 @@ function NextActionCountdown({ contacts, campaign }: { contacts: any[]; campaign
     );
   }
 
-  const lastTime = new Date(lastProcessed.processed_at).getTime();
-  const elapsed = Math.floor((now - lastTime) / 1000);
-  const remaining = Math.max(0, estimatedDelay - elapsed);
+  let remaining: number;
+  let totalDuration: number;
 
-  // If too long since last action, show waiting message
-  if (elapsed > estimatedDelay * 3) {
-    return (
-      <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-        <Timer className="w-3.5 h-3.5 text-primary/60" />
-        <span>Aguardando próximo ciclo de processamento...</span>
-      </div>
-    );
+  if (hasBackendTimer) {
+    // Use precise backend timestamp
+    remaining = Math.max(0, Math.ceil((nextRunAt - now) / 1000));
+    // Estimate total duration from last processed contact
+    const lastTime = lastProcessed?.processed_at ? new Date(lastProcessed.processed_at).getTime() : now;
+    totalDuration = Math.max(1, Math.ceil((nextRunAt - lastTime) / 1000));
+  } else {
+    // Fallback to estimation
+    const lastTime = new Date(lastProcessed.processed_at).getTime();
+    const elapsed = Math.floor((now - lastTime) / 1000);
+    remaining = Math.max(0, estimatedDelay - elapsed);
+    totalDuration = estimatedDelay;
+
+    // If too long since last action with no backend timer, show waiting
+    if (elapsed > estimatedDelay * 3) {
+      return (
+        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+          <Timer className="w-3.5 h-3.5 text-primary/60" />
+          <span>Aguardando próximo ciclo de processamento...</span>
+        </div>
+      );
+    }
   }
 
   const contextMsg = isRetryable
     ? `Retry em ${remaining}s — ${statusLabel(lastStatus)}`
     : remaining > 0
-    ? `Próximo envio em ~${remaining}s`
+    ? `Próximo envio em ${remaining}s`
     : "Processando próximo contato...";
 
-  const progressPct = remaining > 0 ? Math.min(100, ((estimatedDelay - remaining) / estimatedDelay) * 100) : 100;
+  const progressPct = remaining > 0 ? Math.min(100, ((totalDuration - remaining) / totalDuration) * 100) : 100;
 
   return (
     <div className="mt-3 flex items-center gap-3">
