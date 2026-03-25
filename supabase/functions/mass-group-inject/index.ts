@@ -526,36 +526,41 @@ function pickDeviceId(campaign: any) {
   return deviceIds[Math.floor(successCount / rotateAfter) % deviceIds.length] || deviceIds[0];
 }
 
+/** Insert an event into the events table for reliable delivery */
+async function emitCampaignEvent(sb: any, campaignId: string, eventType: string, eventLevel: string = "info", message?: string) {
+  await sb.from("mass_inject_events").insert({ campaign_id: campaignId, event_type: eventType, event_level: eventLevel, message: message || null });
+}
+
 async function updateCampaignCounters(sb: any, campaign: any, status: string, pauseCampaign = false) {
-  const patch: Record<string, any> = { updated_at: nowIso(), last_event_at: nowIso() };
+  const patch: Record<string, any> = { updated_at: nowIso() };
+  let eventType = "";
+  let eventLevel = "info";
   if (status === "completed") {
     patch.success_count = Number(campaign.success_count || 0) + 1;
-    patch.last_event = "contact_added";
-    patch.last_event_type = "success";
+    eventType = "contact_added"; eventLevel = "success";
   } else if (status === "already_exists") {
     patch.already_count = Number(campaign.already_count || 0) + 1;
-    patch.last_event = "contact_already_exists";
-    patch.last_event_type = "info";
+    eventType = "contact_already_exists"; eventLevel = "info";
   } else if (FAILURE_STATUSES.has(status)) {
     patch.fail_count = Number(campaign.fail_count || 0) + 1;
-    patch.last_event_type = "error";
-    if (status === "rate_limited") { patch.last_event = "rate_limited"; patch.last_event_type = "warning"; }
-    else if (status === "contact_not_found") patch.last_event = "contact_not_found";
-    else if (status === "confirmed_disconnect") patch.last_event = "instance_disconnected";
-    else if (status === "confirmed_no_admin") patch.last_event = "no_admin_permission";
-    else patch.last_event = "contact_error";
+    eventLevel = "error";
+    if (status === "rate_limited") { eventType = "rate_limited"; eventLevel = "warning"; }
+    else if (status === "contact_not_found") eventType = "contact_not_found";
+    else if (status === "confirmed_disconnect") eventType = "instance_disconnected";
+    else if (status === "confirmed_no_admin") eventType = "no_admin_permission";
+    else eventType = "contact_error";
   }
   if (pauseCampaign) {
     patch.status = "paused";
-    patch.last_event = "campaign_paused";
-    patch.last_event_type = "warning";
+    eventType = "campaign_paused"; eventLevel = "warning";
   }
   await sb.from("mass_inject_campaigns").update(patch).eq("id", campaign.id);
+  if (eventType) await emitCampaignEvent(sb, campaign.id, eventType, eventLevel);
 }
 
-/** Set a transient event with type */
+/** Set a transient event */
 async function setCampaignEvent(sb: any, campaignId: string, event: string, eventType: string = "info") {
-  await sb.from("mass_inject_campaigns").update({ last_event: event, last_event_type: eventType, last_event_at: nowIso() }).eq("id", campaignId);
+  await emitCampaignEvent(sb, campaignId, event, eventType);
 }
 
 async function finalizeCampaignIfNeeded(sb: any, campaignId: string) {
