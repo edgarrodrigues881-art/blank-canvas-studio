@@ -2,52 +2,35 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { FileText, Image, Video, File, Sticker, Layers } from "lucide-react";
+import { FileText, Image, Mic, Sticker, Layers } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 interface ContentTypes {
   text: boolean;
   image: boolean;
-  video: boolean;
-  file: boolean;
+  audio: boolean;
   sticker: boolean;
-}
-
-interface ContentWeights {
-  text: number;
-  image: number;
-  video: number;
-  file: number;
-  sticker: number;
 }
 
 interface Props {
   contentTypes: ContentTypes;
-  contentWeights: ContentWeights;
-  onChange: (types: ContentTypes, weights: ContentWeights) => void;
+  onChange: (types: ContentTypes) => void;
 }
 
 const TYPES: { key: keyof ContentTypes; label: string; icon: LucideIcon }[] = [
   { key: "text", label: "Texto", icon: FileText },
   { key: "image", label: "Imagem", icon: Image },
-  { key: "video", label: "Vídeo", icon: Video },
-  { key: "file", label: "Arquivo", icon: File },
+  { key: "audio", label: "Áudio", icon: Mic },
   { key: "sticker", label: "Figurinha", icon: Sticker },
 ];
 
-export default function GIContentConfig({ contentTypes, contentWeights, onChange }: Props) {
+export default function GIContentConfig({ contentTypes, onChange }: Props) {
   const toggleType = (key: keyof ContentTypes) => {
     const newTypes = { ...contentTypes, [key]: !contentTypes[key] };
-    onChange(newTypes, contentWeights);
-  };
-
-  const setWeight = (key: keyof ContentWeights, value: number) => {
-    const newWeights = { ...contentWeights, [key]: value };
-    onChange(contentTypes, newWeights);
+    onChange(newTypes);
   };
 
   const enabledTypes = TYPES.filter((t) => contentTypes[t.key]);
-  const totalWeight = enabledTypes.reduce((sum, t) => sum + (contentWeights[t.key] || 0), 0);
 
   return (
     <Card>
@@ -57,36 +40,17 @@ export default function GIContentConfig({ contentTypes, contentWeights, onChange
           Tipos de Conteúdo
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         {TYPES.map((t) => (
-          <div key={t.key} className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <t.icon className="w-4 h-4 text-muted-foreground" />
-                <Label className="text-sm">{t.label}</Label>
-              </div>
-              <Switch
-                checked={contentTypes[t.key]}
-                onCheckedChange={() => toggleType(t.key)}
-              />
+          <div key={t.key} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
+            <div className="flex items-center gap-2.5">
+              <t.icon className="w-4 h-4 text-muted-foreground" />
+              <Label className="text-sm">{t.label}</Label>
             </div>
-            {contentTypes[t.key] && (
-              <div className="flex items-center gap-3 pl-6">
-                <Slider
-                  value={[contentWeights[t.key] || 0]}
-                  onValueChange={([v]) => setWeight(t.key, v)}
-                  min={5}
-                  max={100}
-                  step={5}
-                  className="flex-1"
-                />
-                <span className="text-xs font-mono w-10 text-right text-muted-foreground">
-                  {totalWeight > 0
-                    ? Math.round(((contentWeights[t.key] || 0) / totalWeight) * 100)
-                    : 0}%
-                </span>
-              </div>
-            )}
+            <Switch
+              checked={contentTypes[t.key]}
+              onCheckedChange={() => toggleType(t.key)}
+            />
           </div>
         ))}
 
