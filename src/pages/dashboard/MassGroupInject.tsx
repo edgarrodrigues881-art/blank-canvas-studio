@@ -1697,6 +1697,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <Button variant="outline" onClick={() => {
               setReimportMode(null);
+              pendingMergeRef.current = true;
               setHasImported(false);
               toast.info("Importe um novo arquivo para adicionar aos contatos existentes");
             }} className="gap-1.5">
