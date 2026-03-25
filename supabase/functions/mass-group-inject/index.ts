@@ -421,7 +421,7 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
     const strategy = strategies[i];
     try {
       console.log(`addToGroup DISCOVERY[${i}]: ${strategy.method} ${strategy.url}`);
-      const res = await fetch(strategy.url, { method: strategy.method, headers, body: JSON.stringify(strategy.body) });
+      const res = await fetchWithTimeout(strategy.url, { method: strategy.method, headers, body: JSON.stringify(strategy.body) });
       if (res.status === 405) continue; // Endpoint doesn't exist, try next
 
       const { raw, body } = await readApiResponse(res);
