@@ -167,6 +167,20 @@ function isSuccessStatus(status: string) {
   return status === "completed" || status === "already_exists";
 }
 
+/** Classify imported contacts: keep ALL, tag each as valid/duplicate/invalid/empty */
+function classifyContacts(rawLines: string[]): ImportedContact[] {
+  const seen = new Set<string>();
+  return rawLines.map(raw => {
+    const trimmed = raw.trim();
+    if (!trimmed) return { raw, normalized: "", classification: "empty" as ImportClassification };
+    const digits = trimmed.replace(/\D/g, "");
+    if (digits.length < 8) return { raw: trimmed, normalized: digits, classification: "invalid" as ImportClassification };
+    if (seen.has(digits)) return { raw: trimmed, normalized: digits, classification: "duplicate" as ImportClassification };
+    seen.add(digits);
+    return { raw: trimmed, normalized: digits, classification: "valid" as ImportClassification };
+  });
+}
+
 function isFailureStatus(status: string) {
   return [
     "failed",
