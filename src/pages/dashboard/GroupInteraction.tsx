@@ -643,6 +643,7 @@ export default function GroupInteractionPage() {
                 <p className="text-sm">Selecione uma automação ou crie uma nova</p>
               </CardContent>
             </Card>
+          )}
       </div>
     </div>
   );
