@@ -117,5 +117,10 @@ export function useChipConversationActions() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["chip_conversations"] }),
   });
 
-  return { create, update, start, pause, resume, stop };
+  const remove = useMutation({
+    mutationFn: (id: string) => invoke({ action: "delete", conversation_id: id }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["chip_conversations"] }),
+  });
+
+  return { create, update, start, pause, resume, stop, remove };
 }

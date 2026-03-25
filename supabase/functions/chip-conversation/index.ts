@@ -190,6 +190,8 @@ Deno.serve(async (req) => {
         return await handleCreate(admin, user.id, body);
       case "update":
         return await handleUpdate(admin, user.id, body);
+      case "delete":
+        return await handleDelete(admin, user.id, conversation_id);
       case "start":
         return await handleStart(admin, user.id, conversation_id);
       case "pause":
@@ -245,6 +247,21 @@ async function handleUpdate(admin: any, userId: string, body: any) {
   const { error } = await admin.from("chip_conversations")
     .update(updates)
     .eq("id", conversation_id)
+    .eq("user_id", userId);
+
+  if (error) throw new Error(error.message);
+  return json({ ok: true });
+}
+
+async function handleDelete(admin: any, userId: string, conversationId: string) {
+  // Delete logs first
+  await admin.from("chip_conversation_logs")
+    .delete()
+    .eq("conversation_id", conversationId);
+
+  const { error } = await admin.from("chip_conversations")
+    .delete()
+    .eq("id", conversationId)
     .eq("user_id", userId);
 
   if (error) throw new Error(error.message);
