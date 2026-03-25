@@ -576,8 +576,8 @@ async function finalizeCampaignIfNeeded(sb: any, campaignId: string) {
   const nextStatus = Number(campaign.fail_count || 0) > 0 ? "completed_with_failures" : "done";
   await sb.from("mass_inject_campaigns").update({
     status: nextStatus, updated_at: nowIso(), completed_at: nowIso(),
-    last_event: "campaign_completed", last_event_type: "success", last_event_at: nowIso(),
   }).eq("id", campaignId);
+  await emitCampaignEvent(sb, campaignId, "campaign_completed", "success");
   return true;
 }
 
