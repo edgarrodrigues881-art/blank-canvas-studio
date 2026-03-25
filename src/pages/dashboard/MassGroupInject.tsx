@@ -901,6 +901,11 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   const [isImporting, setIsImporting] = useState(false);
   const [hasImported, setHasImported] = useState(!!prefillContacts?.length);
   const [reimportMode, setReimportMode] = useState<"ask" | null>(null);
+  const [importedContacts, setImportedContacts] = useState<ImportedContact[]>(() => {
+    if (!prefillContacts?.length) return [];
+    return classifyContacts(prefillContacts);
+  });
+  const [importFilter, setImportFilter] = useState<ImportClassification | "all">("all");
 
   // Group state
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
