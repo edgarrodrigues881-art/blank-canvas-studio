@@ -1539,8 +1539,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
             </Card>
           </div>
 
-          {/* Import contacts */}
-          <div className="xl:col-span-3">
+          {/* Import contacts - full width below */}
+          <div className="lg:col-span-2">
             <Card className="border-border/40 bg-card/80 backdrop-blur-sm shadow-sm h-full">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
