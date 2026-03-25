@@ -1,5 +1,5 @@
 // mass-group-inject v16.0 — human-like behavior: non-linear delays, block pauses, instance rotation, hourly limits
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
