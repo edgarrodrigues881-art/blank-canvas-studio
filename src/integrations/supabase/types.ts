@@ -1894,6 +1894,44 @@ export type Database = {
           },
         ]
       }
+      mass_inject_events: {
+        Row: {
+          campaign_id: string
+          consumed: boolean
+          created_at: string
+          event_level: string
+          event_type: string
+          id: string
+          message: string | null
+        }
+        Insert: {
+          campaign_id: string
+          consumed?: boolean
+          created_at?: string
+          event_level?: string
+          event_type: string
+          id?: string
+          message?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          consumed?: boolean
+          created_at?: string
+          event_level?: string
+          event_type?: string
+          id?: string
+          message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mass_inject_events_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "mass_inject_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_queue: {
         Row: {
           client_email: string

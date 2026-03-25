@@ -526,36 +526,41 @@ function pickDeviceId(campaign: any) {
   return deviceIds[Math.floor(successCount / rotateAfter) % deviceIds.length] || deviceIds[0];
 }
 
+/** Insert an event into the events table for reliable delivery */
+async function emitCampaignEvent(sb: any, campaignId: string, eventType: string, eventLevel: string = "info", message?: string) {
+  await sb.from("mass_inject_events").insert({ campaign_id: campaignId, event_type: eventType, event_level: eventLevel, message: message || null });
+}
+
 async function updateCampaignCounters(sb: any, campaign: any, status: string, pauseCampaign = false) {
-  const patch: Record<string, any> = { updated_at: nowIso(), last_event_at: nowIso() };
+  const patch: Record<string, any> = { updated_at: nowIso() };
+  let eventType = "";
+  let eventLevel = "info";
   if (status === "completed") {
     patch.success_count = Number(campaign.success_count || 0) + 1;
-    patch.last_event = "contact_added";
-    patch.last_event_type = "success";
+    eventType = "contact_added"; eventLevel = "success";
   } else if (status === "already_exists") {
     patch.already_count = Number(campaign.already_count || 0) + 1;
-    patch.last_event = "contact_already_exists";
-    patch.last_event_type = "info";
+    eventType = "contact_already_exists"; eventLevel = "info";
   } else if (FAILURE_STATUSES.has(status)) {
     patch.fail_count = Number(campaign.fail_count || 0) + 1;
-    patch.last_event_type = "error";
-    if (status === "rate_limited") { patch.last_event = "rate_limited"; patch.last_event_type = "warning"; }
-    else if (status === "contact_not_found") patch.last_event = "contact_not_found";
-    else if (status === "confirmed_disconnect") patch.last_event = "instance_disconnected";
-    else if (status === "confirmed_no_admin") patch.last_event = "no_admin_permission";
-    else patch.last_event = "contact_error";
+    eventLevel = "error";
+    if (status === "rate_limited") { eventType = "rate_limited"; eventLevel = "warning"; }
+    else if (status === "contact_not_found") eventType = "contact_not_found";
+    else if (status === "confirmed_disconnect") eventType = "instance_disconnected";
+    else if (status === "confirmed_no_admin") eventType = "no_admin_permission";
+    else eventType = "contact_error";
   }
   if (pauseCampaign) {
     patch.status = "paused";
-    patch.last_event = "campaign_paused";
-    patch.last_event_type = "warning";
+    eventType = "campaign_paused"; eventLevel = "warning";
   }
   await sb.from("mass_inject_campaigns").update(patch).eq("id", campaign.id);
+  if (eventType) await emitCampaignEvent(sb, campaign.id, eventType, eventLevel);
 }
 
-/** Set a transient event with type */
+/** Set a transient event */
 async function setCampaignEvent(sb: any, campaignId: string, event: string, eventType: string = "info") {
-  await sb.from("mass_inject_campaigns").update({ last_event: event, last_event_type: eventType, last_event_at: nowIso() }).eq("id", campaignId);
+  await emitCampaignEvent(sb, campaignId, event, eventType);
 }
 
 async function finalizeCampaignIfNeeded(sb: any, campaignId: string) {
@@ -571,8 +576,8 @@ async function finalizeCampaignIfNeeded(sb: any, campaignId: string) {
   const nextStatus = Number(campaign.fail_count || 0) > 0 ? "completed_with_failures" : "done";
   await sb.from("mass_inject_campaigns").update({
     status: nextStatus, updated_at: nowIso(), completed_at: nowIso(),
-    last_event: "campaign_completed", last_event_type: "success", last_event_at: nowIso(),
   }).eq("id", campaignId);
+  await emitCampaignEvent(sb, campaignId, "campaign_completed", "success");
   return true;
 }
 
@@ -774,7 +779,8 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         // Auto-pause after too many consecutive failures
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
           console.log(`[mass-inject] campaign=${campaignId} ${consecutiveFailures} consecutive failures — auto-pausing`);
-          await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso(), last_event: "campaign_paused", last_event_type: "warning", last_event_at: nowIso() }).eq("id", campaignId);
+          await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
+          await emitCampaignEvent(sb, campaignId, "campaign_paused", "warning");
           break;
         }
 
@@ -814,7 +820,8 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         consecutiveFailures++;
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
           console.log(`[mass-inject] campaign=${campaignId} ${consecutiveFailures} consecutive failures — auto-pausing`);
-          await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso(), last_event: "campaign_paused", last_event_type: "warning", last_event_at: nowIso() }).eq("id", campaignId);
+          await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
+          await emitCampaignEvent(sb, campaignId, "campaign_paused", "warning");
           break;
         }
       }
@@ -1114,7 +1121,8 @@ Deno.serve(async (req) => {
       if (!campaign || (!isAdmin && campaign.user_id !== user!.id)) return new Response(JSON.stringify({ error: "Campanha não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       if (action === "pause-campaign") {
-        await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso(), completed_at: null, last_event: "campaign_paused", last_event_type: "warning", last_event_at: nowIso() }).eq("id", campaign.id);
+        await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso(), completed_at: null }).eq("id", campaign.id);
+        await emitCampaignEvent(sb, campaign.id, "campaign_paused", "warning");
         await sb.from("mass_inject_contacts").update({ status: "pending", error_message: null } as any).eq("campaign_id", campaign.id).eq("status", "processing");
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
@@ -1127,7 +1135,8 @@ Deno.serve(async (req) => {
 
       // resume
       await sb.from("mass_inject_contacts").update({ status: "pending", error_message: null } as any).eq("campaign_id", campaign.id).eq("status", "processing");
-      await sb.from("mass_inject_campaigns").update({ status: "queued", updated_at: nowIso(), completed_at: null, last_event: "campaign_resumed", last_event_type: "info", last_event_at: nowIso() }).eq("id", campaign.id);
+      await sb.from("mass_inject_campaigns").update({ status: "queued", updated_at: nowIso(), completed_at: null }).eq("id", campaign.id);
+      await emitCampaignEvent(sb, campaign.id, "campaign_resumed", "info");
       await queueCampaignRun(campaign.id, 0);
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
