@@ -554,32 +554,67 @@ async function emitCampaignEvent(sb: any, campaignId: string, eventType: string,
   await sb.from("mass_inject_events").insert({ campaign_id: campaignId, event_type: eventType, event_level: eventLevel, message: message || null });
 }
 
-async function updateCampaignCounters(sb: any, campaign: any, status: string, pauseCampaign = false) {
+// Statuses that are NOT real failures (temporary/retryable or informational)
+const TEMPORARY_STATUSES = new Set(["rate_limited", "timeout", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"]);
+// Statuses that represent REAL definitive failures
+const REAL_FAILURE_STATUSES = new Set(["confirmed_disconnect", "confirmed_no_admin", "invalid_group", "contact_not_found", "unauthorized", "blocked"]);
+
+async function updateCampaignCounters(sb: any, campaign: any, status: string, pauseCampaign = false, pauseReason?: string) {
   const patch: Record<string, any> = { updated_at: nowIso() };
   let eventType = "";
   let eventLevel = "info";
+
   if (status === "completed") {
     patch.success_count = Number(campaign.success_count || 0) + 1;
+    patch.consecutive_failures = 0; // Reset on success
     eventType = "contact_added"; eventLevel = "success";
   } else if (status === "already_exists") {
     patch.already_count = Number(campaign.already_count || 0) + 1;
+    patch.consecutive_failures = 0; // Reset on already_exists (not a failure)
     eventType = "contact_already_exists"; eventLevel = "info";
-  } else if (FAILURE_STATUSES.has(status)) {
+  } else if (status === "rate_limited") {
+    // rate_limited is API throttling — track separately, do NOT count as fail
+    patch.rate_limit_count = Number(campaign.rate_limit_count || 0) + 1;
+    eventType = "rate_limited"; eventLevel = "warning";
+    // Do NOT increment consecutive_failures for rate_limited
+  } else if (status === "timeout") {
+    // timeout is temporary — track separately, do NOT count as fail
+    patch.timeout_count = Number(campaign.timeout_count || 0) + 1;
+    eventType = "timeout"; eventLevel = "warning";
+    // Do NOT increment consecutive_failures for isolated timeouts
+  } else if (REAL_FAILURE_STATUSES.has(status)) {
+    // REAL definitive failures
     patch.fail_count = Number(campaign.fail_count || 0) + 1;
-    eventLevel = "error";
-    if (status === "rate_limited") { eventType = "rate_limited"; eventLevel = "warning"; }
-    else if (status === "timeout") { eventType = "timeout"; eventLevel = "warning"; }
-    else if (status === "contact_not_found") eventType = "contact_not_found";
+    patch.consecutive_failures = Number(campaign.consecutive_failures || 0) + 1;
+    if (status === "contact_not_found") eventType = "contact_not_found";
     else if (status === "confirmed_disconnect") eventType = "instance_disconnected";
     else if (status === "confirmed_no_admin") eventType = "no_admin_permission";
     else eventType = "contact_error";
+    eventLevel = "error";
+  } else if (FAILURE_STATUSES.has(status)) {
+    // Other transient failures (api_temporary, connection_unconfirmed, etc.)
+    patch.fail_count = Number(campaign.fail_count || 0) + 1;
+    eventType = "contact_error"; eventLevel = "warning";
   }
+
   if (pauseCampaign) {
     patch.status = "paused";
+    patch.pause_reason = pauseReason || getPauseReason(status);
     eventType = "campaign_paused"; eventLevel = "warning";
   }
+
   await sb.from("mass_inject_campaigns").update(patch).eq("id", campaign.id);
-  if (eventType) await emitCampaignEvent(sb, campaign.id, eventType, eventLevel);
+  if (eventType) await emitCampaignEvent(sb, campaign.id, eventType, eventLevel, pauseReason);
+}
+
+function getPauseReason(status: string): string {
+  switch (status) {
+    case "confirmed_disconnect": return "Pausada por desconexão confirmada da instância";
+    case "confirmed_no_admin": return "Pausada por falta de privilégio de admin no grupo";
+    case "invalid_group": return "Pausada por grupo inválido ou inacessível";
+    case "unauthorized": return "Pausada por falha de autenticação da instância";
+    default: return "Pausada por erro crítico persistente";
+  }
 }
 
 /** Set a transient event */
