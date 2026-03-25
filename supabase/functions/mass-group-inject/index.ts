@@ -538,21 +538,32 @@ async function executeAddWithRecovery(baseUrl: string, token: string, groupId: s
   // Each worker invocation processes a single attempt and lets the queue handle retries,
   // preventing burst calls that were causing 429 + false disconnect cascades.
   if (failure.status === "connection_unconfirmed") {
-    connectionCheck = await checkInstanceConnection(baseUrl, token);
+    // Multi-check revalidation: don't trust a single disconnect signal
+    const { finalResult: connectionCheck, checks, confirmedDisconnect } = await checkInstanceConnectionWithRetries(baseUrl, token, `add_failure:${phone}`);
+    
     if (connectionCheck.connected === true) {
+      // Instance is actually connected — this was a transient API hiccup
       failure = {
         status: "api_temporary",
         detail: "A integração acusou desconexão, mas a instância continua conectada.",
         retryable: true,
         cooldownMs: randomBetween(20_000, 35_000),
       };
-    } else if (connectionCheck.connected === false) {
+    } else if (confirmedDisconnect) {
+      // ALL checks confirmed disconnected — but this is still a SESSION issue, not a BAN
       failure = {
-        status: "confirmed_disconnect",
-        detail: "Instância revalidada e está realmente desconectada.",
-        retryable: false,
-        pauseCampaign: true,
-        confirmed: true,
+        status: "session_dropped",
+        detail: `Sessão da API desconectada (${DISCONNECT_RECHECK_COUNT}/${DISCONNECT_RECHECK_COUNT} verificações offline). Aguardando reconexão.`,
+        retryable: true,
+        cooldownMs: randomBetween(30_000, 60_000),
+      };
+    } else {
+      // Mixed/unknown results — treat as transient
+      failure = {
+        status: "session_dropped",
+        detail: `Sessão instável: ${checks.filter(c => c.connected === false).length} offline de ${DISCONNECT_RECHECK_COUNT} verificações. Aguardando estabilização.`,
+        retryable: true,
+        cooldownMs: randomBetween(25_000, 45_000),
       };
     }
   }
@@ -577,7 +588,7 @@ async function executeAddWithRecovery(baseUrl: string, token: string, groupId: s
     providerMessage: providerMessage.substring(0, 200),
     classifiedAs: failure.status,
     retryable: failure.retryable,
-    connectionStatus: connectionCheck?.status || null,
+    connectionStatus: null,
   }));
 
   return {
