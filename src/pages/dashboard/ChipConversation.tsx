@@ -116,6 +116,27 @@ export default function ChipConversation() {
   const [selectedConv, setSelectedConv] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingConv, setEditingConv] = useState<ChipConversation | null>(null);
+
+  const handleDelete = async (id: string) => {
+    try {
+      await actions.remove.mutateAsync(id);
+      toast.success("Conversa excluída");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao excluir");
+    }
+  };
+
+  const handleEdit = async (data: any) => {
+    if (!editingConv) return;
+    try {
+      await actions.update.mutateAsync({ conversation_id: editingConv.id, ...data });
+      toast.success("Conversa atualizada!");
+      setEditingConv(null);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao atualizar");
+    }
+  };
 
   return (
     <div className="space-y-6 pb-8">
@@ -158,6 +179,24 @@ export default function ChipConversation() {
         </Dialog>
       </div>
 
+      {/* Edit Dialog */}
+      <Dialog open={!!editingConv} onOpenChange={(open) => !open && setEditingConv(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Conversa</DialogTitle>
+          </DialogHeader>
+          {editingConv && (
+            <CreateConversationForm
+              devices={devices}
+              onSubmit={handleEdit}
+              isLoading={actions.update.isPending}
+              initialData={editingConv}
+              submitLabel="Salvar Alterações"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Conversations List */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
@@ -187,6 +226,8 @@ export default function ChipConversation() {
               onToggleExpand={() => setExpandedId(expandedId === conv.id ? null : conv.id)}
               onSelectLogs={() => setSelectedConv(selectedConv === conv.id ? null : conv.id)}
               showLogs={selectedConv === conv.id}
+              onEdit={() => setEditingConv(conv)}
+              onDelete={() => handleDelete(conv.id)}
             />
           ))}
         </div>
