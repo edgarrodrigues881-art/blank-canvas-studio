@@ -195,6 +195,7 @@ function isFailureStatus(status: string) {
     "api_temporary",
     "temporary_error",
     "connection_unconfirmed",
+    "session_dropped",
     "confirmed_disconnect",
     "permission_unconfirmed",
     "confirmed_no_admin",
