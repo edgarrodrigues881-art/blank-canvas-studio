@@ -93,10 +93,12 @@ export function useAutoSyncDevices(intervalMs = 10_000) {
       try {
         await supabase.functions.invoke("sync-devices");
         if (Date.now() >= mutedUntil) {
-          queryClient.invalidateQueries({ queryKey: ["devices"] });
+          // Force refetch from DB (bypass staleTime) to reflect API changes immediately
+          await queryClient.refetchQueries({ queryKey: ["devices"] });
+          queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
         }
       } catch {
-        // silent
+        // silent — don't change state on error
       } finally {
         syncingRef.current = false;
       }

@@ -455,6 +455,7 @@ Deno.serve(async (req) => {
 
         // ── Parse status ──
         const data = r.apiData;
+        const inst = data?.instance || data?.data || data || {};
         const normalizedState = normalizeProviderConnectionState(data);
         const rawState = normalizedState.rawStatus;
         const phone = normalizedState.owner;
