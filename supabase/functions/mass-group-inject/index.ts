@@ -437,8 +437,8 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
       // Got a real response → this is the correct endpoint. Return error, do NOT try more.
       return { ok: false, status: res.status, body, rawMessage: pm || raw, strategyIndex: i };
     } catch (error: any) {
-      // Network error → also STOP. Do not flood with more requests.
-      return { ok: false, status: 0, rawMessage: error.message };
+      const isTimeout = error.message?.includes("Timeout");
+      return { ok: false, status: isTimeout ? 408 : 0, rawMessage: error.message };
     }
   }
 
