@@ -248,6 +248,8 @@ function ConversationCard({
   onToggleExpand,
   onSelectLogs,
   showLogs,
+  onEdit,
+  onDelete,
 }: {
   conversation: ChipConversation;
   devices: any[];
@@ -256,6 +258,8 @@ function ConversationCard({
   onToggleExpand: () => void;
   onSelectLogs: () => void;
   showLogs: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   const normalizedStatus = normalizeConversationStatus(conv.status);
   const status = STATUS_MAP[normalizedStatus];
@@ -364,6 +368,33 @@ function ConversationCard({
               </Button>
             </>
           ) : null}
+
+          {normalizedStatus === "idle" && (
+            <>
+              <Button size="icon" variant="ghost" onClick={onEdit} className="w-8 h-8" title="Editar">
+                <Pencil className="w-3.5 h-3.5" />
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button size="icon" variant="ghost" className="w-8 h-8 text-destructive hover:text-destructive" title="Excluir">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir conversa?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      A conversa e todos os logs serão removidos permanentemente.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={onDelete}>Excluir</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
+          )}
 
           <Button size="icon" variant="ghost" onClick={onToggleExpand} className="w-8 h-8">
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -497,26 +528,30 @@ function CreateConversationForm({
   devices,
   onSubmit,
   isLoading,
+  initialData,
+  submitLabel,
 }: {
   devices: any[];
   onSubmit: (data: any) => void;
   isLoading: boolean;
+  initialData?: ChipConversation;
+  submitLabel?: string;
 }) {
-  const [name, setName] = useState("Conversa automática");
-  const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
-  const [minDelay, setMinDelay] = useState(15);
-  const [maxDelay, setMaxDelay] = useState(60);
-  const [pauseAfterMin, setPauseAfterMin] = useState(4);
-  const [pauseAfterMax, setPauseAfterMax] = useState(8);
-  const [pauseDurationMin, setPauseDurationMin] = useState(120);
-  const [pauseDurationMax, setPauseDurationMax] = useState(300);
-  const [durationHours, setDurationHours] = useState(1);
-  const [durationMinutes, setDurationMinutes] = useState(0);
-  const [startHour, setStartHour] = useState("08:00");
-  const [endHour, setEndHour] = useState("18:00");
-  const [msgsMin, setMsgsMin] = useState(10);
-  const [msgsMax, setMsgsMax] = useState(30);
-  const [activeDays, setActiveDays] = useState(["mon", "tue", "wed", "thu", "fri"]);
+  const [name, setName] = useState(initialData?.name || "Conversa automática");
+  const [selectedDevices, setSelectedDevices] = useState<string[]>(initialData?.device_ids || []);
+  const [minDelay, setMinDelay] = useState(initialData?.min_delay_seconds ?? 15);
+  const [maxDelay, setMaxDelay] = useState(initialData?.max_delay_seconds ?? 60);
+  const [pauseAfterMin, setPauseAfterMin] = useState(initialData?.pause_after_messages_min ?? 4);
+  const [pauseAfterMax, setPauseAfterMax] = useState(initialData?.pause_after_messages_max ?? 8);
+  const [pauseDurationMin, setPauseDurationMin] = useState(initialData?.pause_duration_min ?? 120);
+  const [pauseDurationMax, setPauseDurationMax] = useState(initialData?.pause_duration_max ?? 300);
+  const [durationHours, setDurationHours] = useState(initialData?.duration_hours ?? 1);
+  const [durationMinutes, setDurationMinutes] = useState(initialData?.duration_minutes ?? 0);
+  const [startHour, setStartHour] = useState(initialData?.start_hour || "08:00");
+  const [endHour, setEndHour] = useState(initialData?.end_hour || "18:00");
+  const [msgsMin, setMsgsMin] = useState(initialData?.messages_per_cycle_min ?? 10);
+  const [msgsMax, setMsgsMax] = useState(initialData?.messages_per_cycle_max ?? 30);
+  const [activeDays, setActiveDays] = useState(initialData?.active_days || ["mon", "tue", "wed", "thu", "fri"]);
 
   const toggleDevice = (id: string) => {
     setSelectedDevices((prev) =>
@@ -711,8 +746,8 @@ function CreateConversationForm({
       <Separator />
 
       <Button onClick={handleSubmit} disabled={isLoading} className="w-full gap-2">
-        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-        Criar Conversa
+        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : initialData ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+        {submitLabel || "Criar Conversa"}
       </Button>
     </div>
   );
