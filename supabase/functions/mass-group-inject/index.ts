@@ -70,11 +70,14 @@ const FAILURE_STATUSES = new Set([
 ]);
 
 const FINAL_CAMPAIGN_STATUSES = new Set(["done", "completed_with_failures", "paused", "cancelled", "failed"]);
-const RETRYABLE_QUEUE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure", "timeout"] as const;
+const RETRYABLE_QUEUE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped", "permission_unconfirmed", "unknown_failure", "timeout"] as const;
 const MAX_QUEUE_RETRIES = 3;
-const MAX_RATE_LIMIT_RETRIES = 8; // 429 is API throttling, not account restriction — allow more retries with increasing cooldown
-const STALE_PROCESSING_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
-const API_TIMEOUT_MS = 25_000; // 25s timeout for all external API calls
+const MAX_RATE_LIMIT_RETRIES = 8;
+const MAX_SESSION_DROP_RETRIES = 5; // session drops get more retries since they're transient
+const STALE_PROCESSING_TIMEOUT_MS = 3 * 60 * 1000;
+const API_TIMEOUT_MS = 25_000;
+const DISCONNECT_RECHECK_COUNT = 3; // Number of checks before confirming disconnect
+const DISCONNECT_RECHECK_INTERVAL_MS = 8_000; // Interval between recheck attempts
 
 // ── Endpoint cache: avoid trying all 5 strategies every time ──
 const endpointCache = new Map<string, number>();
