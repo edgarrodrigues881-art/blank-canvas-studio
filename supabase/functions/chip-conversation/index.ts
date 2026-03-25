@@ -32,86 +32,19 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
 // ══════════════════════════════════════════════════════════
-// MESSAGE BANKS — Categorized for natural conversation flow
+// FALLBACK MESSAGE BANKS (used only if user has no warmup_messages)
 // ══════════════════════════════════════════════════════════
 
-const ABERTURA = [
+const FALLBACK_MESSAGES = [
   "Opa, tudo certo?", "Bom dia, como você tá?", "E aí, tranquilo?",
-  "Fala, tudo bem?", "Oi, sumiu hein", "E aí, beleza?",
-  "Fala parceiro, suave?", "Opa, como tá?", "Ei, tudo na paz?",
-  "Bom dia, como vai?", "Boa tarde, tudo certo?", "E aí mano, como tá?",
-  "Fala aí, tudo joia?", "Oi, como andam as coisas?", "Salve, tudo bem?",
-  "Eae, tranquilo por aí?", "Oi oi, sumiu hein!", "Fala, quanto tempo!",
-  "E aí, como foi o dia?", "Opa, deu pra descansar?",
-  "Bom dia, dormiu bem?", "Boa noite, tudo tranquilo?",
-  "Fala, como tá a correria?", "E aí, novidades?",
-  "Oi, tava pensando em você agora", "Fala, tô precisando de um papo",
-];
-
-const RESPOSTA = [
-  "Tudo certo por aqui", "Tô bem sim, e você?", "Correria de sempre haha",
-  "Indo, e você?", "De boa, graças a Deus", "Tudo tranquilo sim",
-  "Aqui tá suave", "Na paz, sem reclamar", "Tudo joia, valeu por perguntar",
-  "Tô bem, trabalhando bastante", "Aqui tá de boa, e aí?",
-  "Tudo nos conformes", "Bem demais, obrigado", "Na correria mas tudo certo",
-  "Tô sobrevivendo kkk", "Aqui tá tranquilo, graças a Deus",
-  "Normal, dia a dia né", "Tudo certinho sim", "Seguindo o fluxo",
-  "Tô bem, e por aí como tá?", "Suave demais", "Nada demais, tudo normal",
-  "Aqui tá tudo em ordem", "Bem, só cansado um pouco",
-];
-
-const CONTINUACAO = [
+  "Fala, tudo bem?", "Tudo certo por aqui", "Tô bem sim, e você?",
+  "Correria de sempre haha", "De boa, graças a Deus",
   "Hoje tá puxado hein", "Já almoçou?", "Como foi seu dia?",
-  "Tá trabalhando agora?", "O que fez de bom hoje?",
-  "Tá com algum plano pro final de semana?", "Vi umas notícias loucas hoje",
-  "Esse calor tá demais né", "Tá chovendo aí?",
-  "Aqui tá um frio danado hoje", "Já tomou café?",
-  "Tô pensando em pedir uma comida", "Que horas são aí?",
-  "Você viu aquele jogo ontem?", "Tô precisando de férias",
-  "Essa semana tá passando devagar", "Já resolveu aquilo que falou?",
-  "Como tá o trânsito aí?", "Tô pensando em mudar de emprego",
-  "Preciso organizar umas coisas aqui", "Hoje acordei cedo demais",
-  "Tô tentando criar uma rotina melhor", "Esses dias tão voando né",
-  "Preciso marcar um médico mas tenho preguiça", "Tá assistindo alguma série?",
-  "Aqui o wifi tá uma porcaria hoje", "Faz tempo que não saio pra comer fora",
-  "Tô querendo aprender algo novo", "Meu celular tá travando demais",
-  "Preciso trocar de operadora", "Você usa qual banco digital?",
-  "Tô pensando em começar a academia", "Aqui chegou uma encomenda",
-  "O café de hoje tá diferente, botei canela", "Esse mês tá passando rápido",
+  "Depois falamos", "Vou resolver umas coisas aqui", "Te chamo mais tarde",
+  "E aí, beleza?", "Aqui tá suave", "Tudo joia, valeu por perguntar",
+  "Tá chovendo aí?", "Esse calor tá demais né", "Tô precisando de férias",
 ];
-
-const ENCERRAMENTO = [
-  "Depois falamos", "Vou resolver umas coisas aqui",
-  "Te chamo mais tarde", "Fechou, até daqui a pouco",
-  "Bom, vou voltar pro trabalho", "A gente se fala depois",
-  "Preciso ir agora, até mais", "Vou nessa, falamos depois",
-  "Bom papo, vou continuar aqui", "Até mais, qualquer coisa chama",
-  "Vou almoçar, depois volto", "Tô saindo agora, falamos depois",
-  "Bom, preciso resolver umas paradas", "Até logo, boa tarde pra você",
-  "Vou descansar um pouco, até", "Falou, boa noite!",
-  "Beleza, depois a gente conversa mais", "Vou nessa, abraço!",
-];
-
-const EMOJIS = ["🙂", "😂", "😅", "👍", "🙏", "😎", "🤝", "😊", "💯", "👏", "✌️", "😁", "🤗", "👌", "💪", "😃", "🤙", "👋", "😆", "🤣"];
-
-function maybeEmoji(msg: string): string {
-  if (Math.random() < 0.55) return msg;
-  return `${msg} ${pickRandom(EMOJIS)}`;
-}
-
-function generateConversationMessage(category: "abertura" | "resposta" | "continuacao" | "encerramento"): string {
-  switch (category) {
-    case "abertura": return maybeEmoji(pickRandom(ABERTURA));
-    case "resposta": return maybeEmoji(pickRandom(RESPOSTA));
-    case "continuacao": return maybeEmoji(pickRandom(CONTINUACAO));
-    case "encerramento": return maybeEmoji(pickRandom(ENCERRAMENTO));
-  }
-}
 
 // ══════════════════════════════════════════════════════════
 // UAZAPI COMMUNICATION
@@ -152,6 +85,23 @@ async function sendTextMessage(baseUrl: string, token: string, number: string, t
     }
   }
   return { ok: false, error: lastErr };
+}
+
+// ══════════════════════════════════════════════════════════
+// FETCH USER MESSAGES FROM DATABASE
+// ══════════════════════════════════════════════════════════
+
+async function getUserMessages(admin: any, userId: string): Promise<string[]> {
+  const { data, error } = await admin.from("warmup_messages")
+    .select("content")
+    .eq("user_id", userId);
+
+  if (error || !data || data.length === 0) {
+    console.log("No warmup_messages found for user, using fallback");
+    return FALLBACK_MESSAGES;
+  }
+
+  return data.map((m: any) => m.content).filter((c: string) => c && c.trim().length > 0);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -255,7 +205,6 @@ async function handleUpdate(admin: any, userId: string, body: any) {
 }
 
 async function handleDelete(admin: any, userId: string, conversationId: string) {
-  // Delete logs first
   await admin.from("chip_conversation_logs")
     .delete()
     .eq("conversation_id", conversationId);
@@ -288,8 +237,8 @@ async function handleStart(admin: any, userId: string, conversationId: string) {
     .update({ status: "running", started_at: new Date().toISOString(), completed_at: null, last_error: null })
     .eq("id", conversationId);
 
-  // Schedule first tick immediately
-  scheduleNextTick(admin, conversationId);
+  // Fire first tick IMMEDIATELY (not delayed)
+  fireTickNow(conversationId);
 
   return json({ ok: true, status: "running" });
 }
@@ -309,7 +258,8 @@ async function handleResume(admin: any, userId: string, conversationId: string) 
     .eq("id", conversationId)
     .eq("user_id", userId);
 
-  scheduleNextTick(admin, conversationId);
+  // Fire tick immediately on resume too
+  fireTickNow(conversationId);
   return json({ ok: true, status: "running" });
 }
 
@@ -341,8 +291,8 @@ async function handleTick(admin: any, conversationId: string) {
   const currentMinute = nowBrt.getMinutes();
   const currentTime = currentHour * 60 + currentMinute;
 
-  const startParts = String(conv.start_hour || "08:00").split(",").map(s => s.trim());
-  const endParts = String(conv.end_hour || "18:00").split(",").map(s => s.trim());
+  const startParts = String(conv.start_hour || "08:00").split(",").map((s: string) => s.trim());
+  const endParts = String(conv.end_hour || "18:00").split(",").map((s: string) => s.trim());
 
   let insideWindow = false;
   for (let i = 0; i < startParts.length; i++) {
@@ -357,6 +307,8 @@ async function handleTick(admin: any, conversationId: string) {
   }
 
   if (!insideWindow) {
+    // Still schedule next tick so it checks again later
+    scheduleNextTick(conversationId, randInt(60, 120));
     return json({ ok: true, skipped: true, reason: "outside_hours" });
   }
 
@@ -368,7 +320,14 @@ async function handleTick(admin: any, conversationId: string) {
     return json({ ok: true, skipped: true, reason: "inactive_day" });
   }
 
-  // No duration limit — runs continuously within the time window
+  // ── Fetch user messages from warmup_messages table ──
+  const userMessages = await getUserMessages(admin, conv.user_id);
+  if (userMessages.length === 0) {
+    await admin.from("chip_conversations")
+      .update({ status: "paused", last_error: "Nenhuma mensagem cadastrada. Adicione mensagens no banco de mensagens." })
+      .eq("id", conversationId);
+    return json({ error: "No messages available" }, 400);
+  }
 
   // Get devices with their tokens
   const deviceIds = conv.device_ids as string[];
@@ -393,8 +352,7 @@ async function handleTick(admin: any, conversationId: string) {
   }
 
   // Determine how many messages in this cycle
-  // Send as many messages as possible within this tick (edge function timeout ~25s)
-  const messagesThisCycle = randInt(8, 20);
+  const messagesThisCycle = randInt(6, 16);
   
   // Create conversation pairs — rotate who starts
   const pairs = generateConversationPairs(activeDevices);
@@ -406,16 +364,18 @@ async function handleTick(admin: any, conversationId: string) {
     if (totalSent >= messagesThisCycle) break;
 
     // Generate a mini-conversation between this pair
-    const conversationLength = randInt(4, Math.min(10, messagesThisCycle - totalSent));
-    const messages = generateConversationFlow(conversationLength);
+    const conversationLength = randInt(3, Math.min(8, messagesThisCycle - totalSent));
 
     let msgIndex = 0;
-    for (const msg of messages) {
+    for (let i = 0; i < conversationLength; i++) {
       if (totalSent >= messagesThisCycle) break;
 
       // Alternate sender/receiver
       const sender = msgIndex % 2 === 0 ? pair.a : pair.b;
       const receiver = msgIndex % 2 === 0 ? pair.b : pair.a;
+
+      // Pick a random message from the user's bank
+      const messageText = pickRandom(userMessages);
 
       // Wait delay before sending
       const delay = randInt(conv.min_delay_seconds, conv.max_delay_seconds) * 1000;
@@ -436,7 +396,7 @@ async function handleTick(admin: any, conversationId: string) {
         sender.uazapi_base_url,
         sender.uazapi_token,
         receiver.number,
-        msg.text
+        messageText
       );
 
       // Log
@@ -447,8 +407,8 @@ async function handleTick(admin: any, conversationId: string) {
         receiver_device_id: receiver.id,
         sender_name: sender.name,
         receiver_name: receiver.name,
-        message_content: msg.text,
-        message_category: msg.category,
+        message_content: messageText,
+        message_category: "general",
         status: result.ok ? "sent" : "failed",
         error_message: result.ok ? null : result.error,
       });
@@ -462,14 +422,14 @@ async function handleTick(admin: any, conversationId: string) {
       msgIndex++;
 
       // Small natural pause between messages in same conversation
-      if (msgIndex > 0 && msgIndex % randInt(5, 12) === 0) {
+      if (msgIndex > 0 && msgIndex % randInt(4, 8) === 0) {
         await new Promise(r => setTimeout(r, randInt(3000, 8000)));
       }
     }
 
-    // Inter-conversation pause
-    const interPause = randInt(30, 90) * 1000;
-    await new Promise(r => setTimeout(r, Math.min(interPause, 20000)));
+    // Inter-conversation pause (capped to avoid timeout)
+    const interPause = randInt(10, 30) * 1000;
+    await new Promise(r => setTimeout(r, Math.min(interPause, 15000)));
   }
 
   // Update total
@@ -480,8 +440,8 @@ async function handleTick(admin: any, conversationId: string) {
     })
     .eq("id", conversationId);
 
-  // Schedule next tick
-  scheduleNextTick(admin, conversationId);
+  // Schedule next tick with moderate delay
+  scheduleNextTick(conversationId, randInt(60, 180));
 
   return json({ ok: true, messages_sent: totalSent });
 }
@@ -491,7 +451,6 @@ function generateConversationPairs(devices: any[]): Array<{ a: any; b: any }> {
   const shuffled = [...devices].sort(() => Math.random() - 0.5);
   
   for (let i = 0; i < shuffled.length - 1; i += 2) {
-    // Randomly decide who starts
     if (Math.random() < 0.5) {
       pairs.push({ a: shuffled[i], b: shuffled[i + 1] });
     } else {
@@ -509,39 +468,39 @@ function generateConversationPairs(devices: any[]): Array<{ a: any; b: any }> {
   return pairs;
 }
 
-function generateConversationFlow(length: number): Array<{ text: string; category: string }> {
-  const messages: Array<{ text: string; category: string }> = [];
-  
-  for (let i = 0; i < length; i++) {
-    let category: "abertura" | "resposta" | "continuacao" | "encerramento";
-    
-    if (i === 0) {
-      category = "abertura";
-    } else if (i === 1) {
-      category = "resposta";
-    } else if (i === length - 1) {
-      category = "encerramento";
-    } else {
-      // Mix of continuação and resposta
-      category = Math.random() < 0.6 ? "continuacao" : "resposta";
-    }
-    
-    messages.push({
-      text: generateConversationMessage(category),
-      category,
-    });
-  }
-  
-  return messages;
-}
+// ══════════════════════════════════════════════════════════
+// TICK SCHEDULING
+// ══════════════════════════════════════════════════════════
 
-async function scheduleNextTick(admin: any, conversationId: string) {
+/** Fire a tick immediately (no delay), used on start/resume */
+function fireTickNow(conversationId: string) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
-  
-  const delayMs = randInt(120, 300) * 1000;
-  
-  // Use setTimeout to not block the response
+
+  // Fire without waiting (setTimeout 0 to not block response)
+  setTimeout(async () => {
+    try {
+      await fetch(`${supabaseUrl}/functions/v1/chip-conversation`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({ action: "tick", conversation_id: conversationId }),
+      });
+    } catch (e: any) {
+      console.error("Failed to fire immediate tick:", e);
+    }
+  }, 500);
+}
+
+/** Schedule next tick with a delay in seconds */
+function scheduleNextTick(conversationId: string, delaySec: number) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+
+  const delayMs = Math.min(delaySec * 1000, 25000); // Cap at 25s (edge function timeout)
+
   setTimeout(async () => {
     try {
       await fetch(`${supabaseUrl}/functions/v1/chip-conversation`, {
@@ -555,5 +514,5 @@ async function scheduleNextTick(admin: any, conversationId: string) {
     } catch (e: any) {
       console.error("Failed to schedule next tick:", e);
     }
-  }, Math.min(delayMs, 25000));
+  }, delayMs);
 }
