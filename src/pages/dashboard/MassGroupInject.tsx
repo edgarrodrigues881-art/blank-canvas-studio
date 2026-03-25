@@ -1287,7 +1287,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   }, [validationResult, groupId, primaryDeviceId]);
 
   const handleProcess = useCallback(async () => {
-    const contacts = validationResult?.valid || [];
+    const contacts = participantCheck?.ready?.length ? participantCheck.ready : (validationResult?.valid || []);
     if (contacts.length === 0) return toast.error("Nenhum contato válido para processar");
     setConfirmOpen(false);
     setIsProcessing(true);
