@@ -1336,14 +1336,6 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
       {step === "import" && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {/* Campaign name */}
-            <Card className="border-border/40 bg-card/80 backdrop-blur-sm shadow-sm">
-              <CardContent className="pt-5 pb-4 px-5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Nome da Campanha</label>
-                <Input value={campaignName} onChange={e => setCampaignName(e.target.value)} placeholder="Ex: Adição Grupo VIP - Março" className="h-11" />
-              </CardContent>
-            </Card>
-
             <Card className="border-border/40 bg-card/80 backdrop-blur-sm shadow-sm">
               <CardHeader className="pb-4">
                 <CardTitle className="text-base font-semibold flex items-center gap-2.5"><Shield className="w-4 h-4 text-primary" />Configuração</CardTitle>
