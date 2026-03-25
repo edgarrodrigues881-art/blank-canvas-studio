@@ -504,6 +504,7 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
     campaign_paused: { msg: "Campanha pausada" },
     campaign_resumed: { msg: "Campanha retomada" },
     campaign_completed: { msg: "Campanha concluída!" },
+    timeout: { msg: "Timeout na API externa", groupable: true },
   };
 
   const showToastByLevel = useCallback((level: string, msg: string) => {
