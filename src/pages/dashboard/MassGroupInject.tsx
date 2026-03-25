@@ -31,6 +31,14 @@ import {
 type Step = "import" | "preview" | "processing" | "done";
 type View = "list" | "create" | "detail";
 
+type ImportClassification = "valid" | "duplicate" | "invalid" | "empty";
+
+interface ImportedContact {
+  raw: string;
+  normalized: string;
+  classification: ImportClassification;
+}
+
 interface ValidationResult {
   total: number;
   valid: string[];
