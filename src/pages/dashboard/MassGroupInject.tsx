@@ -933,12 +933,48 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   const [groupLoadError, setGroupLoadError] = useState("");
   const [groupLoadDiagnostics, setGroupLoadDiagnostics] = useState("");
 
-  // Config
-  const [minDelay, setMinDelay] = useState(30);
-  const [maxDelay, setMaxDelay] = useState(60);
-  const [pauseAfter, setPauseAfter] = useState(0);
-  const [pauseDuration, setPauseDuration] = useState(30);
-  const [rotateAfter, setRotateAfter] = useState(0);
+  // Config — restore draft from localStorage
+  const DRAFT_KEY = "mass-inject-draft";
+  const loadDraft = () => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  };
+  const draft = useRef(loadDraft());
+
+  const [minDelay, setMinDelay] = useState(draft.current?.minDelay ?? 30);
+  const [maxDelay, setMaxDelay] = useState(draft.current?.maxDelay ?? 60);
+  const [pauseAfter, setPauseAfter] = useState(draft.current?.pauseAfter ?? 0);
+  const [pauseDuration, setPauseDuration] = useState(draft.current?.pauseDuration ?? 30);
+  const [rotateAfter, setRotateAfter] = useState(draft.current?.rotateAfter ?? 0);
+
+  // Persist draft to localStorage
+  useEffect(() => {
+    const data = { campaignName, groupId, groupName, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, rawInput };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+  }, [campaignName, groupId, groupName, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, rawInput]);
+
+  const clearDraft = useCallback(() => {
+    localStorage.removeItem(DRAFT_KEY);
+    setCampaignName("");
+    setGroupId("");
+    setGroupName("");
+    setSelectedDeviceIds([]);
+    setRawInput("");
+    setImportedContacts([]);
+    setHasImported(false);
+    setValidationResult(null);
+    setParticipantCheck(null);
+    setMinDelay(30);
+    setMaxDelay(60);
+    setPauseAfter(0);
+    setPauseDuration(30);
+    setRotateAfter(0);
+    setStep("import");
+    setCompletedSteps(new Set());
+    toast.success("Rascunho limpo");
+  }, []);
 
   // Processing state
   const [liveResults, setLiveResults] = useState<ContactResult[]>([]);
