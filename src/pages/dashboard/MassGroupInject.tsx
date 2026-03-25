@@ -427,10 +427,10 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
                         </Badge>
                       </div>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span className="truncate max-w-[200px]">📁 {c.group_name || c.group_id?.substring(0, 15) + "..."}</span>
-                        <span>📋 {c.total_contacts} contatos</span>
-                        <span className="text-emerald-500">✓ {successTotal}</span>
-                        {c.fail_count > 0 && <span className="text-destructive">✗ {c.fail_count}</span>}
+                        <span className="truncate max-w-[200px]">{c.group_name || c.group_id?.substring(0, 15) + "..."}</span>
+                        <span>{c.total_contacts} contatos</span>
+                        <span className="text-emerald-500">{successTotal} ok</span>
+                        {c.fail_count > 0 && <span className="text-destructive">{c.fail_count} falha{c.fail_count !== 1 ? "s" : ""}</span>}
                         <span>{new Date(c.created_at).toLocaleDateString("pt-BR")}</span>
                       </div>
                       {c.status === "processing" && (
