@@ -134,10 +134,6 @@ const Auth = () => {
       return;
     }
 
-    if (!isLogin && password !== confirmPassword) {
-      toast({ title: "Senhas não coincidem", description: "A senha e a confirmação devem ser iguais.", variant: "destructive" });
-      return;
-    }
 
     setLoading(true);
 
