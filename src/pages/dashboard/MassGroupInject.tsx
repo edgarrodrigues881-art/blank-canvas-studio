@@ -486,8 +486,10 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
     return () => clearInterval(id);
   }, [campaign?.status, isFetchingCampaign, isFetchingContacts, refetchCampaign, refetchContacts]);
 
-  // ── Toast notifications from backend events ──
+  // ── Toast notifications from backend events (with throttle + grouping) ──
   const lastSeenEventRef = useRef<string | null>(null);
+  const lastToastTimeRef = useRef<number>(0);
+  const eventCountRef = useRef<{ event: string; count: number; timer: ReturnType<typeof setTimeout> | null }>({ event: "", count: 0, timer: null });
 
   useEffect(() => {
     if (!campaign?.last_event || !campaign?.last_event_at) return;
@@ -495,26 +497,63 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
     if (lastSeenEventRef.current === eventKey) return;
     lastSeenEventRef.current = eventKey;
 
-    const eventToasts: Record<string, { msg: string; type: "success" | "error" | "warning" | "info" }> = {
-      contact_added: { msg: "✓ Contato adicionado com sucesso", type: "success" },
-      contact_already_exists: { msg: "Contato já está no grupo", type: "info" },
-      contact_not_found: { msg: "Número não encontrado no WhatsApp", type: "error" },
-      contact_error: { msg: "Erro ao adicionar contato", type: "error" },
+    const eventMessages: Record<string, { msg: string; type: "success" | "error" | "warning" | "info"; groupable?: boolean }> = {
+      contact_added: { msg: "Contato adicionado com sucesso", type: "success", groupable: true },
+      contact_already_exists: { msg: "Contato já está no grupo", type: "info", groupable: true },
+      contact_not_found: { msg: "Número não encontrado no WhatsApp", type: "error", groupable: true },
+      contact_error: { msg: "Erro ao adicionar contato", type: "error", groupable: true },
       rate_limited: { msg: "Limite temporário atingido, aguardando retry", type: "warning" },
       retry_waiting: { msg: "Aguardando cooldown antes de nova tentativa", type: "warning" },
       retry_resumed: { msg: "Processamento retomado", type: "info" },
-      device_disconnected: { msg: "Instância desconectada", type: "error" },
+      instance_disconnected: { msg: "Instância desconectada", type: "error" },
+      instance_reconnected: { msg: "Instância reconectada", type: "success" },
       no_admin_permission: { msg: "Sem privilégio de administrador no grupo", type: "error" },
-      campaign_paused: { msg: "Campanha pausada automaticamente", type: "warning" },
+      campaign_started: { msg: "Campanha iniciada", type: "info" },
+      campaign_paused: { msg: "Campanha pausada", type: "warning" },
+      campaign_resumed: { msg: "Campanha retomada", type: "info" },
+      campaign_completed: { msg: "Campanha concluída!", type: "success" },
     };
 
-    const t = eventToasts[campaign.last_event];
-    if (t) {
-      if (t.type === "success") toast.success(t.msg);
-      else if (t.type === "error") toast.error(t.msg);
-      else if (t.type === "warning") toast.warning(t.msg);
-      else toast.info(t.msg);
+    const ev = eventMessages[campaign.last_event];
+    if (!ev) return;
+
+    const now = Date.now();
+    const elapsed = now - lastToastTimeRef.current;
+
+    // Groupable events: accumulate and show summary
+    if (ev.groupable) {
+      const ref = eventCountRef.current;
+      if (ref.event === campaign.last_event) {
+        ref.count++;
+      } else {
+        // Flush previous group if pending
+        if (ref.timer) clearTimeout(ref.timer);
+        ref.event = campaign.last_event;
+        ref.count = 1;
+      }
+      if (ref.timer) clearTimeout(ref.timer);
+      ref.timer = setTimeout(() => {
+        const count = ref.count;
+        const msg = count > 1 ? `${count}x ${ev.msg}` : ev.msg;
+        if (ev.type === "success") toast.success(msg);
+        else if (ev.type === "error") toast.error(msg);
+        else toast.info(msg);
+        lastToastTimeRef.current = Date.now();
+        ref.count = 0;
+        ref.event = "";
+        ref.timer = null;
+      }, 3000);
+      return;
     }
+
+    // Non-groupable: throttle at 3s
+    if (elapsed < 3000) return;
+    lastToastTimeRef.current = now;
+
+    if (ev.type === "success") toast.success(ev.msg);
+    else if (ev.type === "error") toast.error(ev.msg);
+    else if (ev.type === "warning") toast.warning(ev.msg);
+    else toast.info(ev.msg);
   }, [campaign?.last_event, campaign?.last_event_at]);
 
   const handleManualRefresh = useCallback(async () => {
