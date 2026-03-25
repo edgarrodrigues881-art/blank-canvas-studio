@@ -64,7 +64,7 @@ interface ExecuteResult {
 
 const SUCCESS_STATUSES = new Set(["completed", "already_exists"]);
 const FAILURE_STATUSES = new Set([
-  "rate_limited", "api_temporary", "connection_unconfirmed", "confirmed_disconnect",
+  "rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped", "confirmed_disconnect",
   "permission_unconfirmed", "confirmed_no_admin", "invalid_group", "contact_not_found",
   "unauthorized", "blocked", "unknown_failure", "timeout",
 ]);
