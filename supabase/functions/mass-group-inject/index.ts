@@ -978,10 +978,10 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
           return;
         }
 
-        // Some devices still connected — redistribute with cooldown
-        const retryDelay = randomBetween(15_000, 30_000);
+        // Some devices still connected — redistribute with LONG cooldown (5-10 min recovery)
+        const retryDelay = randomBetween(300_000, 600_000); // 5-10 minutes
         await emitCampaignEvent(sb, campaignId, "session_dropped", "warning", 
-          `Sessão da instância ${device.name} desconectada. Tentando com outra instância em ${Math.round(retryDelay/1000)}s.`);
+          `Sessão da instância ${device.name} desconectada. Recuperação em ${Math.round(retryDelay/1000/60)} min com outra instância.`);
         await scheduleCampaignRun(sb, campaignId, retryDelay);
         nextRunScheduled = true;
         return;
@@ -1158,9 +1158,10 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
     let nextDelayMs: number;
     if (result.status === "already_exists" || result.status === "contact_not_found") {
-      nextDelayMs = randomBetween(1000, 4000);
+      // Still add some delay even for skipped contacts to look human
+      nextDelayMs = randomBetween(3000, 8000);
     } else if (result.status === "blocked" || result.status === "unauthorized") {
-      nextDelayMs = randomBetween(1000, 3000);
+      nextDelayMs = randomBetween(3000, 6000);
     } else {
       nextDelayMs = computeNextDelayMs(campaign, result.cooldownMs, device.id);
     }
