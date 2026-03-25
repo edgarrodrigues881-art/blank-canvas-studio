@@ -783,7 +783,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       }
 
       // 9. Handle transient errors with retry
-      const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"].includes(result.status) && !result.pauseCampaign;
+      const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure", "timeout"].includes(result.status) && !result.pauseCampaign;
 
       if (isTransient && retryCount < MAX_QUEUE_RETRIES) {
         await sb.from("mass_inject_contacts").update({
