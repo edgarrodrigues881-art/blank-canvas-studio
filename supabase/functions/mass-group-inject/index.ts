@@ -685,7 +685,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         await sb.from("devices").update({ status: "Ready", updated_at: nowIso() }).eq("id", device.id);
       }
 
-      // 8. Handle transient errors with retry
+      // 9. Handle transient errors with retry
       const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"].includes(result.status) && !result.pauseCampaign;
 
       if (isTransient && retryCount < MAX_QUEUE_RETRIES) {
