@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, Fragment } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useGroupInteraction, type GroupInteraction } from "@/hooks/useGroupInteraction";
@@ -8,20 +8,19 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
   Play, Pause, Square, Plus, Trash2, Copy, Save, MessageCircle, Clock,
-  Users, Settings, RotateCw,
+  Users, Settings, RotateCw, ArrowLeft, Layers,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import GIStatusPanel from "@/components/group-interaction/GIStatusPanel";
-import GIContentConfig from "@/components/group-interaction/GIContentConfig";
 import GILogs from "@/components/group-interaction/GILogs";
 import GIPresets from "@/components/group-interaction/GIPresets";
+import GIContentConfig from "@/components/group-interaction/GIContentConfig";
 
 const DAYS = [
   { key: "mon", label: "Seg" },
@@ -33,8 +32,6 @@ const DAYS = [
   { key: "sun", label: "Dom" },
 ];
 
-const defaultContentTypes = { text: true, image: false, audio: false, sticker: false };
-
 const defaultForm: Partial<GroupInteraction> & Record<string, any> = {
   name: "Interação de Grupos",
   group_ids: [],
@@ -45,16 +42,12 @@ const defaultForm: Partial<GroupInteraction> & Record<string, any> = {
   pause_after_messages_max: 10,
   pause_duration_min: 180,
   pause_duration_max: 420,
-  messages_per_cycle_min: 10,
-  messages_per_cycle_max: 25,
-  duration_hours: 8,
-  duration_minutes: 0,
   start_hour: "07:00",
   end_hour: "21:00",
   active_days: ["mon", "tue", "wed", "thu", "fri"],
-  daily_limit_per_group: 30,
-  daily_limit_total: 150,
-  content_types: defaultContentTypes,
+  daily_limit_per_group: 10,
+  daily_limit_total: 50,
+  content_types: { text: true, image: false, audio: false, sticker: false },
   preset_name: "moderate",
 };
 
@@ -72,6 +65,8 @@ const statusLabels: Record<string, string> = {
   completed: "Concluído",
 };
 
+const defaultContentTypes = { text: true, image: false, audio: false, sticker: false };
+
 export default function GroupInteractionPage() {
   const { user } = useAuth();
   const {
@@ -81,8 +76,9 @@ export default function GroupInteractionPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showConfig, setShowConfig] = useState(false);
-  const [activeTab, setActiveTab] = useState("config");
+  const [showBulkCreate, setShowBulkCreate] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({ ...defaultForm });
+  const [bulkDeviceIds, setBulkDeviceIds] = useState<string[]>([]);
 
   const { data: devices = [] } = useQuery({
     queryKey: ["devices-gi", user?.id],
@@ -93,7 +89,7 @@ export default function GroupInteractionPage() {
         .select("id, name, number, status")
         .eq("user_id", user.id)
         .order("name");
-      return data || [];
+      return (data || []) as any[];
     },
     enabled: !!user,
   });
@@ -129,10 +125,6 @@ export default function GroupInteractionPage() {
         pause_after_messages_max: selected.pause_after_messages_max,
         pause_duration_min: selected.pause_duration_min,
         pause_duration_max: selected.pause_duration_max,
-        messages_per_cycle_min: selected.messages_per_cycle_min,
-        messages_per_cycle_max: selected.messages_per_cycle_max,
-        duration_hours: selected.duration_hours,
-        duration_minutes: selected.duration_minutes,
         start_hour: selected.start_hour,
         end_hour: selected.end_hour,
         active_days: selected.active_days,
@@ -169,13 +161,11 @@ export default function GroupInteractionPage() {
   }, []);
 
   const validate = (): string | null => {
-    if (!form.device_id) return "Selecione um dispositivo";
+    if (!form.device_id && !showBulkCreate) return "Selecione um dispositivo";
     if (!form.group_ids?.length) return "Selecione pelo menos um grupo";
     if (!form.start_hour || !form.end_hour) return "Defina os horários";
     if (form.min_delay_seconds > form.max_delay_seconds) return "Delay mínimo não pode ser maior que o máximo";
     if (form.pause_duration_min > form.pause_duration_max) return "Pausa mínima não pode ser maior que a máxima";
-    const ct = form.content_types || defaultContentTypes;
-    if (!Object.values(ct).some(Boolean)) return "Ative pelo menos um tipo de conteúdo";
     return null;
   };
 
@@ -184,6 +174,26 @@ export default function GroupInteractionPage() {
     if (err) return toast.error(err);
     await createInteraction.mutateAsync(form as any);
     setShowConfig(false);
+  };
+
+  const handleBulkCreate = async () => {
+    if (!bulkDeviceIds.length) return toast.error("Selecione pelo menos um dispositivo");
+    const err = validate();
+    if (err) return toast.error(err);
+    for (const deviceId of bulkDeviceIds) {
+      const device = devices.find((d: any) => d.id === deviceId);
+      const deviceName = device ? device.name : "Dispositivo";
+      await createInteraction.mutateAsync({
+        ...form,
+        device_id: deviceId,
+        name: `${form.name} - ${deviceName}`,
+        status: "idle",
+      } as any);
+    }
+    toast.success(`${bulkDeviceIds.length} automações criadas`);
+    setShowBulkCreate(false);
+    setBulkDeviceIds([]);
+    setForm({ ...defaultForm });
   };
 
   const handleSave = async () => {
@@ -215,37 +225,65 @@ export default function GroupInteractionPage() {
     [logs, selectedId]
   );
 
-  const selectedDevice = devices.find((d: any) => d.id === form.device_id);
-
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <MessageCircle className="w-6 h-6 text-primary" />
-            Interação de Grupos
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Automatize interações em grupos com naturalidade e variedade de conteúdo
-          </p>
-        </div>
-        <Button
-          onClick={() => {
-            setSelectedId(null);
-            setForm({ ...defaultForm });
-            setShowConfig(true);
-            setActiveTab("config");
-          }}
-          className="gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Nova Automação
-        </Button>
+        {(showConfig || showBulkCreate) ? (
+          <Button
+            variant="ghost"
+            className="gap-2"
+            onClick={() => {
+              setShowConfig(false);
+              setShowBulkCreate(false);
+              setSelectedId(null);
+            }}
+          >
+            <ArrowLeft className="w-4 h-4" /> Voltar
+          </Button>
+        ) : (
+          <>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                <MessageCircle className="w-6 h-6 text-primary" />
+                Interação de Grupos
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Automatize interações em grupos com naturalidade
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSelectedId(null);
+                  setForm({ ...defaultForm });
+                  setShowBulkCreate(true);
+                  setBulkDeviceIds([]);
+                }}
+                className="gap-2"
+              >
+                <Layers className="w-4 h-4" />
+                Criação em Massa
+              </Button>
+              <Button
+                onClick={() => {
+                  setSelectedId(null);
+                  setForm({ ...defaultForm });
+                  setShowConfig(true);
+                }}
+                className="gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Nova Automação
+              </Button>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Campaign list with pause/cancel controls */}
-      {interactions.length > 0 && (
+      {/* Campaign list */}
+      {!showConfig && !showBulkCreate && interactions.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
@@ -323,9 +361,65 @@ export default function GroupInteractionPage() {
         </Card>
       )}
 
-      {/* Main content - full width */}
+      {/* Bulk creation mode */}
+      {showBulkCreate && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Layers className="w-4 h-4 text-primary" />
+                Criação em Massa — Mesma configuração para múltiplos dispositivos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Selecione os dispositivos que receberão a mesma automação. Cada dispositivo terá sua própria campanha com delays variados automaticamente.
+              </p>
+              <div>
+                <Label className="text-xs font-medium">Dispositivos ({bulkDeviceIds.length} selecionados)</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 max-h-48 overflow-y-auto border border-border/50 rounded-lg p-2 mt-2">
+                  {devices.length === 0 ? (
+                    <p className="text-xs text-muted-foreground p-2 col-span-full">
+                      Nenhum dispositivo encontrado.
+                    </p>
+                  ) : (
+                    devices.map((d: any) => (
+                      <label key={d.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/40 cursor-pointer">
+                        <Checkbox
+                          checked={bulkDeviceIds.includes(d.id)}
+                          onCheckedChange={() =>
+                            setBulkDeviceIds((prev) =>
+                              prev.includes(d.id) ? prev.filter((x) => x !== d.id) : [...prev, d.id]
+                            )
+                          }
+                        />
+                        <span className="text-xs truncate">
+                          {d.name} {d.number ? `(${d.number})` : ""} {d.status === "connected" ? "🟢" : "🔴"}
+                        </span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {renderFormFields()}
+
+          <div className="flex gap-2 pt-2">
+            <Button onClick={handleBulkCreate} className="flex-1 gap-2" disabled={!bulkDeviceIds.length}>
+              <Layers className="w-4 h-4" /> Criar {bulkDeviceIds.length} automações
+            </Button>
+            <Button variant="outline" onClick={() => { setShowBulkCreate(false); setBulkDeviceIds([]); }}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Single config mode */}
       <div className="space-y-4">
-          {showConfig ? (
+          {showConfig && !showBulkCreate ? (
             <>
               {/* Controls bar */}
               {selectedId && (
@@ -383,304 +477,269 @@ export default function GroupInteractionPage() {
                 </>
               )}
 
-              {/* Tabs */}
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid grid-cols-3 w-full">
-                  <TabsTrigger value="config" className="gap-1 text-xs">
-                    <Settings className="w-3.5 h-3.5" /> Configurações
-                  </TabsTrigger>
-                  <TabsTrigger value="content" className="gap-1 text-xs">
-                    <MessageCircle className="w-3.5 h-3.5" /> Conteúdo
-                  </TabsTrigger>
-                  <TabsTrigger value="logs" className="gap-1 text-xs">
-                    <Clock className="w-3.5 h-3.5" /> Logs
-                  </TabsTrigger>
-                </TabsList>
-
-                {/* Config Tab */}
-                <TabsContent value="config" className="space-y-4 mt-4">
-                  {/* Presets */}
-                  <div>
-                    <Label className="text-xs text-muted-foreground mb-2 block">Presets rápidos</Label>
-                    <GIPresets
-                      current={form.preset_name}
-                      onApply={(vals) => updateForm({ ...vals })}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Identification */}
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm">Identificação</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div>
-                          <Label className="text-xs">Nome da automação</Label>
-                          <Input
-                            value={form.name || ""}
-                            onChange={(e) => updateForm({ name: e.target.value })}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Dispositivo</Label>
-                          <Select
-                            value={form.device_id || ""}
-                            onValueChange={(v) => updateForm({ device_id: v })}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="Selecionar dispositivo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {devices.map((d: any) => (
-                                <SelectItem key={d.id} value={d.id}>
-                                  {d.name} {d.number ? `(${d.number})` : ""} {d.status === "connected" ? "🟢" : "🔴"}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {selectedDevice && (
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <div className={`w-2 h-2 rounded-full ${
-                                (selectedDevice as any).status === "connected" ? "bg-emerald-500" : "bg-muted-foreground/40"
-                              }`} />
-                              <span className="text-[11px] text-muted-foreground capitalize">
-                                {(selectedDevice as any).status}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Schedule */}
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5" /> Horários
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label className="text-xs">Início</Label>
-                            <Input
-                              type="time"
-                              value={form.start_hour || "07:00"}
-                              onChange={(e) => updateForm({ start_hour: e.target.value })}
-                              className="mt-1"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Término</Label>
-                            <Input
-                              type="time"
-                              value={form.end_hour || "21:00"}
-                              onChange={(e) => updateForm({ end_hour: e.target.value })}
-                              className="mt-1"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-xs">Dias da semana</Label>
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {DAYS.map((d) => (
-                              <button
-                                key={d.key}
-                                onClick={() => toggleDay(d.key)}
-                                className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
-                                  (form.active_days || []).includes(d.key)
-                                    ? "bg-primary text-primary-foreground border-primary"
-                                    : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/60"
-                                }`}
-                              >
-                                {d.label}
-                              </button>
-                            ))}
-                            <button
-                              onClick={() =>
-                                updateForm({
-                                  active_days:
-                                    (form.active_days || []).length === 7
-                                      ? ["mon", "tue", "wed", "thu", "fri"]
-                                      : DAYS.map((d) => d.key),
-                                })
-                              }
-                              className="px-2.5 py-1 rounded-full text-[11px] font-medium border border-dashed border-border text-muted-foreground hover:bg-muted/40"
-                            >
-                              {(form.active_days || []).length === 7 ? "Dias úteis" : "Todos"}
-                            </button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Groups */}
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5" /> Grupos ({(form.group_ids || []).length} selecionados)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 max-h-48 overflow-y-auto border border-border/50 rounded-lg p-2">
-                        {warmupGroups.length === 0 ? (
-                          <p className="text-xs text-muted-foreground p-2 col-span-full">
-                            Nenhum grupo cadastrado. Adicione grupos em Aquecimento &gt; Grupos.
-                          </p>
-                        ) : (
-                          warmupGroups.map((g: any) => (
-                            <label key={g.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/40 cursor-pointer">
-                              <Checkbox
-                                checked={(form.group_ids || []).includes(g.link || g.id)}
-                                onCheckedChange={() => toggleGroup(g.link || g.id)}
-                              />
-                              <span className="text-xs truncate">{g.name}</span>
-                            </label>
-                          ))
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Delays & Limits */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm">Delays e Pausas</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label className="text-xs">Delay mín. (seg)</Label>
-                            <Input type="number" value={form.min_delay_seconds} onChange={(e) => updateForm({ min_delay_seconds: +e.target.value })} className="mt-1" min={5} />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Delay máx. (seg)</Label>
-                            <Input type="number" value={form.max_delay_seconds} onChange={(e) => updateForm({ max_delay_seconds: +e.target.value })} className="mt-1" min={10} />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label className="text-xs">Msgs antes da pausa (mín)</Label>
-                            <Input type="number" value={form.pause_after_messages_min} onChange={(e) => updateForm({ pause_after_messages_min: +e.target.value })} className="mt-1" min={2} />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Msgs antes da pausa (máx)</Label>
-                            <Input type="number" value={form.pause_after_messages_max} onChange={(e) => updateForm({ pause_after_messages_max: +e.target.value })} className="mt-1" min={3} />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label className="text-xs">Pausa mín. (seg)</Label>
-                            <Input type="number" value={form.pause_duration_min} onChange={(e) => updateForm({ pause_duration_min: +e.target.value })} className="mt-1" min={30} />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Pausa máx. (seg)</Label>
-                            <Input type="number" value={form.pause_duration_max} onChange={(e) => updateForm({ pause_duration_max: +e.target.value })} className="mt-1" min={60} />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm">Limites</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label className="text-xs">Msgs por ciclo (mín)</Label>
-                            <Input type="number" value={form.messages_per_cycle_min} onChange={(e) => updateForm({ messages_per_cycle_min: +e.target.value })} className="mt-1" min={1} />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Msgs por ciclo (máx)</Label>
-                            <Input type="number" value={form.messages_per_cycle_max} onChange={(e) => updateForm({ messages_per_cycle_max: +e.target.value })} className="mt-1" min={2} />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label className="text-xs">Limite diário/grupo</Label>
-                            <Input type="number" value={form.daily_limit_per_group} onChange={(e) => updateForm({ daily_limit_per_group: +e.target.value })} className="mt-1" min={1} />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Limite diário total</Label>
-                            <Input type="number" value={form.daily_limit_total} onChange={(e) => updateForm({ daily_limit_total: +e.target.value })} className="mt-1" min={1} />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label className="text-xs">Duração (horas)</Label>
-                            <Input type="number" value={form.duration_hours} onChange={(e) => updateForm({ duration_hours: +e.target.value })} className="mt-1" min={0} />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Minutos adicionais</Label>
-                            <Input type="number" value={form.duration_minutes} onChange={(e) => updateForm({ duration_minutes: +e.target.value })} className="mt-1" min={0} max={59} />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Save */}
-                  <div className="flex gap-2 pt-2">
-                    {selectedId ? (
-                      <Button onClick={handleSave} className="flex-1 gap-2">
-                        <Save className="w-4 h-4" /> Salvar alterações
-                      </Button>
-                    ) : (
-                      <Button onClick={handleCreate} className="flex-1 gap-2">
-                        <Plus className="w-4 h-4" /> Criar automação
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      onClick={() => { setShowConfig(false); setSelectedId(null); }}
-                    >
-                      Cancelar
-                    </Button>
-                  </div>
-                </TabsContent>
-
-                {/* Content Config Tab */}
-                <TabsContent value="content" className="mt-4">
-                  <Card className="mb-4">
-                    <CardContent className="p-4">
-                      <p className="text-xs text-muted-foreground">
-                        💡 As mensagens de texto, áudios, imagens e figurinhas são geradas automaticamente pelo sistema com milhares de variações únicas, incluindo números aleatórios, para garantir que nenhuma instância envie a mesma mensagem.
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <GIContentConfig
-                    contentTypes={form.content_types || defaultContentTypes}
-                    onChange={(types) => updateForm({ content_types: types })}
-                  />
-                  {selectedId && (
-                    <div className="mt-3">
-                      <Button onClick={handleSave} className="gap-2">
-                        <Save className="w-4 h-4" /> Salvar
-                      </Button>
-                    </div>
+              {/* Device selector for single mode */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Dispositivo</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Select
+                    value={form.device_id || ""}
+                    onValueChange={(v) => updateForm({ device_id: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecionar dispositivo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {devices.map((d: any) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.name} {d.number ? `(${d.number})` : ""} {d.status === "connected" ? "🟢" : "🔴"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {devices.length === 0 && (
+                    <p className="text-xs text-muted-foreground mt-2">Nenhum dispositivo encontrado.</p>
                   )}
-                </TabsContent>
+                </CardContent>
+              </Card>
 
-                {/* Logs Tab */}
-                <TabsContent value="logs" className="mt-4">
-                  <GILogs logs={selectedLogs} />
-                </TabsContent>
-              </Tabs>
+              {renderFormFields()}
+
+              {/* Save */}
+              <div className="flex gap-2 pt-2">
+                {selectedId ? (
+                  <Button onClick={handleSave} className="flex-1 gap-2">
+                    <Save className="w-4 h-4" /> Salvar alterações
+                  </Button>
+                ) : (
+                  <Button onClick={handleCreate} className="flex-1 gap-2">
+                    <Plus className="w-4 h-4" /> Criar automação
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  onClick={() => { setShowConfig(false); setSelectedId(null); }}
+                >
+                  Cancelar
+                </Button>
+              </div>
+
+              {/* Logs */}
+              {selectedId && selectedLogs.length > 0 && (
+                <GILogs logs={selectedLogs} />
+              )}
             </>
-          ) : (
-            <Card className="border-dashed">
+          ) : !showBulkCreate && !showConfig ? (
+            interactions.length === 0 && <Card className="border-dashed">
               <CardContent className="p-12 text-center text-muted-foreground">
                 <MessageCircle className="w-10 h-10 mx-auto mb-3 opacity-40" />
                 <p className="text-sm">Selecione uma automação ou crie uma nova</p>
               </CardContent>
             </Card>
-          )}
+          ) : null}
       </div>
     </div>
   );
+
+  function renderFormFields() {
+    return (
+      <div className="space-y-4">
+        {/* Info about system content */}
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">
+              💡 Textos, áudios, imagens e figurinhas são gerados automaticamente pelo sistema com milhares de variações únicas (incluindo números aleatórios), garantindo que cada instância envie mensagens diferentes.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Content types */}
+        <GIContentConfig
+          contentTypes={form.content_types || defaultContentTypes}
+          onChange={(types) => updateForm({ content_types: types })}
+        />
+
+        {/* Presets */}
+        <div>
+          <Label className="text-xs text-muted-foreground mb-2 block">Presets rápidos</Label>
+          <GIPresets
+            current={form.preset_name}
+            onApply={(vals) => updateForm({ ...vals })}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Identification */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Identificação</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <Label className="text-xs">Nome da automação</Label>
+                <Input
+                  value={form.name || ""}
+                  onChange={(e) => updateForm({ name: e.target.value })}
+                  className="mt-1"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Schedule */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" /> Horários
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Começa às</Label>
+                  <Input
+                    type="time"
+                    value={form.start_hour || "07:00"}
+                    onChange={(e) => updateForm({ start_hour: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Finaliza às</Label>
+                  <Input
+                    type="time"
+                    value={form.end_hour || "21:00"}
+                    onChange={(e) => updateForm({ end_hour: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Dias da semana</Label>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {DAYS.map((d) => (
+                    <button
+                      key={d.key}
+                      onClick={() => toggleDay(d.key)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                        (form.active_days || []).includes(d.key)
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/60"
+                      }`}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() =>
+                      updateForm({
+                        active_days:
+                          (form.active_days || []).length === 7
+                            ? ["mon", "tue", "wed", "thu", "fri"]
+                            : DAYS.map((d) => d.key),
+                      })
+                    }
+                    className="px-2.5 py-1 rounded-full text-[11px] font-medium border border-dashed border-border text-muted-foreground hover:bg-muted/40"
+                  >
+                    {(form.active_days || []).length === 7 ? "Dias úteis" : "Todos"}
+                  </button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Groups */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5" /> Grupos ({(form.group_ids || []).length} selecionados)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 max-h-48 overflow-y-auto border border-border/50 rounded-lg p-2">
+              {warmupGroups.length === 0 ? (
+                <p className="text-xs text-muted-foreground p-2 col-span-full">
+                  Nenhum grupo cadastrado. Adicione grupos em Aquecimento &gt; Grupos.
+                </p>
+              ) : (
+                warmupGroups.map((g: any) => (
+                  <label key={g.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/40 cursor-pointer">
+                    <Checkbox
+                      checked={(form.group_ids || []).includes(g.link || g.id)}
+                      onCheckedChange={() => toggleGroup(g.link || g.id)}
+                    />
+                    <span className="text-xs truncate">{g.name}</span>
+                  </label>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Delays & Limits */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Delays e Pausas</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Delay mín. (seg)</Label>
+                  <Input type="number" value={form.min_delay_seconds} onChange={(e) => updateForm({ min_delay_seconds: +e.target.value })} className="mt-1" min={5} />
+                </div>
+                <div>
+                  <Label className="text-xs">Delay máx. (seg)</Label>
+                  <Input type="number" value={form.max_delay_seconds} onChange={(e) => updateForm({ max_delay_seconds: +e.target.value })} className="mt-1" min={10} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Msgs antes da pausa (mín)</Label>
+                  <Input type="number" value={form.pause_after_messages_min} onChange={(e) => updateForm({ pause_after_messages_min: +e.target.value })} className="mt-1" min={2} />
+                </div>
+                <div>
+                  <Label className="text-xs">Msgs antes da pausa (máx)</Label>
+                  <Input type="number" value={form.pause_after_messages_max} onChange={(e) => updateForm({ pause_after_messages_max: +e.target.value })} className="mt-1" min={3} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Pausa mín. (seg)</Label>
+                  <Input type="number" value={form.pause_duration_min} onChange={(e) => updateForm({ pause_duration_min: +e.target.value })} className="mt-1" min={30} />
+                </div>
+                <div>
+                  <Label className="text-xs">Pausa máx. (seg)</Label>
+                  <Input type="number" value={form.pause_duration_max} onChange={(e) => updateForm({ pause_duration_max: +e.target.value })} className="mt-1" min={60} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Limites Diários</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Limite por grupo</Label>
+                  <Input type="number" value={form.daily_limit_per_group} onChange={(e) => updateForm({ daily_limit_per_group: +e.target.value })} className="mt-1" min={1} />
+                </div>
+                <div>
+                  <Label className="text-xs">Limite total</Label>
+                  <Input type="number" value={form.daily_limit_total} onChange={(e) => updateForm({ daily_limit_total: +e.target.value })} className="mt-1" min={1} />
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                O sistema enviará entre {form.daily_limit_per_group || 0} mensagens por grupo e {form.daily_limit_total || 0} no total por dia.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 }
