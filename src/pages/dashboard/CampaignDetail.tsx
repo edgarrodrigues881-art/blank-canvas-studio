@@ -17,6 +17,7 @@ import {
   Search, Timer, Hash, Zap, RefreshCw, RotateCcw, Send, Ban, ChevronDown, Download, ShieldAlert, Save, Loader2,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
