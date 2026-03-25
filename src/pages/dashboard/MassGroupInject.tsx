@@ -964,7 +964,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     queryFn: async () => {
       const { data, error } = await supabase
         .from("devices")
-        .select("id, name, number, status, uazapi_base_url, instance_type, login_type")
+        .select("id, name, number, status, uazapi_base_url, instance_type, login_type, profile_picture")
         .not("uazapi_base_url", "is", null);
       if (error) throw error;
       return (data || [])
@@ -979,6 +979,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     refetchInterval: 10_000,
     refetchOnWindowFocus: true,
   });
+
+  const connectedDevices = useMemo(() => devices.filter((d: any) => isDeviceOnline(d.status)), [devices]);
 
   const isDeviceOnline = (status: string) => {
     const s = status?.toLowerCase();
