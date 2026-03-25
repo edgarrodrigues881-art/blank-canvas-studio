@@ -877,7 +877,7 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
 function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillName }: { onBack: () => void; onCampaignCreated: (id: string) => void; prefillContacts?: string[]; prefillName?: string }) {
   const { user } = useAuth();
   const [step, setStep] = useState<Step>("import");
-  const [campaignName, setCampaignName] = useState("");
+  const [campaignName, setCampaignName] = useState(prefillName ? `Retry - ${prefillName}` : "");
   const [groupId, setGroupId] = useState("");
   const [groupName, setGroupName] = useState("");
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
