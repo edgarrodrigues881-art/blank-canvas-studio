@@ -24,8 +24,8 @@ function getColumns(width: number) {
   return 1;
 }
 
-const CARD_HEIGHT = 210;
-const GAP = 16;
+const CARD_HEIGHT = 230;
+const GAP = 20;
 const MOBILE_BREAKPOINT = 640;
 
 function MobileRow(props: any): ReactElement | null {
@@ -84,7 +84,7 @@ const VirtualizedDeviceGrid = memo(({ items, renderItem, cardHeight = CARD_HEIGH
   // Small lists: no virtualization
   if (items.length < 16) {
     return (
-      <div ref={containerRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-4">
+      <div ref={containerRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 md:gap-5">
         {items.map((item, i) => (
           <div key={item.id || i}>
             {renderItem(item, i)}
