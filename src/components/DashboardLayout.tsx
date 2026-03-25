@@ -52,9 +52,59 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { resolvedTheme, setTheme } = useTheme();
   const { isFeatureBlocked } = useFeatureControls();
   const [maintenanceModal, setMaintenanceModal] = useState<{ name: string; message: string | null } | null>(null);
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
+  const prevStatusRef = useRef<Record<string, string>>({});
 
   // Auto-sync devices every 3s with global semaphore protection
   useAutoSyncDevices();
+
+  // Realtime device status change notifications
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+
+    const channel = supabase
+      .channel("device-status-rt")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "devices", filter: `user_id=eq.${userId}` },
+        (payload) => {
+          const newRow = payload.new as any;
+          const oldRow = payload.old as any;
+          if (!newRow?.id) return;
+
+          const prevStatus = oldRow?.status || prevStatusRef.current[newRow.id];
+          const newStatus = newRow.status;
+
+          // Track status
+          prevStatusRef.current[newRow.id] = newStatus;
+
+          const connectedStatuses = ["Ready", "Connected", "authenticated"];
+          const wasConnected = connectedStatuses.includes(prevStatus);
+          const isNowConnected = connectedStatuses.includes(newStatus);
+
+          if (wasConnected && !isNowConnected) {
+            toast.warning(`${newRow.name || "Instância"} desconectou`, {
+              description: newRow.number ? `Número: ${newRow.number}` : undefined,
+              duration: 6000,
+            });
+          } else if (!wasConnected && isNowConnected && prevStatus) {
+            toast.success(`${newRow.name || "Instância"} reconectou`, {
+              duration: 4000,
+            });
+          }
+
+          // Refresh device queries
+          queryClient.invalidateQueries({ queryKey: ["devices"] });
+          queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [session?.user?.id, queryClient]);
+
   // Check if current route is blocked
   const blockedFeature = isFeatureBlocked(location.pathname);
   const showMaintenance = !!blockedFeature;

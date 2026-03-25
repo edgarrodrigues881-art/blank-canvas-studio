@@ -755,15 +755,9 @@ const WarmupInstances = () => {
         from += PAGE;
       }
       return all.sort((a, b) => {
-        const onlineStatuses = ["Connected", "Ready", "authenticated"];
-        const aOnline = onlineStatuses.includes(a.status) ? 0 : 1;
-        const bOnline = onlineStatuses.includes(b.status) ? 0 : 1;
-        if (aOnline !== bOnline) return aOnline - bOnline;
-        const tA = new Date(a.created_at).getTime();
-        const tB = new Date(b.created_at).getTime();
-        if (tA !== tB) return tA - tB;
-        const numA = parseInt(a.name.match(/(\d+)$/)?.[1] || "0", 10);
-        const numB = parseInt(b.name.match(/(\d+)$/)?.[1] || "0", 10);
+        // Primary: numerical order by name
+        const numA = parseInt(a.name.match(/(\d+)/)?.[1] || "0", 10);
+        const numB = parseInt(b.name.match(/(\d+)/)?.[1] || "0", 10);
         if (numA !== numB) return numA - numB;
         return a.name.localeCompare(b.name);
       });
