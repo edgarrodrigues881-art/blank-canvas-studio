@@ -178,6 +178,18 @@ function isFailureStatus(status: string) {
   ].includes(status);
 }
 
+// Statuses eligible for retry / export (not terminal successes or unrecoverable)
+const RETRYABLE_EXPORT_STATUSES = new Set([
+  "rate_limited",
+  "api_temporary",
+  "connection_unconfirmed",
+  "confirmed_disconnect",
+  "permission_unconfirmed",
+  "unknown_failure",
+  "blocked",
+  "unauthorized",
+]);
+
 // ═══════════════════════════════════════════════════════════════
 // NEXT ACTION COUNTDOWN
 // ═══════════════════════════════════════════════════════════════
