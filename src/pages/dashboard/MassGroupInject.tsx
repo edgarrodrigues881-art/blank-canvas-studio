@@ -221,6 +221,23 @@ const RETRYABLE_EXPORT_STATUSES = new Set([
   "confirmed_no_admin",
 ]);
 
+const ACTIVE_QUEUE_STATUSES = new Set([
+  "pending",
+  "processing",
+  "rate_limited",
+  "api_temporary",
+  "connection_unconfirmed",
+  "permission_unconfirmed",
+  "unknown_failure",
+  "timeout",
+]);
+
+const WATCHDOG_INTERVAL_MS = 5000;
+const WATCHDOG_GRACE_MS = 5000;
+const WATCHDOG_STALE_AFTER_MS = 15000;
+const STALE_PROCESSING_MS = 3 * 60 * 1000;
+const WATCHDOG_RUNTIME_NOTE = "Fila atrasada — reativando automaticamente...";
+
 // ═══════════════════════════════════════════════════════════════
 // NEXT ACTION COUNTDOWN
 // ═══════════════════════════════════════════════════════════════
@@ -242,10 +259,19 @@ function NextActionCountdown({ contacts, campaign }: { contacts: any[]; campaign
 
   const lastStatus = lastProcessed?.status;
   const isRetryable = lastStatus && ["rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"].includes(lastStatus);
+  const isActiveCampaign = campaign?.status === "processing" || campaign?.status === "queued";
+  const hasQueuedContacts = contacts.some((contact: any) => ACTIVE_QUEUE_STATUSES.has(contact.status));
 
   // ── Primary source: backend next_run_at ──
   const nextRunAt = campaign?.next_run_at ? new Date(campaign.next_run_at).getTime() : null;
   const hasBackendTimer = nextRunAt && nextRunAt > now;
+  const lastActivityAt = lastProcessed?.processed_at
+    ? new Date(lastProcessed.processed_at).getTime()
+    : campaign?.updated_at
+      ? new Date(campaign.updated_at).getTime()
+      : null;
+  const isPastDue = !!nextRunAt && now >= nextRunAt + WATCHDOG_GRACE_MS;
+  const isLikelyStalled = isActiveCampaign && hasQueuedContacts && (isPastDue || (!nextRunAt && !!lastActivityAt && now - lastActivityAt >= WATCHDOG_STALE_AFTER_MS));
 
   // ── Fallback: estimate from delay settings ──
   const baseMin = Math.max(campaign.min_delay || 8, 8);
@@ -278,11 +304,11 @@ function NextActionCountdown({ contacts, campaign }: { contacts: any[]; campaign
     totalDuration = estimatedDelay;
 
     // If too long since last action with no backend timer, show waiting
-    if (elapsed > estimatedDelay * 3) {
+    if (isLikelyStalled || elapsed > estimatedDelay * 3) {
       return (
         <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
           <Timer className="w-3.5 h-3.5 text-primary/60" />
-          <span>Aguardando próximo ciclo de processamento...</span>
+          <span>{isLikelyStalled ? WATCHDOG_RUNTIME_NOTE : "Aguardando próximo ciclo de processamento..."}</span>
         </div>
       );
     }
@@ -503,6 +529,8 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
   const [liveRuntimeNote, setLiveRuntimeNote] = useState("");
 
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const watchdogKickInFlightRef = useRef(false);
+  const lastWatchdogKickAtRef = useRef(0);
 
   const isActiveStatus = (s?: string) => s === "processing" || s === "queued";
 
@@ -539,6 +567,71 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     }, 2500);
     return () => clearInterval(id);
   }, [campaign?.status, isFetchingCampaign, isFetchingContacts, refetchCampaign, refetchContacts]);
+
+  useEffect(() => {
+    if (!campaignId || !campaign || !isActiveStatus(campaign.status)) return;
+
+    let cancelled = false;
+
+    const runWatchdog = async () => {
+      if (cancelled || isActionPending || watchdogKickInFlightRef.current) return;
+
+      const nowMs = Date.now();
+      const hasQueuedContacts = contacts.some((contact: any) => ACTIVE_QUEUE_STATUSES.has(contact.status));
+      if (!hasQueuedContacts) return;
+
+      const nextRunAtMs = campaign.next_run_at ? new Date(campaign.next_run_at).getTime() : null;
+      const updatedAtMs = campaign.updated_at
+        ? new Date(campaign.updated_at).getTime()
+        : campaign.started_at
+          ? new Date(campaign.started_at).getTime()
+          : nowMs;
+
+      const hasStaleProcessing = contacts.some((contact: any) => {
+        if (contact.status !== "processing") return false;
+        if (!contact.processed_at) return true;
+        return nowMs - new Date(contact.processed_at).getTime() >= STALE_PROCESSING_MS;
+      });
+
+      const timerPastDue = nextRunAtMs !== null && nowMs >= nextRunAtMs + WATCHDOG_GRACE_MS;
+      const noTimerTooLong = nextRunAtMs === null && nowMs - updatedAtMs >= WATCHDOG_STALE_AFTER_MS;
+
+      if (!timerPastDue && !noTimerTooLong && !hasStaleProcessing) return;
+      if (nowMs - lastWatchdogKickAtRef.current < WATCHDOG_INTERVAL_MS) return;
+
+      watchdogKickInFlightRef.current = true;
+      lastWatchdogKickAtRef.current = nowMs;
+      setLiveRuntimeNote(WATCHDOG_RUNTIME_NOTE);
+
+      try {
+        const { error } = await supabase.functions.invoke("mass-group-inject", {
+          body: { action: "run-campaign", campaignId },
+        });
+        if (error) throw error;
+        if (!cancelled) {
+          await Promise.all([refetchCampaign(), refetchContacts()]);
+        }
+      } catch (error) {
+        console.error("[mass-inject-watchdog] failed to requeue campaign", error);
+      } finally {
+        watchdogKickInFlightRef.current = false;
+        if (!cancelled) {
+          setLiveRuntimeNote((current) => current === WATCHDOG_RUNTIME_NOTE ? "" : current);
+        }
+      }
+    };
+
+    const id = setInterval(() => {
+      void runWatchdog();
+    }, WATCHDOG_INTERVAL_MS);
+
+    void runWatchdog();
+
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [campaignId, campaign, contacts, isActionPending, refetchCampaign, refetchContacts]);
 
   // ── Toast notifications from events table (reliable, no event loss) ──
   const eventGroupRef = useRef<{ counts: Record<string, { count: number; level: string }>; timer: ReturnType<typeof setTimeout> | null }>({ counts: {}, timer: null });
