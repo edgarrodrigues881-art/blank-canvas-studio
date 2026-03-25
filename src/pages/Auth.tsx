@@ -242,8 +242,10 @@ const Auth = () => {
           className="flex flex-col items-center mb-10"
         >
           <div className="relative mb-4">
-            <div className="absolute -inset-2 rounded-3xl opacity-30 blur-xl" style={{ background: "linear-gradient(135deg, #22c55e, #fbbf24)" }} />
-            <img src={logo} alt="DG Contingência Pro" className="relative w-[88px] h-[88px] rounded-2xl shadow-2xl" style={{ background: '#111' }} />
+            <div className="absolute -inset-3 rounded-3xl opacity-40 blur-xl" style={{ background: "linear-gradient(135deg, #fbbf24, #d97706, #fbbf24)" }} />
+            <div className="relative p-[2px] rounded-2xl" style={{ background: "linear-gradient(135deg, #fbbf24, #d97706, #f59e0b, #fbbf24)" }}>
+              <img src={logo} alt="DG Contingência Pro" className="w-[88px] h-[88px] rounded-[14px] shadow-2xl" style={{ background: '#111' }} />
+            </div>
           </div>
           <span className="text-[11px] font-bold tracking-[0.3em] uppercase">
             <span className="text-emerald-400">DG</span>
