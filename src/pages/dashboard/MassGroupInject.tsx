@@ -934,8 +934,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   const [groupLoadDiagnostics, setGroupLoadDiagnostics] = useState("");
 
   // Config
-  const [minDelay, setMinDelay] = useState(3);
-  const [maxDelay, setMaxDelay] = useState(8);
+  const [minDelay, setMinDelay] = useState(30);
+  const [maxDelay, setMaxDelay] = useState(60);
   const [pauseAfter, setPauseAfter] = useState(0);
   const [pauseDuration, setPauseDuration] = useState(30);
   const [rotateAfter, setRotateAfter] = useState(0);
