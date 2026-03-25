@@ -1,4 +1,4 @@
-// mass-group-inject v14.0 — fetch timeout + delay by result type + robust finalization
+// mass-group-inject v15.0 — multi-check disconnect recovery + session_dropped status
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -12,7 +12,8 @@ type ContactProcessingStatus =
   | "rate_limited"
   | "api_temporary"
   | "connection_unconfirmed"
-  | "confirmed_disconnect"
+  | "session_dropped"       // NEW: transient session drop, retryable with cooldown
+  | "confirmed_disconnect"  // ONLY when multiple checks confirm truly offline
   | "permission_unconfirmed"
   | "confirmed_no_admin"
   | "invalid_group"
