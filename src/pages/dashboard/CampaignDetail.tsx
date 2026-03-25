@@ -625,22 +625,18 @@ const CampaignDetail = () => {
                       </Badge>
                     </div>
 
-                    <div className={cn("grid grid-cols-3 gap-2 transition-opacity", isActive && "opacity-30 pointer-events-none select-none")}>
+                    <div className={cn("grid grid-cols-2 gap-2 transition-opacity", isActive && "opacity-30 pointer-events-none select-none")}>
                       {[
-                        { key: "single", label: "Única", desc: "Usa apenas a primeira", value: 0 },
-                        { key: "rotation", label: "Rodízio", desc: `Troca após ${campaign.messages_per_instance || 50} msgs`, value: campaign.messages_per_instance || 50 },
-                        { key: "parallel", label: "Paralelo", desc: "Todas ao mesmo tempo", value: -1 },
+                        { key: "single", label: "Única", desc: "Usa apenas a primeira" },
+                        { key: "rotation", label: "Rodízio", desc: `Troca após ${campaign.messages_per_instance || 50} msgs` },
                       ].map(mode => {
                         const currentVal = campaign.messages_per_instance ?? 0;
-                        const isActive = mode.key === "single" ? currentVal === 0
-                          : mode.key === "rotation" ? currentVal > 0
-                          : false;
+                        const isModeActive = mode.key === "single" ? currentVal === 0 : currentVal > 0;
                         return (
                           <button
                             key={mode.key}
-                            disabled={mode.key === "parallel"}
                             onClick={async () => {
-                              if (!id || mode.key === "parallel") return;
+                              if (!id) return;
                               const newVal = mode.key === "single" ? 0 : 50;
                               await supabase.from("campaigns").update({ messages_per_instance: newVal }).eq("id", id);
                               queryClient.invalidateQueries({ queryKey: ["campaign", id] });
@@ -649,10 +645,9 @@ const CampaignDetail = () => {
                             }}
                             className={cn(
                               "rounded-lg border px-3 py-2 text-center transition-all",
-                              isActive
+                              isModeActive
                                 ? "border-primary/40 bg-primary/5"
                                 : "border-border/20 bg-background/20 opacity-50 hover:opacity-70",
-                              mode.key === "parallel" && "opacity-30 cursor-not-allowed"
                             )}
                           >
                             <p className="text-[11px] font-semibold text-foreground">{mode.label}</p>
@@ -663,20 +658,23 @@ const CampaignDetail = () => {
                     </div>
 
                     {(campaign.messages_per_instance ?? 0) > 0 && (
-                      <div className={cn("space-y-1.5 transition-opacity", isActive && "opacity-30 pointer-events-none select-none")}>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] text-muted-foreground/60">Trocar após</span>
-                          <span className="text-[11px] font-bold text-primary">{campaign.messages_per_instance} msgs</span>
-                        </div>
-                        <Slider
-                          value={[campaign.messages_per_instance || 50]}
-                          onValueChange={async ([v]) => {
+                      <div className={cn("flex items-center gap-2 transition-opacity", isActive && "opacity-30 pointer-events-none select-none")}>
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Trocar após</span>
+                        <Input
+                          type="number"
+                          min={5}
+                          max={500}
+                          step={5}
+                          value={campaign.messages_per_instance || 50}
+                          onChange={async (e) => {
+                            const v = Math.max(5, Math.min(500, Number(e.target.value) || 5));
                             if (!id) return;
                             await supabase.from("campaigns").update({ messages_per_instance: v }).eq("id", id);
                             queryClient.invalidateQueries({ queryKey: ["campaign", id] });
                           }}
-                          min={5} max={500} step={5}
+                          className="h-7 w-20 text-center text-[11px] bg-background/30 border-border/20"
                         />
+                        <span className="text-[10px] text-muted-foreground">msgs</span>
                       </div>
                     )}
 
