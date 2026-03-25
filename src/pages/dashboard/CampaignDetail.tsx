@@ -614,6 +614,86 @@ const CampaignDetail = () => {
                   <p className="text-[10px] text-muted-foreground/40 italic">Pause a campanha para editar.</p>
                 )}
 
+                {/* ── Rotation / Multi-instance ─────────────────── */}
+                {campaign.device_ids && Array.isArray(campaign.device_ids) && (campaign.device_ids as string[]).length >= 2 && (
+                  <div className="rounded-lg border border-border/20 bg-background/30 p-3 space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="w-3.5 h-3.5 text-primary/70" />
+                      <span className="text-[11px] font-medium text-foreground">Trocar de conta</span>
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-primary/20 text-primary">
+                        {(campaign.device_ids as string[]).length} instâncias
+                      </Badge>
+                    </div>
+
+                    <div className={cn("grid grid-cols-3 gap-2 transition-opacity", isActive && "opacity-30 pointer-events-none select-none")}>
+                      {[
+                        { key: "single", label: "Única", desc: "Usa apenas a primeira", value: 0 },
+                        { key: "rotation", label: "Rodízio", desc: `Troca após ${campaign.messages_per_instance || 50} msgs`, value: campaign.messages_per_instance || 50 },
+                        { key: "parallel", label: "Paralelo", desc: "Todas ao mesmo tempo", value: -1 },
+                      ].map(mode => {
+                        const currentVal = campaign.messages_per_instance ?? 0;
+                        const isActive = mode.key === "single" ? currentVal === 0
+                          : mode.key === "rotation" ? currentVal > 0
+                          : false;
+                        return (
+                          <button
+                            key={mode.key}
+                            disabled={mode.key === "parallel"}
+                            onClick={async () => {
+                              if (!id || mode.key === "parallel") return;
+                              const newVal = mode.key === "single" ? 0 : 50;
+                              await supabase.from("campaigns").update({ messages_per_instance: newVal }).eq("id", id);
+                              queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+                              setDelayDirty(false);
+                              toast({ title: mode.key === "single" ? "Modo única ativado" : "Modo rodízio ativado" });
+                            }}
+                            className={cn(
+                              "rounded-lg border px-3 py-2 text-center transition-all",
+                              isActive
+                                ? "border-primary/40 bg-primary/5"
+                                : "border-border/20 bg-background/20 opacity-50 hover:opacity-70",
+                              mode.key === "parallel" && "opacity-30 cursor-not-allowed"
+                            )}
+                          >
+                            <p className="text-[11px] font-semibold text-foreground">{mode.label}</p>
+                            <p className="text-[9px] text-muted-foreground">{mode.desc}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {(campaign.messages_per_instance ?? 0) > 0 && (
+                      <div className={cn("space-y-1.5 transition-opacity", isActive && "opacity-30 pointer-events-none select-none")}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] text-muted-foreground/60">Trocar após</span>
+                          <span className="text-[11px] font-bold text-primary">{campaign.messages_per_instance} msgs</span>
+                        </div>
+                        <Slider
+                          value={[campaign.messages_per_instance || 50]}
+                          onValueChange={async ([v]) => {
+                            if (!id) return;
+                            await supabase.from("campaigns").update({ messages_per_instance: v }).eq("id", id);
+                            queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+                          }}
+                          min={5} max={500} step={5}
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {(campaign.device_ids as string[]).map((did, i) => {
+                        const dev = devices.find(d => d.id === did);
+                        return (
+                          <span key={did} className="inline-flex items-center gap-1 rounded-md bg-muted/30 border border-border/20 px-2 py-0.5 text-[10px] text-muted-foreground">
+                            <span className={cn("w-1.5 h-1.5 rounded-full", dev?.status === "connected" ? "bg-primary" : "bg-muted-foreground")} />
+                            {dev?.name || dev?.number || `Instância ${i + 1}`}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Pause on disconnect toggle */}
                 <div className="rounded-lg border border-border/20 bg-background/30 p-3">
                   <div className="flex items-center justify-between">
