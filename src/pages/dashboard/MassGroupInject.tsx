@@ -1567,17 +1567,42 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                     </div>
 
                     {/* Filter tabs */}
-                    <div className="flex gap-1.5 flex-wrap">
-                      {([
-                        { key: "all" as const, label: `Todos (${importStats.total})` },
-                        { key: "valid" as const, label: `Válidos (${importStats.valid})` },
-                        { key: "duplicate" as const, label: `Duplicados (${importStats.duplicate})` },
-                        { key: "invalid" as const, label: `Inválidos (${importStats.invalid + importStats.empty})` },
-                      ] as const).map(f => (
-                        <Button key={f.key} variant={importFilter === f.key ? "default" : "outline"} size="sm" onClick={() => setImportFilter(f.key)} className="text-[10px] h-7 rounded-lg px-2.5">
-                          {f.label}
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex gap-1.5 flex-wrap">
+                        {([
+                          { key: "all" as const, label: `Todos (${importStats.total})` },
+                          { key: "valid" as const, label: `Válidos (${importStats.valid})` },
+                          { key: "duplicate" as const, label: `Duplicados (${importStats.duplicate})` },
+                          { key: "invalid" as const, label: `Inválidos (${importStats.invalid + importStats.empty})` },
+                        ] as const).map(f => (
+                          <Button key={f.key} variant={importFilter === f.key ? "default" : "outline"} size="sm" onClick={() => setImportFilter(f.key)} className="text-[10px] h-7 rounded-lg px-2.5">
+                            {f.label}
+                          </Button>
+                        ))}
+                      </div>
+                      <div className="flex gap-1.5">
+                        {(importStats.invalid + importStats.empty) > 0 && (
+                          <Button variant="outline" size="sm" className="text-[10px] h-7 rounded-lg px-2.5 border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => {
+                            const cleaned = importedContacts.filter(c => c.classification !== "invalid" && c.classification !== "empty");
+                            setImportedContacts(cleaned);
+                            setRawInput(cleaned.map(c => c.raw).join("\n"));
+                            setImportFilter("all");
+                            toast.success(`${importStats.invalid + importStats.empty} inválido(s) removido(s)`);
+                          }}>
+                            Limpar Inválidos
+                          </Button>
+                        )}
+                        <Button variant="outline" size="sm" className="text-[10px] h-7 rounded-lg px-2.5 border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => {
+                          setImportedContacts([]);
+                          setRawInput("");
+                          setHasImported(false);
+                          setValidationResult(null);
+                          setImportFilter("all");
+                          toast.success("Todos os contatos removidos");
+                        }}>
+                          Limpar Tudo
                         </Button>
-                      ))}
+                      </div>
                     </div>
 
                     {/* Contact table */}
@@ -1587,30 +1612,45 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                           <TableRow className="border-border/30 bg-muted/30">
                             <TableHead className="text-[10px] w-10">#</TableHead>
                             <TableHead className="text-[10px]">Número</TableHead>
-                            <TableHead className="text-[10px] text-right">Status</TableHead>
+                            <TableHead className="text-[10px]">Status</TableHead>
+                            <TableHead className="text-[10px] w-10"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredImportedContacts.slice(0, 200).map((c, i) => (
-                            <TableRow key={i} className="border-border/15">
-                              <TableCell className="text-[10px] font-mono text-muted-foreground py-1.5">{importedContacts.indexOf(c) + 1}</TableCell>
-                              <TableCell className="text-xs font-mono font-medium py-1.5">{c.raw || "(vazio)"}</TableCell>
-                              <TableCell className="text-right py-1.5">
-                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
-                                  c.classification === "valid" ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5" :
-                                  c.classification === "duplicate" ? "border-amber-500/30 text-amber-500 bg-amber-500/5" :
-                                  "border-destructive/30 text-destructive bg-destructive/5"
-                                }`}>
-                                  {c.classification === "valid" ? "Válido" :
-                                   c.classification === "duplicate" ? "Duplicado" :
-                                   c.classification === "invalid" ? "Inválido" : "Vazio"}
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                          {filteredImportedContacts.slice(0, 200).map((c, i) => {
+                            const globalIdx = importedContacts.indexOf(c);
+                            return (
+                              <TableRow key={i} className="border-border/15">
+                                <TableCell className="text-[10px] font-mono text-muted-foreground py-1.5">{globalIdx + 1}</TableCell>
+                                <TableCell className="text-xs font-mono font-medium py-1.5">{c.raw || "(vazio)"}</TableCell>
+                                <TableCell className="py-1.5">
+                                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
+                                    c.classification === "valid" ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5" :
+                                    c.classification === "duplicate" ? "border-amber-500/30 text-amber-500 bg-amber-500/5" :
+                                    "border-destructive/30 text-destructive bg-destructive/5"
+                                  }`}>
+                                    {c.classification === "valid" ? "Válido" :
+                                     c.classification === "duplicate" ? "Duplicado" :
+                                     c.classification === "invalid" ? "Inválido" : "Vazio"}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="py-1.5">
+                                  <button onClick={() => {
+                                    const updated = importedContacts.filter((_, idx) => idx !== globalIdx);
+                                    const reclassified = classifyContacts(updated.map(u => u.raw));
+                                    setImportedContacts(reclassified);
+                                    setRawInput(reclassified.map(u => u.raw).join("\n"));
+                                    if (reclassified.length === 0) setHasImported(false);
+                                  }} className="text-muted-foreground/40 hover:text-destructive transition-colors p-0.5 rounded">
+                                    <XCircle className="w-3.5 h-3.5" />
+                                  </button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
                           {filteredImportedContacts.length > 200 && (
                             <TableRow>
-                              <TableCell colSpan={3} className="text-center text-[10px] text-muted-foreground py-2">
+                              <TableCell colSpan={4} className="text-center text-[10px] text-muted-foreground py-2">
                                 ...e mais {filteredImportedContacts.length - 200} linhas
                               </TableCell>
                             </TableRow>
