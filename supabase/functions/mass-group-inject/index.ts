@@ -805,6 +805,9 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       timestamp: nowIso(),
     }));
   } finally {
+    // ── Clear next_run_at since worker is ending ──
+    await clearNextRunAt(sb, campaignId).catch(() => {});
+
     // ── Ensure campaign is finalized if all contacts are done ──
     try {
       await finalizeCampaignIfNeeded(sb, campaignId);
