@@ -640,7 +640,7 @@ async function finalizeCampaignIfNeeded(sb: any, campaignId: string) {
   return true;
 }
 
-async function queueCampaignRun(campaignId: string, delayMs = 0) {
+function queueCampaignRun(campaignId: string, delayMs = 0) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -658,10 +658,7 @@ async function queueCampaignRun(campaignId: string, delayMs = 0) {
   const edgeRuntime = (globalThis as any).EdgeRuntime;
   if (edgeRuntime?.waitUntil) {
     edgeRuntime.waitUntil(request);
-    return;
   }
-
-  await request;
 }
 
 async function scheduleCampaignRun(sb: any, campaignId: string, delayMs: number) {
@@ -1006,7 +1003,11 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
     }
 
     if (lockAcquired) {
-      await sb.rpc("release_mass_inject_run_lock", { p_campaign_id: campaignId }).catch(() => {});
+      try {
+        await sb.rpc("release_mass_inject_run_lock", { p_campaign_id: campaignId });
+      } catch (releaseError) {
+        console.error(`[mass-inject] campaign=${campaignId} failed to release lock`, releaseError);
+      }
     }
 
     const workerDurationMs = Date.now() - workerStartedAt;
