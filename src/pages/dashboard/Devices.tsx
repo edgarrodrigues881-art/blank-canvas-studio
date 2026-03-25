@@ -1764,7 +1764,8 @@ const Devices = () => {
                 const result = response.data;
                 const total = result.devices?.length || 0;
                 const found = result.devices?.filter((d: any) => d.found).length || 0;
-                queryClient.invalidateQueries({ queryKey: ["devices"] });
+                // Force immediate refetch from DB (bypass cache) after sync
+                await queryClient.refetchQueries({ queryKey: ["devices"] });
                 queryClient.invalidateQueries({ queryKey: ["proxies"] });
                 toast({ 
                   title: "✅ Sincronização concluída", 
