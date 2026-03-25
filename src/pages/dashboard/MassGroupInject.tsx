@@ -9,7 +9,7 @@ import {
   FileText, BarChart3, UserPlus, ChevronRight, Globe,
   Clock, Pause, ArrowLeftRight, Settings2, Timer,
   StopCircle, AlertTriangle, TrendingUp, Plus, ArrowLeft,
-  Eye, Info, WifiOff, Link2, Hash, AlertCircle
+  Eye, Info, WifiOff, Link2, Hash, AlertCircle, Download, RotateCcw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
