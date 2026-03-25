@@ -95,13 +95,12 @@ export default function GroupInteractionPage() {
   });
 
   const eligibleDevices = useMemo(() => {
-    const allowedStatuses = new Set(["connected", "ready", "active", "online", "authenticated", "open"]);
     const blockedTypes = new Set(["notificacao", "report", "report_wa"]);
 
     return devices.filter((device: any) => {
       const normalizedStatus = String(device.status || "").trim().toLowerCase();
       const normalizedType = String(device.instance_type || "").trim().toLowerCase();
-      return allowedStatuses.has(normalizedStatus) && !blockedTypes.has(normalizedType);
+      return normalizedStatus === "connected" && !blockedTypes.has(normalizedType);
     });
   }, [devices]);
 
@@ -557,15 +556,6 @@ export default function GroupInteractionPage() {
   function renderFormFields() {
     return (
       <div className="space-y-4">
-        {/* Info about system content */}
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">
-              💡 Textos, áudios, imagens e figurinhas são gerados automaticamente pelo sistema com milhares de variações únicas (incluindo números aleatórios), garantindo que cada instância envie mensagens diferentes.
-            </p>
-          </CardContent>
-        </Card>
-
         {/* Content types */}
         <GIContentConfig
           contentTypes={form.content_types || defaultContentTypes}
