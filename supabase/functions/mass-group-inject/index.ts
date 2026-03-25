@@ -944,7 +944,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       timestamp: nowIso(),
     }));
   } finally {
-    if (!nextRunScheduled) {
+    if (lockAcquired && !nextRunScheduled) {
       await clearNextRunAt(sb, campaignId).catch(() => {});
     }
 
