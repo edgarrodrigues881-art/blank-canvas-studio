@@ -395,7 +395,7 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
     const strategy = strategies[cachedStrategyIndex];
     try {
       console.log(`addToGroup CACHED[${cachedStrategyIndex}]: ${strategy.method} ${strategy.url}`);
-      const res = await fetch(strategy.url, { method: strategy.method, headers, body: JSON.stringify(strategy.body) });
+      const res = await fetchWithTimeout(strategy.url, { method: strategy.method, headers, body: JSON.stringify(strategy.body) });
       const { raw, body } = await readApiResponse(res);
       const pm = extractProviderMessage(body, raw);
       const rawLower = `${raw} ${pm}`.toLowerCase();
