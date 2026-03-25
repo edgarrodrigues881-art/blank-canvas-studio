@@ -336,14 +336,14 @@ const Auth = () => {
 
             <div className="space-y-2">
               <Label htmlFor="email" className="text-[11px] font-semibold text-white/40 tracking-wider uppercase">
-                {isLogin ? "E-mail ou telefone" : "Endereço de e-mail"}
+                {isLogin ? "E-mail" : "Endereço de e-mail"}
               </Label>
               <div className="relative group">
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 group-focus-within:text-emerald-400 transition-colors" />
                 <Input
                   id="email"
-                  type={isLogin ? "text" : "email"}
-                  placeholder={isLogin ? "Seu e-mail ou número antigo" : "seu@email.com"}
+                  type="email"
+                  placeholder="Seu e-mail"
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
