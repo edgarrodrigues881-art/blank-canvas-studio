@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAutoSyncDevices } from "@/hooks/useAutoSyncDevices";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Bell, Info, CheckCircle2, AlertTriangle, XCircle, CheckCheck, Trash2, Sun, Moon } from "lucide-react";
@@ -48,8 +49,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { isFeatureBlocked } = useFeatureControls();
   const [maintenanceModal, setMaintenanceModal] = useState<{ name: string; message: string | null } | null>(null);
 
-  // Auto-sync temporariamente desativado para isolar a sobrecarga do backend.
-
+  // Auto-sync devices every 3s with global semaphore protection
+  useAutoSyncDevices();
   // Check if current route is blocked
   const blockedFeature = isFeatureBlocked(location.pathname);
   const showMaintenance = !!blockedFeature;
