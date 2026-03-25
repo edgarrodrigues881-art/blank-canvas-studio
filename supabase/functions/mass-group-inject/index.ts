@@ -312,8 +312,8 @@ function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClas
   if (message.includes("full") || message.includes("limit reached")) {
     return { status: "invalid_group", detail: "Grupo atingiu limite de participantes.", retryable: false, pauseCampaign: true, confirmed: true };
   }
-  if (message.includes("timeout") || message.includes("timed out") || httpStatus === 408 || httpStatus === 504) {
-    return { status: "api_temporary", detail: "Uazapi não respondeu a tempo.", retryable: true, cooldownMs: randomBetween(10_000, 18_000) };
+  if (message.includes("timeout") || message.includes("timed out") || message.includes("não respondeu") || httpStatus === 408 || httpStatus === 504) {
+    return { status: "timeout", detail: "API não respondeu a tempo (timeout).", retryable: true, cooldownMs: randomBetween(15_000, 25_000) };
   }
   if (httpStatus >= 500) {
     return { status: "api_temporary", detail: `Erro de servidor Uazapi (${httpStatus}).`, retryable: true, cooldownMs: randomBetween(12_000, 20_000) };
