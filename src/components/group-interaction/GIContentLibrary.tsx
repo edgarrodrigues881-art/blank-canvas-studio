@@ -71,8 +71,7 @@ export default function GIContentLibrary({ interactionId }: { interactionId?: st
 
   const acceptMap: Record<string, string> = {
     image: "image/*",
-    video: "video/*",
-    file: "*/*",
+    audio: "audio/*",
     sticker: "image/webp,image/png",
   };
 

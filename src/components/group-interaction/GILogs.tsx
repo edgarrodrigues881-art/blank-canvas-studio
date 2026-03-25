@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollText, ChevronDown } from "lucide-react";
+import { ScrollText, ChevronDown, CheckCircle2, XCircle } from "lucide-react";
 import type { GroupInteractionLog } from "@/hooks/useGroupInteraction";
 
 const PAGE_SIZE = 20;
@@ -33,40 +33,24 @@ export default function GILogs({ logs }: { logs: GroupInteractionLog[] }) {
         ) : (
           <>
             <ScrollArea className="h-[320px]">
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 {visible.map((log) => (
                   <div
                     key={log.id}
-                    className="flex items-start gap-3 p-2.5 rounded-lg bg-muted/20 border border-border/50"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/20 transition-colors"
                   >
-                    <div
-                      className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-                        log.status === "sent" ? "bg-emerald-500" : "bg-red-500"
-                      }`}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[11px] text-muted-foreground font-mono">
-                          {new Date(log.sent_at).toLocaleString("pt-BR", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            second: "2-digit",
-                          })}
-                        </span>
-                        <Badge variant="outline" className="text-[9px] capitalize">
-                          {log.message_category}
-                        </Badge>
-                        <span className="text-[11px] text-muted-foreground truncate">
-                          Grupo: {log.group_name || log.group_id?.slice(0, 12)}
-                        </span>
-                      </div>
-                      <p className="text-sm mt-0.5 truncate">{log.message_content}</p>
-                      {log.error_message && (
-                        <p className="text-xs text-red-400 mt-0.5">{log.error_message}</p>
-                      )}
-                    </div>
+                    {log.status === "sent" ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    ) : (
+                      <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                    )}
+                    <span className="text-[11px] text-muted-foreground font-mono shrink-0">
+                      {new Date(log.sent_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                    <span className="text-xs text-muted-foreground truncate">
+                      {log.group_name || log.group_id?.slice(0, 8)}
+                    </span>
+                    <span className="text-xs truncate flex-1">{log.message_content}</span>
                   </div>
                 ))}
               </div>
