@@ -712,7 +712,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         continue;
       }
 
-      // 9. Write final contact result
+      // 10. Write final contact result
       const finalError = SUCCESS_STATUSES.has(result.status) ? null : stripRetryMeta(result.detail);
       await sb.from("mass_inject_contacts").update({
         status: result.status,
