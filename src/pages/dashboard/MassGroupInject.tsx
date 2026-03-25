@@ -1356,17 +1356,25 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
                     Instâncias ({selectedDeviceIds.length} selecionada{selectedDeviceIds.length !== 1 ? "s" : ""})
                   </label>
-                  <div className="max-h-[180px] overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/20">
-                    {devices.map((d: any) => (
-                      <label key={d.id} className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer transition-colors hover:bg-muted/30 ${selectedDeviceIds.includes(d.id) ? "bg-primary/5" : ""}`}>
-                        <Checkbox checked={selectedDeviceIds.includes(d.id)} onCheckedChange={() => handleDeviceToggle(d.id)} />
-                        <div className={`w-2 h-2 rounded-full shrink-0 ${isDeviceOnline(d.status) ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
-                        <span className="text-sm font-medium truncate">{d.name}</span>
-                        {d.number && <span className="text-xs text-muted-foreground">({d.number})</span>}
-                      </label>
-                    ))}
-                    {devices.length === 0 && <p className="text-xs text-destructive text-center py-4">Nenhuma instância com Uazapi encontrada</p>}
-                  </div>
+                  {connectedDevices.length === 0 ? (
+                    <div className="rounded-xl bg-muted/30 border border-border/30 px-4 py-5 text-center">
+                      <WifiOff className="w-5 h-5 text-muted-foreground/40 mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground">Nenhuma instância conectada</p>
+                    </div>
+                  ) : (
+                    <div className="max-h-[220px] overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/20">
+                      {connectedDevices.map((d: any) => (
+                        <label key={d.id} className={`flex items-center gap-3 px-3.5 py-3 cursor-pointer transition-colors hover:bg-muted/30 ${selectedDeviceIds.includes(d.id) ? "bg-primary/5" : ""}`}>
+                          <Checkbox checked={selectedDeviceIds.includes(d.id)} onCheckedChange={() => handleDeviceToggle(d.id)} />
+                          <div className={`w-2 h-2 rounded-full shrink-0 bg-emerald-500`} />
+                          <div className="min-w-0 flex-1">
+                            <span className="text-sm font-semibold block truncate">{d.name}</span>
+                            {d.number && <span className="text-[11px] text-muted-foreground block">{d.number}</span>}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Group selection */}
