@@ -112,7 +112,7 @@ function statusLabel(status: string) {
   switch (status) {
     case "completed": return "Adicionado";
     case "already_exists": return "Já no grupo";
-    case "rate_limited": return "Aguardando retry";
+    case "rate_limited": return "Conta restringida";
     case "api_temporary": return "Falha temporária";
     case "temporary_error": return "Erro temporário";
     case "connection_unconfirmed": return "Conexão não confirmada";
@@ -122,7 +122,7 @@ function statusLabel(status: string) {
     case "invalid_group": return "Grupo inválido";
     case "contact_not_found": return "Contato inexistente";
     case "unauthorized": return "Autenticação";
-    case "blocked": return "Bloqueado";
+    case "blocked": return "Restringido";
     case "unknown_failure": return "Falha não confirmada";
     case "failed": return "Falha";
     case "pending": return "Pendente";
