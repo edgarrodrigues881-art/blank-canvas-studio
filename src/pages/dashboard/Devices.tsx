@@ -346,14 +346,17 @@ const Devices = () => {
   const { data: dbProxies = [] } = useQuery({
     queryKey: ["proxies"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("proxies")
-        .select("id, host, port, username, password, type, status, display_id, active")
-        .eq("active", true)
-        .order("display_id", { ascending: true });
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from("proxies")
+          .select("id, host, port, username, password, type, status, display_id, active")
+          .eq("active", true)
+          .order("display_id", { ascending: true });
+        if (error) { console.warn("[Devices] proxies error:", error.message); return []; }
+        return data || [];
+      } catch { return []; }
     },
+    retry: 1,
   });
 
   const availableProxies = dbProxies.map((p, index) => ({
