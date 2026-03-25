@@ -386,99 +386,76 @@ async function handleTick(admin: any, conversationId: string) {
     return json({ error: "Need at least 2 configured devices" }, 400);
   }
 
-  // With 2 devices, just pick A and B
-  const shuffled = [...activeDevices].sort(() => Math.random() - 0.5);
-  const deviceA = shuffled[0];
-  const deviceB = shuffled[1];
+  // Pick sender based on total_messages_sent (alternates A/B each tick)
+  const isEvenTurn = (conv.total_messages_sent || 0) % 2 === 0;
+  const sender = isEvenTurn ? activeDevices[0] : activeDevices[1];
+  const receiver = isEvenTurn ? activeDevices[1] : activeDevices[0];
 
-  // Send a batch of alternating messages: A→B, B→A, A→B, B→A...
-  const messagesThisCycle = randInt(
-    conv.messages_per_cycle_min || 4,
-    Math.min(conv.messages_per_cycle_max || 10, 12) // cap to avoid timeout
+  console.log(`[tick] Turn #${conv.total_messages_sent || 0}: ${sender.name} → ${receiver.name}`);
+
+  const messageText = pickRandom(userMessages);
+
+  // Send single message
+  const result = await sendTextMessage(
+    sender.uazapi_base_url,
+    sender.uazapi_token,
+    receiver.number,
+    messageText
   );
-  console.log(`[tick] Will send ${messagesThisCycle} messages between ${deviceA.name} ↔ ${deviceB.name}`);
 
-  let totalSent = 0;
-  let lastError: string | null = null;
-  const nowIso = new Date().toISOString();
+  // Log
+  await admin.from("chip_conversation_logs").insert({
+    conversation_id: conversationId,
+    user_id: conv.user_id,
+    sender_device_id: sender.id,
+    receiver_device_id: receiver.id,
+    sender_name: sender.name,
+    receiver_name: receiver.name,
+    message_content: messageText,
+    message_category: "general",
+    status: result.ok ? "sent" : "failed",
+    error_message: result.ok ? null : (result.error || "Unknown error"),
+    sent_at: new Date().toISOString(),
+  });
 
-  for (let i = 0; i < messagesThisCycle; i++) {
-    // Alternate sender/receiver each message
-    const sender = i % 2 === 0 ? deviceA : deviceB;
-    const receiver = i % 2 === 0 ? deviceB : deviceA;
+  const newTotal = (conv.total_messages_sent || 0) + (result.ok ? 1 : 0);
+  const lastError = result.ok ? null : (result.error || "Unknown");
 
-    // Short delay between messages (2-8 seconds to stay under timeout)
-    if (i > 0) {
-      const delay = randInt(2, 8) * 1000;
-      console.log(`[tick] Waiting ${delay}ms before message ${i + 1}`);
-      await new Promise(r => setTimeout(r, delay));
-    }
-
-    // Re-check status every few messages
-    if (i > 0 && i % 4 === 0) {
-      const { data: freshConv } = await admin.from("chip_conversations")
-        .select("status")
-        .eq("id", conversationId)
-        .single();
-      if (!freshConv || freshConv.status !== "running") {
-        console.log("[tick] Interrupted by user");
-        return json({ ok: true, interrupted: true, messages_sent: totalSent });
-      }
-    }
-
-    const messageText = pickRandom(userMessages);
-
-    // Send message
-    const result = await sendTextMessage(
-      sender.uazapi_base_url,
-      sender.uazapi_token,
-      receiver.number,
-      messageText
-    );
-
-    // Log with sent_at included
-    const logResult = await admin.from("chip_conversation_logs").insert({
-      conversation_id: conversationId,
-      user_id: conv.user_id,
-      sender_device_id: sender.id,
-      receiver_device_id: receiver.id,
-      sender_name: sender.name,
-      receiver_name: receiver.name,
-      message_content: messageText,
-      message_category: "general",
-      status: result.ok ? "sent" : "failed",
-      error_message: result.ok ? null : (result.error || "Unknown error"),
-      sent_at: new Date().toISOString(),
-    });
-
-    if (logResult.error) {
-      console.error("[tick] Log insert error:", logResult.error.message);
-    }
-
-    if (result.ok) {
-      totalSent++;
-      console.log(`[tick] ✅ ${sender.name} → ${receiver.name}: "${messageText.substring(0, 30)}"`);
-    } else {
-      lastError = result.error || "Unknown";
-      console.error(`[tick] ❌ ${sender.name} → ${receiver.name}: ${lastError}`);
-    }
+  if (result.ok) {
+    console.log(`[tick] ✅ ${sender.name} → ${receiver.name}: "${messageText.substring(0, 40)}"`);
+  } else {
+    console.error(`[tick] ❌ ${sender.name} → ${receiver.name}: ${lastError}`);
   }
 
   // Update total
   await admin.from("chip_conversations")
     .update({
-      total_messages_sent: (conv.total_messages_sent || 0) + totalSent,
+      total_messages_sent: newTotal,
       last_error: lastError,
     })
     .eq("id", conversationId);
 
-  // Schedule next tick with delay based on user config
-  const nextDelay = randInt(conv.min_delay_seconds || 30, conv.max_delay_seconds || 90);
-  console.log(`[tick] Done! Sent ${totalSent}/${messagesThisCycle}. Next tick in ${nextDelay}s`);
+  // Check if we hit the cycle limit (messages_per_cycle) — then do a longer pause
+  const cycleMin = conv.messages_per_cycle_min || 4;
+  const cycleMax = conv.messages_per_cycle_max || 10;
+  const cycleTarget = randInt(cycleMin, cycleMax);
+  // Use modular count to know position within current "cycle"
+  const posInCycle = newTotal % cycleTarget;
+
+  let nextDelay: number;
+  if (posInCycle === 0 && newTotal > 0) {
+    // End of a cycle — apply the longer pause (pause_duration)
+    nextDelay = randInt(conv.pause_duration_min || 120, conv.pause_duration_max || 300);
+    console.log(`[tick] Cycle complete (${cycleTarget} msgs). Pausing ${nextDelay}s`);
+  } else {
+    // Normal delay between messages (user-configured)
+    nextDelay = randInt(conv.min_delay_seconds || 15, conv.max_delay_seconds || 60);
+  }
+
+  console.log(`[tick] Done! Total: ${newTotal}. Next tick in ${nextDelay}s`);
   await scheduleNextTick(conversationId, nextDelay);
 
-  return json({ ok: true, messages_sent: totalSent });
-}
+  return json({ ok: true, messages_sent: result.ok ? 1 : 0, total: newTotal });
 
 // ══════════════════════════════════════════════════════════
 // TICK SCHEDULING
