@@ -14,10 +14,16 @@ const statusConfig: Record<string, { color: string; bg: string; label: string; i
 };
 
 function getChipStatus(chip: ChipInfo): string {
+  if (chip.status === "Loading") return "syncing";
   if (!chip.connected) return "disconnected";
   if (chip.warmupStatus === "running") return "warming";
   if (chip.warmupStatus === "paused") return "paused";
   return "connected";
+}
+
+function extractNumber(name: string): number {
+  const m = name.match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : 0;
 }
 
 interface Props {
