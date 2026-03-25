@@ -16,9 +16,11 @@ interface Props {
 }
 
 const statusConfig: Record<string, { dot: string; label: string }> = {
-  Ready: { dot: "bg-emerald-400", label: "Online" },
-  Connected: { dot: "bg-emerald-400", label: "Online" },
-  Disconnected: { dot: "bg-destructive", label: "Offline" },
+  Ready: { dot: "bg-emerald-400", label: "Conectado" },
+  Connected: { dot: "bg-emerald-400", label: "Conectado" },
+  authenticated: { dot: "bg-emerald-400", label: "Conectado" },
+  Disconnected: { dot: "bg-destructive", label: "Desconectado" },
+  Loading: { dot: "bg-blue-400 animate-pulse", label: "Sincronizando" },
   Banned: { dot: "bg-yellow-500", label: "Banido" },
 };
 

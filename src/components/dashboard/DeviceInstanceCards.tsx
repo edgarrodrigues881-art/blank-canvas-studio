@@ -1,6 +1,7 @@
+import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Wifi, WifiOff, Flame, Pause, Globe } from "lucide-react";
+import { RefreshCw, Wifi, WifiOff, Flame, Pause, Globe, Loader2 } from "lucide-react";
 import type { ChipInfo } from "@/hooks/useDashboardStats";
 import { useNavigate } from "react-router-dom";
 
@@ -9,13 +10,20 @@ const statusConfig: Record<string, { color: string; bg: string; label: string; i
   warming: { color: "text-amber-400", bg: "bg-amber-500/20", label: "Aquecendo", icon: Flame },
   disconnected: { color: "text-red-400", bg: "bg-red-500/20", label: "Desconectado", icon: WifiOff },
   paused: { color: "text-muted-foreground", bg: "bg-muted/30", label: "Pausado", icon: Pause },
+  syncing: { color: "text-blue-400", bg: "bg-blue-500/20", label: "Sincronizando", icon: Loader2 },
 };
 
 function getChipStatus(chip: ChipInfo): string {
+  if (chip.status === "Loading") return "syncing";
   if (!chip.connected) return "disconnected";
   if (chip.warmupStatus === "running") return "warming";
   if (chip.warmupStatus === "paused") return "paused";
   return "connected";
+}
+
+function extractNumber(name: string): number {
+  const m = name.match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : 0;
 }
 
 interface Props {
@@ -25,6 +33,10 @@ interface Props {
 
 export function DeviceInstanceCards({ chips, isLoading }: Props) {
   const navigate = useNavigate();
+
+  const sortedChips = useMemo(() => 
+    [...chips].sort((a, b) => extractNumber(a.name) - extractNumber(b.name)),
+  [chips]);
 
   if (isLoading) {
     return (
@@ -54,7 +66,7 @@ export function DeviceInstanceCards({ chips, isLoading }: Props) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-      {chips.map((chip) => {
+      {sortedChips.map((chip) => {
         const st = statusConfig[getChipStatus(chip)] || statusConfig.disconnected;
         const StatusIcon = st.icon;
 
