@@ -32,6 +32,11 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+/** Clean phone number to digits only (e.g. "+55 62 8240-1096" → "556282401096") */
+function cleanNumber(num: string): string {
+  return num.replace(/[^0-9]/g, "");
+}
+
 // ══════════════════════════════════════════════════════════
 // FALLBACK MESSAGE BANKS (used only if user has no warmup_messages)
 // ══════════════════════════════════════════════════════════
@@ -51,10 +56,14 @@ const FALLBACK_MESSAGES = [
 // ══════════════════════════════════════════════════════════
 
 async function sendTextMessage(baseUrl: string, token: string, number: string, text: string) {
+  // Always clean the number before sending
+  const cleanNum = cleanNumber(number);
+  console.log(`[SEND] To: ${cleanNum} via ${baseUrl} | msg: "${text.substring(0, 50)}"`);
+
   const endpoints = [
-    { path: "/send/text", body: { number, text } },
-    { path: "/chat/send-text", body: { number, to: number, body: text, text } },
-    { path: "/message/sendText", body: { chatId: number, text } },
+    { path: "/send/text", body: { number: cleanNum, text } },
+    { path: "/chat/send-text", body: { number: cleanNum, to: cleanNum, body: text, text } },
+    { path: "/message/sendText", body: { chatId: cleanNum, text } },
   ];
 
   let lastErr = "";
@@ -66,6 +75,7 @@ async function sendTextMessage(baseUrl: string, token: string, number: string, t
         body: JSON.stringify(ep.body),
       });
       const raw = await res.text();
+      console.log(`[SEND] ${ep.path} → ${res.status}: ${raw.substring(0, 200)}`);
       if (res.ok) {
         try {
           const parsed = raw ? JSON.parse(raw) : {};
@@ -82,6 +92,7 @@ async function sendTextMessage(baseUrl: string, token: string, number: string, t
       lastErr = `${res.status} @ ${ep.path}: ${raw.substring(0, 200)}`;
     } catch (e: any) {
       lastErr = `${ep.path}: ${e instanceof Error ? e.message : String(e)}`;
+      console.error(`[SEND] Error ${ep.path}:`, lastErr);
     }
   }
   return { ok: false, error: lastErr };
@@ -101,7 +112,9 @@ async function getUserMessages(admin: any, userId: string): Promise<string[]> {
     return FALLBACK_MESSAGES;
   }
 
-  return data.map((m: any) => m.content).filter((c: string) => c && c.trim().length > 0);
+  const msgs = data.map((m: any) => m.content).filter((c: string) => c && c.trim().length > 0);
+  console.log(`Found ${msgs.length} user messages in warmup_messages`);
+  return msgs.length > 0 ? msgs : FALLBACK_MESSAGES;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -119,12 +132,15 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, conversation_id } = body;
 
+    console.log(`[chip-conversation] action=${action} conv=${conversation_id}`);
+
     // For tick action, validate via anon key in Authorization header
     if (action === "tick") {
       const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
       const authHeader = req.headers.get("authorization") ?? "";
       const bearerToken = authHeader.replace("Bearer ", "");
       if (!anonKey || bearerToken !== anonKey) {
+        console.error("[tick] Unauthorized - anon key mismatch");
         return json({ error: "Unauthorized" }, 401);
       }
       return await handleTick(admin, conversation_id);
@@ -237,7 +253,8 @@ async function handleStart(admin: any, userId: string, conversationId: string) {
     .update({ status: "running", started_at: new Date().toISOString(), completed_at: null, last_error: null })
     .eq("id", conversationId);
 
-  // Fire first tick IMMEDIATELY (not delayed)
+  // Fire first tick immediately — don't use setTimeout, call directly via fetch
+  console.log("[start] Firing immediate tick for", conversationId);
   fireTickNow(conversationId);
 
   return json({ ok: true, status: "running" });
@@ -258,7 +275,6 @@ async function handleResume(admin: any, userId: string, conversationId: string) 
     .eq("id", conversationId)
     .eq("user_id", userId);
 
-  // Fire tick immediately on resume too
   fireTickNow(conversationId);
   return json({ ok: true, status: "running" });
 }
@@ -277,19 +293,28 @@ async function handleStop(admin: any, userId: string, conversationId: string) {
 // ══════════════════════════════════════════════════════════
 
 async function handleTick(admin: any, conversationId: string) {
+  console.log("[tick] Starting for conversation:", conversationId);
+
   const { data: conv, error } = await admin.from("chip_conversations")
     .select("*")
     .eq("id", conversationId)
     .single();
 
-  if (error || !conv) return json({ error: "Conversa não encontrada" }, 404);
-  if (conv.status !== "running") return json({ ok: true, skipped: true, reason: "not running" });
+  if (error || !conv) {
+    console.error("[tick] Conversation not found:", error);
+    return json({ error: "Conversa não encontrada" }, 404);
+  }
+  if (conv.status !== "running") {
+    console.log("[tick] Not running, status:", conv.status);
+    return json({ ok: true, skipped: true, reason: "not running" });
+  }
 
   // Check time window (supports dual windows: "08:00,13:00" / "12:00,19:00")
   const nowBrt = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
   const currentHour = nowBrt.getHours();
   const currentMinute = nowBrt.getMinutes();
   const currentTime = currentHour * 60 + currentMinute;
+  console.log(`[tick] BRT time: ${currentHour}:${currentMinute} (${currentTime} min)`);
 
   const startParts = String(conv.start_hour || "08:00").split(",").map((s: string) => s.trim());
   const endParts = String(conv.end_hour || "18:00").split(",").map((s: string) => s.trim());
@@ -298,8 +323,9 @@ async function handleTick(admin: any, conversationId: string) {
   for (let i = 0; i < startParts.length; i++) {
     const [sH, sM] = startParts[i].split(":").map(Number);
     const [eH, eM] = (endParts[i] || endParts[0]).split(":").map(Number);
-    const startTime = sH * 60 + sM;
-    const endTime = eH * 60 + eM;
+    const startTime = sH * 60 + (sM || 0);
+    const endTime = eH * 60 + (eM || 0);
+    console.log(`[tick] Window ${i}: ${startParts[i]}-${endParts[i] || endParts[0]} (${startTime}-${endTime})`);
     if (currentTime >= startTime && currentTime < endTime) {
       insideWindow = true;
       break;
@@ -307,7 +333,7 @@ async function handleTick(admin: any, conversationId: string) {
   }
 
   if (!insideWindow) {
-    // Still schedule next tick so it checks again later
+    console.log("[tick] Outside time window, scheduling retry");
     scheduleNextTick(conversationId, randInt(60, 120));
     return json({ ok: true, skipped: true, reason: "outside_hours" });
   }
@@ -317,6 +343,8 @@ async function handleTick(admin: any, conversationId: string) {
   const today = dayMap[nowBrt.getDay()];
   const activeDays = conv.active_days as string[];
   if (!activeDays.includes(today)) {
+    console.log("[tick] Inactive day:", today);
+    scheduleNextTick(conversationId, randInt(300, 600));
     return json({ ok: true, skipped: true, reason: "inactive_day" });
   }
 
@@ -324,16 +352,18 @@ async function handleTick(admin: any, conversationId: string) {
   const userMessages = await getUserMessages(admin, conv.user_id);
   if (userMessages.length === 0) {
     await admin.from("chip_conversations")
-      .update({ status: "paused", last_error: "Nenhuma mensagem cadastrada. Adicione mensagens no banco de mensagens." })
+      .update({ status: "paused", last_error: "Nenhuma mensagem cadastrada." })
       .eq("id", conversationId);
     return json({ error: "No messages available" }, 400);
   }
 
   // Get devices with their tokens
   const deviceIds = conv.device_ids as string[];
-  const { data: devices } = await admin.from("devices")
+  const { data: devices, error: devErr } = await admin.from("devices")
     .select("id, name, number, uazapi_base_url, uazapi_token")
     .in("id", deviceIds);
+
+  console.log(`[tick] Devices found: ${devices?.length || 0}, error: ${devErr?.message || 'none'}`);
 
   if (!devices || devices.length < 2) {
     await admin.from("chip_conversations")
@@ -344,6 +374,11 @@ async function handleTick(admin: any, conversationId: string) {
 
   // Filter devices that have API credentials
   const activeDevices = devices.filter((d: any) => d.uazapi_base_url && d.uazapi_token && d.number);
+  console.log(`[tick] Active devices (with API): ${activeDevices.length}`);
+  for (const d of activeDevices) {
+    console.log(`  - ${d.name}: number=${d.number} url=${d.uazapi_base_url?.substring(0, 40)}`);
+  }
+
   if (activeDevices.length < 2) {
     await admin.from("chip_conversations")
       .update({ status: "paused", last_error: "Pelo menos 2 dispositivos precisam ter API configurada e número vinculado" })
@@ -351,85 +386,82 @@ async function handleTick(admin: any, conversationId: string) {
     return json({ error: "Need at least 2 configured devices" }, 400);
   }
 
-  // Determine how many messages in this cycle
-  const messagesThisCycle = randInt(6, 16);
-  
-  // Create conversation pairs — rotate who starts
-  const pairs = generateConversationPairs(activeDevices);
-  
+  // With 2 devices, just pick A and B
+  const shuffled = [...activeDevices].sort(() => Math.random() - 0.5);
+  const deviceA = shuffled[0];
+  const deviceB = shuffled[1];
+
+  // Send a batch of alternating messages: A→B, B→A, A→B, B→A...
+  const messagesThisCycle = randInt(
+    conv.messages_per_cycle_min || 4,
+    Math.min(conv.messages_per_cycle_max || 10, 12) // cap to avoid timeout
+  );
+  console.log(`[tick] Will send ${messagesThisCycle} messages between ${deviceA.name} ↔ ${deviceB.name}`);
+
   let totalSent = 0;
-  let lastError = null;
+  let lastError: string | null = null;
+  const nowIso = new Date().toISOString();
 
-  for (const pair of pairs) {
-    if (totalSent >= messagesThisCycle) break;
+  for (let i = 0; i < messagesThisCycle; i++) {
+    // Alternate sender/receiver each message
+    const sender = i % 2 === 0 ? deviceA : deviceB;
+    const receiver = i % 2 === 0 ? deviceB : deviceA;
 
-    // Generate a mini-conversation between this pair
-    const conversationLength = randInt(3, Math.min(8, messagesThisCycle - totalSent));
-
-    let msgIndex = 0;
-    for (let i = 0; i < conversationLength; i++) {
-      if (totalSent >= messagesThisCycle) break;
-
-      // Alternate sender/receiver
-      const sender = msgIndex % 2 === 0 ? pair.a : pair.b;
-      const receiver = msgIndex % 2 === 0 ? pair.b : pair.a;
-
-      // Pick a random message from the user's bank
-      const messageText = pickRandom(userMessages);
-
-      // Wait delay before sending
-      const delay = randInt(conv.min_delay_seconds, conv.max_delay_seconds) * 1000;
+    // Short delay between messages (2-8 seconds to stay under timeout)
+    if (i > 0) {
+      const delay = randInt(2, 8) * 1000;
+      console.log(`[tick] Waiting ${delay}ms before message ${i + 1}`);
       await new Promise(r => setTimeout(r, delay));
+    }
 
-      // Re-check status (user might have paused)
+    // Re-check status every few messages
+    if (i > 0 && i % 4 === 0) {
       const { data: freshConv } = await admin.from("chip_conversations")
         .select("status")
         .eq("id", conversationId)
         .single();
-      
       if (!freshConv || freshConv.status !== "running") {
+        console.log("[tick] Interrupted by user");
         return json({ ok: true, interrupted: true, messages_sent: totalSent });
-      }
-
-      // Send message
-      const result = await sendTextMessage(
-        sender.uazapi_base_url,
-        sender.uazapi_token,
-        receiver.number,
-        messageText
-      );
-
-      // Log
-      await admin.from("chip_conversation_logs").insert({
-        conversation_id: conversationId,
-        user_id: conv.user_id,
-        sender_device_id: sender.id,
-        receiver_device_id: receiver.id,
-        sender_name: sender.name,
-        receiver_name: receiver.name,
-        message_content: messageText,
-        message_category: "general",
-        status: result.ok ? "sent" : "failed",
-        error_message: result.ok ? null : result.error,
-      });
-
-      if (result.ok) {
-        totalSent++;
-      } else {
-        lastError = result.error;
-      }
-
-      msgIndex++;
-
-      // Small natural pause between messages in same conversation
-      if (msgIndex > 0 && msgIndex % randInt(4, 8) === 0) {
-        await new Promise(r => setTimeout(r, randInt(3000, 8000)));
       }
     }
 
-    // Inter-conversation pause (capped to avoid timeout)
-    const interPause = randInt(10, 30) * 1000;
-    await new Promise(r => setTimeout(r, Math.min(interPause, 15000)));
+    const messageText = pickRandom(userMessages);
+
+    // Send message
+    const result = await sendTextMessage(
+      sender.uazapi_base_url,
+      sender.uazapi_token,
+      receiver.number,
+      messageText
+    );
+
+    // Log with sent_at included
+    const logResult = await admin.from("chip_conversation_logs").insert({
+      conversation_id: conversationId,
+      user_id: conv.user_id,
+      sender_device_id: sender.id,
+      receiver_device_id: receiver.id,
+      sender_name: sender.name,
+      receiver_name: receiver.name,
+      message_content: messageText,
+      message_category: "general",
+      status: result.ok ? "sent" : "failed",
+      error_message: result.ok ? null : (result.error || "Unknown error"),
+      sent_at: new Date().toISOString(),
+    });
+
+    if (logResult.error) {
+      console.error("[tick] Log insert error:", logResult.error.message);
+    }
+
+    if (result.ok) {
+      totalSent++;
+      console.log(`[tick] ✅ ${sender.name} → ${receiver.name}: "${messageText.substring(0, 30)}"`);
+    } else {
+      lastError = result.error || "Unknown";
+      console.error(`[tick] ❌ ${sender.name} → ${receiver.name}: ${lastError}`);
+    }
   }
 
   // Update total
@@ -440,32 +472,12 @@ async function handleTick(admin: any, conversationId: string) {
     })
     .eq("id", conversationId);
 
-  // Schedule next tick with moderate delay
-  scheduleNextTick(conversationId, randInt(60, 180));
+  // Schedule next tick with delay based on user config
+  const nextDelay = randInt(conv.min_delay_seconds || 30, conv.max_delay_seconds || 90);
+  console.log(`[tick] Done! Sent ${totalSent}/${messagesThisCycle}. Next tick in ${nextDelay}s`);
+  scheduleNextTick(conversationId, nextDelay);
 
   return json({ ok: true, messages_sent: totalSent });
-}
-
-function generateConversationPairs(devices: any[]): Array<{ a: any; b: any }> {
-  const pairs: Array<{ a: any; b: any }> = [];
-  const shuffled = [...devices].sort(() => Math.random() - 0.5);
-  
-  for (let i = 0; i < shuffled.length - 1; i += 2) {
-    if (Math.random() < 0.5) {
-      pairs.push({ a: shuffled[i], b: shuffled[i + 1] });
-    } else {
-      pairs.push({ a: shuffled[i + 1], b: shuffled[i] });
-    }
-  }
-  
-  // If odd number, last device pairs with a random one
-  if (shuffled.length % 2 !== 0) {
-    const lastDevice = shuffled[shuffled.length - 1];
-    const partner = shuffled[randInt(0, shuffled.length - 2)];
-    pairs.push({ a: lastDevice, b: partner });
-  }
-  
-  return pairs;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -477,10 +489,11 @@ function fireTickNow(conversationId: string) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
 
-  // Fire without waiting (setTimeout 0 to not block response)
+  // Use setTimeout 0 to not block the current response
   setTimeout(async () => {
     try {
-      await fetch(`${supabaseUrl}/functions/v1/chip-conversation`, {
+      console.log("[fireTickNow] Calling tick for", conversationId);
+      const res = await fetch(`${supabaseUrl}/functions/v1/chip-conversation`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -488,10 +501,12 @@ function fireTickNow(conversationId: string) {
         },
         body: JSON.stringify({ action: "tick", conversation_id: conversationId }),
       });
+      const body = await res.text();
+      console.log("[fireTickNow] Response:", res.status, body.substring(0, 200));
     } catch (e: any) {
-      console.error("Failed to fire immediate tick:", e);
+      console.error("[fireTickNow] Failed:", e);
     }
-  }, 500);
+  }, 100);
 }
 
 /** Schedule next tick with a delay in seconds */
@@ -499,11 +514,13 @@ function scheduleNextTick(conversationId: string, delaySec: number) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
 
-  const delayMs = Math.min(delaySec * 1000, 25000); // Cap at 25s (edge function timeout)
+  // Cap delay at 20s to stay within edge function lifetime
+  const delayMs = Math.min(delaySec * 1000, 20000);
+  console.log(`[scheduleNextTick] Next tick in ${delayMs}ms for ${conversationId}`);
 
   setTimeout(async () => {
     try {
-      await fetch(`${supabaseUrl}/functions/v1/chip-conversation`, {
+      const res = await fetch(`${supabaseUrl}/functions/v1/chip-conversation`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -511,8 +528,9 @@ function scheduleNextTick(conversationId: string, delaySec: number) {
         },
         body: JSON.stringify({ action: "tick", conversation_id: conversationId }),
       });
+      console.log("[scheduleNextTick] Tick response:", res.status);
     } catch (e: any) {
-      console.error("Failed to schedule next tick:", e);
+      console.error("[scheduleNextTick] Failed:", e);
     }
   }, delayMs);
 }
