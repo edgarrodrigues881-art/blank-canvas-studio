@@ -784,11 +784,32 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       await sleep(nextDelayMs);
     }
   } catch (error: any) {
-    console.error(`[mass-inject] campaign=${campaignId} worker error:`, error.message || error);
+    console.error(JSON.stringify({
+      type: "mass-group-inject.worker_error",
+      campaignId,
+      error: error.message || String(error),
+      contactsProcessed: contactsProcessedThisRun,
+      timestamp: nowIso(),
+    }));
   } finally {
+    // ── Ensure campaign is finalized if all contacts are done ──
+    try {
+      await finalizeCampaignIfNeeded(sb, campaignId);
+    } catch (e) {
+      console.error(`[mass-inject] campaign=${campaignId} finalization check error:`, e);
+    }
+
     // ── ALWAYS release the advisory lock ──
     await sb.rpc("release_mass_inject_run_lock", { p_campaign_id: campaignId }).catch(() => {});
-    console.log(`[mass-inject] campaign=${campaignId} lock released`);
+
+    const workerDurationMs = Date.now() - workerStartedAt;
+    console.log(JSON.stringify({
+      type: "mass-group-inject.worker_end",
+      campaignId,
+      contactsProcessed: contactsProcessedThisRun,
+      durationMs: workerDurationMs,
+      timestamp: nowIso(),
+    }));
   }
 }
 
