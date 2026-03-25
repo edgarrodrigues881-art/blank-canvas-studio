@@ -261,22 +261,22 @@ const Auth = () => {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="flex flex-col items-center mb-8"
         >
-          <div className="relative w-[140px] h-[140px] flex items-center justify-center mb-3">
+          <div className="relative w-[200px] h-[200px] flex items-center justify-center mb-4">
             <FloatingParticles />
             {/* Soft glow behind logo */}
             <div
-              className="absolute w-20 h-20 rounded-2xl opacity-20"
-              style={{ background: "radial-gradient(circle, #22c55e 0%, #fbbf24 60%, transparent 100%)" }}
+              className="absolute w-32 h-32 rounded-3xl opacity-25"
+              style={{ background: "radial-gradient(circle, #22c55e 0%, #fbbf24 50%, transparent 100%)" }}
             />
             {/* Gold border */}
             <div
-              className="relative p-[1.5px] rounded-2xl"
+              className="relative p-[2px] rounded-2xl"
               style={{ background: "linear-gradient(145deg, #fbbf24 0%, #b8860b 40%, #fbbf24 100%)" }}
             >
               <img
                 src={logo}
                 alt="DG Contingência Pro"
-                className="w-[72px] h-[72px] rounded-[13px]"
+                className="w-[110px] h-[110px] rounded-[14px]"
                 style={{ background: "#0c0f0d" }}
               />
             </div>
