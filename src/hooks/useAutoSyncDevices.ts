@@ -1,7 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+
+// ── Global sync semaphore: shared across hook + manual button ──
+let _isSyncing = false;
+export function isSyncingDevices() { return _isSyncing; }
 
 // Global mute flag: when set, realtime + auto-sync skip invalidation
 let mutedUntil = 0;
@@ -34,7 +38,6 @@ export function resumeKeepAlive() {}
 export function useAutoSyncDevices(intervalMs = 10_000) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
-  const syncingRef = useRef(false);
 
   // ── Realtime subscription for instant status changes ──
   useEffect(() => {
@@ -82,33 +85,30 @@ export function useAutoSyncDevices(intervalMs = 10_000) {
     };
   }, [session?.user?.id, queryClient]);
 
+  // ── Shared sync function exposed for manual trigger ──
+  const doSync = useCallback(async () => {
+    if (_isSyncing) return;
+    if (Date.now() < mutedUntil) return;
+    _isSyncing = true;
+    try {
+      await supabase.functions.invoke("sync-devices");
+      if (Date.now() >= mutedUntil) {
+        await queryClient.refetchQueries({ queryKey: ["devices"] });
+        queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
+      }
+    } catch {
+      // silent — don't change state on error
+    } finally {
+      _isSyncing = false;
+    }
+  }, [queryClient]);
+
   // ── Periodic background sync + immediate sync on tab focus ──
   useEffect(() => {
     if (!session?.access_token) return;
 
-    const doSync = async () => {
-      if (syncingRef.current) return;
-      if (Date.now() < mutedUntil) return;
-      syncingRef.current = true;
-      try {
-        await supabase.functions.invoke("sync-devices");
-        if (Date.now() >= mutedUntil) {
-          // Force refetch from DB (bypass staleTime) to reflect API changes immediately
-          await queryClient.refetchQueries({ queryKey: ["devices"] });
-          queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
-        }
-      } catch {
-        // silent — don't change state on error
-      } finally {
-        syncingRef.current = false;
-      }
-    };
-
-    // Sync on tab becoming visible (instant update when user returns)
     const onVisibilityChange = () => {
-      if (!document.hidden) {
-        doSync();
-      }
+      if (!document.hidden) doSync();
     };
 
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -123,5 +123,7 @@ export function useAutoSyncDevices(intervalMs = 10_000) {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [session?.access_token, intervalMs, queryClient]);
+  }, [session?.access_token, intervalMs, doSync]);
+
+  return { doSync };
 }
