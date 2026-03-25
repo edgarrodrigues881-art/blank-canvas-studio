@@ -359,17 +359,7 @@ async function handleTick(admin: any, conversationId: string) {
     return json({ ok: true, skipped: true, reason: "inactive_day" });
   }
 
-  // Check duration limit
-  if (conv.started_at) {
-    const startedAt = new Date(conv.started_at).getTime();
-    const durationMs = ((conv.duration_hours * 60) + conv.duration_minutes) * 60 * 1000;
-    if (Date.now() - startedAt >= durationMs) {
-      await admin.from("chip_conversations")
-        .update({ status: "completed", completed_at: new Date().toISOString() })
-        .eq("id", conversationId);
-      return json({ ok: true, completed: true, reason: "duration_reached" });
-    }
-  }
+  // No duration limit — runs continuously within the time window
 
   // Get devices with their tokens
   const deviceIds = conv.device_ids as string[];
@@ -394,7 +384,8 @@ async function handleTick(admin: any, conversationId: string) {
   }
 
   // Determine how many messages in this cycle
-  const messagesThisCycle = randInt(conv.messages_per_cycle_min, conv.messages_per_cycle_max);
+  // Send as many messages as possible within this tick (edge function timeout ~25s)
+  const messagesThisCycle = randInt(8, 20);
   
   // Create conversation pairs — rotate who starts
   const pairs = generateConversationPairs(activeDevices);
