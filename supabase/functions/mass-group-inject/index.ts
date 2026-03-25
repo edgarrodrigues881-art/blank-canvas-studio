@@ -699,9 +699,9 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         p_min_interval_ms: 12000, // 12s minimum between any API calls per device
       });
       if (waitMs && waitMs > 0) {
-        // Add jitter to the wait time
         const jitteredWait = waitMs + randomBetween(1000, 3000);
         console.log(`[mass-inject] campaign=${campaignId} device=${device.name} global rate limit: waiting ${jitteredWait}ms`);
+        await setNextRunAt(sb, campaignId, jitteredWait);
         await sleep(jitteredWait);
       }
 
