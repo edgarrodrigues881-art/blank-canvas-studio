@@ -1751,8 +1751,9 @@ const Devices = () => {
             size="sm"
             variant="ghost"
             className="gap-1.5 text-xs h-8 text-muted-foreground hover:text-foreground"
-            disabled={syncLoading}
+            disabled={syncLoading || isSyncingDevices()}
             onClick={async () => {
+              if (isSyncingDevices()) return;
               setSyncLoading(true);
               try {
                 const { data: { session: s } } = await supabase.auth.getSession();
