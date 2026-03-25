@@ -1782,6 +1782,8 @@ export type Database = {
           group_id: string
           group_name: string | null
           id: string
+          last_event: string | null
+          last_event_at: string | null
           max_delay: number
           min_delay: number
           name: string
@@ -1805,6 +1807,8 @@ export type Database = {
           group_id: string
           group_name?: string | null
           id?: string
+          last_event?: string | null
+          last_event_at?: string | null
           max_delay?: number
           min_delay?: number
           name: string
@@ -1828,6 +1832,8 @@ export type Database = {
           group_id?: string
           group_name?: string | null
           id?: string
+          last_event?: string | null
+          last_event_at?: string | null
           max_delay?: number
           min_delay?: number
           name?: string
