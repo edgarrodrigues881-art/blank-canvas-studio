@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Mail, Lock, User, ShieldCheck, Phone, Eye, EyeOff, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { AlertTriangle, RefreshCw } from "lucide-react";
-import logo from "@/assets/logo-new.png";
+import logo from "@/assets/dg-contingencia-avatar.png";
 
 /* ── helpers (unchanged) ── */
 const translateAuthError = (msg: string): string => {
