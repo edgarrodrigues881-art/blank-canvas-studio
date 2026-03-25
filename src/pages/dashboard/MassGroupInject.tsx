@@ -1347,6 +1347,11 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
             <p className="text-sm text-muted-foreground">Adição em massa de membros</p>
           </div>
         </div>
+        {!isProcessing && (
+          <Button variant="ghost" size="sm" onClick={clearDraft} className="gap-1.5 text-muted-foreground hover:text-destructive">
+            <Trash2 className="w-3.5 h-3.5" /> Limpar tudo
+          </Button>
+        )}
       </div>
 
       {/* Steps */}
