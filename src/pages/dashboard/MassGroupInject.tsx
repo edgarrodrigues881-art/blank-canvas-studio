@@ -881,7 +881,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   const [groupId, setGroupId] = useState("");
   const [groupName, setGroupName] = useState("");
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
-  const [rawInput, setRawInput] = useState("");
+  const [rawInput, setRawInput] = useState(prefillContacts?.join("\n") || "");
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [participantCheck, setParticipantCheck] = useState<ParticipantCheckResult | null>(null);
   const [isValidating, setIsValidating] = useState(false);
