@@ -1251,9 +1251,26 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
       setCompletedSteps(prev => new Set([...prev, "import"]));
       setStep("preview");
       toast.success(`${data.validCount} contatos válidos encontrados`);
+
+      // Auto-check participants in group
+      if (data.valid?.length > 0 && primaryDeviceId) {
+        setIsChecking(true);
+        try {
+          const { data: checkData, error: checkError } = await supabase.functions.invoke("mass-group-inject", {
+            body: { action: "check-participants", groupId, deviceId: primaryDeviceId, contacts: data.valid },
+          });
+          if (!checkError && checkData) {
+            setParticipantCheck(checkData);
+            if (checkData.alreadyExistsCount > 0) {
+              toast.info(`${checkData.alreadyExistsCount} contato(s) já estão no grupo`);
+            }
+          }
+        } catch { /* silently fail - participant check is best-effort */ }
+        finally { setIsChecking(false); }
+      }
     } catch (e: any) { toast.error(e.message || "Erro na validação"); }
     finally { setIsValidating(false); }
-  }, [importedContacts, groupId, selectedDeviceIds, campaignName]);
+  }, [importedContacts, groupId, selectedDeviceIds, campaignName, primaryDeviceId]);
 
   const handleCheckParticipants = useCallback(async () => {
     if (!validationResult?.valid.length) return;
@@ -1270,7 +1287,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   }, [validationResult, groupId, primaryDeviceId]);
 
   const handleProcess = useCallback(async () => {
-    const contacts = validationResult?.valid || [];
+    const contacts = participantCheck?.ready?.length ? participantCheck.ready : (validationResult?.valid || []);
     if (contacts.length === 0) return toast.error("Nenhum contato válido para processar");
     setConfirmOpen(false);
     setIsProcessing(true);
@@ -1324,7 +1341,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     return liveResults.filter(r => r.status === activeFilter);
   }, [liveResults, activeFilter]);
 
-  const totalToProcess = validationResult?.validCount ?? 0;
+  const totalToProcess = participantCheck ? participantCheck.readyCount : (validationResult?.validCount ?? 0);
   const contactCount = importedContacts.length;
   const liveProcessed = liveOk + liveFail;
   const liveProgress = liveTotal > 0 ? Math.round((liveProcessed / liveTotal) * 100) : 0;
@@ -1814,8 +1831,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
               { label: "Válidos", value: validationResult.validCount, color: "text-emerald-500" },
               { label: "Inválidos", value: validationResult.invalidCount, color: "text-destructive" },
               { label: "Duplicados", value: validationResult.duplicateCount, color: "text-amber-500" },
-              { label: "Já no Grupo", value: participantCheck?.alreadyExistsCount ?? "Opcional", color: "text-blue-500" },
-              { label: "Na Fila", value: validationResult.validCount, color: "text-primary" },
+              { label: "Já no Grupo", value: participantCheck ? participantCheck.alreadyExistsCount : (isChecking ? "..." : "—"), color: "text-blue-500" },
+              { label: "Na Fila", value: totalToProcess, color: "text-primary" },
             ].map(s => (
               <Card key={s.label} className="border-border/40 bg-card/80">
                 <CardContent className="pt-4 pb-3 px-4">
@@ -1826,35 +1843,61 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
             ))}
           </div>
 
-          {participantCheck ? (
-            participantCheck.alreadyExistsCount > 0 && (
-              <div className="rounded-xl bg-blue-500/5 border border-blue-500/20 px-4 py-3 flex items-start gap-3">
-                <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                <p className="text-xs text-blue-700">
-                  <strong>{participantCheck.alreadyExistsCount}</strong> contato(s) foram encontrados na pré-checagem; a confirmação final ainda acontece durante o processamento.
+          {isChecking ? (
+            <div className="rounded-xl border border-border/40 bg-card/50 px-4 py-3 flex items-center gap-3">
+              <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
+              <p className="text-xs text-muted-foreground">Verificando quais contatos já estão no grupo...</p>
+            </div>
+          ) : participantCheck ? (
+            participantCheck.alreadyExistsCount > 0 ? (
+              <div className="rounded-xl bg-blue-500/5 border border-blue-500/20 px-4 py-3 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-blue-700">
+                    <strong>{participantCheck.alreadyExistsCount}</strong> contato(s) já estão no grupo e serão ignorados na fila. Restam <strong>{participantCheck.readyCount}</strong> para adicionar.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (!validationResult || !participantCheck) return;
+                    const alreadySet = new Set(participantCheck.alreadyExists);
+                    const cleaned = validationResult.valid.filter(p => !alreadySet.has(p));
+                    setValidationResult({
+                      ...validationResult,
+                      valid: cleaned,
+                      validCount: cleaned.length,
+                      total: cleaned.length + validationResult.invalidCount + validationResult.duplicateCount,
+                    });
+                    setParticipantCheck({ ...participantCheck, alreadyExists: [], alreadyExistsCount: 0, readyCount: cleaned.length });
+                    toast.success(`${alreadySet.size} contato(s) removidos da lista`);
+                  }}
+                  className="gap-1.5 shrink-0 text-xs border-blue-500/30 text-blue-500 hover:bg-blue-500/10"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Limpar já adicionados
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 px-4 py-3 flex items-start gap-3">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-emerald-700">
+                  Nenhum dos contatos está no grupo. Todos os <strong>{participantCheck.readyCount}</strong> estão prontos para adição.
                 </p>
               </div>
             )
-          ) : (
-            <div className="rounded-xl border border-border/40 bg-card/50 px-4 py-3 flex items-start gap-3">
-              <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-              <p className="text-xs text-muted-foreground">
-                A verificação de existentes no grupo é opcional. Se você iniciar agora, a checagem será feita durante a execução da fila.
-              </p>
-            </div>
-          )}
+          ) : null}
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center pt-2">
             <Button variant="outline" onClick={() => setStep("import")} className="gap-2 h-11 px-6">
               <ArrowLeft className="w-4 h-4" /> Voltar
             </Button>
-            {!participantCheck && (
+            {!participantCheck && !isChecking && (
               <Button onClick={handleCheckParticipants} disabled={isChecking} variant="outline" className="gap-2 h-11 px-6 border-blue-500/30 text-blue-500 hover:bg-blue-500/10">
-                {isChecking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                Verificar Existentes (opcional)
+                <Search className="w-4 h-4" /> Verificar Existentes
               </Button>
             )}
-            <Button onClick={() => setConfirmOpen(true)} disabled={totalToProcess === 0} className="gap-2 h-11 px-8 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg">
+            <Button onClick={() => setConfirmOpen(true)} disabled={totalToProcess === 0 || isChecking} className="gap-2 h-11 px-8 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg">
               <Play className="w-4 h-4" /> Iniciar Campanha ({totalToProcess} contatos)
             </Button>
           </div>
