@@ -34,8 +34,7 @@ const DAYS = [
   { key: "sun", label: "Dom" },
 ];
 
-const defaultContentTypes = { text: true, image: false, video: false, file: false, sticker: false };
-const defaultContentWeights = { text: 50, image: 20, video: 10, file: 10, sticker: 10 };
+const defaultContentTypes = { text: true, image: false, audio: false, sticker: false };
 
 const defaultForm: Partial<GroupInteraction> & Record<string, any> = {
   name: "Interação de Grupos",
@@ -57,7 +56,6 @@ const defaultForm: Partial<GroupInteraction> & Record<string, any> = {
   daily_limit_per_group: 30,
   daily_limit_total: 150,
   content_types: defaultContentTypes,
-  content_weights: defaultContentWeights,
   preset_name: "moderate",
 };
 
@@ -95,6 +93,7 @@ export default function GroupInteractionPage() {
         .from("devices")
         .select("id, name, number, status")
         .eq("user_id", user.id)
+        .eq("status", "connected")
         .order("name");
       return data || [];
     },
@@ -142,7 +141,6 @@ export default function GroupInteractionPage() {
         daily_limit_per_group: selected.daily_limit_per_group,
         daily_limit_total: selected.daily_limit_total,
         content_types: (selected as any).content_types || defaultContentTypes,
-        content_weights: (selected as any).content_weights || defaultContentWeights,
         preset_name: (selected as any).preset_name || "custom",
       });
     }
@@ -613,8 +611,7 @@ export default function GroupInteractionPage() {
                 <TabsContent value="content" className="mt-4">
                   <GIContentConfig
                     contentTypes={form.content_types || defaultContentTypes}
-                    contentWeights={form.content_weights || defaultContentWeights}
-                    onChange={(types, weights) => updateForm({ content_types: types, content_weights: weights })}
+                    onChange={(types) => updateForm({ content_types: types })}
                   />
                   {selectedId && (
                     <div className="mt-3">
