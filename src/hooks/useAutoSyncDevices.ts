@@ -1,7 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+
+// ── Global sync semaphore: shared across hook + manual button ──
+let _isSyncing = false;
+export function isSyncingDevices() { return _isSyncing; }
 
 // Global mute flag: when set, realtime + auto-sync skip invalidation
 let mutedUntil = 0;
