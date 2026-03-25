@@ -238,7 +238,7 @@ const CampaignDetail = () => {
     return lower.includes("número inválido") || lower.includes("not on whats") || lower.includes("not registered") || lower.includes("not_exists");
   };
 
-  const stats = useMemo(() => {
+  const pageStats = useMemo(() => {
     const failed = contacts.filter(c => c.status === "failed" || c.status === "error");
     return {
       total: contacts.length,
@@ -248,6 +248,20 @@ const CampaignDetail = () => {
       pending: contacts.filter(c => c.status === "pending").length,
     };
   }, [contacts]);
+
+  const stats = useMemo(() => {
+    const total = campaign?.total_contacts ?? pageStats.total;
+    const sent = Math.max(campaign?.sent_count ?? 0, campaign?.delivered_count ?? 0, pageStats.sent);
+    const failed = Math.max(campaign?.failed_count ?? 0, pageStats.failed);
+
+    return {
+      total,
+      sent,
+      failed,
+      failedResendable: Math.max(campaign?.failed_count ?? 0, pageStats.failedResendable),
+      pending: Math.max(total - sent - failed, 0),
+    };
+  }, [campaign?.total_contacts, campaign?.sent_count, campaign?.delivered_count, campaign?.failed_count, pageStats]);
 
   // Auto-detect stuck campaigns
   useEffect(() => {
