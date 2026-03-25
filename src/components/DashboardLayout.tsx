@@ -173,7 +173,14 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   message={blockedFeature!.maintenance_message}
                 />
               </div>
-            ) : children}
+            ) : (
+              <div
+                key={location.pathname}
+                className="animate-page-in"
+              >
+                {children}
+              </div>
+            )}
           </main>
           <AnnouncementManager />
           {maintenanceModal && (
