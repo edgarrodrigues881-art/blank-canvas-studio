@@ -791,6 +791,53 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // ── RECOVER STALLED: cron-triggered action to resume interrupted campaigns ──
+    if (action === "recover-stalled") {
+      const STALE_PROCESSING_MINUTES = 5;
+      const recovered: string[] = [];
+
+      // 1. Reset contacts stuck in "processing" for too long back to "pending"
+      await sb.from("mass_inject_contacts")
+        .update({ status: "pending", error_message: "Reprocessando (recuperação automática)." } as any)
+        .eq("status", "processing")
+        .lt("processed_at", new Date(Date.now() - STALE_PROCESSING_MINUTES * 60_000).toISOString());
+
+      // 2. Find campaigns that should be running but have no active worker
+      const { data: stalledCampaigns } = await sb
+        .from("mass_inject_campaigns")
+        .select("id, status, updated_at")
+        .in("status", ["queued", "processing"])
+        .lt("updated_at", new Date(Date.now() - STALE_PROCESSING_MINUTES * 60_000).toISOString());
+
+      for (const campaign of stalledCampaigns || []) {
+        // Check if there are still pending contacts
+        const { count } = await sb
+          .from("mass_inject_contacts")
+          .select("id", { count: "exact", head: true })
+          .eq("campaign_id", campaign.id)
+          .in("status", ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"]);
+
+        if (Number(count || 0) > 0) {
+          // Try to acquire lock — if it succeeds, the old worker is truly dead
+          const { data: lockOk } = await sb.rpc("try_acquire_mass_inject_run_lock", { p_campaign_id: campaign.id });
+          if (lockOk) {
+            // Release immediately — queueCampaignRun will re-acquire
+            await sb.rpc("release_mass_inject_run_lock", { p_campaign_id: campaign.id });
+            console.log(`[mass-inject-recovery] Resuming stalled campaign=${campaign.id}`);
+            await queueCampaignRun(campaign.id, randomBetween(2000, 5000));
+            recovered.push(campaign.id);
+          }
+          // If lock NOT acquired, a worker is still running — do nothing
+        } else {
+          // No pending contacts left — finalize
+          await finalizeCampaignIfNeeded(sb, campaign.id);
+        }
+      }
+
+      console.log(`[mass-inject-recovery] Recovered ${recovered.length} campaigns: ${recovered.join(", ") || "none"}`);
+      return new Response(JSON.stringify({ success: true, recovered }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     if (!user && !internalRun) {
       return new Response(JSON.stringify({ error: "Não autorizado" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
