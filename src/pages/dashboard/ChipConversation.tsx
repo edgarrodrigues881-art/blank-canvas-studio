@@ -74,6 +74,20 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = 
   completed: { label: "Concluído", color: "bg-blue-500/15 text-blue-400 border-blue-500/30", icon: CheckCircle2 },
 };
 
+type ConversationVisualStatus = "idle" | "running" | "paused" | "completed";
+
+function normalizeConversationStatus(status: string | null | undefined): ConversationVisualStatus {
+  const normalized = String(status || "").trim().toLowerCase();
+
+  if (normalized === "active") return "running";
+  if (normalized === "canceled" || normalized === "cancelled" || normalized === "stopped") return "idle";
+  if (normalized === "paused" || normalized === "completed" || normalized === "running" || normalized === "idle") {
+    return normalized;
+  }
+
+  return "idle";
+}
+
 function useDevices() {
   return useQuery({
     queryKey: ["devices_for_conversation"],
@@ -201,7 +215,8 @@ function ConversationCard({
   onSelectLogs: () => void;
   showLogs: boolean;
 }) {
-  const status = STATUS_MAP[conv.status] || STATUS_MAP.idle;
+  const normalizedStatus = normalizeConversationStatus(conv.status);
+  const status = STATUS_MAP[normalizedStatus];
   const StatusIcon = status.icon;
   const deviceNames = (conv.device_ids || [])
     .map((id) => devices.find((d) => d.id === id)?.name || "???")
@@ -209,17 +224,15 @@ function ConversationCard({
 
   const handleAction = async (action: "start" | "pause" | "resume" | "stop") => {
     try {
-      console.log(`[ChipConversation] Executing action: ${action} for conversation: ${conv.id}, current status: ${conv.status}`);
       if (action === "start") await actions.start.mutateAsync(conv.id);
       else if (action === "pause") await actions.pause.mutateAsync(conv.id);
       else if (action === "resume") await actions.resume.mutateAsync(conv.id);
       else if (action === "stop") await actions.stop.mutateAsync(conv.id);
-      console.log(`[ChipConversation] Action ${action} completed successfully`);
       toast.success(
         action === "start" ? "Conversa iniciada!" :
         action === "pause" ? "Conversa pausada" :
         action === "resume" ? "Conversa retomada!" :
-        "Conversa encerrada"
+        "Conversa cancelada"
       );
     } catch (e: any) {
       console.error(`[ChipConversation] Action ${action} failed:`, e);
@@ -265,12 +278,12 @@ function ConversationCard({
 
         {/* Action buttons */}
         <div className="flex items-center gap-2 shrink-0">
-          {conv.status === "idle" || conv.status === "completed" ? (
+          {normalizedStatus === "idle" || normalizedStatus === "completed" ? (
             <Button size="sm" onClick={() => handleAction("start")} disabled={isActionLoading} className="gap-1.5">
               {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
               Iniciar
             </Button>
-          ) : conv.status === "running" ? (
+          ) : normalizedStatus === "running" ? (
             <>
               <Button size="sm" variant="outline" onClick={() => handleAction("pause")} disabled={isActionLoading} className="gap-1.5">
                 <Pause className="w-3.5 h-3.5" />
@@ -280,24 +293,24 @@ function ConversationCard({
                 <AlertDialogTrigger asChild>
                   <Button size="sm" variant="destructive" disabled={isActionLoading} className="gap-1.5">
                     <Square className="w-3.5 h-3.5" />
-                    Parar
+                    Cancelar
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Parar conversa?</AlertDialogTitle>
+                    <AlertDialogTitle>Cancelar conversa?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      A conversa será encerrada e os chips pararão de trocar mensagens.
+                      A conversa automática será encerrada e os chips vão parar de trocar mensagens.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleAction("stop")}>Parar</AlertDialogAction>
+                    <AlertDialogCancel>Fechar</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleAction("stop")}>Cancelar conversa</AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             </>
-          ) : conv.status === "paused" ? (
+          ) : normalizedStatus === "paused" ? (
             <>
               <Button size="sm" onClick={() => handleAction("resume")} disabled={isActionLoading} className="gap-1.5">
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -305,7 +318,7 @@ function ConversationCard({
               </Button>
               <Button size="sm" variant="destructive" onClick={() => handleAction("stop")} disabled={isActionLoading} className="gap-1.5">
                 <Square className="w-3.5 h-3.5" />
-                Parar
+                Cancelar
               </Button>
             </>
           ) : null}
