@@ -1197,9 +1197,11 @@ Deno.serve(async (req) => {
             await heartbeatLock(serviceClient, campaignId);
           }
 
-          if (heartbeatCounter % 15 === 1) {
+          // Check pause/cancel status EVERY message to stop immediately
+          {
             const { data: freshCampaign } = await serviceClient.from("campaigns").select("status").eq("id", campaignId).single();
             if (freshCampaign && (freshCampaign.status === "paused" || freshCampaign.status === "canceled")) {
+              console.log(`⛔ Campaign ${campaignId} is ${freshCampaign.status}, stopping immediately`);
               await serviceClient.from("campaign_contacts").update({ status: "pending" }).eq("id", contact.id).eq("status", "processing");
               break;
             }
