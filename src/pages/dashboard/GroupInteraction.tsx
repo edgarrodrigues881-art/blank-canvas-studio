@@ -248,22 +248,14 @@ export default function GroupInteractionPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Sidebar - List */}
-        <div className="lg:col-span-1 space-y-3">
+      {/* Automations list - horizontal cards when items exist */}
+      {interactions.length > 0 && (
+        <div className="space-y-2">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Automações ({interactions.length})
           </h3>
-          {isLoading ? (
-            <div className="text-sm text-muted-foreground">Carregando...</div>
-          ) : interactions.length === 0 && !showConfig ? (
-            <Card className="border-dashed">
-              <CardContent className="p-6 text-center text-muted-foreground text-sm">
-                Nenhuma automação criada.
-              </CardContent>
-            </Card>
-          ) : (
-            interactions.map((inter) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {interactions.map((inter) => (
               <Card
                 key={inter.id}
                 className={`cursor-pointer transition-all hover:border-primary/40 ${
@@ -288,12 +280,13 @@ export default function GroupInteractionPage() {
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
+            ))}
+          </div>
         </div>
+      )}
 
-        {/* Main content */}
-        <div className="lg:col-span-3 space-y-4">
+      {/* Main content - full width */}
+      <div className="space-y-4">
           {showConfig ? (
             <>
               {/* Controls bar */}
@@ -651,7 +644,6 @@ export default function GroupInteractionPage() {
               </CardContent>
             </Card>
           )}
-        </div>
       </div>
     </div>
   );
