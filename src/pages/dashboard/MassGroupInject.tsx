@@ -1489,8 +1489,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                   )}
                 </div>
 
-                {/* Selected group indicator */}
-                {groupId && (
+                {/* Selected group indicator - only show when using link/jid mode */}
+                {groupId && groupInputMode !== "list" && (
                   <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 px-4 py-3 flex items-center gap-3">
                     <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
                     <div className="min-w-0 flex-1">
