@@ -528,15 +528,8 @@ async function acquireDeviceLocks(serviceClient: any, deviceIds: string[], campa
 }
 
 async function releaseDeviceLocks(serviceClient: any, deviceIds: string[], campaignId: string) {
-  const RELEASE_BATCH = 50;
-  for (let i = 0; i < deviceIds.length; i += RELEASE_BATCH) {
-    const batch = deviceIds.slice(i, i + RELEASE_BATCH);
-    await Promise.allSettled(
-      batch.map(deviceId =>
-        serviceClient.rpc("release_device_lock", { _device_id: deviceId, _campaign_id: campaignId })
-      )
-    );
-  }
+  // Release ALL locks for this campaign (covers duplicates and race conditions)
+  await serviceClient.from("campaign_device_locks").delete().eq("campaign_id", campaignId);
 }
 
 async function startNextQueuedCampaigns(serviceClient: any, deviceIds: string[], supabaseUrl: string, serviceRoleKey: string) {
