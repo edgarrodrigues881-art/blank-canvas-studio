@@ -134,10 +134,6 @@ const Auth = () => {
       return;
     }
 
-    if (!isLogin && password !== confirmPassword) {
-      toast({ title: "Senhas não coincidem", description: "A senha e a confirmação devem ser iguais.", variant: "destructive" });
-      return;
-    }
 
     setLoading(true);
 
@@ -246,8 +242,10 @@ const Auth = () => {
           className="flex flex-col items-center mb-10"
         >
           <div className="relative mb-4">
-            <div className="absolute -inset-2 rounded-3xl opacity-30 blur-xl" style={{ background: "linear-gradient(135deg, #22c55e, #fbbf24)" }} />
-            <img src={logo} alt="DG Contingência Pro" className="relative w-[88px] h-[88px] rounded-2xl shadow-2xl" style={{ background: '#111' }} />
+            <div className="absolute -inset-3 rounded-3xl opacity-40 blur-xl" style={{ background: "linear-gradient(135deg, #fbbf24, #d97706, #fbbf24)" }} />
+            <div className="relative p-[2px] rounded-2xl" style={{ background: "linear-gradient(135deg, #fbbf24, #d97706, #f59e0b, #fbbf24)" }}>
+              <img src={logo} alt="DG Contingência Pro" className="w-[88px] h-[88px] rounded-[14px] shadow-2xl" style={{ background: '#111' }} />
+            </div>
           </div>
           <span className="text-[11px] font-bold tracking-[0.3em] uppercase">
             <span className="text-emerald-400">DG</span>
@@ -321,29 +319,19 @@ const Auth = () => {
                     <Input id="phone" type="tel" placeholder="(00) 00000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} required maxLength={20} />
                   </div>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="company" className="text-[11px] font-semibold text-white/40 tracking-wider uppercase">
-                    Nome fantasia
-                  </Label>
-                  <div className="relative group">
-                    <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 group-focus-within:text-emerald-400 transition-colors" />
-                    <Input id="company" type="text" placeholder="Nome da empresa" value={company} onChange={(e) => setCompany(e.target.value)} className={inputClass} required maxLength={100} />
-                  </div>
-                </div>
               </>
             )}
 
             <div className="space-y-2">
               <Label htmlFor="email" className="text-[11px] font-semibold text-white/40 tracking-wider uppercase">
-                {isLogin ? "E-mail ou telefone" : "Endereço de e-mail"}
+                {isLogin ? "E-mail" : "Endereço de e-mail"}
               </Label>
               <div className="relative group">
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 group-focus-within:text-emerald-400 transition-colors" />
                 <Input
                   id="email"
-                  type={isLogin ? "text" : "email"}
-                  placeholder={isLogin ? "Seu e-mail ou número antigo" : "seu@email.com"}
+                  type="email"
+                  placeholder="Seu e-mail"
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
@@ -391,20 +379,6 @@ const Auth = () => {
               )}
             </div>
 
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-[11px] font-semibold text-white/40 tracking-wider uppercase">
-                  Confirmar senha
-                </Label>
-                <div className="relative group">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 group-focus-within:text-emerald-400 transition-colors" />
-                  <Input id="confirmPassword" type={showConfirmPassword ? "text" : "password"} placeholder="Repita a senha" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={`${inputClass} pr-11`} required minLength={8} />
-                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70 transition-colors">
-                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-            )}
 
             <Button
               type="submit"
@@ -458,15 +432,23 @@ const Auth = () => {
           {/* Divider */}
           <div className="my-7 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
 
-          <p className="text-center text-sm font-medium text-white/35">
-            {isLogin ? "Não tem conta? " : "Já tem conta? "}
+          <div className="text-center">
+            <p className="text-sm font-medium text-white/35 mb-3">
+              {isLogin ? "Não tem conta?" : "Já tem conta?"}
+            </p>
             <button
               onClick={() => setIsLogin(!isLogin)}
-              className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors duration-300"
+              className="w-full py-3 rounded-2xl text-sm font-bold border transition-all duration-300 hover:scale-[1.01]"
+              style={{
+                borderColor: "rgba(251, 191, 36, 0.3)",
+                background: "linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(217, 119, 6, 0.05))",
+                color: "#fbbf24",
+                boxShadow: "0 4px 20px -6px rgba(251, 191, 36, 0.15)",
+              }}
             >
-              {isLogin ? "Criar agora" : "Faça login"}
+              {isLogin ? "✨ Criar conta gratuita" : "Fazer login"}
             </button>
-          </p>
+          </div>
         </motion.div>
       </div>
 
