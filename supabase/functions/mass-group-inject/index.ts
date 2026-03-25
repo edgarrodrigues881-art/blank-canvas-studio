@@ -1190,14 +1190,23 @@ Deno.serve(async (req) => {
     if (action === "check-participants") {
       const device = await getDeviceCredentials(sb, body.deviceId, user?.id || null, isAdmin);
       if (!device) return new Response(JSON.stringify({ error: "Instância não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      console.log(`[check-participants] groupId=${body.groupId}, deviceId=${body.deviceId}, contacts=${(body.contacts || []).length}`);
       const participantResult = await getGroupParticipantsDetailed(device.uazapi_base_url, device.uazapi_token, body.groupId);
-      if (!participantResult.confirmed) return new Response(JSON.stringify({ error: "Não foi possível confirmar participantes. Tente novamente.", diagnostics: participantResult.diagnostics.join("; ") }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      console.log(`[check-participants] confirmed=${participantResult.confirmed}, participants=${participantResult.participants.size}, diagnostics=${participantResult.diagnostics.join("; ")}`);
+      if (!participantResult.confirmed) {
+        return new Response(JSON.stringify({ 
+          error: `Não foi possível confirmar participantes do grupo. ${participantResult.diagnostics.length > 0 ? participantResult.diagnostics[participantResult.diagnostics.length - 1] : "Tente novamente."}`,
+          diagnostics: participantResult.diagnostics.join("; ")
+        }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       const ready: string[] = [];
       const alreadyExists: string[] = [];
       for (const phone of body.contacts || []) {
-        if (participantSetHasPhone(participantResult.participants, phone)) alreadyExists.push(phone);
+        const isInGroup = participantSetHasPhone(participantResult.participants, phone);
+        if (isInGroup) alreadyExists.push(phone);
         else ready.push(phone);
       }
+      console.log(`[check-participants] ready=${ready.length}, alreadyExists=${alreadyExists.length}, totalParticipants=${participantResult.participants.size}`);
       return new Response(JSON.stringify({ ready, alreadyExists, readyCount: ready.length, alreadyExistsCount: alreadyExists.length, totalParticipants: participantResult.participants.size }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
