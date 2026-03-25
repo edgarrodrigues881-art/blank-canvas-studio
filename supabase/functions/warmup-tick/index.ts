@@ -1755,7 +1755,7 @@ async function handleTick(
         (resetDistinct.data || []).forEach((j: any) => cyclesWithReset.add(j.cycle_id));
       }
       const nowMs = Date.now();
-      const STALE_RESET_MS = 36 * 60 * 60 * 1000; // 36 hours — more conservative to avoid day-skipping on pause/resume
+      const STALE_RESET_MS = 26 * 60 * 60 * 1000; // 26 hours — detect missed daily resets faster
 
       for (const cycle of runningCycles) {
         const chipState = cycle.chip_state || "new";
@@ -1916,7 +1916,86 @@ async function handleTick(
 
         // ── Original orphan recovery: running with 0 pending jobs ──
         if (cyclesWithJobs.has(cycle.id)) continue;
-        if (cycle.daily_interaction_budget_used >= cycle.daily_interaction_budget_target && cycle.daily_interaction_budget_target > 0) continue;
+
+        // ── FIX C: Detect budget-full cycles that missed their daily reset ──
+        // If budget is full but last_daily_reset_at is from a previous BRT day, force reset now
+        if (cycle.daily_interaction_budget_used >= cycle.daily_interaction_budget_target && cycle.daily_interaction_budget_target > 0) {
+          const lastResetRef = cycle.last_daily_reset_at || cycle.created_at || cycle.started_at;
+          if (lastResetRef) {
+            const nowBrt = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+            const resetBrt = new Date(new Date(lastResetRef).toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+            const nowDay = `${nowBrt.getFullYear()}-${nowBrt.getMonth()}-${nowBrt.getDate()}`;
+            const resetDay = `${resetBrt.getFullYear()}-${resetBrt.getMonth()}-${resetBrt.getDate()}`;
+
+            if (nowDay !== resetDay && nowBrt.getHours() >= 7) {
+              // Budget full from a previous day — force daily reset
+              const { data: dev } = await db.from("devices").select("status").eq("id", cycle.device_id).maybeSingle();
+              if (dev && CONNECTED_STATUSES.includes(dev.status)) {
+                const chipState = cycle.chip_state || "new";
+                const newDay = Math.min((cycle.day_index || 1) + 1, cycle.days_total);
+
+                if (newDay > cycle.days_total) {
+                  await db.from("warmup_cycles").update({ is_running: false, phase: "completed" }).eq("id", cycle.id);
+                  continue;
+                }
+
+                const newPhase = getPhaseForDay(newDay, chipState);
+                const resetAt = new Date().toISOString();
+
+                // Cancel any leftover pending jobs
+                await db.from("warmup_jobs")
+                  .update({ status: "cancelled", last_error: "Cancelado: reset forçado (budget cheio do dia anterior)" })
+                  .eq("cycle_id", cycle.id).eq("status", "pending");
+
+                await db.from("warmup_cycles").update({
+                  day_index: newDay, phase: newPhase,
+                  last_daily_reset_at: resetAt,
+                  daily_interaction_budget_used: 0, daily_unique_recipients_used: 0,
+                }).eq("id", cycle.id);
+
+                // Ensure community membership
+                if (isCommunityPhase(newPhase) || ["autosave_enabled", "community_ramp_up", "community_stable"].includes(newPhase)) {
+                  const { data: membership } = await db.from("warmup_community_membership")
+                    .select("id, is_enabled").eq("device_id", cycle.device_id).maybeSingle();
+                  if (!membership) {
+                    await db.from("warmup_community_membership").insert({
+                      user_id: cycle.user_id, device_id: cycle.device_id, cycle_id: cycle.id,
+                      is_eligible: true, is_enabled: true, enabled_at: resetAt,
+                    });
+                  } else if (!membership.is_enabled) {
+                    await db.from("warmup_community_membership")
+                      .update({ is_enabled: true, is_eligible: true, enabled_at: resetAt, cycle_id: cycle.id })
+                      .eq("id", membership.id);
+                  }
+                }
+
+                if (isCommunityPhase(newPhase)) {
+                  await reconcileCommunityPairs(db, { deviceId: cycle.device_id, userId: cycle.user_id, cycleId: cycle.id, dayIndex: newDay, chipState });
+                }
+
+                await ensureJoinGroupJobs(db, cycle.id, cycle.user_id, cycle.device_id);
+                await scheduleDayJobs(db, cycle.id, cycle.user_id, cycle.device_id, newDay, newPhase, chipState, true);
+
+                const nextReset = new Date();
+                nextReset.setUTCDate(nextReset.getUTCDate() + 1);
+                nextReset.setUTCHours(9, 45, 0, 0);
+                await db.from("warmup_jobs").insert({
+                  user_id: cycle.user_id, device_id: cycle.device_id, cycle_id: cycle.id,
+                  job_type: "daily_reset", payload: {}, run_at: nextReset.toISOString(), status: "pending",
+                });
+
+                await db.from("warmup_audit_logs").insert({
+                  user_id: cycle.user_id, device_id: cycle.device_id, cycle_id: cycle.id,
+                  level: "warning", event_type: "forced_reset_budget_full",
+                  message: `Reset forçado: budget ${cycle.daily_interaction_budget_used}/${cycle.daily_interaction_budget_target} do dia anterior. Avançou para dia ${newDay} (${newPhase})`,
+                });
+
+                console.log(`[warmup-tick] FORCED RESET (budget full from prev day): cycle ${cycle.id} → day ${newDay} (${newPhase})`);
+              }
+            }
+          }
+          continue;
+        }
 
         // ── COOLDOWN: Skip orphan recovery if cycle was updated < 5 min ago (prevents infinite regeneration loop) ──
         const cycleUpdatedMs2 = cycle.updated_at ? new Date(cycle.updated_at).getTime() : 0;
