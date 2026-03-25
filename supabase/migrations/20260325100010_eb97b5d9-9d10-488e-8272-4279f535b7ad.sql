@@ -1,0 +1,1 @@
+UPDATE feature_controls SET status = 'active', updated_at = now() WHERE feature_key = 'group_interaction';
