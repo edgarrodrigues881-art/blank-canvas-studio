@@ -353,6 +353,61 @@ async function checkInstanceConnection(baseUrl: string, token: string): Promise<
   }
 }
 
+/**
+ * Multi-check revalidation: performs up to DISCONNECT_RECHECK_COUNT checks
+ * with intervals between them. Only confirms disconnect if ALL checks agree.
+ * Returns session_dropped (retryable) if results are inconsistent.
+ */
+async function checkInstanceConnectionWithRetries(
+  baseUrl: string,
+  token: string,
+  context: string = ""
+): Promise<{ finalResult: ConnectionCheckResult; checks: ConnectionCheckResult[]; confirmedDisconnect: boolean }> {
+  const checks: ConnectionCheckResult[] = [];
+
+  for (let i = 0; i < DISCONNECT_RECHECK_COUNT; i++) {
+    if (i > 0) await sleep(DISCONNECT_RECHECK_INTERVAL_MS);
+    const check = await checkInstanceConnection(baseUrl, token);
+    checks.push(check);
+
+    console.log(JSON.stringify({
+      type: "mass-group-inject.connection_recheck",
+      attempt: i + 1,
+      total: DISCONNECT_RECHECK_COUNT,
+      connected: check.connected,
+      status: check.status,
+      detail: check.detail,
+      context,
+      timestamp: nowIso(),
+    }));
+
+    // If any check confirms connected, the instance is alive — stop checking
+    if (check.connected === true) {
+      return { finalResult: check, checks, confirmedDisconnect: false };
+    }
+  }
+
+  // All checks completed — analyze results
+  const disconnectedCount = checks.filter(c => c.connected === false).length;
+  const unknownCount = checks.filter(c => c.connected === null).length;
+
+  // Only confirm disconnect if ALL checks returned disconnected (no unknowns)
+  if (disconnectedCount === DISCONNECT_RECHECK_COUNT) {
+    return {
+      finalResult: { connected: false, status: "confirmed_offline", detail: `Desconexão confirmada após ${DISCONNECT_RECHECK_COUNT} verificações.` },
+      checks,
+      confirmedDisconnect: true,
+    };
+  }
+
+  // Mixed results or all unknown — treat as transient session drop
+  return {
+    finalResult: { connected: null, status: "session_unstable", detail: `Sessão instável: ${disconnectedCount} offline, ${unknownCount} sem resposta de ${DISCONNECT_RECHECK_COUNT} verificações.` },
+    checks,
+    confirmedDisconnect: false,
+  };
+}
+
 async function checkGroupAccess(baseUrl: string, token: string, groupId: string): Promise<GroupCheckResult> {
   const endpoints = [
     { method: "POST", url: `${baseUrl}/group/info`, body: { groupJid: groupId } },
