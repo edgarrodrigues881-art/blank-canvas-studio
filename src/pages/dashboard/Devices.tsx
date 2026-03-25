@@ -183,45 +183,50 @@ const Devices = () => {
   const qrCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Fetch devices from database
-  const { data: devices = [] } = useQuery({
+  const { data: devices = [], isLoading: devicesLoading, isError: devicesError } = useQuery({
     queryKey: ["devices"],
     queryFn: async () => {
       const userId = session?.user?.id;
       if (!userId) return [];
-      const [devicesRes, tokensRes] = await Promise.all([
-        supabase
-          .from("devices")
-          .select("id, name, number, status, login_type, proxy_id, profile_picture, profile_name, created_at, updated_at, instance_type")
-          .eq("user_id", userId)
-          .neq("login_type", "report_wa")
-          .order("created_at", { ascending: true })
-          .order("id", { ascending: true }),
-        supabase
-          .from("user_api_tokens")
-          .select("device_id")
-          .not("device_id", "is", null)
-          .eq("status", "in_use"),
-      ]);
-      if (devicesRes.error) throw devicesRes.error;
-      const configuredDeviceIds = new Set(
-        (tokensRes.data || []).map((t: any) => t.device_id)
-      );
-      const deletedIds = getRecentlyDeletedIds();
-      return (devicesRes.data || [])
-        .filter((d: any) => !deletedIds.has(d.id))
-        .map((d: any) => ({
-          id: d.id,
-          name: d.name,
-          number: d.number || "",
-          status: d.status as "Ready" | "Disconnected" | "Loading",
-          login_type: d.login_type,
-          proxy_id: d.proxy_id,
-          profile_picture: d.profile_picture || null,
-          profile_name: d.profile_name || null,
-          created_at: d.created_at,
-          updated_at: d.updated_at,
-          has_api_config: configuredDeviceIds.has(d.id),
-        })) as Device[];
+      try {
+        const [devicesRes, tokensRes] = await Promise.all([
+          supabase
+            .from("devices")
+            .select("id, name, number, status, login_type, proxy_id, profile_picture, profile_name, created_at, updated_at, instance_type")
+            .eq("user_id", userId)
+            .neq("login_type", "report_wa")
+            .order("created_at", { ascending: true })
+            .order("id", { ascending: true }),
+          supabase
+            .from("user_api_tokens")
+            .select("device_id")
+            .not("device_id", "is", null)
+            .eq("status", "in_use"),
+        ]);
+        if (devicesRes.error) throw devicesRes.error;
+        const configuredDeviceIds = new Set(
+          (tokensRes.data || []).map((t: any) => t.device_id)
+        );
+        const deletedIds = getRecentlyDeletedIds();
+        return (devicesRes.data || [])
+          .filter((d: any) => !deletedIds.has(d.id))
+          .map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            number: d.number || "",
+            status: d.status as "Ready" | "Disconnected" | "Loading",
+            login_type: d.login_type,
+            proxy_id: d.proxy_id,
+            profile_picture: d.profile_picture || null,
+            profile_name: d.profile_name || null,
+            created_at: d.created_at,
+            updated_at: d.updated_at,
+            has_api_config: configuredDeviceIds.has(d.id),
+          })) as Device[];
+      } catch (err) {
+        console.error("[Devices] Erro ao carregar instâncias:", err);
+        throw err;
+      }
     },
     enabled: !!session,
     refetchInterval: 30_000,
@@ -234,42 +239,57 @@ const Devices = () => {
   const { data: warmupSessions = [] } = useQuery({
     queryKey: ["warmup_sessions_active"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("warmup_sessions")
-        .select("device_id, status")
-        .in("status", ["running", "paused"]);
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data, error } = await supabase
+          .from("warmup_sessions")
+          .select("device_id, status")
+          .in("status", ["running", "paused"]);
+        if (error) {
+          console.warn("[Devices] warmup_sessions query error:", error.message);
+          return [];
+        }
+        return data || [];
+      } catch (err) {
+        console.warn("[Devices] warmup_sessions fetch failed:", err);
+        return [];
+      }
     },
     enabled: !!session,
+    retry: 1,
   });
 
   // Fetch warmup cycles (V2)
   const { data: warmupCycles = [] } = useQuery({
     queryKey: ["warmup_cycles_active"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("warmup_cycles")
-        .select("device_id, phase, is_running")
-        .eq("is_running", true);
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data, error } = await supabase
+          .from("warmup_cycles")
+          .select("device_id, phase, is_running")
+          .eq("is_running", true);
+        if (error) { console.warn("[Devices] warmup_cycles error:", error.message); return []; }
+        return data || [];
+      } catch { return []; }
     },
     enabled: !!session,
+    retry: 1,
   });
 
   // Fetch campaigns with active states (sending, scheduled, paused)
   const { data: activeCampaigns = [] } = useQuery({
     queryKey: ["active_campaigns_for_devices"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("campaigns")
-        .select("id, name, status, device_id, device_ids")
-        .in("status", ["sending", "scheduled", "paused", "processing"]);
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data, error } = await supabase
+          .from("campaigns")
+          .select("id, name, status, device_id, device_ids")
+          .in("status", ["sending", "scheduled", "paused", "processing"]);
+        if (error) { console.warn("[Devices] campaigns error:", error.message); return []; }
+        return data || [];
+      } catch { return []; }
     },
     enabled: !!session,
+    retry: 1,
   });
 
   const warmupDeviceIds = useMemo(() => {
@@ -326,14 +346,17 @@ const Devices = () => {
   const { data: dbProxies = [] } = useQuery({
     queryKey: ["proxies"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("proxies")
-        .select("id, host, port, username, password, type, status, display_id, active")
-        .eq("active", true)
-        .order("display_id", { ascending: true });
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from("proxies")
+          .select("id, host, port, username, password, type, status, display_id, active")
+          .eq("active", true)
+          .order("display_id", { ascending: true });
+        if (error) { console.warn("[Devices] proxies error:", error.message); return []; }
+        return data || [];
+      } catch { return []; }
     },
+    retry: 1,
   });
 
   const availableProxies = dbProxies.map((p, index) => ({
@@ -1623,6 +1646,44 @@ const Devices = () => {
   ];
 
   const editHeaderPhoto = wpRemovePhoto ? "" : (wpPhotoUrl || editingDevice?.profile_picture || "");
+
+  if (devicesLoading) {
+    return (
+      <div className="w-full space-y-4">
+        <div className="flex items-center gap-2">
+          <h1 className="text-base sm:text-lg font-bold text-foreground">Instâncias</h1>
+        </div>
+        <div className="flex justify-center py-16">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Carregando instâncias...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (devicesError) {
+    return (
+      <div className="w-full space-y-4">
+        <div className="flex items-center gap-2">
+          <h1 className="text-base sm:text-lg font-bold text-foreground">Instâncias</h1>
+        </div>
+        <div className="flex justify-center py-16">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center">
+              <AlertTriangle className="w-6 h-6 text-destructive" />
+            </div>
+            <p className="text-sm font-medium text-foreground">Erro ao carregar instâncias</p>
+            <p className="text-xs text-muted-foreground max-w-xs">Não foi possível buscar suas instâncias. Verifique sua conexão e tente novamente.</p>
+            <Button size="sm" variant="outline" className="gap-1.5 mt-2" onClick={() => queryClient.invalidateQueries({ queryKey: ["devices"] })}>
+              <RefreshCw className="w-3.5 h-3.5" /> Tentar novamente
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full space-y-4">
