@@ -1,0 +1,1 @@
+ALTER TABLE public.mass_inject_campaigns ADD COLUMN IF NOT EXISTS last_event_type text DEFAULT NULL;
