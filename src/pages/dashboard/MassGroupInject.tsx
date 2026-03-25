@@ -78,14 +78,15 @@ function randomBetween(min: number, max: number) {
 function translateError(err: string): string {
   const clean = (err || "").replace(/^\[retry:\d+\]\s*/i, "").trim();
   const e = clean.toLowerCase();
-  if (e.includes("confirmed_disconnect") || e.includes("realmente desconectada")) return "Instância desconectada (confirmado)";
-  if (e.includes("connection_unconfirmed")) return "Conexão não pôde ser confirmada";
+  if (e.includes("session_dropped") || e.includes("sessão da api")) return "Sessão da API desconectada (temporário)";
+  if (e.includes("confirmed_disconnect") || e.includes("realmente desconectada")) return "Instância offline (confirmado)";
+  if (e.includes("connection_unconfirmed")) return "Conexão instável — revalidando";
   if (e.includes("confirmed_no_admin") || e.includes("privilégio de admin")) return "Sem privilégio de admin (confirmado)";
   if (e.includes("permission_unconfirmed")) return "Permissão de admin não confirmada";
   if (e.includes("invalid_group") || e.includes("grupo inválido")) return "Grupo inválido ou inacessível";
   if (e.includes("contact_not_found") || e.includes("não foi encontrado")) return "Contato não encontrado no WhatsApp";
   if (e.includes("unauthorized") || e.includes("autenticação")) return "Falha de autenticação da instância";
-  if (e.includes("blocked") || e.includes("ban") || e.includes("bloqueio")) return "Número bloqueado ou restrito";
+  if (e.includes("blocked") || e.includes("ban") || e.includes("bloqueio")) return "Número bloqueado pelo WhatsApp";
   if (e.includes("limite de requisições") || e.includes("rate") || e.includes("429")) return "Limite de API (429) — aguardando";
   if (e.includes("api temporariamente")) return "API sobrecarregada — aguardando";
   if (e.includes("tentativas esgotadas")) return clean;
@@ -95,7 +96,8 @@ function translateError(err: string): string {
   if (e.includes("cancelada pelo usuário")) return "Cancelado pelo usuário";
   if (e.includes("não classificada") || e.includes("falha não")) return "Falha não classificada";
   // Don't use generic "Erro temporário" - show what we know
-  if (e.includes("whatsapp disconnected") || e.includes("disconnected")) return "Instância desconectada";
+  if (e.includes("sessão") && e.includes("desconectada")) return "Sessão da API desconectada";
+  if (e.includes("whatsapp disconnected") || e.includes("disconnected")) return "Sessão da API desconectada (temporário)";
   if (e.includes("not admin")) return "Sem privilégio de admin";
   if (e.includes("not found") || e.includes("info query")) return "Número não encontrado";
   if (e.includes("full") || e.includes("limit")) return "Grupo cheio";
@@ -118,14 +120,15 @@ function statusLabel(status: string) {
     case "rate_limited": return "Limite de API";
     case "api_temporary": return "Falha temporária";
     case "temporary_error": return "Erro temporário";
-    case "connection_unconfirmed": return "Conexão não confirmada";
-    case "confirmed_disconnect": return "Desconectada";
+    case "connection_unconfirmed": return "Conexão instável";
+    case "session_dropped": return "Sessão desconectada";
+    case "confirmed_disconnect": return "Offline (confirmado)";
     case "permission_unconfirmed": return "Admin não confirmado";
     case "confirmed_no_admin": return "Sem privilégio";
     case "invalid_group": return "Grupo inválido";
     case "contact_not_found": return "Contato inexistente";
     case "unauthorized": return "Autenticação";
-    case "blocked": return "Restringido";
+    case "blocked": return "Bloqueado (WhatsApp)";
     case "unknown_failure": return "Falha não confirmada";
     case "failed": return "Falha";
     case "pending": return "Pendente";
@@ -148,8 +151,9 @@ function statusBadge(status: string) {
     case "api_temporary": return "border-amber-500/30 text-amber-600 bg-amber-500/5";
     case "temporary_error": return "border-amber-500/30 text-amber-600 bg-amber-500/5";
     case "connection_unconfirmed": return "border-amber-500/30 text-amber-600 bg-amber-500/5";
+    case "session_dropped": return "border-amber-500/30 text-amber-600 bg-amber-500/5";
     case "permission_unconfirmed": return "border-amber-500/30 text-amber-600 bg-amber-500/5";
-    case "confirmed_disconnect": return "border-destructive/30 text-destructive bg-destructive/5";
+    case "confirmed_disconnect": return "border-orange-500/30 text-orange-500 bg-orange-500/5";
     case "confirmed_no_admin": return "border-destructive/30 text-destructive bg-destructive/5";
     case "invalid_group": return "border-destructive/30 text-destructive bg-destructive/5";
     case "contact_not_found": return "border-destructive/30 text-destructive bg-destructive/5";
@@ -191,6 +195,7 @@ function isFailureStatus(status: string) {
     "api_temporary",
     "temporary_error",
     "connection_unconfirmed",
+    "session_dropped",
     "confirmed_disconnect",
     "permission_unconfirmed",
     "confirmed_no_admin",

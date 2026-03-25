@@ -1,4 +1,4 @@
-// mass-group-inject v14.0 — fetch timeout + delay by result type + robust finalization
+// mass-group-inject v15.0 — multi-check disconnect recovery + session_dropped status
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -12,7 +12,8 @@ type ContactProcessingStatus =
   | "rate_limited"
   | "api_temporary"
   | "connection_unconfirmed"
-  | "confirmed_disconnect"
+  | "session_dropped"       // NEW: transient session drop, retryable with cooldown
+  | "confirmed_disconnect"  // ONLY when multiple checks confirm truly offline
   | "permission_unconfirmed"
   | "confirmed_no_admin"
   | "invalid_group"
@@ -63,17 +64,20 @@ interface ExecuteResult {
 
 const SUCCESS_STATUSES = new Set(["completed", "already_exists"]);
 const FAILURE_STATUSES = new Set([
-  "rate_limited", "api_temporary", "connection_unconfirmed", "confirmed_disconnect",
+  "rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped", "confirmed_disconnect",
   "permission_unconfirmed", "confirmed_no_admin", "invalid_group", "contact_not_found",
   "unauthorized", "blocked", "unknown_failure", "timeout",
 ]);
 
 const FINAL_CAMPAIGN_STATUSES = new Set(["done", "completed_with_failures", "paused", "cancelled", "failed"]);
-const RETRYABLE_QUEUE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure", "timeout"] as const;
+const RETRYABLE_QUEUE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped", "permission_unconfirmed", "unknown_failure", "timeout"] as const;
 const MAX_QUEUE_RETRIES = 3;
-const MAX_RATE_LIMIT_RETRIES = 8; // 429 is API throttling, not account restriction — allow more retries with increasing cooldown
-const STALE_PROCESSING_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
-const API_TIMEOUT_MS = 25_000; // 25s timeout for all external API calls
+const MAX_RATE_LIMIT_RETRIES = 8;
+const MAX_SESSION_DROP_RETRIES = 5; // session drops get more retries since they're transient
+const STALE_PROCESSING_TIMEOUT_MS = 3 * 60 * 1000;
+const API_TIMEOUT_MS = 25_000;
+const DISCONNECT_RECHECK_COUNT = 3; // Number of checks before confirming disconnect
+const DISCONNECT_RECHECK_INTERVAL_MS = 8_000; // Interval between recheck attempts
 
 // ── Endpoint cache: avoid trying all 5 strategies every time ──
 const endpointCache = new Map<string, number>();
@@ -349,6 +353,61 @@ async function checkInstanceConnection(baseUrl: string, token: string): Promise<
   }
 }
 
+/**
+ * Multi-check revalidation: performs up to DISCONNECT_RECHECK_COUNT checks
+ * with intervals between them. Only confirms disconnect if ALL checks agree.
+ * Returns session_dropped (retryable) if results are inconsistent.
+ */
+async function checkInstanceConnectionWithRetries(
+  baseUrl: string,
+  token: string,
+  context: string = ""
+): Promise<{ finalResult: ConnectionCheckResult; checks: ConnectionCheckResult[]; confirmedDisconnect: boolean }> {
+  const checks: ConnectionCheckResult[] = [];
+
+  for (let i = 0; i < DISCONNECT_RECHECK_COUNT; i++) {
+    if (i > 0) await sleep(DISCONNECT_RECHECK_INTERVAL_MS);
+    const check = await checkInstanceConnection(baseUrl, token);
+    checks.push(check);
+
+    console.log(JSON.stringify({
+      type: "mass-group-inject.connection_recheck",
+      attempt: i + 1,
+      total: DISCONNECT_RECHECK_COUNT,
+      connected: check.connected,
+      status: check.status,
+      detail: check.detail,
+      context,
+      timestamp: nowIso(),
+    }));
+
+    // If any check confirms connected, the instance is alive — stop checking
+    if (check.connected === true) {
+      return { finalResult: check, checks, confirmedDisconnect: false };
+    }
+  }
+
+  // All checks completed — analyze results
+  const disconnectedCount = checks.filter(c => c.connected === false).length;
+  const unknownCount = checks.filter(c => c.connected === null).length;
+
+  // Only confirm disconnect if ALL checks returned disconnected (no unknowns)
+  if (disconnectedCount === DISCONNECT_RECHECK_COUNT) {
+    return {
+      finalResult: { connected: false, status: "confirmed_offline", detail: `Desconexão confirmada após ${DISCONNECT_RECHECK_COUNT} verificações.` },
+      checks,
+      confirmedDisconnect: true,
+    };
+  }
+
+  // Mixed results or all unknown — treat as transient session drop
+  return {
+    finalResult: { connected: null, status: "session_unstable", detail: `Sessão instável: ${disconnectedCount} offline, ${unknownCount} sem resposta de ${DISCONNECT_RECHECK_COUNT} verificações.` },
+    checks,
+    confirmedDisconnect: false,
+  };
+}
+
 async function checkGroupAccess(baseUrl: string, token: string, groupId: string): Promise<GroupCheckResult> {
   const endpoints = [
     { method: "POST", url: `${baseUrl}/group/info`, body: { groupJid: groupId } },
@@ -479,21 +538,32 @@ async function executeAddWithRecovery(baseUrl: string, token: string, groupId: s
   // Each worker invocation processes a single attempt and lets the queue handle retries,
   // preventing burst calls that were causing 429 + false disconnect cascades.
   if (failure.status === "connection_unconfirmed") {
-    connectionCheck = await checkInstanceConnection(baseUrl, token);
+    // Multi-check revalidation: don't trust a single disconnect signal
+    const { finalResult: connectionCheck, checks, confirmedDisconnect } = await checkInstanceConnectionWithRetries(baseUrl, token, `add_failure:${phone}`);
+    
     if (connectionCheck.connected === true) {
+      // Instance is actually connected — this was a transient API hiccup
       failure = {
         status: "api_temporary",
         detail: "A integração acusou desconexão, mas a instância continua conectada.",
         retryable: true,
         cooldownMs: randomBetween(20_000, 35_000),
       };
-    } else if (connectionCheck.connected === false) {
+    } else if (confirmedDisconnect) {
+      // ALL checks confirmed disconnected — but this is still a SESSION issue, not a BAN
       failure = {
-        status: "confirmed_disconnect",
-        detail: "Instância revalidada e está realmente desconectada.",
-        retryable: false,
-        pauseCampaign: true,
-        confirmed: true,
+        status: "session_dropped",
+        detail: `Sessão da API desconectada (${DISCONNECT_RECHECK_COUNT}/${DISCONNECT_RECHECK_COUNT} verificações offline). Aguardando reconexão.`,
+        retryable: true,
+        cooldownMs: randomBetween(30_000, 60_000),
+      };
+    } else {
+      // Mixed/unknown results — treat as transient
+      failure = {
+        status: "session_dropped",
+        detail: `Sessão instável: ${checks.filter(c => c.connected === false).length} offline de ${DISCONNECT_RECHECK_COUNT} verificações. Aguardando estabilização.`,
+        retryable: true,
+        cooldownMs: randomBetween(25_000, 45_000),
       };
     }
   }
@@ -518,7 +588,7 @@ async function executeAddWithRecovery(baseUrl: string, token: string, groupId: s
     providerMessage: providerMessage.substring(0, 200),
     classifiedAs: failure.status,
     retryable: failure.retryable,
-    connectionStatus: connectionCheck?.status || null,
+    connectionStatus: null,
   }));
 
   return {
@@ -555,8 +625,8 @@ async function emitCampaignEvent(sb: any, campaignId: string, eventType: string,
 }
 
 // Statuses that are NOT real failures (temporary/retryable or informational)
-const TEMPORARY_STATUSES = new Set(["rate_limited", "timeout", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"]);
-// Statuses that represent REAL definitive failures
+const TEMPORARY_STATUSES = new Set(["rate_limited", "timeout", "api_temporary", "connection_unconfirmed", "session_dropped", "permission_unconfirmed", "unknown_failure"]);
+// Statuses that represent REAL definitive failures — session_dropped is NOT here (it's transient)
 const REAL_FAILURE_STATUSES = new Set(["confirmed_disconnect", "confirmed_no_admin", "invalid_group", "contact_not_found", "unauthorized", "blocked"]);
 
 async function updateCampaignCounters(sb: any, campaign: any, status: string, pauseCampaign = false, pauseReason?: string) {
@@ -572,6 +642,11 @@ async function updateCampaignCounters(sb: any, campaign: any, status: string, pa
     patch.already_count = Number(campaign.already_count || 0) + 1;
     patch.consecutive_failures = 0; // Reset on already_exists (not a failure)
     eventType = "contact_already_exists"; eventLevel = "info";
+  } else if (status === "session_dropped") {
+    // session_dropped is TRANSIENT — track separately, do NOT count as real fail
+    patch.timeout_count = Number(campaign.timeout_count || 0) + 1; // reuse timeout counter
+    eventType = "session_dropped"; eventLevel = "warning";
+    // Do NOT increment consecutive_failures — session drops are recoverable
   } else if (status === "rate_limited") {
     // rate_limited is API throttling — track separately, do NOT count as fail
     patch.rate_limit_count = Number(campaign.rate_limit_count || 0) + 1;
@@ -610,6 +685,7 @@ async function updateCampaignCounters(sb: any, campaign: any, status: string, pa
 function getPauseReason(status: string): string {
   switch (status) {
     case "confirmed_disconnect": return "Pausada por desconexão confirmada da instância";
+    case "session_dropped": return "Sessão da API desconectada. Reconecte a instância e retome.";
     case "confirmed_no_admin": return "Pausada por falta de privilégio de admin no grupo";
     case "invalid_group": return "Pausada por grupo inválido ou inacessível";
     case "unauthorized": return "Pausada por falha de autenticação da instância";
@@ -771,12 +847,17 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
     const shouldCheckConnection = processed === 0 || processed % 10 === 0;
 
     if (shouldCheckConnection) {
-      const connCheck = await checkInstanceConnection(device.uazapi_base_url, device.uazapi_token);
-      if (connCheck.connected === false) {
-        console.log(`[mass-inject] campaign=${campaignId} device=${device.name} DISCONNECTED`);
-        await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", device.id);
+      // Use multi-check revalidation instead of single check
+      const { finalResult: connCheck, confirmedDisconnect } = await checkInstanceConnectionWithRetries(
+        device.uazapi_base_url, device.uazapi_token, `preflight:${device.name}`
+      );
+      
+      if (confirmedDisconnect) {
+        console.log(`[mass-inject] campaign=${campaignId} device=${device.name} SESSION DROPPED (confirmed by ${DISCONNECT_RECHECK_COUNT} checks)`);
+        // Don't immediately mark as Disconnected — give it a chance to recover
         failedDeviceIds.add(device.id);
 
+        // Check if other devices are available
         let anyConnected = false;
         for (const did of parseDeviceIds(campaign.device_ids)) {
           if (failedDeviceIds.has(did)) continue;
@@ -787,35 +868,36 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
             anyConnected = true;
             break;
           }
-          await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", altDevice.id);
           failedDeviceIds.add(did);
         }
 
         if (!anyConnected) {
-          console.log(`[mass-inject] campaign=${campaignId} ALL devices disconnected — failing campaign`);
-          const { count: pendingAsFailed } = await sb.from("mass_inject_contacts")
-            .select("id", { count: "exact", head: true })
-            .eq("campaign_id", campaignId)
-            .in("status", [...RETRYABLE_QUEUE_STATUSES, "processing"]);
-
-          await sb.from("mass_inject_contacts")
-            .update({ status: "confirmed_disconnect", error_message: "Todas as instâncias desconectadas. Campanha finalizada.", processed_at: nowIso(), device_used: null } as any)
-            .eq("campaign_id", campaignId)
-            .in("status", [...RETRYABLE_QUEUE_STATUSES, "processing"]);
-
+          // ALL devices offline — but DON'T fail the campaign, just pause with recovery option
+          console.log(`[mass-inject] campaign=${campaignId} ALL devices sessions dropped — pausing (NOT failing)`);
           await sb.from("mass_inject_campaigns").update({
-            status: "failed",
+            status: "paused",
             updated_at: nowIso(),
-            completed_at: nowIso(),
-            fail_count: Number(campaign.fail_count || 0) + Number(pendingAsFailed || 0),
+            pause_reason: "Sessão da API desconectada em todas as instâncias. Reconecte e retome.",
             next_run_at: null,
           }).eq("id", campaignId);
-          await emitCampaignEvent(sb, campaignId, "all_instances_disconnected", "error");
+          await emitCampaignEvent(sb, campaignId, "all_sessions_dropped", "warning", 
+            "Todas as instâncias com sessão desconectada. Reconecte as instâncias e retome a campanha.");
           return;
         }
 
-        const retryDelay = randomBetween(2000, 5000);
-        await emitCampaignEvent(sb, campaignId, "instance_disconnected", "warning", `Instância ${device.name} desconectada. Redistribuindo para outra automaticamente.`);
+        // Some devices still connected — redistribute with cooldown
+        const retryDelay = randomBetween(15_000, 30_000);
+        await emitCampaignEvent(sb, campaignId, "session_dropped", "warning", 
+          `Sessão da instância ${device.name} desconectada. Tentando com outra instância em ${Math.round(retryDelay/1000)}s.`);
+        await scheduleCampaignRun(sb, campaignId, retryDelay);
+        nextRunScheduled = true;
+        return;
+      } else if (connCheck.connected === null) {
+        // Unstable connection — wait and retry
+        const retryDelay = randomBetween(20_000, 40_000);
+        console.log(`[mass-inject] campaign=${campaignId} device=${device.name} connection unstable, retrying in ${retryDelay}ms`);
+        await emitCampaignEvent(sb, campaignId, "connection_unstable", "warning",
+          `Conexão da instância ${device.name} instável. Revalidando em ${Math.round(retryDelay/1000)}s.`);
         await scheduleCampaignRun(sb, campaignId, retryDelay);
         nextRunScheduled = true;
         return;
@@ -886,22 +968,26 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       timestamp: nowIso(),
     }));
 
-    if (result.status === "confirmed_disconnect") {
+    // session_dropped is transient — do NOT mark device as Disconnected
+    if (result.status === "session_dropped") {
+      // Keep device status unchanged — session may recover
+      console.log(`[mass-inject] campaign=${campaignId} device=${device.name} session_dropped — NOT marking device offline`);
+    } else if (result.status === "confirmed_disconnect") {
       await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", device.id);
     } else if (result.status === "completed" || result.status === "already_exists") {
       await sb.from("devices").update({ status: "Ready", updated_at: nowIso() }).eq("id", device.id);
     }
 
-    const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure", "timeout"].includes(result.status) && !result.pauseCampaign;
+    const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped", "permission_unconfirmed", "unknown_failure", "timeout"].includes(result.status) && !result.pauseCampaign;
 
     // rate_limited (429) gets MORE retries since it's just API throttling, NOT account restriction
-    const maxRetriesForStatus = result.status === "rate_limited" ? MAX_RATE_LIMIT_RETRIES : MAX_QUEUE_RETRIES;
+    const maxRetriesForStatus = result.status === "rate_limited" ? MAX_RATE_LIMIT_RETRIES : result.status === "session_dropped" ? MAX_SESSION_DROP_RETRIES : MAX_QUEUE_RETRIES;
 
     if (isTransient && retryCount < maxRetriesForStatus) {
       // For rate_limited, increase cooldown progressively with each retry
       let cooldownDelay = result.cooldownMs || computeNextDelayMs(campaign, result.cooldownMs);
-      if (result.status === "rate_limited") {
-        // Progressive backoff: 40-70s base × (1 + retry * 0.5) → gets longer each retry
+      if (result.status === "rate_limited" || result.status === "session_dropped") {
+        // Progressive backoff: base × (1 + retry * 0.5) → gets longer each retry
         const backoffMultiplier = 1 + (retryCount * 0.5);
         cooldownDelay = Math.round(cooldownDelay * backoffMultiplier);
       }
