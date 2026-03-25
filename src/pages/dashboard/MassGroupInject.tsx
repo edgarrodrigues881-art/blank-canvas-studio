@@ -874,7 +874,7 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
 // ═══════════════════════════════════════════════════════════════
 // CREATE CAMPAIGN VIEW
 // ═══════════════════════════════════════════════════════════════
-function CreateCampaign({ onBack, onCampaignCreated }: { onBack: () => void; onCampaignCreated: (id: string) => void }) {
+function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillName }: { onBack: () => void; onCampaignCreated: (id: string) => void; prefillContacts?: string[]; prefillName?: string }) {
   const { user } = useAuth();
   const [step, setStep] = useState<Step>("import");
   const [campaignName, setCampaignName] = useState("");
