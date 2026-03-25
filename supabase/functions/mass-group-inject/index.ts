@@ -844,9 +844,19 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         }
       }
 
-      // 11. BLOCKING delay before next contact
-      const nextDelayMs = computeNextDelayMs(latestCampaign, result.cooldownMs);
-      console.log(`[mass-inject] campaign=${campaignId} waiting ${nextDelayMs}ms before next contact`);
+      // 11. BLOCKING delay before next contact — DIFFERENTIATED BY RESULT TYPE
+      let nextDelayMs: number;
+      if (result.status === "already_exists" || result.status === "contact_not_found") {
+        // Fast skip: no API-heavy operation needed, short delay
+        nextDelayMs = randomBetween(1000, 3000);
+      } else if (result.status === "blocked" || result.status === "unauthorized") {
+        // Terminal non-retryable: skip quickly
+        nextDelayMs = randomBetween(1000, 2000);
+      } else {
+        // Success or other: use normal campaign delay
+        nextDelayMs = computeNextDelayMs(latestCampaign, result.cooldownMs);
+      }
+      console.log(`[mass-inject] campaign=${campaignId} result=${result.status} waiting ${nextDelayMs}ms`);
       await setNextRunAt(sb, campaignId, nextDelayMs);
       await sleep(nextDelayMs);
     }
