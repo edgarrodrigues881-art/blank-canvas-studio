@@ -203,7 +203,7 @@ function isFailureStatus(status: string) {
   ].includes(status);
 }
 
-// Statuses eligible for retry / export (not terminal successes or unrecoverable)
+// Statuses eligible for retry / export (anything that wasn't successfully added)
 const RETRYABLE_EXPORT_STATUSES = new Set([
   "rate_limited",
   "api_temporary",
@@ -213,6 +213,12 @@ const RETRYABLE_EXPORT_STATUSES = new Set([
   "unknown_failure",
   "blocked",
   "unauthorized",
+  "cancelled",
+  "failed",
+  "timeout",
+  "invalid_group",
+  "contact_not_found",
+  "confirmed_no_admin",
 ]);
 
 // ═══════════════════════════════════════════════════════════════
