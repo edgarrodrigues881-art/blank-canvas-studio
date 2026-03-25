@@ -868,8 +868,11 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
         <div className="flex items-center gap-2 flex-wrap">
           {[
             { key: "all", label: `Todos (${contacts.length})` },
-            { key: "success", label: `Sucesso (${successTotal})` },
-            { key: "failed", label: `Falhas (${campaign.fail_count || 0})` },
+            { key: "completed", label: `Adicionados (${successCount})` },
+            { key: "already_exists", label: `Já no Grupo (${alreadyCount})` },
+            { key: "failed", label: `Falhas (${failCount})` },
+            { key: "rate_limited", label: `Rate Limit (${rateLimitCount})` },
+            ...(timeoutCount > 0 ? [{ key: "timeout", label: `Timeout (${timeoutCount})` }] : []),
             { key: "pending", label: `Pendentes (${pendingCount})` },
             ...(cancelledCount > 0 ? [{ key: "cancelled", label: `Cancelados (${cancelledCount})` }] : []),
           ].map(f => (
