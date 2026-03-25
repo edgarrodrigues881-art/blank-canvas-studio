@@ -661,7 +661,19 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
       const retryCount = extractRetryCount(contact.error_message);
 
-      // 6. Execute the add operation (fully awaited)
+      // 6. GLOBAL PER-DEVICE RATE LIMITER: claim send slot before any API call
+      const { data: waitMs } = await sb.rpc("claim_device_send_slot", {
+        p_device_id: device.id,
+        p_min_interval_ms: 12000, // 12s minimum between any API calls per device
+      });
+      if (waitMs && waitMs > 0) {
+        // Add jitter to the wait time
+        const jitteredWait = waitMs + randomBetween(1000, 3000);
+        console.log(`[mass-inject] campaign=${campaignId} device=${device.name} global rate limit: waiting ${jitteredWait}ms`);
+        await sleep(jitteredWait);
+      }
+
+      // 7. Execute the add operation (fully awaited)
       const cacheKey = `${campaignId}:${campaign.group_id}`;
       console.log(`[mass-inject] campaign=${campaignId} processing contact=${contact.phone} (retry=${retryCount})`);
       const result = await executeAddWithRecovery(device.uazapi_base_url, device.uazapi_token, campaign.group_id, contact.phone, cacheKey);
