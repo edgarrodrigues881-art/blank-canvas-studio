@@ -3186,6 +3186,29 @@ export type Database = {
         Returns: boolean
       }
       check_phone_available: { Args: { _phone: string }; Returns: boolean }
+      claim_next_mass_inject_contact: {
+        Args: {
+          p_campaign_id: string
+          p_device_used?: string
+          p_processing_message?: string
+        }
+        Returns: {
+          campaign_id: string
+          created_at: string
+          device_used: string | null
+          error_message: string | null
+          id: string
+          phone: string
+          processed_at: string | null
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "mass_inject_contacts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       claim_pending_messages: {
         Args: { _limit?: number }
         Returns: {
@@ -3261,11 +3284,20 @@ export type Database = {
         }
         Returns: Json
       }
+      mass_inject_lock_key: { Args: { p_campaign_id: string }; Returns: number }
       release_device_lock: {
         Args: { _campaign_id: string; _device_id: string }
         Returns: undefined
       }
+      release_mass_inject_run_lock: {
+        Args: { p_campaign_id: string }
+        Returns: boolean
+      }
       release_provision_lock: { Args: { _user_id: string }; Returns: undefined }
+      try_acquire_mass_inject_run_lock: {
+        Args: { p_campaign_id: string }
+        Returns: boolean
+      }
       try_provision_lock: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
