@@ -1,6 +1,7 @@
+import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Wifi, WifiOff, Flame, Pause, Globe } from "lucide-react";
+import { RefreshCw, Wifi, WifiOff, Flame, Pause, Globe, Loader2 } from "lucide-react";
 import type { ChipInfo } from "@/hooks/useDashboardStats";
 import { useNavigate } from "react-router-dom";
 
@@ -9,6 +10,7 @@ const statusConfig: Record<string, { color: string; bg: string; label: string; i
   warming: { color: "text-amber-400", bg: "bg-amber-500/20", label: "Aquecendo", icon: Flame },
   disconnected: { color: "text-red-400", bg: "bg-red-500/20", label: "Desconectado", icon: WifiOff },
   paused: { color: "text-muted-foreground", bg: "bg-muted/30", label: "Pausado", icon: Pause },
+  syncing: { color: "text-blue-400", bg: "bg-blue-500/20", label: "Sincronizando", icon: Loader2 },
 };
 
 function getChipStatus(chip: ChipInfo): string {
