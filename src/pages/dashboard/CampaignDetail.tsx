@@ -652,7 +652,9 @@ const CampaignDetail = () => {
                             key={mode.key}
                             onClick={async () => {
                               if (!id) return;
-                              const newVal = mode.key === "single" ? 0 : 50;
+                              const rotationValue = Math.max(1, Number(messagesPerInstanceInput.replace(/\D/g, "")) || 50);
+                              const newVal = mode.key === "single" ? 0 : rotationValue;
+                              setMessagesPerInstanceInput(String(rotationValue));
                               await supabase.from("campaigns").update({ messages_per_instance: newVal }).eq("id", id);
                               queryClient.invalidateQueries({ queryKey: ["campaign", id] });
                               setDelayDirty(false);
@@ -676,16 +678,22 @@ const CampaignDetail = () => {
                       <div className={cn("flex items-center gap-2 transition-opacity", isActive && "opacity-30 pointer-events-none select-none")}>
                         <span className="text-[10px] text-muted-foreground whitespace-nowrap">Trocar após</span>
                         <Input
-                          type="number"
-                          min={5}
-                          max={500}
-                          step={5}
-                          value={campaign.messages_per_instance || 50}
-                          onChange={async (e) => {
-                            const v = Math.max(5, Math.min(500, Number(e.target.value) || 5));
-                            if (!id) return;
-                            await supabase.from("campaigns").update({ messages_per_instance: v }).eq("id", id);
-                            queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+                          type="text"
+                          inputMode="numeric"
+                          value={messagesPerInstanceInput}
+                          onFocus={() => setIsEditingMessagesPerInstance(true)}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/\D/g, "");
+                            setMessagesPerInstanceInput(raw);
+                          }}
+                          onBlur={async () => {
+                            setIsEditingMessagesPerInstance(false);
+                            await saveMessagesPerInstance();
+                          }}
+                          onKeyDown={async (e) => {
+                            if (e.key === "Enter") {
+                              e.currentTarget.blur();
+                            }
                           }}
                           className="h-7 w-20 text-center text-[11px] bg-background/30 border-border/20"
                         />
