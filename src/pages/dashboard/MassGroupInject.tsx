@@ -373,8 +373,8 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Buscar campanha..." className="h-9 max-w-xs" />
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Buscar campanha..." className="h-9 max-w-xs bg-muted/30 border-border/30" />
         <div className="flex gap-1.5 flex-wrap">
           {[
             { key: "all", label: "Todas" },
