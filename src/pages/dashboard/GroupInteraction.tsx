@@ -88,13 +88,22 @@ export default function GroupInteractionPage() {
         .from("devices")
         .select("id, name, number, status, instance_type")
         .eq("user_id", user.id)
-        .eq("status", "connected")
-        .neq("instance_type", "notificacao")
         .order("name");
       return (data || []) as any[];
     },
     enabled: !!user,
   });
+
+  const eligibleDevices = useMemo(() => {
+    const allowedStatuses = new Set(["connected", "ready", "active", "online", "authenticated", "open"]);
+    const blockedTypes = new Set(["notificacao", "report", "report_wa"]);
+
+    return devices.filter((device: any) => {
+      const normalizedStatus = String(device.status || "").trim().toLowerCase();
+      const normalizedType = String(device.instance_type || "").trim().toLowerCase();
+      return allowedStatuses.has(normalizedStatus) && !blockedTypes.has(normalizedType);
+    });
+  }, [devices]);
 
   const { data: warmupGroups = [] } = useQuery({
     queryKey: ["warmup-groups-gi", user?.id],
@@ -183,7 +192,7 @@ export default function GroupInteractionPage() {
     const err = validate();
     if (err) return toast.error(err);
     for (const deviceId of bulkDeviceIds) {
-      const device = devices.find((d: any) => d.id === deviceId);
+      const device = eligibleDevices.find((d: any) => d.id === deviceId);
       const deviceName = device ? device.name : "Dispositivo";
       await createInteraction.mutateAsync({
         ...form,
@@ -380,12 +389,12 @@ export default function GroupInteractionPage() {
               <div>
                 <Label className="text-xs font-medium">Dispositivos ({bulkDeviceIds.length} selecionados)</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 max-h-48 overflow-y-auto border border-border/50 rounded-lg p-2 mt-2">
-                  {devices.length === 0 ? (
+                  {eligibleDevices.length === 0 ? (
                     <p className="text-xs text-muted-foreground p-2 col-span-full">
                       Nenhum dispositivo encontrado.
                     </p>
                   ) : (
-                    devices.map((d: any) => (
+                    eligibleDevices.map((d: any) => (
                       <label key={d.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/40 cursor-pointer">
                         <Checkbox
                           checked={bulkDeviceIds.includes(d.id)}
@@ -494,14 +503,14 @@ export default function GroupInteractionPage() {
                       <SelectValue placeholder="Selecionar dispositivo" />
                     </SelectTrigger>
                     <SelectContent>
-                      {devices.map((d: any) => (
+                      {eligibleDevices.map((d: any) => (
                         <SelectItem key={d.id} value={d.id}>
                           {d.name} {d.number ? `(${d.number})` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {devices.length === 0 && (
+                  {eligibleDevices.length === 0 && (
                     <p className="text-xs text-muted-foreground mt-2">Nenhum dispositivo encontrado.</p>
                   )}
                 </CardContent>
