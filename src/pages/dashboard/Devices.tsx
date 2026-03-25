@@ -29,7 +29,7 @@ import { Progress } from "@/components/ui/progress";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { muteAutoSync, trackDeletedDevice, getRecentlyDeletedIds, pauseKeepAlive, resumeKeepAlive } from "@/hooks/useAutoSyncDevices";
+import { muteAutoSync, trackDeletedDevice, getRecentlyDeletedIds, pauseKeepAlive, resumeKeepAlive, isSyncingDevices } from "@/hooks/useAutoSyncDevices";
 import { useNavigate } from "react-router-dom";
 import { usePlanGate, type PlanState } from "@/hooks/usePlanGate";
 

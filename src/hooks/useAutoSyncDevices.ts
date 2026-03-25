@@ -38,7 +38,6 @@ export function resumeKeepAlive() {}
 export function useAutoSyncDevices(intervalMs = 10_000) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
-  const syncingRef = useRef(false);
 
   // ── Realtime subscription for instant status changes ──
   useEffect(() => {
