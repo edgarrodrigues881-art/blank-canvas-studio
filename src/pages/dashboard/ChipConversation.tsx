@@ -80,10 +80,16 @@ function useDevices() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("devices")
-        .select("id, name, number, status")
+        .select("id, name, number, status, instance_type")
         .order("name");
       if (error) throw error;
-      return data || [];
+      const allowedStatuses = new Set(["connected", "ready", "active", "online", "authenticated", "open"]);
+      const blockedTypes = new Set(["notificacao", "report", "report_wa"]);
+      return (data || []).filter((d: any) => {
+        const s = String(d.status || "").trim().toLowerCase();
+        const t = String(d.instance_type || "").trim().toLowerCase();
+        return allowedStatuses.has(s) && !blockedTypes.has(t);
+      });
     },
   });
 }
