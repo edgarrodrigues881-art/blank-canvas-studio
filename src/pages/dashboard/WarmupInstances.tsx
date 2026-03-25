@@ -253,8 +253,8 @@ const DeviceCard = memo(({ device, cycle, onPause, onResume, onCancel, onConnect
       onClick={() => onNavigate(`/dashboard/warmup-v2/${device.id}`)}
     >
       <div className={cn(
-        "h-[2px] w-full",
-        isWarming ? "bg-primary/60" : connected ? "bg-primary/25" : "bg-border/30"
+        "h-[3px] w-full rounded-t-2xl",
+        isWarming ? "bg-gradient-to-r from-primary/40 via-primary/80 to-primary/40 shadow-[0_0_12px_hsl(var(--primary)/0.3)]" : connected ? "bg-gradient-to-r from-primary/15 via-primary/30 to-primary/15" : "bg-border/20"
       )} />
 
       <div className="px-3 sm:px-4 pt-3 sm:pt-3.5 flex flex-wrap items-start justify-between gap-1">
