@@ -1,4 +1,4 @@
-// mass-group-inject v9.0 — truly serial queue with advisory locks + blocking delays + connection pre-check
+// mass-group-inject v10.0 — serial queue + advisory locks + per-device global rate limiter
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
