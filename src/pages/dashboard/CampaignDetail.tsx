@@ -17,7 +17,6 @@ import {
   Search, Timer, Hash, Zap, RefreshCw, RotateCcw, Send, Ban, ChevronDown, Download, ShieldAlert, Save, Loader2,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -196,6 +195,8 @@ const CampaignDetail = () => {
   const [pauseDurationMax, setPauseDurationMax] = useState(120);
   const [delayDirty, setDelayDirty] = useState(false);
   const [pauseOnDisconnect, setPauseOnDisconnect] = useState(true);
+  const [messagesPerInstanceInput, setMessagesPerInstanceInput] = useState("50");
+  const [isEditingMessagesPerInstance, setIsEditingMessagesPerInstance] = useState(false);
 
   useEffect(() => {
     if (!campaign) return;
@@ -208,6 +209,11 @@ const CampaignDetail = () => {
     setPauseOnDisconnect(campaign.pause_on_disconnect !== false);
   }, [campaign]);
 
+  useEffect(() => {
+    if (!campaign || isEditingMessagesPerInstance) return;
+    setMessagesPerInstanceInput(String((campaign.messages_per_instance ?? 0) > 0 ? campaign.messages_per_instance : 50));
+  }, [campaign?.messages_per_instance, isEditingMessagesPerInstance]);
+
   const saveDelayConfig = useCallback(async () => {
     if (!id) return;
     await supabase.from("campaigns").update({
@@ -218,6 +224,15 @@ const CampaignDetail = () => {
     setDelayDirty(false);
     toast({ title: "✅ Configuração salva" });
   }, [id, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, toast]);
+
+  const saveMessagesPerInstance = useCallback(async () => {
+    if (!id || (campaign?.messages_per_instance ?? 0) <= 0) return;
+    const parsed = Number(messagesPerInstanceInput.replace(/\D/g, ""));
+    const value = parsed > 0 ? Math.min(500, parsed) : 50;
+    setMessagesPerInstanceInput(String(value));
+    await supabase.from("campaigns").update({ messages_per_instance: value }).eq("id", id);
+    queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+  }, [campaign?.messages_per_instance, id, messagesPerInstanceInput, queryClient]);
 
   const [logSearch, setLogSearch] = useState("");
   const [logFilter, setLogFilter] = useState("all");
@@ -637,7 +652,9 @@ const CampaignDetail = () => {
                             key={mode.key}
                             onClick={async () => {
                               if (!id) return;
-                              const newVal = mode.key === "single" ? 0 : 50;
+                              const rotationValue = Math.max(1, Number(messagesPerInstanceInput.replace(/\D/g, "")) || 50);
+                              const newVal = mode.key === "single" ? 0 : rotationValue;
+                              setMessagesPerInstanceInput(String(rotationValue));
                               await supabase.from("campaigns").update({ messages_per_instance: newVal }).eq("id", id);
                               queryClient.invalidateQueries({ queryKey: ["campaign", id] });
                               setDelayDirty(false);
@@ -661,16 +678,22 @@ const CampaignDetail = () => {
                       <div className={cn("flex items-center gap-2 transition-opacity", isActive && "opacity-30 pointer-events-none select-none")}>
                         <span className="text-[10px] text-muted-foreground whitespace-nowrap">Trocar após</span>
                         <Input
-                          type="number"
-                          min={5}
-                          max={500}
-                          step={5}
-                          value={campaign.messages_per_instance || 50}
-                          onChange={async (e) => {
-                            const v = Math.max(5, Math.min(500, Number(e.target.value) || 5));
-                            if (!id) return;
-                            await supabase.from("campaigns").update({ messages_per_instance: v }).eq("id", id);
-                            queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+                          type="text"
+                          inputMode="numeric"
+                          value={messagesPerInstanceInput}
+                          onFocus={() => setIsEditingMessagesPerInstance(true)}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/\D/g, "");
+                            setMessagesPerInstanceInput(raw);
+                          }}
+                          onBlur={async () => {
+                            setIsEditingMessagesPerInstance(false);
+                            await saveMessagesPerInstance();
+                          }}
+                          onKeyDown={async (e) => {
+                            if (e.key === "Enter") {
+                              e.currentTarget.blur();
+                            }
                           }}
                           className="h-7 w-20 text-center text-[11px] bg-background/30 border-border/20"
                         />
