@@ -1950,22 +1950,22 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Processamento</AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="space-y-2 text-sm">
+               <div className="space-y-2 text-sm">
                 <p>Campanha: <strong>{campaignName}</strong></p>
                 <p><strong>{totalToProcess}</strong> contatos para adição ao grupo <strong>{groupName || selectedGroup?.name || groupId}</strong>.</p>
-                <div className="bg-muted/50 rounded-lg p-3 space-y-1 text-xs">
-                  <p>📱 {selectedDeviceIds.length} instância{selectedDeviceIds.length !== 1 ? "s" : ""}</p>
-                  <p>⏱ Delay: {minDelay}s – {maxDelay}s</p>
-                  {pauseAfter > 0 && <p>⏸ Pausa de {pauseDuration}s a cada {pauseAfter} adições</p>}
-                  {rotateAfter > 0 && <p>🔄 Troca de instância a cada {rotateAfter} adições</p>}
-                  <p>🔎 {participantCheck ? "Pré-checagem opcional concluída; a confirmação final ocorrerá durante a execução." : "Sem pré-checagem: a verificação no grupo será feita durante a execução."}</p>
+                <div className="bg-muted/50 rounded-lg p-3 space-y-1.5 text-xs">
+                  <p>{selectedDeviceIds.length} instância{selectedDeviceIds.length !== 1 ? "s" : ""}</p>
+                  <p>Delay: {minDelay}s – {maxDelay}s</p>
+                  {pauseAfter > 0 && <p>Pausa de {pauseDuration}s a cada {pauseAfter} adições</p>}
+                  {rotateAfter > 0 && <p>Troca de instância a cada {rotateAfter} adições</p>}
+                  <p>{participantCheck ? "Pré-checagem concluída. Confirmação final durante a execução." : "Sem pré-checagem. Verificação será feita durante a execução."}</p>
                 </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleProcess}>Iniciar Campanha</AlertDialogAction>
+            <AlertDialogAction onClick={handleProcess} className="bg-emerald-600 hover:bg-emerald-700 text-white">Iniciar Campanha</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
