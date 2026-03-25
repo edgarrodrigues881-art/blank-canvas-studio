@@ -260,29 +260,23 @@ const Auth = () => {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="flex flex-col items-center mb-8"
         >
-          <div className="relative w-[200px] h-[200px] flex items-center justify-center mb-4">
+          <div className="relative w-[240px] h-[240px] flex items-center justify-center mb-5">
             <FloatingParticles />
-            {/* Soft glow behind logo */}
+            {/* Soft radial glow */}
             <div
-              className="absolute w-32 h-32 rounded-3xl opacity-25"
-              style={{ background: "radial-gradient(circle, #22c55e 0%, #fbbf24 50%, transparent 100%)" }}
+              className="absolute w-40 h-40 rounded-full opacity-15"
+              style={{ background: "radial-gradient(circle, #22c55e 0%, transparent 70%)" }}
             />
-            {/* Gold border */}
-            <div
-              className="relative p-[2px] rounded-2xl"
-              style={{ background: "linear-gradient(145deg, #fbbf24 0%, #b8860b 40%, #fbbf24 100%)" }}
-            >
-              <img
-                src={logo}
-                alt="DG Contingência Pro"
-                className="w-[110px] h-[110px] rounded-[14px]"
-                style={{ background: "#0c0f0d" }}
-              />
-            </div>
+            {/* Clean logo — no border box */}
+            <img
+              src={logo}
+              alt="DG Contingência Pro"
+              className="relative w-[140px] h-[140px] rounded-2xl drop-shadow-lg"
+            />
           </div>
-          <span className="text-[10px] font-semibold tracking-[0.35em] uppercase select-none">
+          <span className="text-xs font-semibold tracking-[0.4em] uppercase select-none">
             <span style={{ color: "#34d399" }}>DG</span>
-            <span className="text-white/40 mx-1.5">CONTINGÊNCIA</span>
+            <span className="text-white/50 mx-2">CONTINGÊNCIA</span>
             <span style={{ color: "#fbbf24" }}>PRO</span>
           </span>
         </motion.div>
