@@ -179,6 +179,88 @@ function isFailureStatus(status: string) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// NEXT ACTION COUNTDOWN
+// ═══════════════════════════════════════════════════════════════
+function NextActionCountdown({ contacts, campaign }: { contacts: any[]; campaign: any }) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Find the most recently processed contact
+  const lastProcessed = useMemo(() => {
+    const processed = contacts
+      .filter((c: any) => c.processed_at && c.status !== "pending")
+      .sort((a: any, b: any) => new Date(b.processed_at).getTime() - new Date(a.processed_at).getTime());
+    return processed[0] || null;
+  }, [contacts]);
+
+  // Determine the last status for contextual message
+  const lastStatus = lastProcessed?.status;
+  const isRetryable = lastStatus && ["rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"].includes(lastStatus);
+
+  // Estimate the expected delay (use campaign settings + device slot ~12s + jitter)
+  const baseMin = Math.max(campaign.min_delay || 8, 8);
+  const baseMax = Math.max(campaign.max_delay || 15, baseMin);
+  const estimatedDelay = Math.round((baseMin + baseMax) / 2) + 3; // +3s for jitter/slot
+
+  if (!lastProcessed?.processed_at) {
+    return (
+      <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+        <Timer className="w-3.5 h-3.5 text-primary/60" />
+        <span>Aguardando início do processamento...</span>
+      </div>
+    );
+  }
+
+  const lastTime = new Date(lastProcessed.processed_at).getTime();
+  const elapsed = Math.floor((now - lastTime) / 1000);
+  const remaining = Math.max(0, estimatedDelay - elapsed);
+
+  // If too long since last action, show waiting message
+  if (elapsed > estimatedDelay * 3) {
+    return (
+      <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+        <Timer className="w-3.5 h-3.5 text-primary/60" />
+        <span>Aguardando próximo ciclo de processamento...</span>
+      </div>
+    );
+  }
+
+  const contextMsg = isRetryable
+    ? `Retry em ${remaining}s — ${statusLabel(lastStatus)}`
+    : remaining > 0
+    ? `Próximo envio em ~${remaining}s`
+    : "Processando próximo contato...";
+
+  const progressPct = remaining > 0 ? Math.min(100, ((estimatedDelay - remaining) / estimatedDelay) * 100) : 100;
+
+  return (
+    <div className="mt-3 flex items-center gap-3">
+      <Timer className="w-3.5 h-3.5 text-primary/60 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between mb-1">
+          <span className={`text-xs font-medium ${isRetryable ? "text-amber-500" : "text-muted-foreground"}`}>
+            {contextMsg}
+          </span>
+          {remaining > 0 && (
+            <span className="text-[10px] text-primary font-mono font-bold tabular-nums">{remaining}s</span>
+          )}
+        </div>
+        <div className="h-1 w-full rounded-full bg-primary/10 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-1000 ease-linear ${isRetryable ? "bg-amber-500/60" : "bg-primary/40"}`}
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
 // CAMPAIGN LIST VIEW
 // ═══════════════════════════════════════════════════════════════
 function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void; onViewCampaign: (id: string) => void }) {
@@ -555,6 +637,7 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
               <span className="text-sm text-primary font-bold ml-auto">{progress}%</span>
             </div>
             <Progress value={progress} className="h-2.5" />
+            <NextActionCountdown contacts={contacts} campaign={campaign} />
           </CardContent>
         </Card>
       )}
