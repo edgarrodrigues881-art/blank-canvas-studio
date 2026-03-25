@@ -1,0 +1,1 @@
+UPDATE public.feature_controls SET status = 'active', updated_at = now() WHERE feature_key = 'chip_conversation';
