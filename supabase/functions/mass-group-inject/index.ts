@@ -331,7 +331,7 @@ async function getDeviceCredentials(sb: any, deviceId: string, userId: string | 
 
 async function checkInstanceConnection(baseUrl: string, token: string): Promise<ConnectionCheckResult> {
   try {
-    const res = await fetch(`${baseUrl}/instance/status?t=${Date.now()}`, { method: "GET", headers: buildHeaders(token) });
+    const res = await fetchWithTimeout(`${baseUrl}/instance/status?t=${Date.now()}`, { method: "GET", headers: buildHeaders(token) });
     const { raw, body } = await readApiResponse(res);
     const normalized = normalizeProviderConnectionState(body);
     if (res.status === 401) return { connected: null, status: "token_invalid", detail: "Falha de autenticação." };
