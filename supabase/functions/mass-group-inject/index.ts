@@ -1006,7 +1006,11 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
     }
 
     if (lockAcquired) {
-      await sb.rpc("release_mass_inject_run_lock", { p_campaign_id: campaignId }).catch(() => {});
+      try {
+        await sb.rpc("release_mass_inject_run_lock", { p_campaign_id: campaignId });
+      } catch (releaseError) {
+        console.error(`[mass-inject] campaign=${campaignId} failed to release lock`, releaseError);
+      }
     }
 
     const workerDurationMs = Date.now() - workerStartedAt;
