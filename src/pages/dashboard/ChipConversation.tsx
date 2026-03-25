@@ -209,10 +209,12 @@ function ConversationCard({
 
   const handleAction = async (action: "start" | "pause" | "resume" | "stop") => {
     try {
+      console.log(`[ChipConversation] Executing action: ${action} for conversation: ${conv.id}, current status: ${conv.status}`);
       if (action === "start") await actions.start.mutateAsync(conv.id);
       else if (action === "pause") await actions.pause.mutateAsync(conv.id);
       else if (action === "resume") await actions.resume.mutateAsync(conv.id);
       else if (action === "stop") await actions.stop.mutateAsync(conv.id);
+      console.log(`[ChipConversation] Action ${action} completed successfully`);
       toast.success(
         action === "start" ? "Conversa iniciada!" :
         action === "pause" ? "Conversa pausada" :
@@ -220,6 +222,7 @@ function ConversationCard({
         "Conversa encerrada"
       );
     } catch (e: any) {
+      console.error(`[ChipConversation] Action ${action} failed:`, e);
       toast.error(e.message || "Erro na operação");
     }
   };
