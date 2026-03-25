@@ -1,4 +1,4 @@
-// mass-group-inject v15.0 — multi-check disconnect recovery + session_dropped status
+// mass-group-inject v16.0 — human-like behavior: non-linear delays, block pauses, instance rotation, hourly limits
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -112,6 +112,29 @@ async function clearNextRunAt(sb: any, campaignId: string) {
   await sb.from("mass_inject_campaigns").update({ next_run_at: null }).eq("id", campaignId);
 }
 const randomBetween = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+/** Gaussian-ish random: tends toward center of range, less predictable than uniform */
+function gaussianRandom(min: number, max: number): number {
+  // Box-Muller approximation using sum of randoms
+  const u = (Math.random() + Math.random() + Math.random()) / 3;
+  return Math.round(min + u * (max - min));
+}
+
+/** Hourly usage tracker per device (in-memory, resets per worker lifecycle) */
+const deviceHourlyUsage = new Map<string, { count: number; windowStart: number }>();
+const HOURLY_SOFT_LIMIT = 20; // max adds per hour per instance before slowdown
+const HOURLY_HARD_LIMIT = 30; // absolute max per hour
+
+function trackDeviceUsage(deviceId: string): { count: number; overSoftLimit: boolean; overHardLimit: boolean } {
+  const now = Date.now();
+  const entry = deviceHourlyUsage.get(deviceId);
+  if (!entry || (now - entry.windowStart) > 3600_000) {
+    deviceHourlyUsage.set(deviceId, { count: 1, windowStart: now });
+    return { count: 1, overSoftLimit: false, overHardLimit: false };
+  }
+  entry.count++;
+  return { count: entry.count, overSoftLimit: entry.count > HOURLY_SOFT_LIMIT, overHardLimit: entry.count > HOURLY_HARD_LIMIT };
+}
 
 function extractRetryCount(message: string | null | undefined) {
   const match = String(message || "").match(/^\[retry:(\d+)\]\s*/i);
@@ -610,13 +633,24 @@ function pickDeviceId(campaign: any) {
   return pickDeviceIdWithBlacklist(campaign);
 }
 
+/** Round-robin rotation per CONTACT (not per success block) to distribute load evenly */
 function pickDeviceIdWithBlacklist(campaign: any, blacklist?: Set<string>) {
   const deviceIds = parseDeviceIds(campaign.device_ids).filter(id => !blacklist || !blacklist.has(id));
   if (deviceIds.length === 0) return null;
-  const rotateAfter = Number(campaign.rotate_after || 0);
-  if (!rotateAfter || deviceIds.length === 1) return deviceIds[0];
-  const successCount = Number(campaign.success_count || 0);
-  return deviceIds[Math.floor(successCount / rotateAfter) % deviceIds.length] || deviceIds[0];
+  if (deviceIds.length === 1) return deviceIds[0];
+  
+  // Rotate based on TOTAL processed (success + fail + already), not just success
+  const totalProcessed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0) + Number(campaign.already_count || 0);
+  const rotateAfter = Math.max(Number(campaign.rotate_after || 1), 1); // default: rotate every contact
+  const idx = Math.floor(totalProcessed / rotateAfter) % deviceIds.length;
+  
+  // Add randomness: 20% chance to pick a random device instead of sequential
+  if (Math.random() < 0.2 && deviceIds.length > 1) {
+    const randomIdx = randomBetween(0, deviceIds.length - 1);
+    return deviceIds[randomIdx];
+  }
+  
+  return deviceIds[idx] || deviceIds[0];
 }
 
 /** Insert an event into the events table for reliable delivery */
@@ -749,20 +783,79 @@ async function campaignCanKeepRunning(sb: any, campaignId: string) {
   return !!campaign && ["queued", "processing"].includes(campaign.status);
 }
 
-function computeNextDelayMs(campaign: any, cooldownMs?: number) {
-  // Use EXACT user-configured range — no extra jitter or variation
-  const minDelay = Math.max(Number(campaign.min_delay || 30), 10);
-  const maxDelay = Math.max(Number(campaign.max_delay || 60), minDelay);
-  // Random between min and max (in seconds), then convert to ms
-  let nextDelay = randomBetween(minDelay, maxDelay) * 1000;
+/**
+ * Human-like delay computation:
+ * 1. Non-linear base delay using gaussian distribution
+ * 2. Random jitter (±30%) to avoid patterns
+ * 3. Mandatory block pauses every 3-5 contacts (2-5 min)
+ * 4. Occasional long pauses (5-10 min) ~15% chance after blocks
+ * 5. Random "inactivity" simulation (~10% chance of extra 30-90s idle)
+ * 6. Hourly limit slowdown when approaching cap
+ */
+function computeNextDelayMs(campaign: any, cooldownMs?: number, deviceId?: string) {
+  const minDelaySec = Math.max(Number(campaign.min_delay || 30), 20); // enforce minimum 20s
+  const maxDelaySec = Math.max(Number(campaign.max_delay || 60), minDelaySec);
+  
+  // 1. Non-linear base delay (gaussian tends toward center, less predictable)
+  let baseDelaySec = gaussianRandom(minDelaySec, maxDelaySec);
+  
+  // 2. Add jitter: ±30% random variation
+  const jitterFactor = 0.7 + (Math.random() * 0.6); // 0.7 to 1.3
+  baseDelaySec = Math.round(baseDelaySec * jitterFactor);
+  baseDelaySec = Math.max(baseDelaySec, minDelaySec); // never below minimum
+  
+  let nextDelayMs = baseDelaySec * 1000;
+  
+  // 3. Mandatory block pauses every N contacts
   const processed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0) + Number(campaign.already_count || 0);
+  const blockSize = randomBetween(3, 5); // variable block size
+  
+  // User-configured pauses take priority
   const pauseAfter = Number(campaign.pause_after || 0);
   const pauseDuration = Math.max(Number(campaign.pause_duration || 0), 0);
+  
   if (pauseAfter > 0 && processed > 0 && processed % pauseAfter === 0) {
-    nextDelay = Math.max(nextDelay, pauseDuration * 1000);
+    // User-configured pause
+    nextDelayMs = Math.max(nextDelayMs, pauseDuration * 1000);
+  } else if (processed > 0 && processed % blockSize === 0) {
+    // Automatic block pause: 2-5 minutes
+    const blockPauseMs = randomBetween(120_000, 300_000);
+    nextDelayMs = Math.max(nextDelayMs, blockPauseMs);
+    console.log(`[mass-inject] BLOCK PAUSE: ${processed} contacts processed, pausing ${Math.round(blockPauseMs/1000)}s`);
+    
+    // 4. Occasional long pause (~15% chance): 5-10 minutes
+    if (Math.random() < 0.15) {
+      const longPauseMs = randomBetween(300_000, 600_000);
+      nextDelayMs = longPauseMs;
+      console.log(`[mass-inject] LONG PAUSE: random extended rest ${Math.round(longPauseMs/1000)}s`);
+    }
   }
-  if (cooldownMs) nextDelay = Math.max(nextDelay, cooldownMs);
-  return nextDelay;
+  
+  // 5. Random "inactivity" simulation (~10% chance on any contact)
+  if (Math.random() < 0.10) {
+    const idleMs = randomBetween(30_000, 90_000);
+    nextDelayMs += idleMs;
+    console.log(`[mass-inject] IDLE SIMULATION: adding ${Math.round(idleMs/1000)}s of simulated inactivity`);
+  }
+  
+  // 6. Hourly limit slowdown
+  if (deviceId) {
+    const usage = trackDeviceUsage(deviceId);
+    if (usage.overHardLimit) {
+      // Hard limit: force a very long pause (15-30 min)
+      nextDelayMs = Math.max(nextDelayMs, randomBetween(900_000, 1_800_000));
+      console.log(`[mass-inject] HOURLY HARD LIMIT: device ${deviceId} at ${usage.count} adds/hour, long cooldown`);
+    } else if (usage.overSoftLimit) {
+      // Soft limit: double the delay
+      nextDelayMs = Math.max(nextDelayMs * 2, randomBetween(120_000, 240_000));
+      console.log(`[mass-inject] HOURLY SOFT LIMIT: device ${deviceId} at ${usage.count} adds/hour, slowing down`);
+    }
+  }
+  
+  // Cooldown override (from error recovery)
+  if (cooldownMs) nextDelayMs = Math.max(nextDelayMs, cooldownMs);
+  
+  return nextDelayMs;
 }
 
 // Consecutive failure tracking for auto-pause
@@ -885,10 +978,10 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
           return;
         }
 
-        // Some devices still connected — redistribute with cooldown
-        const retryDelay = randomBetween(15_000, 30_000);
+        // Some devices still connected — redistribute with LONG cooldown (5-10 min recovery)
+        const retryDelay = randomBetween(300_000, 600_000); // 5-10 minutes
         await emitCampaignEvent(sb, campaignId, "session_dropped", "warning", 
-          `Sessão da instância ${device.name} desconectada. Tentando com outra instância em ${Math.round(retryDelay/1000)}s.`);
+          `Sessão da instância ${device.name} desconectada. Recuperação em ${Math.round(retryDelay/1000/60)} min com outra instância.`);
         await scheduleCampaignRun(sb, campaignId, retryDelay);
         nextRunScheduled = true;
         return;
@@ -985,7 +1078,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
     if (isTransient && retryCount < maxRetriesForStatus) {
       // For rate_limited, increase cooldown progressively with each retry
-      let cooldownDelay = result.cooldownMs || computeNextDelayMs(campaign, result.cooldownMs);
+      let cooldownDelay = result.cooldownMs || computeNextDelayMs(campaign, result.cooldownMs, device.id);
       if (result.status === "rate_limited" || result.status === "session_dropped") {
         // Progressive backoff: base × (1 + retry * 0.5) → gets longer each retry
         const backoffMultiplier = 1 + (retryCount * 0.5);
@@ -1065,11 +1158,12 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
     let nextDelayMs: number;
     if (result.status === "already_exists" || result.status === "contact_not_found") {
-      nextDelayMs = randomBetween(1000, 4000);
+      // Still add some delay even for skipped contacts to look human
+      nextDelayMs = randomBetween(3000, 8000);
     } else if (result.status === "blocked" || result.status === "unauthorized") {
-      nextDelayMs = randomBetween(1000, 3000);
+      nextDelayMs = randomBetween(3000, 6000);
     } else {
-      nextDelayMs = computeNextDelayMs(campaign, result.cooldownMs);
+      nextDelayMs = computeNextDelayMs(campaign, result.cooldownMs, device.id);
     }
 
     console.log(`[mass-inject] campaign=${campaignId} result=${result.status} requeue in ${nextDelayMs}ms`);
@@ -1355,8 +1449,8 @@ Deno.serve(async (req) => {
         success_count: 0,
         already_count: 0,
         fail_count: 0,
-        min_delay: Math.max(Number(body.minDelay || 30), 10),
-        max_delay: Math.max(Number(body.maxDelay || 60), Number(body.minDelay || 30), 10),
+        min_delay: Math.max(Number(body.minDelay || 30), 20), // minimum 20s for human-like behavior
+        max_delay: Math.max(Number(body.maxDelay || 60), Number(body.minDelay || 30), 20),
         pause_after: Math.max(Number(body.pauseAfter || 0), 0),
         pause_duration: Math.max(Number(body.pauseDuration || 30), 0),
         rotate_after: Math.max(Number(body.rotateAfter || 0), 0),
@@ -1399,11 +1493,12 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // resume
+      // resume — start with a recovery delay (30-60s) to avoid immediate burst after reconnect
       await sb.from("mass_inject_contacts").update({ status: "pending", error_message: null } as any).eq("campaign_id", campaign.id).eq("status", "processing");
       await sb.from("mass_inject_campaigns").update({ status: "queued", updated_at: nowIso(), completed_at: null, next_run_at: null, pause_reason: null, consecutive_failures: 0 }).eq("id", campaign.id);
       await emitCampaignEvent(sb, campaign.id, "campaign_resumed", "info");
-      await queueCampaignRun(campaign.id, 0);
+      const resumeDelay = randomBetween(30_000, 60_000); // slow ramp-up after resume
+      await queueCampaignRun(campaign.id, resumeDelay);
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
