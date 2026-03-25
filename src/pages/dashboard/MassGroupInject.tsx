@@ -1501,22 +1501,53 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                       </div>
                     ) : groups.length > 0 ? (
                       <div className="space-y-2">
-                        <Input value={groupSearch} onChange={e => setGroupSearch(e.target.value)} placeholder="Buscar grupo..." className="h-9 text-sm" />
+                        <div className="flex items-center justify-between">
+                          <Input value={groupSearch} onChange={e => setGroupSearch(e.target.value)} placeholder="Buscar grupo..." className="h-9 text-sm flex-1" />
+                          {selectedGroups.length > 0 && (
+                            <Badge variant="outline" className="ml-2 text-xs shrink-0">{selectedGroups.length} selecionado(s)</Badge>
+                          )}
+                        </div>
                         <div className="max-h-[200px] overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/20">
-                          {filteredGroups.map(g => (
-                            <button key={g.jid} onClick={() => { setGroupId(g.jid); setGroupName(g.name); }}
-                              className={`w-full text-left px-3.5 py-2.5 transition-colors hover:bg-muted/50 ${groupId === g.jid ? "bg-primary/10 border-l-2 border-l-primary" : ""}`}>
-                              <p className="text-sm font-medium truncate">{g.name}</p>
-                              <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{g.jid}</p>
-                            </button>
-                          ))}
+                          {filteredGroups.map(g => {
+                            const isSelected = selectedGroups.some(sg => sg.jid === g.jid);
+                            return (
+                              <button key={g.jid} onClick={() => {
+                                if (isSelected) {
+                                  const updated = selectedGroups.filter(sg => sg.jid !== g.jid);
+                                  setSelectedGroups(updated);
+                                  if (groupId === g.jid) {
+                                    setGroupId(updated[0]?.jid || "");
+                                    setGroupName(updated[0]?.name || "");
+                                  }
+                                } else {
+                                  const updated = [...selectedGroups, { jid: g.jid, name: g.name }];
+                                  setSelectedGroups(updated);
+                                  if (!groupId) { setGroupId(g.jid); setGroupName(g.name); }
+                                }
+                              }}
+                                className={`w-full text-left px-3.5 py-2.5 transition-colors hover:bg-muted/50 flex items-center gap-3 ${isSelected ? "bg-primary/10 border-l-2 border-l-primary" : ""}`}>
+                                <Checkbox checked={isSelected} className="shrink-0 pointer-events-none" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium truncate">{g.name}</p>
+                                  <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{g.jid}</p>
+                                </div>
+                              </button>
+                            );
+                          })}
                           {filteredGroups.length === 0 && groupSearch && (
                             <p className="text-xs text-muted-foreground text-center py-3">Nenhum grupo com esse nome</p>
                           )}
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => handleLoadGroups(primaryDeviceId)} className="w-full gap-2 text-xs h-8">
-                          <RefreshCw className="w-3 h-3" /> Recarregar Grupos
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => handleLoadGroups(primaryDeviceId)} className="flex-1 gap-2 text-xs h-8">
+                            <RefreshCw className="w-3 h-3" /> Recarregar
+                          </Button>
+                          {selectedGroups.length > 0 && (
+                            <Button variant="ghost" size="sm" onClick={() => { setSelectedGroups([]); setGroupId(""); setGroupName(""); }} className="text-xs h-8 text-destructive hover:text-destructive">
+                              Limpar seleção
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 px-4 py-4 space-y-2">
