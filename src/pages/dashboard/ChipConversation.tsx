@@ -434,9 +434,13 @@ function ConversationCard({
                 <p className="text-sm text-foreground font-medium">{conv.min_delay_seconds}s – {conv.max_delay_seconds}s</p>
               </div>
               <div className="px-4 py-3">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 mb-1">Pausa após mensagens</p>
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 mb-1">Horários</p>
                 <p className="text-sm text-foreground font-medium">
-                  A cada {conv.pause_after_messages_min}–{conv.pause_after_messages_max} msgs → {conv.pause_duration_min}s–{conv.pause_duration_max}s
+                  {(() => {
+                    const starts = String(conv.start_hour || "08:00").split(",");
+                    const ends = String(conv.end_hour || "18:00").split(",");
+                    return starts.map((s, i) => `${s.trim()} – ${(ends[i] || ends[0]).trim()}`).join("  •  ");
+                  })()}
                 </p>
               </div>
             </div>
@@ -557,12 +561,17 @@ function CreateConversationForm({
   const [selectedDevices, setSelectedDevices] = useState<string[]>(initialData?.device_ids || []);
   const [minDelay, setMinDelay] = useState(initialData?.min_delay_seconds ?? 15);
   const [maxDelay, setMaxDelay] = useState(initialData?.max_delay_seconds ?? 60);
-  const [pauseAfterMin, setPauseAfterMin] = useState(initialData?.pause_after_messages_min ?? 4);
-  const [pauseAfterMax, setPauseAfterMax] = useState(initialData?.pause_after_messages_max ?? 8);
-  const [pauseDurationMin, setPauseDurationMin] = useState(initialData?.pause_duration_min ?? 120);
-  const [pauseDurationMax, setPauseDurationMax] = useState(initialData?.pause_duration_max ?? 300);
-  const [startHour, setStartHour] = useState(initialData?.start_hour || "08:00");
-  const [endHour, setEndHour] = useState(initialData?.end_hour || "18:00");
+
+  // Dual time windows: stored as "08:00,13:00" in start_hour and "12:00,19:00" in end_hour
+  const initStarts = String(initialData?.start_hour || "08:00").split(",");
+  const initEnds = String(initialData?.end_hour || "12:00").split(",");
+
+  const [startHour1, setStartHour1] = useState(initStarts[0]?.trim() || "08:00");
+  const [endHour1, setEndHour1] = useState(initEnds[0]?.trim() || "12:00");
+  const [startHour2, setStartHour2] = useState(initStarts[1]?.trim() || "13:00");
+  const [endHour2, setEndHour2] = useState(initEnds[1]?.trim() || "19:00");
+  const [usePeriod2, setUsePeriod2] = useState(initStarts.length > 1);
+
   const [activeDays, setActiveDays] = useState(initialData?.active_days || ["mon", "tue", "wed", "thu", "fri"]);
 
   const toggleDevice = (id: string) => {
@@ -582,15 +591,15 @@ function CreateConversationForm({
       toast.error("Selecione pelo menos 2 chips");
       return;
     }
+
+    const startHour = usePeriod2 ? `${startHour1},${startHour2}` : startHour1;
+    const endHour = usePeriod2 ? `${endHour1},${endHour2}` : endHour1;
+
     onSubmit({
       name,
       device_ids: selectedDevices,
       min_delay_seconds: minDelay,
       max_delay_seconds: maxDelay,
-      pause_after_messages_min: pauseAfterMin,
-      pause_after_messages_max: pauseAfterMax,
-      pause_duration_min: pauseDurationMin,
-      pause_duration_max: pauseDurationMax,
       start_hour: startHour,
       end_hour: endHour,
       active_days: activeDays,
@@ -663,49 +672,54 @@ function CreateConversationForm({
             <Input type="number" min={10} value={maxDelay} onChange={(e) => setMaxDelay(Number(e.target.value))} />
           </div>
         </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-xs">Pausa após (mín msgs)</Label>
-            <Input type="number" min={2} value={pauseAfterMin} onChange={(e) => setPauseAfterMin(Number(e.target.value))} />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Pausa após (máx msgs)</Label>
-            <Input type="number" min={3} value={pauseAfterMax} onChange={(e) => setPauseAfterMax(Number(e.target.value))} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-xs">Duração da pausa mín (seg)</Label>
-            <Input type="number" min={30} value={pauseDurationMin} onChange={(e) => setPauseDurationMin(Number(e.target.value))} />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Duração da pausa máx (seg)</Label>
-            <Input type="number" min={60} value={pauseDurationMax} onChange={(e) => setPauseDurationMax(Number(e.target.value))} />
-          </div>
-        </div>
       </div>
 
       <Separator />
 
-      {/* Duration & Schedule */}
+      {/* Schedule — Dual time windows */}
       <div className="space-y-4">
         <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Settings2 className="w-4 h-4 text-primary" />
-          Duração e Agenda
+          Agenda
         </h4>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-xs">Horário de início</Label>
-            <Input type="time" value={startHour} onChange={(e) => setStartHour(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Horário de término</Label>
-            <Input type="time" value={endHour} onChange={(e) => setEndHour(e.target.value)} />
+        {/* Period 1 */}
+        <div className="space-y-2">
+          <Label className="text-xs font-medium">Período 1</Label>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label className="text-[11px] text-muted-foreground">Início</Label>
+              <Input type="time" value={startHour1} onChange={(e) => setStartHour1(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[11px] text-muted-foreground">Término</Label>
+              <Input type="time" value={endHour1} onChange={(e) => setEndHour1(e.target.value)} />
+            </div>
           </div>
         </div>
+
+        {/* Toggle Period 2 */}
+        <div className="flex items-center gap-3">
+          <Switch checked={usePeriod2} onCheckedChange={setUsePeriod2} />
+          <Label className="text-xs">Adicionar 2º período (ex: tarde)</Label>
+        </div>
+
+        {/* Period 2 */}
+        {usePeriod2 && (
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Período 2</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Início</Label>
+                <Input type="time" value={startHour2} onChange={(e) => setStartHour2(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Término</Label>
+                <Input type="time" value={endHour2} onChange={(e) => setEndHour2(e.target.value)} />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Days of the week */}
         <div className="space-y-2">
