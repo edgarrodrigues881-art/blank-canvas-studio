@@ -773,8 +773,10 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         // Apply cooldown delay (blocking)
         const cooldownDelay = result.cooldownMs || computeNextDelayMs(campaign, result.cooldownMs);
         console.log(`[mass-inject] campaign=${campaignId} transient error, waiting ${cooldownDelay}ms before retry`);
+        await setCampaignEvent(sb, campaignId, "retry_waiting");
         await setNextRunAt(sb, campaignId, cooldownDelay);
         await sleep(cooldownDelay);
+        await setCampaignEvent(sb, campaignId, "retry_resumed");
         continue;
       }
 
