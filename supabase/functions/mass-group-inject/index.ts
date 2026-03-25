@@ -260,7 +260,7 @@ async function getGroupParticipantsDetailed(baseUrl: string, token: string, grou
   ];
   for (const strategy of strategies) {
     try {
-      const res = await fetch(strategy.url, {
+      const res = await fetchWithTimeout(strategy.url, {
         method: strategy.method,
         headers: strategy.body ? buildHeaders(token, true) : buildHeaders(token),
         ...(strategy.body ? { body: JSON.stringify(strategy.body) } : {}),
