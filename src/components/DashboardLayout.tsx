@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAutoSyncDevices } from "@/hooks/useAutoSyncDevices";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -22,6 +22,10 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useFeatureControls } from "@/hooks/useFeatureControls";
 import { MaintenanceModal } from "@/components/MaintenanceModal";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
