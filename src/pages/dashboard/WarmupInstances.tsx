@@ -174,13 +174,27 @@ const phaseShort: Record<string, string> = {
 
 const CONNECTED_STATUSES = ["Connected", "Ready", "authenticated"];
 
+const getBrtDateKey = (d: Date) => {
+  const brt = new Date(d.getTime() - 3 * 60 * 60 * 1000);
+  return `${brt.getUTCFullYear()}-${String(brt.getUTCMonth() + 1).padStart(2, "0")}-${String(brt.getUTCDate()).padStart(2, "0")}`;
+};
+
 const getWarmupProgress = (cycle?: {
   daily_interaction_budget_target?: number;
   daily_interaction_budget_used?: number;
+  last_daily_reset_at?: string;
   phase?: string;
 } | null) => {
   if (!cycle) return null;
   if (cycle.phase === "completed") return 100;
+
+  // If the last reset was on a previous BRT day, counters are stale → show 0%
+  if (cycle.last_daily_reset_at) {
+    const lastResetBrt = getBrtDateKey(new Date(cycle.last_daily_reset_at));
+    const todayBrt = getBrtDateKey(new Date());
+    if (lastResetBrt !== todayBrt) return 0;
+  }
+
   const target = Math.max(cycle.daily_interaction_budget_target ?? 0, 1);
   const used = Math.max(cycle.daily_interaction_budget_used ?? 0, 0);
   return Math.min(100, Math.round((used / target) * 100));
