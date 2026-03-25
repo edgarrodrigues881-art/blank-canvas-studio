@@ -1,4 +1,4 @@
-// mass-group-inject v13.0 — serial queue + advisory locks + per-device global rate limiter + processing timeout + structured logs + next_run_at sync
+// mass-group-inject v14.0 — fetch timeout + delay by result type + robust finalization
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -19,7 +19,8 @@ type ContactProcessingStatus =
   | "contact_not_found"
   | "unauthorized"
   | "blocked"
-  | "unknown_failure";
+  | "unknown_failure"
+  | "timeout";
 
 interface AddAttemptResult {
   ok: boolean;
@@ -27,7 +28,7 @@ interface AddAttemptResult {
   body?: any;
   rawMessage: string;
   errorCode?: string;
-  strategyIndex?: number; // which strategy worked
+  strategyIndex?: number;
 }
 
 interface FailureClassification {
@@ -64,20 +65,36 @@ const SUCCESS_STATUSES = new Set(["completed", "already_exists"]);
 const FAILURE_STATUSES = new Set([
   "rate_limited", "api_temporary", "connection_unconfirmed", "confirmed_disconnect",
   "permission_unconfirmed", "confirmed_no_admin", "invalid_group", "contact_not_found",
-  "unauthorized", "blocked", "unknown_failure",
+  "unauthorized", "blocked", "unknown_failure", "timeout",
 ]);
 
 const FINAL_CAMPAIGN_STATUSES = new Set(["done", "completed_with_failures", "paused", "cancelled", "failed"]);
-const RETRYABLE_QUEUE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"] as const;
+const RETRYABLE_QUEUE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure", "timeout"] as const;
 const MAX_QUEUE_RETRIES = 3;
 const STALE_PROCESSING_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+const API_TIMEOUT_MS = 25_000; // 25s timeout for all external API calls
 
 // ── Endpoint cache: avoid trying all 5 strategies every time ──
-// Maps campaignId+groupId to the strategy index that worked
 const endpointCache = new Map<string, number>();
 
 const nowIso = () => new Date().toISOString();
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Fetch with hard timeout — never allows infinite await */
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = API_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error: any) {
+    if (error.name === "AbortError") {
+      throw new Error(`Timeout: API não respondeu em ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /** Update the next_run_at timestamp so frontend can show a precise countdown */
 async function setNextRunAt(sb: any, campaignId: string, delayMs: number) {
@@ -243,7 +260,7 @@ async function getGroupParticipantsDetailed(baseUrl: string, token: string, grou
   ];
   for (const strategy of strategies) {
     try {
-      const res = await fetch(strategy.url, {
+      const res = await fetchWithTimeout(strategy.url, {
         method: strategy.method,
         headers: strategy.body ? buildHeaders(token, true) : buildHeaders(token),
         ...(strategy.body ? { body: JSON.stringify(strategy.body) } : {}),
@@ -295,8 +312,8 @@ function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClas
   if (message.includes("full") || message.includes("limit reached")) {
     return { status: "invalid_group", detail: "Grupo atingiu limite de participantes.", retryable: false, pauseCampaign: true, confirmed: true };
   }
-  if (message.includes("timeout") || message.includes("timed out") || httpStatus === 408 || httpStatus === 504) {
-    return { status: "api_temporary", detail: "Uazapi não respondeu a tempo.", retryable: true, cooldownMs: randomBetween(10_000, 18_000) };
+  if (message.includes("timeout") || message.includes("timed out") || message.includes("não respondeu") || httpStatus === 408 || httpStatus === 504) {
+    return { status: "timeout", detail: "API não respondeu a tempo (timeout).", retryable: true, cooldownMs: randomBetween(15_000, 25_000) };
   }
   if (httpStatus >= 500) {
     return { status: "api_temporary", detail: `Erro de servidor Uazapi (${httpStatus}).`, retryable: true, cooldownMs: randomBetween(12_000, 20_000) };
@@ -314,7 +331,7 @@ async function getDeviceCredentials(sb: any, deviceId: string, userId: string | 
 
 async function checkInstanceConnection(baseUrl: string, token: string): Promise<ConnectionCheckResult> {
   try {
-    const res = await fetch(`${baseUrl}/instance/status?t=${Date.now()}`, { method: "GET", headers: buildHeaders(token) });
+    const res = await fetchWithTimeout(`${baseUrl}/instance/status?t=${Date.now()}`, { method: "GET", headers: buildHeaders(token) });
     const { raw, body } = await readApiResponse(res);
     const normalized = normalizeProviderConnectionState(body);
     if (res.status === 401) return { connected: null, status: "token_invalid", detail: "Falha de autenticação." };
@@ -339,7 +356,7 @@ async function checkGroupAccess(baseUrl: string, token: string, groupId: string)
   ];
   for (const ep of endpoints) {
     try {
-      const res = await fetch(ep.url, {
+      const res = await fetchWithTimeout(ep.url, {
         method: ep.method,
         headers: ep.body ? buildHeaders(token, true) : buildHeaders(token),
         ...(ep.body ? { body: JSON.stringify(ep.body) } : {}),
@@ -378,7 +395,7 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
     const strategy = strategies[cachedStrategyIndex];
     try {
       console.log(`addToGroup CACHED[${cachedStrategyIndex}]: ${strategy.method} ${strategy.url}`);
-      const res = await fetch(strategy.url, { method: strategy.method, headers, body: JSON.stringify(strategy.body) });
+      const res = await fetchWithTimeout(strategy.url, { method: strategy.method, headers, body: JSON.stringify(strategy.body) });
       const { raw, body } = await readApiResponse(res);
       const pm = extractProviderMessage(body, raw);
       const rawLower = `${raw} ${pm}`.toLowerCase();
@@ -392,7 +409,8 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
       // Any error from cached endpoint → return immediately, NEVER fallback to discovery
       return { ok: false, status: res.status, body, rawMessage: pm || raw, strategyIndex: cachedStrategyIndex };
     } catch (error: any) {
-      return { ok: false, status: 0, rawMessage: error.message, strategyIndex: cachedStrategyIndex };
+      const isTimeout = error.message?.includes("Timeout");
+      return { ok: false, status: isTimeout ? 408 : 0, rawMessage: error.message, strategyIndex: cachedStrategyIndex };
     }
   }
 
@@ -403,7 +421,7 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
     const strategy = strategies[i];
     try {
       console.log(`addToGroup DISCOVERY[${i}]: ${strategy.method} ${strategy.url}`);
-      const res = await fetch(strategy.url, { method: strategy.method, headers, body: JSON.stringify(strategy.body) });
+      const res = await fetchWithTimeout(strategy.url, { method: strategy.method, headers, body: JSON.stringify(strategy.body) });
       if (res.status === 405) continue; // Endpoint doesn't exist, try next
 
       const { raw, body } = await readApiResponse(res);
@@ -419,8 +437,8 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
       // Got a real response → this is the correct endpoint. Return error, do NOT try more.
       return { ok: false, status: res.status, body, rawMessage: pm || raw, strategyIndex: i };
     } catch (error: any) {
-      // Network error → also STOP. Do not flood with more requests.
-      return { ok: false, status: 0, rawMessage: error.message };
+      const isTimeout = error.message?.includes("Timeout");
+      return { ok: false, status: isTimeout ? 408 : 0, rawMessage: error.message };
     }
   }
 
@@ -545,6 +563,7 @@ async function updateCampaignCounters(sb: any, campaign: any, status: string, pa
     patch.fail_count = Number(campaign.fail_count || 0) + 1;
     eventLevel = "error";
     if (status === "rate_limited") { eventType = "rate_limited"; eventLevel = "warning"; }
+    else if (status === "timeout") { eventType = "timeout"; eventLevel = "warning"; }
     else if (status === "contact_not_found") eventType = "contact_not_found";
     else if (status === "confirmed_disconnect") eventType = "instance_disconnected";
     else if (status === "confirmed_no_admin") eventType = "no_admin_permission";
@@ -764,7 +783,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       }
 
       // 9. Handle transient errors with retry
-      const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"].includes(result.status) && !result.pauseCampaign;
+      const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure", "timeout"].includes(result.status) && !result.pauseCampaign;
 
       if (isTransient && retryCount < MAX_QUEUE_RETRIES) {
         await sb.from("mass_inject_contacts").update({
@@ -826,9 +845,19 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         }
       }
 
-      // 11. BLOCKING delay before next contact
-      const nextDelayMs = computeNextDelayMs(latestCampaign, result.cooldownMs);
-      console.log(`[mass-inject] campaign=${campaignId} waiting ${nextDelayMs}ms before next contact`);
+      // 11. BLOCKING delay before next contact — DIFFERENTIATED BY RESULT TYPE
+      let nextDelayMs: number;
+      if (result.status === "already_exists" || result.status === "contact_not_found") {
+        // Fast skip: no API-heavy operation needed, short delay
+        nextDelayMs = randomBetween(1000, 3000);
+      } else if (result.status === "blocked" || result.status === "unauthorized") {
+        // Terminal non-retryable: skip quickly
+        nextDelayMs = randomBetween(1000, 2000);
+      } else {
+        // Success or other: use normal campaign delay
+        nextDelayMs = computeNextDelayMs(latestCampaign, result.cooldownMs);
+      }
+      console.log(`[mass-inject] campaign=${campaignId} result=${result.status} waiting ${nextDelayMs}ms`);
       await setNextRunAt(sb, campaignId, nextDelayMs);
       await sleep(nextDelayMs);
     }
@@ -969,7 +998,7 @@ Deno.serve(async (req) => {
 
         for (let page = 0; page < 10; page++) {
           try {
-            const res = await fetch(`${device.uazapi_base_url}/group/list?GetParticipants=false&page=${page}&count=500`, { headers: buildHeaders(device.uazapi_token) });
+            const res = await fetchWithTimeout(`${device.uazapi_base_url}/group/list?GetParticipants=false&page=${page}&count=500`, { headers: buildHeaders(device.uazapi_token) });
             if (!res.ok) { diagnostics += `group/list page ${page}: HTTP ${res.status}; `; break; }
             const data = await res.json();
             const groups = Array.isArray(data) ? data : data?.groups || data?.data || [];
@@ -982,7 +1011,7 @@ Deno.serve(async (req) => {
         if (allGroups.length === 0) {
           for (const endpoint of ["/group/listAll", "/group/fetchAllGroups", "/chat/list?type=group&count=500"]) {
             try {
-              const res = await fetch(`${device.uazapi_base_url}${endpoint}`, {
+              const res = await fetchWithTimeout(`${device.uazapi_base_url}${endpoint}`, {
                 method: endpoint === "/group/fetchAllGroups" ? "POST" : "GET",
                 headers: endpoint === "/group/fetchAllGroups" ? buildHeaders(device.uazapi_token, true) : buildHeaders(device.uazapi_token),
                 ...(endpoint === "/group/fetchAllGroups" ? { body: JSON.stringify({}) } : {}),
@@ -1019,7 +1048,7 @@ Deno.serve(async (req) => {
       ];
       for (const strategy of strategies) {
         try {
-          const res = await fetch(strategy.url, {
+          const res = await fetchWithTimeout(strategy.url, {
             method: strategy.method,
             headers: strategy.body ? buildHeaders(device.uazapi_token, true) : buildHeaders(device.uazapi_token),
             ...(strategy.body ? { body: JSON.stringify(strategy.body) } : {}),
