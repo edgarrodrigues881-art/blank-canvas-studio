@@ -1750,7 +1750,12 @@ const Devices = () => {
           <Button
             size="sm"
             variant="ghost"
-            className="gap-1.5 text-xs h-8 text-muted-foreground hover:text-foreground"
+            className={cn(
+              "gap-1.5 text-xs h-8",
+              syncLoading || isSyncingDevices()
+                ? "text-muted-foreground/50 cursor-not-allowed opacity-60"
+                : "text-muted-foreground hover:text-foreground"
+            )}
             disabled={syncLoading || isSyncingDevices()}
             onClick={async () => {
               if (isSyncingDevices()) return;
@@ -1765,7 +1770,6 @@ const Devices = () => {
                 const result = response.data;
                 const total = result.devices?.length || 0;
                 const found = result.devices?.filter((d: any) => d.found).length || 0;
-                // Force immediate refetch from DB (bypass cache) after sync
                 await queryClient.refetchQueries({ queryKey: ["devices"] });
                 queryClient.invalidateQueries({ queryKey: ["proxies"] });
                 toast({ 
@@ -1780,6 +1784,9 @@ const Devices = () => {
             }}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncLoading ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">
+              {syncLoading ? "Sincronizando..." : "Versync"}
+            </span>
           </Button>
         </div>
       </div>
