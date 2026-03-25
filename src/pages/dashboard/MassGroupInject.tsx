@@ -1795,13 +1795,34 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
 export default function MassGroupInject() {
   const [view, setView] = useState<View>("list");
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
+  const [prefillContacts, setPrefillContacts] = useState<string[] | undefined>();
+  const [prefillName, setPrefillName] = useState<string | undefined>();
+
+  const handleNewCampaignFromFailed = useCallback((phones: string[], sourceName: string) => {
+    setPrefillContacts(phones);
+    setPrefillName(sourceName);
+    setView("create");
+  }, []);
 
   if (view === "create") {
-    return <CreateCampaign onBack={() => setView("list")} onCampaignCreated={(id) => { setSelectedCampaignId(id); setView("detail"); }} />;
+    return (
+      <CreateCampaign
+        onBack={() => { setView("list"); setPrefillContacts(undefined); setPrefillName(undefined); }}
+        onCampaignCreated={(id) => { setSelectedCampaignId(id); setView("detail"); setPrefillContacts(undefined); setPrefillName(undefined); }}
+        prefillContacts={prefillContacts}
+        prefillName={prefillName}
+      />
+    );
   }
 
   if (view === "detail" && selectedCampaignId) {
-    return <CampaignDetail campaignId={selectedCampaignId} onBack={() => { setSelectedCampaignId(null); setView("list"); }} />;
+    return (
+      <CampaignDetail
+        campaignId={selectedCampaignId}
+        onBack={() => { setSelectedCampaignId(null); setView("list"); }}
+        onNewCampaignFromFailed={handleNewCampaignFromFailed}
+      />
+    );
   }
 
   return <CampaignList onCreateNew={() => setView("create")} onViewCampaign={(id) => { setSelectedCampaignId(id); setView("detail"); }} />;
