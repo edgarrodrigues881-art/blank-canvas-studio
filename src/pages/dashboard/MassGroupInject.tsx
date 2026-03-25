@@ -452,7 +452,7 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
 // ═══════════════════════════════════════════════════════════════
 // CAMPAIGN DETAIL VIEW
 // ═══════════════════════════════════════════════════════════════
-function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: () => void }) {
+function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campaignId: string; onBack: () => void; onNewCampaignFromFailed?: (phones: string[], sourceName: string) => void }) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [activeFilter, setActiveFilter] = useState("all");
