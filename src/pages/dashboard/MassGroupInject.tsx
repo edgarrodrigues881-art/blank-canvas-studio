@@ -86,8 +86,8 @@ function translateError(err: string): string {
   if (e.includes("contact_not_found") || e.includes("não foi encontrado")) return "Contato não encontrado no WhatsApp";
   if (e.includes("unauthorized") || e.includes("autenticação")) return "Falha de autenticação da instância";
   if (e.includes("blocked") || e.includes("ban") || e.includes("bloqueio")) return "Número bloqueado ou restrito";
-  if (e.includes("limite de requisições") || e.includes("rate") || e.includes("429")) return "Conta restringida pelo WhatsApp";
-  if (e.includes("conta restringida")) return "Conta restringida pelo WhatsApp";
+  if (e.includes("limite de requisições") || e.includes("rate") || e.includes("429")) return "Limite de API (429) — aguardando";
+  if (e.includes("api temporariamente")) return "API sobrecarregada — aguardando";
   if (e.includes("tentativas esgotadas")) return clean;
   if (e.includes("tempo de resposta") || e.includes("timeout")) return "Tempo de resposta excedido";
   if (e.includes("503") || e.includes("indisponível")) return "Instância indisponível (503)";
@@ -115,7 +115,7 @@ function statusLabel(status: string) {
   switch (status) {
     case "completed": return "Adicionado";
     case "already_exists": return "Já no grupo";
-    case "rate_limited": return "Conta restringida";
+    case "rate_limited": return "Limite de API";
     case "api_temporary": return "Falha temporária";
     case "temporary_error": return "Erro temporário";
     case "connection_unconfirmed": return "Conexão não confirmada";
@@ -531,7 +531,7 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     contact_already_exists: { msg: "Contato já está no grupo", groupable: true },
     contact_not_found: { msg: "Número não encontrado no WhatsApp", groupable: true },
     contact_error: { msg: "Erro ao adicionar contato", groupable: true },
-    rate_limited: { msg: "Conta restringida pelo WhatsApp" },
+    rate_limited: { msg: "Limite de API atingido — aguardando cooldown" },
     retry_waiting: { msg: "Aguardando cooldown antes de nova tentativa" },
     retry_resumed: { msg: "Processamento retomado" },
     instance_disconnected: { msg: "Instância desconectada" },
