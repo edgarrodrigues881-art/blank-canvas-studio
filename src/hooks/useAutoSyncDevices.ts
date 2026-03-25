@@ -86,33 +86,30 @@ export function useAutoSyncDevices(intervalMs = 10_000) {
     };
   }, [session?.user?.id, queryClient]);
 
+  // ── Shared sync function exposed for manual trigger ──
+  const doSync = useCallback(async () => {
+    if (_isSyncing) return;
+    if (Date.now() < mutedUntil) return;
+    _isSyncing = true;
+    try {
+      await supabase.functions.invoke("sync-devices");
+      if (Date.now() >= mutedUntil) {
+        await queryClient.refetchQueries({ queryKey: ["devices"] });
+        queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
+      }
+    } catch {
+      // silent — don't change state on error
+    } finally {
+      _isSyncing = false;
+    }
+  }, [queryClient]);
+
   // ── Periodic background sync + immediate sync on tab focus ──
   useEffect(() => {
     if (!session?.access_token) return;
 
-    const doSync = async () => {
-      if (syncingRef.current) return;
-      if (Date.now() < mutedUntil) return;
-      syncingRef.current = true;
-      try {
-        await supabase.functions.invoke("sync-devices");
-        if (Date.now() >= mutedUntil) {
-          // Force refetch from DB (bypass staleTime) to reflect API changes immediately
-          await queryClient.refetchQueries({ queryKey: ["devices"] });
-          queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
-        }
-      } catch {
-        // silent — don't change state on error
-      } finally {
-        syncingRef.current = false;
-      }
-    };
-
-    // Sync on tab becoming visible (instant update when user returns)
     const onVisibilityChange = () => {
-      if (!document.hidden) {
-        doSync();
-      }
+      if (!document.hidden) doSync();
     };
 
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -127,5 +124,7 @@ export function useAutoSyncDevices(intervalMs = 10_000) {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [session?.access_token, intervalMs, queryClient]);
+  }, [session?.access_token, intervalMs, doSync]);
+
+  return { doSync };
 }
