@@ -698,6 +698,20 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       const cacheKey = `${campaignId}:${campaign.group_id}`;
       console.log(`[mass-inject] campaign=${campaignId} processing contact=${contact.phone} (retry=${retryCount})`);
       const result = await executeAddWithRecovery(device.uazapi_base_url, device.uazapi_token, campaign.group_id, contact.phone, cacheKey);
+      contactsProcessedThisRun++;
+
+      // STRUCTURED PER-CONTACT LOG
+      console.log(JSON.stringify({
+        type: "mass-group-inject.contact_result",
+        campaignId,
+        contactPhone: contact.phone,
+        contactId: contact.id,
+        status: result.status,
+        detail: result.detail?.substring(0, 200),
+        retryCount,
+        deviceName: device.name,
+        timestamp: nowIso(),
+      }));
 
       // 8. Update device status based on result
       if (result.status === "confirmed_disconnect") {
