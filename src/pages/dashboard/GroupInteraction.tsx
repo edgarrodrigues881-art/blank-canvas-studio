@@ -20,7 +20,6 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import GIStatusPanel from "@/components/group-interaction/GIStatusPanel";
 import GIContentConfig from "@/components/group-interaction/GIContentConfig";
-import GIContentLibrary from "@/components/group-interaction/GIContentLibrary";
 import GILogs from "@/components/group-interaction/GILogs";
 import GIPresets from "@/components/group-interaction/GIPresets";
 
@@ -93,7 +92,6 @@ export default function GroupInteractionPage() {
         .from("devices")
         .select("id, name, number, status")
         .eq("user_id", user.id)
-        .eq("status", "connected")
         .order("name");
       return data || [];
     },
@@ -246,41 +244,83 @@ export default function GroupInteractionPage() {
         </Button>
       </div>
 
-      {/* Automations list - horizontal cards when items exist */}
+      {/* Campaign list with pause/cancel controls */}
       {interactions.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Automações ({interactions.length})
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {interactions.map((inter) => (
-              <Card
-                key={inter.id}
-                className={`cursor-pointer transition-all hover:border-primary/40 ${
-                  selectedId === inter.id ? "border-primary ring-1 ring-primary/20" : ""
-                }`}
-                onClick={() => {
-                  setSelectedId(inter.id);
-                  setShowConfig(true);
-                }}
-              >
-                <CardContent className="p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate">{inter.name}</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {(inter.group_ids || []).length} grupos · {inter.total_messages_sent} msgs
-                      </p>
-                    </div>
-                    <Badge variant="outline" className={`text-[10px] shrink-0 ${statusColors[inter.status] || ""}`}>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Users className="w-4 h-4 text-primary" />
+              Campanhas ({interactions.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-border/50">
+              {interactions.map((inter) => (
+                <div
+                  key={inter.id}
+                  className={`flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer ${
+                    selectedId === inter.id ? "bg-muted/40" : ""
+                  }`}
+                  onClick={() => {
+                    setSelectedId(inter.id);
+                    setShowConfig(true);
+                  }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">{inter.name}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {(inter.group_ids || []).length} grupos · {inter.total_messages_sent} msgs enviadas
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="outline" className={`text-[10px] ${statusColors[inter.status] || ""}`}>
                       {statusLabels[inter.status] || inter.status}
                     </Badge>
+                    {inter.status === "running" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          invokeAction.mutate({ interactionId: inter.id, action: "pause" });
+                        }}
+                      >
+                        <Pause className="w-3 h-3" /> Pausar
+                      </Button>
+                    )}
+                    {inter.status === "paused" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          invokeAction.mutate({ interactionId: inter.id, action: "start" });
+                        }}
+                      >
+                        <Play className="w-3 h-3" /> Retomar
+                      </Button>
+                    )}
+                    {(inter.status === "running" || inter.status === "paused") && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs gap-1 text-destructive hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          invokeAction.mutate({ interactionId: inter.id, action: "stop" });
+                        }}
+                      >
+                        <Square className="w-3 h-3" /> Cancelar
+                      </Button>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Main content - full width */}
@@ -345,15 +385,12 @@ export default function GroupInteractionPage() {
 
               {/* Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid grid-cols-4 w-full">
+                <TabsList className="grid grid-cols-3 w-full">
                   <TabsTrigger value="config" className="gap-1 text-xs">
                     <Settings className="w-3.5 h-3.5" /> Configurações
                   </TabsTrigger>
                   <TabsTrigger value="content" className="gap-1 text-xs">
                     <MessageCircle className="w-3.5 h-3.5" /> Conteúdo
-                  </TabsTrigger>
-                  <TabsTrigger value="library" className="gap-1 text-xs">
-                    <Users className="w-3.5 h-3.5" /> Biblioteca
                   </TabsTrigger>
                   <TabsTrigger value="logs" className="gap-1 text-xs">
                     <Clock className="w-3.5 h-3.5" /> Logs
@@ -398,7 +435,7 @@ export default function GroupInteractionPage() {
                             <SelectContent>
                               {devices.map((d: any) => (
                                 <SelectItem key={d.id} value={d.id}>
-                                  {d.name} {d.number ? `(${d.number})` : ""} — {d.status}
+                                  {d.name} {d.number ? `(${d.number})` : ""} {d.status === "connected" ? "🟢" : "🔴"}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -609,6 +646,13 @@ export default function GroupInteractionPage() {
 
                 {/* Content Config Tab */}
                 <TabsContent value="content" className="mt-4">
+                  <Card className="mb-4">
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground">
+                        💡 As mensagens de texto, áudios, imagens e figurinhas são geradas automaticamente pelo sistema com milhares de variações únicas, incluindo números aleatórios, para garantir que nenhuma instância envie a mesma mensagem.
+                      </p>
+                    </CardContent>
+                  </Card>
                   <GIContentConfig
                     contentTypes={form.content_types || defaultContentTypes}
                     onChange={(types) => updateForm({ content_types: types })}
@@ -620,11 +664,6 @@ export default function GroupInteractionPage() {
                       </Button>
                     </div>
                   )}
-                </TabsContent>
-
-                {/* Library Tab */}
-                <TabsContent value="library" className="mt-4">
-                  <GIContentLibrary interactionId={selectedId} />
                 </TabsContent>
 
                 {/* Logs Tab */}
