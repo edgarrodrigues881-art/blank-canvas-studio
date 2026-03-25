@@ -899,11 +899,15 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
 function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillName }: { onBack: () => void; onCampaignCreated: (id: string) => void; prefillContacts?: string[]; prefillName?: string }) {
   const { user } = useAuth();
   const [step, setStep] = useState<Step>("import");
-  const [campaignName, setCampaignName] = useState(prefillName ? `Retry - ${prefillName}` : "");
-  const [groupId, setGroupId] = useState("");
-  const [groupName, setGroupName] = useState("");
-  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
-  const [rawInput, setRawInput] = useState(prefillContacts?.join("\n") || "");
+  const initDraft = useRef(() => {
+    try { const r = localStorage.getItem("mass-inject-draft"); return r ? JSON.parse(r) : null; } catch { return null; }
+  });
+  const _d = useRef(prefillContacts?.length ? null : initDraft.current());
+  const [campaignName, setCampaignName] = useState(prefillName ? `Retry - ${prefillName}` : (_d.current?.campaignName || ""));
+  const [groupId, setGroupId] = useState(_d.current?.groupId || "");
+  const [groupName, setGroupName] = useState(_d.current?.groupName || "");
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>(_d.current?.selectedDeviceIds || []);
+  const [rawInput, setRawInput] = useState(prefillContacts?.join("\n") || (_d.current?.rawInput || ""));
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [participantCheck, setParticipantCheck] = useState<ParticipantCheckResult | null>(null);
   const [isValidating, setIsValidating] = useState(false);
@@ -933,12 +937,48 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   const [groupLoadError, setGroupLoadError] = useState("");
   const [groupLoadDiagnostics, setGroupLoadDiagnostics] = useState("");
 
-  // Config
-  const [minDelay, setMinDelay] = useState(30);
-  const [maxDelay, setMaxDelay] = useState(60);
-  const [pauseAfter, setPauseAfter] = useState(0);
-  const [pauseDuration, setPauseDuration] = useState(30);
-  const [rotateAfter, setRotateAfter] = useState(0);
+  // Config — restore draft from localStorage
+  const DRAFT_KEY = "mass-inject-draft";
+  const loadDraft = () => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  };
+  const draft = useRef(loadDraft());
+
+  const [minDelay, setMinDelay] = useState(draft.current?.minDelay ?? 30);
+  const [maxDelay, setMaxDelay] = useState(draft.current?.maxDelay ?? 60);
+  const [pauseAfter, setPauseAfter] = useState(draft.current?.pauseAfter ?? 0);
+  const [pauseDuration, setPauseDuration] = useState(draft.current?.pauseDuration ?? 30);
+  const [rotateAfter, setRotateAfter] = useState(draft.current?.rotateAfter ?? 0);
+
+  // Persist draft to localStorage
+  useEffect(() => {
+    const data = { campaignName, groupId, groupName, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, rawInput };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+  }, [campaignName, groupId, groupName, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, rawInput]);
+
+  const clearDraft = useCallback(() => {
+    localStorage.removeItem(DRAFT_KEY);
+    setCampaignName("");
+    setGroupId("");
+    setGroupName("");
+    setSelectedDeviceIds([]);
+    setRawInput("");
+    setImportedContacts([]);
+    setHasImported(false);
+    setValidationResult(null);
+    setParticipantCheck(null);
+    setMinDelay(30);
+    setMaxDelay(60);
+    setPauseAfter(0);
+    setPauseDuration(30);
+    setRotateAfter(0);
+    setStep("import");
+    setCompletedSteps(new Set());
+    toast.success("Rascunho limpo");
+  }, []);
 
   // Processing state
   const [liveResults, setLiveResults] = useState<ContactResult[]>([]);
@@ -1307,6 +1347,11 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
             <p className="text-sm text-muted-foreground">Adição em massa de membros</p>
           </div>
         </div>
+        {!isProcessing && (
+          <Button variant="ghost" size="sm" onClick={clearDraft} className="gap-1.5 text-muted-foreground hover:text-destructive">
+            <Trash2 className="w-3.5 h-3.5" /> Limpar tudo
+          </Button>
+        )}
       </div>
 
       {/* Steps */}
@@ -1512,8 +1557,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                 <div>
                   <div className="flex items-center gap-2 mb-2"><Timer className="w-3.5 h-3.5 text-muted-foreground" /><label className="text-xs font-semibold text-muted-foreground">Delay entre contatos (segundos)</label></div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div><span className="text-[10px] text-muted-foreground/60">Mínimo (30s+)</span><Input type="number" min={30} max={300} value={minDelay} onChange={e => { const v = Math.max(30, Number(e.target.value) || 30); setMinDelay(v); if (maxDelay < v) setMaxDelay(v); }} className="h-9 text-sm mt-1" /></div>
-                    <div><span className="text-[10px] text-muted-foreground/60">Máximo</span><Input type="number" min={30} max={600} value={maxDelay} onChange={e => setMaxDelay(Math.max(Number(e.target.value) || 30, minDelay))} className="h-9 text-sm mt-1" /></div>
+                    <div><span className="text-[10px] text-muted-foreground/60">Mínimo (30s+)</span><Input type="number" min={30} max={300} value={minDelay} onChange={e => setMinDelay(Number(e.target.value) || 0)} onBlur={() => { const v = Math.max(30, minDelay); setMinDelay(v); if (maxDelay < v) setMaxDelay(v); }} className="h-9 text-sm mt-1" /></div>
+                    <div><span className="text-[10px] text-muted-foreground/60">Máximo</span><Input type="number" min={30} max={600} value={maxDelay} onChange={e => setMaxDelay(Number(e.target.value) || 0)} onBlur={() => setMaxDelay(Math.max(30, maxDelay, minDelay))} className="h-9 text-sm mt-1" /></div>
                   </div>
                 </div>
                 <div>
