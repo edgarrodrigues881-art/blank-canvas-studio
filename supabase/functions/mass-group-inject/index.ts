@@ -555,6 +555,8 @@ function computeNextDelayMs(campaign: any, cooldownMs?: number) {
   const minDelay = Math.max(Number(campaign.min_delay || 10), 10);
   const maxDelay = Math.max(Number(campaign.max_delay || 18), minDelay);
   let nextDelay = randomBetween(minDelay, maxDelay) * 1000;
+  // JITTER: add 1–4s of random noise to make timing less predictable/detectable
+  nextDelay += randomBetween(1000, 4000);
   const processed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0) + Number(campaign.already_count || 0);
   const pauseAfter = Number(campaign.pause_after || 0);
   const pauseDuration = Math.max(Number(campaign.pause_duration || 0), 0);
