@@ -486,6 +486,37 @@ function CampaignDetail({ campaignId, onBack }: { campaignId: string; onBack: ()
     return () => clearInterval(id);
   }, [campaign?.status, isFetchingCampaign, isFetchingContacts, refetchCampaign, refetchContacts]);
 
+  // ── Toast notifications from backend events ──
+  const lastSeenEventRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!campaign?.last_event || !campaign?.last_event_at) return;
+    const eventKey = `${campaign.last_event}:${campaign.last_event_at}`;
+    if (lastSeenEventRef.current === eventKey) return;
+    lastSeenEventRef.current = eventKey;
+
+    const eventToasts: Record<string, { msg: string; type: "success" | "error" | "warning" | "info" }> = {
+      contact_added: { msg: "✓ Contato adicionado com sucesso", type: "success" },
+      contact_already_exists: { msg: "Contato já está no grupo", type: "info" },
+      contact_not_found: { msg: "Número não encontrado no WhatsApp", type: "error" },
+      contact_error: { msg: "Erro ao adicionar contato", type: "error" },
+      rate_limited: { msg: "Limite temporário atingido, aguardando retry", type: "warning" },
+      retry_waiting: { msg: "Aguardando cooldown antes de nova tentativa", type: "warning" },
+      retry_resumed: { msg: "Processamento retomado", type: "info" },
+      device_disconnected: { msg: "Instância desconectada", type: "error" },
+      no_admin_permission: { msg: "Sem privilégio de administrador no grupo", type: "error" },
+      campaign_paused: { msg: "Campanha pausada automaticamente", type: "warning" },
+    };
+
+    const t = eventToasts[campaign.last_event];
+    if (t) {
+      if (t.type === "success") toast.success(t.msg);
+      else if (t.type === "error") toast.error(t.msg);
+      else if (t.type === "warning") toast.warning(t.msg);
+      else toast.info(t.msg);
+    }
+  }, [campaign?.last_event, campaign?.last_event_at]);
+
   const handleManualRefresh = useCallback(async () => {
     setIsManualRefreshing(true);
     await Promise.all([refetchCampaign(), refetchContacts()]);
