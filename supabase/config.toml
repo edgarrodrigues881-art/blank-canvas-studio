@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.mass-group-inject]
 verify_jwt = false
+
+[functions.run-scheduled-campaigns]
+verify_jwt = false
