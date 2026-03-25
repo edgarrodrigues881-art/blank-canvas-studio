@@ -86,9 +86,12 @@ function translateError(err: string): string {
   if (e.includes("contact_not_found") || e.includes("não foi encontrado")) return "Contato não encontrado no WhatsApp";
   if (e.includes("unauthorized") || e.includes("autenticação")) return "Falha de autenticação da instância";
   if (e.includes("blocked") || e.includes("ban") || e.includes("bloqueio")) return "Número bloqueado ou restrito";
-  if (e.includes("limite de requisições") || e.includes("rate") || e.includes("429")) return "Limite de requisições (temporário)";
+  if (e.includes("limite de requisições") || e.includes("rate") || e.includes("429")) return "Conta restringida pelo WhatsApp";
+  if (e.includes("conta restringida")) return "Conta restringida pelo WhatsApp";
+  if (e.includes("tentativas esgotadas")) return clean;
   if (e.includes("tempo de resposta") || e.includes("timeout")) return "Tempo de resposta excedido";
   if (e.includes("503") || e.includes("indisponível")) return "Instância indisponível (503)";
+  if (e.includes("todas as instâncias")) return "Todas as instâncias desconectadas";
   if (e.includes("cancelada pelo usuário")) return "Cancelado pelo usuário";
   if (e.includes("não classificada") || e.includes("falha não")) return "Falha não classificada";
   // Don't use generic "Erro temporário" - show what we know
@@ -112,7 +115,7 @@ function statusLabel(status: string) {
   switch (status) {
     case "completed": return "Adicionado";
     case "already_exists": return "Já no grupo";
-    case "rate_limited": return "Aguardando retry";
+    case "rate_limited": return "Conta restringida";
     case "api_temporary": return "Falha temporária";
     case "temporary_error": return "Erro temporário";
     case "connection_unconfirmed": return "Conexão não confirmada";
@@ -122,7 +125,7 @@ function statusLabel(status: string) {
     case "invalid_group": return "Grupo inválido";
     case "contact_not_found": return "Contato inexistente";
     case "unauthorized": return "Autenticação";
-    case "blocked": return "Bloqueado";
+    case "blocked": return "Restringido";
     case "unknown_failure": return "Falha não confirmada";
     case "failed": return "Falha";
     case "pending": return "Pendente";
@@ -528,12 +531,14 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     contact_already_exists: { msg: "Contato já está no grupo", groupable: true },
     contact_not_found: { msg: "Número não encontrado no WhatsApp", groupable: true },
     contact_error: { msg: "Erro ao adicionar contato", groupable: true },
-    rate_limited: { msg: "Limite temporário atingido, aguardando retry" },
+    rate_limited: { msg: "Conta restringida pelo WhatsApp" },
     retry_waiting: { msg: "Aguardando cooldown antes de nova tentativa" },
     retry_resumed: { msg: "Processamento retomado" },
     instance_disconnected: { msg: "Instância desconectada" },
     instance_reconnected: { msg: "Instância reconectada" },
     no_admin_permission: { msg: "Sem privilégio de administrador no grupo" },
+    all_instances_disconnected: { msg: "Todas as instâncias desconectadas — campanha finalizada" },
+    campaign_failed_no_devices: { msg: "Nenhuma instância disponível — campanha finalizada" },
     campaign_started: { msg: "Campanha iniciada" },
     campaign_paused: { msg: "Campanha pausada" },
     campaign_resumed: { msg: "Campanha retomada" },
