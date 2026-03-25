@@ -35,6 +35,7 @@ import {
   Loader2,
   Trash2,
   RotateCcw,
+  Pencil,
 } from "lucide-react";
 import {
   Dialog,
@@ -115,6 +116,27 @@ export default function ChipConversation() {
   const [selectedConv, setSelectedConv] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingConv, setEditingConv] = useState<ChipConversation | null>(null);
+
+  const handleDelete = async (id: string) => {
+    try {
+      await actions.remove.mutateAsync(id);
+      toast.success("Conversa excluída");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao excluir");
+    }
+  };
+
+  const handleEdit = async (data: any) => {
+    if (!editingConv) return;
+    try {
+      await actions.update.mutateAsync({ conversation_id: editingConv.id, ...data });
+      toast.success("Conversa atualizada!");
+      setEditingConv(null);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao atualizar");
+    }
+  };
 
   return (
     <div className="space-y-6 pb-8">
@@ -157,6 +179,24 @@ export default function ChipConversation() {
         </Dialog>
       </div>
 
+      {/* Edit Dialog */}
+      <Dialog open={!!editingConv} onOpenChange={(open) => !open && setEditingConv(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Conversa</DialogTitle>
+          </DialogHeader>
+          {editingConv && (
+            <CreateConversationForm
+              devices={devices}
+              onSubmit={handleEdit}
+              isLoading={actions.update.isPending}
+              initialData={editingConv}
+              submitLabel="Salvar Alterações"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Conversations List */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
@@ -186,6 +226,8 @@ export default function ChipConversation() {
               onToggleExpand={() => setExpandedId(expandedId === conv.id ? null : conv.id)}
               onSelectLogs={() => setSelectedConv(selectedConv === conv.id ? null : conv.id)}
               showLogs={selectedConv === conv.id}
+              onEdit={() => setEditingConv(conv)}
+              onDelete={() => handleDelete(conv.id)}
             />
           ))}
         </div>
@@ -206,6 +248,8 @@ function ConversationCard({
   onToggleExpand,
   onSelectLogs,
   showLogs,
+  onEdit,
+  onDelete,
 }: {
   conversation: ChipConversation;
   devices: any[];
@@ -214,6 +258,8 @@ function ConversationCard({
   onToggleExpand: () => void;
   onSelectLogs: () => void;
   showLogs: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   const normalizedStatus = normalizeConversationStatus(conv.status);
   const status = STATUS_MAP[normalizedStatus];
@@ -322,6 +368,33 @@ function ConversationCard({
               </Button>
             </>
           ) : null}
+
+          {normalizedStatus === "idle" && (
+            <>
+              <Button size="icon" variant="ghost" onClick={onEdit} className="w-8 h-8" title="Editar">
+                <Pencil className="w-3.5 h-3.5" />
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button size="icon" variant="ghost" className="w-8 h-8 text-destructive hover:text-destructive" title="Excluir">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir conversa?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      A conversa e todos os logs serão removidos permanentemente.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={onDelete}>Excluir</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
+          )}
 
           <Button size="icon" variant="ghost" onClick={onToggleExpand} className="w-8 h-8">
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -455,26 +528,30 @@ function CreateConversationForm({
   devices,
   onSubmit,
   isLoading,
+  initialData,
+  submitLabel,
 }: {
   devices: any[];
   onSubmit: (data: any) => void;
   isLoading: boolean;
+  initialData?: ChipConversation;
+  submitLabel?: string;
 }) {
-  const [name, setName] = useState("Conversa automática");
-  const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
-  const [minDelay, setMinDelay] = useState(15);
-  const [maxDelay, setMaxDelay] = useState(60);
-  const [pauseAfterMin, setPauseAfterMin] = useState(4);
-  const [pauseAfterMax, setPauseAfterMax] = useState(8);
-  const [pauseDurationMin, setPauseDurationMin] = useState(120);
-  const [pauseDurationMax, setPauseDurationMax] = useState(300);
-  const [durationHours, setDurationHours] = useState(1);
-  const [durationMinutes, setDurationMinutes] = useState(0);
-  const [startHour, setStartHour] = useState("08:00");
-  const [endHour, setEndHour] = useState("18:00");
-  const [msgsMin, setMsgsMin] = useState(10);
-  const [msgsMax, setMsgsMax] = useState(30);
-  const [activeDays, setActiveDays] = useState(["mon", "tue", "wed", "thu", "fri"]);
+  const [name, setName] = useState(initialData?.name || "Conversa automática");
+  const [selectedDevices, setSelectedDevices] = useState<string[]>(initialData?.device_ids || []);
+  const [minDelay, setMinDelay] = useState(initialData?.min_delay_seconds ?? 15);
+  const [maxDelay, setMaxDelay] = useState(initialData?.max_delay_seconds ?? 60);
+  const [pauseAfterMin, setPauseAfterMin] = useState(initialData?.pause_after_messages_min ?? 4);
+  const [pauseAfterMax, setPauseAfterMax] = useState(initialData?.pause_after_messages_max ?? 8);
+  const [pauseDurationMin, setPauseDurationMin] = useState(initialData?.pause_duration_min ?? 120);
+  const [pauseDurationMax, setPauseDurationMax] = useState(initialData?.pause_duration_max ?? 300);
+  const [durationHours, setDurationHours] = useState(initialData?.duration_hours ?? 1);
+  const [durationMinutes, setDurationMinutes] = useState(initialData?.duration_minutes ?? 0);
+  const [startHour, setStartHour] = useState(initialData?.start_hour || "08:00");
+  const [endHour, setEndHour] = useState(initialData?.end_hour || "18:00");
+  const [msgsMin, setMsgsMin] = useState(initialData?.messages_per_cycle_min ?? 10);
+  const [msgsMax, setMsgsMax] = useState(initialData?.messages_per_cycle_max ?? 30);
+  const [activeDays, setActiveDays] = useState(initialData?.active_days || ["mon", "tue", "wed", "thu", "fri"]);
 
   const toggleDevice = (id: string) => {
     setSelectedDevices((prev) =>
@@ -669,8 +746,8 @@ function CreateConversationForm({
       <Separator />
 
       <Button onClick={handleSubmit} disabled={isLoading} className="w-full gap-2">
-        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-        Criar Conversa
+        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : initialData ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+        {submitLabel || "Criar Conversa"}
       </Button>
     </div>
   );
