@@ -1613,7 +1613,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                   )}
                 </div>
 
-                {/* Selected group indicator - only show when using link/jid mode */}
+                {/* Selected group indicator - for link/jid mode */}
                 {groupId && groupInputMode !== "list" && (
                   <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 px-4 py-3 flex items-center gap-3">
                     <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
@@ -1621,9 +1621,38 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                       <p className="text-sm font-semibold text-foreground truncate">{groupName || selectedGroup?.name || "Grupo selecionado"}</p>
                       <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{groupId}</p>
                     </div>
-                    <Button variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground" onClick={() => { setGroupId(""); setGroupName(""); }}>
+                    <Button variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground" onClick={() => { setGroupId(""); setGroupName(""); setSelectedGroups([]); }}>
                       <XCircle className="w-3.5 h-3.5" />
                     </Button>
+                  </div>
+                )}
+
+                {/* Selected groups summary - for list mode with multi-select */}
+                {groupInputMode === "list" && selectedGroups.length > 0 && (
+                  <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 px-4 py-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <p className="text-xs font-semibold text-foreground">{selectedGroups.length} grupo(s) selecionado(s)</p>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedGroups.map(g => (
+                        <Badge key={g.jid} variant="outline" className="text-[10px] gap-1 bg-emerald-500/5 border-emerald-500/20">
+                          {g.name}
+                          <button onClick={() => {
+                            const updated = selectedGroups.filter(sg => sg.jid !== g.jid);
+                            setSelectedGroups(updated);
+                            if (groupId === g.jid) { setGroupId(updated[0]?.jid || ""); setGroupName(updated[0]?.name || ""); }
+                          }} className="ml-0.5 hover:text-destructive">
+                            <XCircle className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                    {selectedGroups.length > 1 && (
+                      <p className="text-[10px] text-muted-foreground">
+                        Os contatos serão distribuídos entre os grupos em rodízio (round-robin).
+                      </p>
+                    )}
                   </div>
                 )}
               </CardContent>
