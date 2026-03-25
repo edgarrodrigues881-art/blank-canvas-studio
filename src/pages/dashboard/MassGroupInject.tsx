@@ -1534,26 +1534,85 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
           <div className="xl:col-span-3">
             <Card className="border-border/40 bg-card/80 backdrop-blur-sm shadow-sm h-full">
               <CardHeader className="pb-4">
-                <CardTitle className="text-base font-semibold flex items-center gap-2.5"><Upload className="w-4 h-4 text-primary" />Importar Contatos</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2.5"><Upload className="w-4 h-4 text-primary" />Importar Contatos</CardTitle>
+                  {hasImported && (
+                    <Button variant="outline" size="sm" onClick={() => setReimportMode("ask")} className="gap-1.5 text-xs">
+                      <RotateCcw className="w-3.5 h-3.5" /> Reimportar
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-5">
-                {/* Import contacts */}
                 {hasImported ? (
                   <div className="space-y-4">
-                    <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 px-4 py-4 flex items-center gap-3">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground">{contactCount} contatos importados</p>
-                        <p className="text-[10px] text-muted-foreground">Duplicados já foram removidos automaticamente</p>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={() => setReimportMode("ask")} className="gap-1.5 text-xs shrink-0">
-                        <RotateCcw className="w-3.5 h-3.5" /> Reimportar
-                      </Button>
+                    {/* Stats row */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { label: "Total", value: importStats.total, color: "text-foreground" },
+                        { label: "Válidos", value: importStats.valid, color: "text-emerald-500" },
+                        { label: "Duplicados", value: importStats.duplicate, color: "text-amber-500" },
+                        { label: "Inválidos", value: importStats.invalid + importStats.empty, color: "text-destructive" },
+                      ].map(s => (
+                        <div key={s.label} className="rounded-lg bg-muted/30 border border-border/30 px-3 py-2 text-center">
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{s.label}</span>
+                          <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
+                        </div>
+                      ))}
                     </div>
-                    <Textarea value={rawInput} onChange={e => setRawInput(e.target.value)}
-                      onBlur={() => { if (rawInput.trim()) handleRawInputChange(rawInput); }}
-                      placeholder="Um número por linha"
-                      className="min-h-[200px] font-mono text-xs resize-none bg-muted/20 border-border/40" />
+
+                    {/* Filter tabs */}
+                    <div className="flex gap-1.5 flex-wrap">
+                      {([
+                        { key: "all" as const, label: `Todos (${importStats.total})` },
+                        { key: "valid" as const, label: `Válidos (${importStats.valid})` },
+                        { key: "duplicate" as const, label: `Duplicados (${importStats.duplicate})` },
+                        { key: "invalid" as const, label: `Inválidos (${importStats.invalid + importStats.empty})` },
+                      ] as const).map(f => (
+                        <Button key={f.key} variant={importFilter === f.key ? "default" : "outline"} size="sm" onClick={() => setImportFilter(f.key)} className="text-[10px] h-7 rounded-lg px-2.5">
+                          {f.label}
+                        </Button>
+                      ))}
+                    </div>
+
+                    {/* Contact table */}
+                    <div className="max-h-[340px] overflow-y-auto rounded-xl border border-border/30">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-border/30 bg-muted/30">
+                            <TableHead className="text-[10px] w-10">#</TableHead>
+                            <TableHead className="text-[10px]">Número</TableHead>
+                            <TableHead className="text-[10px] text-right">Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredImportedContacts.slice(0, 200).map((c, i) => (
+                            <TableRow key={i} className="border-border/15">
+                              <TableCell className="text-[10px] font-mono text-muted-foreground py-1.5">{importedContacts.indexOf(c) + 1}</TableCell>
+                              <TableCell className="text-xs font-mono font-medium py-1.5">{c.raw || "(vazio)"}</TableCell>
+                              <TableCell className="text-right py-1.5">
+                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
+                                  c.classification === "valid" ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5" :
+                                  c.classification === "duplicate" ? "border-amber-500/30 text-amber-500 bg-amber-500/5" :
+                                  "border-destructive/30 text-destructive bg-destructive/5"
+                                }`}>
+                                  {c.classification === "valid" ? "Válido" :
+                                   c.classification === "duplicate" ? "Duplicado" :
+                                   c.classification === "invalid" ? "Inválido" : "Vazio"}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {filteredImportedContacts.length > 200 && (
+                            <TableRow>
+                              <TableCell colSpan={3} className="text-center text-[10px] text-muted-foreground py-2">
+                                ...e mais {filteredImportedContacts.length - 200} linhas
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
                 ) : (
                   <Tabs defaultValue="paste">
@@ -1561,11 +1620,19 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                       <TabsTrigger value="paste" className="text-xs font-semibold">Colar Números</TabsTrigger>
                       <TabsTrigger value="file" className="text-xs font-semibold">Arquivo CSV/TXT/XLSX</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="paste" className="mt-4">
+                    <TabsContent value="paste" className="mt-4 space-y-3">
                       <Textarea value={rawInput} onChange={e => setRawInput(e.target.value)}
-                        onBlur={() => { if (rawInput.trim()) handleRawInputChange(rawInput); }}
-                        placeholder={"5562999999999\n5521988888888\n\nDuplicados são removidos automaticamente.\nUm número por linha."}
-                        className="min-h-[300px] font-mono text-xs resize-none bg-muted/20 border-border/40" />
+                        placeholder={"5562999999999\n5521988888888\n\nUm número por linha."}
+                        className="min-h-[280px] font-mono text-xs resize-none bg-muted/20 border-border/40" />
+                      {rawInput.trim() && (
+                        <Button onClick={() => {
+                          const lines = rawInput.split(/[\n,;]+/).map(c => c.trim());
+                          handleImportContacts(lines);
+                        }} disabled={isImporting} variant="outline" className="w-full gap-2 h-10">
+                          {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                          Importar {rawInput.split(/[\n,;]+/).filter(c => c.trim()).length} contatos
+                        </Button>
+                      )}
                     </TabsContent>
                     <TabsContent value="file" className="mt-4">
                       <label className={`block border-2 border-dashed border-border/40 rounded-2xl p-10 text-center transition-colors hover:border-primary/30 hover:bg-primary/5 ${isImporting ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
@@ -1575,7 +1642,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                           <FileText className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
                         )}
                         <p className="text-sm text-muted-foreground mb-1">{isImporting ? "Importando..." : "Arraste ou clique para selecionar"}</p>
-                        <p className="text-[10px] text-muted-foreground/50">CSV, TXT ou XLSX — duplicados removidos automaticamente</p>
+                        <p className="text-[10px] text-muted-foreground/50">CSV, TXT ou XLSX — todos os números serão importados</p>
                         <input type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" disabled={isImporting} onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
@@ -1585,20 +1652,19 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                             if (ext === 'xlsx' || ext === 'xls') {
                               const XLSX = await import('xlsx');
                               const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
-                              const nums: string[] = [];
+                              const rawLines: string[] = [];
                               for (const sn of wb.SheetNames) {
                                 const rows: any[][] = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1 });
                                 for (const row of rows) for (const cell of row) {
                                   const v = String(cell ?? '').trim();
-                                  if (v && /\d{8,}/.test(v.replace(/\D/g, ''))) nums.push(v.replace(/\D/g, ''));
+                                  if (v && /\d{8,}/.test(v.replace(/\D/g, ''))) rawLines.push(v.replace(/\D/g, ''));
                                 }
                               }
-                              handleRawInputChange(nums.join('\n'));
-                              toast.success(`${nums.length} números importados do arquivo`);
+                              handleImportContacts(rawLines);
                             } else {
                               const text = await file.text();
-                              handleRawInputChange(text);
-                              toast.success(`Arquivo carregado com sucesso`);
+                              const lines = text.split(/[\n,;]+/).map(c => c.trim());
+                              handleImportContacts(lines);
                             }
                           } catch { toast.error('Erro ao ler arquivo'); }
                           finally { setIsImporting(false); }
@@ -1609,16 +1675,9 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                   </Tabs>
                 )}
 
-                {contactCount > 0 && !hasImported && (
-                  <div className="flex items-center gap-3 bg-primary/5 rounded-xl px-4 py-3">
-                    <BarChart3 className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-semibold">{contactCount} contatos detectados</span>
-                  </div>
-                )}
-
-                <Button onClick={handleValidate} disabled={isValidating || isImporting || !rawInput.trim() || !groupId.trim() || selectedDeviceIds.length === 0 || !campaignName.trim()} className="w-full h-12 gap-2 text-sm font-semibold rounded-xl shadow-md shadow-primary/10" size="lg">
+                <Button onClick={handleValidate} disabled={isValidating || isImporting || importStats.valid === 0 || !groupId.trim() || selectedDeviceIds.length === 0 || !campaignName.trim()} className="w-full h-12 gap-2 text-sm font-semibold rounded-xl shadow-md shadow-primary/10" size="lg">
                   {isValidating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                  {isValidating ? "Validando contatos..." : "Validar e Revisar"}
+                  {isValidating ? "Validando contatos..." : `Validar e Revisar (${importStats.valid} válidos)`}
                 </Button>
               </CardContent>
             </Card>
@@ -1632,7 +1691,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
           <AlertDialogHeader>
             <AlertDialogTitle>Reimportar contatos</AlertDialogTitle>
             <AlertDialogDescription>
-              Já existem {contactCount} contatos importados. O que deseja fazer?
+              Já existem {importStats.total} contatos importados ({importStats.valid} válidos). O que deseja fazer?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
@@ -1640,7 +1699,6 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
             <Button variant="outline" onClick={() => {
               setReimportMode(null);
               setHasImported(false);
-              // Keep existing contacts, user will add via file (merge mode will be used)
               toast.info("Importe um novo arquivo para adicionar aos contatos existentes");
             }} className="gap-1.5">
               <Plus className="w-4 h-4" /> Adicionar aos existentes
@@ -1648,6 +1706,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
             <AlertDialogAction onClick={() => {
               setReimportMode(null);
               setRawInput("");
+              setImportedContacts([]);
               setHasImported(false);
               setValidationResult(null);
               setParticipantCheck(null);
