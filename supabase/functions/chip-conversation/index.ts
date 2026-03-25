@@ -475,7 +475,7 @@ async function handleTick(admin: any, conversationId: string) {
   // Schedule next tick with delay based on user config
   const nextDelay = randInt(conv.min_delay_seconds || 30, conv.max_delay_seconds || 90);
   console.log(`[tick] Done! Sent ${totalSent}/${messagesThisCycle}. Next tick in ${nextDelay}s`);
-  scheduleNextTick(conversationId, nextDelay);
+  await scheduleNextTick(conversationId, nextDelay);
 
   return json({ ok: true, messages_sent: totalSent });
 }
