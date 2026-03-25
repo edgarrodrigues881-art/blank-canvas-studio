@@ -911,6 +911,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   const [campaignName, setCampaignName] = useState(prefillName ? `Retry - ${prefillName}` : (_d.current?.campaignName || ""));
   const [groupId, setGroupId] = useState(_d.current?.groupId || "");
   const [groupName, setGroupName] = useState(_d.current?.groupName || "");
+  const [selectedGroups, setSelectedGroups] = useState<Array<{jid: string, name: string}>>(_d.current?.selectedGroups || []);
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>(_d.current?.selectedDeviceIds || []);
   const [rawInput, setRawInput] = useState(prefillContacts?.join("\n") || (_d.current?.rawInput || ""));
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
