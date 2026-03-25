@@ -60,9 +60,13 @@ export function DeviceInstanceCards({ chips, isLoading }: Props) {
     );
   }
 
+  const sortedChips = useMemo(() => 
+    [...chips].sort((a, b) => extractNumber(a.name) - extractNumber(b.name)),
+  [chips]);
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-      {chips.map((chip) => {
+      {sortedChips.map((chip) => {
         const st = statusConfig[getChipStatus(chip)] || statusConfig.disconnected;
         const StatusIcon = st.icon;
 
