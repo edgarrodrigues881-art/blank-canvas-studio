@@ -958,6 +958,7 @@ const Campaigns = () => {
 
     if (!hasIssues) {
       // No issues — import directly
+      setRawImport(null);
       finishImport(imported);
     } else {
       // Show review dialog
