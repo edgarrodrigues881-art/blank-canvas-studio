@@ -1,4 +1,4 @@
-// mass-group-inject v10.0 — serial queue + advisory locks + per-device global rate limiter
+// mass-group-inject v12.0 — serial queue + advisory locks + per-device global rate limiter + processing timeout + structured logs
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -70,6 +70,7 @@ const FAILURE_STATUSES = new Set([
 const FINAL_CAMPAIGN_STATUSES = new Set(["done", "completed_with_failures", "paused", "cancelled", "failed"]);
 const RETRYABLE_QUEUE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "permission_unconfirmed", "unknown_failure"] as const;
 const MAX_QUEUE_RETRIES = 3;
+const STALE_PROCESSING_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
 // ── Endpoint cache: avoid trying all 5 strategies every time ──
 // Maps campaignId+groupId to the strategy index that worked
@@ -594,10 +595,30 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
   console.log(`[mass-inject] campaign=${campaignId} lock acquired — starting serial processing`);
 
   let consecutiveFailures = 0;
+  const workerStartedAt = Date.now();
+  let contactsProcessedThisRun = 0;
 
   try {
+    console.log(JSON.stringify({
+      type: "mass-group-inject.worker_start",
+      campaignId,
+      timestamp: nowIso(),
+    }));
+
     // ── Main processing loop: one contact at a time ──
     while (true) {
+      // 0. PROCESSING TIMEOUT: reset contacts stuck in "processing" for > 3 minutes
+      const staleThreshold = new Date(Date.now() - STALE_PROCESSING_TIMEOUT_MS).toISOString();
+      const { data: resetData } = await sb.from("mass_inject_contacts")
+        .update({ status: "pending", error_message: "Reprocessando (timeout de processamento)." } as any)
+        .eq("campaign_id", campaignId)
+        .eq("status", "processing")
+        .lt("processed_at", staleThreshold)
+        .select("id");
+      const resetCount = resetData?.length || 0;
+      if (resetCount > 0) {
+        console.log(`[mass-inject] campaign=${campaignId} reset ${resetCount} stale processing contacts back to pending`);
+      }
       // 1. Re-fetch campaign to check for pause/cancel
       const { data: campaign } = await sb.from("mass_inject_campaigns").select("*").eq("id", campaignId).single();
       if (!campaign || FINAL_CAMPAIGN_STATUSES.has(campaign.status)) {
@@ -677,6 +698,20 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       const cacheKey = `${campaignId}:${campaign.group_id}`;
       console.log(`[mass-inject] campaign=${campaignId} processing contact=${contact.phone} (retry=${retryCount})`);
       const result = await executeAddWithRecovery(device.uazapi_base_url, device.uazapi_token, campaign.group_id, contact.phone, cacheKey);
+      contactsProcessedThisRun++;
+
+      // STRUCTURED PER-CONTACT LOG
+      console.log(JSON.stringify({
+        type: "mass-group-inject.contact_result",
+        campaignId,
+        contactPhone: contact.phone,
+        contactId: contact.id,
+        status: result.status,
+        detail: result.detail?.substring(0, 200),
+        retryCount,
+        deviceName: device.name,
+        timestamp: nowIso(),
+      }));
 
       // 8. Update device status based on result
       if (result.status === "confirmed_disconnect") {
@@ -749,11 +784,32 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       await sleep(nextDelayMs);
     }
   } catch (error: any) {
-    console.error(`[mass-inject] campaign=${campaignId} worker error:`, error.message || error);
+    console.error(JSON.stringify({
+      type: "mass-group-inject.worker_error",
+      campaignId,
+      error: error.message || String(error),
+      contactsProcessed: contactsProcessedThisRun,
+      timestamp: nowIso(),
+    }));
   } finally {
+    // ── Ensure campaign is finalized if all contacts are done ──
+    try {
+      await finalizeCampaignIfNeeded(sb, campaignId);
+    } catch (e) {
+      console.error(`[mass-inject] campaign=${campaignId} finalization check error:`, e);
+    }
+
     // ── ALWAYS release the advisory lock ──
     await sb.rpc("release_mass_inject_run_lock", { p_campaign_id: campaignId }).catch(() => {});
-    console.log(`[mass-inject] campaign=${campaignId} lock released`);
+
+    const workerDurationMs = Date.now() - workerStartedAt;
+    console.log(JSON.stringify({
+      type: "mass-group-inject.worker_end",
+      campaignId,
+      contactsProcessed: contactsProcessedThisRun,
+      durationMs: workerDurationMs,
+      timestamp: nowIso(),
+    }));
   }
 }
 
