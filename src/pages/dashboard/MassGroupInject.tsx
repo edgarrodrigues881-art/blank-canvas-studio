@@ -961,15 +961,16 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
 
   // Persist draft to localStorage
   useEffect(() => {
-    const data = { campaignName, groupId, groupName, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, rawInput };
+    const data = { campaignName, groupId, groupName, selectedGroups, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, rawInput };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
-  }, [campaignName, groupId, groupName, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, rawInput]);
+  }, [campaignName, groupId, groupName, selectedGroups, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, rawInput]);
 
   const clearDraft = useCallback(() => {
     localStorage.removeItem(DRAFT_KEY);
     setCampaignName("");
     setGroupId("");
     setGroupName("");
+    setSelectedGroups([]);
     setSelectedDeviceIds([]);
     setRawInput("");
     setImportedContacts([]);
