@@ -1763,19 +1763,23 @@ const Devices = () => {
               try {
                 const { data: { session: s } } = await supabase.auth.getSession();
                 if (!s) throw new Error("Not authenticated");
-                const response = await supabase.functions.invoke("sync-devices", {
+                await supabase.functions.invoke("sync-devices", {
                   headers: { Authorization: `Bearer ${s.access_token}` },
                 });
-                if (response.error) throw response.error;
-                const result = response.data;
-                const total = result.devices?.length || 0;
-                const found = result.devices?.filter((d: any) => d.found).length || 0;
+                // Refetch devices and use the FRESH data for the toast
                 await queryClient.refetchQueries({ queryKey: ["devices"] });
                 queryClient.invalidateQueries({ queryKey: ["proxies"] });
-                toast({ 
-                  title: "✅ Sincronização concluída", 
-                  description: `${found} de ${total} instância${total !== 1 ? "s" : ""} ${found !== 1 ? "encontradas" : "encontrada"} online.` 
-                });
+                const freshDevices = queryClient.getQueryData<Device[]>(["devices"]) || [];
+                const total = freshDevices.length;
+                const online = freshDevices.filter(d => d.status === "Ready").length;
+                if (total > 0) {
+                  toast({ 
+                    title: "✅ Sincronização concluída", 
+                    description: `${online} de ${total} instância${total !== 1 ? "s" : ""} online.` 
+                  });
+                } else {
+                  toast({ title: "✅ Sincronização concluída", description: "Nenhuma instância encontrada." });
+                }
               } catch (err: any) {
                 toast({ title: "Erro ao sincronizar", description: err?.message, variant: "destructive" });
               } finally {
