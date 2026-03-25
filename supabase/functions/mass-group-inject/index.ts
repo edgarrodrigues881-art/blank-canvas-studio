@@ -814,7 +814,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         consecutiveFailures++;
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
           console.log(`[mass-inject] campaign=${campaignId} ${consecutiveFailures} consecutive failures — auto-pausing`);
-          await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
+          await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso(), last_event: "campaign_paused", last_event_type: "warning", last_event_at: nowIso() }).eq("id", campaignId);
           break;
         }
       }
