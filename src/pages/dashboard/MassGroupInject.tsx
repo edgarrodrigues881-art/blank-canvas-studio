@@ -1144,55 +1144,61 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     return input.split(/[\n,;]+/).map(c => c.trim()).filter(c => c.length > 0);
   }, []);
 
-  const deduplicateNumbers = useCallback((lines: string[], existingLines?: string[]): { unique: string[]; removed: number } => {
-    const seen = new Set<string>();
-    const unique: string[] = [];
-    let removed = 0;
-    // Add existing lines to seen set first (for merge mode)
-    if (existingLines) {
-      for (const line of existingLines) {
-        const digits = line.replace(/\D/g, "");
-        seen.add(digits.length >= 8 ? digits : line);
-      }
-    }
-    for (const line of lines) {
-      const digits = line.replace(/\D/g, "");
-      const key = digits.length >= 8 ? digits : line;
-      if (seen.has(key)) { removed++; continue; }
-      seen.add(key);
-      unique.push(digits.length >= 8 ? digits : line);
-    }
-    return { unique, removed };
-  }, []);
-
-  const handleRawInputChange = useCallback((value: string, mode: "replace" | "merge" = "replace") => {
+  /** Import contacts: classify ALL, discard NONE */
+  const handleImportContacts = useCallback((rawLines: string[], mode: "replace" | "merge" = "replace") => {
+    if (isImporting) return;
     setIsImporting(true);
-    const lines = value.split(/[\n,;]+/).map(c => c.trim()).filter(c => c.length > 0);
-    if (mode === "merge") {
-      const existingLines = rawInput.split(/[\n,;]+/).map(c => c.trim()).filter(c => c.length > 0);
-      const { unique: newUnique, removed } = deduplicateNumbers(lines, existingLines);
-      setRawInput([...existingLines, ...newUnique].join("\n"));
-      if (removed > 0) toast.info(`${removed} duplicado(s) já existente(s) removido(s)`);
-      toast.success(`${newUnique.length} novo(s) contato(s) adicionado(s)`);
-    } else {
-      const { unique, removed } = deduplicateNumbers(lines);
-      setRawInput(unique.join("\n"));
-      if (removed > 0) toast.info(`${removed} duplicado(s) removido(s)`);
+    try {
+      if (mode === "merge") {
+        // Merge: re-classify entire combined list so duplicates across old+new are tagged
+        const existingRaw = importedContacts.map(c => c.raw);
+        const combined = [...existingRaw, ...rawLines];
+        const classified = classifyContacts(combined);
+        setImportedContacts(classified);
+        const newCount = rawLines.length;
+        toast.success(`${newCount} linha(s) adicionadas (total: ${classified.length})`);
+      } else {
+        const classified = classifyContacts(rawLines);
+        setImportedContacts(classified);
+        toast.success(`${classified.length} linha(s) importadas`);
+      }
+      // Also sync rawInput for downstream compatibility
+      const allNormalized = (mode === "merge"
+        ? [...importedContacts.map(c => c.raw), ...rawLines]
+        : rawLines
+      );
+      setRawInput(allNormalized.join("\n"));
+      setHasImported(true);
+      setImportFilter("all");
+    } finally {
+      setIsImporting(false);
     }
-    setHasImported(true);
-    setIsImporting(false);
-  }, [rawInput, deduplicateNumbers]);
+  }, [isImporting, importedContacts]);
+
+  const importStats = useMemo(() => {
+    const total = importedContacts.length;
+    const valid = importedContacts.filter(c => c.classification === "valid").length;
+    const duplicate = importedContacts.filter(c => c.classification === "duplicate").length;
+    const invalid = importedContacts.filter(c => c.classification === "invalid").length;
+    const empty = importedContacts.filter(c => c.classification === "empty").length;
+    return { total, valid, duplicate, invalid, empty };
+  }, [importedContacts]);
+
+  const filteredImportedContacts = useMemo(() => {
+    if (importFilter === "all") return importedContacts;
+    return importedContacts.filter(c => c.classification === importFilter);
+  }, [importedContacts, importFilter]);
 
   const handleValidate = useCallback(async () => {
-    const contacts = parseContacts(rawInput);
-    if (contacts.length === 0) return toast.error("Nenhum contato informado");
+    const validContacts = importedContacts.filter(c => c.classification === "valid").map(c => c.normalized);
+    if (validContacts.length === 0) return toast.error("Nenhum contato válido para processar");
     if (!groupId.trim()) return toast.error("Selecione um grupo de destino");
     if (selectedDeviceIds.length === 0) return toast.error("Selecione pelo menos uma instância");
     if (!campaignName.trim()) return toast.error("Dê um nome para a campanha");
 
     setIsValidating(true);
     try {
-      const { data, error } = await supabase.functions.invoke("mass-group-inject", { body: { action: "validate", contacts } });
+      const { data, error } = await supabase.functions.invoke("mass-group-inject", { body: { action: "validate", contacts: validContacts } });
       if (error) throw error;
       setParticipantCheck(null);
       setValidationResult(data);
@@ -1201,7 +1207,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
       toast.success(`${data.validCount} contatos válidos encontrados`);
     } catch (e: any) { toast.error(e.message || "Erro na validação"); }
     finally { setIsValidating(false); }
-  }, [rawInput, groupId, selectedDeviceIds, parseContacts, campaignName]);
+  }, [importedContacts, groupId, selectedDeviceIds, campaignName]);
 
   const handleCheckParticipants = useCallback(async () => {
     if (!validationResult?.valid.length) return;
