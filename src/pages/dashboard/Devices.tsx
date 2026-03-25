@@ -1629,6 +1629,44 @@ const Devices = () => {
 
   const editHeaderPhoto = wpRemovePhoto ? "" : (wpPhotoUrl || editingDevice?.profile_picture || "");
 
+  if (devicesLoading) {
+    return (
+      <div className="w-full space-y-4">
+        <div className="flex items-center gap-2">
+          <h1 className="text-base sm:text-lg font-bold text-foreground">Instâncias</h1>
+        </div>
+        <div className="flex justify-center py-16">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Carregando instâncias...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (devicesError) {
+    return (
+      <div className="w-full space-y-4">
+        <div className="flex items-center gap-2">
+          <h1 className="text-base sm:text-lg font-bold text-foreground">Instâncias</h1>
+        </div>
+        <div className="flex justify-center py-16">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center">
+              <AlertTriangle className="w-6 h-6 text-destructive" />
+            </div>
+            <p className="text-sm font-medium text-foreground">Erro ao carregar instâncias</p>
+            <p className="text-xs text-muted-foreground max-w-xs">Não foi possível buscar suas instâncias. Verifique sua conexão e tente novamente.</p>
+            <Button size="sm" variant="outline" className="gap-1.5 mt-2" onClick={() => queryClient.invalidateQueries({ queryKey: ["devices"] })}>
+              <RefreshCw className="w-3.5 h-3.5" /> Tentar novamente
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full space-y-4">
       {/* Header */}
