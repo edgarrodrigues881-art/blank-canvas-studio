@@ -528,15 +528,8 @@ async function acquireDeviceLocks(serviceClient: any, deviceIds: string[], campa
 }
 
 async function releaseDeviceLocks(serviceClient: any, deviceIds: string[], campaignId: string) {
-  const RELEASE_BATCH = 50;
-  for (let i = 0; i < deviceIds.length; i += RELEASE_BATCH) {
-    const batch = deviceIds.slice(i, i + RELEASE_BATCH);
-    await Promise.allSettled(
-      batch.map(deviceId =>
-        serviceClient.rpc("release_device_lock", { _device_id: deviceId, _campaign_id: campaignId })
-      )
-    );
-  }
+  // Release ALL locks for this campaign (covers duplicates and race conditions)
+  await serviceClient.from("campaign_device_locks").delete().eq("campaign_id", campaignId);
 }
 
 async function startNextQueuedCampaigns(serviceClient: any, deviceIds: string[], supabaseUrl: string, serviceRoleKey: string) {
@@ -885,6 +878,14 @@ Deno.serve(async (req) => {
         console.log(`Campaign ${campaignId} lost device lock to ${lockResult.lockedBy}, stopping.`);
         await serviceClient.from("campaigns").update({ status: "paused" }).eq("id", campaignId);
         return new Response(JSON.stringify({ error: "Device lock lost", lockedBy: lockResult.lockedBy }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // RE-CHECK status after acquiring locks (prevents race with pause)
+      const { data: freshStatus } = await serviceClient.from("campaigns").select("status").eq("id", campaignId).single();
+      if (freshStatus?.status !== "running") {
+        console.log(`Campaign ${campaignId} status changed to ${freshStatus?.status} during lock acquisition, aborting.`);
+        await releaseDeviceLocks(serviceClient, deviceIds, campaignId);
+        return new Response(JSON.stringify({ success: true, status: freshStatus?.status }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       const device = allDevices[0];
