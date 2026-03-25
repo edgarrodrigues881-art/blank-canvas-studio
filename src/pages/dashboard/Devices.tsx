@@ -1789,7 +1789,7 @@ const Devices = () => {
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncLoading ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">
-              {syncLoading ? "Sincronizando..." : "Versync"}
+              {syncLoading ? "Sincronizando..." : "Atualizar"}
             </span>
           </Button>
         </div>
