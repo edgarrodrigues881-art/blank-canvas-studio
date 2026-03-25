@@ -536,7 +536,11 @@ function parseDeviceIds(value: any): string[] {
 }
 
 function pickDeviceId(campaign: any) {
-  const deviceIds = parseDeviceIds(campaign.device_ids);
+  return pickDeviceIdWithBlacklist(campaign);
+}
+
+function pickDeviceIdWithBlacklist(campaign: any, blacklist?: Set<string>) {
+  const deviceIds = parseDeviceIds(campaign.device_ids).filter(id => !blacklist || !blacklist.has(id));
   if (deviceIds.length === 0) return null;
   const rotateAfter = Number(campaign.rotate_after || 0);
   if (!rotateAfter || deviceIds.length === 1) return deviceIds[0];
@@ -658,6 +662,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
   let consecutiveFailures = 0;
   let consecutiveDisconnects = 0;
+  const failedDeviceIds = new Set<string>();
   const workerStartedAt = Date.now();
   let contactsProcessedThisRun = 0;
 
@@ -694,7 +699,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       }
 
       // 2. Pick device
-      const deviceId = pickDeviceId(campaign);
+      const deviceId = pickDeviceIdWithBlacklist(campaign, failedDeviceIds);
       if (!deviceId) {
         await sb.from("mass_inject_campaigns").update({ status: "failed", updated_at: nowIso(), completed_at: nowIso() }).eq("id", campaignId);
         await emitCampaignEvent(sb, campaignId, "campaign_failed_no_devices", "error");
@@ -763,10 +768,11 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
             break;
           }
 
-          // Only current device disconnected, pause to let user fix
-          await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
-          await emitCampaignEvent(sb, campaignId, "instance_disconnected", "error");
-          break;
+          // Current device disconnected but others available — auto-skip to next device
+          failedDeviceIds.add(device.id);
+          await emitCampaignEvent(sb, campaignId, "instance_disconnected", "warning", `Instância ${device.name} desconectada. Redistribuindo para outra automaticamente.`);
+          consecutiveFailures = 0; // reset since this is a device issue, not a contact issue
+          continue;
         }
         // If connected, reset consecutive failures
         if (connCheck.connected === true && consecutiveFailures > 0) {
@@ -823,9 +829,10 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       }
 
       // 7. Execute the add operation (fully awaited)
-      const cacheKey = `${campaignId}:${campaign.group_id}`;
-      console.log(`[mass-inject] campaign=${campaignId} processing contact=${contact.phone} (retry=${retryCount})`);
-      const result = await executeAddWithRecovery(device.uazapi_base_url, device.uazapi_token, campaign.group_id, contact.phone, cacheKey);
+      const contactGroupId = contact.target_group_id || campaign.group_id;
+      const cacheKey = `${campaignId}:${contactGroupId}`;
+      console.log(`[mass-inject] campaign=${campaignId} processing contact=${contact.phone} group=${contactGroupId} (retry=${retryCount})`);
+      const result = await executeAddWithRecovery(device.uazapi_base_url, device.uazapi_token, contactGroupId, contact.phone, cacheKey);
       contactsProcessedThisRun++;
 
       // STRUCTURED PER-CONTACT LOG
@@ -1197,12 +1204,22 @@ Deno.serve(async (req) => {
     if (action === "create-campaign") {
       const contacts = Array.isArray(body.contacts) ? Array.from(new Set(body.contacts.map(String).filter(Boolean))) : [];
       const deviceIds = Array.isArray(body.deviceIds) ? body.deviceIds.map(String).filter(Boolean) : [];
-      if (!body.groupId || deviceIds.length === 0) {
+
+      // Support multi-group: body.groupTargets takes priority over body.groupId
+      const groupTargets: Array<{group_id: string, group_name: string}> = Array.isArray(body.groupTargets) && body.groupTargets.length > 0
+        ? body.groupTargets
+        : body.groupId ? [{ group_id: body.groupId, group_name: body.groupName || body.groupId }] : [];
+
+      if (groupTargets.length === 0 || deviceIds.length === 0) {
         return new Response(JSON.stringify({ error: "Grupo e instância são obrigatórios." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       if (contacts.length === 0) {
         return new Response(JSON.stringify({ error: "Nenhum contato válido para enfileirar." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+
+      const primaryGroupId = groupTargets[0].group_id;
+      const primaryGroupName = groupTargets[0].group_name;
+      const assignmentMode = groupTargets.length > 1 ? "multi_group_round_robin" : "single";
 
       const primaryDevice = await getDeviceCredentials(sb, deviceIds[0], user?.id || null, isAdmin);
       if (!primaryDevice) {
@@ -1212,9 +1229,11 @@ Deno.serve(async (req) => {
       const { data: campaign, error } = await sb.from("mass_inject_campaigns").insert({
         user_id: user!.id,
         name: body.name || `Campanha ${new Date().toLocaleString("pt-BR")}`,
-        group_id: body.groupId,
-        group_name: body.groupName || body.groupId,
+        group_id: primaryGroupId,
+        group_name: primaryGroupName,
         device_ids: deviceIds,
+        group_targets: groupTargets,
+        assignment_mode: assignmentMode,
         status: "queued",
         total_contacts: contacts.length,
         success_count: 0,
@@ -1229,7 +1248,10 @@ Deno.serve(async (req) => {
       } as any).select().single();
       if (error || !campaign) throw error || new Error("Erro ao criar campanha.");
 
-      const rows = contacts.map((phone) => ({ campaign_id: campaign.id, phone, status: "pending" }));
+      const rows = contacts.map((phone, i) => {
+        const target = groupTargets[i % groupTargets.length];
+        return { campaign_id: campaign.id, phone, status: "pending", target_group_id: target.group_id, target_group_name: target.group_name };
+      });
       for (let i = 0; i < rows.length; i += 500) {
         await sb.from("mass_inject_contacts").insert(rows.slice(i, i + 500) as any);
       }
@@ -1249,7 +1271,7 @@ Deno.serve(async (req) => {
       if (!campaign || (!isAdmin && campaign.user_id !== user!.id)) return new Response(JSON.stringify({ error: "Campanha não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       if (action === "pause-campaign") {
-        await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso(), completed_at: null }).eq("id", campaign.id);
+        await sb.from("mass_inject_campaigns").update({ status: "paused", updated_at: nowIso(), completed_at: null, next_run_at: null }).eq("id", campaign.id);
         await emitCampaignEvent(sb, campaign.id, "campaign_paused", "warning");
         await sb.from("mass_inject_contacts").update({ status: "pending", error_message: null } as any).eq("campaign_id", campaign.id).eq("status", "processing");
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -1257,13 +1279,13 @@ Deno.serve(async (req) => {
 
       if (action === "cancel-campaign") {
         await sb.from("mass_inject_contacts").update({ status: "cancelled", error_message: "Cancelado pelo usuário.", processed_at: nowIso() } as any).eq("campaign_id", campaign.id).in("status", [...RETRYABLE_QUEUE_STATUSES, "processing"]);
-        await sb.from("mass_inject_campaigns").update({ status: "cancelled", updated_at: nowIso(), completed_at: nowIso() }).eq("id", campaign.id);
+        await sb.from("mass_inject_campaigns").update({ status: "cancelled", updated_at: nowIso(), completed_at: nowIso(), next_run_at: null }).eq("id", campaign.id);
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       // resume
       await sb.from("mass_inject_contacts").update({ status: "pending", error_message: null } as any).eq("campaign_id", campaign.id).eq("status", "processing");
-      await sb.from("mass_inject_campaigns").update({ status: "queued", updated_at: nowIso(), completed_at: null }).eq("id", campaign.id);
+      await sb.from("mass_inject_campaigns").update({ status: "queued", updated_at: nowIso(), completed_at: null, next_run_at: null }).eq("id", campaign.id);
       await emitCampaignEvent(sb, campaign.id, "campaign_resumed", "info");
       await queueCampaignRun(campaign.id, 0);
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

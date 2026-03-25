@@ -1775,12 +1775,14 @@ export type Database = {
       mass_inject_campaigns: {
         Row: {
           already_count: number
+          assignment_mode: string
           completed_at: string | null
           created_at: string
           device_ids: Json
           fail_count: number
           group_id: string
           group_name: string | null
+          group_targets: Json
           id: string
           last_event: string | null
           last_event_at: string | null
@@ -1801,12 +1803,14 @@ export type Database = {
         }
         Insert: {
           already_count?: number
+          assignment_mode?: string
           completed_at?: string | null
           created_at?: string
           device_ids?: Json
           fail_count?: number
           group_id: string
           group_name?: string | null
+          group_targets?: Json
           id?: string
           last_event?: string | null
           last_event_at?: string | null
@@ -1827,12 +1831,14 @@ export type Database = {
         }
         Update: {
           already_count?: number
+          assignment_mode?: string
           completed_at?: string | null
           created_at?: string
           device_ids?: Json
           fail_count?: number
           group_id?: string
           group_name?: string | null
+          group_targets?: Json
           id?: string
           last_event?: string | null
           last_event_at?: string | null
@@ -1863,6 +1869,8 @@ export type Database = {
           phone: string
           processed_at: string | null
           status: string
+          target_group_id: string
+          target_group_name: string | null
         }
         Insert: {
           campaign_id: string
@@ -1873,6 +1881,8 @@ export type Database = {
           phone: string
           processed_at?: string | null
           status?: string
+          target_group_id: string
+          target_group_name?: string | null
         }
         Update: {
           campaign_id?: string
@@ -1883,6 +1893,8 @@ export type Database = {
           phone?: string
           processed_at?: string | null
           status?: string
+          target_group_id?: string
+          target_group_name?: string | null
         }
         Relationships: [
           {
@@ -3258,6 +3270,8 @@ export type Database = {
           phone: string
           processed_at: string | null
           status: string
+          target_group_id: string
+          target_group_name: string | null
         }
         SetofOptions: {
           from: "*"
