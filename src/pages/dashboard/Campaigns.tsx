@@ -442,10 +442,12 @@ const Campaigns = () => {
   };
 
   const allTags = useMemo(() => Array.from(new Set(savedContacts.flatMap(c => c.tags || []))), [savedContacts]);
-  const connectedDevices = useMemo(() => 
-    devices.filter(d => ["Connected", "Ready", "authenticated"].includes(d.status)).sort((a, b) => a.name.localeCompare(b.name)),
-    [devices]
-  );
+  const connectedDevices = useMemo(() => {
+    const extractNum = (name: string) => { const m = name.match(/(\d+)/); return m ? parseInt(m[1], 10) : 0; };
+    return devices
+      .filter(d => ["Connected", "Ready", "authenticated"].includes(d.status))
+      .sort((a, b) => extractNum(a.name) - extractNum(b.name));
+  }, [devices]);
   const selectedDevicesData = devices.filter(d => selectedDevices.includes(d.id));
   const selectedDeviceData = selectedDevicesData[0];
   const validContacts = useMemo(() => contacts.filter(c => c.numero.trim()), [contacts]);
