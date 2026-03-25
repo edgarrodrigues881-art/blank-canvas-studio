@@ -980,12 +980,12 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     refetchOnWindowFocus: true,
   });
 
-  const connectedDevices = useMemo(() => devices.filter((d: any) => isDeviceOnline(d.status)), [devices]);
-
   const isDeviceOnline = (status: string) => {
     const s = status?.toLowerCase();
     return s === "connected" || s === "ready" || s === "active";
   };
+
+  const connectedDevices = useMemo(() => devices.filter((d: any) => isDeviceOnline(d.status)), [devices]);
 
   // ── Warn on page close during processing ──
   useEffect(() => {
