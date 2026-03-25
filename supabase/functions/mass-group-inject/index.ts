@@ -1078,7 +1078,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
     if (isTransient && retryCount < maxRetriesForStatus) {
       // For rate_limited, increase cooldown progressively with each retry
-      let cooldownDelay = result.cooldownMs || computeNextDelayMs(campaign, result.cooldownMs);
+      let cooldownDelay = result.cooldownMs || computeNextDelayMs(campaign, result.cooldownMs, device.id);
       if (result.status === "rate_limited" || result.status === "session_dropped") {
         // Progressive backoff: base × (1 + retry * 0.5) → gets longer each retry
         const backoffMultiplier = 1 + (retryCount * 0.5);
@@ -1162,7 +1162,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
     } else if (result.status === "blocked" || result.status === "unauthorized") {
       nextDelayMs = randomBetween(1000, 3000);
     } else {
-      nextDelayMs = computeNextDelayMs(campaign, result.cooldownMs);
+      nextDelayMs = computeNextDelayMs(campaign, result.cooldownMs, device.id);
     }
 
     console.log(`[mass-inject] campaign=${campaignId} result=${result.status} requeue in ${nextDelayMs}ms`);
