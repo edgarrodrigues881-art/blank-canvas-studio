@@ -569,7 +569,10 @@ async function finalizeCampaignIfNeeded(sb: any, campaignId: string) {
   const { data: campaign } = await sb.from("mass_inject_campaigns").select("id, status, fail_count").eq("id", campaignId).single();
   if (!campaign || FINAL_CAMPAIGN_STATUSES.has(campaign.status)) return true;
   const nextStatus = Number(campaign.fail_count || 0) > 0 ? "completed_with_failures" : "done";
-  await sb.from("mass_inject_campaigns").update({ status: nextStatus, updated_at: nowIso(), completed_at: nowIso() }).eq("id", campaignId);
+  await sb.from("mass_inject_campaigns").update({
+    status: nextStatus, updated_at: nowIso(), completed_at: nowIso(),
+    last_event: "campaign_completed", last_event_type: "success", last_event_at: nowIso(),
+  }).eq("id", campaignId);
   return true;
 }
 
