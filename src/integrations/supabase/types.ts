@@ -1495,10 +1495,68 @@ export type Database = {
           },
         ]
       }
+      group_interaction_media: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string | null
+          file_name: string | null
+          file_url: string | null
+          id: string
+          interaction_id: string | null
+          is_active: boolean | null
+          is_favorite: boolean | null
+          media_type: string
+          sort_order: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          content?: string
+          created_at?: string | null
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          interaction_id?: string | null
+          is_active?: boolean | null
+          is_favorite?: boolean | null
+          media_type: string
+          sort_order?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string | null
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          interaction_id?: string | null
+          is_active?: boolean | null
+          is_favorite?: boolean | null
+          media_type?: string
+          sort_order?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_interaction_media_interaction_id_fkey"
+            columns: ["interaction_id"]
+            isOneToOne: false
+            referencedRelation: "group_interactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_interactions: {
         Row: {
           active_days: Json
           completed_at: string | null
+          content_types: Json | null
+          content_weights: Json | null
           created_at: string
           daily_limit_per_group: number
           daily_limit_total: number
@@ -1508,19 +1566,25 @@ export type Database = {
           end_hour: string
           group_ids: Json
           id: string
+          last_content_sent: string | null
           last_error: string | null
+          last_group_used: string | null
+          last_sent_at: string | null
           max_delay_seconds: number
           messages_per_cycle_max: number
           messages_per_cycle_min: number
           min_delay_seconds: number
           name: string
+          next_action_at: string | null
           pause_after_messages_max: number
           pause_after_messages_min: number
           pause_duration_max: number
           pause_duration_min: number
+          preset_name: string | null
           start_hour: string
           started_at: string | null
           status: string
+          today_count: number | null
           total_messages_sent: number
           updated_at: string
           user_id: string
@@ -1528,6 +1592,8 @@ export type Database = {
         Insert: {
           active_days?: Json
           completed_at?: string | null
+          content_types?: Json | null
+          content_weights?: Json | null
           created_at?: string
           daily_limit_per_group?: number
           daily_limit_total?: number
@@ -1537,19 +1603,25 @@ export type Database = {
           end_hour: string
           group_ids?: Json
           id?: string
+          last_content_sent?: string | null
           last_error?: string | null
+          last_group_used?: string | null
+          last_sent_at?: string | null
           max_delay_seconds?: number
           messages_per_cycle_max?: number
           messages_per_cycle_min?: number
           min_delay_seconds?: number
           name: string
+          next_action_at?: string | null
           pause_after_messages_max?: number
           pause_after_messages_min?: number
           pause_duration_max?: number
           pause_duration_min?: number
+          preset_name?: string | null
           start_hour: string
           started_at?: string | null
           status?: string
+          today_count?: number | null
           total_messages_sent?: number
           updated_at?: string
           user_id: string
@@ -1557,6 +1629,8 @@ export type Database = {
         Update: {
           active_days?: Json
           completed_at?: string | null
+          content_types?: Json | null
+          content_weights?: Json | null
           created_at?: string
           daily_limit_per_group?: number
           daily_limit_total?: number
@@ -1566,19 +1640,25 @@ export type Database = {
           end_hour?: string
           group_ids?: Json
           id?: string
+          last_content_sent?: string | null
           last_error?: string | null
+          last_group_used?: string | null
+          last_sent_at?: string | null
           max_delay_seconds?: number
           messages_per_cycle_max?: number
           messages_per_cycle_min?: number
           min_delay_seconds?: number
           name?: string
+          next_action_at?: string | null
           pause_after_messages_max?: number
           pause_after_messages_min?: number
           pause_duration_max?: number
           pause_duration_min?: number
+          preset_name?: string | null
           start_hour?: string
           started_at?: string | null
           status?: string
+          today_count?: number | null
           total_messages_sent?: number
           updated_at?: string
           user_id?: string

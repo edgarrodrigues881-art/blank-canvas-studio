@@ -1,35 +1,28 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { useGroupInteraction, GroupInteraction } from "@/hooks/useGroupInteraction";
+import { useGroupInteraction, type GroupInteraction } from "@/hooks/useGroupInteraction";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Play,
-  Pause,
-  Square,
-  Plus,
-  Trash2,
-  MessageCircle,
-  Clock,
-  Users,
-  Activity,
-  Settings,
-  ScrollText,
+  Play, Pause, Square, Plus, Trash2, Copy, Save, MessageCircle, Clock,
+  Users, Settings, RotateCw,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import GIStatusPanel from "@/components/group-interaction/GIStatusPanel";
+import GIContentConfig from "@/components/group-interaction/GIContentConfig";
+import GIContentLibrary from "@/components/group-interaction/GIContentLibrary";
+import GILogs from "@/components/group-interaction/GILogs";
+import GIPresets from "@/components/group-interaction/GIPresets";
 
 const DAYS = [
   { key: "mon", label: "Seg" },
@@ -41,44 +34,61 @@ const DAYS = [
   { key: "sun", label: "Dom" },
 ];
 
+const defaultContentTypes = { text: true, image: false, video: false, file: false, sticker: false };
+const defaultContentWeights = { text: 50, image: 20, video: 10, file: 10, sticker: 10 };
+
+const defaultForm: Partial<GroupInteraction> & Record<string, any> = {
+  name: "Interação de Grupos",
+  group_ids: [],
+  device_id: null,
+  min_delay_seconds: 40,
+  max_delay_seconds: 120,
+  pause_after_messages_min: 5,
+  pause_after_messages_max: 10,
+  pause_duration_min: 180,
+  pause_duration_max: 420,
+  messages_per_cycle_min: 10,
+  messages_per_cycle_max: 25,
+  duration_hours: 8,
+  duration_minutes: 0,
+  start_hour: "07:00",
+  end_hour: "21:00",
+  active_days: ["mon", "tue", "wed", "thu", "fri"],
+  daily_limit_per_group: 30,
+  daily_limit_total: 150,
+  content_types: defaultContentTypes,
+  content_weights: defaultContentWeights,
+  preset_name: "moderate",
+};
+
+const statusColors: Record<string, string> = {
+  idle: "bg-muted text-muted-foreground",
+  running: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  paused: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  completed: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+};
+
+const statusLabels: Record<string, string> = {
+  idle: "Inativo",
+  running: "Rodando",
+  paused: "Pausado",
+  completed: "Concluído",
+};
+
 export default function GroupInteractionPage() {
   const { user } = useAuth();
   const {
-    interactions,
-    isLoading,
-    logs,
-    createInteraction,
-    updateInteraction,
-    deleteInteraction,
-    invokeAction,
+    interactions, isLoading, logs,
+    createInteraction, updateInteraction, deleteInteraction, invokeAction,
   } = useGroupInteraction();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showConfig, setShowConfig] = useState(false);
-  const [form, setForm] = useState<Partial<GroupInteraction>>({
-    name: "Interação de Grupos",
-    group_ids: [],
-    device_id: null,
-    min_delay_seconds: 15,
-    max_delay_seconds: 60,
-    pause_after_messages_min: 4,
-    pause_after_messages_max: 8,
-    pause_duration_min: 120,
-    pause_duration_max: 300,
-    messages_per_cycle_min: 10,
-    messages_per_cycle_max: 30,
-    duration_hours: 1,
-    duration_minutes: 0,
-    start_hour: "08:00",
-    end_hour: "18:00",
-    active_days: ["mon", "tue", "wed", "thu", "fri"],
-    daily_limit_per_group: 50,
-    daily_limit_total: 200,
-  });
+  const [activeTab, setActiveTab] = useState("config");
+  const [form, setForm] = useState<Record<string, any>>({ ...defaultForm });
 
-  // Fetch user devices
   const { data: devices = [] } = useQuery({
-    queryKey: ["devices-for-group-interaction", user?.id],
+    queryKey: ["devices-gi", user?.id],
     queryFn: async () => {
       if (!user) return [];
       const { data } = await supabase
@@ -91,13 +101,12 @@ export default function GroupInteractionPage() {
     enabled: !!user,
   });
 
-  // Fetch warmup groups for group selection
   const { data: warmupGroups = [] } = useQuery({
-    queryKey: ["warmup-groups-for-interaction", user?.id],
+    queryKey: ["warmup-groups-gi", user?.id],
     queryFn: async () => {
       if (!user) return [];
       const { data } = await supabase
-        .from("warmup_groups")
+        .from("warmup_groups" as any)
         .select("id, name, link")
         .eq("user_id", user.id)
         .order("name");
@@ -106,7 +115,10 @@ export default function GroupInteractionPage() {
     enabled: !!user,
   });
 
-  const selected = interactions.find((i) => i.id === selectedId) || null;
+  const selected = useMemo(
+    () => interactions.find((i) => i.id === selectedId) || null,
+    [interactions, selectedId]
+  );
 
   useEffect(() => {
     if (selected) {
@@ -129,62 +141,85 @@ export default function GroupInteractionPage() {
         active_days: selected.active_days,
         daily_limit_per_group: selected.daily_limit_per_group,
         daily_limit_total: selected.daily_limit_total,
+        content_types: (selected as any).content_types || defaultContentTypes,
+        content_weights: (selected as any).content_weights || defaultContentWeights,
+        preset_name: (selected as any).preset_name || "custom",
       });
     }
   }, [selected]);
 
+  const updateForm = useCallback((patch: Record<string, any>) => {
+    setForm((f) => ({ ...f, ...patch }));
+  }, []);
+
+  const toggleDay = useCallback((day: string) => {
+    setForm((f) => {
+      const days = f.active_days || [];
+      return {
+        ...f,
+        active_days: days.includes(day) ? days.filter((d: string) => d !== day) : [...days, day],
+      };
+    });
+  }, []);
+
+  const toggleGroup = useCallback((groupId: string) => {
+    setForm((f) => {
+      const ids = f.group_ids || [];
+      return {
+        ...f,
+        group_ids: ids.includes(groupId) ? ids.filter((g: string) => g !== groupId) : [...ids, groupId],
+      };
+    });
+  }, []);
+
+  const validate = (): string | null => {
+    if (!form.device_id) return "Selecione um dispositivo";
+    if (!form.group_ids?.length) return "Selecione pelo menos um grupo";
+    if (!form.start_hour || !form.end_hour) return "Defina os horários";
+    if (form.min_delay_seconds > form.max_delay_seconds) return "Delay mínimo não pode ser maior que o máximo";
+    if (form.pause_duration_min > form.pause_duration_max) return "Pausa mínima não pode ser maior que a máxima";
+    const ct = form.content_types || defaultContentTypes;
+    if (!Object.values(ct).some(Boolean)) return "Ative pelo menos um tipo de conteúdo";
+    return null;
+  };
+
   const handleCreate = async () => {
-    await createInteraction.mutateAsync(form);
+    const err = validate();
+    if (err) return toast.error(err);
+    await createInteraction.mutateAsync(form as any);
     setShowConfig(false);
   };
 
   const handleSave = async () => {
     if (!selectedId) return;
-    await updateInteraction.mutateAsync({ id: selectedId, ...form });
+    const err = validate();
+    if (err) return toast.error(err);
+    await updateInteraction.mutateAsync({ id: selectedId, ...form } as any);
+    toast.success("Configuração salva");
+  };
+
+  const handleDuplicate = async () => {
+    if (!selectedId) return;
+    const { id, created_at, updated_at, started_at, completed_at, total_messages_sent, status, ...rest } = form;
+    await createInteraction.mutateAsync({ ...rest, name: `${form.name} (cópia)`, status: "idle" } as any);
+    toast.success("Automação duplicada");
   };
 
   const handleAction = (action: string) => {
     if (!selectedId) return;
+    if (action === "start") {
+      const err = validate();
+      if (err) return toast.error(err);
+    }
     invokeAction.mutate({ interactionId: selectedId, action });
   };
 
-  const toggleDay = (day: string) => {
-    const days = form.active_days || [];
-    setForm({
-      ...form,
-      active_days: days.includes(day)
-        ? days.filter((d) => d !== day)
-        : [...days, day],
-    });
-  };
+  const selectedLogs = useMemo(
+    () => (selectedId ? logs.filter((l) => l.interaction_id === selectedId) : []),
+    [logs, selectedId]
+  );
 
-  const toggleGroup = (groupId: string) => {
-    const ids = form.group_ids || [];
-    setForm({
-      ...form,
-      group_ids: ids.includes(groupId)
-        ? ids.filter((g) => g !== groupId)
-        : [...ids, groupId],
-    });
-  };
-
-  const selectedLogs = selectedId
-    ? logs.filter((l) => l.interaction_id === selectedId)
-    : [];
-
-  const statusColors: Record<string, string> = {
-    idle: "bg-muted text-muted-foreground",
-    running: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-    paused: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-    completed: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-  };
-
-  const statusLabels: Record<string, string> = {
-    idle: "Inativo",
-    running: "Rodando",
-    paused: "Pausado",
-    completed: "Concluído",
-  };
+  const selectedDevice = devices.find((d: any) => d.id === form.device_id);
 
   return (
     <div className="space-y-6">
@@ -193,16 +228,18 @@ export default function GroupInteractionPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <MessageCircle className="w-6 h-6 text-primary" />
-            Interação entre Grupos
+            Interação de Grupos
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Automatize interações entre seus grupos autorizados com naturalidade
+            Automatize interações em grupos com naturalidade e variedade de conteúdo
           </p>
         </div>
         <Button
           onClick={() => {
             setSelectedId(null);
+            setForm({ ...defaultForm });
             setShowConfig(true);
+            setActiveTab("config");
           }}
           className="gap-2"
         >
@@ -211,11 +248,11 @@ export default function GroupInteractionPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: List */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Sidebar - List */}
         <div className="lg:col-span-1 space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            Automações
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Automações ({interactions.length})
           </h3>
           {isLoading ? (
             <div className="text-sm text-muted-foreground">Carregando...</div>
@@ -223,8 +260,6 @@ export default function GroupInteractionPage() {
             <Card className="border-dashed">
               <CardContent className="p-6 text-center text-muted-foreground text-sm">
                 Nenhuma automação criada.
-                <br />
-                Clique em "Nova Automação" para começar.
               </CardContent>
             </Card>
           ) : (
@@ -239,15 +274,15 @@ export default function GroupInteractionPage() {
                   setShowConfig(true);
                 }}
               >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm truncate">{inter.name}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
                         {(inter.group_ids || []).length} grupos · {inter.total_messages_sent} msgs
                       </p>
                     </div>
-                    <Badge variant="outline" className={`text-[10px] ${statusColors[inter.status] || ""}`}>
+                    <Badge variant="outline" className={`text-[10px] shrink-0 ${statusColors[inter.status] || ""}`}>
                       {statusLabels[inter.status] || inter.status}
                     </Badge>
                   </div>
@@ -257,386 +292,358 @@ export default function GroupInteractionPage() {
           )}
         </div>
 
-        {/* Right: Config + Logs */}
-        <div className="lg:col-span-2 space-y-4">
-          {showConfig && (
+        {/* Main content */}
+        <div className="lg:col-span-3 space-y-4">
+          {showConfig ? (
             <>
-              {/* Controls */}
+              {/* Controls bar */}
               {selectedId && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    size="sm"
-                    onClick={() => handleAction("start")}
-                    disabled={selected?.status === "running"}
-                    className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
-                  >
-                    <Play className="w-3.5 h-3.5" /> Iniciar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleAction("pause")}
-                    disabled={selected?.status !== "running"}
-                    className="gap-1.5"
-                  >
-                    <Pause className="w-3.5 h-3.5" /> Pausar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleAction("stop")}
-                    disabled={selected?.status === "idle"}
-                    className="gap-1.5"
-                  >
-                    <Square className="w-3.5 h-3.5" /> Parar
-                  </Button>
-                  <div className="ml-auto flex items-center gap-2">
-                    <Badge variant="outline" className={statusColors[selected?.status || "idle"]}>
-                      <Activity className="w-3 h-3 mr-1" />
-                      {statusLabels[selected?.status || "idle"]}
-                    </Badge>
+                <>
+                  <GIStatusPanel interaction={selected!} />
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Button
                       size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => {
-                        deleteInteraction.mutate(selectedId);
-                        setSelectedId(null);
-                        setShowConfig(false);
-                      }}
+                      onClick={() => handleAction("start")}
+                      disabled={selected?.status === "running"}
+                      className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Play className="w-3.5 h-3.5" /> Iniciar
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleAction("pause")}
+                      disabled={selected?.status !== "running"}
+                      className="gap-1.5"
+                    >
+                      <Pause className="w-3.5 h-3.5" /> Pausar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleAction(selected?.status === "paused" ? "start" : "stop")}
+                      disabled={selected?.status === "idle"}
+                      className="gap-1.5"
+                    >
+                      {selected?.status === "paused" ? (
+                        <><RotateCw className="w-3.5 h-3.5" /> Retomar</>
+                      ) : (
+                        <><Square className="w-3.5 h-3.5" /> Parar</>
+                      )}
+                    </Button>
+                    <div className="ml-auto flex items-center gap-2">
+                      <Button size="sm" variant="ghost" onClick={handleDuplicate} className="gap-1">
+                        <Copy className="w-3.5 h-3.5" /> Duplicar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => {
+                          deleteInteraction.mutate(selectedId);
+                          setSelectedId(null);
+                          setShowConfig(false);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                </>
               )}
 
-              {/* Config Card */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Settings className="w-4 h-4 text-primary" />
-                    Configurações
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-5">
-                  {/* Name */}
+              {/* Tabs */}
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid grid-cols-4 w-full">
+                  <TabsTrigger value="config" className="gap-1 text-xs">
+                    <Settings className="w-3.5 h-3.5" /> Configurações
+                  </TabsTrigger>
+                  <TabsTrigger value="content" className="gap-1 text-xs">
+                    <MessageCircle className="w-3.5 h-3.5" /> Conteúdo
+                  </TabsTrigger>
+                  <TabsTrigger value="library" className="gap-1 text-xs">
+                    <Users className="w-3.5 h-3.5" /> Biblioteca
+                  </TabsTrigger>
+                  <TabsTrigger value="logs" className="gap-1 text-xs">
+                    <Clock className="w-3.5 h-3.5" /> Logs
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Config Tab */}
+                <TabsContent value="config" className="space-y-4 mt-4">
+                  {/* Presets */}
                   <div>
-                    <Label className="text-xs">Nome da automação</Label>
-                    <Input
-                      value={form.name || ""}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className="mt-1"
+                    <Label className="text-xs text-muted-foreground mb-2 block">Presets rápidos</Label>
+                    <GIPresets
+                      current={form.preset_name}
+                      onApply={(vals) => updateForm({ ...vals })}
                     />
                   </div>
 
-                  {/* Device */}
-                  <div>
-                    <Label className="text-xs">Dispositivo para envio</Label>
-                    <Select
-                      value={form.device_id || ""}
-                      onValueChange={(v) => setForm({ ...form, device_id: v })}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Selecionar dispositivo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {devices.map((d: any) => (
-                          <SelectItem key={d.id} value={d.id}>
-                            {d.name} {d.number ? `(${d.number})` : ""} — {d.status}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Identification */}
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm">Identificação</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div>
+                          <Label className="text-xs">Nome da automação</Label>
+                          <Input
+                            value={form.name || ""}
+                            onChange={(e) => updateForm({ name: e.target.value })}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Dispositivo</Label>
+                          <Select
+                            value={form.device_id || ""}
+                            onValueChange={(v) => updateForm({ device_id: v })}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder="Selecionar dispositivo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {devices.map((d: any) => (
+                                <SelectItem key={d.id} value={d.id}>
+                                  {d.name} {d.number ? `(${d.number})` : ""} — {d.status}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {selectedDevice && (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <div className={`w-2 h-2 rounded-full ${
+                                (selectedDevice as any).status === "connected" ? "bg-emerald-500" : "bg-muted-foreground/40"
+                              }`} />
+                              <span className="text-[11px] text-muted-foreground capitalize">
+                                {(selectedDevice as any).status}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Schedule */}
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5" /> Horários
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">Início</Label>
+                            <Input
+                              type="time"
+                              value={form.start_hour || "07:00"}
+                              onChange={(e) => updateForm({ start_hour: e.target.value })}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Término</Label>
+                            <Input
+                              type="time"
+                              value={form.end_hour || "21:00"}
+                              onChange={(e) => updateForm({ end_hour: e.target.value })}
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Dias da semana</Label>
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {DAYS.map((d) => (
+                              <button
+                                key={d.key}
+                                onClick={() => toggleDay(d.key)}
+                                className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                                  (form.active_days || []).includes(d.key)
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/60"
+                                }`}
+                              >
+                                {d.label}
+                              </button>
+                            ))}
+                            <button
+                              onClick={() =>
+                                updateForm({
+                                  active_days:
+                                    (form.active_days || []).length === 7
+                                      ? ["mon", "tue", "wed", "thu", "fri"]
+                                      : DAYS.map((d) => d.key),
+                                })
+                              }
+                              className="px-2.5 py-1 rounded-full text-[11px] font-medium border border-dashed border-border text-muted-foreground hover:bg-muted/40"
+                            >
+                              {(form.active_days || []).length === 7 ? "Dias úteis" : "Todos"}
+                            </button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
 
                   {/* Groups */}
-                  <div>
-                    <Label className="text-xs flex items-center gap-1">
-                      <Users className="w-3.5 h-3.5" /> Grupos participantes
-                    </Label>
-                    <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto border border-border rounded-lg p-2">
-                      {warmupGroups.length === 0 ? (
-                        <p className="text-xs text-muted-foreground p-2">Nenhum grupo cadastrado. Adicione grupos em Aquecimento &gt; Grupos.</p>
-                      ) : (
-                        warmupGroups.map((g: any) => (
-                          <label key={g.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/40 cursor-pointer">
-                            <Checkbox
-                              checked={(form.group_ids || []).includes(g.link || g.id)}
-                              onCheckedChange={() => toggleGroup(g.link || g.id)}
-                            />
-                            <span className="text-sm truncate">{g.name}</span>
-                          </label>
-                        ))
-                      )}
-                    </div>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      {(form.group_ids || []).length} grupos selecionados
-                    </p>
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5" /> Grupos ({(form.group_ids || []).length} selecionados)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 max-h-48 overflow-y-auto border border-border/50 rounded-lg p-2">
+                        {warmupGroups.length === 0 ? (
+                          <p className="text-xs text-muted-foreground p-2 col-span-full">
+                            Nenhum grupo cadastrado. Adicione grupos em Aquecimento &gt; Grupos.
+                          </p>
+                        ) : (
+                          warmupGroups.map((g: any) => (
+                            <label key={g.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/40 cursor-pointer">
+                              <Checkbox
+                                checked={(form.group_ids || []).includes(g.link || g.id)}
+                                onCheckedChange={() => toggleGroup(g.link || g.id)}
+                              />
+                              <span className="text-xs truncate">{g.name}</span>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Delays & Limits */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm">Delays e Pausas</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">Delay mín. (seg)</Label>
+                            <Input type="number" value={form.min_delay_seconds} onChange={(e) => updateForm({ min_delay_seconds: +e.target.value })} className="mt-1" min={5} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Delay máx. (seg)</Label>
+                            <Input type="number" value={form.max_delay_seconds} onChange={(e) => updateForm({ max_delay_seconds: +e.target.value })} className="mt-1" min={10} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">Msgs antes da pausa (mín)</Label>
+                            <Input type="number" value={form.pause_after_messages_min} onChange={(e) => updateForm({ pause_after_messages_min: +e.target.value })} className="mt-1" min={2} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Msgs antes da pausa (máx)</Label>
+                            <Input type="number" value={form.pause_after_messages_max} onChange={(e) => updateForm({ pause_after_messages_max: +e.target.value })} className="mt-1" min={3} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">Pausa mín. (seg)</Label>
+                            <Input type="number" value={form.pause_duration_min} onChange={(e) => updateForm({ pause_duration_min: +e.target.value })} className="mt-1" min={30} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Pausa máx. (seg)</Label>
+                            <Input type="number" value={form.pause_duration_max} onChange={(e) => updateForm({ pause_duration_max: +e.target.value })} className="mt-1" min={60} />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm">Limites</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">Msgs por ciclo (mín)</Label>
+                            <Input type="number" value={form.messages_per_cycle_min} onChange={(e) => updateForm({ messages_per_cycle_min: +e.target.value })} className="mt-1" min={1} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Msgs por ciclo (máx)</Label>
+                            <Input type="number" value={form.messages_per_cycle_max} onChange={(e) => updateForm({ messages_per_cycle_max: +e.target.value })} className="mt-1" min={2} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">Limite diário/grupo</Label>
+                            <Input type="number" value={form.daily_limit_per_group} onChange={(e) => updateForm({ daily_limit_per_group: +e.target.value })} className="mt-1" min={1} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Limite diário total</Label>
+                            <Input type="number" value={form.daily_limit_total} onChange={(e) => updateForm({ daily_limit_total: +e.target.value })} className="mt-1" min={1} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">Duração (horas)</Label>
+                            <Input type="number" value={form.duration_hours} onChange={(e) => updateForm({ duration_hours: +e.target.value })} className="mt-1" min={0} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Minutos adicionais</Label>
+                            <Input type="number" value={form.duration_minutes} onChange={(e) => updateForm({ duration_minutes: +e.target.value })} className="mt-1" min={0} max={59} />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
 
-                  {/* Delays */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs">Delay mín. (seg)</Label>
-                      <Input
-                        type="number"
-                        value={form.min_delay_seconds || 15}
-                        onChange={(e) => setForm({ ...form, min_delay_seconds: +e.target.value })}
-                        className="mt-1"
-                        min={5}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Delay máx. (seg)</Label>
-                      <Input
-                        type="number"
-                        value={form.max_delay_seconds || 60}
-                        onChange={(e) => setForm({ ...form, max_delay_seconds: +e.target.value })}
-                        className="mt-1"
-                        min={10}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Pause config */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs">Pausa após (mín msgs)</Label>
-                      <Input
-                        type="number"
-                        value={form.pause_after_messages_min || 4}
-                        onChange={(e) => setForm({ ...form, pause_after_messages_min: +e.target.value })}
-                        className="mt-1"
-                        min={2}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Pausa após (máx msgs)</Label>
-                      <Input
-                        type="number"
-                        value={form.pause_after_messages_max || 8}
-                        onChange={(e) => setForm({ ...form, pause_after_messages_max: +e.target.value })}
-                        className="mt-1"
-                        min={3}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs">Duração pausa mín (seg)</Label>
-                      <Input
-                        type="number"
-                        value={form.pause_duration_min || 120}
-                        onChange={(e) => setForm({ ...form, pause_duration_min: +e.target.value })}
-                        className="mt-1"
-                        min={30}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Duração pausa máx (seg)</Label>
-                      <Input
-                        type="number"
-                        value={form.pause_duration_max || 300}
-                        onChange={(e) => setForm({ ...form, pause_duration_max: +e.target.value })}
-                        className="mt-1"
-                        min={60}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Messages per cycle */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs">Msgs por ciclo (mín)</Label>
-                      <Input
-                        type="number"
-                        value={form.messages_per_cycle_min || 10}
-                        onChange={(e) => setForm({ ...form, messages_per_cycle_min: +e.target.value })}
-                        className="mt-1"
-                        min={1}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Msgs por ciclo (máx)</Label>
-                      <Input
-                        type="number"
-                        value={form.messages_per_cycle_max || 30}
-                        onChange={(e) => setForm({ ...form, messages_per_cycle_max: +e.target.value })}
-                        className="mt-1"
-                        min={2}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Duration */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" /> Duração (horas)
-                      </Label>
-                      <Input
-                        type="number"
-                        value={form.duration_hours || 1}
-                        onChange={(e) => setForm({ ...form, duration_hours: +e.target.value })}
-                        className="mt-1"
-                        min={0}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Minutos adicionais</Label>
-                      <Input
-                        type="number"
-                        value={form.duration_minutes || 0}
-                        onChange={(e) => setForm({ ...form, duration_minutes: +e.target.value })}
-                        className="mt-1"
-                        min={0}
-                        max={59}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Schedule */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs">Horário início</Label>
-                      <Input
-                        type="time"
-                        value={form.start_hour || "08:00"}
-                        onChange={(e) => setForm({ ...form, start_hour: e.target.value })}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Horário término</Label>
-                      <Input
-                        type="time"
-                        value={form.end_hour || "18:00"}
-                        onChange={(e) => setForm({ ...form, end_hour: e.target.value })}
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Daily limits */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs">Limite diário/grupo</Label>
-                      <Input
-                        type="number"
-                        value={form.daily_limit_per_group || 50}
-                        onChange={(e) => setForm({ ...form, daily_limit_per_group: +e.target.value })}
-                        className="mt-1"
-                        min={1}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Limite diário total</Label>
-                      <Input
-                        type="number"
-                        value={form.daily_limit_total || 200}
-                        onChange={(e) => setForm({ ...form, daily_limit_total: +e.target.value })}
-                        className="mt-1"
-                        min={1}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Days of week */}
-                  <div>
-                    <Label className="text-xs">Dias da semana</Label>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {DAYS.map((d) => (
-                        <button
-                          key={d.key}
-                          onClick={() => toggleDay(d.key)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                            (form.active_days || []).includes(d.key)
-                              ? "bg-primary text-primary-foreground border-primary"
-                              : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/60"
-                          }`}
-                        >
-                          {d.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
+                  {/* Save */}
                   <div className="flex gap-2 pt-2">
                     {selectedId ? (
-                      <Button onClick={handleSave} className="flex-1">
-                        Salvar alterações
+                      <Button onClick={handleSave} className="flex-1 gap-2">
+                        <Save className="w-4 h-4" /> Salvar alterações
                       </Button>
                     ) : (
-                      <Button onClick={handleCreate} className="flex-1">
-                        Criar automação
+                      <Button onClick={handleCreate} className="flex-1 gap-2">
+                        <Plus className="w-4 h-4" /> Criar automação
                       </Button>
                     )}
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        setShowConfig(false);
-                        setSelectedId(null);
-                      }}
+                      onClick={() => { setShowConfig(false); setSelectedId(null); }}
                     >
                       Cancelar
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
+                </TabsContent>
 
-              {/* Logs */}
-              {selectedId && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <ScrollText className="w-4 h-4 text-primary" />
-                      Histórico de execução
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {selectedLogs.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        Nenhum log registrado ainda
-                      </p>
-                    ) : (
-                      <ScrollArea className="h-[300px]">
-                        <div className="space-y-2">
-                          {selectedLogs.map((log) => (
-                            <div
-                              key={log.id}
-                              className="flex items-start gap-3 p-2.5 rounded-lg bg-muted/20 border border-border/50"
-                            >
-                              <div
-                                className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-                                  log.status === "sent" ? "bg-emerald-500" : "bg-red-500"
-                                }`}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs text-muted-foreground">
-                                  {new Date(log.sent_at).toLocaleString("pt-BR")} ·{" "}
-                                  <span className="capitalize">{log.message_category}</span> ·{" "}
-                                  Grupo: {log.group_name || log.group_id?.slice(0, 12)}
-                                </p>
-                                <p className="text-sm mt-0.5 truncate">{log.message_content}</p>
-                                {log.error_message && (
-                                  <p className="text-xs text-red-400 mt-0.5">{log.error_message}</p>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+                {/* Content Config Tab */}
+                <TabsContent value="content" className="mt-4">
+                  <GIContentConfig
+                    contentTypes={form.content_types || defaultContentTypes}
+                    contentWeights={form.content_weights || defaultContentWeights}
+                    onChange={(types, weights) => updateForm({ content_types: types, content_weights: weights })}
+                  />
+                  {selectedId && (
+                    <div className="mt-3">
+                      <Button onClick={handleSave} className="gap-2">
+                        <Save className="w-4 h-4" /> Salvar
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Library Tab */}
+                <TabsContent value="library" className="mt-4">
+                  <GIContentLibrary interactionId={selectedId} />
+                </TabsContent>
+
+                {/* Logs Tab */}
+                <TabsContent value="logs" className="mt-4">
+                  <GILogs logs={selectedLogs} />
+                </TabsContent>
+              </Tabs>
             </>
-          )}
-
-          {!showConfig && (
+          ) : (
             <Card className="border-dashed">
               <CardContent className="p-12 text-center text-muted-foreground">
                 <MessageCircle className="w-10 h-10 mx-auto mb-3 opacity-40" />
