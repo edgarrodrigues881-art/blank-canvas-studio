@@ -456,8 +456,9 @@ async function handleTick(admin: any, conversationId: string) {
   await scheduleNextTick(conversationId, nextDelay);
 
   return json({ ok: true, messages_sent: result.ok ? 1 : 0, total: newTotal });
+}
 
-// ══════════════════════════════════════════════════════════
+//
 // TICK SCHEDULING
 // ══════════════════════════════════════════════════════════
 
