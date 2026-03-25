@@ -987,7 +987,7 @@ Deno.serve(async (req) => {
 
         for (let page = 0; page < 10; page++) {
           try {
-            const res = await fetch(`${device.uazapi_base_url}/group/list?GetParticipants=false&page=${page}&count=500`, { headers: buildHeaders(device.uazapi_token) });
+            const res = await fetchWithTimeout(`${device.uazapi_base_url}/group/list?GetParticipants=false&page=${page}&count=500`, { headers: buildHeaders(device.uazapi_token) });
             if (!res.ok) { diagnostics += `group/list page ${page}: HTTP ${res.status}; `; break; }
             const data = await res.json();
             const groups = Array.isArray(data) ? data : data?.groups || data?.data || [];
