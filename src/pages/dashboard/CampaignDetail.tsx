@@ -195,6 +195,8 @@ const CampaignDetail = () => {
   const [pauseDurationMax, setPauseDurationMax] = useState(120);
   const [delayDirty, setDelayDirty] = useState(false);
   const [pauseOnDisconnect, setPauseOnDisconnect] = useState(true);
+  const [messagesPerInstanceInput, setMessagesPerInstanceInput] = useState("50");
+  const [isEditingMessagesPerInstance, setIsEditingMessagesPerInstance] = useState(false);
 
   useEffect(() => {
     if (!campaign) return;
@@ -207,6 +209,11 @@ const CampaignDetail = () => {
     setPauseOnDisconnect(campaign.pause_on_disconnect !== false);
   }, [campaign]);
 
+  useEffect(() => {
+    if (!campaign || isEditingMessagesPerInstance) return;
+    setMessagesPerInstanceInput(String((campaign.messages_per_instance ?? 0) > 0 ? campaign.messages_per_instance : 50));
+  }, [campaign?.messages_per_instance, isEditingMessagesPerInstance]);
+
   const saveDelayConfig = useCallback(async () => {
     if (!id) return;
     await supabase.from("campaigns").update({
@@ -217,6 +224,15 @@ const CampaignDetail = () => {
     setDelayDirty(false);
     toast({ title: "✅ Configuração salva" });
   }, [id, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, toast]);
+
+  const saveMessagesPerInstance = useCallback(async () => {
+    if (!id || (campaign?.messages_per_instance ?? 0) <= 0) return;
+    const parsed = Number(messagesPerInstanceInput.replace(/\D/g, ""));
+    const value = parsed > 0 ? Math.min(500, parsed) : 50;
+    setMessagesPerInstanceInput(String(value));
+    await supabase.from("campaigns").update({ messages_per_instance: value }).eq("id", id);
+    queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+  }, [campaign?.messages_per_instance, id, messagesPerInstanceInput, queryClient]);
 
   const [logSearch, setLogSearch] = useState("");
   const [logFilter, setLogFilter] = useState("all");
