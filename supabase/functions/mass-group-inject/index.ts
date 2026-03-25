@@ -793,6 +793,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       // 11. BLOCKING delay before next contact
       const nextDelayMs = computeNextDelayMs(latestCampaign, result.cooldownMs);
       console.log(`[mass-inject] campaign=${campaignId} waiting ${nextDelayMs}ms before next contact`);
+      await setNextRunAt(sb, campaignId, nextDelayMs);
       await sleep(nextDelayMs);
     }
   } catch (error: any) {
