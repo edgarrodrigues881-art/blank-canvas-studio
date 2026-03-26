@@ -473,32 +473,11 @@ const Devices = () => {
   // Mutations
   const createMutation = useMutation({
     mutationFn: async (device: { name: string; login_type: string }) => {
-
-    const { data, error } = await supabase.functions.invoke("manage-devices", {
-  body: {
-    action: "create",
-    name: device.name,
-    login_type: device.login_type,
-  },
-});
-
-      if (error) {
-        let realMsg = data?.error || "";
-        if (!realMsg) {
-          // Try to extract from FunctionsHttpError context
-          try {
-            const body = await error.context?.json?.();
-            realMsg = body?.error || "";
-          } catch {}
-        }
-        if (!realMsg && error.message) {
-          const jsonMatch = error.message.match(/\{"error"\s*:\s*"([^"]+)"\}/);
-          realMsg = jsonMatch?.[1] || error.message;
-        }
-        throw new Error(realMsg || "Erro ao criar instância");
-      }
-      if (data?.error) throw new Error(data.error);
-      return data;
+      return await callManageDevices({
+        action: "create",
+        name: device.name,
+        login_type: device.login_type,
+      });
     },
     onMutate: async (device) => {
       muteAutoSync(5000);
