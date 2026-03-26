@@ -1198,6 +1198,84 @@ Deno.serve(async (req) => {
         if (!body.device_id) return json({ error: "device_id required" }, 400);
         return json(await checkEligibility(db, body.device_id));
       case "community_stats": return json(await getCommunityStats(db));
+
+      // ── community_only management actions ──
+      case "set_community_mode": {
+        if (!body.device_id || !body.mode) return json({ error: "device_id and mode required" }, 400);
+        const validModes = ["disabled", "warmup_managed", "community_only"];
+        if (!validModes.includes(body.mode)) return json({ error: "Invalid mode" }, 400);
+
+        const updateData: any = { community_mode: body.mode, is_enabled: body.mode !== "disabled" };
+        if (body.mode === "community_only") {
+          const preset = INTENSITY_PRESETS[body.intensity || "medium"];
+          updateData.intensity = body.intensity || "medium";
+          updateData.daily_limit = preset.daily_limit;
+          updateData.daily_pairs_min = preset.peers_min;
+          updateData.daily_pairs_max = preset.peers_max;
+          updateData.target_messages_per_pair = preset.msgs_per_peer;
+          updateData.cooldown_min_minutes = preset.cooldown_min;
+          updateData.cooldown_max_minutes = preset.cooldown_max;
+          updateData.config_type = "preset";
+          updateData.start_hour = body.start_hour || "08:00";
+          updateData.end_hour = body.end_hour || "20:00";
+          updateData.active_days = body.active_days || ["mon", "tue", "wed", "thu", "fri"];
+        }
+
+        const { error } = await db.from("warmup_community_membership")
+          .update(updateData).eq("device_id", body.device_id);
+        if (error) {
+          // Try upsert if no row exists
+          const userId = userAuth?.id || body.user_id;
+          if (!userId) return json({ error: "user_id required for new membership" }, 400);
+          const { error: upsertErr } = await db.from("warmup_community_membership")
+            .upsert({ device_id: body.device_id, user_id: userId, ...updateData }, { onConflict: "device_id" });
+          if (upsertErr) return json({ error: upsertErr.message }, 500);
+        }
+        await auditLog(db, {
+          device_id: body.device_id, user_id: userAuth?.id,
+          event_type: "mode_changed", level: "info",
+          message: `Modo alterado para ${body.mode}`,
+          community_mode: body.mode,
+          meta: { intensity: body.intensity },
+        });
+        return json({ ok: true, mode: body.mode });
+      }
+
+      case "update_community_config": {
+        if (!body.device_id) return json({ error: "device_id required" }, 400);
+        const allowed = [
+          "intensity", "config_type", "daily_limit", "daily_pairs_min", "daily_pairs_max",
+          "target_messages_per_pair", "cooldown_min_minutes", "cooldown_max_minutes",
+          "start_hour", "end_hour", "active_days", "partner_repeat_policy",
+          "cross_user_preference", "own_accounts_allowed",
+          "custom_min_delay_seconds", "custom_max_delay_seconds",
+          "custom_pause_after_min", "custom_pause_after_max",
+          "custom_pause_duration_min", "custom_pause_duration_max",
+        ];
+        const upd: any = {};
+        for (const key of allowed) {
+          if (body[key] !== undefined) upd[key] = body[key];
+        }
+
+        // If switching to preset, apply preset values
+        if (upd.config_type === "preset" && upd.intensity) {
+          const p = INTENSITY_PRESETS[upd.intensity];
+          if (p) {
+            upd.daily_limit = p.daily_limit;
+            upd.daily_pairs_min = p.peers_min;
+            upd.daily_pairs_max = p.peers_max;
+            upd.target_messages_per_pair = p.msgs_per_peer;
+            upd.cooldown_min_minutes = p.cooldown_min;
+            upd.cooldown_max_minutes = p.cooldown_max;
+          }
+        }
+
+        const { error } = await db.from("warmup_community_membership")
+          .update(upd).eq("device_id", body.device_id);
+        if (error) return json({ error: error.message }, 500);
+        return json({ ok: true, updated: Object.keys(upd) });
+      }
+
       default: return json(await handleTick(db));
     }
   } catch (err: any) {
