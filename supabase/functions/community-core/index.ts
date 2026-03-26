@@ -267,7 +267,7 @@ async function phaseCleanupStale(db: any): Promise<{ cleaned_sessions: number; c
 // ══════════════════════════════════════════════════════════
 async function phaseUpdateEligibility(db: any): Promise<{ updated: number; eligible: number; reasons: Record<string, number> }> {
   const { data: memberships } = await db.from("warmup_community_membership")
-    .select("id, device_id, community_mode, community_day, is_enabled, daily_limit, messages_today, pairs_today, cooldown_until, start_hour, end_hour, active_days, user_id, is_eligible")
+    .select("id, device_id, community_mode, community_day, is_enabled, daily_limit, messages_today, pairs_today, cooldown_until, start_hour, end_hour, active_days, user_id, is_eligible, daily_pairs_min, daily_pairs_max, target_messages_per_pair, cooldown_min_minutes, cooldown_max_minutes")
     .eq("is_enabled", true).neq("community_mode", "disabled").limit(500);
 
   if (!memberships?.length) return { updated: 0, eligible: 0, reasons: {} };
@@ -377,7 +377,7 @@ async function phaseFormPairs(db: any): Promise<{
   const logs: string[] = [];
 
   const { data: eligible } = await db.from("warmup_community_membership")
-    .select("device_id, user_id, community_mode, community_day, pairs_today, messages_today, daily_limit, last_session_at, last_partner_device_id")
+    .select("device_id, user_id, community_mode, community_day, pairs_today, messages_today, daily_limit, last_session_at, last_partner_device_id, daily_pairs_min, daily_pairs_max, target_messages_per_pair, partner_repeat_policy, cross_user_preference, own_accounts_allowed")
     .eq("is_eligible", true).eq("is_enabled", true).neq("community_mode", "disabled").limit(200);
 
   if (!eligible?.length || eligible.length < 2) return { pairs_formed: 0, rejected: [], logs: ["insufficient_eligible"] };
