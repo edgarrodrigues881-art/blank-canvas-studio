@@ -109,9 +109,10 @@ function getPhaseForDay(day: number, chipState: string): string {
   return "community_enabled";
 }
 
-function getGroupMsgVolume(phase: string): number {
+function getGroupMsgVolume(phase: string, dayIndex: number = 2): number {
   if (phase === "pre_24h" || phase === "completed") return 0;
-  return randInt(200, 500);
+  if (dayIndex < 2) return 0;
+  return randInt(120, 200);
 }
 
 // ── JID Resolution logic ──
