@@ -246,7 +246,7 @@ const Devices = () => {
         throw err;
       }
     },
-    enabled: !!session,
+    enabled: !authLoading && !!session?.user?.id,
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
