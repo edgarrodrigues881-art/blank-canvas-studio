@@ -1196,6 +1196,10 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
       const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped",
         "permission_unconfirmed", "unknown_failure", "timeout"].includes(result.status);
+      if (result.status === "rate_limited") {
+        batchHasRateLimit = true;
+        batchRateLimitCount++;
+      }
       const maxRetries = result.status === "rate_limited" ? MAX_RATE_LIMIT_RETRIES
         : result.status === "session_dropped" ? MAX_SESSION_DROP_RETRIES : MAX_QUEUE_RETRIES;
 
