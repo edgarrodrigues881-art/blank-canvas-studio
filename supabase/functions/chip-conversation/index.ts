@@ -516,15 +516,10 @@ async function fireTickNow(conversationId: string) {
 
 async function scheduleNextTick(conversationId: string, delaySec: number, scheduledFor?: string | null) {
   const targetIso = scheduledFor ?? new Date(Date.now() + Math.max(1, delaySec) * 1000).toISOString();
-  const remainingMs = Math.max(0, new Date(targetIso).getTime() - Date.now());
-  const waitMs = Math.min(remainingMs, 20000);
+  console.log(`[scheduleNextTick] target=${targetIso} delay=${delaySec}s`);
 
-  console.log(`[scheduleNextTick] target=${targetIso} remaining=${remainingMs}ms wait_now=${waitMs}ms`);
-
-  if (waitMs > 0) {
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
-  }
-
+  // Always dispatch immediately with the scheduled_for timestamp
+  // The next tick will check if it's time to run or re-schedule
   try {
     await dispatchTick(conversationId, targetIso);
   } catch (e: any) {
