@@ -1313,7 +1313,7 @@ async function reconcileCommunityPairs(
         .select("id, status, number")
         .in("id", peerIds),
       db.from("warmup_community_membership")
-        .select("device_id, is_enabled, is_eligible")
+        .select("device_id, is_enabled, is_eligible, community_day")
         .in("device_id", peerIds),
       db.from("warmup_cycles")
         .select("device_id, is_running, phase")
