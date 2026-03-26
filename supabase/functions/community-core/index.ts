@@ -47,6 +47,8 @@ const STALE_SESSION_HOURS = 4;
 const COOLDOWN_MIN_MINUTES = 15;
 const COOLDOWN_MAX_MINUTES = 45;
 const TARGET_MESSAGES_PER_BLOCK = 120;
+const MIN_SPACING_BETWEEN_PAIRS_MINUTES = 20; // Espaçamento mínimo entre novas duplas da mesma conta
+const MAX_SAME_PAIR_PER_DAY = 1; // Evitar repetir mesmo par no mesmo dia (exceção controlada = 1)
 
 // ══════════════════════════════════════════════════════════
 // CHIP & PROGRESSION
@@ -328,17 +330,23 @@ async function phaseUpdateEligibility(db: any): Promise<{ updated: number; eligi
 }
 
 // ══════════════════════════════════════════════════════════
-// PHASE 3: FORM PAIRS — Formar novas duplas com fairness
+// PHASE 3: FORM PAIRS — Formar novas duplas com fairness refinada
 // ══════════════════════════════════════════════════════════
-async function phaseFormPairs(db: any): Promise<{ pairs_formed: number; rejected: Array<{ device: string; reason: string }> }> {
+async function phaseFormPairs(db: any): Promise<{
+  pairs_formed: number;
+  rejected: Array<{ device: string; reason: string; partner?: string }>;
+  logs: string[];
+}> {
+  const logs: string[] = [];
+
   // Get eligible devices that don't have active pairs
   const { data: eligible } = await db.from("warmup_community_membership")
-    .select("device_id, user_id, community_mode, community_day, pairs_today, messages_today, daily_limit")
+    .select("device_id, user_id, community_mode, community_day, pairs_today, messages_today, daily_limit, last_session_at, last_partner_device_id")
     .eq("is_eligible", true).eq("is_enabled", true)
     .neq("community_mode", "disabled")
     .limit(200);
 
-  if (!eligible?.length || eligible.length < 2) return { pairs_formed: 0, rejected: [] };
+  if (!eligible?.length || eligible.length < 2) return { pairs_formed: 0, rejected: [], logs: ["insufficient_eligible"] };
 
   // Get devices with active pairs already
   const allDeviceIds = eligible.map((e: any) => e.device_id);
@@ -351,9 +359,22 @@ async function phaseFormPairs(db: any): Promise<{ pairs_formed: number; rejected
     pairedDevices.add(p.instance_id_a || p.instance_id_b);
   }
 
-  // Filter to only unpaired eligible devices
-  const unpaired = eligible.filter((e: any) => !pairedDevices.has(e.device_id));
-  if (unpaired.length < 2) return { pairs_formed: 0, rejected: [] };
+  // Filter to only unpaired eligible devices + check spacing
+  const now = Date.now();
+  const spacingMs = MIN_SPACING_BETWEEN_PAIRS_MINUTES * 60 * 1000;
+  const unpaired = eligible.filter((e: any) => {
+    if (pairedDevices.has(e.device_id)) return false;
+    // Espaçamento mínimo: se a última sessão terminou há menos de MIN_SPACING minutos, pular
+    if (e.last_session_at) {
+      const elapsed = now - new Date(e.last_session_at).getTime();
+      if (elapsed < spacingMs) {
+        logs.push(`spacing_block:${e.device_id.substring(0,8)}:${Math.round(elapsed/60000)}min`);
+        return false;
+      }
+    }
+    return true;
+  });
+  if (unpaired.length < 2) return { pairs_formed: 0, rejected: [], logs };
 
   // Get today's pair history for anti-repetition
   const todayStart = new Date();
@@ -371,8 +392,15 @@ async function phaseFormPairs(db: any): Promise<{ pairs_formed: number; rejected
     todayPartnerCount[p.instance_id_b][p.instance_id_a] = (todayPartnerCount[p.instance_id_b][p.instance_id_a] || 0) + 1;
   }
 
-  // Sort by fairness: devices with fewer pairs_today go first (they need more activity)
-  const sorted = [...unpaired].sort((a: any, b: any) => (a.pairs_today || 0) - (b.pairs_today || 0));
+  // Count unique partners today per device (for variety metric)
+  const uniquePartnersToday: Record<string, number> = {};
+  for (const devId of Object.keys(todayPartnerCount)) {
+    uniquePartnersToday[devId] = Object.keys(todayPartnerCount[devId]).length;
+  }
+
+  // Shuffle first for randomness, then sort by load (prevents always picking same devices first)
+  const shuffled = [...unpaired].sort(() => Math.random() - 0.5);
+  const sorted = shuffled.sort((a: any, b: any) => (a.pairs_today || 0) - (b.pairs_today || 0));
 
   // Get warmup_managed cycle_ids
   const managedDeviceIds = sorted.filter((s: any) => s.community_mode === "warmup_managed").map((s: any) => s.device_id);
@@ -383,13 +411,13 @@ async function phaseFormPairs(db: any): Promise<{ pairs_formed: number; rejected
 
   const pairedThisTick = new Set<string>();
   const formed: string[] = [];
-  const rejected: Array<{ device: string; reason: string }> = [];
+  const rejected: Array<{ device: string; reason: string; partner?: string }> = [];
 
   for (const device of sorted) {
     if (pairedThisTick.has(device.device_id)) continue;
-    if (formed.length >= MAX_NEW_SESSIONS_PER_TICK) break; // Limit per tick
+    if (formed.length >= MAX_NEW_SESSIONS_PER_TICK) break;
 
-    // Find best partner for this device
+    // Find candidates (not self, not already paired this tick)
     const candidates = sorted.filter((c: any) => {
       if (c.device_id === device.device_id) return false;
       if (pairedThisTick.has(c.device_id)) return false;
@@ -401,60 +429,66 @@ async function phaseFormPairs(db: any): Promise<{ pairs_formed: number; rejected
       continue;
     }
 
-    // Score candidates
+    // Score candidates with refined fairness
     const scored = candidates.map((c: any) => {
       let score = 100;
 
-      // Prefer own accounts (same user)
+      // Prefer own accounts (same user) +20
       if (c.user_id === device.user_id) score += 20;
 
-      // Penalize if repeated today
+      // ANTI-REPETITION: Heavily penalize same pair on same day
       const timesToday = todayPartnerCount[device.device_id]?.[c.device_id] || 0;
-      score -= timesToday * 30;
+      if (timesToday >= MAX_SAME_PAIR_PER_DAY) {
+        score -= 200; // Effectively blocks unless no other option
+      } else if (timesToday > 0) {
+        score -= 80; // Strong penalty even for 1 repeat
+      }
 
       // Prefer devices with fewer pairs today (balanced load)
-      score -= (c.pairs_today || 0) * 5;
+      score -= (c.pairs_today || 0) * 8;
 
-      // Add small random for variety
-      score += randInt(0, 15);
+      // Favor variety: prefer devices that have had fewer unique partners today
+      const partnerVariety = uniquePartnersToday[c.device_id] || 0;
+      score -= partnerVariety * 3;
 
-      return { ...c, score };
+      // Penalize if this device was the last partner (avoid back-to-back)
+      if (device.last_partner_device_id === c.device_id) score -= 25;
+
+      // Balance cross-user: slight bonus for cross-user pairing variety
+      if (c.user_id !== device.user_id) score += 5;
+
+      // Random jitter for natural variety
+      score += randInt(0, 12);
+
+      return { ...c, score, timesToday };
     });
 
     scored.sort((a: any, b: any) => b.score - a.score);
-    const partner = scored[0];
 
-    // Check if repeated too much today (max 2 times same pair per day)
-    const timesRepeated = todayPartnerCount[device.device_id]?.[partner.device_id] || 0;
-    if (timesRepeated >= 2) {
-      // Try next candidate
-      const alt = scored.find((s: any) => {
-        const t = todayPartnerCount[device.device_id]?.[s.device_id] || 0;
-        return t < 2;
-      });
-      if (!alt) {
-        rejected.push({ device: device.device_id, reason: "all_partners_repeated" });
-        continue;
+    // Pick best candidate that hasn't exceeded daily pair limit
+    let partner = null;
+    for (const candidate of scored) {
+      if (candidate.timesToday >= MAX_SAME_PAIR_PER_DAY) {
+        // Only use if NO other option exists (exceção controlada)
+        const hasAlternative = scored.some((s: any) =>
+          s.device_id !== candidate.device_id &&
+          (todayPartnerCount[device.device_id]?.[s.device_id] || 0) < MAX_SAME_PAIR_PER_DAY &&
+          s.score > -50
+        );
+        if (hasAlternative) {
+          rejected.push({ device: device.device_id, reason: "same_pair_repeated_today", partner: candidate.device_id });
+          logs.push(`repeat_skip:${device.device_id.substring(0,8)}<->${candidate.device_id.substring(0,8)}:${candidate.timesToday}x`);
+          continue;
+        }
+        // Exceção controlada: usa mesmo par por falta de alternativa
+        logs.push(`repeat_forced:${device.device_id.substring(0,8)}<->${candidate.device_id.substring(0,8)}`);
       }
-      // Use alt
-      const cycleId = cycleIdMap[device.device_id] || cycleIdMap[alt.device_id] || null;
-      const mode = device.community_mode === "warmup_managed" || alt.community_mode === "warmup_managed"
-        ? "warmup_managed" : "community_only";
+      partner = candidate;
+      break;
+    }
 
-      await db.from("community_pairs").insert({
-        cycle_id: cycleId,
-        instance_id_a: device.device_id,
-        instance_id_b: alt.device_id,
-        status: "active",
-        community_mode: mode,
-        target_messages: TARGET_MESSAGES_PER_BLOCK,
-        messages_total: 0,
-        meta: { initiator: Math.random() < 0.5 ? "a" : "b", formed_at: new Date().toISOString() },
-      });
-
-      pairedThisTick.add(device.device_id);
-      pairedThisTick.add(alt.device_id);
-      formed.push(`${device.device_id.substring(0, 8)}<->${alt.device_id.substring(0, 8)}`);
+    if (!partner) {
+      rejected.push({ device: device.device_id, reason: "all_partners_blocked" });
       continue;
     }
 
@@ -470,15 +504,22 @@ async function phaseFormPairs(db: any): Promise<{ pairs_formed: number; rejected
       community_mode: mode,
       target_messages: TARGET_MESSAGES_PER_BLOCK,
       messages_total: 0,
-      meta: { initiator: Math.random() < 0.5 ? "a" : "b", formed_at: new Date().toISOString() },
+      meta: {
+        initiator: Math.random() < 0.5 ? "a" : "b",
+        formed_at: new Date().toISOString(),
+        score: partner.score,
+        cross_user: device.user_id !== partner.user_id,
+        repeat_count: partner.timesToday,
+      },
     });
 
     pairedThisTick.add(device.device_id);
     pairedThisTick.add(partner.device_id);
     formed.push(`${device.device_id.substring(0, 8)}<->${partner.device_id.substring(0, 8)}`);
+    logs.push(`paired:${device.device_id.substring(0,8)}<->${partner.device_id.substring(0,8)}:score=${partner.score}:cross=${device.user_id !== partner.user_id}`);
   }
 
-  return { pairs_formed: formed.length, rejected };
+  return { pairs_formed: formed.length, rejected, logs };
 }
 
 // ══════════════════════════════════════════════════════════
