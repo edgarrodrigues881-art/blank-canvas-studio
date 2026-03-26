@@ -163,38 +163,44 @@ function getAutosaveRoundsPerContact(chipState: string = "new"): number {
   return 3; // max 3 messages per contact
 }
 
-function getCommunityPeers(dayIndex: number, chipState: string): number {
-  const communityStartDay = getGroupsEndDay(chipState) + 2;
-  if (dayIndex < communityStartDay) return 0;
-
-  if (chipState === "unstable") {
-    const d = dayIndex - communityStartDay;
-    if (d === 0) return 1;
-    return 2;
-  }
-  const d = dayIndex - communityStartDay;
-  if (d === 0) return 2;
-  if (d === 1) return 3;
-  if (d === 2) return 4;
-  return 5;
+// Community start day per chip type (warmup day when community unlocks)
+function getCommunityStartDayForChip(chipState: string): number {
+  if (chipState === "unstable") return 9; // chip fraco: dia 9
+  if (chipState === "recovered") return 7; // chip recuperado: dia 7
+  return 6; // chip novo: dia 6
 }
 
-function getCommunityBurstsPerPeer(dayIndex: number, chipState: string): number {
-  const communityStartDay = getGroupsEndDay(chipState) + 2;
+// Progressão de duplas baseada em community_day (não warmup day)
+// community_day 1 = primeiro dia do comunitário
+function getCommunityPeersFromCommunityDay(communityDay: number): { min: number; max: number } {
+  if (communityDay <= 1) return { min: 1, max: 3 };
+  if (communityDay === 2) return { min: 2, max: 5 };
+  if (communityDay === 3) return { min: 4, max: 7 };
+  if (communityDay <= 6) return { min: 5, max: 8 };
+  return { min: 6, max: 10 };
+}
+
+function getCommunityPeers(dayIndex: number, chipState: string, communityDay?: number): number {
+  const communityStartDay = getCommunityStartDayForChip(chipState);
   if (dayIndex < communityStartDay) return 0;
 
-  if (chipState === "unstable") {
-    const d = dayIndex - communityStartDay;
-    if (d === 0) return 2;
-    if (d === 1) return 3;
-    return 4;
-  }
-  const d = dayIndex - communityStartDay;
-  if (d === 0) return 3;
-  if (d === 1) return 4;
-  if (d === 2) return 5;
-  if (d === 3) return 6;
-  if (d <= 6) return 7;
+  // Use community_day if provided, otherwise calculate from warmup day
+  const cd = communityDay ?? Math.max(1, dayIndex - communityStartDay + 1);
+  const target = getCommunityPeersFromCommunityDay(cd);
+  return randInt(target.min, target.max);
+}
+
+function getCommunityBurstsPerPeer(dayIndex: number, chipState: string, communityDay?: number): number {
+  const communityStartDay = getCommunityStartDayForChip(chipState);
+  if (dayIndex < communityStartDay) return 0;
+
+  const cd = communityDay ?? Math.max(1, dayIndex - communityStartDay + 1);
+  // Each burst = ~40-80 turns conversation. Scale bursts to fill daily window.
+  // With ~120 msgs/block target and multiple pairs, use burst count to distribute
+  if (cd <= 1) return 3;
+  if (cd === 2) return 4;
+  if (cd === 3) return 5;
+  if (cd <= 6) return 6;
   return 8;
 }
 
