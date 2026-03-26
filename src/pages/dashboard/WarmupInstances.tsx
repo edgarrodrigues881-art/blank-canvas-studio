@@ -1648,16 +1648,19 @@ const WarmupInstances = () => {
               </Button>
             </>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn("gap-1.5 text-xs h-8", showFilters && "bg-primary/10 border-primary/25 text-primary")}
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <Filter className="w-3 h-3" /> Filtros
+            {statusFilter !== "all" && (
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            )}
+          </Button>
           {!activeFolder && (
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs h-8"
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <Filter className="w-3 h-3" /> Filtros
-              </Button>
               <Button size="sm" className="gap-1.5 text-xs h-8 bg-amber-600 hover:bg-amber-700 text-white" onClick={openBulkWarmupDialog}>
                 <Flame className="w-3.5 h-3.5" /> Aquecer em massa
               </Button>
