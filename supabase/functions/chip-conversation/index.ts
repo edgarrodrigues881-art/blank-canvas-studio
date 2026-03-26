@@ -294,7 +294,8 @@ async function handleResume(admin: any, userId: string, conversationId: string) 
     .eq("id", conversationId)
     .eq("user_id", userId);
 
-  await fireTickNow(conversationId);
+  // Fire-and-forget
+  fireTickNow(conversationId).catch((e) => console.error("[resume] tick fire error:", e));
   return json({ ok: true, status: "active" });
 }
 
