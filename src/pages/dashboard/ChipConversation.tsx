@@ -289,49 +289,71 @@ function ConversationCard({
   const isActionLoading = actions.start.isPending || actions.pause.isPending ||
     actions.resume.isPending || actions.stop.isPending;
 
+  const isRunning = normalizedStatus === "running";
+
   return (
-    <Card className="overflow-hidden border-border/60 bg-card/80 backdrop-blur-sm">
+    <Card className={`overflow-hidden border-border/50 bg-card relative transition-all duration-200 ${isRunning ? "ring-1 ring-emerald-500/20" : ""}`}>
+      {/* Top accent bar for running state */}
+      {isRunning && (
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500/60 via-emerald-400 to-emerald-500/60" />
+      )}
+
       {/* Header Row */}
       <div className="px-5 py-4 flex items-center gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-1.5">
             <h3 className="font-semibold text-foreground text-base truncate">{conv.name}</h3>
-            <Badge variant="outline" className={`text-[11px] px-2 py-0.5 font-medium ${status.color}`}>
+            <Badge variant="outline" className={`text-[11px] px-2.5 py-0.5 font-medium rounded-full ${status.color}`}>
               <StatusIcon className="w-3 h-3 mr-1" />
               {status.label}
             </Badge>
           </div>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-5 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <Smartphone className="w-3.5 h-3.5" />
+              <Smartphone className="w-3.5 h-3.5 text-muted-foreground/60" />
               {(conv.device_ids || []).length} chips
             </span>
             <span className="flex items-center gap-1.5">
-              <MessageCircle className="w-3.5 h-3.5" />
+              <MessageCircle className="w-3.5 h-3.5 text-muted-foreground/60" />
               {conv.total_messages_sent} enviadas
             </span>
             <span className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5" />
+              <Clock className="w-3.5 h-3.5 text-muted-foreground/60" />
               {conv.start_hour} – {conv.end_hour}
             </span>
           </div>
         </div>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Edit - always visible */}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onEdit}
+            className="gap-1.5 h-8 px-2.5 text-muted-foreground hover:text-foreground hover:bg-accent/60"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            <span className="text-xs">Editar</span>
+          </Button>
+
+          <div className="w-px h-5 bg-border/50 mx-1" />
+
           {normalizedStatus === "idle" || normalizedStatus === "completed" ? (
             <>
-              <Button size="sm" onClick={() => handleAction("start")} disabled={isActionLoading} className="gap-1.5 h-9">
-                {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              <Button
+                size="sm"
+                onClick={() => handleAction("start")}
+                disabled={isActionLoading}
+                className="gap-1.5 h-8 px-4 bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20"
+              >
+                {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
                 Iniciar
-              </Button>
-              <Button size="icon" variant="ghost" onClick={onEdit} className="w-9 h-9 text-muted-foreground hover:text-foreground" title="Editar">
-                <Pencil className="w-4 h-4" />
               </Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button size="icon" variant="ghost" className="w-9 h-9 text-muted-foreground hover:text-destructive" title="Excluir">
-                    <Trash2 className="w-4 h-4" />
+                  <Button size="icon" variant="ghost" className="w-8 h-8 text-muted-foreground/50 hover:text-destructive">
+                    <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -355,9 +377,9 @@ function ConversationCard({
                 variant="outline"
                 onClick={() => handleAction("pause")}
                 disabled={isActionLoading}
-                className="gap-1.5 h-9 border-amber-500/40 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
+                className="gap-1.5 h-8 px-3 border-amber-500/30 text-amber-500 dark:text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/50"
               >
-                <Pause className="w-4 h-4" />
+                <Pause className="w-3.5 h-3.5" />
                 Pausar
               </Button>
               <AlertDialog>
@@ -366,30 +388,35 @@ function ConversationCard({
                     size="sm"
                     variant="outline"
                     disabled={isActionLoading}
-                    className="gap-1.5 h-9 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className="gap-1.5 h-8 px-3 border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive/50"
                   >
-                    <Square className="w-4 h-4" />
-                    Cancelar
+                    <Square className="w-3.5 h-3.5" />
+                    Parar
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Cancelar conversa?</AlertDialogTitle>
+                    <AlertDialogTitle>Parar conversa?</AlertDialogTitle>
                     <AlertDialogDescription>
                       A conversa automática será encerrada e os chips vão parar de trocar mensagens.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Fechar</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleAction("stop")}>Cancelar conversa</AlertDialogAction>
+                    <AlertDialogAction onClick={() => handleAction("stop")}>Parar conversa</AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             </>
           ) : normalizedStatus === "paused" ? (
             <>
-              <Button size="sm" onClick={() => handleAction("resume")} disabled={isActionLoading} className="gap-1.5 h-9">
-                <RotateCcw className="w-4 h-4" />
+              <Button
+                size="sm"
+                onClick={() => handleAction("resume")}
+                disabled={isActionLoading}
+                className="gap-1.5 h-8 px-4 bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
                 Retomar
               </Button>
               <Button
@@ -397,15 +424,15 @@ function ConversationCard({
                 variant="outline"
                 onClick={() => handleAction("stop")}
                 disabled={isActionLoading}
-                className="gap-1.5 h-9 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                className="gap-1.5 h-8 px-3 border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive/50"
               >
-                <Square className="w-4 h-4" />
-                Cancelar
+                <Square className="w-3.5 h-3.5" />
+                Parar
               </Button>
             </>
           ) : null}
 
-          <Button size="icon" variant="ghost" onClick={onToggleExpand} className="w-9 h-9 text-muted-foreground">
+          <Button size="icon" variant="ghost" onClick={onToggleExpand} className="w-8 h-8 text-muted-foreground/60 hover:text-foreground ml-0.5">
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </Button>
         </div>
