@@ -1265,13 +1265,15 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
           processed_at: nowIso(),
         }).eq("id", contact.id);
       } else if (isTransient && retryCount >= maxRetries) {
+        // Retries exhausted — mark as final failure so campaign can finalize
         await sb.from("mass_inject_contacts").update({
-          status: result.status,
+          status: "failed",
           error_message: `${stripRetryMeta(result.detail)} Tentativas esgotadas (${maxRetries}x).`,
           device_used: device.name || device.id,
           processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCampaignCounters(sb, campaign, result.status, false);
+        consecutiveRealFailures++;
+        await updateCampaignCounters(sb, campaign, "failed", true);
       } else {
         const finalError = SUCCESS_STATUSES.has(result.status) ? null : stripRetryMeta(result.detail);
         await sb.from("mass_inject_contacts").update({
