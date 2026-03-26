@@ -1215,9 +1215,11 @@ const CONNECTED_STATUSES = ["Ready", "Connected", "authenticated"];
 const INTERACTION_JOB_TYPES = ["group_interaction", "autosave_interaction", "community_interaction"];
 
 // Max active pairs a device can participate in (as A or B)
-// Unstable chips get 2 pairs; new/recovered get up to 5
-function getMaxPairsForChip(chipState: string): number {
-  return chipState === "unstable" ? 2 : 5;
+// Based on community_day progression
+function getMaxPairsForChip(chipState: string, communityDay?: number): number {
+  if (!communityDay || communityDay <= 0) return 3;
+  const target = getCommunityPeersFromCommunityDay(communityDay);
+  return target.max;
 }
 
 async function getActivePairCount(db: any, deviceId: string): Promise<number> {
