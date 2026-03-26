@@ -9,6 +9,8 @@ export function isSyncingDevices() { return _isSyncing; }
 
 // Global mute flag: when set, realtime + auto-sync skip invalidation
 let mutedUntil = 0;
+let keepAlivePausedUntil = 0;
+let queuedSync = false;
 // Track recently deleted device IDs to filter from query results
 const recentlyDeletedIds = new Set<string>();
 
@@ -25,9 +27,14 @@ export function getRecentlyDeletedIds(): Set<string> {
   return recentlyDeletedIds;
 }
 
-// Keep-alive pause/resume (kept for backward compat but no-op now)
-export function pauseKeepAlive() {}
-export function resumeKeepAlive() {}
+// Keep-alive pause/resume used during QR/pairing flows to avoid sync collisions
+export function pauseKeepAlive(ms = 45_000) {
+  keepAlivePausedUntil = Math.max(keepAlivePausedUntil, Date.now() + ms);
+}
+
+export function resumeKeepAlive() {
+  keepAlivePausedUntil = 0;
+}
 
 /**
  * Auto-syncs device statuses via:
@@ -38,6 +45,7 @@ export function resumeKeepAlive() {}
 export function useAutoSyncDevices(intervalMs = 3_000) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
+  const shouldSkipSync = () => Date.now() < mutedUntil || Date.now() < keepAlivePausedUntil;
 
   // ── Realtime subscription for instant status changes ──
   useEffect(() => {
@@ -54,7 +62,7 @@ export function useAutoSyncDevices(intervalMs = 3_000) {
           filter: `user_id=eq.${session.user.id}`,
         },
         (payload) => {
-          if (Date.now() < mutedUntil) return;
+          if (shouldSkipSync()) return;
           const updated = payload.new as any;
           if (!updated?.id) return;
 
@@ -87,12 +95,16 @@ export function useAutoSyncDevices(intervalMs = 3_000) {
 
   // ── Shared sync function exposed for manual trigger ──
   const doSync = useCallback(async () => {
-    if (_isSyncing) return;
-    if (Date.now() < mutedUntil) return;
+    if (shouldSkipSync()) return;
+    if (_isSyncing) {
+      queuedSync = true;
+      return;
+    }
+
     _isSyncing = true;
     try {
       await supabase.functions.invoke("sync-devices");
-      if (Date.now() >= mutedUntil) {
+      if (!shouldSkipSync()) {
         await queryClient.refetchQueries({ queryKey: ["devices"] });
         queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
       }
@@ -100,6 +112,13 @@ export function useAutoSyncDevices(intervalMs = 3_000) {
       // silent — don't change state on error
     } finally {
       _isSyncing = false;
+
+      if (queuedSync && !shouldSkipSync()) {
+        queuedSync = false;
+        void Promise.resolve().then(() => doSync());
+      } else if (!shouldSkipSync()) {
+        queuedSync = false;
+      }
     }
   }, [queryClient]);
 

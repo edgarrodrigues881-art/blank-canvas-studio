@@ -47,6 +47,24 @@ interface Device {
   has_api_config: boolean;
 }
 
+function normalizeDeviceStatus(status: string | null | undefined, hasNumber = false): Device["status"] {
+  const normalized = String(status || "").toLowerCase().trim();
+
+  if (["ready", "connected", "authenticated", "open", "online"].includes(normalized)) {
+    return "Ready";
+  }
+
+  if (["loading", "syncing", "connecting", "pairing", "qr", "qrcode", "pending", "initializing", "starting"].includes(normalized)) {
+    return "Loading";
+  }
+
+  if (normalized === "active" && hasNumber) {
+    return "Ready";
+  }
+
+  return "Disconnected";
+}
+
 type FilterTab = "all" | "online" | "offline" | "error" | "warmup";
 
 type SmartStatus = "online" | "offline";
@@ -214,7 +232,7 @@ const Devices = () => {
             id: d.id,
             name: d.name,
             number: d.number || "",
-            status: d.status as "Ready" | "Disconnected" | "Loading",
+            status: normalizeDeviceStatus(d.status, !!d.number),
             login_type: d.login_type,
             proxy_id: d.proxy_id,
             profile_picture: d.profile_picture || null,
@@ -476,7 +494,7 @@ const Devices = () => {
             id: data.device.id,
             name: data.device.name,
             number: data.device.number || "",
-            status: data.device.status || "Disconnected",
+            status: normalizeDeviceStatus(data.device.status, !!data.device.number),
             login_type: data.device.login_type || "qr",
             proxy_id: data.device.proxy_id || null,
             profile_picture: null,
@@ -1752,33 +1770,41 @@ const Devices = () => {
             variant="ghost"
             className={cn(
               "gap-1.5 text-xs h-8",
-              syncLoading || isSyncingDevices()
+              syncLoading
                 ? "text-muted-foreground/50 cursor-not-allowed opacity-60"
                 : "text-muted-foreground hover:text-foreground"
             )}
-            disabled={syncLoading || isSyncingDevices()}
+            disabled={syncLoading}
             onClick={async () => {
-              if (isSyncingDevices()) return;
               setSyncLoading(true);
               try {
+                await queryClient.refetchQueries({ queryKey: ["devices"] });
+                queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
+
                 const { data: { session: s } } = await supabase.auth.getSession();
                 if (!s) throw new Error("Not authenticated");
-                await supabase.functions.invoke("sync-devices", {
-                  headers: { Authorization: `Bearer ${s.access_token}` },
-                });
-                // Refetch devices and use the FRESH data for the toast
+
+                const syncAlreadyRunning = isSyncingDevices();
+                if (!syncAlreadyRunning) {
+                  await supabase.functions.invoke("sync-devices", {
+                    headers: { Authorization: `Bearer ${s.access_token}` },
+                  });
+                }
+
                 await queryClient.refetchQueries({ queryKey: ["devices"] });
                 queryClient.invalidateQueries({ queryKey: ["proxies"] });
+
                 const freshDevices = queryClient.getQueryData<Device[]>(["devices"]) || [];
                 const total = freshDevices.length;
                 const online = freshDevices.filter(d => d.status === "Ready").length;
+
                 if (total > 0) {
                   toast({ 
-                    title: "✅ Sincronização concluída", 
+                    title: syncAlreadyRunning ? "✅ Lista atualizada" : "✅ Sincronização concluída", 
                     description: `${online} de ${total} instância${total !== 1 ? "s" : ""} online.` 
                   });
                 } else {
-                  toast({ title: "✅ Sincronização concluída", description: "Nenhuma instância encontrada." });
+                  toast({ title: syncAlreadyRunning ? "✅ Lista atualizada" : "✅ Sincronização concluída", description: "Nenhuma instância encontrada." });
                 }
               } catch (err: any) {
                 toast({ title: "Erro ao sincronizar", description: err?.message, variant: "destructive" });
