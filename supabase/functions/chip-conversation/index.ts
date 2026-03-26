@@ -272,8 +272,9 @@ async function handleStart(admin: any, userId: string, conversationId: string) {
     .eq("id", conversationId)
     .eq("user_id", userId);
 
-  console.log("[start] Firing immediate tick for", conversationId);
-  await fireTickNow(conversationId);
+  console.log("[start] Firing immediate tick (fire-and-forget) for", conversationId);
+  // Fire-and-forget: don't await so the response returns immediately
+  fireTickNow(conversationId).catch((e) => console.error("[start] tick fire error:", e));
 
   return json({ ok: true, status: "active" });
 }
