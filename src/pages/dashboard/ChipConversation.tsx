@@ -36,6 +36,10 @@ import {
   Trash2,
   RotateCcw,
   Pencil,
+  Timer,
+  CalendarDays,
+  MoreVertical,
+  Activity,
 } from "lucide-react";
 import {
   Dialog,
