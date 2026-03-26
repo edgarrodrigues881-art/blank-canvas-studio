@@ -272,8 +272,9 @@ async function handleStart(admin: any, userId: string, conversationId: string) {
     .eq("id", conversationId)
     .eq("user_id", userId);
 
-  console.log("[start] Firing immediate tick for", conversationId);
-  await fireTickNow(conversationId);
+  console.log("[start] Firing immediate tick (fire-and-forget) for", conversationId);
+  // Fire-and-forget: don't await so the response returns immediately
+  fireTickNow(conversationId).catch((e) => console.error("[start] tick fire error:", e));
 
   return json({ ok: true, status: "active" });
 }
@@ -293,7 +294,8 @@ async function handleResume(admin: any, userId: string, conversationId: string) 
     .eq("id", conversationId)
     .eq("user_id", userId);
 
-  await fireTickNow(conversationId);
+  // Fire-and-forget
+  fireTickNow(conversationId).catch((e) => console.error("[resume] tick fire error:", e));
   return json({ ok: true, status: "active" });
 }
 
@@ -332,11 +334,16 @@ async function handleTick(admin: any, conversationId: string, scheduledFor?: str
     const scheduledTimeMs = new Date(scheduledFor).getTime();
     if (Number.isFinite(scheduledTimeMs)) {
       const remainingMs = scheduledTimeMs - Date.now();
-      if (remainingMs > 0) {
-        const remainingSeconds = Math.ceil(remainingMs / 1000);
-        console.log(`[tick] Waiting for scheduled time, ${remainingSeconds}s remaining`);
-        await scheduleNextTick(conversationId, remainingSeconds, scheduledFor);
-        return json({ ok: true, skipped: true, reason: "waiting_for_scheduled_time", remaining_seconds: remainingSeconds });
+      if (remainingMs > 500) {
+        // If more than 25s remaining, re-dispatch and exit (avoid long-running functions)
+        if (remainingMs > 25000) {
+          console.log(`[tick] ${Math.ceil(remainingMs / 1000)}s remaining, re-dispatching`);
+          dispatchTick(conversationId, scheduledFor).catch(() => {});
+          return json({ ok: true, skipped: true, reason: "rescheduled", remaining_seconds: Math.ceil(remainingMs / 1000) });
+        }
+        // Short wait - sleep inline
+        console.log(`[tick] Waiting ${Math.ceil(remainingMs / 1000)}s for scheduled time`);
+        await new Promise((resolve) => setTimeout(resolve, remainingMs));
       }
     }
   }
@@ -514,15 +521,10 @@ async function fireTickNow(conversationId: string) {
 
 async function scheduleNextTick(conversationId: string, delaySec: number, scheduledFor?: string | null) {
   const targetIso = scheduledFor ?? new Date(Date.now() + Math.max(1, delaySec) * 1000).toISOString();
-  const remainingMs = Math.max(0, new Date(targetIso).getTime() - Date.now());
-  const waitMs = Math.min(remainingMs, 20000);
+  console.log(`[scheduleNextTick] target=${targetIso} delay=${delaySec}s`);
 
-  console.log(`[scheduleNextTick] target=${targetIso} remaining=${remainingMs}ms wait_now=${waitMs}ms`);
-
-  if (waitMs > 0) {
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
-  }
-
+  // Always dispatch immediately with the scheduled_for timestamp
+  // The next tick will check if it's time to run or re-schedule
   try {
     await dispatchTick(conversationId, targetIso);
   } catch (e: any) {
