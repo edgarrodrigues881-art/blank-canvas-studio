@@ -994,33 +994,41 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
                   <TableHead className="text-xs font-semibold">Status</TableHead>
                   <TableHead className="text-xs font-semibold">Instância</TableHead>
                   <TableHead className="text-xs font-semibold">Detalhe</TableHead>
+                  <TableHead className="text-xs font-semibold">Atualização</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredContacts.map((r: any, i: number) => (
-                  <TableRow key={r.id} className="border-border/15 hover:bg-muted/20">
-                    <TableCell className="text-xs text-muted-foreground font-mono">{i + 1}</TableCell>
-                    <TableCell className="text-xs font-mono font-medium">{r.phone}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`text-[10px] font-semibold ${statusBadge(r.status)}`}>
-                        {statusLabel(r.status)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{r.device_used || "—"}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[320px] whitespace-normal break-words">
-                      {r.error_message
-                        ? translateError(r.error_message)
-                        : r.status === "completed" ? "Adicionado com sucesso."
-                        : r.status === "already_exists" ? "Contato já estava no grupo."
-                        : r.status === "pending" ? "Aguardando processamento"
-                        : r.status === "cancelled" ? "Cancelado pelo usuário"
-                        : "—"}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredContacts.map((r: any, i: number) => {
+                  const updatedAt = r.processed_at ? new Date(r.processed_at) : null;
+                  const timeStr = updatedAt && !isNaN(updatedAt.getTime())
+                    ? updatedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                    : "—";
+                  return (
+                    <TableRow key={r.id} className="border-border/15 hover:bg-muted/20">
+                      <TableCell className="text-xs text-muted-foreground font-mono">{i + 1}</TableCell>
+                      <TableCell className="text-xs font-mono font-medium">{r.phone}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={`text-[10px] font-semibold ${statusBadge(r.status)}`}>
+                          {statusLabel(r.status)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{r.device_used || "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-[280px] whitespace-normal break-words">
+                        {r.error_message
+                          ? translateError(r.error_message)
+                          : r.status === "completed" ? "Adicionado com sucesso."
+                          : r.status === "already_exists" ? "Contato já estava no grupo."
+                          : r.status === "pending" ? "Aguardando processamento"
+                          : r.status === "cancelled" ? "Cancelado pelo usuário"
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground/70 font-mono whitespace-nowrap">{timeStr}</TableCell>
+                    </TableRow>
+                  );
+                })}
                 {filteredContacts.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-10 text-sm text-muted-foreground">Nenhum resultado encontrado</TableCell>
+                    <TableCell colSpan={6} className="text-center py-10 text-sm text-muted-foreground">Nenhum resultado encontrado</TableCell>
                   </TableRow>
                 )}
               </TableBody>
