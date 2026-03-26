@@ -706,10 +706,7 @@ const Devices = () => {
     try {
       muteAutoSync(30000); // Mute auto-sync during bulk delete
       ids.forEach(id => trackDeletedDevice(id));
-      const { data, error } = await supabase.functions.invoke("manage-devices", {
-        body: { action: "bulk-delete", deviceIds: ids },
-      });
-      if (error) throw new Error(error.message || "Erro ao excluir");
+      const data = await callManageDevices({ action: "bulk-delete", deviceIds: ids });
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       queryClient.invalidateQueries({ queryKey: ["proxies"] });
       queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
