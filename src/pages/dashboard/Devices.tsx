@@ -431,7 +431,7 @@ const Devices = () => {
   const [editProxyDevice, setEditProxyDevice] = useState<Device | null>(null);
   const [editProxyValue, setEditProxyValue] = useState("");
 
-  const callManageDevices = async (body: Record<string, any>) => {
+  const getAccessToken = async () => {
     if (authLoading) {
       throw new Error("Aguarde a autenticação concluir e tente novamente.");
     }
@@ -440,6 +440,12 @@ const Devices = () => {
     if (!accessToken) {
       throw new Error("Sessão expirada ou ainda não carregada. Recarregue a página e tente novamente.");
     }
+
+    return accessToken;
+  };
+
+  const callManageDevices = async (body: Record<string, any>) => {
+    const accessToken = await getAccessToken();
 
     const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-devices`, {
       method: "POST",
@@ -465,6 +471,39 @@ const Devices = () => {
 
     if (parsed?.error) {
       throw new Error(parsed.error);
+    }
+
+    return parsed;
+  };
+
+  const callSyncDevices = async () => {
+    const accessToken = await getAccessToken();
+
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-devices`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+      body: "{}",
+    });
+
+    const raw = await response.text();
+    let parsed: any = null;
+    try {
+      parsed = raw ? JSON.parse(raw) : null;
+    } catch {
+      parsed = null;
+    }
+
+    if (response.status === 401) {
+      await supabase.auth.signOut({ scope: "local" });
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error(parsed?.error || parsed?.message || `Erro ao sincronizar instâncias (${response.status})`);
     }
 
     return parsed;
@@ -1158,11 +1197,11 @@ const Devices = () => {
       closeProfileDialog();
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       setTimeout(() => {
-        supabase.functions.invoke("sync-devices").then(() => {
-          queryClient.invalidateQueries({ queryKey: ["devices"] });
-        }).catch(() => {
-          queryClient.invalidateQueries({ queryKey: ["devices"] });
-        });
+        callSyncDevices()
+          .catch(() => undefined)
+          .finally(() => {
+            queryClient.invalidateQueries({ queryKey: ["devices"] });
+          });
       }, 1500);
     } catch (err: any) {
       console.error("Profile update error:", err);
@@ -1529,11 +1568,8 @@ const Devices = () => {
           toast({ title: "Conectado!", description: "Instância conectada com sucesso!" });
           // Sync in background (non-blocking)
           try {
-            const { data: { session: s } } = await supabase.auth.getSession();
-            if (s) {
-              await supabase.functions.invoke("sync-devices", {
-                headers: { Authorization: `Bearer ${s.access_token}` },
-              });
+            if (session?.access_token || (await supabase.auth.getSession()).data.session?.access_token) {
+              await callSyncDevices();
               queryClient.invalidateQueries({ queryKey: ["devices"] });
             }
           } catch (syncErr) {
@@ -1808,9 +1844,7 @@ const Devices = () => {
 
                 const syncAlreadyRunning = isSyncingDevices();
                 if (!syncAlreadyRunning) {
-                  await supabase.functions.invoke("sync-devices", {
-                    headers: { Authorization: `Bearer ${s.access_token}` },
-                  });
+                  await callSyncDevices();
                 }
 
                 await queryClient.refetchQueries({ queryKey: ["devices"] });
@@ -2432,9 +2466,8 @@ const Devices = () => {
                         queryClient.invalidateQueries({ queryKey: ["devices"] });
                         toast({ title: "Conectado!" });
                         try {
-                          const { data: { session: s } } = await supabase.auth.getSession();
-                          if (s) {
-                            await supabase.functions.invoke("sync-devices", { headers: { Authorization: `Bearer ${s.access_token}` } });
+                          if (session?.access_token || (await supabase.auth.getSession()).data.session?.access_token) {
+                            await callSyncDevices();
                             queryClient.invalidateQueries({ queryKey: ["devices"] });
                           }
                         } catch {}

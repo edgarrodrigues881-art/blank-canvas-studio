@@ -33,6 +33,55 @@ export function isBackendDown() {
   return consecutiveFailures >= MAX_CONSECUTIVE_FAILURES;
 }
 
+function isInvalidPersistedSession(message?: string | null) {
+  const normalized = (message || "").toLowerCase();
+  return (
+    normalized.includes("session not found") ||
+    normalized.includes("session from session_id claim") ||
+    normalized.includes("invalid jwt") ||
+    normalized.includes("jwt expired") ||
+    normalized.includes("user from sub claim")
+  );
+}
+
+async function clearInvalidLocalSession() {
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  if (projectId) {
+    localStorage.removeItem(`sb-${projectId}-auth-token`);
+  }
+  sessionStorage.removeItem("dg_session_alive");
+  await supabase.auth.signOut({ scope: "local" });
+}
+
+async function getValidatedSession() {
+  const {
+    data: { session: currentSession },
+  } = await supabase.auth.getSession();
+
+  if (!currentSession?.access_token) return null;
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(currentSession.access_token);
+
+  if (error) {
+    if (isInvalidPersistedSession(error.message)) {
+      console.warn("[auth] Sessão local inválida detectada. Limpando credenciais locais.");
+      await clearInvalidLocalSession();
+      return null;
+    }
+    throw error;
+  }
+
+  if (!user) {
+    await clearInvalidLocalSession();
+    return null;
+  }
+
+  return currentSession;
+}
+
 interface AuthContextType {
   session: Session | null;
   user: User | null;
@@ -104,7 +153,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setBackendDown(false);
     setLoading(true);
     try {
-      const { data: { session: s } } = await supabase.auth.getSession();
+      const s = await getValidatedSession();
       setSession(s);
       setUser(s?.user ?? null);
     } catch {
@@ -149,7 +198,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // 2. Normal flow: get session first
       try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        const currentSession = await getValidatedSession();
         if (!isMounted) return null;
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
