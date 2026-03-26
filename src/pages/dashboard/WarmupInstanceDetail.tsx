@@ -69,10 +69,10 @@ const phaseConfig: Record<string, { label: string; color: string; icon: typeof C
   pre_24h:              { label: "Primeiras 24h",       color: "text-amber-400",           icon: Timer,        step: 1 },
   groups_only:          { label: "Grupos",              color: "text-teal-400",            icon: Users,        step: 2 },
   autosave_enabled:     { label: "Auto Save",           color: "text-emerald-400",         icon: MessageSquare, step: 3 },
-  community_ramp_up:    { label: "Comunitário Ramp-Up", color: "text-violet-400",          icon: Globe,        step: 4 },
-  community_stable:     { label: "Comunitário Estável", color: "text-purple-400",          icon: Globe,        step: 5 },
+  community_ramp_up:    { label: "Comunitário",         color: "text-violet-400",          icon: Globe,        step: 4 },
+  community_stable:     { label: "Comunitário",         color: "text-purple-400",          icon: Globe,        step: 5 },
   community_enabled:    { label: "Comunitário",         color: "text-purple-400",          icon: Globe,        step: 4 },
-  community_light:      { label: "Comunitário Light",   color: "text-purple-400",          icon: Globe,        step: 4 },
+  community_light:      { label: "Comunitário",         color: "text-purple-400",          icon: Globe,        step: 4 },
   completed:            { label: "Concluído",           color: "text-muted-foreground",    icon: CheckCircle2, step: 6 },
   paused:               { label: "Pausado",             color: "text-amber-400",           icon: Pause,        step: 0 },
   error:                { label: "Erro",                color: "text-destructive",         icon: AlertTriangle, step: 0 },
@@ -1573,14 +1573,9 @@ const WarmupInstanceDetail = () => {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-foreground leading-tight">Aquecimento</p>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-2">
-                        <p className="text-[11px] text-muted-foreground">
+                      <p className="text-[11px] text-muted-foreground">
                           {pc?.label} — Dia {cycle!.day_index} de {cycle!.days_total}
                         </p>
-                        <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary tabular-nums">
-                          Total do ciclo {lifetimeSentCount}
-                        </span>
-                      </div>
                     </div>
                   </div>
                 {/* Volume and mode info */}
@@ -1598,65 +1593,8 @@ const WarmupInstanceDetail = () => {
                 })()}
                 </div>
 
-                {/* Volume progression info */}
-                {!isPre24h && (() => {
-                  const vol = getExpectedDailyVolume(cycle!.day_index, cycle!.chip_state || "new");
-                  return (
-                    <div className="px-6 pb-2 flex items-center gap-3 text-[10px]">
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/5 border border-primary/10">
-                        <Target className="w-3 h-3 text-primary" />
-                        <span className="text-muted-foreground">Volume:</span>
-                        <span className="font-bold text-foreground">{vol.min}–{vol.max} msgs</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted/10 border border-border/15">
-                        <CalendarDays className="w-3 h-3 text-muted-foreground" />
-                        <span className="text-muted-foreground">{vol.phase}</span>
-                      </div>
-                    </div>
-                  );
-                })()}
 
-                {/* Auto Save info card */}
-                {!isPre24h && (() => {
-                  const asInfo = getAutosaveInfoForDay(cycle!.day_index, cycle!.chip_state || "new");
-                  if (asInfo.contacts === 0) return null;
-                  return (
-                    <div className="px-6 pb-2 space-y-1.5">
-                      <div className="flex items-center gap-3 text-[10px]">
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-500/5 border border-sky-500/10">
-                          <UserPlus className="w-3 h-3 text-sky-400" />
-                          <span className="text-muted-foreground">Auto Save:</span>
-                          <span className="font-bold text-foreground">{asInfo.contacts} contatos × {asInfo.msgsPerContact} msgs = {asInfo.totalMsgs}</span>
-                        </div>
-                      </div>
-                      {autosaveStats.total > 0 && (
-                        <div className="flex flex-wrap items-center gap-2 text-[9px]">
-                          <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-semibold">
-                            🆕 {autosaveStats.newContacts} novos
-                          </span>
-                          <span className="px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-400 font-semibold">
-                            ✅ {autosaveStats.used} usados
-                          </span>
-                          {autosaveStats.invalid > 0 && (
-                            <span className="px-2 py-0.5 rounded-md bg-destructive/10 text-destructive font-semibold">
-                              ❌ {autosaveStats.invalid} inválidos
-                            </span>
-                          )}
-                          {autosaveStats.discarded > 0 && (
-                            <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 font-semibold">
-                              🚫 {autosaveStats.discarded} descartados
-                            </span>
-                          )}
-                          {autosaveStats.exhausted && (
-                            <span className="px-2 py-0.5 rounded-md bg-violet-500/10 text-violet-400 font-semibold">
-                              🔄 Lista esgotada
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
+
 
                 {/* Today's activity */}
                 <div className="px-6 py-4">

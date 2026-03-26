@@ -157,8 +157,10 @@ const phaseLabels: Record<string, string> = {
   paused: "Pausado",
   error: "Erro",
   autosave_enabled: "Auto Save",
-  community_enabled: "Comunidade",
-  community_light: "Comunidade Light",
+  community_enabled: "Comunitário",
+  community_ramp_up: "Comunitário",
+  community_stable: "Comunitário",
+  community_light: "Comunitário",
 };
 
 const phaseShort: Record<string, string> = {
@@ -168,8 +170,10 @@ const phaseShort: Record<string, string> = {
   paused: "pausado",
   error: "erro",
   autosave_enabled: "auto save",
-  community_enabled: "comunidade",
-  community_light: "comunidade",
+  community_enabled: "comunitário",
+  community_ramp_up: "comunitário",
+  community_stable: "comunitário",
+  community_light: "comunitário",
 };
 
 const CONNECTED_STATUSES = ["Connected", "Ready", "authenticated"];
