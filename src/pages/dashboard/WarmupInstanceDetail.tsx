@@ -1657,7 +1657,7 @@ const WarmupInstanceDetail = () => {
                                 <span className="text-base leading-none">{cat.icon}</span>
                                 <span className="text-[10px] text-muted-foreground font-medium leading-none">{cat.label}</span>
                                 <span className="text-sm font-extrabold text-foreground tabular-nums leading-none">
-                                  {cat.done}<span className="text-muted-foreground font-medium text-[10px]">/{cat.total}</span>
+                                  {cat.done}
                                 </span>
                                 <div className="w-full h-1 bg-muted/15 rounded-full overflow-hidden mt-0.5">
                                   <div className={cn("h-full rounded-full transition-all duration-500", cat.barColor)} style={{ width: `${pct}%` }} />
