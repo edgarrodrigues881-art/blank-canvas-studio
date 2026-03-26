@@ -108,6 +108,8 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
     refetchInterval: 60_000,
   });
 
+  const mode = membership?.community_mode || "disabled";
+
   if (!cycle && mode !== "community_only") return null;
 
   const chipState = cycle?.chip_state || "new";
