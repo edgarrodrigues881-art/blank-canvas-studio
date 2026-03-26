@@ -3819,19 +3819,47 @@ async function handleTick(
 
         // [BUG 3 FIX] When transitioning to autosave_enabled or community_enabled,
         // ensure community membership is activated (was only done by enable_autosave job before)
+        const isCommunityNewPhase = isCommunityPhase(newPhase);
+        const communityStartDay = getCommunityStartDayForChip(chipState);
+        const isFirstCommunityDay = newDay === communityStartDay && !isCommunityPhase(oldPhase);
+
         if (newPhase !== oldPhase && ["autosave_enabled", "community_ramp_up", "community_stable"].includes(newPhase)) {
           const { data: membership } = await db.from("warmup_community_membership")
-            .select("id, is_enabled").eq("device_id", job.device_id).maybeSingle();
+            .select("id, is_enabled, community_mode, community_day").eq("device_id", job.device_id).maybeSingle();
 
           if (!membership) {
             await db.from("warmup_community_membership").insert({
               user_id: job.user_id, device_id: job.device_id, cycle_id: cycle.id,
               is_eligible: true, is_enabled: true, enabled_at: resetAt,
+              community_mode: "warmup_managed",
+              community_day: isFirstCommunityDay ? 1 : 0,
+              messages_today: 0, pairs_today: 0,
             });
-          } else if (!membership.is_enabled) {
+          } else {
+            const updateData: any = { is_enabled: true, is_eligible: true, enabled_at: resetAt, cycle_id: cycle.id, community_mode: "warmup_managed" };
+            if (isFirstCommunityDay && (membership.community_day || 0) < 1) {
+              updateData.community_day = 1;
+            }
             await db.from("warmup_community_membership")
-              .update({ is_enabled: true, is_eligible: true, enabled_at: resetAt, cycle_id: cycle.id })
+              .update(updateData)
               .eq("id", membership.id);
+          }
+        }
+
+        // Increment community_day for warmup_managed devices already in community phase
+        if (isCommunityNewPhase && !isFirstCommunityDay) {
+          const { data: existingMembership } = await db.from("warmup_community_membership")
+            .select("id, community_day, community_mode").eq("device_id", job.device_id).maybeSingle();
+
+          if (existingMembership && existingMembership.community_mode === "warmup_managed") {
+            await db.from("warmup_community_membership").update({
+              community_day: (existingMembership.community_day || 0) + 1,
+              messages_today: 0,
+              pairs_today: 0,
+              cooldown_until: null,
+              last_error: null,
+              last_daily_reset_at: resetAt,
+            }).eq("id", existingMembership.id);
           }
         }
 
