@@ -334,11 +334,16 @@ async function handleTick(admin: any, conversationId: string, scheduledFor?: str
     const scheduledTimeMs = new Date(scheduledFor).getTime();
     if (Number.isFinite(scheduledTimeMs)) {
       const remainingMs = scheduledTimeMs - Date.now();
-      if (remainingMs > 0) {
-        const remainingSeconds = Math.ceil(remainingMs / 1000);
-        console.log(`[tick] Waiting for scheduled time, ${remainingSeconds}s remaining`);
-        await scheduleNextTick(conversationId, remainingSeconds, scheduledFor);
-        return json({ ok: true, skipped: true, reason: "waiting_for_scheduled_time", remaining_seconds: remainingSeconds });
+      if (remainingMs > 500) {
+        // If more than 25s remaining, re-dispatch and exit (avoid long-running functions)
+        if (remainingMs > 25000) {
+          console.log(`[tick] ${Math.ceil(remainingMs / 1000)}s remaining, re-dispatching`);
+          dispatchTick(conversationId, scheduledFor).catch(() => {});
+          return json({ ok: true, skipped: true, reason: "rescheduled", remaining_seconds: Math.ceil(remainingMs / 1000) });
+        }
+        // Short wait - sleep inline
+        console.log(`[tick] Waiting ${Math.ceil(remainingMs / 1000)}s for scheduled time`);
+        await new Promise((resolve) => setTimeout(resolve, remainingMs));
       }
     }
   }
