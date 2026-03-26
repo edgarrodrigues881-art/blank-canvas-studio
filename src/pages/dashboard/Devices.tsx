@@ -1859,7 +1859,8 @@ const Devices = () => {
           const StatusIcon = ss.icon;
           const isSelected = selectedDevices.includes(d.id);
           const isEditing = inlineEditId === d.id;
-          const lastActivity = formatDistanceToNow(new Date(d.updated_at || d.created_at), { locale: ptBR, addSuffix: true });
+          const rawDate = new Date(d.updated_at || d.created_at || Date.now());
+          const lastActivity = isNaN(rawDate.getTime()) ? "agora" : formatDistanceToNow(rawDate, { locale: ptBR, addSuffix: true });
           const hadPreviousConnection = !!d.number;
           const healthScore = deviceHealthScores[d.id] ?? 100;
           const loadingAction = quickActionLoading[d.id];
