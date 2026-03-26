@@ -1460,7 +1460,9 @@ async function reconcileCommunityPairs(
 
         const partnerPairCount = await getActivePairCount(db, candidate.device_id);
         const partnerChipState = partnerCycle.chip_state || "new";
-        if (partnerPairCount >= getMaxPairsForChip(partnerChipState)) continue;
+        const partnerMembership = (eligible || []).find((e: any) => e.device_id === candidate.device_id);
+        const partnerCommunityDay = partnerMembership?.community_day || 1;
+        if (partnerPairCount >= getMaxPairsForChip(partnerChipState, partnerCommunityDay)) continue;
 
         const { data: insertedPair } = await db.from("community_pairs")
           .insert({
