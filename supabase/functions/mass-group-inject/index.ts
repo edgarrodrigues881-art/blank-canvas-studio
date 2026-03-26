@@ -1125,10 +1125,11 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
           if (errorCode === 0) {
             batchResults.set(matchedPhone, { status: "completed", detail: "Adicionado com sucesso." });
+          } else if (participantSetHasPhone(currentParticipants, matchedPhone)) {
+            // API returned error but participant IS in the group — treat as success
+            batchResults.set(matchedPhone, { status: "completed", detail: "Adicionado com sucesso." });
           } else if (participantSetHasPhone(participantsBefore, matchedPhone)) {
             batchResults.set(matchedPhone, { status: "already_exists", detail: "Contato já participava do grupo." });
-          } else if (participantSetHasPhone(currentParticipants, matchedPhone)) {
-            batchResults.set(matchedPhone, { status: "completed", detail: "Adicionado com sucesso." });
           } else {
             const failure = classifyAddFailure(
               String(entry?.message || entry?.detail || providerMessage || `Erro ao adicionar (código: ${errorCode}).`),
