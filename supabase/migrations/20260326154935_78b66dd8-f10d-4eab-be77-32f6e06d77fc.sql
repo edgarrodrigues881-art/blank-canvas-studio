@@ -1,0 +1,1 @@
+UPDATE feature_controls SET status = 'hidden' WHERE feature_key = 'community_warmup';
