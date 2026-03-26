@@ -1,0 +1,1 @@
+UPDATE public.feature_controls SET status = 'active', maintenance_message = NULL WHERE id = '973f1a58-aea3-4694-b1ee-e561e337c1c7';
