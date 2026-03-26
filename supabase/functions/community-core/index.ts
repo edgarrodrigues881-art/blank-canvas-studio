@@ -331,6 +331,14 @@ async function phaseUpdateEligibility(db: any): Promise<{ updated: number; eligi
       }
     }
 
+    // community_only: independent eligibility — no warmup cycle dependency
+    if (eligible && m.community_mode === "community_only") {
+      const pairsMax = m.daily_pairs_max || 6;
+      if ((m.pairs_today || 0) >= pairsMax) {
+        eligible = false; reason = "pairs_limit_reached";
+      }
+    }
+
     if (eligible) eligibleCount++;
     if (!eligible) reasons[reason] = (reasons[reason] || 0) + 1;
 
