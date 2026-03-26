@@ -255,13 +255,15 @@ const DeviceCard = memo(({ device, cycle, onPause, onResume, onCancel, onConnect
     <div
       className={cn(
         "group relative rounded-2xl border overflow-hidden cursor-pointer transition-all duration-200",
-        "bg-gradient-to-b from-card to-card/80 backdrop-blur-sm",
-        "shadow-[0_4px_24px_-4px_rgba(0,0,0,0.3),0_2px_8px_-2px_rgba(0,0,0,0.2)]",
-        "hover:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.4),0_4px_12px_-2px_rgba(0,0,0,0.25)]",
+        "bg-card",
+        "shadow-[0_2px_12px_-4px_rgba(0,0,0,0.08),0_1px_4px_-2px_rgba(0,0,0,0.05)]",
+        "dark:shadow-[0_4px_24px_-4px_rgba(0,0,0,0.3),0_2px_8px_-2px_rgba(0,0,0,0.2)]",
+        "hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.12),0_2px_8px_-2px_rgba(0,0,0,0.08)]",
+        "dark:hover:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.4),0_4px_12px_-2px_rgba(0,0,0,0.25)]",
         "hover:-translate-y-0.5",
         connected
           ? "border-primary/20 hover:border-primary/40"
-          : "border-border/30 hover:border-border/50"
+          : "border-border/40 hover:border-border/60 dark:border-border/30 dark:hover:border-border/50"
       )}
       style={{ perspective: "1000px", transformStyle: "preserve-3d" }}
       onClick={() => onNavigate(`/dashboard/warmup-v2/${device.id}`)}
@@ -284,25 +286,25 @@ const DeviceCard = memo(({ device, cycle, onPause, onResume, onCancel, onConnect
         </div>
         <div className="flex flex-col items-end gap-1 shrink min-w-0 max-w-[60%]">
           {cycle && warmupProgress !== null && (
-            <div className="relative flex items-center gap-1 rounded-lg px-1.5 sm:px-2 py-0.5 sm:py-1 bg-[#1a1a1a] border border-orange-500/20 overflow-hidden">
+            <div className="relative flex items-center gap-1 rounded-lg px-1.5 sm:px-2 py-0.5 sm:py-1 bg-orange-50 dark:bg-[#1a1a1a] border border-orange-200 dark:border-orange-500/20 overflow-hidden">
               <div
                 className="absolute inset-0 rounded-lg transition-all duration-700 ease-out"
                 style={{
-                  background: `linear-gradient(90deg, hsl(25 95% 53% / 0.18) 0%, hsl(25 95% 53% / 0.08) ${warmupProgress}%, transparent ${warmupProgress}%)`,
+                  background: `linear-gradient(90deg, hsl(25 95% 53% / 0.12) 0%, hsl(25 95% 53% / 0.05) ${warmupProgress}%, transparent ${warmupProgress}%)`,
                 }}
               />
-              <Flame className="w-3 h-3 text-orange-400 relative z-10 shrink-0" />
-              <span className="text-[10px] sm:text-[11px] font-bold text-orange-300 relative z-10 tabular-nums shrink-0">
+              <Flame className="w-3 h-3 text-orange-500 dark:text-orange-400 relative z-10 shrink-0" />
+              <span className="text-[10px] sm:text-[11px] font-bold text-orange-600 dark:text-orange-300 relative z-10 tabular-nums shrink-0">
                 {warmupProgress}%
               </span>
               <span className={cn(
                 "relative z-10 text-[7px] font-extrabold uppercase tracking-wider px-1.5 py-[2px] rounded shrink min-w-0 truncate",
-                cycle.phase === "pre_24h" && "bg-sky-500/20 text-sky-300",
-                cycle.phase === "groups_only" && "bg-emerald-500/20 text-emerald-300",
-                cycle.phase === "autosave_enabled" && "bg-violet-500/20 text-violet-300",
-                cycle.phase === "community_enabled" && "bg-amber-500/20 text-amber-300",
+                cycle.phase === "pre_24h" && "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300",
+                cycle.phase === "groups_only" && "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+                cycle.phase === "autosave_enabled" && "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300",
+                cycle.phase === "community_enabled" && "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
                 cycle.phase === "paused" && "bg-muted/30 text-muted-foreground",
-                cycle.phase === "completed" && "bg-primary/20 text-primary",
+                cycle.phase === "completed" && "bg-primary/10 text-primary dark:bg-primary/20",
               )}>
                 {phaseShort[cycle.phase] || cycle.phase}
               </span>
@@ -383,9 +385,9 @@ const DeviceCard = memo(({ device, cycle, onPause, onResume, onCancel, onConnect
               </p>
               <span className={cn(
                 "inline-flex items-center px-1.5 py-[1px] rounded text-[8px] font-bold uppercase tracking-wider",
-                cycle.chip_state === "new" && "bg-emerald-500/15 text-emerald-400",
-                cycle.chip_state === "recovered" && "bg-amber-500/15 text-amber-400",
-                cycle.chip_state === "unstable" && "bg-red-500/15 text-red-400",
+                cycle.chip_state === "new" && "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
+                cycle.chip_state === "recovered" && "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
+                cycle.chip_state === "unstable" && "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400",
               )}>
                 {cycle.chip_state === "new" ? "Chip Novo" : cycle.chip_state === "recovered" ? "Recuperado" : "Chip Fraco"}
               </span>
@@ -559,7 +561,7 @@ const DeviceTagAssignDialog = memo(({ open, onOpenChange, availableTags, current
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[380px] bg-background/95 backdrop-blur-3xl border-border/10 p-0 overflow-hidden rounded-3xl shadow-[0_32px_80px_-12px_rgba(0,0,0,0.7)]">
+      <DialogContent className="sm:max-w-[380px] bg-background border-border/30 dark:border-border/10 p-0 overflow-hidden rounded-3xl shadow-[0_16px_48px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_32px_80px_-12px_rgba(0,0,0,0.7)]">
         {/* Header */}
         <div className="relative px-6 pt-6 pb-4">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.06] via-transparent to-transparent pointer-events-none" />
@@ -1791,7 +1793,7 @@ const WarmupInstances = () => {
       </Dialog>
       {/* Bulk warmup dialog — Wizard redesign */}
       <Dialog open={bulkOpen} onOpenChange={(v) => { setBulkOpen(v); if (!v) setBulkStep(1); }}>
-        <DialogContent className="max-w-[540px] p-0 overflow-hidden rounded-3xl border-border/10 shadow-[0_32px_80px_-12px_rgba(0,0,0,0.7)] backdrop-blur-3xl bg-background/95">
+        <DialogContent className="max-w-[540px] p-0 overflow-hidden rounded-3xl border-border/30 dark:border-border/10 shadow-[0_16px_48px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_32px_80px_-12px_rgba(0,0,0,0.7)] bg-background">
           {/* ── Stepper header ── */}
           <div className="relative px-7 pt-7 pb-5">
             <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.06] via-transparent to-primary/[0.03] pointer-events-none" />
