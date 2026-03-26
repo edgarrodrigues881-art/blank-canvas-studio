@@ -314,7 +314,8 @@ function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClas
   const message = (rawMessage || "").toLowerCase();
 
   if (message.includes("rate-overlimit") || message.includes("429") || message.includes("too many requests") || httpStatus === 429) {
-    return { status: "rate_limited", detail: "API temporariamente sobrecarregada (429). Aguardando cooldown.", retryable: true, cooldownMs: randomBetween(40_000, 70_000) };
+    // Base cooldown — actual exponential backoff is applied at batch level
+    return { status: "rate_limited", detail: "Limite da API atingido — aguardando cooldown automático.", retryable: true, cooldownMs: 30_000 };
   }
   if (message.includes("websocket disconnected before info query") || message.includes("connection reset") || message.includes("socket hang up")) {
     return { status: "api_temporary", detail: "A integração interrompeu a consulta antes de concluir.", retryable: true, cooldownMs: randomBetween(10_000, 18_000) };
@@ -1174,6 +1175,8 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
     // ── Process per-participant results ──
     let anySuccess = false;
+    let batchHasRateLimit = false;
+    let batchRateLimitCount = 0;
     let consecutiveRealFailures = Number(campaign.consecutive_failures || 0);
     let shouldAutoPause = false;
     let autoPauseReason = "";
@@ -1193,12 +1196,21 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
       const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped",
         "permission_unconfirmed", "unknown_failure", "timeout"].includes(result.status);
+      if (result.status === "rate_limited") {
+        batchHasRateLimit = true;
+        batchRateLimitCount++;
+      }
       const maxRetries = result.status === "rate_limited" ? MAX_RATE_LIMIT_RETRIES
         : result.status === "session_dropped" ? MAX_SESSION_DROP_RETRIES : MAX_QUEUE_RETRIES;
 
       if (isTransient && retryCount < maxRetries) {
         let cooldownDelay = randomBetween(20_000, 40_000);
-        if (result.status === "rate_limited" || result.status === "session_dropped") {
+        if (result.status === "rate_limited") {
+          // Exponential backoff: 30s, 60s, 120s, 240s, 480s...
+          const baseBackoff = 30_000;
+          const expBackoff = baseBackoff * Math.pow(2, retryCount);
+          cooldownDelay = Math.min(expBackoff + randomBetween(5_000, 15_000), 600_000); // cap 10min
+        } else if (result.status === "session_dropped") {
           cooldownDelay = Math.round(cooldownDelay * (1 + retryCount * 0.5));
         }
         await sb.from("mass_inject_contacts").update({
@@ -1247,11 +1259,16 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       await sb.from("devices").update({ status: "Ready", updated_at: nowIso() }).eq("id", device.id);
     }
 
-    // Update consecutive failures counter
-    await sb.from("mass_inject_campaigns").update({
+    // Update consecutive failures counter + reset rate_limit_count on success
+    const counterPatch: Record<string, any> = {
       consecutive_failures: consecutiveRealFailures,
       updated_at: nowIso(),
-    }).eq("id", campaignId);
+    };
+    // If batch had NO rate limits and had successes, reset rate_limit_count to reduce backoff
+    if (!batchHasRateLimit && anySuccess) {
+      counterPatch.rate_limit_count = 0;
+    }
+    await sb.from("mass_inject_campaigns").update(counterPatch).eq("id", campaignId);
 
     // Auto-pause check
     if (shouldAutoPause) {
@@ -1274,10 +1291,23 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       return;
     }
 
-    // Compute next delay — add extra time for batch cooldown + needs_refresh
+    // Compute next delay — add extra time for batch cooldown + needs_refresh + rate limit backoff
     let nextDelayMs = computeNextDelayMs(campaign, undefined, device.id);
     if (needsRefresh) {
       nextDelayMs = Math.max(nextDelayMs, randomBetween(30_000, 60_000));
+    }
+
+    // ── EXPONENTIAL BACKOFF for rate limits ──
+    // Uses campaign.rate_limit_count as consecutive 429 tracker
+    if (batchHasRateLimit) {
+      const consecutiveRL = Number(campaign.rate_limit_count || 0) + batchRateLimitCount;
+      // Exponential: 30s, 60s, 120s, 240s... capped at 10min
+      const rlBackoffMs = Math.min(30_000 * Math.pow(2, Math.min(consecutiveRL - 1, 5)), 600_000);
+      const rlDelay = rlBackoffMs + randomBetween(5_000, 15_000);
+      nextDelayMs = Math.max(nextDelayMs, rlDelay);
+      console.log(`[mass-inject] campaign=${campaignId} RATE LIMIT BACKOFF: ${consecutiveRL} consecutive 429s, next batch in ${Math.round(rlDelay/1000)}s`);
+      await emitCampaignEvent(sb, campaignId, "rate_limit_backoff", "warning",
+        `Limite da API atingido (${batchRateLimitCount}/${batchContacts.length} contatos). Cooldown exponencial: ${Math.round(rlDelay/1000)}s.`);
     }
 
     console.log(`[mass-inject] campaign=${campaignId} batch done (${contactsProcessedThisRun} contacts), requeue in ${nextDelayMs}ms`);
