@@ -97,7 +97,7 @@ function formatPhone(num: string): string {
 
 const Devices = () => {
   const { toast } = useToast();
-  const { session } = useAuth();
+  const { session, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -246,7 +246,7 @@ const Devices = () => {
         throw err;
       }
     },
-    enabled: !!session,
+    enabled: !authLoading && !!session?.user?.id,
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
@@ -431,35 +431,53 @@ const Devices = () => {
   const [editProxyDevice, setEditProxyDevice] = useState<Device | null>(null);
   const [editProxyValue, setEditProxyValue] = useState("");
 
+  const callManageDevices = async (body: Record<string, any>) => {
+    if (authLoading) {
+      throw new Error("Aguarde a autenticação concluir e tente novamente.");
+    }
+
+    const accessToken = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
+    if (!accessToken) {
+      throw new Error("Sessão expirada ou ainda não carregada. Recarregue a página e tente novamente.");
+    }
+
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-devices`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const raw = await response.text();
+    let parsed: any = null;
+    try {
+      parsed = raw ? JSON.parse(raw) : null;
+    } catch {
+      parsed = null;
+    }
+
+    if (!response.ok) {
+      throw new Error(parsed?.error || parsed?.message || `Erro ao processar instâncias (${response.status})`);
+    }
+
+    if (parsed?.error) {
+      throw new Error(parsed.error);
+    }
+
+    return parsed;
+  };
+
   // Mutations
   const createMutation = useMutation({
     mutationFn: async (device: { name: string; login_type: string }) => {
-
-    const { data, error } = await supabase.functions.invoke("manage-devices", {
-  body: {
-    action: "create",
-    name: device.name,
-    login_type: device.login_type,
-  },
-});
-
-      if (error) {
-        let realMsg = data?.error || "";
-        if (!realMsg) {
-          // Try to extract from FunctionsHttpError context
-          try {
-            const body = await error.context?.json?.();
-            realMsg = body?.error || "";
-          } catch {}
-        }
-        if (!realMsg && error.message) {
-          const jsonMatch = error.message.match(/\{"error"\s*:\s*"([^"]+)"\}/);
-          realMsg = jsonMatch?.[1] || error.message;
-        }
-        throw new Error(realMsg || "Erro ao criar instância");
-      }
-      if (data?.error) throw new Error(data.error);
-      return data;
+      return await callManageDevices({
+        action: "create",
+        name: device.name,
+        login_type: device.login_type,
+      });
     },
     onMutate: async (device) => {
       muteAutoSync(5000);
@@ -521,11 +539,7 @@ const Devices = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await supabase.functions.invoke("manage-devices", {
-        body: { action: "delete", deviceId: id },
-      });
-      if (error) throw new Error(error.message || "Erro ao excluir instância");
-      if (data?.error) throw new Error(data.error);
+      await callManageDevices({ action: "delete", deviceId: id });
       return { id };
     },
     onMutate: async (id: string) => {
@@ -652,17 +666,13 @@ const Devices = () => {
 
     // Fire API in background
     try {
-      const { data, error } = await supabase.functions.invoke("manage-devices", {
-        body: {
-          action: "bulk-create",
-          prefix: bulkPrefix,
-          proxyIds,
-          noProxyCount,
-          startIndex: startIdx,
-        },
+      await callManageDevices({
+        action: "bulk-create",
+        prefix: bulkPrefix,
+        proxyIds,
+        noProxyCount,
+        startIndex: startIdx,
       });
-      if (error) throw new Error(error.message || "Erro ao criar instâncias");
-      if (data?.error) throw new Error(data.error);
       queryClient.invalidateQueries({ queryKey: ["devices"] });
     } catch (err: any) {
       const msg = err?.message || "";
@@ -696,10 +706,7 @@ const Devices = () => {
     try {
       muteAutoSync(30000); // Mute auto-sync during bulk delete
       ids.forEach(id => trackDeletedDevice(id));
-      const { data, error } = await supabase.functions.invoke("manage-devices", {
-        body: { action: "bulk-delete", deviceIds: ids },
-      });
-      if (error) throw new Error(error.message || "Erro ao excluir");
+      const data = await callManageDevices({ action: "bulk-delete", deviceIds: ids });
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       queryClient.invalidateQueries({ queryKey: ["proxies"] });
       queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
