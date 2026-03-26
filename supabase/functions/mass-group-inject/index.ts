@@ -831,64 +831,23 @@ async function campaignCanKeepRunning(sb: any, campaignId: string) {
  * 5. Random "inactivity" simulation (~10% chance of extra 30-90s idle)
  * 6. Hourly limit slowdown when approaching cap
  */
-function computeNextDelayMs(campaign: any, cooldownMs?: number, deviceId?: string) {
-  const minDelaySec = Math.max(Number(campaign.min_delay || 30), 20); // enforce minimum 20s
+function computeNextDelayMs(campaign: any, cooldownMs?: number, _deviceId?: string) {
+  const minDelaySec = Math.max(Number(campaign.min_delay || 30), 8);
   const maxDelaySec = Math.max(Number(campaign.max_delay || 60), minDelaySec);
   
-  // 1. Non-linear base delay (gaussian tends toward center, less predictable)
-  let baseDelaySec = gaussianRandom(minDelaySec, maxDelaySec);
+  // Use user's configured delay with small jitter (±15%)
+  const baseDelaySec = randomBetween(minDelaySec, maxDelaySec);
+  const jitterFactor = 0.85 + (Math.random() * 0.3); // 0.85 to 1.15
+  let nextDelayMs = Math.round(baseDelaySec * jitterFactor) * 1000;
+  nextDelayMs = Math.max(nextDelayMs, minDelaySec * 1000); // never below user minimum
   
-  // 2. Add jitter: ±30% random variation
-  const jitterFactor = 0.7 + (Math.random() * 0.6); // 0.7 to 1.3
-  baseDelaySec = Math.round(baseDelaySec * jitterFactor);
-  baseDelaySec = Math.max(baseDelaySec, minDelaySec); // never below minimum
-  
-  let nextDelayMs = baseDelaySec * 1000;
-  
-  // 3. Mandatory block pauses every N contacts
-  const processed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0) + Number(campaign.already_count || 0);
-  const blockSize = randomBetween(3, 5); // variable block size
-  
-  // User-configured pauses take priority
+  // User-configured block pauses
   const pauseAfter = Number(campaign.pause_after || 0);
   const pauseDuration = Math.max(Number(campaign.pause_duration || 0), 0);
+  const processed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0) + Number(campaign.already_count || 0);
   
   if (pauseAfter > 0 && processed > 0 && processed % pauseAfter === 0) {
-    // User-configured pause
     nextDelayMs = Math.max(nextDelayMs, pauseDuration * 1000);
-  } else if (processed > 0 && processed % blockSize === 0) {
-    // Automatic block pause: 2-5 minutes
-    const blockPauseMs = randomBetween(120_000, 300_000);
-    nextDelayMs = Math.max(nextDelayMs, blockPauseMs);
-    console.log(`[mass-inject] BLOCK PAUSE: ${processed} contacts processed, pausing ${Math.round(blockPauseMs/1000)}s`);
-    
-    // 4. Occasional long pause (~15% chance): 5-10 minutes
-    if (Math.random() < 0.15) {
-      const longPauseMs = randomBetween(300_000, 600_000);
-      nextDelayMs = longPauseMs;
-      console.log(`[mass-inject] LONG PAUSE: random extended rest ${Math.round(longPauseMs/1000)}s`);
-    }
-  }
-  
-  // 5. Random "inactivity" simulation (~10% chance on any contact)
-  if (Math.random() < 0.10) {
-    const idleMs = randomBetween(30_000, 90_000);
-    nextDelayMs += idleMs;
-    console.log(`[mass-inject] IDLE SIMULATION: adding ${Math.round(idleMs/1000)}s of simulated inactivity`);
-  }
-  
-  // 6. Hourly limit slowdown
-  if (deviceId) {
-    const usage = trackDeviceUsage(deviceId);
-    if (usage.overHardLimit) {
-      // Hard limit: force a very long pause (15-30 min)
-      nextDelayMs = Math.max(nextDelayMs, randomBetween(900_000, 1_800_000));
-      console.log(`[mass-inject] HOURLY HARD LIMIT: device ${deviceId} at ${usage.count} adds/hour, long cooldown`);
-    } else if (usage.overSoftLimit) {
-      // Soft limit: double the delay
-      nextDelayMs = Math.max(nextDelayMs * 2, randomBetween(120_000, 240_000));
-      console.log(`[mass-inject] HOURLY SOFT LIMIT: device ${deviceId} at ${usage.count} adds/hour, slowing down`);
-    }
   }
   
   // Cooldown override (from error recovery)
@@ -1166,10 +1125,11 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
           if (errorCode === 0) {
             batchResults.set(matchedPhone, { status: "completed", detail: "Adicionado com sucesso." });
+          } else if (participantSetHasPhone(currentParticipants, matchedPhone)) {
+            // API returned error but participant IS in the group — treat as success
+            batchResults.set(matchedPhone, { status: "completed", detail: "Adicionado com sucesso." });
           } else if (participantSetHasPhone(participantsBefore, matchedPhone)) {
             batchResults.set(matchedPhone, { status: "already_exists", detail: "Contato já participava do grupo." });
-          } else if (participantSetHasPhone(currentParticipants, matchedPhone)) {
-            batchResults.set(matchedPhone, { status: "completed", detail: "Adicionado com sucesso." });
           } else {
             const failure = classifyAddFailure(
               String(entry?.message || entry?.detail || providerMessage || `Erro ao adicionar (código: ${errorCode}).`),
@@ -1206,6 +1166,24 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
               status: "unknown_failure",
               detail: "Sem resultado individual na resposta e sem confirmação no grupo.",
             });
+          }
+        }
+
+        // ── Final verification: re-check unknown_failure contacts against live group ──
+        const unknownPhones = [...batchResults.entries()].filter(([_, r]) => r.status === "unknown_failure").map(([p]) => p);
+        if (unknownPhones.length > 0) {
+          try {
+            const finalCheck = await getGroupParticipantsDetailed(device.uazapi_base_url, device.uazapi_token, contactGroupId);
+            if (finalCheck.participants.size > 0) {
+              for (const phone of unknownPhones) {
+                if (participantSetHasPhone(finalCheck.participants, phone)) {
+                  batchResults.set(phone, { status: "completed", detail: "Adicionado com sucesso (verificação final)." });
+                  console.log(`[mass-inject] campaign=${campaignId} OVERRIDE unknown_failure → completed for ${phone}`);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn(`[mass-inject] campaign=${campaignId} final verification failed`, e);
           }
         }
       }
@@ -1652,8 +1630,8 @@ Deno.serve(async (req) => {
         success_count: 0,
         already_count: 0,
         fail_count: 0,
-        min_delay: Math.max(Number(body.minDelay || 30), 20), // minimum 20s for human-like behavior
-        max_delay: Math.max(Number(body.maxDelay || 60), Number(body.minDelay || 30), 20),
+        min_delay: Math.max(Number(body.minDelay || 30), 8),
+        max_delay: Math.max(Number(body.maxDelay || 60), Number(body.minDelay || 30), 8),
         pause_after: Math.max(Number(body.pauseAfter || 0), 0),
         pause_duration: Math.max(Number(body.pauseDuration || 30), 0),
         rotate_after: Math.max(Number(body.rotateAfter || 0), 0),
