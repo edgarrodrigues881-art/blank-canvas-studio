@@ -831,64 +831,23 @@ async function campaignCanKeepRunning(sb: any, campaignId: string) {
  * 5. Random "inactivity" simulation (~10% chance of extra 30-90s idle)
  * 6. Hourly limit slowdown when approaching cap
  */
-function computeNextDelayMs(campaign: any, cooldownMs?: number, deviceId?: string) {
-  const minDelaySec = Math.max(Number(campaign.min_delay || 30), 20); // enforce minimum 20s
+function computeNextDelayMs(campaign: any, cooldownMs?: number, _deviceId?: string) {
+  const minDelaySec = Math.max(Number(campaign.min_delay || 30), 8);
   const maxDelaySec = Math.max(Number(campaign.max_delay || 60), minDelaySec);
   
-  // 1. Non-linear base delay (gaussian tends toward center, less predictable)
-  let baseDelaySec = gaussianRandom(minDelaySec, maxDelaySec);
+  // Use user's configured delay with small jitter (±15%)
+  const baseDelaySec = randomBetween(minDelaySec, maxDelaySec);
+  const jitterFactor = 0.85 + (Math.random() * 0.3); // 0.85 to 1.15
+  let nextDelayMs = Math.round(baseDelaySec * jitterFactor) * 1000;
+  nextDelayMs = Math.max(nextDelayMs, minDelaySec * 1000); // never below user minimum
   
-  // 2. Add jitter: ±30% random variation
-  const jitterFactor = 0.7 + (Math.random() * 0.6); // 0.7 to 1.3
-  baseDelaySec = Math.round(baseDelaySec * jitterFactor);
-  baseDelaySec = Math.max(baseDelaySec, minDelaySec); // never below minimum
-  
-  let nextDelayMs = baseDelaySec * 1000;
-  
-  // 3. Mandatory block pauses every N contacts
-  const processed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0) + Number(campaign.already_count || 0);
-  const blockSize = randomBetween(3, 5); // variable block size
-  
-  // User-configured pauses take priority
+  // User-configured block pauses
   const pauseAfter = Number(campaign.pause_after || 0);
   const pauseDuration = Math.max(Number(campaign.pause_duration || 0), 0);
+  const processed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0) + Number(campaign.already_count || 0);
   
   if (pauseAfter > 0 && processed > 0 && processed % pauseAfter === 0) {
-    // User-configured pause
     nextDelayMs = Math.max(nextDelayMs, pauseDuration * 1000);
-  } else if (processed > 0 && processed % blockSize === 0) {
-    // Automatic block pause: 2-5 minutes
-    const blockPauseMs = randomBetween(120_000, 300_000);
-    nextDelayMs = Math.max(nextDelayMs, blockPauseMs);
-    console.log(`[mass-inject] BLOCK PAUSE: ${processed} contacts processed, pausing ${Math.round(blockPauseMs/1000)}s`);
-    
-    // 4. Occasional long pause (~15% chance): 5-10 minutes
-    if (Math.random() < 0.15) {
-      const longPauseMs = randomBetween(300_000, 600_000);
-      nextDelayMs = longPauseMs;
-      console.log(`[mass-inject] LONG PAUSE: random extended rest ${Math.round(longPauseMs/1000)}s`);
-    }
-  }
-  
-  // 5. Random "inactivity" simulation (~10% chance on any contact)
-  if (Math.random() < 0.10) {
-    const idleMs = randomBetween(30_000, 90_000);
-    nextDelayMs += idleMs;
-    console.log(`[mass-inject] IDLE SIMULATION: adding ${Math.round(idleMs/1000)}s of simulated inactivity`);
-  }
-  
-  // 6. Hourly limit slowdown
-  if (deviceId) {
-    const usage = trackDeviceUsage(deviceId);
-    if (usage.overHardLimit) {
-      // Hard limit: force a very long pause (15-30 min)
-      nextDelayMs = Math.max(nextDelayMs, randomBetween(900_000, 1_800_000));
-      console.log(`[mass-inject] HOURLY HARD LIMIT: device ${deviceId} at ${usage.count} adds/hour, long cooldown`);
-    } else if (usage.overSoftLimit) {
-      // Soft limit: double the delay
-      nextDelayMs = Math.max(nextDelayMs * 2, randomBetween(120_000, 240_000));
-      console.log(`[mass-inject] HOURLY SOFT LIMIT: device ${deviceId} at ${usage.count} adds/hour, slowing down`);
-    }
   }
   
   // Cooldown override (from error recovery)
