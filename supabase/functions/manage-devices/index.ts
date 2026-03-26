@@ -207,128 +207,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ─── DELETE DEVICE ──────────────────────────────────────────
+    // ─── DELETE DEVICE (single) ────────────────────────────────
     if (action === "delete") {
       const { deviceId } = body;
       if (!deviceId) throw new Error("deviceId obrigatório.");
-
-      // Verify ownership
-      const { data: device } = await admin
-        .from("devices")
-        .select("id, proxy_id, user_id, uazapi_token, uazapi_base_url")
-        .eq("id", deviceId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (!device) {
-        return new Response(
-          JSON.stringify({ success: true }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // 1. Delete instance from UAZAPI provider directly
-      const providerToken = device.uazapi_token;
-      const providerBase = (device.uazapi_base_url || Deno.env.get("UAZAPI_BASE_URL") || "").replace(/\/+$/, "");
-      const ADMIN_TOKEN = Deno.env.get("UAZAPI_TOKEN") || "";
-      const { data: tokenRow } = await admin.from("user_api_tokens")
-        .select("label")
-        .eq("device_id", deviceId)
-        .maybeSingle();
-
-      if (providerBase && (providerToken || tokenRow?.label)) {
-        try {
-          // Disconnect first
-          if (providerToken) {
-            await fetch(`${providerBase}/instance/disconnect`, {
-              method: "POST",
-              headers: { token: providerToken, Accept: "application/json", "Content-Type": "application/json" },
-            }).catch(() => {});
-          }
-
-          // Try deleting via instance token
-          let deleted = false;
-
-          if (providerToken) {
-            const tokenHeaders = [
-              { token: providerToken },
-              { Authorization: `Bearer ${providerToken}` },
-            ];
-
-            for (const h of tokenHeaders) {
-              for (const ep of ["/instance", "/instance/delete"]) {
-                try {
-                  const res = await fetch(`${providerBase}${ep}`, {
-                    method: "DELETE",
-                    headers: { ...h, Accept: "application/json", "Content-Type": "application/json" },
-                  });
-                  if (res.ok || res.status === 404) { deleted = true; break; }
-                } catch { /* try next */ }
-              }
-              if (deleted) break;
-            }
-          }
-
-          // Fallback: admin token
-          if (!deleted && ADMIN_TOKEN) {
-            const adminHeaders = [
-              { admintoken: ADMIN_TOKEN },
-              { token: ADMIN_TOKEN },
-              { Authorization: `Bearer ${ADMIN_TOKEN}` },
-            ];
-            for (const ah of adminHeaders) {
-              for (const payload of [
-                ...(providerToken ? [{ token: providerToken }] : []),
-                ...(tokenRow?.label ? [{ name: tokenRow.label }, { label: tokenRow.label }] : []),
-              ]) {
-                try {
-                  const res = await fetch(`${providerBase}/instance/delete`, {
-                    method: "POST",
-                    headers: { ...ah, Accept: "application/json", "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                  });
-                  if (res.ok || res.status === 404) { deleted = true; break; }
-                } catch { /* next */ }
-              }
-              if (deleted) break;
-            }
-          }
-
-          console.log(`[manage-devices:delete] Provider delete result: ${deleted ? "ok" : "failed"}`);
-        } catch (e: any) {
-          console.warn("[manage-devices:delete] Provider error (non-blocking):", e);
-        }
-      }
-
-      // 2. Mark token as DELETED (not available — prevent reuse of orphaned tokens)
-      await admin.from("user_api_tokens").update({
-        status: "deleted",
-        device_id: null,
-        assigned_at: null,
-      }).eq("device_id", deviceId);
-
-      // 3. Clean up warmup data
-      await admin.from("warmup_jobs").delete().eq("device_id", deviceId);
-      await admin.from("warmup_audit_logs").delete().eq("device_id", deviceId);
-      await admin.from("warmup_logs").delete().eq("device_id", deviceId);
-      await admin.from("warmup_instance_groups").delete().eq("device_id", deviceId);
-      await admin.from("warmup_community_membership").delete().eq("device_id", deviceId);
-      await admin.from("warmup_sessions").delete().eq("device_id", deviceId);
-      await admin.from("warmup_cycles").delete().eq("device_id", deviceId);
-
-      // 4. Release proxy
-      if (device.proxy_id) {
-        await admin.from("proxies").update({ status: "USADA" }).eq("id", device.proxy_id);
-        await oplog(admin, user.id, "proxy_released", `Proxy liberada → USADA`, deviceId, { proxy_id: device.proxy_id });
-      }
-
-      await oplog(admin, user.id, "instance_deleted", `Instância deletada + token removido do provedor`, deviceId);
-
-      // 5. Delete device record
-      const { error: delErr } = await admin.from("devices").delete().eq("id", deviceId);
-      if (delErr) throw delErr;
-
+      const results = await deleteDevices(admin, user.id, [deviceId]);
       return new Response(
-        JSON.stringify({ success: true }),
+        JSON.stringify({ success: true, results }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ─── BULK DELETE DEVICES ────────────────────────────────────
+    if (action === "bulk-delete") {
+      const { deviceIds } = body;
+      if (!Array.isArray(deviceIds) || deviceIds.length === 0) throw new Error("deviceIds obrigatório.");
+      const results = await deleteDevices(admin, user.id, deviceIds);
+      return new Response(
+        JSON.stringify({ success: true, deleted: results.filter(r => r.ok).length, failed: results.filter(r => !r.ok).length, results }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
