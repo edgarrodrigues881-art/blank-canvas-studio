@@ -431,6 +431,45 @@ const Devices = () => {
   const [editProxyDevice, setEditProxyDevice] = useState<Device | null>(null);
   const [editProxyValue, setEditProxyValue] = useState("");
 
+  const callManageDevices = async (body: Record<string, any>) => {
+    if (authLoading) {
+      throw new Error("Aguarde a autenticação concluir e tente novamente.");
+    }
+
+    const accessToken = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
+    if (!accessToken) {
+      throw new Error("Sessão expirada ou ainda não carregada. Recarregue a página e tente novamente.");
+    }
+
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-devices`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const raw = await response.text();
+    let parsed: any = null;
+    try {
+      parsed = raw ? JSON.parse(raw) : null;
+    } catch {
+      parsed = null;
+    }
+
+    if (!response.ok) {
+      throw new Error(parsed?.error || parsed?.message || `Erro ao processar instâncias (${response.status})`);
+    }
+
+    if (parsed?.error) {
+      throw new Error(parsed.error);
+    }
+
+    return parsed;
+  };
+
   // Mutations
   const createMutation = useMutation({
     mutationFn: async (device: { name: string; login_type: string }) => {
