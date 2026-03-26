@@ -1089,9 +1089,16 @@ async function checkEligibility(db: any, deviceId: string) {
     if ((mbr.pairs_today || 0) >= target.max) return { eligible: false, reason: "pairs_limit_reached" };
   }
 
+  if (mbr.community_mode === "community_only") {
+    const pairsMax = mbr.daily_pairs_max || 6;
+    if ((mbr.pairs_today || 0) >= pairsMax) return { eligible: false, reason: "pairs_limit_reached" };
+  }
+
   return {
     eligible: true, community_mode: mbr.community_mode, community_day: mbr.community_day,
     messages_today: mbr.messages_today, pairs_today: mbr.pairs_today, daily_limit: mbr.daily_limit,
+    config_type: mbr.config_type, daily_pairs_max: mbr.daily_pairs_max,
+    target_messages_per_pair: mbr.target_messages_per_pair,
   };
 }
 
