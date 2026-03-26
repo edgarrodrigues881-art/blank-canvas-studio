@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Globe, Users, MessageSquare, Clock, AlertTriangle, CheckCircle2, Target, Play } from "lucide-react";
+import { Globe, Users, MessageSquare, Clock, AlertTriangle, CheckCircle2, Target, Play, History, XCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -78,6 +78,36 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
     refetchInterval: 30_000,
   });
 
+  const { data: recentSessions = [] } = useQuery({
+    queryKey: ["community_recent_sessions", deviceId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("community_sessions")
+        .select("id, device_a, device_b, messages_total, target_messages, status, end_reason, started_at, completed_at, community_mode")
+        .or(`device_a.eq.${deviceId},device_b.eq.${deviceId}`)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      return data || [];
+    },
+    enabled: !!deviceId,
+    refetchInterval: 60_000,
+  });
+
+  const { data: recentAudit = [] } = useQuery({
+    queryKey: ["community_audit_device", deviceId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("community_audit_logs" as any)
+        .select("id, event_type, level, message, reason, created_at")
+        .eq("device_id", deviceId)
+        .order("created_at", { ascending: false })
+        .limit(8);
+      return (data || []) as any[];
+    },
+    enabled: !!deviceId,
+    refetchInterval: 60_000,
+  });
+
   if (!cycle) return null;
 
   const chipState = cycle.chip_state || "new";
@@ -91,6 +121,8 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
   const lastPartner = membership?.last_partner_device_id;
   const lastError = membership?.last_error;
   const isEligible = membership?.is_eligible;
+  const lastJob = membership?.last_job;
+  const lastRejectReason = membership?.last_pair_reject_reason;
 
   const pairsTarget = communityDay > 0 ? getPairsTarget(communityDay) : { min: 0, max: 0 };
   const inCooldown = cooldownUntil && new Date(cooldownUntil) > new Date();
@@ -118,9 +150,27 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
     statusText = "Aguardando";
   }
 
+  const reasonLabels: Record<string, string> = {
+    device_disconnected: "Desconectado",
+    cooldown_active: "Em cooldown",
+    daily_limit_reached: "Limite diário",
+    session_active: "Em sessão",
+    outside_window: "Fora do horário",
+    no_active_cycle: "Sem ciclo ativo",
+    warmup_day_too_early: "Dia insuficiente",
+    community_day_not_started: "Com. não iniciado",
+    pairs_limit_reached: "Limite de duplas",
+    no_candidates: "Sem candidatos",
+    all_partners_blocked: "Parceiros bloqueados",
+    spacing_block: "Espaçamento",
+    same_pair_repeated_today: "Par repetido",
+    device_not_configured: "Não configurado",
+  };
+
   return (
     <Card className="border-border/50 bg-card/50">
       <CardContent className="p-4 space-y-3">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Globe className="w-4 h-4 text-purple-400" />
@@ -129,6 +179,7 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
           <Badge className={statusColor}>{statusText}</Badge>
         </div>
 
+        {/* Main grid */}
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div className="space-y-1">
             <div className="text-muted-foreground">Tipo do chip</div>
@@ -150,7 +201,6 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
               {mode === "warmup_managed" ? "Aquecimento" : mode === "community_only" ? "Dedicado" : "—"}
             </div>
           </div>
-
           <div className="space-y-1">
             <div className="flex items-center gap-1 text-muted-foreground">
               <Users className="w-3 h-3" /> Duplas hoje
@@ -165,7 +215,6 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
             </div>
             <div className="font-medium text-foreground">{msgsToday}</div>
           </div>
-
           <div className="space-y-1">
             <div className="text-muted-foreground">Elegível</div>
             <div className="font-medium flex items-center gap-1">
@@ -176,7 +225,6 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
               )}
             </div>
           </div>
-
           <div className="space-y-1">
             <div className="flex items-center gap-1 text-muted-foreground">
               <Clock className="w-3 h-3" /> Cooldown
@@ -189,11 +237,19 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
           </div>
         </div>
 
+        {/* Block reason */}
+        {!isEligible && lastRejectReason && (
+          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
+            <XCircle className="w-3 h-3 mt-0.5 shrink-0" />
+            <span>Bloqueio: {reasonLabels[lastRejectReason] || lastRejectReason}</span>
+          </div>
+        )}
+
         {/* Active Session Block */}
         {activeSession && (
           <div className="p-2.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 space-y-2">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
-              <Play className="w-3 h-3" /> Bloco Ativo
+              <Play className="w-3 h-3" /> Sessão Ativa
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
@@ -224,7 +280,6 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
                 </div>
               </div>
             </div>
-            {/* Progress bar */}
             <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
               <div
                 className="h-full bg-emerald-500 rounded-full transition-all"
@@ -234,7 +289,7 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
           </div>
         )}
 
-        {/* Active Pairs (when no active session) */}
+        {/* Active Pairs */}
         {!activeSession && activePairs.length > 0 && (
           <div className="space-y-1">
             <div className="text-xs text-muted-foreground">Duplas ativas ({activePairs.length})</div>
@@ -251,6 +306,58 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
           </div>
         )}
 
+        {/* Recent Sessions */}
+        {recentSessions.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <History className="w-3 h-3" /> Sessões recentes
+            </div>
+            <div className="space-y-1">
+              {recentSessions.map((s: any) => {
+                const peerId = s.device_a === deviceId ? s.device_b : s.device_a;
+                const isComplete = s.end_reason === "target_reached";
+                return (
+                  <div key={s.id} className="flex items-center justify-between text-[10px] px-2 py-1 rounded bg-muted/30">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`w-1.5 h-1.5 rounded-full ${isComplete ? "bg-emerald-400" : s.status === "active" ? "bg-blue-400" : "bg-amber-400"}`} />
+                      <span className="font-mono text-foreground">{peerId?.substring(0, 8)}…</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <span>{s.messages_total}/{s.target_messages}</span>
+                      <span>{s.end_reason || s.status}</span>
+                      {s.started_at && (
+                        <span>{formatDistanceToNow(new Date(s.started_at), { locale: ptBR, addSuffix: true })}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Recent Audit */}
+        {recentAudit.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <AlertTriangle className="w-3 h-3" /> Log recente
+            </div>
+            <div className="space-y-1 max-h-32 overflow-y-auto">
+              {recentAudit.map((log: any) => (
+                <div key={log.id} className="flex items-start gap-1.5 text-[10px] px-2 py-1 rounded bg-muted/30">
+                  <span className={`w-1.5 h-1.5 rounded-full mt-1 shrink-0 ${
+                    log.level === "error" ? "bg-red-400" : log.level === "warn" ? "bg-amber-400" : "bg-teal-400"
+                  }`} />
+                  <span className="text-foreground truncate">{log.message}</span>
+                  <span className="text-muted-foreground shrink-0 ml-auto">
+                    {formatDistanceToNow(new Date(log.created_at), { locale: ptBR, addSuffix: true })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Last Error */}
         {lastError && (
           <div className="flex items-start gap-1.5 p-2 rounded bg-destructive/10 text-destructive text-xs">
@@ -259,15 +366,17 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
           </div>
         )}
 
-        {/* Last Partner */}
-        {lastPartner && !activeSession && (
-          <div className="text-xs text-muted-foreground">
-            Último parceiro: <span className="font-mono text-foreground">{lastPartner.substring(0, 8)}…</span>
-            {membership?.last_session_at && (
-              <> · {formatDistanceToNow(new Date(membership.last_session_at), { locale: ptBR, addSuffix: true })}</>
+        {/* Last Partner + Job */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div>
+            {lastPartner && !activeSession && (
+              <span>Último parceiro: <span className="font-mono text-foreground">{lastPartner.substring(0, 8)}…</span></span>
             )}
           </div>
-        )}
+          {lastJob && (
+            <span className="text-[10px]">Job: {lastJob}</span>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

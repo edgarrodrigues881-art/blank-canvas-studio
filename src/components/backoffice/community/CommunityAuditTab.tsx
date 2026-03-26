@@ -9,24 +9,42 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 const EVENT_TYPES = [
   { value: "all", label: "Todos eventos" },
-  { value: "pool_enrolled", label: "Pool enrolled" },
-  { value: "pool_removed", label: "Pool removed" },
-  { value: "pair_created", label: "Par criado" },
-  { value: "pair_closed", label: "Par fechado" },
   { value: "eligibility_changed", label: "Eligibilidade" },
+  { value: "pair_created", label: "Par criado" },
+  { value: "pair_rejected", label: "Par rejeitado" },
+  { value: "pair_repeat_forced", label: "Par repetido forçado" },
+  { value: "pair_orphan_cleanup", label: "Par órfão limpo" },
+  { value: "session_started", label: "Sessão iniciada" },
+  { value: "session_completed", label: "Sessão concluída" },
+  { value: "session_ended", label: "Sessão encerrada" },
+  { value: "session_failed", label: "Sessão falhada" },
+  { value: "session_resumed", label: "Sessão retomada" },
+  { value: "session_stale_cleanup", label: "Sessão travada" },
+  { value: "session_start_failed", label: "Início falhado" },
+  { value: "cooldown_released", label: "Cooldown liberado" },
+  { value: "daily_reset", label: "Reset diário" },
+  { value: "tick_completed", label: "Tick concluído" },
 ];
 
 const CommunityAuditTab = () => {
   const [eventType, setEventType] = useState("all");
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["community-audit", eventType],
+    queryKey: ["community-audit-v2", eventType],
     queryFn: async () => {
-      const params = new URLSearchParams({ action: "community-audit-logs" });
-      if (eventType !== "all") params.set("event_type", eventType);
-      const { data, error } = await supabase.functions.invoke(`admin-data?${params.toString()}`);
+      let query = supabase
+        .from("community_audit_logs" as any)
+        .select("id, device_id, user_id, session_id, pair_id, partner_device_id, event_type, level, message, reason, meta, community_mode, community_day, created_at")
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (eventType !== "all") {
+        query = query.eq("event_type", eventType);
+      }
+
+      const { data: logs, error } = await query;
       if (error) throw error;
-      return data?.logs || [];
+      return logs || [];
     },
   });
 
@@ -50,7 +68,7 @@ const CommunityAuditTab = () => {
         </div>
         <div className="flex items-center gap-2">
           <Select value={eventType} onValueChange={setEventType}>
-            <SelectTrigger className="w-[160px] h-8 bg-card border-border text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-[180px] h-8 bg-card border-border text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               {EVENT_TYPES.map(e => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}
             </SelectContent>
@@ -61,7 +79,7 @@ const CommunityAuditTab = () => {
         </div>
       </div>
 
-      {/* ═══ MOBILE: Card layout ═══ */}
+      {/* MOBILE */}
       <div className="space-y-2 sm:hidden">
         {logs.length === 0 ? (
           <p className="text-center py-8 text-muted-foreground text-sm">Nenhum registro encontrado</p>
@@ -73,20 +91,31 @@ const CommunityAuditTab = () => {
                 <Badge variant="outline" className="text-[10px]">{log.event_type}</Badge>
               </div>
               <span className="text-[10px] text-muted-foreground shrink-0">
-                {new Date(log.created_at).toLocaleDateString("pt-BR")}
+                {new Date(log.created_at).toLocaleString("pt-BR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}
               </span>
             </div>
             <p className="text-xs text-foreground">{log.message}</p>
-            {log.meta && (
+            {log.reason && (
+              <div className="text-[10px] text-muted-foreground">Motivo: <span className="text-foreground">{log.reason}</span></div>
+            )}
+            {log.device_id && (
+              <div className="text-[10px] text-muted-foreground">
+                Device: <span className="font-mono text-foreground">{log.device_id.substring(0, 8)}…</span>
+                {log.partner_device_id && (
+                  <> ↔ <span className="font-mono text-foreground">{log.partner_device_id.substring(0, 8)}…</span></>
+                )}
+              </div>
+            )}
+            {log.meta && Object.keys(log.meta).length > 0 && (
               <pre className="text-[10px] text-muted-foreground bg-background rounded-lg p-2 overflow-x-auto border border-border/50">
-                {JSON.stringify(log.meta, null, 2).substring(0, 200)}
+                {JSON.stringify(log.meta, null, 2).substring(0, 300)}
               </pre>
             )}
           </div>
         ))}
       </div>
 
-      {/* ═══ DESKTOP: Table layout ═══ */}
+      {/* DESKTOP */}
       <div className="border border-border rounded-lg overflow-hidden hidden sm:block">
         <ScrollArea className="max-h-[600px]">
           <table className="w-full text-sm">
@@ -95,13 +124,14 @@ const CommunityAuditTab = () => {
                 <th className="text-left px-3 py-2.5">Data</th>
                 <th className="text-left px-3 py-2.5">Nível</th>
                 <th className="text-left px-3 py-2.5">Evento</th>
+                <th className="text-left px-3 py-2.5">Device</th>
                 <th className="text-left px-3 py-2.5">Mensagem</th>
-                <th className="text-left px-3 py-2.5">Meta</th>
+                <th className="text-left px-3 py-2.5">Motivo</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {logs.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-8 text-muted-foreground text-sm">Nenhum registro encontrado</td></tr>
+                <tr><td colSpan={6} className="text-center py-8 text-muted-foreground text-sm">Nenhum registro encontrado</td></tr>
               ) : logs.map((log: any) => (
                 <tr key={log.id} className="hover:bg-muted/30 transition-colors text-xs">
                   <td className="px-3 py-2.5 whitespace-nowrap text-muted-foreground">{new Date(log.created_at).toLocaleString("pt-BR")}</td>
@@ -111,10 +141,14 @@ const CommunityAuditTab = () => {
                   <td className="px-3 py-2.5">
                     <Badge variant="outline" className="text-[10px]">{log.event_type}</Badge>
                   </td>
-                  <td className="px-3 py-2.5 max-w-[300px] truncate text-foreground">{log.message}</td>
-                  <td className="px-3 py-2.5 max-w-[200px]">
-                    <pre className="text-[10px] text-muted-foreground truncate">{log.meta ? JSON.stringify(log.meta).substring(0, 80) : "—"}</pre>
+                  <td className="px-3 py-2.5 font-mono text-[10px]">
+                    {log.device_id ? log.device_id.substring(0, 8) + "…" : "—"}
+                    {log.partner_device_id && (
+                      <span className="text-muted-foreground"> ↔ {log.partner_device_id.substring(0, 8)}…</span>
+                    )}
                   </td>
+                  <td className="px-3 py-2.5 max-w-[300px] truncate text-foreground">{log.message}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{log.reason || "—"}</td>
                 </tr>
               ))}
             </tbody>

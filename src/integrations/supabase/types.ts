@@ -1002,6 +1002,65 @@ export type Database = {
         }
         Relationships: []
       }
+      community_audit_logs: {
+        Row: {
+          community_day: number | null
+          community_mode: string | null
+          created_at: string
+          device_id: string | null
+          event_type: string
+          id: string
+          level: string
+          message: string
+          meta: Json | null
+          pair_id: string | null
+          partner_device_id: string | null
+          reason: string | null
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          community_day?: number | null
+          community_mode?: string | null
+          created_at?: string
+          device_id?: string | null
+          event_type: string
+          id?: string
+          level?: string
+          message?: string
+          meta?: Json | null
+          pair_id?: string | null
+          partner_device_id?: string | null
+          reason?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          community_day?: number | null
+          community_mode?: string | null
+          created_at?: string
+          device_id?: string | null
+          event_type?: string
+          id?: string
+          level?: string
+          message?: string
+          meta?: Json | null
+          pair_id?: string | null
+          partner_device_id?: string | null
+          reason?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_audit_logs_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       community_daily_stats: {
         Row: {
           community_mode: string
@@ -2938,6 +2997,8 @@ export type Database = {
           is_enabled: boolean
           last_daily_reset_at: string | null
           last_error: string | null
+          last_job: string | null
+          last_pair_reject_reason: string | null
           last_partner_device_id: string | null
           last_session_at: string | null
           messages_today: number
@@ -2974,6 +3035,8 @@ export type Database = {
           is_enabled?: boolean
           last_daily_reset_at?: string | null
           last_error?: string | null
+          last_job?: string | null
+          last_pair_reject_reason?: string | null
           last_partner_device_id?: string | null
           last_session_at?: string | null
           messages_today?: number
@@ -3010,6 +3073,8 @@ export type Database = {
           is_enabled?: boolean
           last_daily_reset_at?: string | null
           last_error?: string | null
+          last_job?: string | null
+          last_pair_reject_reason?: string | null
           last_partner_device_id?: string | null
           last_session_at?: string | null
           messages_today?: number

@@ -1,10 +1,11 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Globe, GitMerge, Settings, ScrollText, Heart } from "lucide-react";
+import { Globe, GitMerge, Settings, ScrollText, Heart, BarChart3 } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import CommunityPoolTab from "./community/CommunityPoolTab";
 import CommunityPairsTab from "./community/CommunityPairsTab";
 import CommunityRulesTab from "./community/CommunityRulesTab";
 import CommunityAuditTab from "./community/CommunityAuditTab";
+import CommunityOverviewTab from "./community/CommunityOverviewTab";
 
 const AdminCommunityWarmer = () => {
   return (
@@ -20,13 +21,18 @@ const AdminCommunityWarmer = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="pool" className="space-y-5">
+      <Tabs defaultValue="overview" className="space-y-5">
         <ScrollArea className="w-full">
           <TabsList className="bg-card border border-border w-max sm:w-auto inline-flex h-10">
+            <TabsTrigger value="overview" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5 text-xs px-3">
+              <BarChart3 size={13} />
+              <span className="hidden sm:inline">Visão Geral</span>
+              <span className="sm:hidden">Geral</span>
+            </TabsTrigger>
             <TabsTrigger value="pool" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5 text-xs px-3">
               <Globe size={13} />
-              <span className="hidden sm:inline">Visão Global</span>
-              <span className="sm:hidden">Global</span>
+              <span className="hidden sm:inline">Pool</span>
+              <span className="sm:hidden">Pool</span>
             </TabsTrigger>
             <TabsTrigger value="pairs" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5 text-xs px-3">
               <GitMerge size={13} />
@@ -45,6 +51,7 @@ const AdminCommunityWarmer = () => {
           <ScrollBar orientation="horizontal" className="h-1.5" />
         </ScrollArea>
 
+        <TabsContent value="overview"><CommunityOverviewTab /></TabsContent>
         <TabsContent value="pool"><CommunityPoolTab /></TabsContent>
         <TabsContent value="pairs"><CommunityPairsTab /></TabsContent>
         <TabsContent value="rules"><CommunityRulesTab /></TabsContent>
