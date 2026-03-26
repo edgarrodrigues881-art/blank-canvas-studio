@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, ScrollText } from "lucide-react";
+import { Loader2, RefreshCw, ScrollText, Shield, Zap } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 const EVENT_TYPES = [
@@ -26,11 +26,18 @@ const EVENT_TYPES = [
   { value: "tick_completed", label: "Tick concluído" },
 ];
 
+const MODE_FILTERS = [
+  { value: "all", label: "Todos modos" },
+  { value: "warmup_managed", label: "Aquecimento" },
+  { value: "community_only", label: "Dedicado" },
+];
+
 const CommunityAuditTab = () => {
   const [eventType, setEventType] = useState("all");
+  const [modeFilter, setModeFilter] = useState("all");
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["community-audit-v2", eventType],
+    queryKey: ["community-audit-v2", eventType, modeFilter],
     queryFn: async () => {
       let query = supabase
         .from("community_audit_logs" as any)
@@ -38,9 +45,8 @@ const CommunityAuditTab = () => {
         .order("created_at", { ascending: false })
         .limit(200);
 
-      if (eventType !== "all") {
-        query = query.eq("event_type", eventType);
-      }
+      if (eventType !== "all") query = query.eq("event_type", eventType);
+      if (modeFilter !== "all") query = query.eq("community_mode", modeFilter);
 
       const { data: logs, error } = await query;
       if (error) throw error;
@@ -54,6 +60,14 @@ const CommunityAuditTab = () => {
     return "bg-teal-500/15 text-teal-400 border-teal-500/30";
   };
 
+  const modeColor = (m: string) => {
+    if (m === "community_only") return "bg-purple-500/15 text-purple-400 border-purple-500/30";
+    if (m === "warmup_managed") return "bg-teal-500/15 text-teal-400 border-teal-500/30";
+    return "bg-muted text-muted-foreground";
+  };
+
+  const modeShort = (m: string) => m === "community_only" ? "DED" : m === "warmup_managed" ? "WRM" : "—";
+
   const logs = data || [];
 
   if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
@@ -66,7 +80,21 @@ const CommunityAuditTab = () => {
           <ScrollText size={13} className="text-primary" />
           <span className="text-xs text-muted-foreground">{logs.length} registro(s)</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={modeFilter} onValueChange={setModeFilter}>
+            <SelectTrigger className="w-[140px] h-8 bg-card border-border text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {MODE_FILTERS.map(m => (
+                <SelectItem key={m.value} value={m.value}>
+                  <div className="flex items-center gap-1.5">
+                    {m.value === "warmup_managed" && <Shield size={11} className="text-teal-400" />}
+                    {m.value === "community_only" && <Zap size={11} className="text-purple-400" />}
+                    {m.label}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={eventType} onValueChange={setEventType}>
             <SelectTrigger className="w-[180px] h-8 bg-card border-border text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -89,6 +117,9 @@ const CommunityAuditTab = () => {
               <div className="flex items-center gap-1.5">
                 <Badge variant="outline" className={`text-[10px] ${levelColor(log.level)}`}>{log.level}</Badge>
                 <Badge variant="outline" className="text-[10px]">{log.event_type}</Badge>
+                <Badge variant="outline" className={`text-[10px] ${modeColor(log.community_mode)}`}>
+                  {modeShort(log.community_mode)}
+                </Badge>
               </div>
               <span className="text-[10px] text-muted-foreground shrink-0">
                 {new Date(log.created_at).toLocaleString("pt-BR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}
@@ -122,6 +153,7 @@ const CommunityAuditTab = () => {
             <thead className="sticky top-0 z-10">
               <tr className="bg-muted/50 text-muted-foreground text-[10px] uppercase tracking-wider">
                 <th className="text-left px-3 py-2.5">Data</th>
+                <th className="text-left px-3 py-2.5">Modo</th>
                 <th className="text-left px-3 py-2.5">Nível</th>
                 <th className="text-left px-3 py-2.5">Evento</th>
                 <th className="text-left px-3 py-2.5">Device</th>
@@ -131,10 +163,15 @@ const CommunityAuditTab = () => {
             </thead>
             <tbody className="divide-y divide-border">
               {logs.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-8 text-muted-foreground text-sm">Nenhum registro encontrado</td></tr>
+                <tr><td colSpan={7} className="text-center py-8 text-muted-foreground text-sm">Nenhum registro encontrado</td></tr>
               ) : logs.map((log: any) => (
                 <tr key={log.id} className="hover:bg-muted/30 transition-colors text-xs">
                   <td className="px-3 py-2.5 whitespace-nowrap text-muted-foreground">{new Date(log.created_at).toLocaleString("pt-BR")}</td>
+                  <td className="px-3 py-2.5">
+                    <Badge variant="outline" className={`text-[10px] ${modeColor(log.community_mode)}`}>
+                      {modeShort(log.community_mode)}
+                    </Badge>
+                  </td>
                   <td className="px-3 py-2.5">
                     <Badge variant="outline" className={`text-[10px] ${levelColor(log.level)}`}>{log.level}</Badge>
                   </td>
