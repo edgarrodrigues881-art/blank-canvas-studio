@@ -1,14 +1,23 @@
 /**
- * community-core — Motor Central Unificado de Comunitário
+ * community-core — Motor Central Unificado de Comunitário v3
  * 
- * Responsabilidades:
- *   - tick: Processar contas elegíveis (ambos modos)
- *   - process_device: Processar uma conta específica
- *   - daily_reset: Reset diário de contadores comunitários
+ * SCHEDULER PHASES (chamadas pelo tick a cada 2min):
+ *   Phase 1: cleanup_stale     — Limpar sessões travadas/órfãs
+ *   Phase 2: update_eligibility — Atualizar elegibilidade de todas as contas
+ *   Phase 3: form_pairs        — Formar novas duplas (com fairness e rodízio)
+ *   Phase 4: start_sessions    — Iniciar sessões para duplas formadas (max N por ciclo)
+ *   Phase 5: monitor_sessions  — Acompanhar sessões em andamento
+ *   Phase 6: release_cooldowns — Liberar contas cujo cooldown expirou
  * 
  * Modos:
  *   - warmup_managed: Comunitário dentro do aquecimento automático
  *   - community_only: Comunitário dedicado/avulso
+ * 
+ * Actions:
+ *   - tick: Executa todas as phases em ordem
+ *   - process_device: Processa uma conta específica (forçar manualmente)
+ *   - daily_reset: Reset diário de contadores
+ *   - check_eligibility: Verificar elegibilidade de uma conta
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -28,25 +37,26 @@ function json(data: unknown, status = 200) {
 function randInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
 const CONNECTED_STATUSES = ["Ready", "Connected", "authenticated", "open", "active"];
+const MAX_NEW_SESSIONS_PER_TICK = 3; // Max novas sessões por tick (evita burst)
+const STALE_SESSION_HOURS = 4;
+const COOLDOWN_MIN_MINUTES = 15;
+const COOLDOWN_MAX_MINUTES = 45;
+const TARGET_MESSAGES_PER_BLOCK = 120;
 
 // ══════════════════════════════════════════════════════════
-// COMMUNITY DAY START (por chip type)
+// CHIP & PROGRESSION
 // ══════════════════════════════════════════════════════════
 function getCommunityStartDay(chipState: string): number {
   if (chipState === "unstable") return 9;
   if (chipState === "recovered") return 7;
-  return 6; // new
+  return 6;
 }
 
-// ══════════════════════════════════════════════════════════
-// PROGRESSÃO DE DUPLAS (warmup_managed)
-// ══════════════════════════════════════════════════════════
 function getPairsTarget(communityDay: number): { min: number; max: number } {
   if (communityDay <= 1) return { min: 1, max: 3 };
   if (communityDay === 2) return { min: 2, max: 5 };
@@ -55,9 +65,6 @@ function getPairsTarget(communityDay: number): { min: number; max: number } {
   return { min: 6, max: 10 };
 }
 
-// ══════════════════════════════════════════════════════════
-// INTENSITY PRESETS (community_only)
-// ══════════════════════════════════════════════════════════
 const INTENSITY_PRESETS: Record<string, {
   daily_limit: number; peers_min: number; peers_max: number; msgs_per_peer: number;
   min_delay: number; max_delay: number;
@@ -70,7 +77,7 @@ const INTENSITY_PRESETS: Record<string, {
 };
 
 // ══════════════════════════════════════════════════════════
-// BRT TIMEZONE HELPERS
+// BRT TIMEZONE
 // ══════════════════════════════════════════════════════════
 function getBrtNow(): Date {
   return new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
@@ -90,7 +97,7 @@ function isWithinWindow(startHour: string, endHour: string, activeDays: string[]
 }
 
 // ══════════════════════════════════════════════════════════
-// MESSAGE GENERATOR (20-300 chars, emoji, numeros)
+// MESSAGE GENERATOR (20-300 chars)
 // ══════════════════════════════════════════════════════════
 const SAUDACOES = ["oi", "oii", "oiii", "olá", "e aí", "eai", "fala", "salve", "opa", "hey", "bom dia", "boa tarde", "boa noite", "tudo bem", "tudo certo", "fala parceiro"];
 const PERGUNTAS = ["como está seu dia", "como está o trabalho", "como está sua família", "está tudo bem por aí", "como estão as coisas", "conseguiu resolver aquilo", "como foi a semana", "como anda o serviço", "como tá a saúde", "o que aprontou hoje", "como foi o fds", "como tá o projeto", "já conseguiu aquilo", "como tá o estudo", "como foi a viagem", "como tá o clima aí", "como tá a academia", "já assistiu aquele filme"];
@@ -98,53 +105,13 @@ const COMENTARIOS = ["hoje o dia foi corrido", "aqui está bem tranquilo", "esto
 const COMPLEMENTOS = ["faz tempo que não falamos", "lembrei disso agora", "estava pensando nisso", "vi algo parecido hoje", "me veio na cabeça agora", "pensei nisso mais cedo", "lembrei de vc", "vi vc online e lembrei", "me falaram disso"];
 const EMOJIS = ["🙂", "😂", "😅", "😄", "👍", "🙏", "🔥", "👀", "😎", "🤝", "😊", "🤔", "💯", "👏", "✌️", "🎉", "🙌", "😁", "🤗", "👌", "💪", "🌟", "😃", "🤙", "👋", "❤️", "😆", "🫡", "🤣"];
 const RESPOSTAS_CURTAS = ["ss", "sim", "aham", "pode crer", "verdade", "isso aí", "com certeza", "beleza", "blz", "joia", "show", "massa", "top", "boa", "firmeza", "haha", "kkk", "kkkk", "é mesmo", "pois é", "entendi", "ah sim", "de boa"];
-const OPINIOES = [
-  "acho que esse ano vai ser diferente, tenho muita esperança de dias melhores",
-  "tô otimista com o futuro, muita coisa boa vindo por aí se Deus quiser",
-  "cada vez mais difícil achar coisa boa, mas a gente segue firme e forte",
-  "o mercado tá complicado, mas quem se esforça sempre encontra oportunidade",
-  "tô repensando muita coisa na vida, acho que faz parte do crescimento",
-  "preciso descansar mais, o corpo pede e a gente tem que ouvir né",
-  "tô curtindo mais ficar em casa, é bom demais ter paz e sossego",
-  "tô aprendendo a ter mais paciência, nem tudo acontece no nosso tempo",
-  "cada dia é uma conquista, a gente tem que valorizar cada momento",
-  "o importante é ter paz de espírito, o resto a gente vai resolvendo",
-];
-const COTIDIANO = [
-  "acabei de almoçar agora, comi muito bem hoje graças a Deus",
-  "tô no trânsito parado faz uns vinte minutos, tá osso",
-  "choveu demais aqui na região, parecia que não ia parar nunca",
-  "acordei cedo hoje e aproveitei pra resolver umas coisas pendentes",
-  "café da manhã ficou top hoje, fiz aquele capricho todo especial",
-  "acabei de sair da academia, treino pesado mas valeu a pena",
-  "fiz um bolo caseiro pra família e ficou uma delícia",
-  "tô estudando uma coisa nova, é difícil mas tô gostando bastante",
-  "comecei a caminhar de manhã e já tô sentindo diferença no corpo",
-  "tô assistindo uma série boa demais, não consigo parar de ver",
-  "dormi super bem ontem, acordei renovado, fazia tempo que não dormia assim",
-  "tomei um açaí agora com granola e banana, melhor coisa do mundo",
-];
-const REFLEXOES = [
-  "sabe o que eu penso, a gente tem que aproveitar cada momento porque passa muito rápido",
-  "ontem eu tava lembrando de como as coisas eram diferentes uns anos atrás",
-  "às vezes eu paro pra pensar no quanto a gente evoluiu",
-  "tô numa fase da vida que tô priorizando paz e tranquilidade",
-  "essa semana foi intensa demais, mas no final deu tudo certo",
-  "tô aprendendo que nem tudo precisa de resposta imediata",
-];
-const HISTORIAS = [
-  "ontem aconteceu uma coisa engraçada, eu fui no mercado e encontrei um amigo que não via há anos",
-  "meu vizinho adotou um cachorro e agora o bicho late o dia inteiro mas ele é muito fofo",
-  "fui almoçar num restaurante novo e a comida era tão boa que já marquei de voltar",
-  "tentei fazer uma receita nova e deu tudo errado mas pelo menos a cozinha ficou cheirosa",
-  "meu filho falou uma coisa tão engraçada ontem que eu quase chorei de rir",
-  "tava dirigindo e vi o pôr do sol mais bonito que já vi na vida",
-  "recebi uma mensagem de um amigo antigo e matamos a saudade conversando por horas",
-];
+const OPINIOES = ["acho que esse ano vai ser diferente, tenho muita esperança de dias melhores", "tô otimista com o futuro, muita coisa boa vindo por aí se Deus quiser", "cada vez mais difícil achar coisa boa, mas a gente segue firme e forte", "o mercado tá complicado, mas quem se esforça sempre encontra oportunidade", "tô repensando muita coisa na vida, acho que faz parte do crescimento", "preciso descansar mais, o corpo pede e a gente tem que ouvir né", "tô curtindo mais ficar em casa, é bom demais ter paz e sossego", "tô aprendendo a ter mais paciência, nem tudo acontece no nosso tempo", "cada dia é uma conquista, a gente tem que valorizar cada momento", "o importante é ter paz de espírito, o resto a gente vai resolvendo"];
+const COTIDIANO = ["acabei de almoçar agora, comi muito bem hoje graças a Deus", "tô no trânsito parado faz uns vinte minutos, tá osso", "choveu demais aqui na região, parecia que não ia parar nunca", "acordei cedo hoje e aproveitei pra resolver umas coisas pendentes", "café da manhã ficou top hoje, fiz aquele capricho todo especial", "acabei de sair da academia, treino pesado mas valeu a pena", "fiz um bolo caseiro pra família e ficou uma delícia", "tô estudando uma coisa nova, é difícil mas tô gostando bastante", "comecei a caminhar de manhã e já tô sentindo diferença no corpo", "tô assistindo uma série boa demais, não consigo parar de ver", "dormi super bem ontem, acordei renovado, fazia tempo que não dormia assim", "tomei um açaí agora com granola e banana, melhor coisa do mundo"];
+const REFLEXOES = ["sabe o que eu penso, a gente tem que aproveitar cada momento porque passa muito rápido", "ontem eu tava lembrando de como as coisas eram diferentes uns anos atrás", "às vezes eu paro pra pensar no quanto a gente evoluiu", "tô numa fase da vida que tô priorizando paz e tranquilidade", "essa semana foi intensa demais, mas no final deu tudo certo", "tô aprendendo que nem tudo precisa de resposta imediata"];
+const HISTORIAS = ["ontem aconteceu uma coisa engraçada, eu fui no mercado e encontrei um amigo que não via há anos", "meu vizinho adotou um cachorro e agora o bicho late o dia inteiro mas ele é muito fofo", "fui almoçar num restaurante novo e a comida era tão boa que já marquei de voltar", "tentei fazer uma receita nova e deu tudo errado mas pelo menos a cozinha ficou cheirosa", "meu filho falou uma coisa tão engraçada ontem que eu quase chorei de rir", "tava dirigindo e vi o pôr do sol mais bonito que já vi na vida", "recebi uma mensagem de um amigo antigo e matamos a saudade conversando por horas"];
 const FRASES_NUMERO = ["faz {n} dias que pensei nisso", "já tem uns {n} dias", "uns {n} meses atrás"];
 
 const recentMsgs: string[] = [];
-
 function maybeEmoji(msg: string): string {
   const r = Math.random();
   if (r < 0.55) return msg;
@@ -152,7 +119,6 @@ function maybeEmoji(msg: string): string {
   return `${msg} ${pickRandom(EMOJIS)}${pickRandom(EMOJIS)}`;
 }
 function cap(s: string): string { return s.charAt(0).toUpperCase() + s.slice(1); }
-
 function buildMsg(): string {
   const s = randInt(1, 28);
   if (s <= 2) return pickRandom(RESPOSTAS_CURTAS);
@@ -162,10 +128,7 @@ function buildMsg(): string {
   if (s <= 10) return cap(maybeEmoji(`${pickRandom(OPINIOES)}. ${pickRandom(COMPLEMENTOS)}`));
   if (s <= 12) return cap(maybeEmoji(`${pickRandom(COTIDIANO)}. ${pickRandom(COMPLEMENTOS)}`));
   if (s === 13) return cap(maybeEmoji(`${pickRandom(SAUDACOES)}, ${pickRandom(COMENTARIOS)}. ${pickRandom(COMPLEMENTOS)}`));
-  if (s === 14) {
-    const f = pickRandom(FRASES_NUMERO).replace("{n}", String(randInt(2, 15)));
-    return cap(maybeEmoji(`${f}, ${pickRandom(COMENTARIOS)}`));
-  }
+  if (s === 14) { const f = pickRandom(FRASES_NUMERO).replace("{n}", String(randInt(2, 15))); return cap(maybeEmoji(`${f}, ${pickRandom(COMENTARIOS)}`)); }
   if (s <= 17) return cap(maybeEmoji(`${pickRandom(SAUDACOES)}, ${pickRandom(OPINIOES)}`));
   if (s <= 20) return cap(maybeEmoji(pickRandom(REFLEXOES)));
   if (s <= 23) return cap(maybeEmoji(pickRandom(HISTORIAS)));
@@ -173,7 +136,6 @@ function buildMsg(): string {
   if (s <= 27) return cap(maybeEmoji(`${pickRandom(COMENTARIOS)}, ${pickRandom(OPINIOES)}`));
   return cap(maybeEmoji(`${pickRandom(HISTORIAS)}. ${pickRandom(COMPLEMENTOS)}`));
 }
-
 function generateMessage(): string {
   for (let attempt = 0; attempt < 120; attempt++) {
     const msg = buildMsg();
@@ -183,8 +145,7 @@ function generateMessage(): string {
       return msg;
     }
   }
-  let fb = `${pickRandom(SAUDACOES)}, ${pickRandom(COTIDIANO)}. ${pickRandom(OPINIOES)}. ${pickRandom(COMPLEMENTOS)}`;
-  if (fb.length < 20) fb += ` ${pickRandom(REFLEXOES)}`;
+  let fb = `${pickRandom(SAUDACOES)}, ${pickRandom(COTIDIANO)}. ${pickRandom(OPINIOES)}`;
   return cap(maybeEmoji(fb)).substring(0, 300);
 }
 
@@ -213,379 +174,586 @@ async function sendText(baseUrl: string, token: string, number: string, text: st
       if (res.ok) {
         try {
           const parsed = raw ? JSON.parse(raw) : {};
-          if (parsed?.error || parsed?.code === 404 || parsed?.status === "error") {
-            lastErr = `${at.path}: ${raw.substring(0, 240)}`;
-            continue;
-          }
+          if (parsed?.error || parsed?.code === 404 || parsed?.status === "error") { lastErr = `${at.path}: ${raw.substring(0, 240)}`; continue; }
           return parsed;
         } catch { return { ok: true, raw }; }
       }
       if (res.status === 405 || res.status === 404) { lastErr = `${res.status} @ ${at.path}`; continue; }
       lastErr = `${res.status} @ ${at.path}: ${raw.substring(0, 240)}`;
-    } catch (e) {
-      lastErr = `${at.path}: ${e instanceof Error ? e.message : String(e)}`;
-    }
+    } catch (e) { lastErr = `${at.path}: ${e instanceof Error ? e.message : String(e)}`; }
   }
   throw new Error(`Send failed: ${lastErr}`);
 }
 
 // ══════════════════════════════════════════════════════════
-// CORE: ELEGIBILIDADE
+// PHASE 1: CLEANUP STALE — Limpar sessões travadas/órfãs
 // ══════════════════════════════════════════════════════════
-interface EligibilityResult {
-  eligible: boolean;
-  reason: string;
-  membership?: any;
-  device?: any;
-  cycle?: any;
-}
+async function phaseCleanupStale(db: any): Promise<{ cleaned_sessions: number; cleaned_pairs: number }> {
+  const now = new Date().toISOString();
+  const staleThreshold = new Date(Date.now() - STALE_SESSION_HOURS * 60 * 60 * 1000).toISOString();
 
-async function checkEligibility(db: any, deviceId: string): Promise<EligibilityResult> {
-  const { data: membership } = await db.from("warmup_community_membership")
-    .select("*").eq("device_id", deviceId).maybeSingle();
+  // Sessões ativas sem atividade há mais de 4h
+  const { data: staleSessions } = await db.from("community_sessions")
+    .select("id, pair_id, device_a, device_b, messages_total, target_messages")
+    .eq("status", "active")
+    .lt("updated_at", staleThreshold);
 
-  if (!membership) return { eligible: false, reason: "no_membership" };
-  if (membership.community_mode === "disabled") return { eligible: false, reason: "mode_disabled" };
-  if (!membership.is_enabled) return { eligible: false, reason: "not_enabled" };
+  let cleanedSessions = 0;
+  for (const s of staleSessions || []) {
+    await db.from("community_sessions").update({
+      status: "completed", completed_at: now, end_reason: "stale_timeout", updated_at: now,
+    }).eq("id", s.id);
 
-  const { data: device } = await db.from("devices")
-    .select("id, status, number, uazapi_token, uazapi_base_url, name, user_id")
-    .eq("id", deviceId).maybeSingle();
+    await db.from("community_pairs").update({
+      status: "closed", closed_at: now,
+    }).eq("id", s.pair_id);
 
-  if (!device || !CONNECTED_STATUSES.includes(device.status)) {
-    return { eligible: false, reason: "device_disconnected", device };
-  }
-  if (!device.uazapi_token || !device.uazapi_base_url || !device.number) {
-    return { eligible: false, reason: "device_not_configured", device };
+    cleanedSessions++;
+    console.log(`[cleanup] Stale session ${s.id}: ${s.messages_total}/${s.target_messages}`);
   }
 
-  if (membership.cooldown_until && new Date(membership.cooldown_until) > new Date()) {
-    return { eligible: false, reason: "cooldown_active", membership };
-  }
+  // Pares "active" sem sessão ativa (órfãos)
+  const { data: orphanPairs } = await db.from("community_pairs")
+    .select("id, session_id")
+    .eq("status", "active")
+    .lt("created_at", staleThreshold);
 
-  if (membership.daily_limit > 0 && membership.messages_today >= membership.daily_limit) {
-    return { eligible: false, reason: "daily_limit_reached", membership };
-  }
-
-  // Max 1 active session per device
-  const { count: activeSessions } = await db.from("community_sessions")
-    .select("id", { count: "exact", head: true })
-    .or(`device_a.eq.${deviceId},device_b.eq.${deviceId}`)
-    .eq("status", "active");
-
-  if ((activeSessions || 0) > 0) {
-    return { eligible: false, reason: "session_active", membership };
-  }
-
-  // Time window
-  const startHour = membership.start_hour || "08:00";
-  const endHour = membership.end_hour || "19:00";
-  const activeDays = Array.isArray(membership.active_days) ? membership.active_days : ["mon", "tue", "wed", "thu", "fri"];
-  if (!isWithinWindow(startHour, endHour, activeDays)) {
-    return { eligible: false, reason: "outside_window", membership };
-  }
-
-  // warmup_managed checks
-  if (membership.community_mode === "warmup_managed") {
-    const { data: cycle } = await db.from("warmup_cycles")
-      .select("id, user_id, chip_state, day_index, phase, is_running")
-      .eq("device_id", deviceId).eq("is_running", true).maybeSingle();
-
-    if (!cycle) return { eligible: false, reason: "no_active_cycle", membership };
-
-    const startDay = getCommunityStartDay(cycle.chip_state || "new");
-    if ((cycle.day_index || 1) < startDay) {
-      return { eligible: false, reason: "warmup_day_too_early", membership, cycle };
+  let cleanedPairs = 0;
+  for (const p of orphanPairs || []) {
+    // Check if has active session
+    if (p.session_id) {
+      const { data: sess } = await db.from("community_sessions")
+        .select("status").eq("id", p.session_id).maybeSingle();
+      if (sess?.status === "active") continue; // session is alive, skip
     }
-
-    if (membership.community_day < 1) {
-      return { eligible: false, reason: "community_day_not_started", membership, cycle };
-    }
-
-    return { eligible: true, reason: "ok", membership, device, cycle };
+    await db.from("community_pairs").update({ status: "closed", closed_at: now }).eq("id", p.id);
+    cleanedPairs++;
   }
 
-  return { eligible: true, reason: "ok", membership, device };
+  return { cleaned_sessions: cleanedSessions, cleaned_pairs: cleanedPairs };
 }
 
 // ══════════════════════════════════════════════════════════
-// CORE: PAREAMENTO
+// PHASE 2: UPDATE ELIGIBILITY — Atualizar is_eligible de cada conta
 // ══════════════════════════════════════════════════════════
-async function findOrCreatePair(
-  db: any, deviceId: string, userId: string, mode: string, cycleId?: string,
-): Promise<any | null> {
-  // Check existing active pairs
-  const [{ data: pairsA }, { data: pairsB }] = await Promise.all([
-    db.from("community_pairs").select("id, instance_id_a, instance_id_b, session_id, messages_total, target_messages, community_mode, status")
-      .eq("instance_id_a", deviceId).eq("status", "active"),
-    db.from("community_pairs").select("id, instance_id_a, instance_id_b, session_id, messages_total, target_messages, community_mode, status")
-      .eq("instance_id_b", deviceId).eq("status", "active"),
-  ]);
+async function phaseUpdateEligibility(db: any): Promise<{ updated: number; eligible: number; reasons: Record<string, number> }> {
+  const { data: memberships } = await db.from("warmup_community_membership")
+    .select("id, device_id, community_mode, community_day, is_enabled, daily_limit, messages_today, pairs_today, cooldown_until, start_hour, end_hour, active_days, user_id")
+    .eq("is_enabled", true)
+    .neq("community_mode", "disabled")
+    .limit(500);
 
-  const existingPairs = [...(pairsA || []), ...(pairsB || [])];
+  if (!memberships?.length) return { updated: 0, eligible: 0, reasons: {} };
 
-  // If there's an active pair with remaining messages, use it
-  for (const pair of existingPairs) {
-    if (pair.messages_total < pair.target_messages) return pair;
-  }
+  // Batch load devices
+  const deviceIds = memberships.map((m: any) => m.device_id);
+  const { data: devices } = await db.from("devices")
+    .select("id, status, number, uazapi_token, uazapi_base_url")
+    .in("id", deviceIds);
+  const deviceMap = Object.fromEntries((devices || []).map((d: any) => [d.id, d]));
 
-  // Close completed pairs
-  const completedIds = existingPairs.filter(p => p.messages_total >= p.target_messages).map(p => p.id);
-  if (completedIds.length > 0) {
-    await db.from("community_pairs")
-      .update({ status: "closed", closed_at: new Date().toISOString() })
-      .in("id", completedIds);
-  }
-
-  // Avoid today's partners (excessive repetition)
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const { data: todayPairs } = await db.from("community_pairs")
-    .select("instance_id_a, instance_id_b")
-    .or(`instance_id_a.eq.${deviceId},instance_id_b.eq.${deviceId}`)
-    .gte("created_at", todayStart.toISOString());
-
-  const todayPartners = new Set<string>();
-  for (const p of todayPairs || []) {
-    if (p.instance_id_a !== deviceId) todayPartners.add(p.instance_id_a);
-    if (p.instance_id_b !== deviceId) todayPartners.add(p.instance_id_b);
-  }
-
-  // Query eligible candidates (all modes, cross-user)
-  const { data: candidates } = await db.from("warmup_community_membership")
-    .select("device_id, user_id, community_mode, community_day")
-    .eq("is_enabled", true).eq("is_eligible", true)
-    .neq("community_mode", "disabled").neq("device_id", deviceId)
-    .limit(200);
-
-  if (!candidates?.length) return null;
-
-  const candidateIds = candidates.map((c: any) => c.device_id);
-  const { data: candidateDevices } = await db.from("devices")
-    .select("id, status, number, user_id").in("id", candidateIds);
-
-  const deviceMap = Object.fromEntries((candidateDevices || []).map((d: any) => [d.id, d]));
-
-  // Find busy devices (already in active sessions)
-  const [{ data: busyA }, { data: busyB }] = await Promise.all([
-    db.from("community_sessions").select("device_a, device_b").in("device_a", candidateIds).eq("status", "active"),
-    db.from("community_sessions").select("device_a, device_b").in("device_b", candidateIds).eq("status", "active"),
+  // Batch load active sessions
+  const [{ data: sessA }, { data: sessB }] = await Promise.all([
+    db.from("community_sessions").select("device_a").in("device_a", deviceIds).eq("status", "active"),
+    db.from("community_sessions").select("device_b").in("device_b", deviceIds).eq("status", "active"),
   ]);
   const busyDevices = new Set<string>();
-  for (const s of [...(busyA || []), ...(busyB || [])]) {
-    busyDevices.add(s.device_a);
-    busyDevices.add(s.device_b);
+  for (const s of [...(sessA || []), ...(sessB || [])]) {
+    busyDevices.add(s.device_a || s.device_b);
   }
 
-  // Sort: own accounts first, avoid today's partners, random shuffle otherwise
-  const sorted = candidates
-    .filter((c: any) => {
-      const dev = deviceMap[c.device_id];
-      if (!dev) return false;
-      if (!CONNECTED_STATUSES.includes(dev.status)) return false;
-      if (!dev.number) return false;
-      if (busyDevices.has(c.device_id)) return false;
+  // Batch load warmup_managed cycles
+  const { data: cycles } = await db.from("warmup_cycles")
+    .select("device_id, chip_state, day_index, is_running")
+    .in("device_id", deviceIds)
+    .eq("is_running", true);
+  const cycleMap = Object.fromEntries((cycles || []).map((c: any) => [c.device_id, c]));
+
+  const reasons: Record<string, number> = {};
+  let eligibleCount = 0;
+
+  for (const m of memberships) {
+    let eligible = true;
+    let reason = "";
+
+    const dev = deviceMap[m.device_id];
+    if (!dev || !CONNECTED_STATUSES.includes(dev.status)) {
+      eligible = false; reason = "device_disconnected";
+    } else if (!dev.uazapi_token || !dev.uazapi_base_url || !dev.number) {
+      eligible = false; reason = "device_not_configured";
+    } else if (m.cooldown_until && new Date(m.cooldown_until) > new Date()) {
+      eligible = false; reason = "cooldown_active";
+    } else if (m.daily_limit > 0 && m.messages_today >= m.daily_limit) {
+      eligible = false; reason = "daily_limit_reached";
+    } else if (busyDevices.has(m.device_id)) {
+      eligible = false; reason = "session_active";
+    } else {
+      const activeDays = Array.isArray(m.active_days) ? m.active_days : ["mon", "tue", "wed", "thu", "fri"];
+      if (!isWithinWindow(m.start_hour || "08:00", m.end_hour || "19:00", activeDays)) {
+        eligible = false; reason = "outside_window";
+      }
+    }
+
+    // warmup_managed specifics
+    if (eligible && m.community_mode === "warmup_managed") {
+      const cycle = cycleMap[m.device_id];
+      if (!cycle) {
+        eligible = false; reason = "no_active_cycle";
+      } else {
+        const startDay = getCommunityStartDay(cycle.chip_state || "new");
+        if ((cycle.day_index || 1) < startDay) {
+          eligible = false; reason = "warmup_day_too_early";
+        } else if (m.community_day < 1) {
+          eligible = false; reason = "community_day_not_started";
+        } else {
+          // Check pairs limit
+          const target = getPairsTarget(m.community_day);
+          if ((m.pairs_today || 0) >= target.max) {
+            eligible = false; reason = "pairs_limit_reached";
+          }
+        }
+      }
+    }
+
+    if (eligible) eligibleCount++;
+    if (!eligible) reasons[reason] = (reasons[reason] || 0) + 1;
+
+    await db.from("warmup_community_membership").update({
+      is_eligible: eligible,
+      last_error: eligible ? null : `Inelegível: ${reason}`,
+    }).eq("id", m.id);
+  }
+
+  return { updated: memberships.length, eligible: eligibleCount, reasons };
+}
+
+// ══════════════════════════════════════════════════════════
+// PHASE 3: FORM PAIRS — Formar novas duplas com fairness
+// ══════════════════════════════════════════════════════════
+async function phaseFormPairs(db: any): Promise<{ pairs_formed: number; rejected: Array<{ device: string; reason: string }> }> {
+  // Get eligible devices that don't have active pairs
+  const { data: eligible } = await db.from("warmup_community_membership")
+    .select("device_id, user_id, community_mode, community_day, pairs_today, messages_today, daily_limit")
+    .eq("is_eligible", true).eq("is_enabled", true)
+    .neq("community_mode", "disabled")
+    .limit(200);
+
+  if (!eligible?.length || eligible.length < 2) return { pairs_formed: 0, rejected: [] };
+
+  // Get devices with active pairs already
+  const allDeviceIds = eligible.map((e: any) => e.device_id);
+  const [{ data: pairsA }, { data: pairsB }] = await Promise.all([
+    db.from("community_pairs").select("instance_id_a").in("instance_id_a", allDeviceIds).eq("status", "active"),
+    db.from("community_pairs").select("instance_id_b").in("instance_id_b", allDeviceIds).eq("status", "active"),
+  ]);
+  const pairedDevices = new Set<string>();
+  for (const p of [...(pairsA || []), ...(pairsB || [])]) {
+    pairedDevices.add(p.instance_id_a || p.instance_id_b);
+  }
+
+  // Filter to only unpaired eligible devices
+  const unpaired = eligible.filter((e: any) => !pairedDevices.has(e.device_id));
+  if (unpaired.length < 2) return { pairs_formed: 0, rejected: [] };
+
+  // Get today's pair history for anti-repetition
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const { data: todayPairsAll } = await db.from("community_pairs")
+    .select("instance_id_a, instance_id_b")
+    .gte("created_at", todayStart.toISOString());
+
+  // Build today's partner count per device
+  const todayPartnerCount: Record<string, Record<string, number>> = {};
+  for (const p of todayPairsAll || []) {
+    if (!todayPartnerCount[p.instance_id_a]) todayPartnerCount[p.instance_id_a] = {};
+    if (!todayPartnerCount[p.instance_id_b]) todayPartnerCount[p.instance_id_b] = {};
+    todayPartnerCount[p.instance_id_a][p.instance_id_b] = (todayPartnerCount[p.instance_id_a][p.instance_id_b] || 0) + 1;
+    todayPartnerCount[p.instance_id_b][p.instance_id_a] = (todayPartnerCount[p.instance_id_b][p.instance_id_a] || 0) + 1;
+  }
+
+  // Sort by fairness: devices with fewer pairs_today go first (they need more activity)
+  const sorted = [...unpaired].sort((a: any, b: any) => (a.pairs_today || 0) - (b.pairs_today || 0));
+
+  // Get warmup_managed cycle_ids
+  const managedDeviceIds = sorted.filter((s: any) => s.community_mode === "warmup_managed").map((s: any) => s.device_id);
+  const { data: managedCycles } = managedDeviceIds.length > 0
+    ? await db.from("warmup_cycles").select("id, device_id").in("device_id", managedDeviceIds).eq("is_running", true)
+    : { data: [] };
+  const cycleIdMap = Object.fromEntries((managedCycles || []).map((c: any) => [c.device_id, c.id]));
+
+  const pairedThisTick = new Set<string>();
+  const formed: string[] = [];
+  const rejected: Array<{ device: string; reason: string }> = [];
+
+  for (const device of sorted) {
+    if (pairedThisTick.has(device.device_id)) continue;
+    if (formed.length >= MAX_NEW_SESSIONS_PER_TICK) break; // Limit per tick
+
+    // Find best partner for this device
+    const candidates = sorted.filter((c: any) => {
+      if (c.device_id === device.device_id) return false;
+      if (pairedThisTick.has(c.device_id)) return false;
       return true;
-    })
-    .sort((a: any, b: any) => {
-      const ownA = a.user_id === userId ? 0 : 1;
-      const ownB = b.user_id === userId ? 0 : 1;
-      if (ownA !== ownB) return ownA - ownB;
-      const todayA = todayPartners.has(a.device_id) ? 1 : 0;
-      const todayB = todayPartners.has(b.device_id) ? 1 : 0;
-      return todayA - todayB;
     });
 
-  if (!sorted.length) return null;
+    if (!candidates.length) {
+      rejected.push({ device: device.device_id, reason: "no_candidates" });
+      continue;
+    }
 
-  const partner = sorted[0];
-  const targetMessages = 120;
+    // Score candidates
+    const scored = candidates.map((c: any) => {
+      let score = 100;
 
-  const { data: newPair } = await db.from("community_pairs")
-    .insert({
-      cycle_id: cycleId || null,
-      instance_id_a: deviceId,
+      // Prefer own accounts (same user)
+      if (c.user_id === device.user_id) score += 20;
+
+      // Penalize if repeated today
+      const timesToday = todayPartnerCount[device.device_id]?.[c.device_id] || 0;
+      score -= timesToday * 30;
+
+      // Prefer devices with fewer pairs today (balanced load)
+      score -= (c.pairs_today || 0) * 5;
+
+      // Add small random for variety
+      score += randInt(0, 15);
+
+      return { ...c, score };
+    });
+
+    scored.sort((a: any, b: any) => b.score - a.score);
+    const partner = scored[0];
+
+    // Check if repeated too much today (max 2 times same pair per day)
+    const timesRepeated = todayPartnerCount[device.device_id]?.[partner.device_id] || 0;
+    if (timesRepeated >= 2) {
+      // Try next candidate
+      const alt = scored.find((s: any) => {
+        const t = todayPartnerCount[device.device_id]?.[s.device_id] || 0;
+        return t < 2;
+      });
+      if (!alt) {
+        rejected.push({ device: device.device_id, reason: "all_partners_repeated" });
+        continue;
+      }
+      // Use alt
+      const cycleId = cycleIdMap[device.device_id] || cycleIdMap[alt.device_id] || null;
+      const mode = device.community_mode === "warmup_managed" || alt.community_mode === "warmup_managed"
+        ? "warmup_managed" : "community_only";
+
+      await db.from("community_pairs").insert({
+        cycle_id: cycleId,
+        instance_id_a: device.device_id,
+        instance_id_b: alt.device_id,
+        status: "active",
+        community_mode: mode,
+        target_messages: TARGET_MESSAGES_PER_BLOCK,
+        messages_total: 0,
+        meta: { initiator: Math.random() < 0.5 ? "a" : "b", formed_at: new Date().toISOString() },
+      });
+
+      pairedThisTick.add(device.device_id);
+      pairedThisTick.add(alt.device_id);
+      formed.push(`${device.device_id.substring(0, 8)}<->${alt.device_id.substring(0, 8)}`);
+      continue;
+    }
+
+    const cycleId = cycleIdMap[device.device_id] || cycleIdMap[partner.device_id] || null;
+    const mode = device.community_mode === "warmup_managed" || partner.community_mode === "warmup_managed"
+      ? "warmup_managed" : "community_only";
+
+    await db.from("community_pairs").insert({
+      cycle_id: cycleId,
+      instance_id_a: device.device_id,
       instance_id_b: partner.device_id,
       status: "active",
       community_mode: mode,
-      target_messages: targetMessages,
+      target_messages: TARGET_MESSAGES_PER_BLOCK,
       messages_total: 0,
-      meta: { initiator: Math.random() < 0.5 ? "a" : "b" },
-    })
-    .select("*").maybeSingle();
+      meta: { initiator: Math.random() < 0.5 ? "a" : "b", formed_at: new Date().toISOString() },
+    });
 
-  return newPair;
+    pairedThisTick.add(device.device_id);
+    pairedThisTick.add(partner.device_id);
+    formed.push(`${device.device_id.substring(0, 8)}<->${partner.device_id.substring(0, 8)}`);
+  }
+
+  return { pairs_formed: formed.length, rejected };
 }
 
 // ══════════════════════════════════════════════════════════
-// CORE: CRIAR SESSÃO
+// PHASE 4: START SESSIONS — Iniciar sessões para duplas sem sessão
 // ══════════════════════════════════════════════════════════
-async function createSession(db: any, pair: any, membership: any, mode: string): Promise<any> {
-  let minDelay = 30, maxDelay = 90;
-  let pauseAfterMin = 8, pauseAfterMax = 15;
-  let pauseDurationMin = 60, pauseDurationMax = 180;
+async function phaseStartSessions(db: any): Promise<{ started: number; errors: string[] }> {
+  // Get active pairs without a session
+  const { data: pairsNoSession } = await db.from("community_pairs")
+    .select("id, instance_id_a, instance_id_b, community_mode, target_messages, meta")
+    .eq("status", "active")
+    .is("session_id", null)
+    .limit(MAX_NEW_SESSIONS_PER_TICK);
 
-  if (mode === "community_only") {
-    const preset = INTENSITY_PRESETS[membership.intensity || "medium"];
-    minDelay = membership.custom_min_delay_seconds ?? preset.min_delay;
-    maxDelay = membership.custom_max_delay_seconds ?? preset.max_delay;
-    pauseAfterMin = membership.custom_pause_after_min ?? preset.pause_after_min;
-    pauseAfterMax = membership.custom_pause_after_max ?? preset.pause_after_max;
-    pauseDurationMin = membership.custom_pause_duration_min ?? preset.pause_duration_min;
-    pauseDurationMax = membership.custom_pause_duration_max ?? preset.pause_duration_max;
+  if (!pairsNoSession?.length) return { started: 0, errors: [] };
+
+  let started = 0;
+  const errors: string[] = [];
+
+  for (const pair of pairsNoSession) {
+    // Double-check both devices are still eligible
+    const [{ data: devA }, { data: devB }] = await Promise.all([
+      db.from("devices").select("id, status, number, uazapi_token, uazapi_base_url, user_id").eq("id", pair.instance_id_a).maybeSingle(),
+      db.from("devices").select("id, status, number, uazapi_token, uazapi_base_url, user_id").eq("id", pair.instance_id_b).maybeSingle(),
+    ]);
+
+    // Validate both are connected
+    if (!devA || !CONNECTED_STATUSES.includes(devA.status) || !devA.number || !devA.uazapi_token) {
+      await db.from("community_pairs").update({ status: "closed", closed_at: new Date().toISOString() }).eq("id", pair.id);
+      errors.push(`pair ${pair.id}: device_a not ready`);
+      continue;
+    }
+    if (!devB || !CONNECTED_STATUSES.includes(devB.status) || !devB.number || !devB.uazapi_token) {
+      await db.from("community_pairs").update({ status: "closed", closed_at: new Date().toISOString() }).eq("id", pair.id);
+      errors.push(`pair ${pair.id}: device_b not ready`);
+      continue;
+    }
+
+    // Check neither device has another active session (concurrency guard)
+    const { count: activeA } = await db.from("community_sessions")
+      .select("id", { count: "exact", head: true })
+      .or(`device_a.eq.${pair.instance_id_a},device_b.eq.${pair.instance_id_a}`)
+      .eq("status", "active");
+    const { count: activeB } = await db.from("community_sessions")
+      .select("id", { count: "exact", head: true })
+      .or(`device_a.eq.${pair.instance_id_b},device_b.eq.${pair.instance_id_b}`)
+      .eq("status", "active");
+
+    if ((activeA || 0) > 0 || (activeB || 0) > 0) {
+      errors.push(`pair ${pair.id}: device already in session`);
+      continue;
+    }
+
+    // Get membership configs for delay params
+    const { data: mbrA } = await db.from("warmup_community_membership")
+      .select("intensity, custom_min_delay_seconds, custom_max_delay_seconds, custom_pause_after_min, custom_pause_after_max, custom_pause_duration_min, custom_pause_duration_max")
+      .eq("device_id", pair.instance_id_a).maybeSingle();
+
+    let minDelay = 30, maxDelay = 90;
+    let pauseAfterMin = 8, pauseAfterMax = 15;
+    let pauseDurationMin = 60, pauseDurationMax = 180;
+
+    if (pair.community_mode === "community_only" && mbrA) {
+      const preset = INTENSITY_PRESETS[mbrA.intensity || "medium"];
+      minDelay = mbrA.custom_min_delay_seconds ?? preset.min_delay;
+      maxDelay = mbrA.custom_max_delay_seconds ?? preset.max_delay;
+      pauseAfterMin = mbrA.custom_pause_after_min ?? preset.pause_after_min;
+      pauseAfterMax = mbrA.custom_pause_after_max ?? preset.pause_after_max;
+      pauseDurationMin = mbrA.custom_pause_duration_min ?? preset.pause_duration_min;
+      pauseDurationMax = mbrA.custom_pause_duration_max ?? preset.pause_duration_max;
+    }
+
+    const { data: session } = await db.from("community_sessions")
+      .insert({
+        pair_id: pair.id,
+        device_a: pair.instance_id_a,
+        device_b: pair.instance_id_b,
+        user_a: devA.user_id,
+        user_b: devB.user_id,
+        community_mode: pair.community_mode,
+        target_messages: pair.target_messages || TARGET_MESSAGES_PER_BLOCK,
+        status: "active",
+        min_delay_seconds: minDelay,
+        max_delay_seconds: maxDelay,
+        pause_after_messages_min: pauseAfterMin,
+        pause_after_messages_max: pauseAfterMax,
+        pause_duration_min: pauseDurationMin,
+        pause_duration_max: pauseDurationMax,
+        messages_total: 0, messages_sent_a: 0, messages_sent_b: 0,
+      })
+      .select("*").maybeSingle();
+
+    if (session) {
+      await db.from("community_pairs").update({ session_id: session.id }).eq("id", pair.id);
+
+      // Kick off the first turn
+      const meta = pair.meta || {};
+      const firstSender = meta.initiator === "b" ? pair.instance_id_b : pair.instance_id_a;
+
+      EdgeRuntime.waitUntil((async () => {
+        await new Promise(r => setTimeout(r, randInt(3000, 8000))); // Small initial delay
+        await executeSessionTurn(db, session, firstSender);
+      })());
+
+      started++;
+    } else {
+      errors.push(`pair ${pair.id}: session insert failed`);
+    }
   }
 
-  const [{ data: devA }, { data: devB }] = await Promise.all([
-    db.from("devices").select("user_id").eq("id", pair.instance_id_a).maybeSingle(),
-    db.from("devices").select("user_id").eq("id", pair.instance_id_b).maybeSingle(),
-  ]);
-
-  const { data: session } = await db.from("community_sessions")
-    .insert({
-      pair_id: pair.id,
-      device_a: pair.instance_id_a,
-      device_b: pair.instance_id_b,
-      user_a: devA?.user_id,
-      user_b: devB?.user_id,
-      community_mode: mode,
-      target_messages: pair.target_messages || 120,
-      status: "active",
-      min_delay_seconds: minDelay,
-      max_delay_seconds: maxDelay,
-      pause_after_messages_min: pauseAfterMin,
-      pause_after_messages_max: pauseAfterMax,
-      pause_duration_min: pauseDurationMin,
-      pause_duration_max: pauseDurationMax,
-      messages_total: 0,
-      messages_sent_a: 0,
-      messages_sent_b: 0,
-    })
-    .select("*").maybeSingle();
-
-  if (session) {
-    await db.from("community_pairs").update({ session_id: session.id }).eq("id", pair.id);
-  }
-
-  return session;
+  return { started, errors };
 }
 
 // ══════════════════════════════════════════════════════════
-// CORE: EXECUTAR BLOCO - Motor de ida e volta
-// Envia UMA mensagem do sender, depois agenda o turno do outro lado.
-// O bloco continua até atingir target_messages ou falha.
+// PHASE 5: MONITOR SESSIONS — Retomar sessões paradas
+// ══════════════════════════════════════════════════════════
+async function phaseMonitorSessions(db: any): Promise<{ resumed: number }> {
+  // Find active sessions that haven't had activity in 3+ minutes
+  // (should have had another turn by now based on delay config)
+  const stuckThreshold = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+
+  const { data: stuckSessions } = await db.from("community_sessions")
+    .select("id, device_a, device_b, last_sender, messages_total, target_messages, min_delay_seconds, max_delay_seconds, pause_after_messages_min, pause_after_messages_max, pause_duration_min, pause_duration_max, pair_id, community_mode")
+    .eq("status", "active")
+    .lt("updated_at", stuckThreshold)
+    .limit(5);
+
+  let resumed = 0;
+  for (const session of stuckSessions || []) {
+    if (session.messages_total >= session.target_messages) {
+      await finishSession(db, session, "target_reached");
+      continue;
+    }
+
+    // Determine who should send next
+    let nextSender = session.device_a;
+    if (session.last_sender) {
+      nextSender = session.last_sender === session.device_a ? session.device_b : session.device_a;
+    }
+
+    // Check if next sender is still connected
+    const { data: dev } = await db.from("devices")
+      .select("status, uazapi_token").eq("id", nextSender).maybeSingle();
+    if (!dev || !CONNECTED_STATUSES.includes(dev.status) || !dev.uazapi_token) {
+      await finishSession(db, session, "device_disconnected_on_resume");
+      continue;
+    }
+
+    // Resume
+    EdgeRuntime.waitUntil((async () => {
+      await new Promise(r => setTimeout(r, randInt(2000, 5000)));
+      await executeSessionTurn(db, session, nextSender);
+    })());
+
+    resumed++;
+  }
+
+  return { resumed };
+}
+
+// ══════════════════════════════════════════════════════════
+// PHASE 6: RELEASE COOLDOWNS
+// ══════════════════════════════════════════════════════════
+async function phaseReleaseCooldowns(db: any): Promise<{ released: number }> {
+  const { data: cooledOff, count } = await db.from("warmup_community_membership")
+    .update({ cooldown_until: null })
+    .lt("cooldown_until", new Date().toISOString())
+    .neq("community_mode", "disabled")
+    .select("id", { count: "exact", head: true });
+
+  return { released: count || 0 };
+}
+
+// ══════════════════════════════════════════════════════════
+// SESSION TURN EXECUTION
 // ══════════════════════════════════════════════════════════
 async function executeSessionTurn(
-  db: any,
-  session: any,
-  senderDeviceId: string,
-): Promise<{ success: boolean; error?: string; completed?: boolean; session_id: string }> {
-  // Fresh session state
-  const { data: freshSession } = await db.from("community_sessions")
+  db: any, session: any, senderDeviceId: string,
+): Promise<{ success: boolean; error?: string; completed?: boolean }> {
+  // Get fresh session state
+  const { data: fresh } = await db.from("community_sessions")
     .select("*").eq("id", session.id).maybeSingle();
 
-  if (!freshSession || freshSession.status !== "active") {
-    return { success: false, error: "session_not_active", session_id: session.id };
+  if (!fresh || fresh.status !== "active") return { success: false, error: "session_not_active" };
+  if (fresh.messages_total >= fresh.target_messages) {
+    await finishSession(db, fresh, "target_reached");
+    return { success: true, completed: true };
   }
 
-  // Already reached target?
-  if (freshSession.messages_total >= freshSession.target_messages) {
-    await finishSession(db, freshSession, "target_reached");
-    return { success: true, completed: true, session_id: session.id };
-  }
-
-  // Get sender device
-  const { data: senderDevice } = await db.from("devices")
+  const { data: sender } = await db.from("devices")
     .select("id, number, uazapi_token, uazapi_base_url, user_id, name, status")
     .eq("id", senderDeviceId).maybeSingle();
 
-  if (!senderDevice?.uazapi_token || !senderDevice?.uazapi_base_url || !senderDevice?.number) {
-    await finishSession(db, freshSession, "sender_not_configured");
-    return { success: false, error: "sender_not_configured", session_id: session.id };
-  }
-  if (!CONNECTED_STATUSES.includes(senderDevice.status)) {
-    await finishSession(db, freshSession, "sender_disconnected");
-    return { success: false, error: "sender_disconnected", session_id: session.id };
+  if (!sender?.uazapi_token || !sender?.uazapi_base_url || !sender?.number || !CONNECTED_STATUSES.includes(sender.status)) {
+    await finishSession(db, fresh, "sender_disconnected");
+    return { success: false, error: "sender_disconnected" };
   }
 
-  // Get receiver device
-  const receiverDeviceId = freshSession.device_a === senderDeviceId ? freshSession.device_b : freshSession.device_a;
-  const { data: receiverDevice } = await db.from("devices")
-    .select("id, number, status, user_id, name")
-    .eq("id", receiverDeviceId).maybeSingle();
+  const receiverDeviceId = fresh.device_a === senderDeviceId ? fresh.device_b : fresh.device_a;
+  const { data: receiver } = await db.from("devices")
+    .select("id, number, status, user_id").eq("id", receiverDeviceId).maybeSingle();
 
-  if (!receiverDevice?.number || !CONNECTED_STATUSES.includes(receiverDevice.status)) {
-    await finishSession(db, freshSession, "receiver_disconnected");
-    return { success: false, error: "receiver_offline", session_id: session.id };
+  if (!receiver?.number || !CONNECTED_STATUSES.includes(receiver.status)) {
+    await finishSession(db, fresh, "receiver_disconnected");
+    return { success: false, error: "receiver_offline" };
   }
 
-  const baseUrl = senderDevice.uazapi_base_url.replace(/\/+$/, "");
-  const peerPhone = receiverDevice.number.replace(/\+/g, "");
   const msg = generateMessage();
-  const msgIndex = freshSession.messages_total;
+  const peerPhone = receiver.number.replace(/\+/g, "");
+  const baseUrl = sender.uazapi_base_url.replace(/\/+$/, "");
 
   try {
-    await sendText(baseUrl, senderDevice.uazapi_token, peerPhone, msg);
+    await sendText(baseUrl, sender.uazapi_token, peerPhone, msg);
   } catch (err: any) {
-    // Log failed
     await db.from("community_session_logs").insert({
-      session_id: freshSession.id, pair_id: freshSession.pair_id,
+      session_id: fresh.id, pair_id: fresh.pair_id,
       sender_device_id: senderDeviceId, receiver_device_id: receiverDeviceId,
-      sender_user_id: senderDevice.user_id,
-      message_content: msg, message_index: msgIndex,
+      sender_user_id: sender.user_id,
+      message_content: msg, message_index: fresh.messages_total,
       status: "failed", error_message: err.message?.substring(0, 500),
     });
 
-    // 3 consecutive failures = end session
+    // 3 consecutive failures = end
     const { count: recentFails } = await db.from("community_session_logs")
       .select("id", { count: "exact", head: true })
-      .eq("session_id", freshSession.id).eq("status", "failed")
+      .eq("session_id", fresh.id).eq("status", "failed")
       .order("created_at", { ascending: false }).limit(3);
 
     if ((recentFails || 0) >= 3) {
-      await finishSession(db, freshSession, "consecutive_failures");
+      await finishSession(db, fresh, "consecutive_failures");
+    } else {
+      // Retry after delay
+      EdgeRuntime.waitUntil((async () => {
+        await new Promise(r => setTimeout(r, randInt(30, 60) * 1000));
+        const { data: check } = await db.from("community_sessions").select("status").eq("id", fresh.id).maybeSingle();
+        if (check?.status === "active") await executeSessionTurn(db, fresh, senderDeviceId);
+      })());
     }
 
-    return { success: false, error: err.message, session_id: freshSession.id };
+    return { success: false, error: err.message };
   }
 
   // Log success
   await db.from("community_session_logs").insert({
-    session_id: freshSession.id, pair_id: freshSession.pair_id,
+    session_id: fresh.id, pair_id: fresh.pair_id,
     sender_device_id: senderDeviceId, receiver_device_id: receiverDeviceId,
-    sender_user_id: senderDevice.user_id,
-    message_content: msg, message_index: msgIndex,
-    status: "sent",
-    delay_applied_seconds: 0,
+    sender_user_id: sender.user_id,
+    message_content: msg, message_index: fresh.messages_total,
+    status: "sent", delay_applied_seconds: 0,
   });
 
   // Update session counters
-  const isSenderA = senderDeviceId === freshSession.device_a;
-  const newTotal = freshSession.messages_total + 1;
+  const isSenderA = senderDeviceId === fresh.device_a;
+  const newTotal = fresh.messages_total + 1;
   const updateData: any = {
     messages_total: newTotal,
     last_sender: senderDeviceId,
     last_message_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
-  if (isSenderA) updateData.messages_sent_a = (freshSession.messages_sent_a || 0) + 1;
-  else updateData.messages_sent_b = (freshSession.messages_sent_b || 0) + 1;
+  if (isSenderA) updateData.messages_sent_a = (fresh.messages_sent_a || 0) + 1;
+  else updateData.messages_sent_b = (fresh.messages_sent_b || 0) + 1;
 
-  const completed = newTotal >= freshSession.target_messages;
+  const completed = newTotal >= fresh.target_messages;
   if (completed) {
     updateData.status = "completed";
     updateData.completed_at = new Date().toISOString();
     updateData.end_reason = "target_reached";
   }
 
-  await db.from("community_sessions").update(updateData).eq("id", freshSession.id);
+  await db.from("community_sessions").update(updateData).eq("id", fresh.id);
+  await db.from("community_pairs").update({ messages_total: newTotal }).eq("id", fresh.pair_id);
 
-  // Update pair counter
-  await db.from("community_pairs").update({ messages_total: newTotal }).eq("id", freshSession.pair_id);
-
-  // Update sender membership (messages_today)
+  // Update sender membership
   const { data: senderMbr } = await db.from("warmup_community_membership")
-    .select("messages_today, pairs_today").eq("device_id", senderDeviceId).maybeSingle();
-
+    .select("messages_today").eq("device_id", senderDeviceId).maybeSingle();
   await db.from("warmup_community_membership").update({
     messages_today: (senderMbr?.messages_today || 0) + 1,
     last_session_at: new Date().toISOString(),
@@ -594,82 +762,63 @@ async function executeSessionTurn(
   }).eq("device_id", senderDeviceId);
 
   // Warmup audit log
-  if (freshSession.community_mode === "warmup_managed") {
+  if (fresh.community_mode === "warmup_managed") {
     const { data: cycle } = await db.from("warmup_cycles")
       .select("id").eq("device_id", senderDeviceId).eq("is_running", true).maybeSingle();
     if (cycle) {
       await db.from("warmup_audit_logs").insert({
-        user_id: senderDevice.user_id,
-        device_id: senderDeviceId,
-        cycle_id: cycle.id,
-        level: "info",
-        event_type: "community_turn_sent",
-        message: `Comunitário: bloco ${freshSession.id} msg ${newTotal}/${freshSession.target_messages}`,
-        meta: { session_id: freshSession.id, pair_id: freshSession.pair_id, community_day: 0, mode: freshSession.community_mode },
+        user_id: sender.user_id, device_id: senderDeviceId, cycle_id: cycle.id,
+        level: "info", event_type: "community_turn_sent",
+        message: `Comunitário: bloco ${fresh.id} msg ${newTotal}/${fresh.target_messages}`,
+        meta: { session_id: fresh.id, pair_id: fresh.pair_id, mode: fresh.community_mode },
       });
       await db.rpc("increment_warmup_budget", { p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: false }).catch(() => {});
     }
   }
 
   if (completed) {
-    await finishSession(db, { ...freshSession, messages_total: newTotal }, "target_reached");
+    await finishSession(db, { ...fresh, messages_total: newTotal }, "target_reached");
   } else {
-    // SCHEDULE NEXT TURN for the OTHER device
-    const delay = randInt(freshSession.min_delay_seconds || 30, freshSession.max_delay_seconds || 90);
-
-    // Check if pause is needed after N consecutive messages
-    const pauseAfter = randInt(freshSession.pause_after_messages_min || 8, freshSession.pause_after_messages_max || 15);
+    // Schedule next turn for OTHER device with proper delay
+    const delay = randInt(fresh.min_delay_seconds || 30, fresh.max_delay_seconds || 90);
+    const pauseAfter = randInt(fresh.pause_after_messages_min || 8, fresh.pause_after_messages_max || 15);
     let actualDelay = delay;
     if (newTotal > 0 && newTotal % pauseAfter === 0) {
-      actualDelay += randInt(freshSession.pause_duration_min || 60, freshSession.pause_duration_max || 180);
+      actualDelay += randInt(fresh.pause_duration_min || 60, fresh.pause_duration_max || 180);
     }
 
-    // Use EdgeRuntime.waitUntil for the next turn
     EdgeRuntime.waitUntil((async () => {
       await new Promise(r => setTimeout(r, actualDelay * 1000));
-      // Re-check session is still active before continuing
-      const { data: checkSession } = await db.from("community_sessions")
-        .select("status").eq("id", freshSession.id).maybeSingle();
-      if (checkSession?.status !== "active") return;
-
-      // Re-check receiver is still connected
-      const { data: checkReceiver } = await db.from("devices")
-        .select("status").eq("id", receiverDeviceId).maybeSingle();
-      if (!checkReceiver || !CONNECTED_STATUSES.includes(checkReceiver.status)) {
-        await finishSession(db, freshSession, "receiver_disconnected_mid_block");
+      const { data: check } = await db.from("community_sessions").select("status").eq("id", fresh.id).maybeSingle();
+      if (check?.status !== "active") return;
+      const { data: checkRecv } = await db.from("devices").select("status").eq("id", receiverDeviceId).maybeSingle();
+      if (!checkRecv || !CONNECTED_STATUSES.includes(checkRecv.status)) {
+        await finishSession(db, fresh, "receiver_disconnected_mid_block");
         return;
       }
-
-      // Execute next turn (the other side sends now)
-      await executeSessionTurn(db, freshSession, receiverDeviceId);
+      await executeSessionTurn(db, fresh, receiverDeviceId);
     })());
   }
 
-  return { success: true, completed, session_id: freshSession.id };
+  return { success: true, completed };
 }
 
 // ══════════════════════════════════════════════════════════
-// FINISH SESSION: encerrar bloco + cooldown + atualizar contadores
+// FINISH SESSION
 // ══════════════════════════════════════════════════════════
 async function finishSession(db: any, session: any, endReason: string) {
   const now = new Date().toISOString();
 
-  // Update session
   await db.from("community_sessions").update({
-    status: "completed",
-    completed_at: now,
-    end_reason: endReason,
-    updated_at: now,
+    status: "completed", completed_at: now, end_reason: endReason, updated_at: now,
   }).eq("id", session.id);
 
-  // Close pair
   await db.from("community_pairs").update({
-    status: "closed",
-    closed_at: now,
+    status: "closed", closed_at: now,
   }).eq("id", session.pair_id);
 
-  // Apply cooldown + increment pairs_today for both devices
-  const cooldownMinutes = randInt(15, 45);
+  // Cooldown + pairs_today for both
+  const cooldownMinutes = randInt(COOLDOWN_MIN_MINUTES, COOLDOWN_MAX_MINUTES);
   const cooldownUntil = new Date(Date.now() + cooldownMinutes * 60 * 1000).toISOString();
 
   for (const devId of [session.device_a, session.device_b]) {
@@ -683,130 +832,77 @@ async function finishSession(db: any, session: any, endReason: string) {
     }
   }
 
-  // Log to daily stats
-  const todayBrt = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
-  for (const devId of [session.device_a, session.device_b]) {
-    const { data: dev } = await db.from("devices").select("user_id").eq("id", devId).maybeSingle();
-    if (dev) {
-      await db.from("community_daily_stats").upsert({
-        device_id: devId,
-        user_id: dev.user_id,
-        stat_date: todayBrt,
-        community_mode: session.community_mode,
-        sessions_completed: 1,
-        pairs_completed: 1,
-      }, { onConflict: "device_id,stat_date" });
-    }
-  }
-
   console.log(`[community-core] Session ${session.id} finished: ${endReason}, msgs: ${session.messages_total}/${session.target_messages}`);
 }
 
 // ══════════════════════════════════════════════════════════
-// CORE: PROCESSAR DISPOSITIVO
+// TICK: Executa todas as phases em ordem
 // ══════════════════════════════════════════════════════════
-async function processDevice(db: any, deviceId: string): Promise<any> {
-  const eligibility = await checkEligibility(db, deviceId);
-  if (!eligibility.eligible) {
-    await db.from("warmup_community_membership").update({
-      last_error: `Inelegível: ${eligibility.reason}`,
-    }).eq("device_id", deviceId);
-    return { device_id: deviceId, status: "ineligible", reason: eligibility.reason };
-  }
+async function handleTick(db: any) {
+  const tickStart = Date.now();
+  const results: any = { tick_at: new Date().toISOString() };
 
-  const { membership, device, cycle } = eligibility;
-  const mode = membership.community_mode;
+  // Phase 1: Cleanup
+  results.cleanup = await phaseCleanupStale(db);
 
-  // Check pairs limit
-  if (mode === "warmup_managed") {
-    const target = getPairsTarget(membership.community_day);
-    if ((membership.pairs_today || 0) >= target.max) {
-      return { device_id: deviceId, status: "pairs_limit_reached", pairs_today: membership.pairs_today, max: target.max };
-    }
-  }
+  // Phase 2: Update eligibility
+  results.eligibility = await phaseUpdateEligibility(db);
 
-  // Find or create pair
-  const pair = await findOrCreatePair(db, deviceId, device.user_id, mode, cycle?.id);
-  if (!pair) {
-    await db.from("warmup_community_membership").update({
-      last_error: "Nenhum parceiro disponível",
-    }).eq("device_id", deviceId);
-    return { device_id: deviceId, status: "no_partner" };
-  }
+  // Phase 3: Form pairs
+  results.pairing = await phaseFormPairs(db);
 
-  // Get or create session
-  let session: any = null;
-  if (pair.session_id) {
-    const { data: existing } = await db.from("community_sessions")
-      .select("*").eq("id", pair.session_id).eq("status", "active").maybeSingle();
-    session = existing;
-  }
-  if (!session) {
-    session = await createSession(db, pair, membership, mode);
-    if (!session) return { device_id: deviceId, status: "session_creation_failed" };
-  }
+  // Phase 4: Start sessions
+  results.sessions = await phaseStartSessions(db);
 
-  // Determine who sends first (alternate)
-  let senderDeviceId = deviceId;
-  if (session.last_sender) {
-    // The OTHER side should send next
-    senderDeviceId = session.last_sender === session.device_a ? session.device_b : session.device_a;
-  } else {
-    // New session: use initiator from pair meta
-    const meta = pair.meta || {};
-    senderDeviceId = meta.initiator === "b" ? pair.instance_id_b : pair.instance_id_a;
-  }
+  // Phase 5: Monitor stuck sessions
+  results.monitor = await phaseMonitorSessions(db);
 
-  // Execute the turn
-  const result = await executeSessionTurn(db, session, senderDeviceId);
+  // Phase 6: Release cooldowns
+  results.cooldowns = await phaseReleaseCooldowns(db);
 
-  if (result.success) {
-    await db.from("warmup_community_membership").update({ last_error: null }).eq("device_id", deviceId);
-  }
-
-  return {
-    device_id: deviceId,
-    status: result.success ? "sent" : "error",
-    completed: result.completed,
-    error: result.error,
-    session_id: session?.id,
-    messages_total: session?.messages_total + (result.success ? 1 : 0),
-    target_messages: session?.target_messages,
-  };
+  results.duration_ms = Date.now() - tickStart;
+  return results;
 }
 
 // ══════════════════════════════════════════════════════════
-// TICK: Processar contas community_only elegíveis
+// PROCESS_DEVICE: Forçar manualmente uma conta específica
 // ══════════════════════════════════════════════════════════
-async function handleTick(db: any) {
-  const { data: memberships } = await db.from("warmup_community_membership")
-    .select("device_id, user_id, community_mode, messages_today, daily_limit, cooldown_until, start_hour, end_hour, active_days")
-    .eq("community_mode", "community_only").eq("is_enabled", true).eq("is_eligible", true)
-    .limit(100);
+async function processDevice(db: any, deviceId: string) {
+  // Update eligibility for this device
+  const { data: mbr } = await db.from("warmup_community_membership")
+    .select("*").eq("device_id", deviceId).maybeSingle();
 
-  if (!memberships?.length) return { processed: 0 };
+  if (!mbr) return { status: "no_membership" };
 
-  let processed = 0;
-  const results: any[] = [];
+  // Check if already in active session
+  const { count: activeSessions } = await db.from("community_sessions")
+    .select("id", { count: "exact", head: true })
+    .or(`device_a.eq.${deviceId},device_b.eq.${deviceId}`)
+    .eq("status", "active");
 
-  for (const m of memberships) {
-    if (m.daily_limit > 0 && m.messages_today >= m.daily_limit) continue;
-    if (m.cooldown_until && new Date(m.cooldown_until) > new Date()) continue;
-    const activeDays = Array.isArray(m.active_days) ? m.active_days : ["mon", "tue", "wed", "thu", "fri"];
-    if (!isWithinWindow(m.start_hour || "08:00", m.end_hour || "19:00", activeDays)) continue;
-
-    try {
-      const result = await processDevice(db, m.device_id);
-      results.push(result);
-      processed++;
-    } catch (err: any) {
-      console.error(`[community-core] Error processing ${m.device_id}:`, err.message);
-      results.push({ device_id: m.device_id, status: "error", error: err.message });
-    }
-    await new Promise(r => setTimeout(r, randInt(2000, 5000)));
+  if ((activeSessions || 0) > 0) {
+    return { status: "session_already_active" };
   }
 
-  return { processed, results };
+  // Check for existing active pair
+  const [{ data: pA }, { data: pB }] = await Promise.all([
+    db.from("community_pairs").select("*").eq("instance_id_a", deviceId).eq("status", "active").maybeSingle(),
+    db.from("community_pairs").select("*").eq("instance_id_b", deviceId).eq("status", "active").maybeSingle(),
+  ]);
+  const existingPair = pA || pB;
+
+  if (existingPair && !existingPair.session_id) {
+    // Has pair but no session — start it
+    const result = await phaseStartSessions(db);
+    return { status: "session_started_from_existing_pair", ...result };
+  }
+
+  // No pair — run pairing + session start
+  await phaseUpdateEligibility(db);
+  await phaseFormPairs(db);
+  const sessResult = await phaseStartSessions(db);
+
+  return { status: "processed", ...sessResult };
 }
 
 // ══════════════════════════════════════════════════════════
@@ -830,17 +926,51 @@ async function handleDailyReset(db: any) {
     }
   }
 
-  // Close stale sessions (>4h without activity)
-  const staleThreshold = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
-  await db.from("community_sessions")
-    .update({ status: "completed", completed_at: now, end_reason: "stale_timeout" })
-    .eq("status", "active").lt("last_message_at", staleThreshold);
-
-  await db.from("community_pairs")
-    .update({ status: "closed", closed_at: now })
-    .eq("status", "active");
+  // Close all stale
+  await phaseCleanupStale(db);
 
   return { ok: true, reset_at: now, managed_count: managed?.length || 0 };
+}
+
+// ══════════════════════════════════════════════════════════
+// CHECK ELIGIBILITY (individual)
+// ══════════════════════════════════════════════════════════
+async function checkEligibility(db: any, deviceId: string) {
+  const { data: mbr } = await db.from("warmup_community_membership")
+    .select("*").eq("device_id", deviceId).maybeSingle();
+  if (!mbr) return { eligible: false, reason: "no_membership" };
+  if (mbr.community_mode === "disabled") return { eligible: false, reason: "mode_disabled" };
+
+  const { data: dev } = await db.from("devices")
+    .select("id, status, number, uazapi_token, uazapi_base_url").eq("id", deviceId).maybeSingle();
+  if (!dev || !CONNECTED_STATUSES.includes(dev.status)) return { eligible: false, reason: "device_disconnected" };
+  if (!dev.uazapi_token || !dev.uazapi_base_url || !dev.number) return { eligible: false, reason: "device_not_configured" };
+
+  if (mbr.cooldown_until && new Date(mbr.cooldown_until) > new Date()) return { eligible: false, reason: "cooldown_active", cooldown_until: mbr.cooldown_until };
+  if (mbr.daily_limit > 0 && mbr.messages_today >= mbr.daily_limit) return { eligible: false, reason: "daily_limit_reached" };
+
+  const { count } = await db.from("community_sessions")
+    .select("id", { count: "exact", head: true })
+    .or(`device_a.eq.${deviceId},device_b.eq.${deviceId}`).eq("status", "active");
+  if ((count || 0) > 0) return { eligible: false, reason: "session_active" };
+
+  const activeDays = Array.isArray(mbr.active_days) ? mbr.active_days : ["mon", "tue", "wed", "thu", "fri"];
+  if (!isWithinWindow(mbr.start_hour || "08:00", mbr.end_hour || "19:00", activeDays)) return { eligible: false, reason: "outside_window" };
+
+  if (mbr.community_mode === "warmup_managed") {
+    const { data: cycle } = await db.from("warmup_cycles")
+      .select("id, chip_state, day_index, is_running").eq("device_id", deviceId).eq("is_running", true).maybeSingle();
+    if (!cycle) return { eligible: false, reason: "no_active_cycle" };
+    if ((cycle.day_index || 1) < getCommunityStartDay(cycle.chip_state || "new")) return { eligible: false, reason: "warmup_day_too_early" };
+    if (mbr.community_day < 1) return { eligible: false, reason: "community_day_not_started" };
+    const target = getPairsTarget(mbr.community_day);
+    if ((mbr.pairs_today || 0) >= target.max) return { eligible: false, reason: "pairs_limit_reached" };
+  }
+
+  return {
+    eligible: true, community_mode: mbr.community_mode, community_day: mbr.community_day,
+    messages_today: mbr.messages_today, pairs_today: mbr.pairs_today, daily_limit: mbr.daily_limit,
+  };
 }
 
 // ══════════════════════════════════════════════════════════
@@ -873,18 +1003,15 @@ Deno.serve(async (req) => {
 
   try {
     switch (body.action) {
-      case "tick":
-        return json(await handleTick(db));
+      case "tick": return json(await handleTick(db));
       case "process_device":
         if (!body.device_id) return json({ error: "device_id required" }, 400);
         return json(await processDevice(db, body.device_id));
-      case "daily_reset":
-        return json(await handleDailyReset(db));
+      case "daily_reset": return json(await handleDailyReset(db));
       case "check_eligibility":
         if (!body.device_id) return json({ error: "device_id required" }, 400);
         return json(await checkEligibility(db, body.device_id));
-      default:
-        return json(await handleTick(db));
+      default: return json(await handleTick(db));
     }
   } catch (err: any) {
     console.error("[community-core] Error:", err.message);
