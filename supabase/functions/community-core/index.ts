@@ -464,15 +464,32 @@ async function phaseFormPairs(db: any): Promise<{
 
     const scored = candidates.map((c: any) => {
       let score = 100;
-      if (c.user_id === device.user_id) score += 20;
+      const isSameUser = c.user_id === device.user_id;
+      const crossPref = device.cross_user_preference || "balanced";
+      const ownAllowed = device.own_accounts_allowed !== false;
+
+      // Cross-user / own-user scoring based on preference
+      if (isSameUser) {
+        if (!ownAllowed) score -= 500; // block own accounts if disabled
+        else if (crossPref === "prefer_cross") score += 5;
+        else if (crossPref === "prefer_own") score += 25;
+        else score += 20; // balanced
+      } else {
+        if (crossPref === "prefer_cross") score += 20;
+        else if (crossPref === "prefer_own") score += 5;
+        else score += 5; // balanced
+      }
+
       const timesToday = todayPartnerCount[device.device_id]?.[c.device_id] || 0;
-      if (timesToday >= MAX_SAME_PAIR_PER_DAY) score -= 200;
+      const repeatPolicy = device.partner_repeat_policy || "avoid_same_day";
+      if (repeatPolicy === "strict_no_repeat" && timesToday > 0) score -= 500;
+      else if (timesToday >= MAX_SAME_PAIR_PER_DAY) score -= 200;
       else if (timesToday > 0) score -= 80;
+
       score -= (c.pairs_today || 0) * 8;
       const partnerVariety = uniquePartnersToday[c.device_id] || 0;
       score -= partnerVariety * 3;
       if (device.last_partner_device_id === c.device_id) score -= 25;
-      if (c.user_id !== device.user_id) score += 5;
       score += randInt(0, 12);
       return { ...c, score, timesToday };
     });
