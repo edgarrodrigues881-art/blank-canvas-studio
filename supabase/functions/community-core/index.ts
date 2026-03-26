@@ -94,10 +94,11 @@ const INTENSITY_PRESETS: Record<string, {
   min_delay: number; max_delay: number;
   pause_after_min: number; pause_after_max: number;
   pause_duration_min: number; pause_duration_max: number;
+  cooldown_min: number; cooldown_max: number;
 }> = {
-  low: { daily_limit: 300, peers_min: 2, peers_max: 4, msgs_per_peer: 80, min_delay: 45, max_delay: 120, pause_after_min: 8, pause_after_max: 15, pause_duration_min: 120, pause_duration_max: 300 },
-  medium: { daily_limit: 500, peers_min: 3, peers_max: 6, msgs_per_peer: 120, min_delay: 30, max_delay: 90, pause_after_min: 10, pause_after_max: 20, pause_duration_min: 60, pause_duration_max: 180 },
-  high: { daily_limit: 700, peers_min: 5, peers_max: 10, msgs_per_peer: 120, min_delay: 15, max_delay: 60, pause_after_min: 12, pause_after_max: 25, pause_duration_min: 45, pause_duration_max: 120 },
+  low: { daily_limit: 300, peers_min: 2, peers_max: 4, msgs_per_peer: 80, min_delay: 45, max_delay: 120, pause_after_min: 8, pause_after_max: 15, pause_duration_min: 120, pause_duration_max: 300, cooldown_min: 30, cooldown_max: 60 },
+  medium: { daily_limit: 500, peers_min: 3, peers_max: 6, msgs_per_peer: 120, min_delay: 30, max_delay: 90, pause_after_min: 10, pause_after_max: 20, pause_duration_min: 60, pause_duration_max: 180, cooldown_min: 15, cooldown_max: 45 },
+  high: { daily_limit: 700, peers_min: 5, peers_max: 10, msgs_per_peer: 120, min_delay: 15, max_delay: 60, pause_after_min: 12, pause_after_max: 25, pause_duration_min: 45, pause_duration_max: 120, cooldown_min: 10, cooldown_max: 30 },
 };
 
 // ══════════════════════════════════════════════════════════
@@ -266,7 +267,7 @@ async function phaseCleanupStale(db: any): Promise<{ cleaned_sessions: number; c
 // ══════════════════════════════════════════════════════════
 async function phaseUpdateEligibility(db: any): Promise<{ updated: number; eligible: number; reasons: Record<string, number> }> {
   const { data: memberships } = await db.from("warmup_community_membership")
-    .select("id, device_id, community_mode, community_day, is_enabled, daily_limit, messages_today, pairs_today, cooldown_until, start_hour, end_hour, active_days, user_id, is_eligible")
+    .select("id, device_id, community_mode, community_day, is_enabled, daily_limit, messages_today, pairs_today, cooldown_until, start_hour, end_hour, active_days, user_id, is_eligible, daily_pairs_min, daily_pairs_max, target_messages_per_pair, cooldown_min_minutes, cooldown_max_minutes")
     .eq("is_enabled", true).neq("community_mode", "disabled").limit(500);
 
   if (!memberships?.length) return { updated: 0, eligible: 0, reasons: {} };
@@ -330,6 +331,14 @@ async function phaseUpdateEligibility(db: any): Promise<{ updated: number; eligi
       }
     }
 
+    // community_only: independent eligibility — no warmup cycle dependency
+    if (eligible && m.community_mode === "community_only") {
+      const pairsMax = m.daily_pairs_max || 6;
+      if ((m.pairs_today || 0) >= pairsMax) {
+        eligible = false; reason = "pairs_limit_reached";
+      }
+    }
+
     if (eligible) eligibleCount++;
     if (!eligible) reasons[reason] = (reasons[reason] || 0) + 1;
 
@@ -368,7 +377,7 @@ async function phaseFormPairs(db: any): Promise<{
   const logs: string[] = [];
 
   const { data: eligible } = await db.from("warmup_community_membership")
-    .select("device_id, user_id, community_mode, community_day, pairs_today, messages_today, daily_limit, last_session_at, last_partner_device_id")
+    .select("device_id, user_id, community_mode, community_day, pairs_today, messages_today, daily_limit, last_session_at, last_partner_device_id, daily_pairs_min, daily_pairs_max, target_messages_per_pair, partner_repeat_policy, cross_user_preference, own_accounts_allowed")
     .eq("is_eligible", true).eq("is_enabled", true).neq("community_mode", "disabled").limit(200);
 
   if (!eligible?.length || eligible.length < 2) return { pairs_formed: 0, rejected: [], logs: ["insufficient_eligible"] };
@@ -455,15 +464,32 @@ async function phaseFormPairs(db: any): Promise<{
 
     const scored = candidates.map((c: any) => {
       let score = 100;
-      if (c.user_id === device.user_id) score += 20;
+      const isSameUser = c.user_id === device.user_id;
+      const crossPref = device.cross_user_preference || "balanced";
+      const ownAllowed = device.own_accounts_allowed !== false;
+
+      // Cross-user / own-user scoring based on preference
+      if (isSameUser) {
+        if (!ownAllowed) score -= 500; // block own accounts if disabled
+        else if (crossPref === "prefer_cross") score += 5;
+        else if (crossPref === "prefer_own") score += 25;
+        else score += 20; // balanced
+      } else {
+        if (crossPref === "prefer_cross") score += 20;
+        else if (crossPref === "prefer_own") score += 5;
+        else score += 5; // balanced
+      }
+
       const timesToday = todayPartnerCount[device.device_id]?.[c.device_id] || 0;
-      if (timesToday >= MAX_SAME_PAIR_PER_DAY) score -= 200;
+      const repeatPolicy = device.partner_repeat_policy || "avoid_same_day";
+      if (repeatPolicy === "strict_no_repeat" && timesToday > 0) score -= 500;
+      else if (timesToday >= MAX_SAME_PAIR_PER_DAY) score -= 200;
       else if (timesToday > 0) score -= 80;
+
       score -= (c.pairs_today || 0) * 8;
       const partnerVariety = uniquePartnersToday[c.device_id] || 0;
       score -= partnerVariety * 3;
       if (device.last_partner_device_id === c.device_id) score -= 25;
-      if (c.user_id !== device.user_id) score += 5;
       score += randInt(0, 12);
       return { ...c, score, timesToday };
     });
@@ -521,9 +547,14 @@ async function phaseFormPairs(db: any): Promise<{
     const mode = device.community_mode === "warmup_managed" || partner.community_mode === "warmup_managed"
       ? "warmup_managed" : "community_only";
 
+    // Use mode-specific target messages
+    const targetMsgs = mode === "community_only"
+      ? (device.target_messages_per_pair || partner.target_messages_per_pair || TARGET_MESSAGES_PER_BLOCK)
+      : TARGET_MESSAGES_PER_BLOCK;
+
     const { data: newPair } = await db.from("community_pairs").insert({
       cycle_id: cycleId, instance_id_a: device.device_id, instance_id_b: partner.device_id,
-      status: "active", community_mode: mode, target_messages: TARGET_MESSAGES_PER_BLOCK,
+      status: "active", community_mode: mode, target_messages: targetMsgs,
       messages_total: 0,
       meta: {
         initiator: Math.random() < 0.5 ? "a" : "b",
@@ -895,13 +926,20 @@ async function finishSession(db: any, session: any, endReason: string) {
 
   await db.from("community_pairs").update({ status: "closed", closed_at: now }).eq("id", session.pair_id);
 
-  const cooldownMinutes = randInt(COOLDOWN_MIN_MINUTES, COOLDOWN_MAX_MINUTES);
-  const cooldownUntil = new Date(Date.now() + cooldownMinutes * 60 * 1000).toISOString();
+  // Mode-specific cooldown
+  let cdMin = COOLDOWN_MIN_MINUTES;
+  let cdMax = COOLDOWN_MAX_MINUTES;
 
   for (const devId of [session.device_a, session.device_b]) {
     const { data: mbr } = await db.from("warmup_community_membership")
-      .select("pairs_today, user_id, community_mode, community_day").eq("device_id", devId).maybeSingle();
+      .select("pairs_today, user_id, community_mode, community_day, cooldown_min_minutes, cooldown_max_minutes, intensity").eq("device_id", devId).maybeSingle();
     if (mbr) {
+      if (mbr.community_mode === "community_only") {
+        cdMin = mbr.cooldown_min_minutes || COOLDOWN_MIN_MINUTES;
+        cdMax = mbr.cooldown_max_minutes || COOLDOWN_MAX_MINUTES;
+      }
+      const cooldownMinutes = randInt(cdMin, cdMax);
+      const cooldownUntil = new Date(Date.now() + cooldownMinutes * 60 * 1000).toISOString();
       await db.from("warmup_community_membership").update({
         pairs_today: (mbr.pairs_today || 0) + 1,
         cooldown_until: cooldownUntil,
@@ -909,6 +947,8 @@ async function finishSession(db: any, session: any, endReason: string) {
       }).eq("device_id", devId);
     }
   }
+
+  const cooldownMinutes = randInt(cdMin, cdMax);
 
   // Session completion audit log
   await auditLog(db, {
@@ -1049,9 +1089,16 @@ async function checkEligibility(db: any, deviceId: string) {
     if ((mbr.pairs_today || 0) >= target.max) return { eligible: false, reason: "pairs_limit_reached" };
   }
 
+  if (mbr.community_mode === "community_only") {
+    const pairsMax = mbr.daily_pairs_max || 6;
+    if ((mbr.pairs_today || 0) >= pairsMax) return { eligible: false, reason: "pairs_limit_reached" };
+  }
+
   return {
     eligible: true, community_mode: mbr.community_mode, community_day: mbr.community_day,
     messages_today: mbr.messages_today, pairs_today: mbr.pairs_today, daily_limit: mbr.daily_limit,
+    config_type: mbr.config_type, daily_pairs_max: mbr.daily_pairs_max,
+    target_messages_per_pair: mbr.target_messages_per_pair,
   };
 }
 
@@ -1158,6 +1205,84 @@ Deno.serve(async (req) => {
         if (!body.device_id) return json({ error: "device_id required" }, 400);
         return json(await checkEligibility(db, body.device_id));
       case "community_stats": return json(await getCommunityStats(db));
+
+      // ── community_only management actions ──
+      case "set_community_mode": {
+        if (!body.device_id || !body.mode) return json({ error: "device_id and mode required" }, 400);
+        const validModes = ["disabled", "warmup_managed", "community_only"];
+        if (!validModes.includes(body.mode)) return json({ error: "Invalid mode" }, 400);
+
+        const updateData: any = { community_mode: body.mode, is_enabled: body.mode !== "disabled" };
+        if (body.mode === "community_only") {
+          const preset = INTENSITY_PRESETS[body.intensity || "medium"];
+          updateData.intensity = body.intensity || "medium";
+          updateData.daily_limit = preset.daily_limit;
+          updateData.daily_pairs_min = preset.peers_min;
+          updateData.daily_pairs_max = preset.peers_max;
+          updateData.target_messages_per_pair = preset.msgs_per_peer;
+          updateData.cooldown_min_minutes = preset.cooldown_min;
+          updateData.cooldown_max_minutes = preset.cooldown_max;
+          updateData.config_type = "preset";
+          updateData.start_hour = body.start_hour || "08:00";
+          updateData.end_hour = body.end_hour || "20:00";
+          updateData.active_days = body.active_days || ["mon", "tue", "wed", "thu", "fri"];
+        }
+
+        const { error } = await db.from("warmup_community_membership")
+          .update(updateData).eq("device_id", body.device_id);
+        if (error) {
+          // Try upsert if no row exists
+          const userId = userAuth?.id || body.user_id;
+          if (!userId) return json({ error: "user_id required for new membership" }, 400);
+          const { error: upsertErr } = await db.from("warmup_community_membership")
+            .upsert({ device_id: body.device_id, user_id: userId, ...updateData }, { onConflict: "device_id" });
+          if (upsertErr) return json({ error: upsertErr.message }, 500);
+        }
+        await auditLog(db, {
+          device_id: body.device_id, user_id: userAuth?.id,
+          event_type: "mode_changed", level: "info",
+          message: `Modo alterado para ${body.mode}`,
+          community_mode: body.mode,
+          meta: { intensity: body.intensity },
+        });
+        return json({ ok: true, mode: body.mode });
+      }
+
+      case "update_community_config": {
+        if (!body.device_id) return json({ error: "device_id required" }, 400);
+        const allowed = [
+          "intensity", "config_type", "daily_limit", "daily_pairs_min", "daily_pairs_max",
+          "target_messages_per_pair", "cooldown_min_minutes", "cooldown_max_minutes",
+          "start_hour", "end_hour", "active_days", "partner_repeat_policy",
+          "cross_user_preference", "own_accounts_allowed",
+          "custom_min_delay_seconds", "custom_max_delay_seconds",
+          "custom_pause_after_min", "custom_pause_after_max",
+          "custom_pause_duration_min", "custom_pause_duration_max",
+        ];
+        const upd: any = {};
+        for (const key of allowed) {
+          if (body[key] !== undefined) upd[key] = body[key];
+        }
+
+        // If switching to preset, apply preset values
+        if (upd.config_type === "preset" && upd.intensity) {
+          const p = INTENSITY_PRESETS[upd.intensity];
+          if (p) {
+            upd.daily_limit = p.daily_limit;
+            upd.daily_pairs_min = p.peers_min;
+            upd.daily_pairs_max = p.peers_max;
+            upd.target_messages_per_pair = p.msgs_per_peer;
+            upd.cooldown_min_minutes = p.cooldown_min;
+            upd.cooldown_max_minutes = p.cooldown_max;
+          }
+        }
+
+        const { error } = await db.from("warmup_community_membership")
+          .update(upd).eq("device_id", body.device_id);
+        if (error) return json({ error: error.message }, 500);
+        return json({ ok: true, updated: Object.keys(upd) });
+      }
+
       default: return json(await handleTick(db));
     }
   } catch (err: any) {

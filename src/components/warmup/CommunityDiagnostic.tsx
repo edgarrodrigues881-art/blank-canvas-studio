@@ -108,13 +108,14 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
     refetchInterval: 60_000,
   });
 
-  if (!cycle) return null;
-
-  const chipState = cycle.chip_state || "new";
-  const communityStartDay = getCommunityStartDay(chipState);
-  const isCommunityUnlocked = (cycle.day_index || 1) >= communityStartDay;
-  const communityDay = membership?.community_day || 0;
   const mode = membership?.community_mode || "disabled";
+
+  if (!cycle && mode !== "community_only") return null;
+
+  const chipState = cycle?.chip_state || "new";
+  const communityStartDay = getCommunityStartDay(chipState);
+  const isCommunityUnlocked = mode === "community_only" || (cycle && (cycle.day_index || 1) >= communityStartDay);
+  const communityDay = membership?.community_day || 0;
   const pairsToday = membership?.pairs_today || 0;
   const msgsToday = membership?.messages_today || 0;
   const cooldownUntil = membership?.cooldown_until;
@@ -123,13 +124,33 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
   const isEligible = membership?.is_eligible;
   const lastJob = membership?.last_job;
   const lastRejectReason = membership?.last_pair_reject_reason;
+  const configType = membership?.config_type || "preset";
+  const intensity = membership?.intensity || "medium";
+  const dailyPairsMax = membership?.daily_pairs_max || 6;
+  const targetMsgsPair = membership?.target_messages_per_pair || 120;
 
-  const pairsTarget = communityDay > 0 ? getPairsTarget(communityDay) : { min: 0, max: 0 };
+  const pairsTarget = mode === "community_only"
+    ? { min: membership?.daily_pairs_min || 3, max: dailyPairsMax }
+    : communityDay > 0 ? getPairsTarget(communityDay) : { min: 0, max: 0 };
   const inCooldown = cooldownUntil && new Date(cooldownUntil) > new Date();
 
   let statusColor = "bg-muted text-muted-foreground";
   let statusText = "Desabilitado";
-  if (!isCommunityUnlocked) {
+  if (mode === "community_only" && membership?.is_enabled) {
+    if (activeSession) {
+      statusText = "Em sessão";
+      statusColor = "bg-emerald-500/20 text-emerald-400";
+    } else if (inCooldown) {
+      statusText = "Em cooldown";
+      statusColor = "bg-blue-500/20 text-blue-400";
+    } else if (lastError) {
+      statusText = "Erro";
+      statusColor = "bg-destructive/20 text-destructive";
+    } else {
+      statusText = "Dedicado ativo";
+      statusColor = "bg-purple-500/20 text-purple-400";
+    }
+  } else if (!isCommunityUnlocked) {
     statusText = `Desbloq. dia ${communityStartDay}`;
     statusColor = "bg-amber-500/20 text-amber-400";
   } else if (mode === "warmup_managed" && membership?.is_enabled) {
@@ -181,20 +202,36 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
 
         {/* Main grid */}
         <div className="grid grid-cols-2 gap-3 text-xs">
-          <div className="space-y-1">
-            <div className="text-muted-foreground">Tipo do chip</div>
-            <div className="font-medium text-foreground">{chipLabels[chipState] || chipState}</div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-muted-foreground">Dia do aquecimento</div>
-            <div className="font-medium text-foreground">{cycle.day_index || 1}/30</div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-muted-foreground">Dia do comunitário</div>
-            <div className="font-medium text-foreground">
-              {communityDay > 0 ? communityDay : isCommunityUnlocked ? "Aguardando reset" : `Começa dia ${communityStartDay}`}
-            </div>
-          </div>
+          {mode === "warmup_managed" && cycle && (
+            <>
+              <div className="space-y-1">
+                <div className="text-muted-foreground">Tipo do chip</div>
+                <div className="font-medium text-foreground">{chipLabels[chipState] || chipState}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-muted-foreground">Dia do aquecimento</div>
+                <div className="font-medium text-foreground">{cycle.day_index || 1}/30</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-muted-foreground">Dia do comunitário</div>
+                <div className="font-medium text-foreground">
+                  {communityDay > 0 ? communityDay : isCommunityUnlocked ? "Aguardando reset" : `Começa dia ${communityStartDay}`}
+                </div>
+              </div>
+            </>
+          )}
+          {mode === "community_only" && (
+            <>
+              <div className="space-y-1">
+                <div className="text-muted-foreground">Configuração</div>
+                <div className="font-medium text-foreground">{configType === "preset" ? `Preset: ${intensity}` : "Customizado"}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-muted-foreground">Meta por bloco</div>
+                <div className="font-medium text-foreground">{targetMsgsPair} msgs</div>
+              </div>
+            </>
+          )}
           <div className="space-y-1">
             <div className="text-muted-foreground">Modo</div>
             <div className="font-medium text-foreground">

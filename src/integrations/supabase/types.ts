@@ -2974,8 +2974,12 @@ export type Database = {
           active_days: Json
           community_day: number
           community_mode: string
+          config_type: string
+          cooldown_max_minutes: number
+          cooldown_min_minutes: number
           cooldown_until: string | null
           created_at: string
+          cross_user_preference: string
           custom_max_delay_seconds: number | null
           custom_min_delay_seconds: number | null
           custom_msgs_per_peer: number | null
@@ -2987,6 +2991,8 @@ export type Database = {
           custom_peers_min: number | null
           cycle_id: string | null
           daily_limit: number
+          daily_pairs_max: number
+          daily_pairs_min: number
           device_id: string
           disabled_at: string | null
           enabled_at: string | null
@@ -3003,8 +3009,11 @@ export type Database = {
           last_session_at: string | null
           messages_today: number
           notes: string | null
+          own_accounts_allowed: boolean
           pairs_today: number
+          partner_repeat_policy: string
           start_hour: string
+          target_messages_per_pair: number
           updated_at: string
           user_id: string
         }
@@ -3012,8 +3021,12 @@ export type Database = {
           active_days?: Json
           community_day?: number
           community_mode?: string
+          config_type?: string
+          cooldown_max_minutes?: number
+          cooldown_min_minutes?: number
           cooldown_until?: string | null
           created_at?: string
+          cross_user_preference?: string
           custom_max_delay_seconds?: number | null
           custom_min_delay_seconds?: number | null
           custom_msgs_per_peer?: number | null
@@ -3025,6 +3038,8 @@ export type Database = {
           custom_peers_min?: number | null
           cycle_id?: string | null
           daily_limit?: number
+          daily_pairs_max?: number
+          daily_pairs_min?: number
           device_id: string
           disabled_at?: string | null
           enabled_at?: string | null
@@ -3041,8 +3056,11 @@ export type Database = {
           last_session_at?: string | null
           messages_today?: number
           notes?: string | null
+          own_accounts_allowed?: boolean
           pairs_today?: number
+          partner_repeat_policy?: string
           start_hour?: string
+          target_messages_per_pair?: number
           updated_at?: string
           user_id: string
         }
@@ -3050,8 +3068,12 @@ export type Database = {
           active_days?: Json
           community_day?: number
           community_mode?: string
+          config_type?: string
+          cooldown_max_minutes?: number
+          cooldown_min_minutes?: number
           cooldown_until?: string | null
           created_at?: string
+          cross_user_preference?: string
           custom_max_delay_seconds?: number | null
           custom_min_delay_seconds?: number | null
           custom_msgs_per_peer?: number | null
@@ -3063,6 +3085,8 @@ export type Database = {
           custom_peers_min?: number | null
           cycle_id?: string | null
           daily_limit?: number
+          daily_pairs_max?: number
+          daily_pairs_min?: number
           device_id?: string
           disabled_at?: string | null
           enabled_at?: string | null
@@ -3079,8 +3103,11 @@ export type Database = {
           last_session_at?: string | null
           messages_today?: number
           notes?: string | null
+          own_accounts_allowed?: boolean
           pairs_today?: number
+          partner_repeat_policy?: string
           start_hour?: string
+          target_messages_per_pair?: number
           updated_at?: string
           user_id?: string
         }
