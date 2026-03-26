@@ -134,7 +134,7 @@ async function deleteDevices(admin: any, userId: string, deviceIds: string[]): P
   return results;
 }
 
-
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
