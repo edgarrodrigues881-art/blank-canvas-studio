@@ -10,6 +10,7 @@ import {
   type WarmupCycle,
 } from "@/hooks/useWarmupV2";
 import { useWarmupEngine } from "@/hooks/useWarmupEngine";
+import { CommunityDiagnostic } from "@/components/warmup/CommunityDiagnostic";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
