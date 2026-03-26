@@ -1175,6 +1175,8 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
     // ── Process per-participant results ──
     let anySuccess = false;
+    let batchHasRateLimit = false;
+    let batchRateLimitCount = 0;
     let consecutiveRealFailures = Number(campaign.consecutive_failures || 0);
     let shouldAutoPause = false;
     let autoPauseReason = "";
