@@ -78,7 +78,6 @@ const menuGroups = [
 ];
 
 const developmentItems = [
-  { title: "Aquecimento Comunitário", url: "/dashboard/community-warmup", icon: Heart, locked: true },
   { title: "Resposta Automática", url: "/dashboard/auto-reply", icon: BotMessageSquare, locked: true },
 ];
 
