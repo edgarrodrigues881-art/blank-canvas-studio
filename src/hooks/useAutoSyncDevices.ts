@@ -96,6 +96,9 @@ export function useAutoSyncDevices(intervalMs = 3_000) {
   // ── Shared sync function exposed for manual trigger ──
   const doSync = useCallback(async () => {
     if (shouldSkipSync()) return;
+    // Guard: skip if no valid session (avoids 401 on sync-devices)
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (!currentSession?.access_token) return;
     if (_isSyncing) {
       queuedSync = true;
       return;
