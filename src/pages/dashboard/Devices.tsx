@@ -539,11 +539,7 @@ const Devices = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await supabase.functions.invoke("manage-devices", {
-        body: { action: "delete", deviceId: id },
-      });
-      if (error) throw new Error(error.message || "Erro ao excluir instância");
-      if (data?.error) throw new Error(data.error);
+      await callManageDevices({ action: "delete", deviceId: id });
       return { id };
     },
     onMutate: async (id: string) => {
