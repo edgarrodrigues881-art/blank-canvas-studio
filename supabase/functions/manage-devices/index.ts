@@ -10,7 +10,131 @@ async function oplog(client: any, userId: string, event: string, details: string
   try { await client.from("operation_logs").insert({ user_id: userId, device_id: deviceId || null, event, details, meta: meta || {} }); } catch (_e) { /* ignore */ }
 }
 
-Deno.serve(async (req) => {
+async function fetchWithTimeout(url: string, opts: RequestInit, ms = 5000): Promise<Response> {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), ms);
+  try { return await fetch(url, { ...opts, signal: c.signal }); }
+  finally { clearTimeout(t); }
+}
+
+async function deleteOneFromProvider(providerBase: string, providerToken: string | null, adminToken: string, label: string | null): Promise<boolean> {
+  if (!providerBase) return false;
+  
+  // Quick disconnect attempt
+  if (providerToken) {
+    try {
+      await fetchWithTimeout(`${providerBase}/instance/disconnect`, {
+        method: "POST",
+        headers: { token: providerToken, Accept: "application/json", "Content-Type": "application/json" },
+      }, 3000);
+    } catch { /* ignore */ }
+  }
+
+  // Try delete with instance token (fast path)
+  if (providerToken) {
+    try {
+      const res = await fetchWithTimeout(`${providerBase}/instance`, {
+        method: "DELETE",
+        headers: { token: providerToken, Accept: "application/json", "Content-Type": "application/json" },
+      }, 5000);
+      if (res.ok || res.status === 404) return true;
+    } catch { /* continue */ }
+  }
+
+  // Fallback: admin token with name/label
+  if (adminToken && (providerToken || label)) {
+    const payloads = [
+      ...(providerToken ? [{ token: providerToken }] : []),
+      ...(label ? [{ name: label }] : []),
+    ];
+    for (const payload of payloads) {
+      try {
+        const res = await fetchWithTimeout(`${providerBase}/instance/delete`, {
+          method: "POST",
+          headers: { admintoken: adminToken, Accept: "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }, 5000);
+        if (res.ok || res.status === 404) return true;
+      } catch { /* next */ }
+    }
+  }
+  return false;
+}
+
+async function deleteDevices(admin: any, userId: string, deviceIds: string[]): Promise<{ id: string; ok: boolean; error?: string }[]> {
+  // Fetch all devices at once
+  const { data: devices } = await admin
+    .from("devices")
+    .select("id, proxy_id, uazapi_token, uazapi_base_url")
+    .eq("user_id", userId)
+    .in("id", deviceIds);
+
+  if (!devices || devices.length === 0) {
+    return deviceIds.map(id => ({ id, ok: true }));
+  }
+
+  const ADMIN_TOKEN = Deno.env.get("UAZAPI_TOKEN") || "";
+  const DEFAULT_BASE = (Deno.env.get("UAZAPI_BASE_URL") || "").replace(/\/+$/, "");
+
+  // Fetch all token labels at once
+  const { data: tokenRows } = await admin
+    .from("user_api_tokens")
+    .select("device_id, label")
+    .in("device_id", deviceIds);
+  const labelMap = new Map((tokenRows || []).map((r: any) => [r.device_id, r.label]));
+
+  const results: { id: string; ok: boolean; error?: string }[] = [];
+
+  // Process devices in batches of 5 concurrently
+  const BATCH = 5;
+  for (let i = 0; i < devices.length; i += BATCH) {
+    const batch = devices.slice(i, i + BATCH);
+    const batchResults = await Promise.allSettled(batch.map(async (device: any) => {
+      try {
+        const providerBase = (device.uazapi_base_url || DEFAULT_BASE).replace(/\/+$/, "");
+        
+        // 1. Delete from provider (non-blocking — don't fail if provider is down)
+        const providerDeleted = await deleteOneFromProvider(
+          providerBase, device.uazapi_token, ADMIN_TOKEN, labelMap.get(device.id) || null
+        );
+        console.log(`[bulk-delete] ${device.id}: provider=${providerDeleted ? "ok" : "skip"}`);
+
+        // 2-5. DB cleanup in parallel
+        const proxyId = device.proxy_id;
+        await Promise.allSettled([
+          admin.from("user_api_tokens").update({ status: "deleted", device_id: null, assigned_at: null }).eq("device_id", device.id),
+          admin.from("warmup_jobs").delete().eq("device_id", device.id),
+          admin.from("warmup_audit_logs").delete().eq("device_id", device.id),
+          admin.from("warmup_logs").delete().eq("device_id", device.id),
+          admin.from("warmup_instance_groups").delete().eq("device_id", device.id),
+          admin.from("warmup_community_membership").delete().eq("device_id", device.id),
+          admin.from("warmup_sessions").delete().eq("device_id", device.id),
+          admin.from("warmup_cycles").delete().eq("device_id", device.id),
+          ...(proxyId ? [admin.from("proxies").update({ status: "USADA" }).eq("id", proxyId)] : []),
+        ]);
+
+        // Delete device record
+        await admin.from("devices").delete().eq("id", device.id);
+        
+        // Log (fire and forget)
+        oplog(admin, userId, "instance_deleted", `Instância deletada (bulk)`, device.id).catch(() => {});
+
+        return { id: device.id, ok: true };
+      } catch (e: any) {
+        console.error(`[bulk-delete] ${device.id} error:`, e.message);
+        return { id: device.id, ok: false, error: e.message };
+      }
+    }));
+
+    for (const r of batchResults) {
+      results.push(r.status === "fulfilled" ? r.value : { id: "unknown", ok: false, error: "unexpected" });
+    }
+  }
+
+  return results;
+}
+
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
