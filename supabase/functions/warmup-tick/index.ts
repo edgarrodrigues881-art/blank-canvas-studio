@@ -1404,7 +1404,7 @@ async function reconcileCommunityPairs(
   let createdCount = 0;
   if (validPairs.length < targetPeers) {
     const { data: eligible } = await db.from("warmup_community_membership")
-      .select("device_id, user_id")
+      .select("device_id, user_id, community_day")
       .eq("is_enabled", true)
       .eq("is_eligible", true)
       .neq("device_id", params.deviceId)
