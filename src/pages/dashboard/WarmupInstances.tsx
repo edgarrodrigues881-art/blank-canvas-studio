@@ -881,6 +881,13 @@ const WarmupInstances = () => {
         const cycle = cycleByDeviceId.get(d.id);
         if (!cycle || !cycle.is_running) return false;
       }
+      if (statusFilter === "paused") {
+        const cycle = cycleByDeviceId.get(d.id);
+        if (!cycle || cycle.phase !== "paused") return false;
+      }
+      if (statusFilter === "no_warmup") {
+        if (cycleByDeviceId.has(d.id)) return false;
+      }
       return true;
     });
   }, [filteredDevices, search, statusFilter, cycleByDeviceId, activeFolder, activeFolderId, allFolderDeviceIds]);
@@ -1641,16 +1648,19 @@ const WarmupInstances = () => {
               </Button>
             </>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn("gap-1.5 text-xs h-8", showFilters && "bg-primary/10 border-primary/25 text-primary")}
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <Filter className="w-3 h-3" /> Filtros
+            {statusFilter !== "all" && (
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            )}
+          </Button>
           {!activeFolder && (
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs h-8"
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <Filter className="w-3 h-3" /> Filtros
-              </Button>
               <Button size="sm" className="gap-1.5 text-xs h-8 bg-amber-600 hover:bg-amber-700 text-white" onClick={openBulkWarmupDialog}>
                 <Flame className="w-3.5 h-3.5" /> Aquecer em massa
               </Button>
@@ -1659,19 +1669,68 @@ const WarmupInstances = () => {
         </div>
       </div>
 
-      {/* Filters - only on main view */}
-      {!activeFolder && showFilters && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-[180px] max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50" />
+      {/* Filters */}
+      {showFilters && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.2 }}
+          className="flex items-center gap-2.5 flex-wrap"
+        >
+          <div className="relative min-w-[180px] max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/40" />
             <Input
-              placeholder="Buscar..."
+              placeholder="Buscar instância..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 h-8 text-xs bg-card/50 border-border/30"
+              className="pl-8 h-8 text-xs bg-card border-border/20 rounded-lg focus-visible:ring-primary/20"
             />
           </div>
-        </div>
+
+          <div className="h-5 w-px bg-border/20 hidden sm:block" />
+
+          {[
+            { value: "all", label: "Todos", icon: Smartphone, count: filteredDevices.length },
+            { value: "connected", label: "Conectados", icon: Wifi, count: filteredDevices.filter(d => isConnected(d.status)).length },
+            { value: "disconnected", label: "Desconectados", icon: WifiOff, count: disconnectedCount },
+            { value: "warming", label: "Aquecendo", icon: Flame, count: filteredDevices.filter(d => { const c = cycleByDeviceId.get(d.id); return c && c.is_running; }).length },
+            { value: "paused", label: "Pausados", icon: Pause, count: filteredDevices.filter(d => { const c = cycleByDeviceId.get(d.id); return c?.phase === "paused"; }).length },
+            { value: "no_warmup", label: "Sem aquecimento", icon: Ban, count: filteredDevices.filter(d => !cycleByDeviceId.has(d.id)).length },
+          ].map(({ value, label, icon: Icon, count }) => (
+            <button
+              key={value}
+              onClick={() => setStatusFilter(value)}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-150 border",
+                statusFilter === value
+                  ? "bg-primary/10 border-primary/25 text-primary shadow-sm"
+                  : "bg-card border-border/15 text-muted-foreground hover:bg-muted/30 hover:border-border/30"
+              )}
+            >
+              <Icon className="w-3 h-3 shrink-0" />
+              {label}
+              <span className={cn(
+                "ml-0.5 px-1.5 py-[1px] rounded-md text-[9px] font-bold tabular-nums",
+                statusFilter === value
+                  ? "bg-primary/15 text-primary"
+                  : "bg-muted/40 text-muted-foreground/60"
+              )}>
+                {count}
+              </span>
+            </button>
+          ))}
+
+          {statusFilter !== "all" && (
+            <button
+              onClick={() => { setStatusFilter("all"); setSearch(""); }}
+              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
+            >
+              <X className="w-3 h-3" />
+              Limpar
+            </button>
+          )}
+        </motion.div>
       )}
 
       {/* Grid */}
