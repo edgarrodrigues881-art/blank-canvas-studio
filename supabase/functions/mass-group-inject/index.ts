@@ -1168,6 +1168,24 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
             });
           }
         }
+
+        // ── Final verification: re-check unknown_failure contacts against live group ──
+        const unknownPhones = [...batchResults.entries()].filter(([_, r]) => r.status === "unknown_failure").map(([p]) => p);
+        if (unknownPhones.length > 0) {
+          try {
+            const finalCheck = await getGroupParticipantsDetailed(device.uazapi_base_url, device.uazapi_token, contactGroupId);
+            if (finalCheck.participants.size > 0) {
+              for (const phone of unknownPhones) {
+                if (participantSetHasPhone(finalCheck.participants, phone)) {
+                  batchResults.set(phone, { status: "completed", detail: "Adicionado com sucesso (verificação final)." });
+                  console.log(`[mass-inject] campaign=${campaignId} OVERRIDE unknown_failure → completed for ${phone}`);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn(`[mass-inject] campaign=${campaignId} final verification failed`, e);
+          }
+        }
       }
     } catch (error: any) {
       const isTimeout = error.message?.includes("Timeout");
