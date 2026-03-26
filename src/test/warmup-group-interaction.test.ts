@@ -109,9 +109,10 @@ function getPhaseForDay(day: number, chipState: string): string {
   return "community_enabled";
 }
 
-function getGroupMsgVolume(phase: string): number {
+function getGroupMsgVolume(phase: string, dayIndex: number = 2): number {
   if (phase === "pre_24h" || phase === "completed") return 0;
-  return randInt(200, 500);
+  if (dayIndex < 2) return 0;
+  return randInt(120, 200);
 }
 
 // ── JID Resolution logic ──
@@ -190,11 +191,11 @@ describe("Group Interaction — JID Resolution", () => {
 });
 
 describe("Group Interaction — Volume e Timeline", () => {
-  it("groups_only: 200-500 mensagens por dia", () => {
+  it("dia 2-30: 120-200 mensagens por dia", () => {
     for (let i = 0; i < 50; i++) {
-      const vol = getGroupMsgVolume("groups_only");
-      expect(vol).toBeGreaterThanOrEqual(200);
-      expect(vol).toBeLessThanOrEqual(500);
+      const vol = getGroupMsgVolume("groups_only", randInt(2, 30));
+      expect(vol).toBeGreaterThanOrEqual(120);
+      expect(vol).toBeLessThanOrEqual(200);
     }
   });
 
@@ -206,10 +207,15 @@ describe("Group Interaction — Volume e Timeline", () => {
     expect(getGroupMsgVolume("completed")).toBe(0);
   });
 
-  it("autosave_enabled e community_enabled também têm grupos", () => {
+  it("dia 1: 0 mensagens", () => {
+    expect(getGroupMsgVolume("groups_only", 1)).toBe(0);
+  });
+
+  it("autosave_enabled e community_enabled também têm grupos 120-200", () => {
     for (const phase of ["autosave_enabled", "community_enabled"]) {
-      const vol = getGroupMsgVolume(phase);
-      expect(vol).toBeGreaterThanOrEqual(200);
+      const vol = getGroupMsgVolume(phase, 10);
+      expect(vol).toBeGreaterThanOrEqual(120);
+      expect(vol).toBeLessThanOrEqual(200);
     }
   });
 

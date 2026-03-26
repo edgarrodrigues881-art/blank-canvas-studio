@@ -209,6 +209,12 @@ function getCommunityBurstsPerPeer(dayIndex: number, chipState: string): number 
   return 8;
 }
 
+function getGroupMsgsForDay(dayIndex: number): number {
+  // Regra fixa: do dia 2 ao dia 30, todas as contas enviam 120-200 msgs/dia em grupo
+  if (dayIndex < 2) return 0;
+  return randInt(120, 200);
+}
+
 function getVolumes(chipState: string, dayIndex: number, phase: string): DayVolumes {
   const v: DayVolumes = {
     groupMsgs: 0, autosaveContacts: 0, autosaveRounds: 0,
@@ -216,29 +222,23 @@ function getVolumes(chipState: string, dayIndex: number, phase: string): DayVolu
   };
   if (["pre_24h", "completed", "paused", "error"].includes(phase)) return v;
 
-  const totalBudget = getProgressiveDailyBudget(dayIndex, chipState);
+  // Grupo: faixa fixa 120-200 para todos os dias 2-30
+  v.groupMsgs = getGroupMsgsForDay(dayIndex);
 
-  if (phase === "groups_only") {
-    v.groupMsgs = totalBudget;
-  } else if (phase === "autosave_enabled") {
+  if (phase === "autosave_enabled") {
     const asContacts = getAutosaveContactsForDay(dayIndex, chipState);
     const asRounds = getAutosaveRoundsPerContact(chipState);
-    const asTotal = asContacts * asRounds;
     v.autosaveContacts = asContacts;
     v.autosaveRounds = asRounds;
-    v.groupMsgs = Math.max(totalBudget - asTotal, 30);
   } else if (isCommunityPhase(phase)) {
     const asContacts = getAutosaveContactsForDay(dayIndex, chipState);
     const asRounds = getAutosaveRoundsPerContact(chipState);
-    const asTotal = asContacts * asRounds;
     v.autosaveContacts = asContacts;
     v.autosaveRounds = asRounds;
     const peers = getCommunityPeers(dayIndex, chipState);
     const burstsPerPeer = getCommunityBurstsPerPeer(dayIndex, chipState);
-    const communityMsgs = peers * burstsPerPeer;
     v.communityPeers = peers;
     v.communityMsgsPerPeer = burstsPerPeer;
-    v.groupMsgs = Math.max(totalBudget - asTotal - communityMsgs, 30);
   }
 
   return v;
