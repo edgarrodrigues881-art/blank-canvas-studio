@@ -94,10 +94,11 @@ const INTENSITY_PRESETS: Record<string, {
   min_delay: number; max_delay: number;
   pause_after_min: number; pause_after_max: number;
   pause_duration_min: number; pause_duration_max: number;
+  cooldown_min: number; cooldown_max: number;
 }> = {
-  low: { daily_limit: 300, peers_min: 2, peers_max: 4, msgs_per_peer: 80, min_delay: 45, max_delay: 120, pause_after_min: 8, pause_after_max: 15, pause_duration_min: 120, pause_duration_max: 300 },
-  medium: { daily_limit: 500, peers_min: 3, peers_max: 6, msgs_per_peer: 120, min_delay: 30, max_delay: 90, pause_after_min: 10, pause_after_max: 20, pause_duration_min: 60, pause_duration_max: 180 },
-  high: { daily_limit: 700, peers_min: 5, peers_max: 10, msgs_per_peer: 120, min_delay: 15, max_delay: 60, pause_after_min: 12, pause_after_max: 25, pause_duration_min: 45, pause_duration_max: 120 },
+  low: { daily_limit: 300, peers_min: 2, peers_max: 4, msgs_per_peer: 80, min_delay: 45, max_delay: 120, pause_after_min: 8, pause_after_max: 15, pause_duration_min: 120, pause_duration_max: 300, cooldown_min: 30, cooldown_max: 60 },
+  medium: { daily_limit: 500, peers_min: 3, peers_max: 6, msgs_per_peer: 120, min_delay: 30, max_delay: 90, pause_after_min: 10, pause_after_max: 20, pause_duration_min: 60, pause_duration_max: 180, cooldown_min: 15, cooldown_max: 45 },
+  high: { daily_limit: 700, peers_min: 5, peers_max: 10, msgs_per_peer: 120, min_delay: 15, max_delay: 60, pause_after_min: 12, pause_after_max: 25, pause_duration_min: 45, pause_duration_max: 120, cooldown_min: 10, cooldown_max: 30 },
 };
 
 // ══════════════════════════════════════════════════════════
