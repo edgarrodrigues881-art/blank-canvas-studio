@@ -1286,9 +1286,18 @@ async function reconcileCommunityPairs(
     cycleId: string;
     dayIndex: number;
     chipState: string;
+    communityDay?: number;
   },
 ): Promise<ReconcileCommunityPairsResult> {
-  const targetPeers = getCommunityPeers(params.dayIndex, params.chipState);
+  // Fetch community_day from membership if not provided
+  let communityDay = params.communityDay;
+  if (communityDay === undefined) {
+    const { data: membership } = await db.from("warmup_community_membership")
+      .select("community_day").eq("device_id", params.deviceId).maybeSingle();
+    communityDay = membership?.community_day || 1;
+  }
+
+  const targetPeers = getCommunityPeers(params.dayIndex, params.chipState, communityDay);
   if (targetPeers <= 0) {
     return { pairs: [], keptCount: 0, createdCount: 0, closedCount: 0, targetPeers };
   }
