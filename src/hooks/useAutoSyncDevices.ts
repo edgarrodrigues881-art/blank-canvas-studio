@@ -106,7 +106,12 @@ export function useAutoSyncDevices(intervalMs = 3_000) {
 
     _isSyncing = true;
     try {
-      await supabase.functions.invoke("sync-devices");
+      const { error } = await supabase.functions.invoke("sync-devices");
+      // If 401/auth error, skip silently — session may not be ready
+      if (error) {
+        const msg = typeof error === "object" ? JSON.stringify(error) : String(error);
+        if (msg.includes("401") || msg.includes("Unauthorized") || msg.includes("Auth session")) return;
+      }
       if (!shouldSkipSync()) {
         await queryClient.refetchQueries({ queryKey: ["devices"] });
         queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
