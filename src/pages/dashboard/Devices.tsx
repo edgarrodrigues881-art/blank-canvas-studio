@@ -97,7 +97,7 @@ function formatPhone(num: string): string {
 
 const Devices = () => {
   const { toast } = useToast();
-  const { session } = useAuth();
+  const { session, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
