@@ -1,12 +1,17 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, Users, Zap, CheckCircle2, XCircle, Clock, AlertTriangle, BarChart3 } from "lucide-react";
+import { Loader2, RefreshCw, Users, Zap, CheckCircle2, XCircle, Clock, AlertTriangle, BarChart3, Shield, Globe } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+type ModeFilter = "all" | "warmup_managed" | "community_only";
+
 const CommunityOverviewTab = () => {
+  const [modeFilter, setModeFilter] = useState<ModeFilter>("all");
+
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["community-stats-admin"],
     queryFn: async () => {
@@ -23,8 +28,32 @@ const CommunityOverviewTab = () => {
 
   const stats = data || {};
 
+  const warmupCount = stats.warmup_managed_count || 0;
+  const dedicatedCount = stats.community_only_count || 0;
+
+  const modeCards = [
+    {
+      label: "Aquecimento",
+      value: warmupCount,
+      icon: Shield,
+      color: "text-teal-400",
+      border: modeFilter === "warmup_managed" ? "border-teal-500/60 ring-1 ring-teal-500/30" : "border-border/50",
+      filter: "warmup_managed" as ModeFilter,
+      desc: "Comunitário como etapa do warmup",
+    },
+    {
+      label: "Dedicado",
+      value: dedicatedCount,
+      icon: Zap,
+      color: "text-purple-400",
+      border: modeFilter === "community_only" ? "border-purple-500/60 ring-1 ring-purple-500/30" : "border-border/50",
+      filter: "community_only" as ModeFilter,
+      desc: "Comunitário avulso",
+    },
+  ];
+
   const statCards = [
-    { label: "Membros ativos", value: stats.total_members || 0, icon: Users, color: "text-blue-400" },
+    { label: "Total membros", value: stats.total_members || 0, icon: Users, color: "text-blue-400" },
     { label: "Elegíveis agora", value: stats.eligible_now || 0, icon: CheckCircle2, color: "text-emerald-400" },
     { label: "Bloqueadas", value: stats.blocked_now || 0, icon: XCircle, color: "text-amber-400" },
     { label: "Sessões ativas", value: stats.active_sessions || 0, icon: Zap, color: "text-purple-400" },
@@ -44,6 +73,7 @@ const CommunityOverviewTab = () => {
     community_day_not_started: "Com. não iniciado",
     pairs_limit_reached: "Limite de duplas",
     device_not_configured: "Não configurado",
+    mode_disabled: "Modo desabilitado",
   };
 
   const sessionsByHour = stats.sessions_by_hour || {};
@@ -58,6 +88,40 @@ const CommunityOverviewTab = () => {
           <RefreshCw size={13} />
         </Button>
       </div>
+
+      {/* Mode selector cards */}
+      <div className="grid grid-cols-2 gap-3">
+        {modeCards.map((m) => (
+          <Card
+            key={m.label}
+            className={`cursor-pointer transition-all hover:border-primary/30 ${m.border} bg-card/50`}
+            onClick={() => setModeFilter(f => f === m.filter ? "all" : m.filter)}
+          >
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-muted/50">
+                <m.icon className={`w-5 h-5 ${m.color}`} />
+              </div>
+              <div>
+                <div className="text-xl font-bold text-foreground">{m.value}</div>
+                <div className="text-xs font-medium text-foreground">{m.label}</div>
+                <div className="text-[10px] text-muted-foreground">{m.desc}</div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {modeFilter !== "all" && (
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className={`text-xs ${modeFilter === "warmup_managed" ? "text-teal-400 border-teal-500/30" : "text-purple-400 border-purple-500/30"}`}>
+            <Globe className="w-3 h-3 mr-1" />
+            Filtrando: {modeFilter === "warmup_managed" ? "Aquecimento" : "Dedicado"}
+          </Badge>
+          <Button variant="ghost" size="sm" onClick={() => setModeFilter("all")} className="h-6 px-2 text-xs">
+            Limpar filtro
+          </Button>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -134,7 +198,12 @@ const CommunityOverviewTab = () => {
               <div className="space-y-1">
                 {(stats.top_devices || []).map((d: any) => (
                   <div key={d.device_id} className="flex items-center justify-between text-xs px-2 py-1 rounded bg-muted/30">
-                    <span className="font-mono text-foreground">{d.device_id.substring(0, 8)}…</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-foreground">{d.device_id.substring(0, 8)}…</span>
+                      <Badge variant="outline" className={`text-[8px] ${d.community_mode === "community_only" ? "text-purple-400 border-purple-500/30" : "text-teal-400 border-teal-500/30"}`}>
+                        {d.community_mode === "community_only" ? "DED" : "WRM"}
+                      </Badge>
+                    </div>
                     <div className="flex items-center gap-2">
                       <span className="text-muted-foreground">{d.messages_today} msgs</span>
                       <span className="text-muted-foreground">{d.pairs_today} duplas</span>
@@ -187,6 +256,9 @@ const CommunityOverviewTab = () => {
                       log.level === "error" ? "bg-red-400" : log.level === "warn" ? "bg-amber-400" : "bg-teal-400"
                     }`} />
                     <span className="text-foreground flex-1 truncate">{log.message}</span>
+                    <Badge variant="outline" className={`text-[8px] shrink-0 ${log.community_mode === "community_only" ? "text-purple-400 border-purple-500/30" : "text-teal-400 border-teal-500/30"}`}>
+                      {log.community_mode === "community_only" ? "DED" : "WRM"}
+                    </Badge>
                     <Badge variant="outline" className="text-[8px] shrink-0">{log.event_type}</Badge>
                     <span className="text-muted-foreground shrink-0">
                       {new Date(log.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}

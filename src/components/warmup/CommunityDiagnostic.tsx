@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Globe, Users, MessageSquare, Clock, AlertTriangle, CheckCircle2, Target, Play, History, XCircle } from "lucide-react";
+import { Globe, Users, MessageSquare, Clock, AlertTriangle, CheckCircle2, Target, Play, History, XCircle, Settings2, Zap, Shield } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -21,6 +21,36 @@ function getPairsTarget(communityDay: number): { min: number; max: number } {
   if (communityDay <= 6) return { min: 5, max: 8 };
   return { min: 6, max: 10 };
 }
+
+const reasonLabels: Record<string, string> = {
+  device_disconnected: "Desconectado",
+  cooldown_active: "Em cooldown",
+  daily_limit_reached: "Limite diário",
+  session_active: "Em sessão",
+  outside_window: "Fora do horário",
+  no_active_cycle: "Sem ciclo ativo",
+  warmup_day_too_early: "Dia insuficiente",
+  community_day_not_started: "Com. não iniciado",
+  pairs_limit_reached: "Limite de duplas",
+  no_candidates: "Sem candidatos",
+  all_partners_blocked: "Parceiros bloqueados",
+  spacing_block: "Espaçamento",
+  same_pair_repeated_today: "Par repetido",
+  device_not_configured: "Não configurado",
+  mode_disabled: "Modo desabilitado",
+};
+
+const repeatPolicyLabels: Record<string, string> = {
+  avoid_same_day: "Evitar no mesmo dia",
+  strict_no_repeat: "Nunca repetir no dia",
+  allow_repeat: "Permitir repetição",
+};
+
+const crossUserLabels: Record<string, string> = {
+  prefer_cross: "Preferir outros clientes",
+  balanced: "Equilibrado",
+  prefer_own: "Preferir próprias",
+};
 
 interface Props {
   deviceId: string;
@@ -63,19 +93,6 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
     },
     enabled: !!deviceId,
     refetchInterval: 15_000,
-  });
-
-  const { data: activePairs = [] } = useQuery({
-    queryKey: ["community_pairs_diag", deviceId],
-    queryFn: async () => {
-      const [{ data: a }, { data: b }] = await Promise.all([
-        supabase.from("community_pairs").select("id, instance_id_a, instance_id_b, status, messages_total, target_messages, created_at").eq("instance_id_a", deviceId).eq("status", "active"),
-        supabase.from("community_pairs").select("id, instance_id_a, instance_id_b, status, messages_total, target_messages, created_at").eq("instance_id_b", deviceId).eq("status", "active"),
-      ]);
-      return [...(a || []), ...(b || [])];
-    },
-    enabled: !!deviceId,
-    refetchInterval: 30_000,
   });
 
   const { data: recentSessions = [] } = useQuery({
@@ -122,123 +139,157 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
   const lastPartner = membership?.last_partner_device_id;
   const lastError = membership?.last_error;
   const isEligible = membership?.is_eligible;
-  const lastJob = membership?.last_job;
   const lastRejectReason = membership?.last_pair_reject_reason;
   const configType = membership?.config_type || "preset";
   const intensity = membership?.intensity || "medium";
   const dailyPairsMax = membership?.daily_pairs_max || 6;
+  const dailyPairsMin = membership?.daily_pairs_min || 3;
   const targetMsgsPair = membership?.target_messages_per_pair || 120;
+  const cooldownMin = membership?.cooldown_min_minutes || 15;
+  const cooldownMax = membership?.cooldown_max_minutes || 45;
+  const partnerRepeatPolicy = membership?.partner_repeat_policy || "avoid_same_day";
+  const crossUserPref = membership?.cross_user_preference || "balanced";
+  const ownAccountsAllowed = membership?.own_accounts_allowed ?? true;
+  const timeWindowStart = membership?.time_window_start || "07:00";
+  const timeWindowEnd = membership?.time_window_end || "21:00";
 
   const pairsTarget = mode === "community_only"
-    ? { min: membership?.daily_pairs_min || 3, max: dailyPairsMax }
+    ? { min: dailyPairsMin, max: dailyPairsMax }
     : communityDay > 0 ? getPairsTarget(communityDay) : { min: 0, max: 0 };
   const inCooldown = cooldownUntil && new Date(cooldownUntil) > new Date();
 
+  const isWarmup = mode === "warmup_managed";
+  const isDedicated = mode === "community_only";
+
   let statusColor = "bg-muted text-muted-foreground";
   let statusText = "Desabilitado";
-  if (mode === "community_only" && membership?.is_enabled) {
-    if (activeSession) {
-      statusText = "Em sessão";
-      statusColor = "bg-emerald-500/20 text-emerald-400";
-    } else if (inCooldown) {
-      statusText = "Em cooldown";
-      statusColor = "bg-blue-500/20 text-blue-400";
-    } else if (lastError) {
-      statusText = "Erro";
-      statusColor = "bg-destructive/20 text-destructive";
-    } else {
-      statusText = "Dedicado ativo";
-      statusColor = "bg-purple-500/20 text-purple-400";
-    }
-  } else if (!isCommunityUnlocked) {
-    statusText = `Desbloq. dia ${communityStartDay}`;
-    statusColor = "bg-amber-500/20 text-amber-400";
-  } else if (mode === "warmup_managed" && membership?.is_enabled) {
-    if (activeSession) {
-      statusText = "Em sessão";
-      statusColor = "bg-emerald-500/20 text-emerald-400";
-    } else if (inCooldown) {
-      statusText = "Em cooldown";
-      statusColor = "bg-blue-500/20 text-blue-400";
-    } else if (lastError) {
-      statusText = "Erro";
-      statusColor = "bg-destructive/20 text-destructive";
-    } else {
-      statusText = "Ativo";
-      statusColor = "bg-emerald-500/20 text-emerald-400";
-    }
+  let modeLabel = "—";
+  let modeBorderColor = "border-border/50";
+
+  if (isDedicated && membership?.is_enabled) {
+    modeLabel = "Dedicado";
+    modeBorderColor = "border-purple-500/40";
+    if (activeSession) { statusText = "Em sessão"; statusColor = "bg-emerald-500/20 text-emerald-400"; }
+    else if (inCooldown) { statusText = "Em cooldown"; statusColor = "bg-blue-500/20 text-blue-400"; }
+    else if (lastError) { statusText = "Erro"; statusColor = "bg-destructive/20 text-destructive"; }
+    else { statusText = "Dedicado ativo"; statusColor = "bg-purple-500/20 text-purple-400"; }
+  } else if (isWarmup && membership?.is_enabled) {
+    modeLabel = "Aquecimento";
+    modeBorderColor = "border-teal-500/40";
+    if (!isCommunityUnlocked) { statusText = `Desbloq. dia ${communityStartDay}`; statusColor = "bg-amber-500/20 text-amber-400"; }
+    else if (activeSession) { statusText = "Em sessão"; statusColor = "bg-emerald-500/20 text-emerald-400"; }
+    else if (inCooldown) { statusText = "Em cooldown"; statusColor = "bg-blue-500/20 text-blue-400"; }
+    else if (lastError) { statusText = "Erro"; statusColor = "bg-destructive/20 text-destructive"; }
+    else { statusText = "Ativo"; statusColor = "bg-emerald-500/20 text-emerald-400"; }
   } else if (mode === "disabled") {
     statusText = "Aguardando";
+    modeLabel = "Desabilitado";
   }
 
-  const reasonLabels: Record<string, string> = {
-    device_disconnected: "Desconectado",
-    cooldown_active: "Em cooldown",
-    daily_limit_reached: "Limite diário",
-    session_active: "Em sessão",
-    outside_window: "Fora do horário",
-    no_active_cycle: "Sem ciclo ativo",
-    warmup_day_too_early: "Dia insuficiente",
-    community_day_not_started: "Com. não iniciado",
-    pairs_limit_reached: "Limite de duplas",
-    no_candidates: "Sem candidatos",
-    all_partners_blocked: "Parceiros bloqueados",
-    spacing_block: "Espaçamento",
-    same_pair_repeated_today: "Par repetido",
-    device_not_configured: "Não configurado",
-  };
-
   return (
-    <Card className="border-border/50 bg-card/50">
+    <Card className={`${modeBorderColor} bg-card/50`}>
       <CardContent className="p-4 space-y-3">
-        {/* Header */}
+        {/* Header with mode badge */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Globe className="w-4 h-4 text-purple-400" />
             <span className="text-sm font-semibold text-foreground">Diagnóstico Comunitário</span>
+            <Badge variant="outline" className={`text-[10px] ${isDedicated ? "bg-purple-500/15 text-purple-400 border-purple-500/30" : isWarmup ? "bg-teal-500/15 text-teal-400 border-teal-500/30" : "bg-muted"}`}>
+              {modeLabel}
+            </Badge>
           </div>
           <Badge className={statusColor}>{statusText}</Badge>
         </div>
 
-        {/* Main grid */}
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          {mode === "warmup_managed" && cycle && (
-            <>
-              <div className="space-y-1">
+        {/* ═══ WARMUP_MANAGED section ═══ */}
+        {isWarmup && cycle && (
+          <div className="p-2.5 rounded-md bg-teal-500/5 border border-teal-500/15 space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-teal-400">
+              <Shield className="w-3 h-3" /> Modo Aquecimento Automático
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+              <div className="space-y-0.5">
                 <div className="text-muted-foreground">Tipo do chip</div>
                 <div className="font-medium text-foreground">{chipLabels[chipState] || chipState}</div>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <div className="text-muted-foreground">Dia do aquecimento</div>
                 <div className="font-medium text-foreground">{cycle.day_index || 1}/30</div>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <div className="text-muted-foreground">Dia do comunitário</div>
                 <div className="font-medium text-foreground">
                   {communityDay > 0 ? communityDay : isCommunityUnlocked ? "Aguardando reset" : `Começa dia ${communityStartDay}`}
                 </div>
               </div>
-            </>
-          )}
-          {mode === "community_only" && (
-            <>
-              <div className="space-y-1">
-                <div className="text-muted-foreground">Configuração</div>
-                <div className="font-medium text-foreground">{configType === "preset" ? `Preset: ${intensity}` : "Customizado"}</div>
+              <div className="space-y-0.5">
+                <div className="text-muted-foreground">Início comunitário</div>
+                <div className="font-medium text-foreground">Dia {communityStartDay}</div>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
+                <div className="text-muted-foreground">Fase do ciclo</div>
+                <div className="font-medium text-foreground">{cycle.phase}</div>
+              </div>
+              <div className="space-y-0.5">
+                <div className="text-muted-foreground">Meta por bloco</div>
+                <div className="font-medium text-foreground">~120 msgs</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ COMMUNITY_ONLY section ═══ */}
+        {isDedicated && (
+          <div className="p-2.5 rounded-md bg-purple-500/5 border border-purple-500/15 space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-400">
+              <Zap className="w-3 h-3" /> Modo Dedicado / Avulso
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+              <div className="space-y-0.5">
+                <div className="text-muted-foreground">Configuração</div>
+                <div className="font-medium text-foreground flex items-center gap-1">
+                  <Settings2 className="w-3 h-3" />
+                  {configType === "preset" ? `Preset: ${intensity}` : "Manual"}
+                </div>
+              </div>
+              <div className="space-y-0.5">
                 <div className="text-muted-foreground">Meta por bloco</div>
                 <div className="font-medium text-foreground">{targetMsgsPair} msgs</div>
               </div>
-            </>
-          )}
-          <div className="space-y-1">
-            <div className="text-muted-foreground">Modo</div>
-            <div className="font-medium text-foreground">
-              {mode === "warmup_managed" ? "Aquecimento" : mode === "community_only" ? "Dedicado" : "—"}
+              <div className="space-y-0.5">
+                <div className="text-muted-foreground">Limite de duplas</div>
+                <div className="font-medium text-foreground">{dailyPairsMin}–{dailyPairsMax}/dia</div>
+              </div>
+              <div className="space-y-0.5">
+                <div className="text-muted-foreground">Cooldown</div>
+                <div className="font-medium text-foreground">{cooldownMin}–{cooldownMax} min</div>
+              </div>
+              <div className="space-y-0.5">
+                <div className="text-muted-foreground">Janela de horário</div>
+                <div className="font-medium text-foreground">{timeWindowStart}–{timeWindowEnd}</div>
+              </div>
+              <div className="space-y-0.5">
+                <div className="text-muted-foreground">Contas próprias</div>
+                <div className="font-medium text-foreground">{ownAccountsAllowed ? "Sim" : "Não"}</div>
+              </div>
+              <div className="space-y-0.5">
+                <div className="text-muted-foreground">Cross-user</div>
+                <div className="font-medium text-foreground">{crossUserLabels[crossUserPref] || crossUserPref}</div>
+              </div>
+              <div className="space-y-0.5">
+                <div className="text-muted-foreground">Repetição de par</div>
+                <div className="font-medium text-foreground">{repeatPolicyLabels[partnerRepeatPolicy] || partnerRepeatPolicy}</div>
+              </div>
+            </div>
+            <div className="text-[10px] text-muted-foreground italic mt-1">
+              Não depende de chip, aquecimento ou community_day
             </div>
           </div>
-          <div className="space-y-1">
+        )}
+
+        {/* Shared metrics */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="space-y-0.5">
             <div className="flex items-center gap-1 text-muted-foreground">
               <Users className="w-3 h-3" /> Duplas hoje
             </div>
@@ -246,13 +297,13 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
               {pairsToday} / {pairsTarget.min}–{pairsTarget.max}
             </div>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <div className="flex items-center gap-1 text-muted-foreground">
               <MessageSquare className="w-3 h-3" /> Msgs hoje
             </div>
             <div className="font-medium text-foreground">{msgsToday}</div>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <div className="text-muted-foreground">Elegível</div>
             <div className="font-medium flex items-center gap-1">
               {isEligible ? (
@@ -262,7 +313,7 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
               )}
             </div>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <div className="flex items-center gap-1 text-muted-foreground">
               <Clock className="w-3 h-3" /> Cooldown
             </div>
@@ -285,8 +336,13 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
         {/* Active Session Block */}
         {activeSession && (
           <div className="p-2.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
-              <Play className="w-3 h-3" /> Sessão Ativa
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+                <Play className="w-3 h-3" /> Sessão Ativa
+              </div>
+              <Badge variant="outline" className={`text-[10px] ${activeSession.community_mode === "community_only" ? "text-purple-400 border-purple-500/30" : "text-teal-400 border-teal-500/30"}`}>
+                {activeSession.community_mode === "community_only" ? "Dedicado" : "Aquecimento"}
+              </Badge>
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
@@ -326,23 +382,6 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
           </div>
         )}
 
-        {/* Active Pairs */}
-        {!activeSession && activePairs.length > 0 && (
-          <div className="space-y-1">
-            <div className="text-xs text-muted-foreground">Duplas ativas ({activePairs.length})</div>
-            <div className="flex flex-wrap gap-1">
-              {activePairs.map((p: any) => {
-                const peerId = p.instance_id_a === deviceId ? p.instance_id_b : p.instance_id_a;
-                return (
-                  <Badge key={p.id} variant="outline" className="text-[10px] font-mono">
-                    {peerId.substring(0, 8)}… {p.messages_total}/{p.target_messages || 120}
-                  </Badge>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* Recent Sessions */}
         {recentSessions.length > 0 && (
           <div className="space-y-1.5">
@@ -358,6 +397,9 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
                     <div className="flex items-center gap-1.5">
                       <span className={`w-1.5 h-1.5 rounded-full ${isComplete ? "bg-emerald-400" : s.status === "active" ? "bg-blue-400" : "bg-amber-400"}`} />
                       <span className="font-mono text-foreground">{peerId?.substring(0, 8)}…</span>
+                      <Badge variant="outline" className={`text-[8px] ${s.community_mode === "community_only" ? "text-purple-400" : "text-teal-400"}`}>
+                        {s.community_mode === "community_only" ? "DED" : "WRM"}
+                      </Badge>
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <span>{s.messages_total}/{s.target_messages}</span>
@@ -410,8 +452,8 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
               <span>Último parceiro: <span className="font-mono text-foreground">{lastPartner.substring(0, 8)}…</span></span>
             )}
           </div>
-          {lastJob && (
-            <span className="text-[10px]">Job: {lastJob}</span>
+          {membership?.last_job && (
+            <span className="text-[10px]">Job: {membership.last_job}</span>
           )}
         </div>
       </CardContent>
