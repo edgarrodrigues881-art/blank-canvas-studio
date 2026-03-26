@@ -1102,16 +1102,32 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
         let currentParticipants = new Set<string>();
         collectParticipantsFromValue(groupInfo?.Participants || groupInfo?.participants, currentParticipants);
+        console.log(`[mass-inject] campaign=${campaignId} groupUpdated=${groupUpdatedList.length} participants_from_response=${currentParticipants.size}`);
 
-        const shouldRefreshParticipants = needsRefresh || currentParticipants.size === 0 || groupUpdatedList.length < phones.length;
-        if (shouldRefreshParticipants) {
-          try {
-            const refreshedState = await getGroupParticipantsDetailed(device.uazapi_base_url, device.uazapi_token, contactGroupId);
-            if (refreshedState.participants.size > 0) {
-              currentParticipants = refreshedState.participants;
+        // Always refresh participant list for accurate verification
+        try {
+          const refreshedState = await getGroupParticipantsDetailed(device.uazapi_base_url, device.uazapi_token, contactGroupId);
+          if (refreshedState.participants.size > 0) {
+            currentParticipants = refreshedState.participants;
+            console.log(`[mass-inject] campaign=${campaignId} refreshed_participants=${currentParticipants.size}`);
+          }
+        } catch (error) {
+          console.warn(`[mass-inject] campaign=${campaignId} failed to refresh participants after add`, error);
+        }
+
+        // If no groupUpdated but we have participant list, check directly
+        if (groupUpdatedList.length === 0 && currentParticipants.size > 0) {
+          for (const phone of phones) {
+            if (participantSetHasPhone(currentParticipants, phone) && !participantSetHasPhone(participantsBefore, phone)) {
+              batchResults.set(phone, { status: "completed", detail: "Adicionado com sucesso." });
+              console.log(`[mass-inject] campaign=${campaignId} participant verified in group: ${phone}`);
+            } else if (participantSetHasPhone(participantsBefore, phone)) {
+              batchResults.set(phone, { status: "already_exists", detail: "Contato já participava do grupo." });
+            } else if (participantSetHasPhone(currentParticipants, phone)) {
+              batchResults.set(phone, { status: "completed", detail: "Adicionado com sucesso." });
+            } else {
+              batchResults.set(phone, { status: "failed", detail: "Não foi possível adicionar ao grupo." });
             }
-          } catch (error) {
-            console.warn(`[mass-inject] campaign=${campaignId} failed to refresh participants after add`, error);
           }
         }
 
