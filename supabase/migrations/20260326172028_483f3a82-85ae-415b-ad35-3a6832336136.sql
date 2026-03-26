@@ -1,0 +1,1 @@
+UPDATE mass_inject_contacts SET status = 'pending', error_message = NULL WHERE campaign_id = 'd91d2925-f5c3-4f5d-a255-b5e60fa97751' AND status = 'unknown_failure';
