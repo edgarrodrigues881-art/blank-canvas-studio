@@ -210,7 +210,7 @@ export default function ChipConversation() {
           </DialogHeader>
           {editingConv && (
             <CreateConversationForm
-              devices={devices}
+              devices={editingConv ? getEditDevices(editingConv) : devices}
               onSubmit={handleEdit}
               isLoading={actions.update.isPending}
               initialData={editingConv}
