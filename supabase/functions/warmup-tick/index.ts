@@ -1404,9 +1404,23 @@ async function reconcileCommunityPairs(
   }
 
   if (validPairs.length > targetPeers) {
-    const shuffledValid = [...validPairs].sort(() => Math.random() - 0.5);
-    const keptPairs = shuffledValid.slice(0, targetPeers);
-    const overflowIds = shuffledValid.slice(targetPeers).map((pair: any) => pair.id);
+    // Prioritize keeping pairs with active conversations
+    const withConversation = validPairs.filter((pair: any) => {
+      const meta = pair.meta && typeof pair.meta === "object" ? pair.meta as Record<string, any> : {};
+      return Boolean(meta.conversation_id && meta.expected_sender_device_id);
+    });
+    const withoutConversation = validPairs.filter((pair: any) => {
+      const meta = pair.meta && typeof pair.meta === "object" ? pair.meta as Record<string, any> : {};
+      return !meta.conversation_id || !meta.expected_sender_device_id;
+    });
+
+    // Keep conversation pairs first, then fill with others
+    const keptPairs = [...withConversation];
+    const remaining = [...withoutConversation].sort(() => Math.random() - 0.5);
+    while (keptPairs.length < targetPeers && remaining.length > 0) {
+      keptPairs.push(remaining.shift()!);
+    }
+    const overflowIds = remaining.map((pair: any) => pair.id);
 
     if (overflowIds.length > 0) {
       closedCount += await closeCommunityPairs(db, overflowIds);
