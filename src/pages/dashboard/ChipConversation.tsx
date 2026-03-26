@@ -122,6 +122,25 @@ export default function ChipConversation() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingConv, setEditingConv] = useState<ChipConversation | null>(null);
 
+  // Chips already in active/running/paused conversations are busy
+  const busyDeviceIds = new Set(
+    conversations
+      .filter((c) => {
+        const s = normalizeConversationStatus(c.status);
+        return s === "running" || s === "paused";
+      })
+      .flatMap((c) => c.device_ids || [])
+  );
+
+  // Available devices = not busy (for creating new conversations)
+  const availableDevices = devices.filter((d: any) => !busyDeviceIds.has(d.id));
+
+  // For editing, include the conversation's own devices + available
+  const getEditDevices = (conv: ChipConversation) => {
+    const ownIds = new Set(conv.device_ids || []);
+    return devices.filter((d: any) => ownIds.has(d.id) || !busyDeviceIds.has(d.id));
+  };
+
   const handleDelete = async (id: string) => {
     try {
       await actions.remove.mutateAsync(id);
@@ -167,7 +186,7 @@ export default function ChipConversation() {
               <DialogTitle>Criar Conversa Automática</DialogTitle>
             </DialogHeader>
             <CreateConversationForm
-              devices={devices}
+              devices={availableDevices}
               onSubmit={async (data) => {
                 try {
                   await actions.create.mutateAsync(data);
@@ -191,7 +210,7 @@ export default function ChipConversation() {
           </DialogHeader>
           {editingConv && (
             <CreateConversationForm
-              devices={devices}
+              devices={editingConv ? getEditDevices(editingConv) : devices}
               onSubmit={handleEdit}
               isLoading={actions.update.isPending}
               initialData={editingConv}
