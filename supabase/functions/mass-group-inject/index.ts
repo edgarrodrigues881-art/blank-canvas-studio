@@ -1259,11 +1259,16 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       await sb.from("devices").update({ status: "Ready", updated_at: nowIso() }).eq("id", device.id);
     }
 
-    // Update consecutive failures counter
-    await sb.from("mass_inject_campaigns").update({
+    // Update consecutive failures counter + reset rate_limit_count on success
+    const counterPatch: Record<string, any> = {
       consecutive_failures: consecutiveRealFailures,
       updated_at: nowIso(),
-    }).eq("id", campaignId);
+    };
+    // If batch had NO rate limits and had successes, reset rate_limit_count to reduce backoff
+    if (!batchHasRateLimit && anySuccess) {
+      counterPatch.rate_limit_count = 0;
+    }
+    await sb.from("mass_inject_campaigns").update(counterPatch).eq("id", campaignId);
 
     // Auto-pause check
     if (shouldAutoPause) {
