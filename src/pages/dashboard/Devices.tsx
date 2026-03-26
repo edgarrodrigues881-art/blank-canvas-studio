@@ -1905,7 +1905,7 @@ const Devices = () => {
               {/* Status badge */}
               <div className="px-4 pt-3.5">
                 <div className={cn(
-                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest",
+                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest opacity-100",
                   smartStatus === 'online' ? "text-primary bg-primary/8" : "text-muted-foreground bg-muted/30"
                 )}>
                   <span className={cn(
@@ -1955,7 +1955,7 @@ const Devices = () => {
                     {d.name}
                   </p>
                   {d.number && (
-                    <p className="text-[11px] font-mono text-muted-foreground mt-1 tracking-wide">
+                    <p className="text-[11px] text-muted-foreground mt-1 tracking-wide font-sans my-[9px] border-0 opacity-100 font-semibold">
                       {formatPhone(d.number)}
                     </p>
                   )}
