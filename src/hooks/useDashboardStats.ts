@@ -43,6 +43,20 @@ export interface DashboardStats {
   warmupEvolution: WarmupEvolutionPoint[];
 }
 
+function normalizeDeviceStatus(status: string | null | undefined, hasNumber = false) {
+  const normalized = String(status || "").toLowerCase().trim();
+
+  if (["ready", "connected", "authenticated", "open", "online"].includes(normalized)) {
+    return "Ready";
+  }
+
+  if (normalized === "active" && hasNumber) {
+    return "Ready";
+  }
+
+  return "Disconnected";
+}
+
 export function useDashboardStats() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -108,13 +122,14 @@ export function useDashboardStats() {
       const chips: ChipInfo[] = devices.map((d) => {
         const cycle = cycles.find((c) => c.device_id === d.id && c.is_running);
         const activeCycle = cycle || cycles.find((c) => c.device_id === d.id && c.phase === "paused");
+        const normalizedStatus = normalizeDeviceStatus(d.status, !!d.number);
 
         return {
           id: d.id,
           name: d.name,
           number: d.number,
-          status: d.status,
-          connected: d.status === "Ready",
+          status: normalizedStatus,
+          connected: normalizedStatus === "Ready",
           volumeToday: activeCycle?.daily_interaction_budget_used || 0,
           lastActivity: activeCycle?.updated_at || null,
           proxyHost: d.proxy_id ? (proxyMap[d.proxy_id] || "Configurado") : null,

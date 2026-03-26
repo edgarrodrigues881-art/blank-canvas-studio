@@ -230,33 +230,42 @@ Deno.serve(async (req) => {
       const providerToken = device.uazapi_token;
       const providerBase = (device.uazapi_base_url || Deno.env.get("UAZAPI_BASE_URL") || "").replace(/\/+$/, "");
       const ADMIN_TOKEN = Deno.env.get("UAZAPI_TOKEN") || "";
+      const { data: tokenRow } = await admin.from("user_api_tokens")
+        .select("label")
+        .eq("device_id", deviceId)
+        .maybeSingle();
 
-      if (providerBase && providerToken) {
+      if (providerBase && (providerToken || tokenRow?.label)) {
         try {
           // Disconnect first
-          await fetch(`${providerBase}/instance/disconnect`, {
-            method: "POST",
-            headers: { token: providerToken, Accept: "application/json", "Content-Type": "application/json" },
-          }).catch(() => {});
+          if (providerToken) {
+            await fetch(`${providerBase}/instance/disconnect`, {
+              method: "POST",
+              headers: { token: providerToken, Accept: "application/json", "Content-Type": "application/json" },
+            }).catch(() => {});
+          }
 
           // Try deleting via instance token
-          const tokenHeaders = [
-            { token: providerToken },
-            { Authorization: `Bearer ${providerToken}` },
-          ];
           let deleted = false;
 
-          for (const h of tokenHeaders) {
-            for (const ep of ["/instance", "/instance/delete"]) {
-              try {
-                const res = await fetch(`${providerBase}${ep}`, {
-                  method: "DELETE",
-                  headers: { ...h, Accept: "application/json", "Content-Type": "application/json" },
-                });
-                if (res.ok || res.status === 404) { deleted = true; break; }
-              } catch { /* try next */ }
+          if (providerToken) {
+            const tokenHeaders = [
+              { token: providerToken },
+              { Authorization: `Bearer ${providerToken}` },
+            ];
+
+            for (const h of tokenHeaders) {
+              for (const ep of ["/instance", "/instance/delete"]) {
+                try {
+                  const res = await fetch(`${providerBase}${ep}`, {
+                    method: "DELETE",
+                    headers: { ...h, Accept: "application/json", "Content-Type": "application/json" },
+                  });
+                  if (res.ok || res.status === 404) { deleted = true; break; }
+                } catch { /* try next */ }
+              }
+              if (deleted) break;
             }
-            if (deleted) break;
           }
 
           // Fallback: admin token
@@ -266,14 +275,10 @@ Deno.serve(async (req) => {
               { token: ADMIN_TOKEN },
               { Authorization: `Bearer ${ADMIN_TOKEN}` },
             ];
-            // Get token label for admin delete
-            const { data: tokenRow } = await admin.from("user_api_tokens")
-              .select("label").eq("device_id", deviceId).maybeSingle();
-
             for (const ah of adminHeaders) {
               for (const payload of [
-                { token: providerToken },
-                ...(tokenRow?.label ? [{ name: tokenRow.label }] : []),
+                ...(providerToken ? [{ token: providerToken }] : []),
+                ...(tokenRow?.label ? [{ name: tokenRow.label }, { label: tokenRow.label }] : []),
               ]) {
                 try {
                   const res = await fetch(`${providerBase}/instance/delete`, {

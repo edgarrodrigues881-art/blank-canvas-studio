@@ -80,7 +80,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           // Track status
           prevStatusRef.current[newRow.id] = newStatus;
 
-          const connectedStatuses = ["Ready", "Connected", "authenticated"];
+          const connectedStatuses = ["Ready", "Connected", "authenticated", "connected", "open"];
           const wasConnected = connectedStatuses.includes(prevStatus);
           const isNowConnected = connectedStatuses.includes(newStatus);
 
