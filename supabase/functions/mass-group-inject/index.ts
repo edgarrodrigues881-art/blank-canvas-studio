@@ -695,29 +695,27 @@ async function updateCampaignCounters(sb: any, campaign: any, status: string, pa
 
   if (status === "completed") {
     patch.success_count = Number(campaign.success_count || 0) + 1;
-    patch.consecutive_failures = 0; // Reset on success
-    eventType = "contact_added"; eventLevel = "success";
+    patch.consecutive_failures = 0;
+    eventType = "contact_added";
+    eventLevel = "success";
   } else if (status === "already_exists") {
     patch.already_count = Number(campaign.already_count || 0) + 1;
-    patch.consecutive_failures = 0; // Reset on already_exists (not a failure)
-    eventType = "contact_already_exists"; eventLevel = "info";
+    patch.consecutive_failures = 0;
+    eventType = "contact_already_exists";
+    eventLevel = "info";
   } else if (status === "session_dropped") {
-    // session_dropped is TRANSIENT — track separately, do NOT count as real fail
-    patch.timeout_count = Number(campaign.timeout_count || 0) + 1; // reuse timeout counter
-    eventType = "session_dropped"; eventLevel = "warning";
-    // Do NOT increment consecutive_failures — session drops are recoverable
-  } else if (status === "rate_limited") {
-    // rate_limited is API throttling — track separately, do NOT count as fail
-    patch.rate_limit_count = Number(campaign.rate_limit_count || 0) + 1;
-    eventType = "rate_limited"; eventLevel = "warning";
-    // Do NOT increment consecutive_failures for rate_limited
-  } else if (status === "timeout") {
-    // timeout is temporary — track separately, do NOT count as fail
     patch.timeout_count = Number(campaign.timeout_count || 0) + 1;
-    eventType = "timeout"; eventLevel = "warning";
-    // Do NOT increment consecutive_failures for isolated timeouts
+    eventType = "session_dropped";
+    eventLevel = "warning";
+  } else if (status === "rate_limited") {
+    patch.rate_limit_count = Number(campaign.rate_limit_count || 0) + 1;
+    eventType = "rate_limited";
+    eventLevel = "warning";
+  } else if (status === "timeout") {
+    patch.timeout_count = Number(campaign.timeout_count || 0) + 1;
+    eventType = "timeout";
+    eventLevel = "warning";
   } else if (REAL_FAILURE_STATUSES.has(status)) {
-    // REAL definitive failures
     patch.fail_count = Number(campaign.fail_count || 0) + 1;
     patch.consecutive_failures = Number(campaign.consecutive_failures || 0) + 1;
     if (status === "contact_not_found") eventType = "contact_not_found";
@@ -726,18 +724,34 @@ async function updateCampaignCounters(sb: any, campaign: any, status: string, pa
     else eventType = "contact_error";
     eventLevel = "error";
   } else if (FAILURE_STATUSES.has(status)) {
-    // Other transient failures (api_temporary, connection_unconfirmed, etc.)
-    patch.fail_count = Number(campaign.fail_count || 0) + 1;
-    eventType = "contact_error"; eventLevel = "warning";
+    // Falhas transitórias não entram em "Falhas Reais"
+    eventType = "contact_retryable";
+    eventLevel = "warning";
   }
 
   if (pauseCampaign) {
     patch.status = "paused";
     patch.pause_reason = pauseReason || getPauseReason(status);
-    eventType = "campaign_paused"; eventLevel = "warning";
+    eventType = "campaign_paused";
+    eventLevel = "warning";
   }
 
-  await sb.from("mass_inject_campaigns").update(patch).eq("id", campaign.id);
+  const { error } = await sb.from("mass_inject_campaigns").update(patch).eq("id", campaign.id);
+  if (error) throw error;
+
+  Object.assign(campaign, {
+    ...campaign,
+    ...patch,
+    success_count: patch.success_count ?? campaign.success_count,
+    already_count: patch.already_count ?? campaign.already_count,
+    fail_count: patch.fail_count ?? campaign.fail_count,
+    rate_limit_count: patch.rate_limit_count ?? campaign.rate_limit_count,
+    timeout_count: patch.timeout_count ?? campaign.timeout_count,
+    consecutive_failures: patch.consecutive_failures ?? campaign.consecutive_failures,
+    status: patch.status ?? campaign.status,
+    pause_reason: patch.pause_reason ?? campaign.pause_reason,
+  });
+
   if (eventType) await emitCampaignEvent(sb, campaign.id, eventType, eventLevel, pauseReason);
 }
 
@@ -1039,8 +1053,8 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       return;
     }
 
-    // ── BATCH PROCESSING: claim up to 5 contacts ──
-    const BATCH_SIZE = 5;
+    // ── SINGLE-CONTACT PROCESSING: mantém o delay humano entre cada adição ──
+    const BATCH_SIZE = 1;
     const batchContacts: any[] = [];
     for (let i = 0; i < BATCH_SIZE; i++) {
       const { data: contact } = await sb.rpc("claim_next_mass_inject_contact", {
@@ -1061,7 +1075,6 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       return;
     }
 
-    // Recheck campaign status after claiming
     const { data: recheckCampaign } = await sb.from("mass_inject_campaigns").select("status").eq("id", campaignId).single();
     if (!recheckCampaign || !["queued", "processing"].includes(recheckCampaign.status)) {
       console.log(`[mass-inject] campaign=${campaignId} status changed to ${recheckCampaign?.status} after claim — releasing ${batchContacts.length} contacts`);
@@ -1073,15 +1086,21 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       return;
     }
 
-    // Build batch request
     const contactGroupId = batchContacts[0].target_group_id || campaign.group_id;
     const phones = batchContacts.map((c: any) => c.phone.replace(/@.*/, ""));
-    console.log(`[mass-inject] campaign=${campaignId} BATCH processing ${phones.length} contacts in group=${contactGroupId}`);
+    console.log(`[mass-inject] campaign=${campaignId} processing ${phones.length} contact(s) in group=${contactGroupId}`);
 
-    // ── Call /group/updateParticipants with batch ──
     type PerContactResult = { status: ContactProcessingStatus; detail: string };
     const batchResults = new Map<string, PerContactResult>();
     let needsRefresh = false;
+    let participantsBefore = new Set<string>();
+
+    try {
+      const beforeState = await getGroupParticipantsDetailed(device.uazapi_base_url, device.uazapi_token, contactGroupId);
+      participantsBefore = beforeState.participants;
+    } catch (error) {
+      console.warn(`[mass-inject] campaign=${campaignId} failed to read participants before add`, error);
+    }
 
     try {
       const res = await fetchWithTimeout(`${device.uazapi_base_url}/group/updateParticipants`, {
@@ -1095,17 +1114,19 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       });
 
       const { raw, body: respBody } = await readApiResponse(res);
+      const providerMessage = extractProviderMessage(respBody, raw);
 
       if (!res.ok) {
-        const failure = classifyAddFailure(extractProviderMessage(respBody, raw), res.status);
+        const failure = classifyAddFailure(providerMessage, res.status);
         for (const phone of phones) {
           batchResults.set(phone, { status: failure.status, detail: failure.detail });
         }
 
-        // Check for connection issues on non-OK response
         if (failure.status === "connection_unconfirmed" || res.status === 503) {
-          const { finalResult: connCheck, confirmedDisconnect } = await checkInstanceConnectionWithRetries(
-            device.uazapi_base_url, device.uazapi_token, `batch_fail:${contactGroupId}`
+          const { confirmedDisconnect } = await checkInstanceConnectionWithRetries(
+            device.uazapi_base_url,
+            device.uazapi_token,
+            `batch_fail:${contactGroupId}`,
           );
           if (confirmedDisconnect) {
             for (const phone of phones) {
@@ -1114,52 +1135,77 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
           }
         }
       } else {
-        // Parse groupUpdated for per-participant results
-        const groupUpdated = respBody?.groupUpdated || respBody?.data?.groupUpdated || [];
+        const groupUpdatedList = Array.isArray(respBody?.groupUpdated || respBody?.data?.groupUpdated)
+          ? (respBody?.groupUpdated || respBody?.data?.groupUpdated)
+          : [];
         const groupInfo = respBody?.group || respBody?.data?.group || {};
         needsRefresh = respBody?.needs_refresh === true;
 
-        // Build participants set from response for "already in group" detection
-        const currentParticipants = new Set<string>();
+        let currentParticipants = new Set<string>();
         collectParticipantsFromValue(groupInfo?.Participants || groupInfo?.participants, currentParticipants);
 
-        if (Array.isArray(groupUpdated) && groupUpdated.length > 0) {
-          for (const entry of groupUpdated) {
-            const jid = entry?.JID || entry?.jid || entry?.participant || "";
-            const errorCode = Number(entry?.Error ?? entry?.error ?? -1);
-            const entryPhone = jid.replace(/@.*/, "").replace(/\D/g, "");
-
-            const matchedPhone = phones.find(p =>
-              p === entryPhone || buildPhoneFingerprints(p).some(fp => fp === entryPhone)
-            );
-
-            if (matchedPhone) {
-              if (errorCode === 0) {
-                batchResults.set(matchedPhone, { status: "completed", detail: "Adicionado com sucesso." });
-              } else if (participantSetHasPhone(currentParticipants, matchedPhone)) {
-                batchResults.set(matchedPhone, { status: "already_exists", detail: "Contato já participava do grupo." });
-              } else {
-                batchResults.set(matchedPhone, { status: "unknown_failure", detail: `Erro ao adicionar (código: ${errorCode}).` });
-              }
+        const shouldRefreshParticipants = needsRefresh || currentParticipants.size === 0 || groupUpdatedList.length < phones.length;
+        if (shouldRefreshParticipants) {
+          try {
+            const refreshedState = await getGroupParticipantsDetailed(device.uazapi_base_url, device.uazapi_token, contactGroupId);
+            if (refreshedState.participants.size > 0) {
+              currentParticipants = refreshedState.participants;
             }
+          } catch (error) {
+            console.warn(`[mass-inject] campaign=${campaignId} failed to refresh participants after add`, error);
           }
         }
 
-        // Fill in results for phones not in groupUpdated response
+        for (const entry of groupUpdatedList) {
+          const jid = String(entry?.JID || entry?.jid || entry?.participant || "");
+          const errorCode = Number(entry?.Error ?? entry?.error ?? -1);
+          const entryFingerprints = buildPhoneFingerprints(jid);
+          const matchedPhone = phones.find((phone) => buildPhoneFingerprints(phone).some((fp) => entryFingerprints.includes(fp)));
+
+          if (!matchedPhone) continue;
+
+          if (errorCode === 0) {
+            batchResults.set(matchedPhone, { status: "completed", detail: "Adicionado com sucesso." });
+          } else if (participantSetHasPhone(participantsBefore, matchedPhone)) {
+            batchResults.set(matchedPhone, { status: "already_exists", detail: "Contato já participava do grupo." });
+          } else if (participantSetHasPhone(currentParticipants, matchedPhone)) {
+            batchResults.set(matchedPhone, { status: "completed", detail: "Adicionado com sucesso." });
+          } else {
+            const failure = classifyAddFailure(
+              String(entry?.message || entry?.detail || providerMessage || `Erro ao adicionar (código: ${errorCode}).`),
+              res.status,
+            );
+            batchResults.set(matchedPhone, { status: failure.status, detail: failure.detail });
+          }
+        }
+
         for (const phone of phones) {
-          if (!batchResults.has(phone)) {
-            if (participantSetHasPhone(currentParticipants, phone)) {
-              batchResults.set(phone, { status: "already_exists", detail: "Contato já participava do grupo." });
-            } else if (groupUpdated.length === 0) {
-              const rawLower = raw.toLowerCase();
-              if (rawLower.includes("already") || rawLower.includes("já")) {
-                batchResults.set(phone, { status: "already_exists", detail: "Contato já participava do grupo." });
-              } else {
-                batchResults.set(phone, { status: "completed", detail: "Adicionado (sem confirmação individual)." });
-              }
-            } else {
-              batchResults.set(phone, { status: "unknown_failure", detail: "Sem resultado individual na resposta." });
-            }
+          if (batchResults.has(phone)) continue;
+
+          if (participantSetHasPhone(participantsBefore, phone)) {
+            batchResults.set(phone, { status: "already_exists", detail: "Contato já participava do grupo." });
+            continue;
+          }
+
+          if (participantSetHasPhone(currentParticipants, phone)) {
+            batchResults.set(phone, { status: "completed", detail: "Adicionado com sucesso." });
+            continue;
+          }
+
+          const rawLower = `${raw} ${providerMessage}`.toLowerCase();
+          if (rawLower.includes("already") || rawLower.includes("já")) {
+            batchResults.set(phone, { status: "already_exists", detail: "Contato já participava do grupo." });
+            continue;
+          }
+
+          const failure = classifyAddFailure(providerMessage || raw, res.status);
+          if (failure.status !== "unknown_failure" || providerMessage) {
+            batchResults.set(phone, { status: failure.status, detail: failure.detail });
+          } else {
+            batchResults.set(phone, {
+              status: "unknown_failure",
+              detail: "Sem resultado individual na resposta e sem confirmação no grupo.",
+            });
           }
         }
       }
@@ -1206,10 +1252,9 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       if (isTransient && retryCount < maxRetries) {
         let cooldownDelay = randomBetween(20_000, 40_000);
         if (result.status === "rate_limited") {
-          // Exponential backoff: 30s, 60s, 120s, 240s, 480s...
           const baseBackoff = 30_000;
           const expBackoff = baseBackoff * Math.pow(2, retryCount);
-          cooldownDelay = Math.min(expBackoff + randomBetween(5_000, 15_000), 600_000); // cap 10min
+          cooldownDelay = Math.min(expBackoff + randomBetween(5_000, 15_000), 600_000);
         } else if (result.status === "session_dropped") {
           cooldownDelay = Math.round(cooldownDelay * (1 + retryCount * 0.5));
         }
@@ -1228,7 +1273,6 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         }).eq("id", contact.id);
         await updateCampaignCounters(sb, campaign, result.status, false);
       } else {
-        // Final status (success, already_exists, or definitive failure)
         const finalError = SUCCESS_STATUSES.has(result.status) ? null : stripRetryMeta(result.detail);
         await sb.from("mass_inject_contacts").update({
           status: result.status,
@@ -1254,23 +1298,21 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       }
     }
 
-    // Update device status based on batch results
     if (anySuccess) {
       await sb.from("devices").update({ status: "Ready", updated_at: nowIso() }).eq("id", device.id);
     }
 
-    // Update consecutive failures counter + reset rate_limit_count on success
     const counterPatch: Record<string, any> = {
       consecutive_failures: consecutiveRealFailures,
       updated_at: nowIso(),
     };
-    // If batch had NO rate limits and had successes, reset rate_limit_count to reduce backoff
     if (!batchHasRateLimit && anySuccess) {
       counterPatch.rate_limit_count = 0;
+      campaign.rate_limit_count = 0;
     }
     await sb.from("mass_inject_campaigns").update(counterPatch).eq("id", campaignId);
+    campaign.consecutive_failures = consecutiveRealFailures;
 
-    // Auto-pause check
     if (shouldAutoPause) {
       console.log(`[mass-inject] campaign=${campaignId} AUTO-PAUSE: ${autoPauseReason}`);
       await sb.from("mass_inject_campaigns").update({
@@ -1280,34 +1322,28 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       return;
     }
 
-    // Handle needs_refresh
     if (needsRefresh) {
       console.log(`[mass-inject] campaign=${campaignId} needs_refresh=true, adding extra delay`);
     }
 
-    // Check if campaign should be finalized
     const finalized = await finalizeCampaignIfNeeded(sb, campaignId);
     if (finalized || !(await campaignCanKeepRunning(sb, campaignId))) {
       return;
     }
 
-    // Compute next delay — add extra time for batch cooldown + needs_refresh + rate limit backoff
     let nextDelayMs = computeNextDelayMs(campaign, undefined, device.id);
     if (needsRefresh) {
       nextDelayMs = Math.max(nextDelayMs, randomBetween(30_000, 60_000));
     }
 
-    // ── EXPONENTIAL BACKOFF for rate limits ──
-    // Uses campaign.rate_limit_count as consecutive 429 tracker
     if (batchHasRateLimit) {
       const consecutiveRL = Number(campaign.rate_limit_count || 0) + batchRateLimitCount;
-      // Exponential: 30s, 60s, 120s, 240s... capped at 10min
       const rlBackoffMs = Math.min(30_000 * Math.pow(2, Math.min(consecutiveRL - 1, 5)), 600_000);
       const rlDelay = rlBackoffMs + randomBetween(5_000, 15_000);
       nextDelayMs = Math.max(nextDelayMs, rlDelay);
-      console.log(`[mass-inject] campaign=${campaignId} RATE LIMIT BACKOFF: ${consecutiveRL} consecutive 429s, next batch in ${Math.round(rlDelay/1000)}s`);
+      console.log(`[mass-inject] campaign=${campaignId} RATE LIMIT BACKOFF: ${consecutiveRL} consecutive 429s, next batch in ${Math.round(rlDelay / 1000)}s`);
       await emitCampaignEvent(sb, campaignId, "rate_limit_backoff", "warning",
-        `Limite da API atingido (${batchRateLimitCount}/${batchContacts.length} contatos). Cooldown exponencial: ${Math.round(rlDelay/1000)}s.`);
+        `Limite da API atingido (${batchRateLimitCount}/${batchContacts.length} contatos). Cooldown exponencial: ${Math.round(rlDelay / 1000)}s.`);
     }
 
     console.log(`[mass-inject] campaign=${campaignId} batch done (${contactsProcessedThisRun} contacts), requeue in ${nextDelayMs}ms`);

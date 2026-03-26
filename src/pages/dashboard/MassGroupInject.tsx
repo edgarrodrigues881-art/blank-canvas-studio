@@ -87,7 +87,7 @@ function translateError(err: string): string {
   if (e.includes("contact_not_found") || e.includes("não foi encontrado")) return "Contato não encontrado no WhatsApp";
   if (e.includes("unauthorized") || e.includes("autenticação")) return "Falha de autenticação da instância";
   if (e.includes("blocked") || e.includes("ban") || e.includes("bloqueio")) return "Número bloqueado pelo WhatsApp";
-  if (e.includes("limite de requisições") || e.includes("rate") || e.includes("429")) return "Limite de API (429) — aguardando";
+  if (e.includes("limite de requisições") || e.includes("rate") || e.includes("429")) return "Limite da API atingido — aguardando cooldown automático";
   if (e.includes("api temporariamente")) return "API sobrecarregada — aguardando";
   if (e.includes("tentativas esgotadas")) return clean;
   if (e.includes("tempo de resposta") || e.includes("timeout")) return "Tempo de resposta excedido";
@@ -95,7 +95,6 @@ function translateError(err: string): string {
   if (e.includes("todas as instâncias")) return "Todas as instâncias desconectadas";
   if (e.includes("cancelada pelo usuário")) return "Cancelado pelo usuário";
   if (e.includes("não classificada") || e.includes("falha não")) return "Falha não classificada";
-  // Don't use generic "Erro temporário" - show what we know
   if (e.includes("sessão") && e.includes("desconectada")) return "Sessão da API desconectada";
   if (e.includes("whatsapp disconnected") || e.includes("disconnected")) return "Sessão da API desconectada (temporário)";
   if (e.includes("not admin")) return "Sem privilégio de admin";
@@ -188,24 +187,18 @@ function classifyContacts(rawLines: string[]): ImportedContact[] {
   });
 }
 
+const REAL_FAILURE_CONTACT_STATUSES = new Set([
+  "failed",
+  "confirmed_disconnect",
+  "confirmed_no_admin",
+  "invalid_group",
+  "contact_not_found",
+  "unauthorized",
+  "blocked",
+]);
+
 function isFailureStatus(status: string) {
-  return [
-    "failed",
-    "rate_limited",
-    "api_temporary",
-    "temporary_error",
-    "connection_unconfirmed",
-    "session_dropped",
-    "confirmed_disconnect",
-    "permission_unconfirmed",
-    "confirmed_no_admin",
-    "invalid_group",
-    "contact_not_found",
-    "unauthorized",
-    "blocked",
-    "unknown_failure",
-    "cancelled",
-  ].includes(status);
+  return REAL_FAILURE_CONTACT_STATUSES.has(status);
 }
 
 // Statuses eligible for retry / export (anything that wasn't successfully added)
@@ -231,7 +224,9 @@ const ACTIVE_QUEUE_STATUSES = new Set([
   "processing",
   "rate_limited",
   "api_temporary",
+  "temporary_error",
   "connection_unconfirmed",
+  "session_dropped",
   "permission_unconfirmed",
   "unknown_failure",
   "timeout",
@@ -239,7 +234,7 @@ const ACTIVE_QUEUE_STATUSES = new Set([
 
 const WATCHDOG_INTERVAL_MS = 5000;
 const WATCHDOG_GRACE_MS = 5000;
-const WATCHDOG_STALE_AFTER_MS = 15000;
+const WATCHDOG_STALE_AFTER_MS = 60000;
 const STALE_PROCESSING_MS = 3 * 60 * 1000;
 const WATCHDOG_RUNTIME_NOTE = "Fila atrasada — reativando automaticamente...";
 
@@ -797,7 +792,7 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     let list = contacts;
     if (activeFilter === "success") list = list.filter((c: any) => isSuccessStatus(c.status));
     else if (activeFilter === "failed") list = list.filter((c: any) => isFailureStatus(c.status));
-    else if (activeFilter === "pending") list = list.filter((c: any) => c.status === "pending");
+    else if (activeFilter === "pending") list = list.filter((c: any) => ACTIVE_QUEUE_STATUSES.has(c.status));
     else if (activeFilter !== "all") list = list.filter((c: any) => c.status === activeFilter);
     if (searchContact.trim()) {
       const q = searchContact.toLowerCase();
@@ -837,15 +832,26 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     );
   }
 
-  const successCount = campaign.success_count || 0;
-  const alreadyCount = campaign.already_count || 0;
-  const failCount = campaign.fail_count || 0;
-  const rateLimitCount = campaign.rate_limit_count || 0;
-  const timeoutCount = campaign.timeout_count || 0;
-  const successTotal = successCount + alreadyCount;
-  const processed = successTotal + failCount + rateLimitCount + timeoutCount;
-  const pendingCount = contacts.filter((c: any) => c.status === "pending").length;
-  const cancelledCount = contacts.filter((c: any) => c.status === "cancelled").length;
+  const derivedCounts = contacts.reduce((acc: any, contact: any) => {
+    if (contact.status === "completed") acc.success++;
+    if (contact.status === "already_exists") acc.already++;
+    if (contact.status === "rate_limited") acc.rateLimited++;
+    if (contact.status === "timeout") acc.timeout++;
+    if (contact.status === "cancelled") acc.cancelled++;
+    if (REAL_FAILURE_CONTACT_STATUSES.has(contact.status)) acc.fail++;
+    if (ACTIVE_QUEUE_STATUSES.has(contact.status)) acc.pending++;
+    return acc;
+  }, { success: 0, already: 0, fail: 0, rateLimited: 0, timeout: 0, pending: 0, cancelled: 0 });
+
+  const hasContactSnapshot = contacts.length > 0;
+  const successCount = hasContactSnapshot ? derivedCounts.success : (campaign.success_count || 0);
+  const alreadyCount = hasContactSnapshot ? derivedCounts.already : (campaign.already_count || 0);
+  const failCount = hasContactSnapshot ? derivedCounts.fail : (campaign.fail_count || 0);
+  const rateLimitCount = hasContactSnapshot ? derivedCounts.rateLimited : (campaign.rate_limit_count || 0);
+  const timeoutCount = hasContactSnapshot ? derivedCounts.timeout : (campaign.timeout_count || 0);
+  const pendingCount = hasContactSnapshot ? derivedCounts.pending : contacts.filter((c: any) => ACTIVE_QUEUE_STATUSES.has(c.status)).length;
+  const cancelledCount = hasContactSnapshot ? derivedCounts.cancelled : contacts.filter((c: any) => c.status === "cancelled").length;
+  const processed = successCount + alreadyCount + failCount + cancelledCount;
   const progress = campaign.total_contacts > 0 ? Math.round((processed / campaign.total_contacts) * 100) : 0;
 
   const isRunning = campaign.status === "processing" || campaign.status === "queued";
