@@ -96,28 +96,28 @@ export function useAutoSyncDevices(intervalMs = 3_000) {
   // ── Shared sync function exposed for manual trigger ──
   const doSync = useCallback(async () => {
     if (shouldSkipSync()) return;
-    // Guard: skip if no valid session (avoids 401 on sync-devices)
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
-    if (!currentSession?.access_token) return;
     if (_isSyncing) {
       queuedSync = true;
       return;
     }
 
+    // Guard: skip if no valid session
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession?.access_token) return;
+    } catch {
+      return; // Auth not ready
+    }
+
     _isSyncing = true;
     try {
-      const { error } = await supabase.functions.invoke("sync-devices");
-      // If 401/auth error, skip silently — session may not be ready
-      if (error) {
-        const msg = typeof error === "object" ? JSON.stringify(error) : String(error);
-        if (msg.includes("401") || msg.includes("Unauthorized") || msg.includes("Auth session")) return;
-      }
+      await supabase.functions.invoke("sync-devices");
       if (!shouldSkipSync()) {
         await queryClient.refetchQueries({ queryKey: ["devices"] });
         queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
       }
     } catch {
-      // silent — don't change state on error
+      // silent — 401 or network errors are non-fatal
     } finally {
       _isSyncing = false;
 
