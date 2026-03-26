@@ -1760,20 +1760,15 @@ async function handleTick(
         }
       }
 
-      // Batch: get per-cycle pending job counts using count queries to avoid 1000-row limit
-      // Use individual count queries per cycle to avoid default row limit truncation
+      // Batch: get per-cycle pending INTERACTION job counts (exclude daily_reset to avoid masking orphans)
       const cyclesWithJobs = new Set<string>();
       const cyclesWithReset = new Set<string>();
+      const INTERACTION_CHECK_TYPES = ["group_interaction", "autosave_interaction", "community_interaction", "join_group", "enable_autosave", "enable_community"];
       
       for (let i = 0; i < cycleIds.length; i += 50) {
         const batch = cycleIds.slice(i, i + 50);
-        const [pendingRes, resetRes] = await Promise.all([
-          db.from("warmup_jobs").select("cycle_id", { count: "exact" }).in("cycle_id", batch).in("status", ["pending", "running"]).limit(1),
-          db.from("warmup_jobs").select("cycle_id", { count: "exact" }).in("cycle_id", batch).eq("job_type", "daily_reset").eq("status", "pending").limit(1),
-        ]);
-        // We need distinct cycle_ids — use a different approach: query with distinct
         const [pendingDistinct, resetDistinct] = await Promise.all([
-          db.from("warmup_jobs").select("cycle_id").in("cycle_id", batch).in("status", ["pending", "running"]).limit(5000),
+          db.from("warmup_jobs").select("cycle_id").in("cycle_id", batch).in("status", ["pending", "running"]).in("job_type", INTERACTION_CHECK_TYPES).limit(5000),
           db.from("warmup_jobs").select("cycle_id").in("cycle_id", batch).eq("job_type", "daily_reset").eq("status", "pending").limit(5000),
         ]);
         (pendingDistinct.data || []).forEach((j: any) => cyclesWithJobs.add(j.cycle_id));
