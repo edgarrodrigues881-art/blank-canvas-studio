@@ -219,7 +219,7 @@ export default function ChipConversation() {
           </Button>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-5">
           {conversations.map((conv) => (
             <ConversationCard
               key={conv.id}
