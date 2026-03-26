@@ -436,22 +436,6 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* ── Desenvolvimento section ── */}
-        <SidebarGroup className="py-0 mt-1">
-          {!collapsed && (
-            <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
-              Desenvolvimento
-            </SidebarGroupLabel>
-          )}
-          {collapsed && (
-            <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-              {developmentItems.map((item) => renderNavItem(item as any))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
 
         {/* ── Suporte section ── */}
         <SidebarGroup className="py-0 mt-1">
