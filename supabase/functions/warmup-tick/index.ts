@@ -376,7 +376,14 @@ async function scheduleDayJobs(
   const windowMs = effectiveEnd - effectiveStart;
   if (windowMs < 30 * 60 * 1000) return 0;
 
-  const volumes = getVolumes(chipState, dayIndex, phase);
+  // Fetch community_day for volume calculation
+  let communityDay: number | undefined;
+  if (isCommunityPhase(phase)) {
+    const { data: membership } = await db.from("warmup_community_membership")
+      .select("community_day").eq("device_id", deviceId).maybeSingle();
+    communityDay = membership?.community_day || 1;
+  }
+  const volumes = getVolumes(chipState, dayIndex, phase, communityDay);
 
   const { data: existingCycle } = await db.from("warmup_cycles")
     .select("daily_interaction_budget_target, daily_interaction_budget_used, daily_unique_recipients_used")
