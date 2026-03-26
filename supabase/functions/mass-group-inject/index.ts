@@ -314,7 +314,8 @@ function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClas
   const message = (rawMessage || "").toLowerCase();
 
   if (message.includes("rate-overlimit") || message.includes("429") || message.includes("too many requests") || httpStatus === 429) {
-    return { status: "rate_limited", detail: "API temporariamente sobrecarregada (429). Aguardando cooldown.", retryable: true, cooldownMs: randomBetween(40_000, 70_000) };
+    // Base cooldown — actual exponential backoff is applied at batch level
+    return { status: "rate_limited", detail: "Limite da API atingido — aguardando cooldown automático.", retryable: true, cooldownMs: 30_000 };
   }
   if (message.includes("websocket disconnected before info query") || message.includes("connection reset") || message.includes("socket hang up")) {
     return { status: "api_temporary", detail: "A integração interrompeu a consulta antes de concluir.", retryable: true, cooldownMs: randomBetween(10_000, 18_000) };
@@ -1198,7 +1199,12 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
       if (isTransient && retryCount < maxRetries) {
         let cooldownDelay = randomBetween(20_000, 40_000);
-        if (result.status === "rate_limited" || result.status === "session_dropped") {
+        if (result.status === "rate_limited") {
+          // Exponential backoff: 30s, 60s, 120s, 240s, 480s...
+          const baseBackoff = 30_000;
+          const expBackoff = baseBackoff * Math.pow(2, retryCount);
+          cooldownDelay = Math.min(expBackoff + randomBetween(5_000, 15_000), 600_000); // cap 10min
+        } else if (result.status === "session_dropped") {
           cooldownDelay = Math.round(cooldownDelay * (1 + retryCount * 0.5));
         }
         await sb.from("mass_inject_contacts").update({
