@@ -243,7 +243,7 @@ export function AppSidebar() {
               )}
             </div>
             {!collapsed && (
-              <span className={`truncate flex-1 ${isLocked ? 'opacity-50' : ''}`}>{item.title}</span>
+              <span className={`truncate flex-1 font-extrabold ${isLocked ? 'opacity-50' : ''}`}>{item.title}</span>
             )}
             {!collapsed && isLocked && (
               <Lock className="ml-auto w-3.5 h-3.5 text-amber-500/60 shrink-0" />
