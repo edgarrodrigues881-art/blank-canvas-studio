@@ -939,7 +939,7 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
               <span className="text-sm text-primary font-bold ml-auto">{progress}%</span>
             </div>
             <Progress value={progress} className="h-2.5" />
-            <NextActionCountdown contacts={contacts} campaign={campaign} />
+            
           </CardContent>
         </Card>
       )}
