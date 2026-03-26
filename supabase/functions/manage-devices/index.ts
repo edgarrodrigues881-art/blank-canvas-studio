@@ -65,7 +65,7 @@ async function deleteDevices(admin: any, userId: string, deviceIds: string[]): P
   // Fetch all devices at once
   const { data: devices } = await admin
     .from("devices")
-    .select("id, proxy_id, uazapi_token, uazapi_base_url")
+    .select("id, name, number, proxy_id, uazapi_token, uazapi_base_url")
     .eq("user_id", userId)
     .in("id", deviceIds);
 
@@ -92,12 +92,18 @@ async function deleteDevices(admin: any, userId: string, deviceIds: string[]): P
     const batchResults = await Promise.allSettled(batch.map(async (device: any) => {
       try {
         const providerBase = (device.uazapi_base_url || DEFAULT_BASE).replace(/\/+$/, "");
+        const providerLabel = labelMap.get(device.id) || null;
         
         // 1. Delete from provider (non-blocking — don't fail if provider is down)
         const providerDeleted = await deleteOneFromProvider(
-          providerBase, device.uazapi_token, ADMIN_TOKEN, labelMap.get(device.id) || null
+          providerBase, device.uazapi_token, ADMIN_TOKEN, providerLabel
         );
         console.log(`[bulk-delete] ${device.id}: provider=${providerDeleted ? "ok" : "skip"}`);
+
+        const requiresProviderDelete = Boolean(device.uazapi_token || providerLabel);
+        if (requiresProviderDelete && !providerDeleted) {
+          throw new Error("Falha ao excluir instância na UAZAPI.");
+        }
 
         // 2-5. DB cleanup in parallel
         const proxyId = device.proxy_id;
@@ -114,10 +120,25 @@ async function deleteDevices(admin: any, userId: string, deviceIds: string[]): P
         ]);
 
         // Delete device record
-        await admin.from("devices").delete().eq("id", device.id);
+        const { error: deleteError } = await admin.from("devices").delete().eq("id", device.id);
+        if (deleteError) throw deleteError;
+
+        const { data: remainingDevice, error: verifyError } = await admin
+          .from("devices")
+          .select("id")
+          .eq("id", device.id)
+          .maybeSingle();
+        if (verifyError) throw verifyError;
+        if (remainingDevice) throw new Error("A instância continuou no banco após a exclusão.");
         
         // Log (fire and forget)
-        oplog(admin, userId, "instance_deleted", `Instância deletada (bulk)`, device.id).catch(() => {});
+        oplog(admin, userId, "instance_deleted", `Instância \"${device.name}\" deletada (bulk)`, device.id, {
+          device_name: device.name,
+          device_number: device.number || null,
+          provider_label: providerLabel,
+          provider_deleted: providerDeleted,
+          proxy_id: proxyId || null,
+        }).catch(() => {});
 
         return { id: device.id, ok: true };
       } catch (e: any) {
@@ -336,6 +357,12 @@ Deno.serve(async (req) => {
       const { deviceId } = body;
       if (!deviceId) throw new Error("deviceId obrigatório.");
       const results = await deleteDevices(admin, user.id, [deviceId]);
+      if (!results[0]?.ok) {
+        return new Response(
+          JSON.stringify({ error: results[0]?.error || "Erro ao excluir instância", results }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       return new Response(
         JSON.stringify({ success: true, results }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }

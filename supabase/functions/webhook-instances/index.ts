@@ -19,6 +19,41 @@ async function oplog(client: any, userId: string, event: string, details: string
   try { await client.from("operation_logs").insert({ user_id: userId, device_id: deviceId || null, event, details, meta: meta || {} }); } catch (_e) { /* ignore */ }
 }
 
+function onlyDigits(value: string | null | undefined) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+async function wasRecentlyDeleted(adminClient: any, clientId: string, instanceName?: string | null, phoneNumber?: string | null) {
+  const normalizedName = String(instanceName || "").trim().toLowerCase();
+  const normalizedPhone = onlyDigits(phoneNumber);
+
+  if (!normalizedName && !normalizedPhone) return false;
+
+  const { data, error } = await adminClient.from("operation_logs")
+    .select("details, meta, created_at")
+    .eq("user_id", clientId)
+    .eq("event", "instance_deleted")
+    .gte("created_at", new Date(Date.now() - 15 * 60 * 1000).toISOString())
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error || !data?.length) return false;
+
+  return data.some((row: any) => {
+    const meta = row?.meta && typeof row.meta === "object" ? row.meta : {};
+    const candidateNames = [meta?.provider_label, meta?.device_name, row?.details]
+      .filter((value: unknown) => typeof value === "string" && value.trim())
+      .map((value: string) => value.trim().toLowerCase());
+    const candidatePhones = [meta?.device_number]
+      .filter((value: unknown) => typeof value === "string" && value.trim())
+      .map((value: string) => onlyDigits(value));
+
+    const nameMatch = normalizedName ? candidateNames.includes(normalizedName) : false;
+    const phoneMatch = normalizedPhone ? candidatePhones.includes(normalizedPhone) : false;
+    return nameMatch || phoneMatch;
+  });
+}
+
 async function dispatchWebhook(payload: Record<string, unknown>) {
   const makeUrl = Deno.env.get("MAKE_WEBHOOK_URL");
   if (!makeUrl) return;
@@ -278,6 +313,11 @@ Deno.serve(async (req) => {
     if (!profile) return json({ ok: false, error: "CLIENT_NOT_FOUND" }, 404);
     if (profile.status === "suspended" || profile.status === "cancelled") {
       return json({ ok: false, error: "CLIENT_BLOCKED", message: `Client status: ${profile.status}` }, 403);
+    }
+
+    if (await wasRecentlyDeleted(adminClient, client_id, instance_name, phone_number)) {
+      console.log("[webhook-instances] Ignoring late create for recently deleted instance", { client_id, instance_name, phone_number });
+      return json({ ok: false, error: "RECENTLY_DELETED", message: "Instância removida recentemente; ignorando recriação tardia." }, 409);
     }
 
     const { data: subscription } = await adminClient.from("subscriptions")
