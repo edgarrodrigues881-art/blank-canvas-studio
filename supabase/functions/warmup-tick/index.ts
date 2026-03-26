@@ -163,42 +163,48 @@ function getAutosaveRoundsPerContact(chipState: string = "new"): number {
   return 3; // max 3 messages per contact
 }
 
-function getCommunityPeers(dayIndex: number, chipState: string): number {
-  const communityStartDay = getGroupsEndDay(chipState) + 2;
-  if (dayIndex < communityStartDay) return 0;
-
-  if (chipState === "unstable") {
-    const d = dayIndex - communityStartDay;
-    if (d === 0) return 1;
-    return 2;
-  }
-  const d = dayIndex - communityStartDay;
-  if (d === 0) return 2;
-  if (d === 1) return 3;
-  if (d === 2) return 4;
-  return 5;
+// Community start day per chip type (warmup day when community unlocks)
+function getCommunityStartDayForChip(chipState: string): number {
+  if (chipState === "unstable") return 9; // chip fraco: dia 9
+  if (chipState === "recovered") return 7; // chip recuperado: dia 7
+  return 6; // chip novo: dia 6
 }
 
-function getCommunityBurstsPerPeer(dayIndex: number, chipState: string): number {
-  const communityStartDay = getGroupsEndDay(chipState) + 2;
+// Progressão de duplas baseada em community_day (não warmup day)
+// community_day 1 = primeiro dia do comunitário
+function getCommunityPeersFromCommunityDay(communityDay: number): { min: number; max: number } {
+  if (communityDay <= 1) return { min: 1, max: 3 };
+  if (communityDay === 2) return { min: 2, max: 5 };
+  if (communityDay === 3) return { min: 4, max: 7 };
+  if (communityDay <= 6) return { min: 5, max: 8 };
+  return { min: 6, max: 10 };
+}
+
+function getCommunityPeers(dayIndex: number, chipState: string, communityDay?: number): number {
+  const communityStartDay = getCommunityStartDayForChip(chipState);
   if (dayIndex < communityStartDay) return 0;
 
-  if (chipState === "unstable") {
-    const d = dayIndex - communityStartDay;
-    if (d === 0) return 2;
-    if (d === 1) return 3;
-    return 4;
-  }
-  const d = dayIndex - communityStartDay;
-  if (d === 0) return 3;
-  if (d === 1) return 4;
-  if (d === 2) return 5;
-  if (d === 3) return 6;
-  if (d <= 6) return 7;
+  // Use community_day if provided, otherwise calculate from warmup day
+  const cd = communityDay ?? Math.max(1, dayIndex - communityStartDay + 1);
+  const target = getCommunityPeersFromCommunityDay(cd);
+  return randInt(target.min, target.max);
+}
+
+function getCommunityBurstsPerPeer(dayIndex: number, chipState: string, communityDay?: number): number {
+  const communityStartDay = getCommunityStartDayForChip(chipState);
+  if (dayIndex < communityStartDay) return 0;
+
+  const cd = communityDay ?? Math.max(1, dayIndex - communityStartDay + 1);
+  // Each burst = ~40-80 turns conversation. Scale bursts to fill daily window.
+  // With ~120 msgs/block target and multiple pairs, use burst count to distribute
+  if (cd <= 1) return 3;
+  if (cd === 2) return 4;
+  if (cd === 3) return 5;
+  if (cd <= 6) return 6;
   return 8;
 }
 
-function getVolumes(chipState: string, dayIndex: number, phase: string): DayVolumes {
+function getVolumes(chipState: string, dayIndex: number, phase: string, communityDay?: number): DayVolumes {
   const v: DayVolumes = {
     groupMsgs: 0, autosaveContacts: 0, autosaveRounds: 0,
     communityPeers: 0, communityMsgsPerPeer: 0,
@@ -222,8 +228,8 @@ function getVolumes(chipState: string, dayIndex: number, phase: string): DayVolu
     const asTotal = asContacts * asRounds;
     v.autosaveContacts = asContacts;
     v.autosaveRounds = asRounds;
-    const peers = getCommunityPeers(dayIndex, chipState);
-    const burstsPerPeer = getCommunityBurstsPerPeer(dayIndex, chipState);
+    const peers = getCommunityPeers(dayIndex, chipState, communityDay);
+    const burstsPerPeer = getCommunityBurstsPerPeer(dayIndex, chipState, communityDay);
     const communityMsgs = peers * burstsPerPeer;
     v.communityPeers = peers;
     v.communityMsgsPerPeer = burstsPerPeer;
@@ -370,7 +376,14 @@ async function scheduleDayJobs(
   const windowMs = effectiveEnd - effectiveStart;
   if (windowMs < 30 * 60 * 1000) return 0;
 
-  const volumes = getVolumes(chipState, dayIndex, phase);
+  // Fetch community_day for volume calculation
+  let communityDay: number | undefined;
+  if (isCommunityPhase(phase)) {
+    const { data: membership } = await db.from("warmup_community_membership")
+      .select("community_day").eq("device_id", deviceId).maybeSingle();
+    communityDay = membership?.community_day || 1;
+  }
+  const volumes = getVolumes(chipState, dayIndex, phase, communityDay);
 
   const { data: existingCycle } = await db.from("warmup_cycles")
     .select("daily_interaction_budget_target, daily_interaction_budget_used, daily_unique_recipients_used")
@@ -1209,9 +1222,11 @@ const CONNECTED_STATUSES = ["Ready", "Connected", "authenticated"];
 const INTERACTION_JOB_TYPES = ["group_interaction", "autosave_interaction", "community_interaction"];
 
 // Max active pairs a device can participate in (as A or B)
-// Unstable chips get 2 pairs; new/recovered get up to 5
-function getMaxPairsForChip(chipState: string): number {
-  return chipState === "unstable" ? 2 : 5;
+// Based on community_day progression
+function getMaxPairsForChip(chipState: string, communityDay?: number): number {
+  if (!communityDay || communityDay <= 0) return 3;
+  const target = getCommunityPeersFromCommunityDay(communityDay);
+  return target.max;
 }
 
 async function getActivePairCount(db: any, deviceId: string): Promise<number> {
@@ -1278,9 +1293,18 @@ async function reconcileCommunityPairs(
     cycleId: string;
     dayIndex: number;
     chipState: string;
+    communityDay?: number;
   },
 ): Promise<ReconcileCommunityPairsResult> {
-  const targetPeers = getCommunityPeers(params.dayIndex, params.chipState);
+  // Fetch community_day from membership if not provided
+  let communityDay = params.communityDay;
+  if (communityDay === undefined) {
+    const { data: membership } = await db.from("warmup_community_membership")
+      .select("community_day").eq("device_id", params.deviceId).maybeSingle();
+    communityDay = membership?.community_day || 1;
+  }
+
+  const targetPeers = getCommunityPeers(params.dayIndex, params.chipState, communityDay);
   if (targetPeers <= 0) {
     return { pairs: [], keptCount: 0, createdCount: 0, closedCount: 0, targetPeers };
   }
@@ -1296,7 +1320,7 @@ async function reconcileCommunityPairs(
         .select("id, status, number")
         .in("id", peerIds),
       db.from("warmup_community_membership")
-        .select("device_id, is_enabled, is_eligible")
+        .select("device_id, is_enabled, is_eligible, community_day")
         .in("device_id", peerIds),
       db.from("warmup_cycles")
         .select("device_id, is_running, phase")
@@ -1387,7 +1411,7 @@ async function reconcileCommunityPairs(
   let createdCount = 0;
   if (validPairs.length < targetPeers) {
     const { data: eligible } = await db.from("warmup_community_membership")
-      .select("device_id, user_id")
+      .select("device_id, user_id, community_day")
       .eq("is_enabled", true)
       .eq("is_eligible", true)
       .neq("device_id", params.deviceId)
@@ -1443,7 +1467,9 @@ async function reconcileCommunityPairs(
 
         const partnerPairCount = await getActivePairCount(db, candidate.device_id);
         const partnerChipState = partnerCycle.chip_state || "new";
-        if (partnerPairCount >= getMaxPairsForChip(partnerChipState)) continue;
+        const partnerMembership = (eligible || []).find((e: any) => e.device_id === candidate.device_id);
+        const partnerCommunityDay = partnerMembership?.community_day || 1;
+        if (partnerPairCount >= getMaxPairsForChip(partnerChipState, partnerCommunityDay)) continue;
 
         const { data: insertedPair } = await db.from("community_pairs")
           .insert({
@@ -3813,19 +3839,47 @@ async function handleTick(
 
         // [BUG 3 FIX] When transitioning to autosave_enabled or community_enabled,
         // ensure community membership is activated (was only done by enable_autosave job before)
+        const isCommunityNewPhase = isCommunityPhase(newPhase);
+        const communityStartDay = getCommunityStartDayForChip(chipState);
+        const isFirstCommunityDay = newDay === communityStartDay && !isCommunityPhase(oldPhase);
+
         if (newPhase !== oldPhase && ["autosave_enabled", "community_ramp_up", "community_stable"].includes(newPhase)) {
           const { data: membership } = await db.from("warmup_community_membership")
-            .select("id, is_enabled").eq("device_id", job.device_id).maybeSingle();
+            .select("id, is_enabled, community_mode, community_day").eq("device_id", job.device_id).maybeSingle();
 
           if (!membership) {
             await db.from("warmup_community_membership").insert({
               user_id: job.user_id, device_id: job.device_id, cycle_id: cycle.id,
               is_eligible: true, is_enabled: true, enabled_at: resetAt,
+              community_mode: "warmup_managed",
+              community_day: isFirstCommunityDay ? 1 : 0,
+              messages_today: 0, pairs_today: 0,
             });
-          } else if (!membership.is_enabled) {
+          } else {
+            const updateData: any = { is_enabled: true, is_eligible: true, enabled_at: resetAt, cycle_id: cycle.id, community_mode: "warmup_managed" };
+            if (isFirstCommunityDay && (membership.community_day || 0) < 1) {
+              updateData.community_day = 1;
+            }
             await db.from("warmup_community_membership")
-              .update({ is_enabled: true, is_eligible: true, enabled_at: resetAt, cycle_id: cycle.id })
+              .update(updateData)
               .eq("id", membership.id);
+          }
+        }
+
+        // Increment community_day for warmup_managed devices already in community phase
+        if (isCommunityNewPhase && !isFirstCommunityDay) {
+          const { data: existingMembership } = await db.from("warmup_community_membership")
+            .select("id, community_day, community_mode").eq("device_id", job.device_id).maybeSingle();
+
+          if (existingMembership && existingMembership.community_mode === "warmup_managed") {
+            await db.from("warmup_community_membership").update({
+              community_day: (existingMembership.community_day || 0) + 1,
+              messages_today: 0,
+              pairs_today: 0,
+              cooldown_until: null,
+              last_error: null,
+              last_daily_reset_at: resetAt,
+            }).eq("id", existingMembership.id);
           }
         }
 
@@ -3961,19 +4015,47 @@ async function handleDailyReset(db: any) {
     }).eq("id", cycle.id);
 
     // [BUG A FIX] Activate community membership on phase transition (mirrors job-based daily_reset)
+    const isCommunityNewPhase = isCommunityPhase(newPhase);
+    const communityStartDay = getCommunityStartDayForChip(chipState);
+    const isFirstCommunityDay = newDay === communityStartDay && !isCommunityPhase(oldPhase);
+
     if (newPhase !== oldPhase && ["autosave_enabled", "community_ramp_up", "community_stable"].includes(newPhase)) {
       const { data: membership } = await db.from("warmup_community_membership")
-        .select("id, is_enabled").eq("device_id", cycle.device_id).maybeSingle();
+        .select("id, is_enabled, community_mode, community_day").eq("device_id", cycle.device_id).maybeSingle();
 
       if (!membership) {
         await db.from("warmup_community_membership").insert({
           user_id: cycle.user_id, device_id: cycle.device_id, cycle_id: cycle.id,
           is_eligible: true, is_enabled: true, enabled_at: resetAt,
+          community_mode: "warmup_managed",
+          community_day: isFirstCommunityDay ? 1 : 0,
+          messages_today: 0, pairs_today: 0,
         });
-      } else if (!membership.is_enabled) {
+      } else {
+        const updateData: any = { is_enabled: true, is_eligible: true, enabled_at: resetAt, cycle_id: cycle.id, community_mode: "warmup_managed" };
+        if (isFirstCommunityDay && (membership.community_day || 0) < 1) {
+          updateData.community_day = 1;
+        }
         await db.from("warmup_community_membership")
-          .update({ is_enabled: true, is_eligible: true, enabled_at: resetAt, cycle_id: cycle.id })
+          .update(updateData)
           .eq("id", membership.id);
+      }
+    }
+
+    // Increment community_day for warmup_managed devices already in community phase
+    if (isCommunityNewPhase && !isFirstCommunityDay) {
+      const { data: existingMembership } = await db.from("warmup_community_membership")
+        .select("id, community_day, community_mode").eq("device_id", cycle.device_id).maybeSingle();
+
+      if (existingMembership && existingMembership.community_mode === "warmup_managed") {
+        await db.from("warmup_community_membership").update({
+          community_day: (existingMembership.community_day || 0) + 1,
+          messages_today: 0,
+          pairs_today: 0,
+          cooldown_until: null,
+          last_error: null,
+          last_daily_reset_at: resetAt,
+        }).eq("id", existingMembership.id);
       }
     }
 
