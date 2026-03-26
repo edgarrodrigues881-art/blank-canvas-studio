@@ -115,7 +115,17 @@ export function useAutoSyncDevices(intervalMs = 3_000) {
 
     _isSyncing = true;
     try {
-      await supabase.functions.invoke("sync-devices");
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) { _isSyncing = false; return; }
+      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-devices`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: "{}",
+      });
       if (!shouldSkipSync()) {
         await queryClient.refetchQueries({ queryKey: ["devices"] });
         queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
