@@ -881,6 +881,13 @@ const WarmupInstances = () => {
         const cycle = cycleByDeviceId.get(d.id);
         if (!cycle || !cycle.is_running) return false;
       }
+      if (statusFilter === "paused") {
+        const cycle = cycleByDeviceId.get(d.id);
+        if (!cycle || cycle.phase !== "paused") return false;
+      }
+      if (statusFilter === "no_warmup") {
+        if (cycleByDeviceId.has(d.id)) return false;
+      }
       return true;
     });
   }, [filteredDevices, search, statusFilter, cycleByDeviceId, activeFolder, activeFolderId, allFolderDeviceIds]);
