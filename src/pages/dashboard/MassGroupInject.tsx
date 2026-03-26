@@ -448,12 +448,7 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
         <div className="grid gap-3">
           {filteredCampaigns.map((c: any) => {
             const sc = c.success_count || 0;
-            const ac = c.already_count || 0;
-            const fc = c.fail_count || 0;
-            const rl = c.rate_limit_count || 0;
-            const to = c.timeout_count || 0;
-            const processed = sc + ac + fc + rl + to;
-            const progress = c.total_contacts > 0 ? Math.round((processed / c.total_contacts) * 100) : 0;
+            const progress = c.total_contacts > 0 ? Math.round((sc / c.total_contacts) * 100) : 0;
             return (
               <Card key={c.id} className="border-border/40 bg-card/80 hover:bg-card/90 transition-colors cursor-pointer group" onClick={() => onViewCampaign(c.id)}>
                 <CardContent className="py-4 px-5">
@@ -469,9 +464,6 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
                         <span className="truncate max-w-[200px]">{c.group_name || c.group_id?.substring(0, 15) + "..."}</span>
                         <span>{c.total_contacts} contatos</span>
                         <span className="text-emerald-500">{sc} adicionados</span>
-                        {ac > 0 && <span className="text-blue-500">{ac} já no grupo</span>}
-                        {fc > 0 && <span className="text-destructive">{fc} falha{fc !== 1 ? "s" : ""}</span>}
-                        {rl > 0 && <span className="text-amber-500">{rl} rate limit</span>}
                         <span>{new Date(c.created_at).toLocaleDateString("pt-BR")}</span>
                       </div>
                       {c.pause_reason && c.status === "paused" && (
