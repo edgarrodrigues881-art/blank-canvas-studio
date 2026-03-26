@@ -186,7 +186,7 @@ export default function ChipConversation() {
               <DialogTitle>Criar Conversa Automática</DialogTitle>
             </DialogHeader>
             <CreateConversationForm
-              devices={devices}
+              devices={availableDevices}
               onSubmit={async (data) => {
                 try {
                   await actions.create.mutateAsync(data);
