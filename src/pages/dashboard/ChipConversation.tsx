@@ -36,6 +36,10 @@ import {
   Trash2,
   RotateCcw,
   Pencil,
+  Timer,
+  CalendarDays,
+  MoreVertical,
+  Activity,
 } from "lucide-react";
 import {
   Dialog,
@@ -267,6 +271,17 @@ function ConversationCard({
   const deviceNames = (conv.device_ids || [])
     .map((id) => devices.find((d) => d.id === id)?.name || "???")
     .join(", ");
+  const chipCount = (conv.device_ids || []).length;
+
+  const activeDaysLabels = (conv.active_days || [])
+    .map((d) => DAY_OPTIONS.find((o) => o.key === d)?.label || d)
+    .join(", ");
+
+  const timeWindows = (() => {
+    const starts = String(conv.start_hour || "08:00").split(",");
+    const ends = String(conv.end_hour || "18:00").split(",");
+    return starts.map((s, i) => `${s.trim()} – ${(ends[i] || ends[0]).trim()}`).join("  •  ");
+  })();
 
   const handleAction = async (action: "start" | "pause" | "resume" | "stop") => {
     try {
@@ -290,153 +305,177 @@ function ConversationCard({
     actions.resume.isPending || actions.stop.isPending;
 
   const isRunning = normalizedStatus === "running";
+  const isPaused = normalizedStatus === "paused";
 
   return (
-    <Card className={`overflow-hidden border-border/50 bg-card relative transition-all duration-200 ${isRunning ? "ring-1 ring-emerald-500/20" : ""}`}>
-      {/* Top accent bar for running state */}
+    <div className={`group relative rounded-2xl border bg-card overflow-hidden transition-all duration-150 hover:scale-[1.005] ${
+      isRunning ? "border-emerald-500/25 shadow-[0_0_20px_-6px_hsl(142_71%_45%/0.12)]" :
+      isPaused ? "border-amber-500/20" :
+      "border-border/50"
+    }`}>
+      {/* Activity pulse bar for running */}
       {isRunning && (
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500/60 via-emerald-400 to-emerald-500/60" />
+        <div className="absolute top-0 left-0 right-0 h-[2px] overflow-hidden">
+          <div className="h-full w-full bg-gradient-to-r from-transparent via-emerald-500 to-transparent animate-pulse" />
+        </div>
       )}
 
-      {/* Header Row */}
-      <div className="px-5 py-4 flex items-center gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 mb-1.5">
-            <h3 className="font-semibold text-foreground text-base truncate">{conv.name}</h3>
-            <Badge variant="outline" className={`text-[11px] px-2.5 py-0.5 font-medium rounded-full ${status.color}`}>
-              <StatusIcon className="w-3 h-3 mr-1" />
-              {status.label}
-            </Badge>
+      <div className="px-5 py-4 flex items-center gap-5">
+        {/* ── LEFT: Identity ── */}
+        <div className="flex items-center gap-3.5 min-w-0 shrink-0">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+            isRunning ? "bg-emerald-500/12" :
+            isPaused ? "bg-amber-500/12" :
+            "bg-muted/40"
+          }`}>
+            <ArrowRightLeft className={`w-5 h-5 ${
+              isRunning ? "text-emerald-500" :
+              isPaused ? "text-amber-500" :
+              "text-muted-foreground"
+            }`} />
           </div>
-          <div className="flex items-center gap-5 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <Smartphone className="w-3.5 h-3.5 text-muted-foreground/60" />
-              {(conv.device_ids || []).length} chips
-            </span>
-            <span className="flex items-center gap-1.5">
-              <MessageCircle className="w-3.5 h-3.5 text-muted-foreground/60" />
-              {conv.total_messages_sent} enviadas
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-muted-foreground/60" />
-              {conv.start_hour} – {conv.end_hour}
-            </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2.5">
+              <h3 className="font-bold text-foreground text-[15px] truncate max-w-[200px]">{conv.name}</h3>
+              <Badge variant="outline" className={`text-[10px] px-2 py-0 h-5 font-semibold rounded-full shrink-0 ${status.color}`}>
+                {isRunning && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1.5" />}
+                {status.label}
+              </Badge>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              <Smartphone className="w-3 h-3 inline mr-1 -mt-px" />
+              {chipCount} chip{chipCount !== 1 ? "s" : ""} conectado{chipCount !== 1 ? "s" : ""}
+            </p>
           </div>
         </div>
 
-        {/* Action buttons */}
+        {/* ── MIDDLE: Info Blocks ── */}
+        <div className="flex-1 flex items-center gap-2 justify-center">
+          {[
+            { icon: MessageCircle, label: "Mensagens", value: String(conv.total_messages_sent) },
+            { icon: Timer, label: "Delay", value: `${conv.min_delay_seconds}s – ${conv.max_delay_seconds}s` },
+            { icon: Clock, label: "Horário", value: timeWindows },
+            { icon: CalendarDays, label: "Dias", value: activeDaysLabels },
+          ].map((block) => (
+            <div key={block.label} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/20 border border-border/30 min-w-0">
+              <block.icon className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 font-medium leading-none">{block.label}</p>
+                <p className="text-[12px] font-semibold text-foreground truncate leading-tight mt-0.5">{block.value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── RIGHT: Actions ── */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Edit - always visible */}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onEdit}
-            className="gap-1.5 h-8 px-2.5 text-muted-foreground hover:text-foreground hover:bg-accent/60"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-            <span className="text-xs">Editar</span>
-          </Button>
-
-          <div className="w-px h-5 bg-border/50 mx-1" />
-
           {normalizedStatus === "idle" || normalizedStatus === "completed" ? (
-            <>
-              <Button
-                size="sm"
-                onClick={() => handleAction("start")}
-                disabled={isActionLoading}
-                className="gap-1.5 h-8 px-4 bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20"
-              >
-                {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-                Iniciar
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button size="icon" variant="ghost" className="w-8 h-8 text-muted-foreground/50 hover:text-destructive">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Excluir conversa?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      A conversa e todos os logs serão removidos permanentemente.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={onDelete}>Excluir</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </>
+            <Button
+              size="sm"
+              onClick={() => handleAction("start")}
+              disabled={isActionLoading}
+              className="gap-1.5 h-8 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold"
+            >
+              {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+              Iniciar
+            </Button>
           ) : normalizedStatus === "running" ? (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleAction("pause")}
-                disabled={isActionLoading}
-                className="gap-1.5 h-8 px-3 border-amber-500/30 text-amber-500 dark:text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/50"
-              >
-                <Pause className="w-3.5 h-3.5" />
-                Pausar
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isActionLoading}
-                    className="gap-1.5 h-8 px-3 border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive/50"
-                  >
-                    <Square className="w-3.5 h-3.5" />
-                    Parar
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Parar conversa?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      A conversa automática será encerrada e os chips vão parar de trocar mensagens.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Fechar</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleAction("stop")}>Parar conversa</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleAction("pause")}
+              disabled={isActionLoading}
+              className="gap-1.5 h-8 px-3 border-amber-500/30 text-amber-500 dark:text-amber-400 hover:bg-amber-500/10 rounded-lg text-xs font-semibold"
+            >
+              <Pause className="w-3.5 h-3.5" />
+              Pausar
+            </Button>
           ) : normalizedStatus === "paused" ? (
-            <>
-              <Button
-                size="sm"
-                onClick={() => handleAction("resume")}
-                disabled={isActionLoading}
-                className="gap-1.5 h-8 px-4 bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                Retomar
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleAction("stop")}
-                disabled={isActionLoading}
-                className="gap-1.5 h-8 px-3 border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive/50"
-              >
-                <Square className="w-3.5 h-3.5" />
-                Parar
-              </Button>
-            </>
+            <Button
+              size="sm"
+              onClick={() => handleAction("resume")}
+              disabled={isActionLoading}
+              className="gap-1.5 h-8 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Retomar
+            </Button>
           ) : null}
 
-          <Button size="icon" variant="ghost" onClick={onToggleExpand} className="w-8 h-8 text-muted-foreground/60 hover:text-foreground ml-0.5">
+          {(normalizedStatus === "running" || normalizedStatus === "paused") && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isActionLoading}
+                  className="gap-1.5 h-8 px-3 border-destructive/30 text-destructive hover:bg-destructive/10 rounded-lg text-xs font-semibold"
+                >
+                  <Square className="w-3.5 h-3.5" />
+                  Parar
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Parar conversa?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    A conversa automática será encerrada e os chips vão parar de trocar mensagens.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Fechar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleAction("stop")}>Parar conversa</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+
+          <div className="w-px h-6 bg-border/40 mx-1" />
+
+          <Button size="icon" variant="ghost" onClick={onEdit} className="w-8 h-8 text-muted-foreground/60 hover:text-foreground">
+            <Pencil className="w-3.5 h-3.5" />
+          </Button>
+
+          {(normalizedStatus === "idle" || normalizedStatus === "completed") && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="icon" variant="ghost" className="w-8 h-8 text-muted-foreground/40 hover:text-destructive">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir conversa?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    A conversa e todos os logs serão removidos permanentemente.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={onDelete}>Excluir</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+
+          <Button size="icon" variant="ghost" onClick={onToggleExpand} className="w-8 h-8 text-muted-foreground/50 hover:text-foreground">
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </Button>
         </div>
       </div>
+
+      {/* ── Activity Bar ── */}
+      {isRunning && (
+        <div className="px-5 pb-3">
+          <div className="flex items-center gap-2">
+            <Activity className="w-3 h-3 text-emerald-500 animate-pulse" />
+            <span className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider">Ativa agora</span>
+            <div className="flex-1 h-1 rounded-full bg-muted/20 overflow-hidden">
+              <div className="h-full rounded-full bg-gradient-to-r from-emerald-500/80 to-emerald-400/40 animate-pulse" style={{ width: "65%" }} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error Banner */}
       {conv.last_error && (
@@ -450,38 +489,13 @@ function ConversationCard({
       {/* Expanded Details */}
       {expanded && (
         <>
-          <div className="mx-5 mb-4 rounded-xl border border-border/50 bg-muted/20 overflow-hidden">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border/40">
-              <div className="px-4 py-3">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 mb-1">Chips participantes</p>
-                <p className="text-sm text-foreground font-medium">{deviceNames || "Nenhum"}</p>
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 mb-1">Delay entre mensagens</p>
-                <p className="text-sm text-foreground font-medium">{conv.min_delay_seconds}s – {conv.max_delay_seconds}s</p>
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 mb-1">Horários</p>
-                <p className="text-sm text-foreground font-medium">
-                  {(() => {
-                    const starts = String(conv.start_hour || "08:00").split(",");
-                    const ends = String(conv.end_hour || "18:00").split(",");
-                    return starts.map((s, i) => `${s.trim()} – ${(ends[i] || ends[0]).trim()}`).join("  •  ");
-                  })()}
-                </p>
-              </div>
-            </div>
-            <div className="border-t border-border/40 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border/40">
-              <div className="px-4 py-3">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 mb-1">Dias ativos</p>
-                <p className="text-sm text-foreground font-medium">
-                  {(conv.active_days || []).map((d) => DAY_OPTIONS.find((o) => o.key === d)?.label || d).join(", ")}
-                </p>
-              </div>
+          <div className="mx-5 mb-4 rounded-xl border border-border/30 bg-muted/10 overflow-hidden">
+            <div className="px-4 py-3">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-1">Chips participantes</p>
+              <p className="text-sm text-foreground font-medium">{deviceNames || "Nenhum"}</p>
             </div>
           </div>
 
-          {/* Logs toggle */}
           <div className="px-5 pb-4">
             <Button
               variant="ghost"
@@ -496,7 +510,7 @@ function ConversationCard({
           {showLogs && <ConversationLogs conversationId={conv.id} />}
         </>
       )}
-    </Card>
+    </div>
   );
 }
 
