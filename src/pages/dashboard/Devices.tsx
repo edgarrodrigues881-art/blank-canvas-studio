@@ -670,17 +670,13 @@ const Devices = () => {
 
     // Fire API in background
     try {
-      const { data, error } = await supabase.functions.invoke("manage-devices", {
-        body: {
-          action: "bulk-create",
-          prefix: bulkPrefix,
-          proxyIds,
-          noProxyCount,
-          startIndex: startIdx,
-        },
+      await callManageDevices({
+        action: "bulk-create",
+        prefix: bulkPrefix,
+        proxyIds,
+        noProxyCount,
+        startIndex: startIdx,
       });
-      if (error) throw new Error(error.message || "Erro ao criar instâncias");
-      if (data?.error) throw new Error(data.error);
       queryClient.invalidateQueries({ queryKey: ["devices"] });
     } catch (err: any) {
       const msg = err?.message || "";
