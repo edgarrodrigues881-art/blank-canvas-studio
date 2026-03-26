@@ -530,9 +530,14 @@ async function phaseFormPairs(db: any): Promise<{
     const mode = device.community_mode === "warmup_managed" || partner.community_mode === "warmup_managed"
       ? "warmup_managed" : "community_only";
 
+    // Use mode-specific target messages
+    const targetMsgs = mode === "community_only"
+      ? (device.target_messages_per_pair || partner.target_messages_per_pair || TARGET_MESSAGES_PER_BLOCK)
+      : TARGET_MESSAGES_PER_BLOCK;
+
     const { data: newPair } = await db.from("community_pairs").insert({
       cycle_id: cycleId, instance_id_a: device.device_id, instance_id_b: partner.device_id,
-      status: "active", community_mode: mode, target_messages: TARGET_MESSAGES_PER_BLOCK,
+      status: "active", community_mode: mode, target_messages: targetMsgs,
       messages_total: 0,
       meta: {
         initiator: Math.random() < 0.5 ? "a" : "b",
