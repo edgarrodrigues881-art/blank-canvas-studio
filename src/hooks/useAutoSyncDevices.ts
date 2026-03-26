@@ -18,9 +18,13 @@ export function muteAutoSync(ms = 3000) {
   mutedUntil = Date.now() + ms;
 }
 
-export function trackDeletedDevice(id: string) {
+export function trackDeletedDevice(id: string, ttlMs = 60000) {
   recentlyDeletedIds.add(id);
-  setTimeout(() => recentlyDeletedIds.delete(id), 60000);
+  setTimeout(() => recentlyDeletedIds.delete(id), ttlMs);
+}
+
+export function untrackDeletedDevice(id: string) {
+  recentlyDeletedIds.delete(id);
 }
 
 export function getRecentlyDeletedIds(): Set<string> {

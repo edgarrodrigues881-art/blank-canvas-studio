@@ -29,7 +29,7 @@ import { Progress } from "@/components/ui/progress";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { muteAutoSync, trackDeletedDevice, getRecentlyDeletedIds, pauseKeepAlive, resumeKeepAlive, isSyncingDevices } from "@/hooks/useAutoSyncDevices";
+import { muteAutoSync, trackDeletedDevice, untrackDeletedDevice, getRecentlyDeletedIds, pauseKeepAlive, resumeKeepAlive, isSyncingDevices } from "@/hooks/useAutoSyncDevices";
 import { useNavigate } from "react-router-dom";
 import { usePlanGate, type PlanState } from "@/hooks/usePlanGate";
 
@@ -539,30 +539,30 @@ const Devices = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await callManageDevices({ action: "delete", deviceId: id });
-      return { id };
+      const data = await callManageDevices({ action: "delete", deviceId: id });
+      return { id, data };
     },
     onMutate: async (id: string) => {
-      // Track this ID so it's filtered from all future query results
-      trackDeletedDevice(id);
-      muteAutoSync(30000);
+      muteAutoSync(15000);
       await queryClient.cancelQueries({ queryKey: ["devices"] });
       const previous = queryClient.getQueryData<Device[]>(["devices"]);
-      // Find device info for the toast before removing
       const deletedDevice = previous?.find(d => d.id === id);
       queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
         old ? old.filter(d => d.id !== id) : old
       );
-      // Show instant feedback toast with device name and number
-      const deviceLabel = deletedDevice?.name || "Instância";
-      const deviceNumber = deletedDevice?.number ? ` (${formatPhone(deletedDevice.number)})` : "";
-      toast({ title: `✅ ${deviceLabel} removida`, description: deviceNumber || undefined });
-      return { previous };
+      return { previous, deletedDevice };
     },
-    onSuccess: () => {
+    onSuccess: ({ id }, _vars, context) => {
+      trackDeletedDevice(id, 15000);
+      const deviceLabel = context?.deletedDevice?.name || "Instância";
+      const deviceNumber = context?.deletedDevice?.number ? ` (${formatPhone(context.deletedDevice.number)})` : "";
+      toast({ title: `✅ ${deviceLabel} removida`, description: deviceNumber || undefined });
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+      queryClient.invalidateQueries({ queryKey: ["proxies"] });
       queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
     },
-    onError: (err: any, _id, context) => {
+    onError: (err: any, id, context) => {
+      untrackDeletedDevice(id);
       if (context?.previous) {
         queryClient.setQueryData(["devices"], context.previous);
       }
@@ -570,10 +570,7 @@ const Devices = () => {
       toast({ title: "Erro ao apagar instância", description: err?.message || "Erro desconhecido", variant: "destructive" });
     },
     onSettled: () => {
-      // Delay the invalidation to give the server time to fully delete
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["devices"] });
-      }, 8000);
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
     },
   });
 
@@ -705,16 +702,33 @@ const Devices = () => {
     setSelectedDevices([]);
     try {
       muteAutoSync(30000); // Mute auto-sync during bulk delete
-      ids.forEach(id => trackDeletedDevice(id));
       const data = await callManageDevices({ action: "bulk-delete", deviceIds: ids });
+      const successIds = Array.isArray(data?.results)
+        ? data.results.filter((result: any) => result?.ok).map((result: any) => result.id)
+        : ids;
+      const failedIds = ids.filter(id => !successIds.includes(id));
+
+      successIds.forEach((id: string) => trackDeletedDevice(id, 15000));
+      failedIds.forEach((id: string) => untrackDeletedDevice(id));
+
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       queryClient.invalidateQueries({ queryKey: ["proxies"] });
       queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
-      const deleted = data?.deleted ?? ids.length;
-      toast({ title: `${deleted} instância${deleted !== 1 ? "s" : ""} removida${deleted !== 1 ? "s" : ""}` });
-    } catch {
+      const deleted = successIds.length;
+      const failed = failedIds.length;
+      if (failed > 0) {
+        toast({
+          title: `${deleted} instância${deleted !== 1 ? "s" : ""} removida${deleted !== 1 ? "s" : ""}`,
+          description: `${failed} não puderam ser apagadas.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: `${deleted} instância${deleted !== 1 ? "s" : ""} removida${deleted !== 1 ? "s" : ""}` });
+      }
+    } catch (err: any) {
+      ids.forEach(id => untrackDeletedDevice(id));
       if (previous) queryClient.setQueryData(["devices"], previous);
-      toast({ title: "Erro ao remover instâncias", variant: "destructive" });
+      toast({ title: "Erro ao remover instâncias", description: err?.message || "Erro desconhecido", variant: "destructive" });
     }
   };
 
