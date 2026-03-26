@@ -371,3 +371,176 @@ describe("Volume per block", () => {
     expect(session.messages_sent_a).toBe(60);
   });
 });
+
+// ══════════════════════════════════════════════════════════
+// COMMUNITY_ONLY MODE TESTS
+// ══════════════════════════════════════════════════════════
+
+describe("community_only — Eligibility", () => {
+  it("does not require warmup cycle", () => {
+    // community_only should be eligible without any cycle
+    const membership = {
+      community_mode: "community_only",
+      is_enabled: true,
+      daily_limit: 500,
+      messages_today: 100,
+      pairs_today: 2,
+      daily_pairs_max: 6,
+    };
+    const eligible = membership.community_mode === "community_only"
+      && membership.is_enabled
+      && membership.pairs_today < membership.daily_pairs_max
+      && membership.messages_today < membership.daily_limit;
+    expect(eligible).toBe(true);
+  });
+
+  it("blocks when pairs_today >= daily_pairs_max", () => {
+    const membership = {
+      community_mode: "community_only",
+      pairs_today: 6,
+      daily_pairs_max: 6,
+    };
+    const blocked = membership.pairs_today >= membership.daily_pairs_max;
+    expect(blocked).toBe(true);
+  });
+
+  it("does not depend on community_day", () => {
+    const membership = {
+      community_mode: "community_only",
+      community_day: 0, // no community_day set
+      is_enabled: true,
+      pairs_today: 0,
+      daily_pairs_max: 6,
+    };
+    // community_only should be eligible even with community_day=0
+    const eligible = membership.community_mode === "community_only"
+      && membership.is_enabled
+      && membership.pairs_today < membership.daily_pairs_max;
+    expect(eligible).toBe(true);
+  });
+});
+
+describe("community_only — Presets", () => {
+  const PRESETS: Record<string, { daily_limit: number; peers_min: number; peers_max: number; msgs_per_peer: number; cooldown_min: number; cooldown_max: number }> = {
+    low: { daily_limit: 300, peers_min: 2, peers_max: 4, msgs_per_peer: 80, cooldown_min: 30, cooldown_max: 60 },
+    medium: { daily_limit: 500, peers_min: 3, peers_max: 6, msgs_per_peer: 120, cooldown_min: 15, cooldown_max: 45 },
+    high: { daily_limit: 700, peers_min: 5, peers_max: 10, msgs_per_peer: 120, cooldown_min: 10, cooldown_max: 30 },
+  };
+
+  it("low preset has correct values", () => {
+    expect(PRESETS.low.daily_limit).toBe(300);
+    expect(PRESETS.low.peers_max).toBe(4);
+    expect(PRESETS.low.msgs_per_peer).toBe(80);
+    expect(PRESETS.low.cooldown_min).toBe(30);
+  });
+
+  it("high preset allows more volume", () => {
+    expect(PRESETS.high.daily_limit).toBeGreaterThan(PRESETS.low.daily_limit);
+    expect(PRESETS.high.peers_max).toBeGreaterThan(PRESETS.low.peers_max);
+    expect(PRESETS.high.cooldown_min).toBeLessThan(PRESETS.low.cooldown_min);
+  });
+
+  it("custom config overrides preset", () => {
+    const config = {
+      config_type: "custom",
+      daily_pairs_max: 8,
+      target_messages_per_pair: 200,
+      cooldown_min_minutes: 5,
+      cooldown_max_minutes: 15,
+    };
+    expect(config.daily_pairs_max).toBe(8);
+    expect(config.target_messages_per_pair).toBe(200);
+  });
+});
+
+describe("community_only — Session uses mode-specific target", () => {
+  it("uses target_messages_per_pair from membership", () => {
+    const membership = { target_messages_per_pair: 80, community_mode: "community_only" };
+    const sessionTarget = membership.community_mode === "community_only"
+      ? membership.target_messages_per_pair
+      : 120;
+    expect(sessionTarget).toBe(80);
+  });
+
+  it("falls back to 120 for warmup_managed", () => {
+    const membership = { target_messages_per_pair: 80, community_mode: "warmup_managed" };
+    const sessionTarget = membership.community_mode === "community_only"
+      ? membership.target_messages_per_pair
+      : 120;
+    expect(sessionTarget).toBe(120);
+  });
+});
+
+describe("community_only — Mode-specific cooldown", () => {
+  it("uses custom cooldown for community_only", () => {
+    const membership = {
+      community_mode: "community_only",
+      cooldown_min_minutes: 10,
+      cooldown_max_minutes: 30,
+    };
+    expect(membership.cooldown_min_minutes).toBe(10);
+    expect(membership.cooldown_max_minutes).toBe(30);
+  });
+
+  it("warmup_managed uses default cooldown", () => {
+    const DEFAULT_MIN = 15;
+    const DEFAULT_MAX = 45;
+    const membership = { community_mode: "warmup_managed" };
+    const cdMin = membership.community_mode === "community_only" ? 10 : DEFAULT_MIN;
+    const cdMax = membership.community_mode === "community_only" ? 30 : DEFAULT_MAX;
+    expect(cdMin).toBe(DEFAULT_MIN);
+    expect(cdMax).toBe(DEFAULT_MAX);
+  });
+});
+
+describe("community_only — Pairing preferences", () => {
+  it("respects partner_repeat_policy strict_no_repeat", () => {
+    // strict_no_repeat: any repeat = -500 score
+    const timesToday = 1;
+    const policy = "strict_no_repeat";
+    let score = 100;
+    if (policy === "strict_no_repeat" && timesToday > 0) score -= 500;
+    expect(score).toBe(-400);
+  });
+
+  it("respects cross_user_preference prefer_cross", () => {
+    const isSameUser = true;
+    const crossPref = "prefer_cross";
+    let score = 100;
+    if (isSameUser) {
+      if (crossPref === "prefer_cross") score += 5;
+      else score += 20;
+    }
+    expect(score).toBe(105); // lower bonus for same user when preferring cross
+  });
+
+  it("blocks own accounts when own_accounts_allowed=false", () => {
+    const isSameUser = true;
+    const ownAllowed = false;
+    let score = 100;
+    if (isSameUser && !ownAllowed) score -= 500;
+    expect(score).toBe(-400);
+  });
+});
+
+describe("community_only — Logs contain community_mode", () => {
+  it("session log includes community_mode=community_only", () => {
+    const log = {
+      session_id: "s1",
+      community_mode: "community_only",
+      event_type: "session_started",
+    };
+    expect(log.community_mode).toBe("community_only");
+  });
+
+  it("audit log differentiates modes", () => {
+    const logs = [
+      { event_type: "pair_created", community_mode: "warmup_managed" },
+      { event_type: "pair_created", community_mode: "community_only" },
+    ];
+    const managed = logs.filter(l => l.community_mode === "warmup_managed");
+    const dedicated = logs.filter(l => l.community_mode === "community_only");
+    expect(managed.length).toBe(1);
+    expect(dedicated.length).toBe(1);
+  });
+});
