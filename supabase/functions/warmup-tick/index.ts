@@ -204,7 +204,7 @@ function getCommunityBurstsPerPeer(dayIndex: number, chipState: string, communit
   return 8;
 }
 
-function getVolumes(chipState: string, dayIndex: number, phase: string): DayVolumes {
+function getVolumes(chipState: string, dayIndex: number, phase: string, communityDay?: number): DayVolumes {
   const v: DayVolumes = {
     groupMsgs: 0, autosaveContacts: 0, autosaveRounds: 0,
     communityPeers: 0, communityMsgsPerPeer: 0,
@@ -228,8 +228,8 @@ function getVolumes(chipState: string, dayIndex: number, phase: string): DayVolu
     const asTotal = asContacts * asRounds;
     v.autosaveContacts = asContacts;
     v.autosaveRounds = asRounds;
-    const peers = getCommunityPeers(dayIndex, chipState);
-    const burstsPerPeer = getCommunityBurstsPerPeer(dayIndex, chipState);
+    const peers = getCommunityPeers(dayIndex, chipState, communityDay);
+    const burstsPerPeer = getCommunityBurstsPerPeer(dayIndex, chipState, communityDay);
     const communityMsgs = peers * burstsPerPeer;
     v.communityPeers = peers;
     v.communityMsgsPerPeer = burstsPerPeer;
