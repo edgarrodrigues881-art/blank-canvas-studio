@@ -926,13 +926,20 @@ async function finishSession(db: any, session: any, endReason: string) {
 
   await db.from("community_pairs").update({ status: "closed", closed_at: now }).eq("id", session.pair_id);
 
-  const cooldownMinutes = randInt(COOLDOWN_MIN_MINUTES, COOLDOWN_MAX_MINUTES);
-  const cooldownUntil = new Date(Date.now() + cooldownMinutes * 60 * 1000).toISOString();
+  // Mode-specific cooldown
+  let cdMin = COOLDOWN_MIN_MINUTES;
+  let cdMax = COOLDOWN_MAX_MINUTES;
 
   for (const devId of [session.device_a, session.device_b]) {
     const { data: mbr } = await db.from("warmup_community_membership")
-      .select("pairs_today, user_id, community_mode, community_day").eq("device_id", devId).maybeSingle();
+      .select("pairs_today, user_id, community_mode, community_day, cooldown_min_minutes, cooldown_max_minutes, intensity").eq("device_id", devId).maybeSingle();
     if (mbr) {
+      if (mbr.community_mode === "community_only") {
+        cdMin = mbr.cooldown_min_minutes || COOLDOWN_MIN_MINUTES;
+        cdMax = mbr.cooldown_max_minutes || COOLDOWN_MAX_MINUTES;
+      }
+      const cooldownMinutes = randInt(cdMin, cdMax);
+      const cooldownUntil = new Date(Date.now() + cooldownMinutes * 60 * 1000).toISOString();
       await db.from("warmup_community_membership").update({
         pairs_today: (mbr.pairs_today || 0) + 1,
         cooldown_until: cooldownUntil,
@@ -940,6 +947,8 @@ async function finishSession(db: any, session: any, endReason: string) {
       }).eq("device_id", devId);
     }
   }
+
+  const cooldownMinutes = randInt(cdMin, cdMax);
 
   // Session completion audit log
   await auditLog(db, {
