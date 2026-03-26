@@ -694,16 +694,17 @@ const Devices = () => {
     );
     setSelectedDevices([]);
     try {
-      await Promise.allSettled(
-        ids.map(id =>
-          supabase.functions.invoke("manage-devices", {
-            body: { action: "delete", deviceId: id },
-          })
-        )
-      );
+      muteAutoSync(30000); // Mute auto-sync during bulk delete
+      ids.forEach(id => trackDeletedDevice(id));
+      const { data, error } = await supabase.functions.invoke("manage-devices", {
+        body: { action: "bulk-delete", deviceIds: ids },
+      });
+      if (error) throw new Error(error.message || "Erro ao excluir");
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       queryClient.invalidateQueries({ queryKey: ["proxies"] });
-      toast({ title: `${ids.length} instância${ids.length !== 1 ? "s" : ""} removida${ids.length !== 1 ? "s" : ""}` });
+      queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
+      const deleted = data?.deleted ?? ids.length;
+      toast({ title: `${deleted} instância${deleted !== 1 ? "s" : ""} removida${deleted !== 1 ? "s" : ""}` });
     } catch {
       if (previous) queryClient.setQueryData(["devices"], previous);
       toast({ title: "Erro ao remover instâncias", variant: "destructive" });
