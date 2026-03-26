@@ -483,6 +483,19 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
       const pm = extractProviderMessage(body, raw);
       const rawLower = `${raw} ${pm}`.toLowerCase();
 
+      // Check groupUpdated for per-participant errors (UAZAPI batch response)
+      const gu = body?.groupUpdated || body?.data?.groupUpdated;
+      if (Array.isArray(gu) && gu.length > 0) {
+        const entry = gu[0];
+        const errorCode = Number(entry?.Error ?? entry?.error ?? -1);
+        if (errorCode === 0) {
+          return { ok: true, status: res.status, body, rawMessage: pm || "Adicionado com sucesso.", strategyIndex: cachedStrategyIndex };
+        }
+        // Per-participant error even though HTTP was 200
+        const errDetail = `Participant error code: ${errorCode}`;
+        return { ok: false, status: res.status, body, rawMessage: errDetail, strategyIndex: cachedStrategyIndex };
+      }
+
       if ((res.status === 200 || res.status === 201) && !rawLower.includes("failed") && !rawLower.includes("bad-request")) {
         return { ok: true, status: res.status, body, rawMessage: pm || raw, strategyIndex: cachedStrategyIndex };
       }
@@ -510,6 +523,17 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
       const { raw, body } = await readApiResponse(res);
       const pm = extractProviderMessage(body, raw);
       const rawLower = `${raw} ${pm}`.toLowerCase();
+
+      // Check groupUpdated for per-participant errors (UAZAPI batch response)
+      const gu = body?.groupUpdated || body?.data?.groupUpdated;
+      if (Array.isArray(gu) && gu.length > 0) {
+        const entry = gu[0];
+        const errorCode = Number(entry?.Error ?? entry?.error ?? -1);
+        if (errorCode === 0) {
+          return { ok: true, status: res.status, body, rawMessage: pm || "Adicionado com sucesso.", strategyIndex: i };
+        }
+        return { ok: false, status: res.status, body, rawMessage: `Participant error code: ${errorCode}`, strategyIndex: i };
+      }
 
       if ((res.status === 200 || res.status === 201) && !rawLower.includes("failed") && !rawLower.includes("bad-request")) {
         return { ok: true, status: res.status, body, rawMessage: pm || raw, strategyIndex: i };
@@ -1014,159 +1038,249 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       return;
     }
 
-    const { data: contact } = await sb.rpc("claim_next_mass_inject_contact", {
-      p_campaign_id: campaignId,
-      p_device_used: device.name || device.id,
-      p_processing_message: "Processando...",
-    });
+    // ── BATCH PROCESSING: claim up to 5 contacts ──
+    const BATCH_SIZE = 5;
+    const batchContacts: any[] = [];
+    for (let i = 0; i < BATCH_SIZE; i++) {
+      const { data: contact } = await sb.rpc("claim_next_mass_inject_contact", {
+        p_campaign_id: campaignId,
+        p_device_used: device.name || device.id,
+        p_processing_message: "Processando...",
+      });
+      if (!contact?.id) break;
+      await sb.from("mass_inject_contacts").update({
+        processed_at: nowIso(),
+        device_used: device.name || device.id,
+      } as any).eq("id", contact.id);
+      batchContacts.push(contact);
+    }
 
-    if (!contact?.id) {
+    if (batchContacts.length === 0) {
       await finalizeCampaignIfNeeded(sb, campaignId);
       return;
     }
 
-    await sb.from("mass_inject_contacts").update({
-      processed_at: nowIso(),
-      device_used: device.name || device.id,
-    } as any).eq("id", contact.id);
-
+    // Recheck campaign status after claiming
     const { data: recheckCampaign } = await sb.from("mass_inject_campaigns").select("status").eq("id", campaignId).single();
     if (!recheckCampaign || !["queued", "processing"].includes(recheckCampaign.status)) {
-      console.log(`[mass-inject] campaign=${campaignId} status changed to ${recheckCampaign?.status} after claim — releasing contact ${contact.id}`);
-      await sb.from("mass_inject_contacts").update({
-        status: "pending",
-        error_message: null,
-        device_used: null,
-        processed_at: null,
-      } as any).eq("id", contact.id);
+      console.log(`[mass-inject] campaign=${campaignId} status changed to ${recheckCampaign?.status} after claim — releasing ${batchContacts.length} contacts`);
+      for (const c of batchContacts) {
+        await sb.from("mass_inject_contacts").update({
+          status: "pending", error_message: null, device_used: null, processed_at: null,
+        } as any).eq("id", c.id);
+      }
       return;
     }
 
-    const retryCount = extractRetryCount(contact.error_message);
-    const contactGroupId = contact.target_group_id || campaign.group_id;
-    const cacheKey = `${campaignId}:${contactGroupId}`;
-    console.log(`[mass-inject] campaign=${campaignId} processing contact=${contact.phone} group=${contactGroupId} (retry=${retryCount})`);
-    const result = await executeAddWithRecovery(device.uazapi_base_url, device.uazapi_token, contactGroupId, contact.phone, cacheKey);
-    contactsProcessedThisRun++;
+    // Build batch request
+    const contactGroupId = batchContacts[0].target_group_id || campaign.group_id;
+    const phones = batchContacts.map((c: any) => c.phone.replace(/@.*/, ""));
+    console.log(`[mass-inject] campaign=${campaignId} BATCH processing ${phones.length} contacts in group=${contactGroupId}`);
 
-    console.log(JSON.stringify({
-      type: "mass-group-inject.contact_result",
-      campaignId,
-      contactPhone: contact.phone,
-      contactId: contact.id,
-      status: result.status,
-      detail: result.detail?.substring(0, 200),
-      retryCount,
-      deviceName: device.name,
-      timestamp: nowIso(),
-    }));
+    // ── Call /group/updateParticipants with batch ──
+    type PerContactResult = { status: ContactProcessingStatus; detail: string };
+    const batchResults = new Map<string, PerContactResult>();
+    let needsRefresh = false;
 
-    // session_dropped is transient — do NOT mark device as Disconnected
-    if (result.status === "session_dropped") {
-      // Keep device status unchanged — session may recover
-      console.log(`[mass-inject] campaign=${campaignId} device=${device.name} session_dropped — NOT marking device offline`);
-    } else if (result.status === "confirmed_disconnect") {
-      await sb.from("devices").update({ status: "Disconnected", updated_at: nowIso() }).eq("id", device.id);
-    } else if (result.status === "completed" || result.status === "already_exists") {
+    try {
+      const res = await fetchWithTimeout(`${device.uazapi_base_url}/group/updateParticipants`, {
+        method: "POST",
+        headers: buildHeaders(device.uazapi_token, true),
+        body: JSON.stringify({
+          groupjid: contactGroupId,
+          action: "add",
+          participants: phones,
+        }),
+      });
+
+      const { raw, body: respBody } = await readApiResponse(res);
+
+      if (!res.ok) {
+        const failure = classifyAddFailure(extractProviderMessage(respBody, raw), res.status);
+        for (const phone of phones) {
+          batchResults.set(phone, { status: failure.status, detail: failure.detail });
+        }
+
+        // Check for connection issues on non-OK response
+        if (failure.status === "connection_unconfirmed" || res.status === 503) {
+          const { finalResult: connCheck, confirmedDisconnect } = await checkInstanceConnectionWithRetries(
+            device.uazapi_base_url, device.uazapi_token, `batch_fail:${contactGroupId}`
+          );
+          if (confirmedDisconnect) {
+            for (const phone of phones) {
+              batchResults.set(phone, { status: "session_dropped", detail: "Sessão da API desconectada." });
+            }
+          }
+        }
+      } else {
+        // Parse groupUpdated for per-participant results
+        const groupUpdated = respBody?.groupUpdated || respBody?.data?.groupUpdated || [];
+        const groupInfo = respBody?.group || respBody?.data?.group || {};
+        needsRefresh = respBody?.needs_refresh === true;
+
+        // Build participants set from response for "already in group" detection
+        const currentParticipants = new Set<string>();
+        collectParticipantsFromValue(groupInfo?.Participants || groupInfo?.participants, currentParticipants);
+
+        if (Array.isArray(groupUpdated) && groupUpdated.length > 0) {
+          for (const entry of groupUpdated) {
+            const jid = entry?.JID || entry?.jid || entry?.participant || "";
+            const errorCode = Number(entry?.Error ?? entry?.error ?? -1);
+            const entryPhone = jid.replace(/@.*/, "").replace(/\D/g, "");
+
+            const matchedPhone = phones.find(p =>
+              p === entryPhone || buildPhoneFingerprints(p).some(fp => fp === entryPhone)
+            );
+
+            if (matchedPhone) {
+              if (errorCode === 0) {
+                batchResults.set(matchedPhone, { status: "completed", detail: "Adicionado com sucesso." });
+              } else if (participantSetHasPhone(currentParticipants, matchedPhone)) {
+                batchResults.set(matchedPhone, { status: "already_exists", detail: "Contato já participava do grupo." });
+              } else {
+                batchResults.set(matchedPhone, { status: "unknown_failure", detail: `Erro ao adicionar (código: ${errorCode}).` });
+              }
+            }
+          }
+        }
+
+        // Fill in results for phones not in groupUpdated response
+        for (const phone of phones) {
+          if (!batchResults.has(phone)) {
+            if (participantSetHasPhone(currentParticipants, phone)) {
+              batchResults.set(phone, { status: "already_exists", detail: "Contato já participava do grupo." });
+            } else if (groupUpdated.length === 0) {
+              const rawLower = raw.toLowerCase();
+              if (rawLower.includes("already") || rawLower.includes("já")) {
+                batchResults.set(phone, { status: "already_exists", detail: "Contato já participava do grupo." });
+              } else {
+                batchResults.set(phone, { status: "completed", detail: "Adicionado (sem confirmação individual)." });
+              }
+            } else {
+              batchResults.set(phone, { status: "unknown_failure", detail: "Sem resultado individual na resposta." });
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      const isTimeout = error.message?.includes("Timeout");
+      for (const phone of phones) {
+        batchResults.set(phone, {
+          status: isTimeout ? "timeout" : "api_temporary",
+          detail: isTimeout ? "Tempo limite excedido na API." : `Erro de conexão: ${error.message}`,
+        });
+      }
+    }
+
+    // ── Process per-participant results ──
+    let anySuccess = false;
+    let consecutiveRealFailures = Number(campaign.consecutive_failures || 0);
+    let shouldAutoPause = false;
+    let autoPauseReason = "";
+
+    for (const contact of batchContacts) {
+      const phone = contact.phone.replace(/@.*/, "");
+      const result = batchResults.get(phone) || { status: "unknown_failure" as ContactProcessingStatus, detail: "Resultado não encontrado." };
+      const retryCount = extractRetryCount(contact.error_message);
+      contactsProcessedThisRun++;
+
+      console.log(JSON.stringify({
+        type: "mass-group-inject.contact_result",
+        campaignId, contactPhone: contact.phone, contactId: contact.id,
+        status: result.status, detail: result.detail?.substring(0, 200),
+        retryCount, deviceName: device.name, timestamp: nowIso(),
+      }));
+
+      const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped",
+        "permission_unconfirmed", "unknown_failure", "timeout"].includes(result.status);
+      const maxRetries = result.status === "rate_limited" ? MAX_RATE_LIMIT_RETRIES
+        : result.status === "session_dropped" ? MAX_SESSION_DROP_RETRIES : MAX_QUEUE_RETRIES;
+
+      if (isTransient && retryCount < maxRetries) {
+        let cooldownDelay = randomBetween(20_000, 40_000);
+        if (result.status === "rate_limited" || result.status === "session_dropped") {
+          cooldownDelay = Math.round(cooldownDelay * (1 + retryCount * 0.5));
+        }
+        await sb.from("mass_inject_contacts").update({
+          status: result.status,
+          error_message: withRetryMeta(stripRetryMeta(result.detail), retryCount + 1),
+          device_used: device.name || device.id,
+          processed_at: nowIso(),
+        }).eq("id", contact.id);
+      } else if (isTransient && retryCount >= maxRetries) {
+        await sb.from("mass_inject_contacts").update({
+          status: result.status,
+          error_message: `${stripRetryMeta(result.detail)} Tentativas esgotadas (${maxRetries}x).`,
+          device_used: device.name || device.id,
+          processed_at: nowIso(),
+        }).eq("id", contact.id);
+        await updateCampaignCounters(sb, campaign, result.status, false);
+      } else {
+        // Final status (success, already_exists, or definitive failure)
+        const finalError = SUCCESS_STATUSES.has(result.status) ? null : stripRetryMeta(result.detail);
+        await sb.from("mass_inject_contacts").update({
+          status: result.status,
+          error_message: finalError,
+          device_used: device.name || device.id,
+          processed_at: nowIso(),
+        }).eq("id", contact.id);
+
+        if (SUCCESS_STATUSES.has(result.status)) {
+          anySuccess = true;
+          consecutiveRealFailures = 0;
+        }
+
+        if (REAL_FAILURE_STATUSES.has(result.status)) {
+          consecutiveRealFailures++;
+          if (consecutiveRealFailures >= MAX_CONSECUTIVE_FAILURES) {
+            shouldAutoPause = true;
+            autoPauseReason = `Pausada por ${MAX_CONSECUTIVE_FAILURES} falhas consecutivas reais`;
+          }
+        }
+
+        await updateCampaignCounters(sb, campaign, result.status, false);
+      }
+    }
+
+    // Update device status based on batch results
+    if (anySuccess) {
       await sb.from("devices").update({ status: "Ready", updated_at: nowIso() }).eq("id", device.id);
     }
 
-    const isTransient = ["rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped", "permission_unconfirmed", "unknown_failure", "timeout"].includes(result.status) && !result.pauseCampaign;
+    // Update consecutive failures counter
+    await sb.from("mass_inject_campaigns").update({
+      consecutive_failures: consecutiveRealFailures,
+      updated_at: nowIso(),
+    }).eq("id", campaignId);
 
-    // rate_limited (429) gets MORE retries since it's just API throttling, NOT account restriction
-    const maxRetriesForStatus = result.status === "rate_limited" ? MAX_RATE_LIMIT_RETRIES : result.status === "session_dropped" ? MAX_SESSION_DROP_RETRIES : MAX_QUEUE_RETRIES;
-
-    if (isTransient && retryCount < maxRetriesForStatus) {
-      // For rate_limited, increase cooldown progressively with each retry
-      let cooldownDelay = result.cooldownMs || computeNextDelayMs(campaign, result.cooldownMs, device.id);
-      if (result.status === "rate_limited" || result.status === "session_dropped") {
-        // Progressive backoff: base × (1 + retry * 0.5) → gets longer each retry
-        const backoffMultiplier = 1 + (retryCount * 0.5);
-        cooldownDelay = Math.round(cooldownDelay * backoffMultiplier);
-      }
-
-      await sb.from("mass_inject_contacts").update({
-        status: result.status,
-        error_message: withRetryMeta(stripRetryMeta(result.detail), retryCount + 1),
-        device_used: device.name || device.id,
-        processed_at: nowIso(),
-      }).eq("id", contact.id);
-
-      if (await campaignCanKeepRunning(sb, campaignId)) {
-        console.log(`[mass-inject] campaign=${campaignId} transient error (${result.status}), retry ${retryCount+1}/${maxRetriesForStatus}, requeue in ${cooldownDelay}ms`);
-        await setCampaignEvent(sb, campaignId, "retry_waiting", "warning");
-        await scheduleCampaignRun(sb, campaignId, cooldownDelay);
-        nextRunScheduled = true;
-      }
-      return;
-    }
-
-    if (isTransient && retryCount >= maxRetriesForStatus) {
-      // rate_limited stays as rate_limited — it's API throttling, NOT WhatsApp account restriction
-      const finalStatus = result.status;
-      const finalDetail = `${stripRetryMeta(result.detail)} Tentativas esgotadas (${maxRetriesForStatus}x).`;
-
-      await sb.from("mass_inject_contacts").update({
-        status: finalStatus,
-        error_message: finalDetail,
-        device_used: device.name || device.id,
-        processed_at: nowIso(),
-      }).eq("id", contact.id);
-
-      await updateCampaignCounters(sb, campaign, finalStatus, false);
-
-      const finalized = await finalizeCampaignIfNeeded(sb, campaignId);
-      if (!finalized && await campaignCanKeepRunning(sb, campaignId)) {
-        const skipDelay = randomBetween(2000, 5000);
-        await scheduleCampaignRun(sb, campaignId, skipDelay);
-        nextRunScheduled = true;
-      }
-      return;
-    }
-
-    const finalError = SUCCESS_STATUSES.has(result.status) ? null : stripRetryMeta(result.detail);
-    await sb.from("mass_inject_contacts").update({
-      status: result.status,
-      error_message: finalError,
-      device_used: device.name || device.id,
-      processed_at: nowIso(),
-    }).eq("id", contact.id);
-
-    // Check for consecutive real failures auto-pause (NOT for rate_limited/timeout)
-    const shouldAutoPause = !result.pauseCampaign && REAL_FAILURE_STATUSES.has(result.status);
-    let autoPauseReason: string | undefined;
+    // Auto-pause check
     if (shouldAutoPause) {
-      const newConsecutive = Number(campaign.consecutive_failures || 0) + 1;
-      if (newConsecutive >= MAX_CONSECUTIVE_FAILURES) {
-        autoPauseReason = `Pausada por ${MAX_CONSECUTIVE_FAILURES} falhas consecutivas reais`;
-        console.log(`[mass-inject] campaign=${campaignId} AUTO-PAUSE: ${newConsecutive} consecutive real failures`);
-      }
-    }
-
-    const pauseReason = result.pauseCampaign ? getPauseReason(result.status) : autoPauseReason;
-    await updateCampaignCounters(sb, campaign, result.status, !!(result.pauseCampaign || autoPauseReason), pauseReason);
-
-    if (result.pauseCampaign || autoPauseReason) {
-      console.log(`[mass-inject] campaign=${campaignId} paused: ${pauseReason}`);
+      console.log(`[mass-inject] campaign=${campaignId} AUTO-PAUSE: ${autoPauseReason}`);
+      await sb.from("mass_inject_campaigns").update({
+        status: "paused", pause_reason: autoPauseReason, updated_at: nowIso(), next_run_at: null,
+      }).eq("id", campaignId);
+      await emitCampaignEvent(sb, campaignId, "campaign_paused", "warning", autoPauseReason);
       return;
     }
 
+    // Handle needs_refresh
+    if (needsRefresh) {
+      console.log(`[mass-inject] campaign=${campaignId} needs_refresh=true, adding extra delay`);
+    }
+
+    // Check if campaign should be finalized
     const finalized = await finalizeCampaignIfNeeded(sb, campaignId);
     if (finalized || !(await campaignCanKeepRunning(sb, campaignId))) {
       return;
     }
 
-    let nextDelayMs: number;
-    if (result.status === "already_exists" || result.status === "contact_not_found") {
-      // Still add some delay even for skipped contacts to look human
-      nextDelayMs = randomBetween(3000, 8000);
-    } else if (result.status === "blocked" || result.status === "unauthorized") {
-      nextDelayMs = randomBetween(3000, 6000);
-    } else {
-      nextDelayMs = computeNextDelayMs(campaign, result.cooldownMs, device.id);
+    // Compute next delay — add extra time for batch cooldown + needs_refresh
+    let nextDelayMs = computeNextDelayMs(campaign, undefined, device.id);
+    if (needsRefresh) {
+      nextDelayMs = Math.max(nextDelayMs, randomBetween(30_000, 60_000));
     }
 
-    console.log(`[mass-inject] campaign=${campaignId} result=${result.status} requeue in ${nextDelayMs}ms`);
+    console.log(`[mass-inject] campaign=${campaignId} batch done (${contactsProcessedThisRun} contacts), requeue in ${nextDelayMs}ms`);
     await scheduleCampaignRun(sb, campaignId, nextDelayMs);
     nextRunScheduled = true;
   } catch (error: any) {
@@ -1180,6 +1294,27 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
   } finally {
     if (lockAcquired && !nextRunScheduled) {
       await clearNextRunAt(sb, campaignId).catch(() => {});
+    }
+
+    // Safety net: if worker processed contacts but didn't schedule next run, check and reschedule
+    if (lockAcquired && !nextRunScheduled && contactsProcessedThisRun > 0) {
+      try {
+        const stillRunning = await campaignCanKeepRunning(sb, campaignId);
+        if (stillRunning) {
+          const { count } = await sb.from("mass_inject_contacts")
+            .select("id", { count: "exact", head: true })
+            .eq("campaign_id", campaignId)
+            .in("status", [...RETRYABLE_QUEUE_STATUSES, "pending"]);
+          if (Number(count || 0) > 0) {
+            console.log(`[mass-inject] campaign=${campaignId} SAFETY NET: rescheduling after unscheduled exit`);
+            await scheduleCampaignRun(sb, campaignId, randomBetween(5000, 15000));
+          } else {
+            await finalizeCampaignIfNeeded(sb, campaignId);
+          }
+        }
+      } catch (safetyErr) {
+        console.error(`[mass-inject] campaign=${campaignId} safety net error:`, safetyErr);
+      }
     }
 
     if (lockAcquired) {
