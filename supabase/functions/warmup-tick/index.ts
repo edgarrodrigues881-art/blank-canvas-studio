@@ -1331,8 +1331,19 @@ async function reconcileCommunityPairs(
     const peerMembershipMap = Object.fromEntries((peerMembershipRes.data || []).map((row: any) => [row.device_id, row]));
     const peerCycleMap = Object.fromEntries((peerCyclesRes.data || []).map((row: any) => [row.device_id, row]));
 
+    const PAIR_GRACE_PERIOD_MS = 10 * 60 * 1000; // Don't close pairs created < 10 min ago
+    const now = Date.now();
+
     const invalidPairIds = existingPairs
       .filter((pair: any) => {
+        // Grace period: never close recently created pairs
+        const createdAt = pair.created_at ? new Date(pair.created_at).getTime() : 0;
+        if (createdAt && (now - createdAt) < PAIR_GRACE_PERIOD_MS) return false;
+
+        // Don't close pairs with active conversations (expected_sender set)
+        const meta = pair.meta && typeof pair.meta === "object" ? pair.meta as Record<string, any> : {};
+        if (meta.conversation_id && meta.expected_sender_device_id) return false;
+
         const peerId = getCommunityPeerDeviceId(pair, params.deviceId);
         const peerDevice = peerDevicesMap[peerId];
         const peerMembership = peerMembershipMap[peerId];
@@ -1393,9 +1404,23 @@ async function reconcileCommunityPairs(
   }
 
   if (validPairs.length > targetPeers) {
-    const shuffledValid = [...validPairs].sort(() => Math.random() - 0.5);
-    const keptPairs = shuffledValid.slice(0, targetPeers);
-    const overflowIds = shuffledValid.slice(targetPeers).map((pair: any) => pair.id);
+    // Prioritize keeping pairs with active conversations
+    const withConversation = validPairs.filter((pair: any) => {
+      const meta = pair.meta && typeof pair.meta === "object" ? pair.meta as Record<string, any> : {};
+      return Boolean(meta.conversation_id && meta.expected_sender_device_id);
+    });
+    const withoutConversation = validPairs.filter((pair: any) => {
+      const meta = pair.meta && typeof pair.meta === "object" ? pair.meta as Record<string, any> : {};
+      return !meta.conversation_id || !meta.expected_sender_device_id;
+    });
+
+    // Keep conversation pairs first, then fill with others
+    const keptPairs = [...withConversation];
+    const remaining = [...withoutConversation].sort(() => Math.random() - 0.5);
+    while (keptPairs.length < targetPeers && remaining.length > 0) {
+      keptPairs.push(remaining.shift()!);
+    }
+    const overflowIds = remaining.map((pair: any) => pair.id);
 
     if (overflowIds.length > 0) {
       closedCount += await closeCommunityPairs(db, overflowIds);
