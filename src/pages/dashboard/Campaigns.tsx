@@ -1188,7 +1188,7 @@ const Campaigns = () => {
       {/* ═══ Stepper (Top) ═══ */}
       <div className="mb-4 sm:mb-8">
         <SurfaceCard className="px-2.5 py-2 sm:p-5">
-          <div className="flex items-center">
+          <div className="items-start justify-center flex flex-row">
             {steps.map((s, i) => {
               const isActive = step === s.num;
               const isDone = step > s.num;
@@ -1253,7 +1253,7 @@ const Campaigns = () => {
                           key={i}
                           onClick={() => setActiveMessageTab(i)}
                           className={cn(
-                            "px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all border",
+                            "px-3 py-1.5 text-[11px] font-medium transition-all border rounded-md",
                             activeMessageTab === i
                               ? "bg-primary/15 text-primary border-primary/30"
                               : hasText
