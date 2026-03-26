@@ -136,7 +136,7 @@ const App = () => (
                 <Route path="/dashboard/warmup-v2" element={<ProtectedRoute><DashboardLayout><WarmupInstances /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/warmup/:deviceId" element={<ProtectedRoute><DashboardLayout><WarmupInstanceDetail /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/warmup-v2/:deviceId" element={<ProtectedRoute><DashboardLayout><WarmupInstanceDetail /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/community-warmup" element={<ProtectedRoute><DashboardLayout><CommunityWarmupComingSoon /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/community-warmup" element={<ProtectedRoute><DashboardLayout><CommunityWarmup /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/community-warmup-soon" element={<ProtectedRoute><DashboardLayout><CommunityWarmupComingSoon /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/community" element={<ProtectedRoute><DashboardLayout><Community /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/campaigns" element={<ProtectedRoute><DashboardLayout><Campaigns /></DashboardLayout></ProtectedRoute>} />
