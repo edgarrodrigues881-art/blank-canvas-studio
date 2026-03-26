@@ -1286,10 +1286,23 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       return;
     }
 
-    // Compute next delay — add extra time for batch cooldown + needs_refresh
+    // Compute next delay — add extra time for batch cooldown + needs_refresh + rate limit backoff
     let nextDelayMs = computeNextDelayMs(campaign, undefined, device.id);
     if (needsRefresh) {
       nextDelayMs = Math.max(nextDelayMs, randomBetween(30_000, 60_000));
+    }
+
+    // ── EXPONENTIAL BACKOFF for rate limits ──
+    // Uses campaign.rate_limit_count as consecutive 429 tracker
+    if (batchHasRateLimit) {
+      const consecutiveRL = Number(campaign.rate_limit_count || 0) + batchRateLimitCount;
+      // Exponential: 30s, 60s, 120s, 240s... capped at 10min
+      const rlBackoffMs = Math.min(30_000 * Math.pow(2, Math.min(consecutiveRL - 1, 5)), 600_000);
+      const rlDelay = rlBackoffMs + randomBetween(5_000, 15_000);
+      nextDelayMs = Math.max(nextDelayMs, rlDelay);
+      console.log(`[mass-inject] campaign=${campaignId} RATE LIMIT BACKOFF: ${consecutiveRL} consecutive 429s, next batch in ${Math.round(rlDelay/1000)}s`);
+      await emitCampaignEvent(sb, campaignId, "rate_limit_backoff", "warning",
+        `Limite da API atingido (${batchRateLimitCount}/${batchContacts.length} contatos). Cooldown exponencial: ${Math.round(rlDelay/1000)}s.`);
     }
 
     console.log(`[mass-inject] campaign=${campaignId} batch done (${contactsProcessedThisRun} contacts), requeue in ${nextDelayMs}ms`);
