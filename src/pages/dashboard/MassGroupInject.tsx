@@ -448,12 +448,7 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
         <div className="grid gap-3">
           {filteredCampaigns.map((c: any) => {
             const sc = c.success_count || 0;
-            const ac = c.already_count || 0;
-            const fc = c.fail_count || 0;
-            const rl = c.rate_limit_count || 0;
-            const to = c.timeout_count || 0;
-            const processed = sc + ac + fc + rl + to;
-            const progress = c.total_contacts > 0 ? Math.round((processed / c.total_contacts) * 100) : 0;
+            const progress = c.total_contacts > 0 ? Math.round((sc / c.total_contacts) * 100) : 0;
             return (
               <Card key={c.id} className="border-border/40 bg-card/80 hover:bg-card/90 transition-colors cursor-pointer group" onClick={() => onViewCampaign(c.id)}>
                 <CardContent className="py-4 px-5">
@@ -469,9 +464,6 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
                         <span className="truncate max-w-[200px]">{c.group_name || c.group_id?.substring(0, 15) + "..."}</span>
                         <span>{c.total_contacts} contatos</span>
                         <span className="text-emerald-500">{sc} adicionados</span>
-                        {ac > 0 && <span className="text-blue-500">{ac} já no grupo</span>}
-                        {fc > 0 && <span className="text-destructive">{fc} falha{fc !== 1 ? "s" : ""}</span>}
-                        {rl > 0 && <span className="text-amber-500">{rl} rate limit</span>}
                         <span>{new Date(c.created_at).toLocaleDateString("pt-BR")}</span>
                       </div>
                       {c.pause_reason && c.status === "paused" && (
@@ -834,24 +826,14 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
 
   const derivedCounts = contacts.reduce((acc: any, contact: any) => {
     if (contact.status === "completed") acc.success++;
-    if (contact.status === "already_exists") acc.already++;
-    if (contact.status === "rate_limited") acc.rateLimited++;
-    if (contact.status === "timeout") acc.timeout++;
-    if (contact.status === "cancelled") acc.cancelled++;
-    if (REAL_FAILURE_CONTACT_STATUSES.has(contact.status)) acc.fail++;
     if (ACTIVE_QUEUE_STATUSES.has(contact.status)) acc.pending++;
     return acc;
-  }, { success: 0, already: 0, fail: 0, rateLimited: 0, timeout: 0, pending: 0, cancelled: 0 });
+  }, { success: 0, pending: 0 });
 
   const hasContactSnapshot = contacts.length > 0;
   const successCount = hasContactSnapshot ? derivedCounts.success : (campaign.success_count || 0);
-  const alreadyCount = hasContactSnapshot ? derivedCounts.already : (campaign.already_count || 0);
-  const failCount = hasContactSnapshot ? derivedCounts.fail : (campaign.fail_count || 0);
-  const rateLimitCount = hasContactSnapshot ? derivedCounts.rateLimited : (campaign.rate_limit_count || 0);
-  const timeoutCount = hasContactSnapshot ? derivedCounts.timeout : (campaign.timeout_count || 0);
   const pendingCount = hasContactSnapshot ? derivedCounts.pending : contacts.filter((c: any) => ACTIVE_QUEUE_STATUSES.has(c.status)).length;
-  const cancelledCount = hasContactSnapshot ? derivedCounts.cancelled : contacts.filter((c: any) => c.status === "cancelled").length;
-  const processed = successCount + alreadyCount + failCount + cancelledCount;
+  const processed = successCount + (campaign.total_contacts - successCount - pendingCount);
   const progress = campaign.total_contacts > 0 ? Math.round((processed / campaign.total_contacts) * 100) : 0;
 
   const isRunning = campaign.status === "processing" || campaign.status === "queued";
@@ -923,16 +905,11 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         {[
           { label: "Total", value: campaign.total_contacts, color: "text-foreground" },
           { label: "Adicionados", value: successCount, color: "text-emerald-500" },
-          { label: "Já no Grupo", value: alreadyCount, color: "text-blue-500" },
-          { label: "Falhas Reais", value: failCount, color: "text-destructive" },
-          { label: "Rate Limit", value: rateLimitCount, color: "text-amber-500" },
-          { label: "Timeout", value: timeoutCount, color: "text-amber-500" },
           { label: "Pendentes", value: pendingCount, color: "text-muted-foreground" },
-          { label: "Progresso", value: `${progress}%`, color: "text-primary" },
         ].map(s => (
           <Card key={s.label} className="border-border/40 bg-card/80">
             <CardContent className="pt-4 pb-3 px-4">
@@ -973,12 +950,7 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
           {[
             { key: "all", label: `Todos (${contacts.length})` },
             { key: "completed", label: `Adicionados (${successCount})` },
-            { key: "already_exists", label: `Já no Grupo (${alreadyCount})` },
-            { key: "failed", label: `Falhas (${failCount})` },
-            { key: "rate_limited", label: `Rate Limit (${rateLimitCount})` },
-            ...(timeoutCount > 0 ? [{ key: "timeout", label: `Timeout (${timeoutCount})` }] : []),
             { key: "pending", label: `Pendentes (${pendingCount})` },
-            ...(cancelledCount > 0 ? [{ key: "cancelled", label: `Cancelados (${cancelledCount})` }] : []),
           ].map(f => (
             <Button key={f.key} variant={activeFilter === f.key ? "default" : "outline"} size="sm" onClick={() => setActiveFilter(f.key)} className="text-xs h-8 rounded-lg">
               {f.label}
