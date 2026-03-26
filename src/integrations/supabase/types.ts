@@ -1002,36 +1002,116 @@ export type Database = {
         }
         Relationships: []
       }
+      community_daily_stats: {
+        Row: {
+          community_mode: string
+          created_at: string
+          device_id: string
+          id: string
+          last_cooldown_until: string | null
+          last_error: string | null
+          last_partner_device_id: string | null
+          messages_failed: number
+          messages_received: number
+          messages_sent: number
+          pairs_completed: number
+          sessions_completed: number
+          sessions_started: number
+          stat_date: string
+          unique_partners: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          community_mode?: string
+          created_at?: string
+          device_id: string
+          id?: string
+          last_cooldown_until?: string | null
+          last_error?: string | null
+          last_partner_device_id?: string | null
+          messages_failed?: number
+          messages_received?: number
+          messages_sent?: number
+          pairs_completed?: number
+          sessions_completed?: number
+          sessions_started?: number
+          stat_date: string
+          unique_partners?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          community_mode?: string
+          created_at?: string
+          device_id?: string
+          id?: string
+          last_cooldown_until?: string | null
+          last_error?: string | null
+          last_partner_device_id?: string | null
+          messages_failed?: number
+          messages_received?: number
+          messages_sent?: number
+          pairs_completed?: number
+          sessions_completed?: number
+          sessions_started?: number
+          stat_date?: string
+          unique_partners?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_daily_stats_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       community_pairs: {
         Row: {
           closed_at: string | null
+          community_mode: string
           created_at: string
           cycle_id: string
           id: string
           instance_id_a: string
           instance_id_b: string
+          messages_total: number
           meta: Json | null
+          session_id: string | null
           status: string
+          target_messages: number
         }
         Insert: {
           closed_at?: string | null
+          community_mode?: string
           created_at?: string
           cycle_id: string
           id?: string
           instance_id_a: string
           instance_id_b: string
+          messages_total?: number
           meta?: Json | null
+          session_id?: string | null
           status?: string
+          target_messages?: number
         }
         Update: {
           closed_at?: string | null
+          community_mode?: string
           created_at?: string
           cycle_id?: string
           id?: string
           instance_id_a?: string
           instance_id_b?: string
+          messages_total?: number
           meta?: Json | null
+          session_id?: string | null
           status?: string
+          target_messages?: number
         }
         Relationships: [
           {
@@ -1053,6 +1133,168 @@ export type Database = {
             columns: ["instance_id_b"]
             isOneToOne: false
             referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_session_logs: {
+        Row: {
+          created_at: string
+          delay_applied_seconds: number | null
+          error_message: string | null
+          id: string
+          message_content: string
+          message_index: number
+          pair_id: string
+          receiver_device_id: string
+          sender_device_id: string
+          sender_user_id: string
+          sent_at: string
+          session_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          delay_applied_seconds?: number | null
+          error_message?: string | null
+          id?: string
+          message_content: string
+          message_index?: number
+          pair_id: string
+          receiver_device_id: string
+          sender_device_id: string
+          sender_user_id: string
+          sent_at?: string
+          session_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          delay_applied_seconds?: number | null
+          error_message?: string | null
+          id?: string
+          message_content?: string
+          message_index?: number
+          pair_id?: string
+          receiver_device_id?: string
+          sender_device_id?: string
+          sender_user_id?: string
+          sent_at?: string
+          session_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_session_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "community_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_sessions: {
+        Row: {
+          community_mode: string
+          completed_at: string | null
+          created_at: string
+          device_a: string
+          device_b: string
+          end_reason: string | null
+          id: string
+          last_message_at: string | null
+          last_sender: string | null
+          max_delay_seconds: number
+          messages_sent_a: number
+          messages_sent_b: number
+          messages_total: number
+          min_delay_seconds: number
+          pair_id: string
+          pause_after_messages_max: number
+          pause_after_messages_min: number
+          pause_duration_max: number
+          pause_duration_min: number
+          started_at: string
+          status: string
+          target_messages: number
+          updated_at: string
+          user_a: string
+          user_b: string
+        }
+        Insert: {
+          community_mode?: string
+          completed_at?: string | null
+          created_at?: string
+          device_a: string
+          device_b: string
+          end_reason?: string | null
+          id?: string
+          last_message_at?: string | null
+          last_sender?: string | null
+          max_delay_seconds?: number
+          messages_sent_a?: number
+          messages_sent_b?: number
+          messages_total?: number
+          min_delay_seconds?: number
+          pair_id: string
+          pause_after_messages_max?: number
+          pause_after_messages_min?: number
+          pause_duration_max?: number
+          pause_duration_min?: number
+          started_at?: string
+          status?: string
+          target_messages?: number
+          updated_at?: string
+          user_a: string
+          user_b: string
+        }
+        Update: {
+          community_mode?: string
+          completed_at?: string | null
+          created_at?: string
+          device_a?: string
+          device_b?: string
+          end_reason?: string | null
+          id?: string
+          last_message_at?: string | null
+          last_sender?: string | null
+          max_delay_seconds?: number
+          messages_sent_a?: number
+          messages_sent_b?: number
+          messages_total?: number
+          min_delay_seconds?: number
+          pair_id?: string
+          pause_after_messages_max?: number
+          pause_after_messages_min?: number
+          pause_duration_max?: number
+          pause_duration_min?: number
+          started_at?: string
+          status?: string
+          target_messages?: number
+          updated_at?: string
+          user_a?: string
+          user_b?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_sessions_device_a_fkey"
+            columns: ["device_a"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_sessions_device_b_fkey"
+            columns: ["device_b"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_sessions_pair_id_fkey"
+            columns: ["pair_id"]
+            isOneToOne: false
+            referencedRelation: "community_pairs"
             referencedColumns: ["id"]
           },
         ]
@@ -2670,41 +2912,110 @@ export type Database = {
       }
       warmup_community_membership: {
         Row: {
+          active_days: Json
+          community_day: number
+          community_mode: string
+          cooldown_until: string | null
           created_at: string
+          custom_max_delay_seconds: number | null
+          custom_min_delay_seconds: number | null
+          custom_msgs_per_peer: number | null
+          custom_pause_after_max: number | null
+          custom_pause_after_min: number | null
+          custom_pause_duration_max: number | null
+          custom_pause_duration_min: number | null
+          custom_peers_max: number | null
+          custom_peers_min: number | null
           cycle_id: string | null
+          daily_limit: number
           device_id: string
           disabled_at: string | null
           enabled_at: string | null
+          end_hour: string
           id: string
+          intensity: string
           is_eligible: boolean
           is_enabled: boolean
+          last_daily_reset_at: string | null
+          last_error: string | null
+          last_partner_device_id: string | null
+          last_session_at: string | null
+          messages_today: number
           notes: string | null
+          pairs_today: number
+          start_hour: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          active_days?: Json
+          community_day?: number
+          community_mode?: string
+          cooldown_until?: string | null
           created_at?: string
+          custom_max_delay_seconds?: number | null
+          custom_min_delay_seconds?: number | null
+          custom_msgs_per_peer?: number | null
+          custom_pause_after_max?: number | null
+          custom_pause_after_min?: number | null
+          custom_pause_duration_max?: number | null
+          custom_pause_duration_min?: number | null
+          custom_peers_max?: number | null
+          custom_peers_min?: number | null
           cycle_id?: string | null
+          daily_limit?: number
           device_id: string
           disabled_at?: string | null
           enabled_at?: string | null
+          end_hour?: string
           id?: string
+          intensity?: string
           is_eligible?: boolean
           is_enabled?: boolean
+          last_daily_reset_at?: string | null
+          last_error?: string | null
+          last_partner_device_id?: string | null
+          last_session_at?: string | null
+          messages_today?: number
           notes?: string | null
+          pairs_today?: number
+          start_hour?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          active_days?: Json
+          community_day?: number
+          community_mode?: string
+          cooldown_until?: string | null
           created_at?: string
+          custom_max_delay_seconds?: number | null
+          custom_min_delay_seconds?: number | null
+          custom_msgs_per_peer?: number | null
+          custom_pause_after_max?: number | null
+          custom_pause_after_min?: number | null
+          custom_pause_duration_max?: number | null
+          custom_pause_duration_min?: number | null
+          custom_peers_max?: number | null
+          custom_peers_min?: number | null
           cycle_id?: string | null
+          daily_limit?: number
           device_id?: string
           disabled_at?: string | null
           enabled_at?: string | null
+          end_hour?: string
           id?: string
+          intensity?: string
           is_eligible?: boolean
           is_enabled?: boolean
+          last_daily_reset_at?: string | null
+          last_error?: string | null
+          last_partner_device_id?: string | null
+          last_session_at?: string | null
+          messages_today?: number
           notes?: string | null
+          pairs_today?: number
+          start_hour?: string
           updated_at?: string
           user_id?: string
         }
@@ -3342,6 +3653,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_community_eligibility: {
+        Args: { p_community_mode?: string; p_device_id: string }
+        Returns: Json
+      }
       check_phone_available: { Args: { _phone: string }; Returns: boolean }
       claim_device_send_slot: {
         Args: { p_device_id: string; p_min_interval_ms?: number }
@@ -3401,6 +3716,10 @@ export type Database = {
       cleanup_stale_locks: {
         Args: { _stale_seconds?: number }
         Returns: number
+      }
+      get_community_pairs_target: {
+        Args: { p_community_day: number }
+        Returns: number[]
       }
       get_profile_safe: {
         Args: { profile_row: Database["public"]["Tables"]["profiles"]["Row"] }
