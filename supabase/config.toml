@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.run-scheduled-campaigns]
 verify_jwt = false
+
+[functions.community-core]
+verify_jwt = false
