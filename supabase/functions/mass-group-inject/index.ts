@@ -715,7 +715,7 @@ async function updateCampaignCounters(sb: any, campaign: any, status: string, pa
     patch.timeout_count = Number(campaign.timeout_count || 0) + 1;
     eventType = "timeout";
     eventLevel = "warning";
-  } else if (REAL_FAILURE_STATUSES.has(status)) {
+  } else if (status === "failed" || REAL_FAILURE_STATUSES.has(status)) {
     patch.fail_count = Number(campaign.fail_count || 0) + 1;
     patch.consecutive_failures = Number(campaign.consecutive_failures || 0) + 1;
     if (status === "contact_not_found") eventType = "contact_not_found";
