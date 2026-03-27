@@ -80,6 +80,7 @@ export default function GroupInteractionPage() {
   const [form, setForm] = useState<Record<string, any>>({ ...defaultForm });
   const [bulkDeviceIds, setBulkDeviceIds] = useState<string[]>([]);
   const [usePeriod2, setUsePeriod2] = useState(false);
+  const [groupSource, setGroupSource] = useState<"system" | "custom">("system");
 
   const { data: devices = [] } = useQuery({
     queryKey: ["devices-gi", user?.id],
@@ -106,19 +107,26 @@ export default function GroupInteractionPage() {
     });
   }, [devices]);
 
-  const { data: warmupGroups = [] } = useQuery({
+  const { data: allWarmupGroups = [] } = useQuery({
     queryKey: ["warmup-groups-gi", user?.id],
     queryFn: async () => {
       if (!user) return [];
       const { data } = await supabase
         .from("warmup_groups" as any)
-        .select("id, name, link")
+        .select("id, name, link, is_custom, user_id")
         .or(`user_id.eq.${user.id},and(is_custom.eq.false,user_id.is.null)`)
         .order("name");
       return data || [];
     },
     enabled: !!user,
   });
+
+  const warmupGroups = useMemo(() => {
+    if (groupSource === "system") {
+      return allWarmupGroups.filter((g: any) => !g.is_custom && !g.user_id);
+    }
+    return allWarmupGroups.filter((g: any) => g.user_id === user?.id);
+  }, [allWarmupGroups, groupSource, user?.id]);
 
   const selected = useMemo(
     () => interactions.find((i) => i.id === selectedId) || null,
@@ -670,10 +678,34 @@ export default function GroupInteractionPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="flex gap-2 mb-3">
+              <button
+                onClick={() => { setGroupSource("system"); updateForm({ group_ids: [] }); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                  groupSource === "system"
+                    ? "bg-primary/15 text-primary border-primary/30"
+                    : "bg-muted/30 text-muted-foreground border-border hover:border-border/80"
+                }`}
+              >
+                Grupos do Sistema
+              </button>
+              <button
+                onClick={() => { setGroupSource("custom"); updateForm({ group_ids: [] }); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                  groupSource === "custom"
+                    ? "bg-primary/15 text-primary border-primary/30"
+                    : "bg-muted/30 text-muted-foreground border-border hover:border-border/80"
+                }`}
+              >
+                Meus Grupos
+              </button>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 max-h-48 overflow-y-auto border border-border/50 rounded-lg p-2">
               {warmupGroups.length === 0 ? (
                 <p className="text-xs text-muted-foreground p-2 col-span-full">
-                  Nenhum grupo cadastrado. Adicione grupos em Aquecimento &gt; Grupos.
+                  {groupSource === "custom"
+                    ? "Nenhum grupo próprio cadastrado. Adicione em Aquecimento > Grupos."
+                    : "Nenhum grupo do sistema disponível."}
                 </p>
               ) : (
                 warmupGroups.map((g: any) => (
