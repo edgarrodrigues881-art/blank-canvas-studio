@@ -664,7 +664,8 @@ async function mainLoop() {
       .limit(10);
 
     if (cycleErr) {
-      log.warn(`Failed to query warmup_cycles: ${cycleErr.message}`);
+      const rawErr = JSON.stringify(cycleErr, Object.getOwnPropertyNames(cycleErr));
+      log.warn(`Failed to query warmup_cycles`, { rawError: rawErr });
     } else {
       log.info(`Active warmup cycles: ${activeCycles?.length || 0}`);
       if (activeCycles?.length) {
