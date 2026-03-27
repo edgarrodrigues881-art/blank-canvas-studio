@@ -107,19 +107,37 @@ Deno.serve(async (req) => {
       `${origin}/dashboard/my-plan?checkout=cancel`
     );
 
-    const stripeRes = await fetch(
-      "https://api.stripe.com/v1/checkout/sessions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params.toString(),
-      }
-    );
+    console.log("Calling Stripe API...");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
+    let stripeRes: Response;
+    try {
+      stripeRes = await fetch(
+        "https://api.stripe.com/v1/checkout/sessions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: params.toString(),
+          signal: controller.signal,
+        }
+      );
+    } catch (fetchErr) {
+      clearTimeout(timeoutId);
+      console.error("Stripe fetch failed:", fetchErr);
+      return new Response(
+        JSON.stringify({ error: "Timeout ou erro de rede ao conectar ao Stripe" }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    clearTimeout(timeoutId);
+
+    console.log("Stripe response status:", stripeRes.status);
     const session = await stripeRes.json();
+    console.log("Stripe session id:", session.id ?? "none", "url:", session.url ? "present" : "missing");
 
     if (!stripeRes.ok) {
       console.error("Stripe error:", JSON.stringify(session));
