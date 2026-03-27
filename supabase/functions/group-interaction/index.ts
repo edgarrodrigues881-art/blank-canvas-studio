@@ -729,21 +729,24 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
     try {
       if (chosenType === "image") {
         const picked = mediaByType.image?.length ? pickRandom(mediaByType.image) : null;
-        fileUrl = picked?.file_url || pickRandom(systemImagePool);
+        const resolvedImageUrl = String(picked?.file_url || pickRandom(systemImagePool) || "").trim();
+        fileUrl = resolvedImageUrl || null;
         const caption = String(picked?.content || "").trim() || getTextMessage();
-        await uazapiSendImage(baseUrl, device.uazapi_token, groupJid, fileUrl, "");
+        await uazapiSendImage(baseUrl, device.uazapi_token, groupJid, resolvedImageUrl, "");
         await sleep(randomBetween(1000, 3000));
         await uazapiSendText(baseUrl, device.uazapi_token, groupJid, caption);
         messageText = `[IMG+TXT] ${caption}`;
       } else if (chosenType === "sticker") {
         const picked = mediaByType.sticker?.length ? pickRandom(mediaByType.sticker) : null;
-        fileUrl = picked?.file_url || pickRandom(systemImagePool);
-        await uazapiSendSticker(baseUrl, device.uazapi_token, groupJid, fileUrl);
+        const resolvedStickerUrl = String(picked?.file_url || pickRandom(systemImagePool) || "").trim();
+        fileUrl = resolvedStickerUrl || null;
+        await uazapiSendSticker(baseUrl, device.uazapi_token, groupJid, resolvedStickerUrl);
         messageText = `[STICKER] ${picked?.content || "🎭"}`;
       } else if (chosenType === "audio") {
         const picked = mediaByType.audio?.length ? pickRandom(mediaByType.audio) : null;
-        fileUrl = picked?.file_url || pickRandom(systemAudioPool);
-        await uazapiSendAudio(baseUrl, device.uazapi_token, groupJid, fileUrl);
+        const resolvedAudioUrl = String(picked?.file_url || pickRandom(systemAudioPool) || "").trim();
+        fileUrl = resolvedAudioUrl || null;
+        await uazapiSendAudio(baseUrl, device.uazapi_token, groupJid, resolvedAudioUrl);
         messageText = `[AUDIO] ${picked?.content || "🎤"}`;
       } else {
         messageText = getTextMessage();
