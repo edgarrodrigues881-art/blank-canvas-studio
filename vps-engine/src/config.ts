@@ -6,6 +6,7 @@ export const config = {
   supabaseUrl: process.env.SUPABASE_URL || "",
   supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
+  defaultUazapiBaseUrl: (process.env.UAZAPI_BASE_URL || "").replace(/\/+$/, ""),
 
   port: Number(process.env.PORT) || 3500,
 
@@ -23,6 +24,17 @@ export const config = {
   windowEndHour: 19,
 };
 
+function decodeJwtPayload(token: string): Record<string, any> | null {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+
+  try {
+    return JSON.parse(Buffer.from(parts[1], "base64").toString());
+  } catch {
+    return null;
+  }
+}
+
 // ── Startup validation ──
 export function validateConfig(): string[] {
   const errors: string[] = [];
@@ -36,18 +48,12 @@ export function validateConfig(): string[] {
   if (!config.supabaseServiceKey) {
     errors.push("SUPABASE_SERVICE_ROLE_KEY is required");
   } else {
-    // Validate it's a JWT
-    const parts = config.supabaseServiceKey.split(".");
-    if (parts.length !== 3) {
-      errors.push("SUPABASE_SERVICE_ROLE_KEY does not look like a valid JWT (expected 3 parts separated by dots)");
-    } else {
-      try {
-        const payload = JSON.parse(Buffer.from(parts[1], "base64").toString());
-        if (payload.role !== "service_role") {
-          errors.push(`SUPABASE_SERVICE_ROLE_KEY has role="${payload.role}" — expected "service_role". You might be using the anon key by mistake.`);
-        }
-      } catch {
-        errors.push("SUPABASE_SERVICE_ROLE_KEY JWT payload could not be decoded");
+    if (!config.supabaseServiceKey.startsWith("sb_secret_")) {
+      const payload = decodeJwtPayload(config.supabaseServiceKey);
+      if (!payload) {
+        errors.push("SUPABASE_SERVICE_ROLE_KEY must be a valid sb_secret key or service_role JWT");
+      } else if (payload.role !== "service_role") {
+        errors.push(`SUPABASE_SERVICE_ROLE_KEY has role="${payload.role}" — expected "service_role". You might be using the anon/publishable key by mistake.`);
       }
     }
   }
@@ -55,14 +61,11 @@ export function validateConfig(): string[] {
   if (!config.supabaseAnonKey) {
     errors.push("SUPABASE_ANON_KEY is required (used to call Edge Functions)");
   } else {
-    const parts = config.supabaseAnonKey.split(".");
-    if (parts.length === 3) {
-      try {
-        const payload = JSON.parse(Buffer.from(parts[1], "base64").toString());
-        if (payload.role !== "anon") {
-          errors.push(`SUPABASE_ANON_KEY has role="${payload.role}" — expected "anon". Keys might be swapped.`);
-        }
-      } catch { /* ignore */ }
+    if (!config.supabaseAnonKey.startsWith("sb_publishable_")) {
+      const payload = decodeJwtPayload(config.supabaseAnonKey);
+      if (payload && payload.role !== "anon") {
+        errors.push(`SUPABASE_ANON_KEY has role="${payload.role}" — expected "anon". Keys might be swapped.`);
+      }
     }
   }
 
