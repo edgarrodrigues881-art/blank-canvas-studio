@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   UsersRound, Copy, Check, LogIn, Timer, Search,
-  Loader2, Shield, StopCircle, XCircle, Clock, Users, Plus, Trash2, Link2, UserPlus
+  Loader2, Shield, StopCircle, XCircle, Clock, Users, Plus, Trash2, Link2, UserPlus, Flame
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
