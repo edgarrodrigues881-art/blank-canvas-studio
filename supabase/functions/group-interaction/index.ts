@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { addResolvedGroup, fetchDeviceGroups, normalizeGroupName, resolveGroupJid } from "./group-resolution.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,6 +46,63 @@ function getCategoryForIndex(i: number, total: number): string {
   if (i === 0) return "abertura";
   if (i === total - 1) return "encerramento";
   return pickRandom(["continuacao", "pergunta", "resposta_curta", "engajamento", "continuacao"]);
+}
+
+function addAliasHint(aliasesByIdentifier: Map<string, string[]>, identifier: string, alias: string | null | undefined) {
+  const cleanIdentifier = String(identifier || "").trim();
+  const cleanAlias = String(alias || "").trim();
+  if (!cleanIdentifier || !cleanAlias) return;
+
+  const current = aliasesByIdentifier.get(cleanIdentifier) || [];
+  if (!current.includes(cleanAlias)) {
+    aliasesByIdentifier.set(cleanIdentifier, [...current, cleanAlias]);
+  }
+}
+
+async function getStoredGroupHints(admin: any, deviceId: string | null, identifiers: string[]) {
+  const aliasesByIdentifier = new Map<string, string[]>();
+  const directGroups = new Map<string, { jid: string; name: string }>();
+  const links = [...new Set((identifiers || []).map((value) => String(value || "").trim()).filter(Boolean))];
+
+  if (links.length === 0) return { aliasesByIdentifier, directGroups };
+
+  const queries: Promise<any>[] = [
+    admin.from("warmup_groups").select("link, name").in("link", links),
+    admin.from("warmup_groups_pool").select("external_group_ref, name").in("external_group_ref", links),
+  ];
+
+  if (deviceId) {
+    queries.push(
+      admin
+        .from("warmup_instance_groups")
+        .select("invite_link, group_name, group_jid")
+        .eq("device_id", deviceId)
+        .in("invite_link", links),
+    );
+  }
+
+  const [warmupGroupsRes, poolGroupsRes, instanceGroupsRes] = await Promise.all(queries);
+
+  for (const row of warmupGroupsRes?.data || []) {
+    addAliasHint(aliasesByIdentifier, row.link, row.name);
+  }
+
+  for (const row of poolGroupsRes?.data || []) {
+    addAliasHint(aliasesByIdentifier, row.external_group_ref, row.name);
+  }
+
+  for (const row of instanceGroupsRes?.data || []) {
+    addAliasHint(aliasesByIdentifier, row.invite_link, row.group_name);
+    if (row.group_jid) {
+      addResolvedGroup(directGroups as Map<string, { jid: string; name: string }>, {
+        jid: row.group_jid,
+        name: row.group_name,
+        invite: row.invite_link,
+      });
+    }
+  }
+
+  return { aliasesByIdentifier, directGroups };
 }
 
 async function getUserWarmupMessages(admin: any, userId: string): Promise<string[]> {
@@ -145,68 +203,6 @@ function jsonOk(data: any) {
   });
 }
 
-/** Fetch all groups from device via UAZAPI and return map of invite-code → JID */
-async function fetchDeviceGroups(baseUrl: string, token: string): Promise<Map<string, { jid: string; name: string }>> {
-  const map = new Map<string, { jid: string; name: string }>();
-  const endpoints = [
-    `${baseUrl}/group/list?GetParticipants=false&count=500`,
-    `${baseUrl}/group/fetchAllGroups?getParticipants=false`,
-    `${baseUrl}/group/listAll`,
-  ];
-  for (const url of endpoints) {
-    try {
-      const res = await fetch(url, {
-        method: "GET",
-        headers: { "Content-Type": "application/json", token },
-      });
-      if (!res.ok) continue;
-      const data = await res.json();
-      const groups = Array.isArray(data) ? data : data?.groups || data?.data || [];
-      for (const g of groups) {
-        const jid = g.id || g.jid || g.chatId || "";
-        const name = g.name || g.subject || "";
-        const invite = g.inviteCode || g.invite || g.inviteLink || "";
-        if (jid && jid.includes("@g.us")) {
-          // Store by invite code
-          if (invite) {
-            map.set(invite, { jid, name });
-            // Also store full invite URL variants
-            map.set(`https://chat.whatsapp.com/${invite}`, { jid, name });
-          }
-          // Store by name (lowercase) as fallback
-          if (name) map.set(`name:${name.toLowerCase().trim()}`, { jid, name });
-          // Store by JID itself
-          map.set(jid, { jid, name });
-        }
-      }
-      if (map.size > 0) break; // Got results, stop trying endpoints
-    } catch { /* try next */ }
-  }
-  return map;
-}
-
-/** Resolve a group identifier (link, JID, or name) to a JID */
-function resolveGroupJid(identifier: string, groupMap: Map<string, { jid: string; name: string }>): { jid: string; name: string } | null {
-  // Direct JID
-  if (identifier.includes("@g.us")) {
-    const entry = groupMap.get(identifier);
-    return entry || { jid: identifier, name: "" };
-  }
-  // Full invite URL
-  const byUrl = groupMap.get(identifier);
-  if (byUrl) return byUrl;
-  // Extract invite code from URL
-  const match = identifier.match(/chat\.whatsapp\.com\/([A-Za-z0-9]+)/);
-  if (match) {
-    const byCode = groupMap.get(match[1]);
-    if (byCode) return byCode;
-  }
-  // Try by name
-  const byName = groupMap.get(`name:${identifier.toLowerCase().trim()}`);
-  if (byName) return byName;
-  return null;
-}
-
 async function processInteraction(admin: any, interactionId: string, userId: string) {
   try {
     const { data: config, error: cfgErr } = await admin
@@ -258,12 +254,17 @@ async function processInteraction(admin: any, interactionId: string, userId: str
     // Resolve group links to JIDs
     console.log(`[group-interaction] Fetching device groups to resolve ${groupIds.length} identifiers...`);
     const groupMap = await fetchDeviceGroups(baseUrl, device.uazapi_token);
+    const { aliasesByIdentifier, directGroups } = await getStoredGroupHints(admin, config.device_id, groupIds);
+    for (const [key, value] of directGroups.entries()) {
+      groupMap.set(key, value);
+    }
     console.log(`[group-interaction] Device has ${groupMap.size} group entries in map`);
 
     const resolvedGroups: { jid: string; name: string }[] = [];
     const unresolvedGroups: string[] = [];
     for (const gid of groupIds) {
-      const resolved = resolveGroupJid(gid, groupMap);
+      const aliases = aliasesByIdentifier.get(gid) || [];
+      const resolved = resolveGroupJid(gid, groupMap, aliases);
       if (resolved) {
         resolvedGroups.push(resolved);
       } else {
@@ -283,6 +284,10 @@ async function processInteraction(admin: any, interactionId: string, userId: str
     }
 
     console.log(`[group-interaction] Resolved ${resolvedGroups.length} groups: ${resolvedGroups.map(g => g.name || g.jid).join(", ")}`);
+    if (unresolvedGroups.length > 0) {
+      const knownAliases = unresolvedGroups.map((gid) => `${gid} => ${(aliasesByIdentifier.get(gid) || []).map(normalizeGroupName).join(" | ") || "sem alias"}`);
+      console.log(`[group-interaction] Alias hints: ${knownAliases.join(" ; ")}`);
+    }
 
     // Content types config
     const contentTypes = config.content_types || { text: true };
