@@ -26,6 +26,8 @@ export interface GroupInteraction {
   daily_limit_per_group: number;
   daily_limit_total: number;
   total_messages_sent: number;
+  today_count: number;
+  last_sent_at: string | null;
   started_at: string | null;
   completed_at: string | null;
   last_error: string | null;
