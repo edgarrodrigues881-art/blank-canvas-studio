@@ -529,7 +529,7 @@ const AutoSave = () => {
             </div>
           )}
 
-          {activeFiltered.length === 0 && inactiveFiltered.length === 0 && (
+          {filtered.length === 0 && (
             <div className="relative rounded-2xl border border-border/20 bg-card/80 backdrop-blur-xl overflow-hidden">
               <div className="py-16 text-center">
                 <Users className="w-10 h-10 text-muted-foreground/15 mx-auto mb-3" />
