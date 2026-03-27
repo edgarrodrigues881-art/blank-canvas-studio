@@ -1600,6 +1600,16 @@ const WarmupInstanceDetail = () => {
                         Fase de proteção. Entrada nos grupos começa em 4-6 horas.
                       </p>
                     </div>
+                  ) : doneToday === 0 && failedToday === 0 && (nowBrtHour < 7 || windowClosed) ? (
+                    <div className="flex flex-col items-center justify-center gap-2 py-6">
+                      <div className="flex items-center gap-3">
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        <p className="text-sm text-muted-foreground">Calculando ciclo de aquecimento…</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground/70">
+                        Dia <span className="font-bold text-foreground">{cycle!.day_index}</span> de <span className="font-bold text-foreground">{cycle!.days_total}</span> — Em andamento
+                      </p>
+                    </div>
                   ) : (
                     <>
                       {/* Header row */}
