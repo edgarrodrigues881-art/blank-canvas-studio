@@ -371,9 +371,47 @@ const CampaignDetail = () => {
 
   const handleExportConfirm = async () => {
     const XLSX = await import("xlsx");
-    const toRows = (list: typeof contacts) =>
+
+    // Fetch ALL contacts for this campaign (not just current page)
+    const statusFilters: string[] = [];
+    if (exportSent) statusFilters.push("sent", "delivered");
+    if (exportFailed) statusFilters.push("failed", "error");
+    if (exportPending) statusFilters.push("pending");
+
+    if (statusFilters.length === 0) {
+      toast({ title: "Nenhum filtro selecionado", variant: "destructive" });
+      return;
+    }
+
+    // Paginated fetch to get all contacts (bypassing 1000 row limit)
+    let allContacts: any[] = [];
+    let from = 0;
+    const PAGE = 1000;
+    while (true) {
+      const { data, error } = await supabase
+        .from("campaign_contacts")
+        .select("id, phone, name, status, sent_at, error_message, device_id")
+        .eq("campaign_id", id!)
+        .in("status", statusFilters)
+        .order("created_at", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) { toast({ title: "Erro ao buscar contatos", description: error.message, variant: "destructive" }); return; }
+      if (!data?.length) break;
+      allContacts = allContacts.concat(data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+
+    console.log(`[Export] Total fetched: ${allContacts.length} | Filters: ${statusFilters.join(", ")}`);
+
+    if (allContacts.length === 0) {
+      toast({ title: "Nenhum contato encontrado", variant: "destructive" });
+      return;
+    }
+
+    const toRows = (list: any[]) =>
       list.map(c => {
-        const dev = (c as any).device_id ? devices.find(d => d.id === (c as any).device_id) : null;
+        const dev = c.device_id ? devices.find((d: any) => d.id === c.device_id) : null;
         return {
           Nome: c.name || "—",
           Telefone: c.phone,
@@ -388,19 +426,19 @@ const CampaignDetail = () => {
     let total = 0;
 
     if (exportSent) {
-      const rows = toRows(contacts.filter(c => c.status === "sent" || c.status === "delivered"));
+      const rows = toRows(allContacts.filter((c: any) => c.status === "sent" || c.status === "delivered"));
       total += rows.length;
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Enviadas");
+      if (rows.length > 0) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Enviadas");
     }
     if (exportFailed) {
-      const rows = toRows(contacts.filter(c => c.status === "failed" || c.status === "error"));
+      const rows = toRows(allContacts.filter((c: any) => c.status === "failed" || c.status === "error"));
       total += rows.length;
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Falhas");
+      if (rows.length > 0) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Falhas");
     }
     if (exportPending) {
-      const rows = toRows(contacts.filter(c => c.status === "pending"));
+      const rows = toRows(allContacts.filter((c: any) => c.status === "pending"));
       total += rows.length;
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Pendentes");
+      if (rows.length > 0) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Pendentes");
     }
 
     if (total === 0) {
@@ -410,6 +448,7 @@ const CampaignDetail = () => {
 
     XLSX.writeFile(wb, `${campaign?.name || "campanha"}_export.xlsx`);
     setExportOpen(false);
+    console.log(`[Export] Exported: ${total} contacts in ${wb.SheetNames.length} sheet(s)`);
     toast({ title: `✅ ${total} contatos exportados em ${wb.SheetNames.length} planilha(s)` });
   };
 
