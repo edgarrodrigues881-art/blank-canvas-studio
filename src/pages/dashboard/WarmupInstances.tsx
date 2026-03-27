@@ -658,7 +658,9 @@ const WarmupInstances = () => {
   const [bulkDaysTotal, setBulkDaysTotal] = useState("30");
   const [bulkStartDay, setBulkStartDay] = useState("1");
   const [bulkLoading, setBulkLoading] = useState(false);
-  const bulkGroupSource = "custom" as const;
+  const bulkGroupSource = (() => {
+    try { return localStorage.getItem(`warmup_group_source_${user?.id}`) === "system" ? "system" : "custom"; } catch { return "custom"; }
+  })();
   const [customGroupDialogOpen, setCustomGroupDialogOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupLink, setNewGroupLink] = useState("");
