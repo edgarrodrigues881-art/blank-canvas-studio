@@ -1,4 +1,4 @@
-import { Check, ArrowRight, Crown, Bell, Zap, Shield, Sparkles, BarChart3, Lock, Activity, TrendingUp, MessageSquare, Bot } from "lucide-react";
+import { Check, ArrowRight, Crown, Bell, Zap, Shield, Sparkles, BarChart3, Lock, Activity, TrendingUp, MessageSquare } from "lucide-react";
 
 const buildWhatsappUrl = (plan: { name: string; instances: number | string; price: string }) => {
   const inst = typeof plan.instances === "number" ? plan.instances : plan.instances;
