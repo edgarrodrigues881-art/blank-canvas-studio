@@ -704,8 +704,20 @@ Deno.serve(async (req) => {
     // ─── PAUSE ───
     if (action === "pause") {
       const { data: campData } = await serviceClient.from("campaigns").select("name, device_id, device_ids").eq("id", campaignId).single();
+      // CRITICAL: Revert any "processing" contacts back to "pending" so they are NOT lost
+      await serviceClient.from("campaign_contacts")
+        .update({ status: "pending" })
+        .eq("campaign_id", campaignId)
+        .eq("status", "processing");
       const pauseStats = await syncCampaignCounters(serviceClient, campaignId);
-      const pauseFilter = serviceClient.from("campaigns").update({ status: "paused" }).eq("id", campaignId);
+      const pauseFilter = serviceClient.from("campaigns").update({
+        status: "paused",
+        sent_count: pauseStats.sent,
+        delivered_count: pauseStats.delivered,
+        failed_count: pauseStats.failed,
+        total_contacts: pauseStats.total,
+        updated_at: new Date().toISOString(),
+      }).eq("id", campaignId);
       if (!isAdmin) pauseFilter.eq("user_id", userId);
       await pauseFilter;
       if (campData) {
