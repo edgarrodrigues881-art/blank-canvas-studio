@@ -1,4 +1,4 @@
-import { Check, ArrowRight, Crown, Bell, Zap, Shield, Sparkles, BarChart3, Lock, Activity, TrendingUp, MessageSquare, Bot } from "lucide-react";
+import { Check, ArrowRight, Crown, Bell, Zap, Shield, Sparkles, BarChart3, Lock, Activity, TrendingUp, MessageSquare } from "lucide-react";
 
 const buildWhatsappUrl = (plan: { name: string; instances: number | string; price: string }) => {
   const inst = typeof plan.instances === "number" ? plan.instances : plan.instances;
@@ -16,10 +16,6 @@ const buildAddonWhatsappUrl = () => {
   return `https://wa.me/5562994192500?text=${encodeURIComponent(msg)}`;
 };
 
-const buildAutoReplyAddonUrl = (tier: string, price: string) => {
-  const msg = `Olá, tudo bem?\nTenho interesse em contratar o addon Resposta Automática Inteligente – ${tier} no valor de R$ ${price}/mês.\nPode me enviar os dados para ativação?`;
-  return `https://wa.me/5562994192500?text=${encodeURIComponent(msg)}`;
-};
 
 const plans = [
   {
@@ -317,75 +313,6 @@ const MyPlan = () => {
               </div>
             </div>
 
-            {/* Addon 2: Resposta Automática Inteligente */}
-            <div className="relative flex flex-col rounded-2xl border border-border/60 bg-card hover:border-border transition-all duration-200 hover:scale-[1.01]">
-              <div className="p-5 sm:p-6 flex flex-col h-full">
-                <div className="flex items-start gap-3 mb-4">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-teal-500/10 border border-teal-500/15">
-                    <Bot className="w-4 h-4 text-teal-400" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-bold text-foreground mb-0.5">Resposta Automática Inteligente</h3>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Automatize conversas, respostas e fluxos sem intervenção manual.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Two tiers — equal height columns */}
-                <div className="mt-auto grid grid-cols-2 gap-3 pt-3 border-t border-border/40">
-                  {/* Básico */}
-                  <div className="flex flex-col">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Básico</p>
-                    <div className="flex items-baseline gap-0.5 mb-2">
-                      <span className="text-xs text-muted-foreground">R$</span>
-                      <span className="text-lg font-extrabold tracking-tighter leading-none text-foreground">29</span>
-                      <span className="text-xs font-bold text-muted-foreground">,90</span>
-                      <span className="text-[9px] text-muted-foreground/60 ml-0.5">/mês</span>
-                    </div>
-                    <div className="space-y-1 mb-3 flex-1">
-                      <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1"><Check className="w-3 h-3 shrink-0 text-muted-foreground/50" />Até 3 fluxos</p>
-                      <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1"><Check className="w-3 h-3 shrink-0 text-muted-foreground/50" />Respostas automáticas simples</p>
-                    </div>
-                    <a
-                      href={buildAutoReplyAddonUrl("Básico", "29,90")}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-auto w-full h-8 font-semibold text-[10px] flex items-center justify-center gap-1 transition-all duration-200 rounded-md bg-muted text-muted-foreground border border-border/60 hover:bg-muted/80 hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      Ativar
-                    </a>
-                  </div>
-
-                  {/* Pro */}
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-teal-400/70">Pro</p>
-                      <span className="text-[8px] bg-teal-500/15 text-teal-400/70 px-1.5 py-0.5 rounded-full font-semibold">Recomendado</span>
-                    </div>
-                    <div className="flex items-baseline gap-0.5 mb-2">
-                      <span className="text-xs text-muted-foreground">R$</span>
-                      <span className="text-lg font-extrabold tracking-tighter leading-none text-foreground">49</span>
-                      <span className="text-xs font-bold text-muted-foreground">,90</span>
-                      <span className="text-[9px] text-muted-foreground/60 ml-0.5">/mês</span>
-                    </div>
-                    <div className="space-y-1 mb-3 flex-1">
-                      <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1"><Check className="w-3 h-3 shrink-0 text-teal-500/50" />Fluxos ilimitados</p>
-                      <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1"><Check className="w-3 h-3 shrink-0 text-teal-500/50" />Automação completa e ilimitada</p>
-                      <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1"><Check className="w-3 h-3 shrink-0 text-teal-500/50" />Ideal para escalar atendimento</p>
-                    </div>
-                    <a
-                      href={buildAutoReplyAddonUrl("Pro", "49,90")}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-auto w-full h-8 font-semibold text-[10px] flex items-center justify-center gap-1 transition-all duration-200 rounded-md bg-teal-500/10 text-teal-400/80 border border-teal-500/20 hover:bg-teal-500/15 hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      Ativar
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
