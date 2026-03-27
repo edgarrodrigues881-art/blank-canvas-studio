@@ -190,15 +190,6 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               </div>
             )}
           </main>
-          <AnnouncementManager />
-          {maintenanceModal && (
-            <MaintenanceModal
-              open={true}
-              onClose={() => setMaintenanceModal(null)}
-              featureName={maintenanceModal.name}
-              message={maintenanceModal.message}
-            />
-          )}
         </div>
       </div>
     </SidebarProvider>
