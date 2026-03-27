@@ -120,6 +120,68 @@ function jsonOk(data: any) {
   });
 }
 
+/** Fetch all groups from device via UAZAPI and return map of invite-code → JID */
+async function fetchDeviceGroups(baseUrl: string, token: string): Promise<Map<string, { jid: string; name: string }>> {
+  const map = new Map<string, { jid: string; name: string }>();
+  const endpoints = [
+    `${baseUrl}/group/list?GetParticipants=false&count=500`,
+    `${baseUrl}/group/fetchAllGroups?getParticipants=false`,
+    `${baseUrl}/group/listAll`,
+  ];
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, {
+        method: "GET",
+        headers: { "Content-Type": "application/json", token },
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const groups = Array.isArray(data) ? data : data?.groups || data?.data || [];
+      for (const g of groups) {
+        const jid = g.id || g.jid || g.chatId || "";
+        const name = g.name || g.subject || "";
+        const invite = g.inviteCode || g.invite || g.inviteLink || "";
+        if (jid && jid.includes("@g.us")) {
+          // Store by invite code
+          if (invite) {
+            map.set(invite, { jid, name });
+            // Also store full invite URL variants
+            map.set(`https://chat.whatsapp.com/${invite}`, { jid, name });
+          }
+          // Store by name (lowercase) as fallback
+          if (name) map.set(`name:${name.toLowerCase().trim()}`, { jid, name });
+          // Store by JID itself
+          map.set(jid, { jid, name });
+        }
+      }
+      if (map.size > 0) break; // Got results, stop trying endpoints
+    } catch { /* try next */ }
+  }
+  return map;
+}
+
+/** Resolve a group identifier (link, JID, or name) to a JID */
+function resolveGroupJid(identifier: string, groupMap: Map<string, { jid: string; name: string }>): { jid: string; name: string } | null {
+  // Direct JID
+  if (identifier.includes("@g.us")) {
+    const entry = groupMap.get(identifier);
+    return entry || { jid: identifier, name: "" };
+  }
+  // Full invite URL
+  const byUrl = groupMap.get(identifier);
+  if (byUrl) return byUrl;
+  // Extract invite code from URL
+  const match = identifier.match(/chat\.whatsapp\.com\/([A-Za-z0-9]+)/);
+  if (match) {
+    const byCode = groupMap.get(match[1]);
+    if (byCode) return byCode;
+  }
+  // Try by name
+  const byName = groupMap.get(`name:${identifier.toLowerCase().trim()}`);
+  if (byName) return byName;
+  return null;
+}
+
 async function processInteraction(admin: any, interactionId: string, userId: string) {
   try {
     const { data: config, error: cfgErr } = await admin
@@ -166,6 +228,37 @@ async function processInteraction(admin: any, interactionId: string, userId: str
       return;
     }
 
+    const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
+
+    // Resolve group links to JIDs
+    console.log(`[group-interaction] Fetching device groups to resolve ${groupIds.length} identifiers...`);
+    const groupMap = await fetchDeviceGroups(baseUrl, device.uazapi_token);
+    console.log(`[group-interaction] Device has ${groupMap.size} group entries in map`);
+
+    const resolvedGroups: { jid: string; name: string }[] = [];
+    const unresolvedGroups: string[] = [];
+    for (const gid of groupIds) {
+      const resolved = resolveGroupJid(gid, groupMap);
+      if (resolved) {
+        resolvedGroups.push(resolved);
+      } else {
+        unresolvedGroups.push(gid);
+      }
+    }
+
+    if (unresolvedGroups.length > 0) {
+      console.log(`[group-interaction] Could not resolve ${unresolvedGroups.length} groups: ${unresolvedGroups.join(", ")}`);
+    }
+
+    if (resolvedGroups.length === 0) {
+      await admin.from("group_interactions").update({
+        last_error: `Nenhum grupo pôde ser resolvido. O dispositivo precisa estar nos grupos selecionados. (${groupIds.length} links, ${groupMap.size} grupos no dispositivo)`,
+      }).eq("id", interactionId);
+      return;
+    }
+
+    console.log(`[group-interaction] Resolved ${resolvedGroups.length} groups: ${resolvedGroups.map(g => g.name || g.jid).join(", ")}`);
+
     // Content types config
     const contentTypes = config.content_types || { text: true };
     const contentWeights = config.content_weights || { text: 50 };
@@ -190,14 +283,12 @@ async function processInteraction(admin: any, interactionId: string, userId: str
 
     const cycleSize = randomBetween(config.messages_per_cycle_min, config.messages_per_cycle_max);
     const toSend = Math.min(cycleSize, config.daily_limit_total - (todayTotal || 0));
-    const shuffledGroups = [...groupIds].sort(() => Math.random() - 0.5);
-    const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
+    const shuffledGroups = [...resolvedGroups].sort(() => Math.random() - 0.5);
 
     let messagesSent = 0;
     let consecutive = 0;
     const pauseAfter = randomBetween(config.pause_after_messages_min, config.pause_after_messages_max);
     const lastSentByGroup: Record<string, string> = {};
-
     for (let i = 0; i < toSend; i++) {
       // Re-check status
       const { data: current } = await admin.from("group_interactions")
