@@ -35,6 +35,7 @@ export function CampaignDetailDialog({ open, onOpenChange, campaignId, campaignN
         .from("campaign_contacts")
         .select("id, phone, name, status, sent_at, error_message, created_at")
         .eq("campaign_id", campaignId)
+        .order("sent_at", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true })
         .limit(500);
       if (error) throw error;
