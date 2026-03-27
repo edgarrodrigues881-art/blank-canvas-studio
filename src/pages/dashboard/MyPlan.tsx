@@ -1,10 +1,7 @@
-import { Check, ArrowRight, Crown, Bell, Zap, Shield, Sparkles, BarChart3, Lock, Activity, TrendingUp, MessageSquare } from "lucide-react";
-
-const buildWhatsappUrl = (plan: { name: string; instances: number | string; price: string }) => {
-  const inst = typeof plan.instances === "number" ? plan.instances : plan.instances;
-  const msg = `Olá, tudo bem?\nTenho interesse em contratar o plano DG Contingência – ${plan.name} (${inst} Instâncias) no valor de R$ ${plan.price}/mês.\nPode me enviar os dados para ativação e pagamento?`;
-  return `https://wa.me/5562994192500?text=${encodeURIComponent(msg)}`;
-};
+import { useState } from "react";
+import { Check, ArrowRight, Crown, Bell, Zap, Shield, Sparkles, BarChart3, Lock, Activity, TrendingUp, MessageSquare, Loader2 } from "lucide-react";
+import { startCheckout } from "@/lib/stripe";
+import { toast } from "sonner";
 
 const buildCustomWhatsappUrl = () => {
   const msg = `Olá, quero um plano customizado para alta escala`;
