@@ -21,34 +21,36 @@ interface Plan {
   isCustom?: boolean;
 }
 
-const standardFeatures = [
+const baseFeatures = [
   "Todas as funcionalidades inclusas",
   "Mesmo nível de suporte",
   "Monitoramento em tempo real",
   "Infraestrutura completa",
-  "Relatórios via WhatsApp (add-on)",
 ];
+
+const featuresWithWhatsApp = [...baseFeatures, "Relatórios via WhatsApp inclusos"];
+const featuresWithoutWhatsApp = [...baseFeatures, "Relatórios via WhatsApp (add-on)"];
 
 const topPlans: Plan[] = [
   {
     name: "Essencial", instances: "5", price: "89,90",
-    subtitle: "Ideal para operações pequenas que estão começando.",
+    subtitle: "Ideal para quem está começando com poucas instâncias.",
     extraCopy: null, cta: "Começar agora", popular: false,
-    features: standardFeatures,
+    features: featuresWithoutWhatsApp,
     addon: null,
   },
   {
     name: "Start", instances: "10", price: "159,90",
-    subtitle: "Ideal para quem deseja aumentar a capacidade com mais instâncias.",
+    subtitle: "Ideal para quem quer aumentar a capacidade.",
     extraCopy: null, cta: "Começar agora", popular: false,
-    features: standardFeatures,
+    features: featuresWithoutWhatsApp,
     addon: null,
   },
   {
     name: "Pro", instances: "30", price: "349,90",
-    subtitle: "Ideal para operações ativas que precisam de mais volume.",
+    subtitle: "Ideal para operações em crescimento.",
     extraCopy: "Mais escolhido", cta: "Escalar operação", popular: true, highlight: "amber",
-    features: standardFeatures,
+    features: featuresWithWhatsApp,
     addon: null,
   },
 ];
@@ -56,23 +58,23 @@ const topPlans: Plan[] = [
 const bottomPlans: Plan[] = [
   {
     name: "Scale", instances: "50", price: "549,90",
-    subtitle: "Para quem precisa escalar com múltiplas instâncias simultâneas.",
+    subtitle: "Para quem precisa escalar com múltiplas instâncias.",
     extraCopy: null, cta: "Escalar operação", popular: false,
-    features: standardFeatures,
+    features: featuresWithWhatsApp,
     addon: null,
   },
   {
     name: "Elite", instances: "100", price: "999,90",
-    subtitle: "Alta capacidade para operações grandes e exigentes.",
+    subtitle: "Alta capacidade para operações grandes.",
     extraCopy: null, cta: "Ir para o Elite", popular: false,
-    features: standardFeatures,
+    features: featuresWithWhatsApp,
     addon: null,
   },
   {
     name: "Custom", instances: "200+", price: null, priceLabel: "Sob consulta",
-    subtitle: "Solução sob medida para operações de larga escala.",
+    subtitle: "Solução personalizada para grande escala.",
     extraCopy: null, cta: "Falar com suporte", popular: false, isCustom: true,
-    features: standardFeatures,
+    features: featuresWithWhatsApp,
     addon: null,
   },
 ];
