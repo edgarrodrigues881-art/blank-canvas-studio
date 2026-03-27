@@ -21,7 +21,7 @@ const plans = [
   {
     name: "Essencial",
     instances: 5,
-    price: "89,90",
+    price: "99,00",
     subtitle: "Ideal para quem está iniciando e quer aquecer chips com segurança e estrutura profissional.",
     extraCopy: null,
     cta: "Começar agora",
@@ -40,7 +40,7 @@ const plans = [
   {
     name: "Start",
     instances: 10,
-    price: "159,90",
+    price: "187,00",
     subtitle: "Ideal para quem quer escalar com segurança após validar a operação.",
     extraCopy: "Melhor custo-benefício inicial",
     cta: "Começar agora",
@@ -60,7 +60,7 @@ const plans = [
   {
     name: "Pro",
     instances: 30,
-    price: "349,90",
+    price: "397,00",
     subtitle: "Estrutura ideal para operadores ativos que precisam escalar com consistência.",
     extraCopy: "Recomendado para operações reais",
     cta: "Escalar operação",
@@ -81,7 +81,7 @@ const plans = [
   {
     name: "Scale",
     instances: 50,
-    price: "549,90",
+    price: "597,00",
     subtitle: "Para quem precisa escalar com mais chips e visibilidade sobre toda a operação.",
     extraCopy: null,
     cta: "Escalar operação",
@@ -101,7 +101,7 @@ const plans = [
   {
     name: "Elite",
     instances: 100,
-    price: "999,90",
+    price: "1.197,00",
     subtitle: "Ideal para operações que exigem volume alto com performance e suporte dedicado.",
     extraCopy: "Alta performance garantida",
     cta: "Ir para o Elite",
