@@ -238,11 +238,11 @@ const GroupCapture = () => {
 
   // Fetch ALL groups (system + custom)
   const { data: allGroups = [], isLoading } = useQuery({
-    queryKey: ["warmup-groups"],
+    queryKey: ["warmup-groups", user?.id],
     queryFn: async () => {
       const { data } = await supabase
         .from("warmup_groups")
-        .select("id, name, link, description, is_custom, created_at")
+        .select("id, name, link, description, is_custom, user_id, created_at")
         .order("name", { ascending: true });
       return (data || []) as any[];
     },
@@ -250,9 +250,23 @@ const GroupCapture = () => {
     staleTime: 30000,
   });
 
-  const systemGroups = useMemo(() => allGroups.filter((g: any) => !g.is_custom), [allGroups]);
-  const customGroups = useMemo(() => allGroups.filter((g: any) => g.is_custom), [allGroups]);
+  // Dismissed system group IDs (stored in localStorage)
+  const dismissKey = `dismissed_system_groups_${user?.id}`;
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(dismissKey) || "[]")); } catch { return new Set(); }
+  });
+
+  const systemGroups = useMemo(() => allGroups.filter((g: any) => !g.is_custom && !g.user_id && !dismissedIds.has(g.id)), [allGroups, dismissedIds]);
+  const customGroups = useMemo(() => allGroups.filter((g: any) => g.is_custom || (g.user_id === user?.id)), [allGroups, user]);
   const currentGroups = activeTab === "system" ? systemGroups : customGroups;
+
+  const dismissSystemGroup = (id: string) => {
+    const next = new Set(dismissedIds);
+    next.add(id);
+    setDismissedIds(next);
+    localStorage.setItem(dismissKey, JSON.stringify([...next]));
+    toast({ title: "Grupo removido da sua lista" });
+  };
 
   const { data: devices = [] } = useQuery({
     queryKey: ["devices-for-join"],
