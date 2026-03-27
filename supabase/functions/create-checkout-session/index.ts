@@ -66,11 +66,10 @@ Deno.serve(async (req) => {
     const origin =
       req.headers.get("origin") || req.headers.get("referer")?.replace(/\/+$/, "") || "https://app.dgcontingencia.com";
 
-    // Create Stripe Checkout Session via API (no SDK needed)
+    // Create Stripe Checkout Session via API
     const params = new URLSearchParams();
     params.append("mode", "subscription");
     params.append("payment_method_types[0]", "card");
-    params.append("payment_method_types[1]", "boleto");
     params.append("line_items[0][price_data][currency]", "brl");
     params.append(
       "line_items[0][price_data][product_data][name]",
