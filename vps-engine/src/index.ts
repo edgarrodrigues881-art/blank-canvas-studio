@@ -234,10 +234,10 @@ async function warmupTick() {
     .eq("status", "running").lt("updated_at", staleThreshold);
 
   if (staleErr) {
-    log.error("Failed to recover stale jobs", { error: staleErr.message, code: staleErr.code, hint: staleErr.hint });
-    // If it's an auth error, bail early with clear message
-    if (staleErr.message?.includes("Invalid API key") || staleErr.code === "PGRST301") {
-      throw new Error(`Supabase auth error: ${staleErr.message}. Check SUPABASE_SERVICE_ROLE_KEY in .env`);
+    const rawErr = JSON.stringify(staleErr, Object.getOwnPropertyNames(staleErr));
+    log.error("Failed to recover stale jobs", { rawError: rawErr, message: staleErr.message, code: staleErr.code, hint: staleErr.hint });
+    if (rawErr.includes("Invalid API key") || rawErr.includes("401") || staleErr.code === "PGRST301") {
+      throw new Error(`Supabase auth error: ${rawErr}. Check SUPABASE_SERVICE_ROLE_KEY in .env`);
     }
   }
 
@@ -271,17 +271,12 @@ async function warmupTick() {
     .limit(2000);
 
   if (fetchErr) {
-    // Detailed error logging for auth/permission issues
-    log.error("Failed to fetch pending jobs", {
-      error: fetchErr.message,
-      code: fetchErr.code,
-      hint: fetchErr.hint,
-      details: fetchErr.details,
-    });
-    if (fetchErr.message?.includes("Invalid API key") || fetchErr.code === "PGRST301") {
-      throw new Error(`Supabase auth error fetching jobs: ${fetchErr.message}. Verify SUPABASE_SERVICE_ROLE_KEY is the service_role key (not anon key).`);
+    const rawErr = JSON.stringify(fetchErr, Object.getOwnPropertyNames(fetchErr));
+    log.error("Failed to fetch pending jobs", { rawError: rawErr, message: fetchErr.message, code: fetchErr.code, hint: fetchErr.hint, details: fetchErr.details });
+    if (rawErr.includes("Invalid API key") || rawErr.includes("401") || fetchErr.code === "PGRST301") {
+      throw new Error(`Supabase auth error fetching jobs: ${rawErr}. Verify SUPABASE_SERVICE_ROLE_KEY.`);
     }
-    throw fetchErr;
+    throw new Error(`DB fetch error: ${rawErr}`);
   }
 
   if (!pendingJobs?.length) return { processed: 0 };
