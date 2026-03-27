@@ -731,11 +731,11 @@ export default function GroupInteractionPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Delay mín. (seg)</Label>
-                <Input type="number" value={form.min_delay_seconds} onChange={(e) => updateForm({ min_delay_seconds: +e.target.value })} className="mt-1" min={5} />
+                <Input type="number" value={form.min_delay_seconds} onChange={(e) => updateForm({ min_delay_seconds: +e.target.value })} className="mt-1" min={0} />
               </div>
               <div>
                 <Label className="text-xs">Delay máx. (seg)</Label>
-                <Input type="number" value={form.max_delay_seconds} onChange={(e) => updateForm({ max_delay_seconds: +e.target.value })} className="mt-1" min={10} />
+                <Input type="number" value={form.max_delay_seconds} onChange={(e) => updateForm({ max_delay_seconds: +e.target.value })} className="mt-1" min={0} />
               </div>
             </div>
           </CardContent>
