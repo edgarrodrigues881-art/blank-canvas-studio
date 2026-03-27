@@ -22,7 +22,7 @@ export function useFeatureControls() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("feature_controls" as any)
-        .select("*")
+        .select("id, feature_key, feature_name, feature_description, feature_icon, status, maintenance_message, route_path, updated_at, updated_by")
         .order("feature_name");
       if (error) throw error;
       return (data || []) as unknown as FeatureControl[];

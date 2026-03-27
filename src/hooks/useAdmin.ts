@@ -55,9 +55,9 @@ export function useAdminDashboard() {
       }
       return data as AdminDashboard;
     },
-    staleTime: 30_000,
-    gcTime: 120_000,
-    refetchOnWindowFocus: true,
+    staleTime: 60_000,
+    gcTime: 300_000,
+    refetchOnWindowFocus: false,
     refetchOnMount: true,
   });
 }

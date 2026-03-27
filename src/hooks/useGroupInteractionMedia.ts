@@ -30,7 +30,7 @@ export function useGroupInteractionMedia(interactionId?: string | null) {
       if (!user) return [];
       let q = supabase
         .from("group_interaction_media" as any)
-        .select("*")
+        .select("id, user_id, interaction_id, media_type, content, file_url, file_name, category, is_active, is_favorite, sort_order, created_at, updated_at")
         .eq("user_id", user.id)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false });

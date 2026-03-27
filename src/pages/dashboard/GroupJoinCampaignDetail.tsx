@@ -68,14 +68,14 @@ export default function GroupJoinCampaignDetail() {
   const { data: campaign, isLoading } = useQuery({
     queryKey: ["group-join-campaign", id],
     queryFn: async () => {
-      const { data } = await supabase.from("group_join_campaigns" as any).select("*").eq("id", id).single();
+      const { data } = await supabase.from("group_join_campaigns" as any).select("id, name, status, total_links, joined_count, failed_count, started_at, completed_at, created_at, updated_at, last_error").eq("id", id).single();
       return data as any;
     },
     enabled: !!id && !!user,
     refetchInterval: (query) => {
       if (document.hidden) return false;
       const camp = query.state.data as any;
-      return camp && isActive(camp.status) ? 5_000 : false;
+      return camp && isActive(camp.status) ? 10_000 : false;
     },
     staleTime: 3_000,
   });
@@ -93,9 +93,9 @@ export default function GroupJoinCampaignDetail() {
     enabled: !!id && !!user,
     refetchInterval: () => {
       if (document.hidden) return false;
-      return campaign && isActive(campaign.status) ? 3_000 : false;
+      return campaign && isActive(campaign.status) ? 10_000 : false;
     },
-    staleTime: 2_000,
+    staleTime: 5_000,
   });
 
   useEffect(() => {

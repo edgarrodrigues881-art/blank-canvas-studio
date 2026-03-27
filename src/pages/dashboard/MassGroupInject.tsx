@@ -360,13 +360,14 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
     queryFn: async () => {
       const { data, error } = await supabase
         .from("mass_inject_campaigns")
-        .select("*")
+        .select("id, name, status, group_name, group_jid, total_contacts, injected_count, failed_count, created_at, updated_at, started_at, completed_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
     enabled: !!user,
-    refetchInterval: 10000,
+    refetchInterval: () => document.hidden ? false : 30_000,
+    staleTime: 15_000,
   });
 
   const filteredCampaigns = useMemo(() => {
@@ -1143,8 +1144,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
         });
     },
     enabled: !!user,
-    refetchInterval: 10_000,
-    refetchOnWindowFocus: true,
+    refetchInterval: () => document.hidden ? false : 30_000,
+    staleTime: 15_000,
   });
 
   const isDeviceOnline = (status: string) => {
