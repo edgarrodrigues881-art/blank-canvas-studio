@@ -42,6 +42,17 @@ function randomBetween(min: number, max: number): number {
   const safeMax = Number.isFinite(max) ? Math.max(safeMin, Math.floor(max)) : safeMin;
   return Math.floor(Math.random() * (safeMax - safeMin + 1)) + safeMin;
 }
+
+function safePositiveInt(value: unknown, fallback: number): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : fallback;
+}
+
+function safeLimit(value: unknown): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : Number.MAX_SAFE_INTEGER;
+}
+
 function getCategoryForIndex(i: number, total: number): string {
   if (i === 0) return "abertura";
   if (i === total - 1) return "encerramento";
@@ -318,19 +329,37 @@ async function processInteraction(admin: any, interactionId: string, userId: str
     // Today's messages count
     const todayStart = new Date(brNow);
     todayStart.setHours(0, 0, 0, 0);
+    const dailyLimitTotal = safeLimit(config.daily_limit_total);
+    const dailyLimitPerGroup = safeLimit(config.daily_limit_per_group);
+    const cycleMin = safePositiveInt(config.messages_per_cycle_min, 1);
+    const cycleMax = Math.max(cycleMin, safePositiveInt(config.messages_per_cycle_max, cycleMin));
+    const pauseAfterMin = Number(config.pause_after_messages_min);
+    const pauseAfterMax = Number(config.pause_after_messages_max);
+    const pauseAfter = (Number.isFinite(pauseAfterMin) && pauseAfterMin > 0) || (Number.isFinite(pauseAfterMax) && pauseAfterMax > 0)
+      ? randomBetween(Math.max(1, safePositiveInt(config.pause_after_messages_min, 1)), Math.max(1, safePositiveInt(config.pause_after_messages_max, Math.max(1, safePositiveInt(config.pause_after_messages_min, 1)))))
+      : Number.MAX_SAFE_INTEGER;
+
     const { count: todayTotal } = await admin.from("group_interaction_logs")
       .select("*", { count: "exact", head: true })
       .eq("interaction_id", interactionId)
       .gte("sent_at", todayStart.toISOString());
-    if ((todayTotal || 0) >= config.daily_limit_total) return;
+    if ((todayTotal || 0) >= dailyLimitTotal) {
+      console.log(`[group-interaction] Daily total limit reached for ${interactionId}`);
+      return;
+    }
 
-    const cycleSize = randomBetween(config.messages_per_cycle_min, config.messages_per_cycle_max);
-    const toSend = Math.min(cycleSize, config.daily_limit_total - (todayTotal || 0));
+    const cycleSize = randomBetween(cycleMin, cycleMax);
+    const toSend = Math.min(cycleSize, dailyLimitTotal - (todayTotal || 0));
+    if (toSend <= 0) {
+      console.log(`[group-interaction] Nothing to send: cycleSize=${cycleSize}, todayTotal=${todayTotal || 0}, dailyLimitTotal=${dailyLimitTotal}`);
+      return;
+    }
+
+    console.log(`[group-interaction] Execution plan: cycleSize=${cycleSize}, toSend=${toSend}, delay=${config.min_delay_seconds}-${config.max_delay_seconds}s`);
     const shuffledGroups = [...resolvedGroups].sort(() => Math.random() - 0.5);
 
     let messagesSent = 0;
     let consecutive = 0;
-    const pauseAfter = randomBetween(config.pause_after_messages_min, config.pause_after_messages_max);
     const lastSentByGroup: Record<string, string> = {};
     for (let i = 0; i < toSend; i++) {
       const { data: current } = await admin.from("group_interactions")
@@ -345,7 +374,7 @@ async function processInteraction(admin: any, interactionId: string, userId: str
         .select("*", { count: "exact", head: true })
         .eq("interaction_id", interactionId).eq("group_id", groupJid)
         .gte("sent_at", todayStart.toISOString());
-      if ((groupToday || 0) >= config.daily_limit_per_group) continue;
+      if ((groupToday || 0) >= dailyLimitPerGroup) continue;
 
       const delay = i === 0 ? randomBetween(config.min_delay_seconds, config.max_delay_seconds) : randomBetween(config.min_delay_seconds, config.max_delay_seconds);
       await new Promise((r) => setTimeout(r, delay * 1000));
