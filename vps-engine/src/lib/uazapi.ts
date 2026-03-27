@@ -4,6 +4,91 @@
 
 import { config } from "../config";
 
+export interface UazapiCredentialValidation {
+  status: "valid" | "invalid" | "unknown";
+  reason: string;
+  httpStatus: number | null;
+}
+
+function isInvalidApiKeyResponse(status: number, text: string): boolean {
+  const normalized = String(text || "").toLowerCase();
+  return status === 401
+    || normalized.includes("invalid api key")
+    || normalized.includes("api key inválida")
+    || normalized.includes("token inválido")
+    || normalized.includes("token invalido")
+    || normalized.includes("unauthorized");
+}
+
+export async function validateUazapiCredentials(
+  baseUrl: string,
+  token: string,
+): Promise<UazapiCredentialValidation> {
+  const cleanBaseUrl = String(baseUrl || "").trim().replace(/\/+$/, "");
+  const cleanApiToken = String(token || "").trim();
+
+  if (!cleanApiToken) {
+    return { status: "invalid", reason: "missing_token", httpStatus: null };
+  }
+
+  if (!cleanBaseUrl) {
+    return { status: "invalid", reason: "missing_base_url", httpStatus: null };
+  }
+
+  const headers = {
+    token: cleanApiToken,
+    Accept: "application/json",
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
+  };
+
+  const endpoints = [
+    `${cleanBaseUrl}/instance/status?t=${Date.now()}`,
+    `${cleanBaseUrl}/profile?t=${Date.now()}`,
+  ];
+
+  let lastStatus: number | null = null;
+  let sawTransportError = false;
+
+  for (const url of endpoints) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), Math.min(config.apiTimeoutMs, 4000));
+
+    try {
+      const res = await fetch(url, { method: "GET", headers, signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      const text = await res.text();
+      lastStatus = res.status;
+
+      if (res.ok) {
+        return { status: "valid", reason: `validated:${new URL(url).pathname}`, httpStatus: res.status };
+      }
+
+      if (isInvalidApiKeyResponse(res.status, text)) {
+        return { status: "invalid", reason: "invalid_api_key", httpStatus: res.status };
+      }
+
+      if (![404, 405].includes(res.status)) {
+        return { status: "unknown", reason: `http_${res.status}`, httpStatus: res.status };
+      }
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      sawTransportError = true;
+
+      if (err?.name === "AbortError") {
+        return { status: "unknown", reason: "timeout", httpStatus: null };
+      }
+    }
+  }
+
+  return {
+    status: "unknown",
+    reason: sawTransportError ? "transport_error" : lastStatus ? `http_${lastStatus}` : "unverified",
+    httpStatus: lastStatus,
+  };
+}
+
 export async function uazapiRequest(
   baseUrl: string,
   token: string,
@@ -53,6 +138,9 @@ export async function uazapiRequest(
       errorMsg = data?.message || data?.error || text;
     } catch {
       errorMsg = text;
+    }
+    if (isInvalidApiKeyResponse(res.status, errorMsg)) {
+      throw new Error(`Invalid API key (${endpoint})`);
     }
     throw new Error(errorMsg);
   }
