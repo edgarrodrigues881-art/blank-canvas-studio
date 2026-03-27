@@ -713,10 +713,11 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
 
     let sentOk = false;
     let sendError: string | null = null;
-    const appliedDelay = randomBetween(
+    const targetDelay = randomBetween(
       safeNonNegativeInt(config.min_delay_seconds, 0),
       Math.max(safeNonNegativeInt(config.min_delay_seconds, 0), safeNonNegativeInt(config.max_delay_seconds, safeNonNegativeInt(config.min_delay_seconds, 0))),
     );
+    const sendStartMs = Date.now();
 
     try {
       if (chosenType === "image") {
