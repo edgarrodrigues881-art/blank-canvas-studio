@@ -759,7 +759,7 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
       sendError = sendErr.message;
     }
 
-    await admin.from("group_interaction_logs").insert({
+    const { error: logInsertErr } = await admin.from("group_interaction_logs").insert({
       interaction_id: interactionId,
       user_id: userId,
       group_id: groupJid,
@@ -772,6 +772,9 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
       pause_applied_seconds: appliedDelay,
       sent_at: new Date().toISOString(),
     });
+    if (logInsertErr) {
+      console.error(`[group-interaction] Log insert failed:`, JSON.stringify(logInsertErr));
+    }
 
     if (sentOk) {
       await admin.from("group_interactions").update({
