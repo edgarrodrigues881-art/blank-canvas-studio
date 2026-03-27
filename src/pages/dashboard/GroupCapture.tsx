@@ -416,6 +416,11 @@ const GroupCapture = () => {
             Meus Grupos
             <Badge variant="secondary" className="text-[9px] ml-1 h-4 px-1.5">{customGroups.length}</Badge>
           </TabsTrigger>
+          <TabsTrigger value="system" className="text-xs rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm gap-1.5 px-4 py-2">
+            <Shield className="w-3.5 h-3.5" />
+            Grupos do Sistema
+            <Badge variant="secondary" className="text-[9px] ml-1 h-4 px-1.5">{systemGroups.length}</Badge>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="custom" className="space-y-4 mt-0">
@@ -463,6 +468,22 @@ const GroupCapture = () => {
           </div>
 
           {isLoading ? (
+            <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground/30" /></div>
+          ) : (
+            <GroupList groups={customGroups} isCustom={true} onDelete={handleDeleteGroup} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="system" className="space-y-4 mt-0">
+          <div className="rounded-xl border border-border/15 bg-muted/5 p-3 text-xs text-muted-foreground/60">
+            <p>Esses grupos são disponibilizados pelo sistema para aquecimento. Ao iniciar o aquecimento, suas instâncias serão adicionadas automaticamente a eles.</p>
+            <p className="mt-1">Se preferir usar apenas seus próprios grupos, você pode removê-los da sua lista.</p>
+          </div>
+          {isLoading ? (
+            <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground/30" /></div>
+          ) : (
+            <GroupList groups={systemGroups} isCustom={false} isSystem={true} onDelete={dismissSystemGroup} />
+          )}
             <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground/30" /></div>
           ) : (
             <GroupList groups={customGroups} isCustom={true} onDelete={handleDeleteGroup} />
