@@ -69,7 +69,11 @@ export function useNotifications() {
       : n.type === "warning" ? toast.warning
       : n.type === "success" ? toast.success
       : toast.info;
-    toastFn(n.title, { description: n.message, duration: 4000 });
+    toastFn(n.title, {
+      description: n.message,
+      duration: 4000,
+      id: `notif-${n.id}`,
+    });
   }, []);
 
   const [unreadCount, setUnreadCount] = useState(0);
