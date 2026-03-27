@@ -3044,9 +3044,9 @@ async function handleTick(
           const phoneExists = await uazapiCheckPhone(baseUrl, token, target._phone);
 
           if (!phoneExists) {
-            // Phone confirmed invalid — disable and cancel all jobs immediately
+            // Phone confirmed invalid — delete contact and cancel all jobs immediately
             await db.from("warmup_autosave_contacts")
-              .update({ is_active: false, contact_status: "invalid", updated_at: new Date().toISOString() })
+              .delete()
               .eq("phone_e164", target.phone_e164)
               .eq("user_id", job.user_id);
 
@@ -3086,7 +3086,7 @@ async function handleTick(
           // The first message IS the validation — if it fails, don't waste 4 more attempts
           if (mIdx === 0) {
             await db.from("warmup_autosave_contacts")
-              .update({ is_active: false, contact_status: "discarded", updated_at: new Date().toISOString() })
+              .delete()
               .eq("phone_e164", target.phone_e164)
               .eq("user_id", job.user_id);
 
