@@ -686,6 +686,54 @@ Deno.serve(async (req) => {
         }
 
         if (!nextToken) {
+          // ── report_wa fallback: auto-create new instance on provider ──
+          if (isReportDevice && BASE_URL && ADMIN_TOKEN) {
+            console.log(`[evolution-connect] report_wa 401 fallback: creating new instance on provider`);
+            const { data: prof } = await svc.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+            const clientLabel = (prof?.full_name || user.email || "cliente").replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 20);
+            const instName = `${clientLabel}_report_wa_${Date.now() % 10000}`;
+            const createResult = await adminCreateInstance(BASE_URL, ADMIN_TOKEN, instName);
+            if (createResult.ok && createResult.token) {
+              // Update profile and device with new token
+              await Promise.all([
+                svc.from("profiles").update({ whatsapp_monitor_token: createResult.token }).eq("id", user.id),
+                svc.from("devices").update({ uazapi_token: createResult.token, uazapi_base_url: BASE_URL }).eq("id", deviceId),
+              ]);
+              currentToken = createResult.token;
+              instanceToken = createResult.token;
+              instanceUrl = BASE_URL;
+              console.log(`[evolution-connect] report_wa new token created: ${instName}`);
+              await oplog(svc, user.id, "monitor_token_regenerated", `Token monitor regenerado: ${instName}`, deviceId);
+              continue; // retry connect with new token
+            }
+            console.log(`[evolution-connect] report_wa on-demand failed: ${createResult.error}`);
+          }
+          // ── Regular devices: try on-demand creation ──
+          if (!isReportDevice && BASE_URL && ADMIN_TOKEN) {
+            console.log(`[evolution-connect] 401 fallback: creating new instance on provider`);
+            const { data: prof } = await svc.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+            const clientLabel = (prof?.full_name || user.email || "cliente").replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 20);
+            const { count: tokenCount } = await svc.from("user_api_tokens").select("id", { count: "exact", head: true }).eq("user_id", user.id);
+            const instName = `${clientLabel}_${(tokenCount ?? 0) + 1}`;
+            const createResult = await adminCreateInstance(BASE_URL, ADMIN_TOKEN, instName);
+            if (createResult.ok && createResult.token) {
+              const { data: ins } = await svc.from("user_api_tokens").insert({
+                user_id: user.id, token: createResult.token, admin_id: user.id,
+                device_id: deviceId, status: "in_use", healthy: true,
+                label: instName, assigned_at: new Date().toISOString(),
+                last_checked_at: new Date().toISOString(),
+              }).select("id").single();
+              await svc.from("devices").update({ uazapi_token: createResult.token, uazapi_base_url: BASE_URL }).eq("id", deviceId);
+              currentToken = createResult.token;
+              currentTokenId = ins?.id || null;
+              instanceToken = createResult.token;
+              instanceUrl = BASE_URL;
+              console.log(`[evolution-connect] on-demand token created in retry: ${instName}`);
+              await oplog(svc, user.id, "token_on_demand_retry", `Token gerado sob demanda (retry): ${instName}`, deviceId);
+              continue; // retry connect with new token
+            }
+            console.log(`[evolution-connect] on-demand retry failed: ${createResult.error}`);
+          }
           return json({ error: "Todos os tokens inválidos. Solicite novos tokens ao administrador.", code: "TOKEN_INVALID" }, 401);
         }
 
