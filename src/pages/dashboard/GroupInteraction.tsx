@@ -556,15 +556,6 @@ export default function GroupInteractionPage() {
   function renderFormFields() {
     return (
       <div className="space-y-4">
-        {/* Presets */}
-        <div>
-          <Label className="text-xs text-muted-foreground mb-2 block">Presets rápidos</Label>
-          <GIPresets
-            current={form.preset_name}
-            onApply={(vals) => updateForm({ ...vals })}
-          />
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Identification */}
           <Card>
