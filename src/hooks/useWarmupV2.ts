@@ -148,11 +148,12 @@ export function useWarmupCyclesRealtime() {
         "postgres_changes" as any,
         { event: "UPDATE", schema: "public", table: "warmup_cycles", filter: `user_id=eq.${user.id}` },
         () => {
-          // Throttle: max 1 invalidation per 10s to avoid flooding
+          // Throttle: max 1 invalidation per 8s to avoid flooding
           const now = Date.now();
-          if (now - lastInvalidateRef.current < 10_000) return;
+          if (now - lastInvalidateRef.current < 8_000) return;
           lastInvalidateRef.current = now;
-          qc.invalidateQueries({ queryKey: ["warmup_cycles", user.id] });
+          // refetchType 'active' forces immediate refetch even with staleTime
+          qc.invalidateQueries({ queryKey: ["warmup_cycles", user.id], refetchType: "active" });
         }
       )
       .subscribe();
