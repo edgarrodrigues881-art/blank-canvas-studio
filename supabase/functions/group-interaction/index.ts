@@ -429,12 +429,6 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
     const dailyLimitPerGroup = safeLimit(config.daily_limit_per_group);
     const cycleMin = safePositiveInt(config.messages_per_cycle_min, 1);
     const cycleMax = Math.max(cycleMin, safePositiveInt(config.messages_per_cycle_max, cycleMin));
-    const pauseAfterMin = Number(config.pause_after_messages_min);
-    const pauseAfterMax = Number(config.pause_after_messages_max);
-    const pauseAfter = (Number.isFinite(pauseAfterMin) && pauseAfterMin > 0) || (Number.isFinite(pauseAfterMax) && pauseAfterMax > 0)
-      ? randomBetween(Math.max(1, safePositiveInt(config.pause_after_messages_min, 1)), Math.max(1, safePositiveInt(config.pause_after_messages_max, Math.max(1, safePositiveInt(config.pause_after_messages_min, 1)))))
-      : Number.MAX_SAFE_INTEGER;
-
     const { count: todayTotal } = await admin.from("group_interaction_logs")
       .select("*", { count: "exact", head: true })
       .eq("interaction_id", interactionId)
@@ -569,9 +563,7 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
       }).eq("id", interactionId);
     }
 
-    const nextDelay = sentOk && consecutive >= pauseAfter
-      ? randomBetween(safePositiveInt(config.pause_duration_min, appliedDelay), Math.max(safePositiveInt(config.pause_duration_min, appliedDelay), safePositiveInt(config.pause_duration_max, safePositiveInt(config.pause_duration_min, appliedDelay))))
-      : appliedDelay;
+    const nextDelay = appliedDelay;
 
     await scheduleNextTick(admin, interactionId, nextDelay);
     return jsonOk({ ok: true, sent: sentOk, next_delay_seconds: nextDelay, error: sendError });

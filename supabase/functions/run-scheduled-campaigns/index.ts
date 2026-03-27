@@ -240,11 +240,50 @@ Deno.serve(async (req) => {
       }
     }
 
+    const nowIso = new Date().toISOString();
+    const { data: dueInteractions, error: interactionErr } = await serviceClient
+      .from("group_interactions")
+      .select("id, next_action_at")
+      .eq("status", "running")
+      .not("next_action_at", "is", null)
+      .lte("next_action_at", nowIso)
+      .limit(100);
+
+    if (interactionErr) throw interactionErr;
+
+    const groupInteractionResults: any[] = [];
+
+    for (const interaction of dueInteractions || []) {
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/group-interaction`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceRoleKey}`,
+          },
+          body: JSON.stringify({
+            action: "tick",
+            interactionId: interaction.id,
+            scheduled_for: interaction.next_action_at,
+          }),
+        });
+
+        const text = await res.text();
+        groupInteractionResults.push({ interactionId: interaction.id, status: res.status, response: text });
+        console.log(`✅ Triggered group interaction ${interaction.id}: ${res.status}`);
+      } catch (err) {
+        console.error(`Failed to trigger group interaction ${interaction.id}:`, err.message);
+        groupInteractionResults.push({ interactionId: interaction.id, error: err.message });
+      }
+    }
+
     return new Response(
       JSON.stringify({
         triggered: results.length,
         skipped: skipped.length,
         results,
+        groupInteractionsTriggered: groupInteractionResults.length,
+        groupInteractionResults,
         staleLocksCleaned: cleanedCount || 0,
         watchdogRestarted: restarted,
       }),
