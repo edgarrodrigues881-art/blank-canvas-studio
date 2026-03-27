@@ -268,55 +268,6 @@ const MyPlan = () => {
           })}
         </div>
 
-        {/* ════════════ ADD-ONS ════════════ */}
-        <div className="space-y-6">
-          <div className="text-center">
-            <h2 className="text-lg font-bold text-foreground flex items-center justify-center gap-2">
-              <Zap className="w-4.5 h-4.5 text-amber-400" />
-              Add-ons
-            </h2>
-            <p className="text-xs text-muted-foreground mt-1">Potencialize sua operação com módulos extras.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-3xl mx-auto">
-            {/* Addon 1: Relatórios via WhatsApp */}
-            <div className="relative flex flex-col rounded-2xl border border-border/60 bg-card hover:border-border transition-all duration-200 hover:scale-[1.01]">
-              <div className="p-5 sm:p-6 flex flex-col h-full">
-                <div className="flex items-start gap-3 mb-4">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-amber-500/10 border border-amber-500/15">
-                    <Bell className="w-4 h-4 text-amber-400" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-bold text-foreground mb-0.5">Relatórios via WhatsApp</h3>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Receba relatórios automáticos e alertas diretamente no WhatsApp.
-                    </p>
-                    <p className="text-[10px] text-muted-foreground/60 mt-1">Já incluso nos planos Scale e Elite.</p>
-                  </div>
-                </div>
-
-                <div className="mt-auto flex items-center justify-between pt-3 border-t border-border/40">
-                  <div className="flex items-baseline gap-0.5">
-                    <span className="text-xs font-medium text-muted-foreground">R$</span>
-                    <span className="text-xl font-extrabold tracking-tighter leading-none text-foreground">18</span>
-                    <span className="text-sm font-bold text-muted-foreground">,90</span>
-                    <span className="text-[10px] text-muted-foreground/60 ml-0.5">/mês</span>
-                  </div>
-                  <a
-                    href={buildAddonWhatsappUrl()}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-4 h-9 font-semibold text-xs flex items-center gap-1.5 transition-all duration-200 rounded-lg bg-muted text-muted-foreground border border-border/60 hover:bg-muted/80 hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    Ativar
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </a>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
 
         {/* ════════════ COMPARISON TABLE ════════════ */}
         <div className="max-w-5xl mx-auto">
