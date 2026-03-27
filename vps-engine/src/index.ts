@@ -234,10 +234,10 @@ async function warmupTick() {
     .eq("status", "running").lt("updated_at", staleThreshold);
 
   if (staleErr) {
-    log.error("Failed to recover stale jobs", { error: staleErr.message, code: staleErr.code, hint: staleErr.hint });
-    // If it's an auth error, bail early with clear message
-    if (staleErr.message?.includes("Invalid API key") || staleErr.code === "PGRST301") {
-      throw new Error(`Supabase auth error: ${staleErr.message}. Check SUPABASE_SERVICE_ROLE_KEY in .env`);
+    const rawErr = JSON.stringify(staleErr, Object.getOwnPropertyNames(staleErr));
+    log.error("Failed to recover stale jobs", { rawError: rawErr, message: staleErr.message, code: staleErr.code, hint: staleErr.hint });
+    if (rawErr.includes("Invalid API key") || rawErr.includes("401") || staleErr.code === "PGRST301") {
+      throw new Error(`Supabase auth error: ${rawErr}. Check SUPABASE_SERVICE_ROLE_KEY in .env`);
     }
   }
 
@@ -271,17 +271,12 @@ async function warmupTick() {
     .limit(2000);
 
   if (fetchErr) {
-    // Detailed error logging for auth/permission issues
-    log.error("Failed to fetch pending jobs", {
-      error: fetchErr.message,
-      code: fetchErr.code,
-      hint: fetchErr.hint,
-      details: fetchErr.details,
-    });
-    if (fetchErr.message?.includes("Invalid API key") || fetchErr.code === "PGRST301") {
-      throw new Error(`Supabase auth error fetching jobs: ${fetchErr.message}. Verify SUPABASE_SERVICE_ROLE_KEY is the service_role key (not anon key).`);
+    const rawErr = JSON.stringify(fetchErr, Object.getOwnPropertyNames(fetchErr));
+    log.error("Failed to fetch pending jobs", { rawError: rawErr, message: fetchErr.message, code: fetchErr.code, hint: fetchErr.hint, details: fetchErr.details });
+    if (rawErr.includes("Invalid API key") || rawErr.includes("401") || fetchErr.code === "PGRST301") {
+      throw new Error(`Supabase auth error fetching jobs: ${rawErr}. Verify SUPABASE_SERVICE_ROLE_KEY.`);
     }
-    throw fetchErr;
+    throw new Error(`DB fetch error: ${rawErr}`);
   }
 
   if (!pendingJobs?.length) return { processed: 0 };
@@ -608,24 +603,44 @@ async function mainLoop() {
   try {
     const db = getDb();
 
+    // Test 0: Raw connectivity test with full error capture
+    log.info("Testing DB connectivity...", {
+      supabaseUrl: config.supabaseUrl,
+      serviceKeyPrefix: config.supabaseServiceKey.substring(0, 20) + "...",
+      serviceKeyLength: config.supabaseServiceKey.length,
+    });
+
     // Test 1: Basic connectivity
     const [{ count, error: countErr }, { data: sampleDevices, error: sampleErr }] = await Promise.all([
       db.from("devices").select("id", { count: "exact", head: true }),
       db.from("devices").select("id, name, status, uazapi_token, uazapi_base_url").limit(5),
     ]);
     if (countErr) {
-      log.error(`DB query error: ${countErr.message}`, {
-        code: countErr.code,
-        hint: countErr.hint,
-        details: countErr.details,
+      // Full error dump — the Supabase error object may not have standard .message
+      const rawError = JSON.stringify(countErr, Object.getOwnPropertyNames(countErr));
+      log.error(`DB query error (devices count)`, {
+        message: countErr.message || "NO_MESSAGE",
+        code: countErr.code || "NO_CODE",
+        hint: countErr.hint || "NO_HINT",
+        details: countErr.details || "NO_DETAILS",
+        status: (countErr as any).status || "NO_STATUS",
+        statusText: (countErr as any).statusText || "NO_STATUS_TEXT",
+        rawError,
       });
-      if (countErr.message?.includes("Invalid API key")) {
-        log.error("CRITICAL: The SUPABASE_SERVICE_ROLE_KEY appears to be invalid. Make sure you're using the service_role key (not the anon key). Find it in Supabase Dashboard > Settings > API.");
+      if (
+        rawError.includes("Invalid API key") ||
+        rawError.includes("apikey") ||
+        rawError.includes("401") ||
+        rawError.includes("403") ||
+        countErr.code === "PGRST301"
+      ) {
+        log.error("CRITICAL: The SUPABASE_SERVICE_ROLE_KEY appears to be invalid or incompatible. If using sb_secret_ format, ensure @supabase/supabase-js is v2.99+. Find the JWT key in Supabase Dashboard > Settings > API.");
       }
       process.exit(1);
     }
     if (sampleErr) {
-      log.warn(`Devices sample query failed: ${sampleErr.message}`);
+      const rawSampleErr = JSON.stringify(sampleErr, Object.getOwnPropertyNames(sampleErr));
+      log.warn(`Devices sample query failed`, { rawError: rawSampleErr });
     }
 
     const totalDevices = typeof count === "number" ? count : (sampleDevices?.length || 0);
@@ -649,7 +664,8 @@ async function mainLoop() {
       .limit(10);
 
     if (cycleErr) {
-      log.warn(`Failed to query warmup_cycles: ${cycleErr.message}`);
+      const rawErr = JSON.stringify(cycleErr, Object.getOwnPropertyNames(cycleErr));
+      log.warn(`Failed to query warmup_cycles`, { rawError: rawErr });
     } else {
       log.info(`Active warmup cycles: ${activeCycles?.length || 0}`);
       if (activeCycles?.length) {
