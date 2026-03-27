@@ -92,11 +92,11 @@ export function useGroupInteraction() {
         user_id: user.id,
         status: "idle",
       };
-      const { data: inserted, error } = await supabase
+      const { data: inserted, error } = await (supabase
         .from("group_interactions" as any)
         .insert(payload as any)
         .select("id")
-        .single();
+        .single() as any);
       if (error) throw error;
       return inserted as { id: string };
     },
