@@ -12,6 +12,7 @@ import { Radio, RefreshCw, Flame, Megaphone, Plug, Loader2, Eye, Smartphone, Use
 import { Input } from "@/components/ui/input";
 import { usePlanGate } from "@/hooks/usePlanGate";
 import { PlanGateDialog } from "@/components/PlanGateDialog";
+import { startCheckout } from "@/lib/stripe";
 
 
 interface WhatsAppGroup {
