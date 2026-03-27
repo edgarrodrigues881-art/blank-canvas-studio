@@ -228,31 +228,31 @@ const Features = () => (
 // ─── 5. Planos ───
 const allPlans = [
   {
-    name: "Essencial", instances: 5, price: "89,90", popular: false, whatsappReports: false,
+    name: "Essencial", instances: 5, price: "99,00", popular: false, whatsappReports: false,
     subtitle: "Para quem está começando a aquecer chips com segurança e estrutura profissional.",
     extraCopy: null, cta: "Começar",
     features: ["Aquecimento automatizado", "Disparo interativo", "Monitoramento em tempo real limitado", "Suporte padrão", "Relatórios via WhatsApp (add-on)", "Módulos extras disponíveis"],
   },
   {
-    name: "Start", instances: 10, price: "159,90", popular: false, whatsappReports: false,
+    name: "Start", instances: 10, price: "187,00", popular: false, whatsappReports: false,
     subtitle: "Para quem já validou a operação e quer expandir.",
     extraCopy: "Melhor custo-benefício inicial", cta: "Começar",
     features: ["Aquecimento automatizado", "Disparo interativo", "Painel centralizado", "Monitoramento em tempo real", "Organização de instâncias", "Relatórios via WhatsApp (add-on)", "Módulos extras disponíveis"],
   },
   {
-    name: "Pro", instances: 30, price: "349,90", popular: true, whatsappReports: false,
+    name: "Pro", instances: 30, price: "397,00", popular: true, whatsappReports: false,
     subtitle: "Para operadores ativos que precisam escalar com consistência.",
     extraCopy: "Recomendado para operações reais", cta: "Escalar",
     features: ["Aquecimento automatizado", "Disparo interativo", "Painel centralizado", "Gestão avançada de instâncias", "Monitoramento completo", "Suporte prioritário", "Relatórios via WhatsApp (add-on)", "Módulos extras disponíveis"],
   },
   {
-    name: "Scale", instances: 50, price: "549,90", popular: false, whatsappReports: true,
+    name: "Scale", instances: 50, price: "597,00", popular: false, whatsappReports: true,
     subtitle: "Para quem precisa escalar com mais chips e visibilidade sobre toda a operação.",
     extraCopy: null, cta: "Escalar",
     features: ["Aquecimento automatizado", "Disparo interativo", "Painel centralizado", "Monitoramento em tempo real", "Suporte prioritário", "Relatórios via WhatsApp incluso", "Módulos extras disponíveis"],
   },
   {
-    name: "Elite", instances: 100, price: "999,90", popular: false, whatsappReports: true,
+    name: "Elite", instances: 100, price: "1.197,00", popular: false, whatsappReports: true,
     subtitle: "Ideal para operações que exigem volume alto com performance e suporte dedicado.",
     extraCopy: "Alta performance garantida", cta: "Contratar",
     features: ["Aquecimento automatizado em escala", "Disparo avançado", "Monitoramento avançado", "Suporte VIP", "Relatórios via WhatsApp incluso", "Módulos extras disponíveis"],

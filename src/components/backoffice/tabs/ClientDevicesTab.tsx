@@ -14,11 +14,11 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const PLANS: Record<string, { price: number; max_instances: number }> = {
-  Essencial: { price: 89.9, max_instances: 5 },
-  Start: { price: 159.9, max_instances: 10 },
-  Pro: { price: 349.9, max_instances: 30 },
-  Scale: { price: 549.9, max_instances: 50 },
-  Elite: { price: 999.9, max_instances: 100 },
+  Essencial: { price: 99, max_instances: 5 },
+  Start: { price: 187, max_instances: 10 },
+  Pro: { price: 397, max_instances: 30 },
+  Scale: { price: 597, max_instances: 50 },
+  Elite: { price: 1197, max_instances: 100 },
 };
 const PLAN_ORDER = ["Essencial", "Start", "Pro", "Scale", "Elite"];
 
