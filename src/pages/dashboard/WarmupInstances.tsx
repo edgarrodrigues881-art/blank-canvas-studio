@@ -299,7 +299,7 @@ const DeviceCard = memo(({ device, cycle, onPause, onResume, onCancel, onConnect
               />
               <Flame className="w-3 h-3 text-orange-500 dark:text-orange-400 relative z-10 shrink-0" />
               <span className="text-[10px] sm:text-[11px] font-bold text-orange-600 dark:text-orange-300 relative z-10 tabular-nums shrink-0">
-                {Math.max(cycle.daily_interaction_budget_used ?? 0, 0)}
+                {cycle._messages_sent_today ?? Math.max(cycle.daily_interaction_budget_used ?? 0, 0)}
               </span>
               <span className={cn(
                 "relative z-10 text-[7px] font-extrabold uppercase tracking-wider px-1.5 py-[2px] rounded shrink min-w-0 truncate",
@@ -816,6 +816,27 @@ const WarmupInstances = () => {
 
   const { data: cycles = [], isLoading: cyclesLoading } = useWarmupCycles();
   useWarmupCyclesRealtime(); // Live counter updates via Supabase Realtime
+
+  // Fetch accurate daily stats (trigger-based, counts only successful sends)
+  const todayBrt = getBrtDateKey(new Date());
+  const { data: dailyStatsMap = {} } = useQuery({
+    queryKey: ["warmup_daily_stats_today", user?.id, todayBrt],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("warmup_daily_stats" as any)
+        .select("device_id, messages_sent")
+        .eq("user_id", user!.id)
+        .eq("stat_date", todayBrt);
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      for (const row of (data || [])) map[(row as any).device_id] = (row as any).messages_sent ?? 0;
+      return map;
+    },
+    enabled: !!user,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+
   const isLoading = devicesLoading || cyclesLoading;
 
   // Proxies
@@ -854,11 +875,16 @@ const WarmupInstances = () => {
     const map = new Map<string, any>();
     for (const cycle of cycles) {
       if (!["completed", "error"].includes(cycle.phase)) {
-        map.set(cycle.device_id, cycle);
+        // Use daily_stats (trigger-based, accurate) instead of budget_used (inflated)
+        const accurateSent = (dailyStatsMap as Record<string, number>)[cycle.device_id];
+        map.set(cycle.device_id, {
+          ...cycle,
+          _messages_sent_today: accurateSent ?? cycle.daily_interaction_budget_used ?? 0,
+        });
       }
     }
     return map;
-  }, [cycles]);
+  }, [cycles, dailyStatsMap]);
 
   const isConnected = (status: string) => CONNECTED_STATUSES.includes(status);
 
