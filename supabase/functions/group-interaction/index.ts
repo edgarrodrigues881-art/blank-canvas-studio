@@ -689,15 +689,7 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
       (mediaByType[m.media_type] ??= []).push(m);
     }
 
-    // Today's messages count
-    const todayStart = new Date(brNow);
-    todayStart.setHours(0, 0, 0, 0);
-    const { count: todayTotal } = await admin.from("group_interaction_logs")
-      .select("*", { count: "exact", head: true })
-      .eq("interaction_id", interactionId)
-      .gte("sent_at", todayStart.toISOString());
-
-    console.log(`[group-interaction] Execution plan: delay=${config.min_delay_seconds}-${config.max_delay_seconds}s, total_sent=${todayTotal || 0}`);
+    console.log(`[group-interaction] Execution plan: delay=${config.min_delay_seconds}-${config.max_delay_seconds}s, today_count=${config.today_count || 0}, total_sent=${config.total_messages_sent || 0}`);
 
     const rotatedGroups = resolvedGroups.filter((group) => group.jid !== config.last_group_used);
     const group = pickRandom(rotatedGroups.length > 0 ? rotatedGroups : resolvedGroups);
