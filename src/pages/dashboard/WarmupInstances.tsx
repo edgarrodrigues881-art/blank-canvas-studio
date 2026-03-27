@@ -299,7 +299,7 @@ const DeviceCard = memo(({ device, cycle, onPause, onResume, onCancel, onConnect
               />
               <Flame className="w-3 h-3 text-orange-500 dark:text-orange-400 relative z-10 shrink-0" />
               <span className="text-[10px] sm:text-[11px] font-bold text-orange-600 dark:text-orange-300 relative z-10 tabular-nums shrink-0">
-                {Math.max(cycle.daily_interaction_budget_used ?? 0, 0)}
+                {cycle._messages_sent_today ?? Math.max(cycle.daily_interaction_budget_used ?? 0, 0)}
               </span>
               <span className={cn(
                 "relative z-10 text-[7px] font-extrabold uppercase tracking-wider px-1.5 py-[2px] rounded shrink min-w-0 truncate",
