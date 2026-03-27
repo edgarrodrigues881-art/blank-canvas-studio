@@ -769,12 +769,13 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
     }
 
     if (sentOk) {
+      const newTodayCount = (config.today_count || 0) + 1;
       await admin.from("group_interactions").update({
         total_messages_sent: (config.total_messages_sent || 0) + 1,
         last_group_used: groupJid,
         last_content_sent: messageText,
         last_sent_at: new Date().toISOString(),
-        today_count: (todayTotal || 0) + 1,
+        today_count: newTodayCount,
         last_error: null,
         updated_at: new Date().toISOString(),
       }).eq("id", interactionId);
