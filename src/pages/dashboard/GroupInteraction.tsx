@@ -207,10 +207,9 @@ export default function GroupInteractionPage() {
         ...form,
         device_id: deviceId,
         name: `${form.name} - ${deviceName}`,
-        status: "idle",
       } as any);
     }
-    toast.success(`${bulkDeviceIds.length} automações criadas`);
+    toast.success(`${bulkDeviceIds.length} automações criadas e iniciadas`);
     setShowBulkCreate(false);
     setBulkDeviceIds([]);
     setForm({ ...defaultForm });

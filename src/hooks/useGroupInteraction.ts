@@ -90,16 +90,29 @@ export function useGroupInteraction() {
       const payload = {
         ...data,
         user_id: user.id,
-        status: data.status === "active" ? "idle" : (data.status ?? "idle"),
+        status: "idle",
       };
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .from("group_interactions" as any)
-        .insert(payload as any);
+        .insert(payload as any)
+        .select("id")
+        .single();
       if (error) throw error;
+      return inserted as { id: string };
     },
-    onSuccess: () => {
+    onSuccess: async (inserted) => {
       qc.invalidateQueries({ queryKey: ["group-interactions"] });
       toast.success("Interação criada");
+      // Auto-start: invoke start action right away (edge function checks schedule)
+      if (inserted?.id) {
+        try {
+          await supabase.functions.invoke("group-interaction", {
+            body: { interactionId: inserted.id, action: "start" },
+          });
+          qc.invalidateQueries({ queryKey: ["group-interactions"] });
+          toast.success("Automação iniciada automaticamente");
+        } catch { /* silent - user can start manually */ }
+      }
     },
     onError: (err: any) => toast.error(err.message),
   });
