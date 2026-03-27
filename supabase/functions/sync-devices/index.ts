@@ -86,6 +86,33 @@ function normalizeProviderConnectionState(payload: any): { state: "connected" | 
   return { state: "unknown", rawStatus, owner };
 }
 
+async function confirmProviderConnectionState(
+  baseUrl: string,
+  token: string,
+): Promise<{ state: "connected" | "disconnected" | "transitional" | "unknown"; rawStatus: string; owner: string } | null> {
+  try {
+    const res = await fetchT(`${baseUrl}/instance/status?t=${Date.now()}`, {
+      method: "GET",
+      headers: {
+        token,
+        Accept: "application/json",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
+    }, 3500);
+
+    if (!res.ok) {
+      await res.text();
+      return null;
+    }
+
+    const data = await res.json();
+    return normalizeProviderConnectionState(data);
+  } catch {
+    return null;
+  }
+}
+
 function parseProfileSnapshot(payload: any): { pic: string | null | undefined; name: string | undefined } {
   const picCandidates = [
     payload?.profilePictureUrl,
@@ -386,6 +413,27 @@ Deno.serve(async (req) => {
       synced = totalResponded;
     }
 
+    const successfulResults = results.filter((r) => r.httpStatus === 200 && r.apiData);
+    const disconnectCandidates = !circuitOpen
+      ? successfulResults.filter((r) => {
+          const state = normalizeProviderConnectionState(r.apiData);
+          return state.state === "disconnected" && String(r.device.status || "").toLowerCase().trim() === "ready";
+        }).length
+      : 0;
+    const disconnectWaveOpen = !circuitOpen
+      && successfulResults.length >= 4
+      && disconnectCandidates >= Math.max(3, Math.ceil(successfulResults.length * 0.35));
+
+    if (disconnectWaveOpen) {
+      opLogs.push({
+        user_id: userId,
+        device_id: null,
+        event: "sync_disconnect_wave",
+        details: `Onda de falso offline detectada: ${disconnectCandidates}/${successfulResults.length} instâncias reportaram desconectadas na mesma rodada`,
+        meta: { disconnect_candidates: disconnectCandidates, successful_results: successfulResults.length },
+      });
+    }
+
     // ── Pre-fetch notification config once ──
     let rwConfig: any = null;
     let rwDevice: any = null;
@@ -457,10 +505,58 @@ Deno.serve(async (req) => {
         const data = r.apiData;
         const inst = data?.instance || data?.data || data || {};
         const normalizedState = normalizeProviderConnectionState(data);
-        const rawState = normalizedState.rawStatus;
-        const phone = normalizedState.owner;
-        const isConnected = normalizedState.state === "connected";
-        const isDisconnected = normalizedState.state === "disconnected";
+        let effectiveState = normalizedState;
+        const previousStatus = String(device.status || "").toLowerCase().trim();
+        const wasReady = previousStatus === "ready";
+        const wasDisconnected = previousStatus === "disconnected";
+
+        if (normalizedState.state === "disconnected" && !wasDisconnected) {
+          if (disconnectWaveOpen && wasReady) {
+            effectiveState = { ...normalizedState, state: "unknown" };
+            opLogs.push({
+              user_id: userId,
+              device_id: device.id,
+              event: "sync_disconnect_ignored",
+              details: `Desconexão ignorada para "${device.name}" por onda coletiva do provedor`,
+              meta: { reason: "disconnect_wave", raw_status: normalizedState.rawStatus },
+            });
+          } else if (device.uazapi_base_url && device.uazapi_token) {
+            const confirmedState = await confirmProviderConnectionState(
+              String(device.uazapi_base_url).replace(/\/+$/, ""),
+              String(device.uazapi_token),
+            );
+
+            if (!confirmedState) {
+              effectiveState = { ...normalizedState, state: "unknown" };
+              opLogs.push({
+                user_id: userId,
+                device_id: device.id,
+                event: "sync_disconnect_ignored",
+                details: `Desconexão ignorada para "${device.name}" porque a confirmação falhou`,
+                meta: { reason: "confirm_failed", raw_status: normalizedState.rawStatus },
+              });
+            } else if (confirmedState.state !== "disconnected") {
+              effectiveState = confirmedState;
+              opLogs.push({
+                user_id: userId,
+                device_id: device.id,
+                event: "sync_disconnect_ignored",
+                details: `Falso offline ignorado para "${device.name}" após rechecagem`,
+                meta: {
+                  reason: "transient_false_disconnect",
+                  first_raw_status: normalizedState.rawStatus,
+                  confirm_raw_status: confirmedState.rawStatus,
+                  confirm_state: confirmedState.state,
+                },
+              });
+            }
+          }
+        }
+
+        const rawState = effectiveState.rawStatus || normalizedState.rawStatus;
+        const phone = effectiveState.owner || normalizedState.owner;
+        const isConnected = effectiveState.state === "connected";
+        const isDisconnected = effectiveState.state === "disconnected";
 
         // Debug log: first 5 devices to identify what Uazapi actually returns
         if (synced < 5) {
