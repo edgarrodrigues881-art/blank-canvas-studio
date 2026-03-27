@@ -3350,6 +3350,7 @@ export type Database = {
           link: string
           name: string
           updated_at: string
+          use_in_warmup: boolean
           user_id: string | null
         }
         Insert: {
@@ -3360,6 +3361,7 @@ export type Database = {
           link: string
           name: string
           updated_at?: string
+          use_in_warmup?: boolean
           user_id?: string | null
         }
         Update: {
@@ -3370,6 +3372,7 @@ export type Database = {
           link?: string
           name?: string
           updated_at?: string
+          use_in_warmup?: boolean
           user_id?: string | null
         }
         Relationships: []

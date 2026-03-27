@@ -779,12 +779,13 @@ async function handleStart(db: any, userId: string | null, body: any) {
 
   if (cycleErr) throw cycleErr;
 
-  // 3. Register groups — always from user's warmup_groups
+  // 3. Register groups — only groups marked for warmup use
   const { data: userGroups } = await db
     .from("warmup_groups")
     .select("id, name, link")
     .eq("user_id", userId)
-    .eq("is_custom", true);
+    .eq("is_custom", true)
+    .eq("use_in_warmup", true);
   
   const allGroups = shuffleArray((userGroups || []).map((g: any) => ({
     id: g.id,

@@ -1,0 +1,1 @@
+ALTER TABLE public.warmup_groups ADD COLUMN IF NOT EXISTS use_in_warmup boolean NOT NULL DEFAULT true;
