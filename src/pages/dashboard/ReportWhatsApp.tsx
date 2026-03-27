@@ -493,12 +493,12 @@ export default function ReportWhatsApp() {
     <div className="space-y-6">
       {/* Plan gate banner */}
       {!canUseReport && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-destructive/20 bg-destructive/5">
-          <Ban className="w-4 h-4 text-destructive shrink-0" />
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/20 bg-primary/5">
+          <Lock className="w-4 h-4 text-primary shrink-0" />
           <div className="flex-1">
-            <p className="text-[13px] font-medium text-foreground">Funcionalidade bloqueada</p>
+            <p className="text-[13px] font-medium text-foreground">Recurso disponível para ativação</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              {isBlocked ? "Ative ou renove seu plano para usar notificações via WhatsApp." : "Solicite ao administrador a liberação desta funcionalidade."}
+              Libere notificações via WhatsApp e receba alertas em tempo real.
             </p>
           </div>
         </div>
