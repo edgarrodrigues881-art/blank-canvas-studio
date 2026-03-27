@@ -162,7 +162,7 @@ function GroupJoinCampaignsWidget() {
 }
 
 /* ── Group List Component ── */
-function GroupList({ groups, isCustom, isSystem, onDelete, onToggleWarmup }: { groups: any[]; isCustom: boolean; isSystem?: boolean; onDelete?: (id: string) => void; onToggleWarmup?: (id: string, value: boolean) => void }) {
+function GroupList({ groups, isCustom, isSystem, onDelete }: { groups: any[]; isCustom: boolean; isSystem?: boolean; onDelete?: (id: string) => void }) {
   if (groups.length === 0) {
     return (
       <div className="relative rounded-2xl border border-border/20 bg-card/80 backdrop-blur-xl overflow-hidden">
@@ -193,45 +193,27 @@ function GroupList({ groups, isCustom, isSystem, onDelete, onToggleWarmup }: { g
         )}
       </div>
       <div className="divide-y divide-border/10">
-        {groups.map((g: any) => {
-          const warmupActive = g.use_in_warmup !== false;
-          return (
-            <div key={g.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/5 transition-colors group/row">
-              <img src={dgGroupAvatar} alt="Grupo" className="w-10 h-10 rounded-xl object-cover shrink-0 ring-1 ring-border/10" />
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-foreground truncate">{g.name}</p>
-                <p className="text-[10px] text-muted-foreground/35 truncate font-mono mt-0.5">{g.link}</p>
-              </div>
-              <div className="flex items-center gap-1.5 opacity-50 group-hover/row:opacity-100 transition-opacity">
-                {/* Warmup toggle - only for custom groups */}
-                {isCustom && onToggleWarmup && (
-                  <button
-                    className={`h-8 px-2 rounded-lg flex items-center gap-1 text-[10px] font-medium transition-colors ${
-                      warmupActive
-                        ? "bg-primary/10 text-primary hover:bg-primary/20"
-                        : "bg-muted/10 text-muted-foreground/40 hover:bg-muted/20"
-                    }`}
-                    onClick={() => onToggleWarmup(g.id, !warmupActive)}
-                    title={warmupActive ? "Usando no aquecimento automático" : "Não está no aquecimento automático"}
-                  >
-                    <Flame className="w-3 h-3" />
-                    {warmupActive ? "Ativo" : "Inativo"}
-                  </button>
-                )}
-                <CopyButton text={g.link} />
-                {(isCustom || isSystem) && onDelete && (
-                  <button
-                    className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-destructive/10 text-muted-foreground/40 hover:text-destructive transition-colors"
-                    onClick={() => onDelete(g.id)}
-                    title={isSystem ? "Remover grupo do sistema da sua lista" : "Remover grupo"}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
+        {groups.map((g: any) => (
+          <div key={g.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/5 transition-colors group/row">
+            <img src={dgGroupAvatar} alt="Grupo" className="w-10 h-10 rounded-xl object-cover shrink-0 ring-1 ring-border/10" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-semibold text-foreground truncate">{g.name}</p>
+              <p className="text-[10px] text-muted-foreground/35 truncate font-mono mt-0.5">{g.link}</p>
             </div>
-          );
-        })}
+            <div className="flex items-center gap-1 opacity-50 group-hover/row:opacity-100 transition-opacity">
+              <CopyButton text={g.link} />
+              {(isCustom || isSystem) && onDelete && (
+                <button
+                  className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-destructive/10 text-muted-foreground/40 hover:text-destructive transition-colors"
+                  onClick={() => onDelete(g.id)}
+                  title={isSystem ? "Remover grupo do sistema da sua lista" : "Remover grupo"}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -347,19 +329,17 @@ const GroupCapture = () => {
     }
   };
 
-  // Toggle use_in_warmup
-  const handleToggleWarmup = async (id: string, value: boolean) => {
-    try {
-      const { error } = await supabase
-        .from("warmup_groups")
-        .update({ use_in_warmup: value } as any)
-        .eq("id", id);
-      if (error) throw error;
-      queryClient.invalidateQueries({ queryKey: ["warmup-groups"] });
-      toast({ title: value ? "Grupo ativado no aquecimento" : "Grupo removido do aquecimento" });
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
-    }
+  // Warmup group source preference (custom vs system)
+  const warmupGroupSourceKey = `warmup_group_source_${user?.id}`;
+  const [useCustomGroups, setUseCustomGroups] = useState<boolean>(() => {
+    try { return localStorage.getItem(warmupGroupSourceKey) !== "system"; } catch { return true; }
+  });
+
+  const toggleWarmupGroupSource = () => {
+    const next = !useCustomGroups;
+    setUseCustomGroups(next);
+    localStorage.setItem(warmupGroupSourceKey, next ? "custom" : "system");
+    toast({ title: next ? "Aquecimento usará seus grupos" : "Aquecimento usará grupos do sistema" });
   };
 
   const toggleGroup = useCallback((link: string) =>
