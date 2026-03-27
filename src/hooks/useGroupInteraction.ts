@@ -74,7 +74,7 @@ export function useGroupInteraction() {
         .from("group_interaction_logs" as any)
         .select("id, interaction_id, group_id, group_name, message_content, message_category, status, error_message, pause_applied_seconds, sent_at")
         .eq("user_id", user.id)
-        .order("sent_at", { ascending: false })
+        .order("sent_at", { ascending: true })
         .limit(50);
       if (error) throw error;
       return (data || []) as unknown as GroupInteractionLog[];
