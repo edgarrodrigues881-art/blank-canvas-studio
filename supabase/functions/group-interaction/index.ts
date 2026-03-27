@@ -43,9 +43,18 @@ function randomBetween(min: number, max: number): number {
   return Math.floor(Math.random() * (safeMax - safeMin + 1)) + safeMin;
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function safePositiveInt(value: unknown, fallback: number): number {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : fallback;
+}
+
+function safeNonNegativeInt(value: unknown, fallback: number): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 0 ? Math.floor(numeric) : fallback;
 }
 
 function safeLimit(value: unknown): number {
@@ -54,6 +63,26 @@ function safeLimit(value: unknown): number {
 }
 
 const MAX_INLINE_TICK_DELAY_MS = 45_000;
+const CLAIM_TOLERANCE_MS = 2_000;
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+
+const FALLBACK_IMAGES = [
+  "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=80",
+  "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80",
+  "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80",
+  "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&q=80",
+  "https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=800&q=80",
+];
+
+const FALLBACK_AUDIOS = [
+  "https://cdn.freesound.org/previews/531/531947_4397472-lq.mp3",
+  "https://cdn.freesound.org/previews/456/456058_5765826-lq.mp3",
+  "https://cdn.freesound.org/previews/462/462808_8386274-lq.mp3",
+  "https://cdn.freesound.org/previews/367/367125_6652158-lq.mp3",
+];
+
+let imagePoolCache: string[] | null = null;
+let audioPoolCache: string[] | null = null;
 
 function getCategoryForIndex(i: number, total: number): string {
   if (i === 0) return "abertura";
@@ -134,6 +163,195 @@ async function getUserWarmupMessages(admin: any, userId: string): Promise<string
   return messages.length > 0 ? messages : Object.values(FALLBACK_MESSAGES).flat();
 }
 
+async function getImagePool(admin: any): Promise<string[]> {
+  if (imagePoolCache) return imagePoolCache;
+
+  try {
+    const { data: files, error } = await admin.storage.from("media").list("warmup-media", { limit: 100 });
+    if (!error && files?.length > 0) {
+      const base = `${SUPABASE_URL}/storage/v1/object/public/media/warmup-media`;
+      const urls = files
+        .filter((file: any) => file.name && !file.name.startsWith(".") && /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name))
+        .map((file: any) => `${base}/${encodeURIComponent(file.name)}`);
+
+      if (urls.length > 0) {
+        imagePoolCache = urls;
+        return urls;
+      }
+    }
+  } catch {
+    // ignore and fallback
+  }
+
+  imagePoolCache = FALLBACK_IMAGES;
+  return imagePoolCache;
+}
+
+async function getAudioPool(admin: any): Promise<string[]> {
+  if (audioPoolCache) return audioPoolCache;
+
+  try {
+    const { data: files, error } = await admin.storage.from("media").list("warmup-audio", { limit: 100 });
+    if (!error && files?.length > 0) {
+      const base = `${SUPABASE_URL}/storage/v1/object/public/media/warmup-audio`;
+      const urls = files
+        .filter((file: any) => file.name && !file.name.startsWith(".") && /\.(ogg|mp3|m4a|opus|wav)$/i.test(file.name))
+        .map((file: any) => `${base}/${encodeURIComponent(file.name)}`);
+
+      if (urls.length > 0) {
+        audioPoolCache = urls;
+        return urls;
+      }
+    }
+  } catch {
+    // ignore and fallback
+  }
+
+  audioPoolCache = FALLBACK_AUDIOS;
+  return audioPoolCache;
+}
+
+function pickAutomaticContentType(options: {
+  hasImage: boolean;
+  hasSticker: boolean;
+  hasAudio: boolean;
+}) {
+  const bag = ["text", "text", "text", "text", "text"];
+  if (options.hasImage) bag.push("image", "image");
+  if (options.hasSticker) bag.push("sticker", "sticker");
+  if (options.hasAudio) bag.push("audio");
+  return pickRandom(bag);
+}
+
+async function uazapiSendText(baseUrl: string, token: string, number: string, text: string) {
+  const safeText = String(text || "").trim();
+  if (!safeText) throw new Error("Texto vazio para envio");
+
+  const isGroup = number.includes("@g.us");
+  const attempts: Array<{ path: string; body: Record<string, unknown> }> = isGroup
+    ? [
+        { path: "/send/text", body: { chatId: number, text: safeText } },
+        { path: "/send/text", body: { chatId: number, number, text: safeText } },
+        { path: "/send/text", body: { number, text: safeText } },
+        { path: "/chat/send-text", body: { chatId: number, body: safeText } },
+        { path: "/chat/send-text", body: { chatId: number, text: safeText } },
+        { path: "/chat/send-text", body: { chatId: number, to: number, body: safeText, text: safeText } },
+        { path: "/message/sendText", body: { chatId: number, text: safeText } },
+        { path: "/message/sendText", body: { number, text: safeText } },
+      ]
+    : (() => {
+        const chatId = number.includes("@") ? number : `${number}@s.whatsapp.net`;
+        return [
+          { path: "/send/text", body: { number, text: safeText } },
+          { path: "/send/text", body: { chatId, text: safeText } },
+          { path: "/chat/send-text", body: { number, to: number, chatId, body: safeText, text: safeText } },
+          { path: "/message/sendText", body: { chatId, text: safeText } },
+          { path: "/message/sendText", body: { number, text: safeText } },
+        ];
+      })();
+
+  let lastErr = "";
+  for (const attempt of attempts) {
+    try {
+      const response = await fetch(`${baseUrl}${attempt.path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+        body: JSON.stringify(attempt.body),
+      });
+
+      const raw = await response.text();
+      if (response.ok) {
+        try {
+          const parsed = raw ? JSON.parse(raw) : {};
+          if (parsed?.error || parsed?.code === 404 || parsed?.status === "error") {
+            lastErr = `${attempt.path}: ${raw.substring(0, 240)}`;
+            continue;
+          }
+          return parsed;
+        } catch {
+          return { ok: true, raw };
+        }
+      }
+
+      if (response.status === 405 || response.status === 404) {
+        lastErr = `${response.status} @ ${attempt.path}`;
+        continue;
+      }
+
+      lastErr = `${response.status} @ ${attempt.path}: ${raw.substring(0, 240)}`;
+    } catch (error) {
+      lastErr = `${attempt.path}: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  }
+
+  throw new Error(`Text send failed: ${lastErr}`);
+}
+
+async function uazapiSendImage(baseUrl: string, token: string, number: string, imageUrl: string, caption: string) {
+  if (!imageUrl) throw new Error("Image URL ausente");
+  const safeCaption = (caption || "📸").trim() || "📸";
+
+  const response = await fetch(`${baseUrl}/send/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+    body: JSON.stringify({ number, file: imageUrl, type: "image", caption: safeCaption }),
+  });
+
+  const raw = await response.text();
+  if (response.ok) {
+    try { return JSON.parse(raw); } catch { return { ok: true, raw }; }
+  }
+
+  throw new Error(`Image send failed: ${response.status} — ${raw.substring(0, 240)}`);
+}
+
+async function uazapiSendSticker(baseUrl: string, token: string, number: string, imageUrl: string) {
+  if (!imageUrl) throw new Error("Sticker URL ausente");
+
+  const response = await fetch(`${baseUrl}/send/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+    body: JSON.stringify({ number, file: imageUrl, type: "sticker" }),
+  });
+
+  const raw = await response.text();
+  if (response.ok) {
+    try { return JSON.parse(raw); } catch { return { ok: true, raw }; }
+  }
+
+  throw new Error(`Sticker send failed: ${response.status} — ${raw.substring(0, 240)}`);
+}
+
+async function uazapiSendAudio(baseUrl: string, token: string, number: string, audioUrl: string) {
+  if (!audioUrl) throw new Error("Audio URL ausente");
+
+  const attempts = [
+    { path: "/send/media", body: { number, file: audioUrl, type: "audio", ptt: true } },
+    { path: "/send/media", body: { number, file: audioUrl, type: "audio" } },
+  ];
+
+  let lastErr = "";
+  for (const attempt of attempts) {
+    try {
+      const response = await fetch(`${baseUrl}${attempt.path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+        body: JSON.stringify(attempt.body),
+      });
+
+      const raw = await response.text();
+      if (response.ok) {
+        try { return JSON.parse(raw); } catch { return { ok: true, raw }; }
+      }
+      lastErr = `${response.status} @ ${attempt.path}: ${raw.substring(0, 240)}`;
+    } catch (error) {
+      lastErr = `${attempt.path}: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  }
+
+  throw new Error(`Audio send failed: ${lastErr}`);
+}
+
 /** Pick content type based on weights */
 function pickContentType(types: Record<string, boolean>, weights: Record<string, number>): string {
   const enabled = Object.keys(types).filter((k) => types[k]);
@@ -185,11 +403,15 @@ Deno.serve(async (req) => {
 
     if (action === "start" || action === "resume") {
       const { data: current } = await admin.from("group_interactions")
-        .select("status, started_at, min_delay_seconds, max_delay_seconds").eq("id", interactionId).eq("user_id", user.id).single();
+        .select("status, started_at, min_delay_seconds, max_delay_seconds, next_action_at").eq("id", interactionId).eq("user_id", user.id).single();
       if (!current) return new Response(JSON.stringify({ error: "Automação não encontrada" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-      if (current.status === "running") return jsonOk({ ok: true, status: "running" });
+
+      const hasFutureTick = current.next_action_at && new Date(current.next_action_at).getTime() > Date.now();
+      if (current.status === "running" && hasFutureTick) {
+        return jsonOk({ ok: true, status: "running", next_action_at: current.next_action_at });
+      }
 
       const { error } = await admin.from("group_interactions")
         .update({
@@ -197,15 +419,14 @@ Deno.serve(async (req) => {
           started_at: current.started_at || new Date().toISOString(),
           completed_at: null,
           last_error: null,
-          next_action_at: null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", interactionId).eq("user_id", user.id);
       if (error) throw error;
 
       const initialDelay = randomBetween(
-        safePositiveInt(current.min_delay_seconds, 1),
-        Math.max(safePositiveInt(current.min_delay_seconds, 1), safePositiveInt(current.max_delay_seconds, safePositiveInt(current.min_delay_seconds, 1))),
+        safeNonNegativeInt(current.min_delay_seconds, 0),
+        Math.max(safeNonNegativeInt(current.min_delay_seconds, 0), safeNonNegativeInt(current.max_delay_seconds, safeNonNegativeInt(current.min_delay_seconds, 0))),
       );
       await scheduleNextTick(admin, interactionId, initialDelay);
 
@@ -270,27 +491,64 @@ async function dispatchTick(interactionId: string, scheduledFor?: string | null)
 }
 
 async function scheduleNextTick(admin: any, interactionId: string, delaySec: number, scheduledFor?: string | null) {
-  const safeDelay = Math.max(1, Math.floor(Number(delaySec) || 1));
+  const safeDelay = Math.max(0, Math.floor(Number(delaySec) || 0));
   const targetIso = scheduledFor ?? new Date(Date.now() + safeDelay * 1000).toISOString();
 
-  await admin.from("group_interactions")
+  const { data, error } = await admin.from("group_interactions")
     .update({ next_action_at: targetIso, updated_at: new Date().toISOString() })
-    .eq("id", interactionId);
+    .eq("id", interactionId)
+    .in("status", ["running", "active"])
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return false;
 
   const remainingMs = new Date(targetIso).getTime() - Date.now();
-  if (remainingMs > 0 && remainingMs <= MAX_INLINE_TICK_DELAY_MS) {
+  if (remainingMs >= 0 && remainingMs <= MAX_INLINE_TICK_DELAY_MS) {
     dispatchTick(interactionId, targetIso).catch((err) => {
       console.error("[group-interaction] scheduleNextTick dispatch failed:", err);
     });
   }
+
+  return true;
+}
+
+async function claimDueTick(admin: any, interactionId: string, scheduledFor?: string | null) {
+  const { data: current, error } = await admin
+    .from("group_interactions")
+    .select("status, next_action_at")
+    .eq("id", interactionId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!current || !["running", "active"].includes(current.status) || !current.next_action_at) {
+    return false;
+  }
+
+  if (scheduledFor) {
+    const currentMs = new Date(current.next_action_at).getTime();
+    const expectedMs = new Date(scheduledFor).getTime();
+    if (!Number.isFinite(currentMs) || !Number.isFinite(expectedMs)) return false;
+    if (Math.abs(currentMs - expectedMs) > CLAIM_TOLERANCE_MS) return false;
+    if (currentMs - Date.now() > CLAIM_TOLERANCE_MS) return false;
+  }
+
+  const { data: claimed, error: claimError } = await admin
+    .from("group_interactions")
+    .update({ next_action_at: null, updated_at: new Date().toISOString() })
+    .eq("id", interactionId)
+    .in("status", ["running", "active"])
+    .eq("next_action_at", current.next_action_at)
+    .select("id")
+    .maybeSingle();
+
+  if (claimError) throw claimError;
+  return !!claimed;
 }
 
 async function handleTick(admin: any, interactionId: string, scheduledFor?: string | null, providedUserId?: string) {
   try {
-    const { data: config, error: cfgErr } = await admin
-      .from("group_interactions").select("*").eq("id", interactionId).single();
-    if (cfgErr || !config || !["running", "active"].includes(config.status)) return jsonOk({ ok: true, skipped: true, reason: "not_running" });
-
     if (scheduledFor) {
       const remainingMs = new Date(scheduledFor).getTime() - Date.now();
       if (Number.isFinite(remainingMs) && remainingMs > 0) {
@@ -298,13 +556,22 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
           await scheduleNextTick(admin, interactionId, Math.ceil(remainingMs / 1000), scheduledFor);
           return jsonOk({ ok: true, skipped: true, reason: "waiting_for_schedule" });
         }
-        await new Promise((resolve) => setTimeout(resolve, remainingMs));
+        await sleep(remainingMs);
+      }
+
+      const claimed = await claimDueTick(admin, interactionId, scheduledFor);
+      if (!claimed) {
+        return jsonOk({ ok: true, skipped: true, reason: "tick_already_claimed" });
       }
     }
 
+    const { data: config, error: cfgErr } = await admin
+      .from("group_interactions").select("*").eq("id", interactionId).single();
+    if (cfgErr || !config || !["running", "active"].includes(config.status)) return jsonOk({ ok: true, skipped: true, reason: "not_running" });
+
     const userId = providedUserId || config.user_id;
 
-    const groupIds: string[] = config.group_ids || [];
+    const groupIds: string[] = Array.isArray(config.group_ids) ? config.group_ids : [];
     if (groupIds.length === 0) {
       await admin.from("group_interactions").update({ last_error: "Nenhum grupo selecionado", next_action_at: null }).eq("id", interactionId);
       return jsonOk({ ok: true, skipped: true, reason: "no_groups" });
@@ -407,11 +674,11 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
       console.log(`[group-interaction] Alias hints: ${knownAliases.join(" ; ")}`);
     }
 
-    // Content types config
-    const contentTypes = config.content_types || { text: true };
-    const contentWeights = config.content_weights || { text: 50 };
-
-    const warmupTexts = await getUserWarmupMessages(admin, userId);
+    const [warmupTexts, systemImagePool, systemAudioPool] = await Promise.all([
+      getUserWarmupMessages(admin, userId),
+      getImagePool(admin),
+      getAudioPool(admin),
+    ]);
 
     // Load user media library
     const { data: userMedia } = await admin.from("group_interaction_media")
@@ -425,108 +692,69 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
     // Today's messages count
     const todayStart = new Date(brNow);
     todayStart.setHours(0, 0, 0, 0);
-    const dailyLimitTotal = safeLimit(config.daily_limit_total);
-    const dailyLimitPerGroup = safeLimit(config.daily_limit_per_group);
-    const cycleMin = safePositiveInt(config.messages_per_cycle_min, 1);
-    const cycleMax = Math.max(cycleMin, safePositiveInt(config.messages_per_cycle_max, cycleMin));
     const { count: todayTotal } = await admin.from("group_interaction_logs")
       .select("*", { count: "exact", head: true })
       .eq("interaction_id", interactionId)
       .gte("sent_at", todayStart.toISOString());
-    if ((todayTotal || 0) >= dailyLimitTotal) {
-      console.log(`[group-interaction] Daily total limit reached for ${interactionId}`);
-      await scheduleNextTick(admin, interactionId, 300);
-      return jsonOk({ ok: true, skipped: true, reason: "daily_total_limit" });
-    }
 
-    const cycleSize = randomBetween(cycleMin, cycleMax);
-    const toSend = Math.min(cycleSize, dailyLimitTotal - (todayTotal || 0));
-    if (toSend <= 0) {
-      await scheduleNextTick(admin, interactionId, 60);
-      return jsonOk({ ok: true, skipped: true, reason: "empty_cycle" });
-    }
+    console.log(`[group-interaction] Execution plan: delay=${config.min_delay_seconds}-${config.max_delay_seconds}s, total_sent=${todayTotal || 0}`);
 
-    console.log(`[group-interaction] Execution plan: cycleSize=${cycleSize}, toSend=${toSend}, delay=${config.min_delay_seconds}-${config.max_delay_seconds}s`);
-
-    const eligibleGroups: { jid: string; name: string }[] = [];
-    for (const group of resolvedGroups) {
-      const { count: groupToday } = await admin.from("group_interaction_logs")
-        .select("*", { count: "exact", head: true })
-        .eq("interaction_id", interactionId).eq("group_id", group.jid)
-        .gte("sent_at", todayStart.toISOString());
-
-      if ((groupToday || 0) < dailyLimitPerGroup) {
-        eligibleGroups.push(group);
-      }
-    }
-
-    if (eligibleGroups.length === 0) {
-      await scheduleNextTick(admin, interactionId, 300);
-      return jsonOk({ ok: true, skipped: true, reason: "daily_group_limit" });
-    }
-
-    const lastSentByGroup: Record<string, string> = {};
-    const group = pickRandom(eligibleGroups);
+    const rotatedGroups = resolvedGroups.filter((group) => group.jid !== config.last_group_used);
+    const group = pickRandom(rotatedGroups.length > 0 ? rotatedGroups : resolvedGroups);
     const groupJid = group.jid;
     const groupName = group.name;
-    const chosenType = pickContentType(contentTypes, contentWeights);
-    const category = getCategoryForIndex((todayTotal || 0) % Math.max(toSend, 1), Math.max(toSend, 1));
+    const chosenType = pickAutomaticContentType({
+      hasImage: (mediaByType.image?.length || 0) > 0 || systemImagePool.length > 0,
+      hasSticker: (mediaByType.sticker?.length || 0) > 0 || systemImagePool.length > 0,
+      hasAudio: (mediaByType.audio?.length || 0) > 0 || systemAudioPool.length > 0,
+    });
+    const category = getCategoryForIndex((todayTotal || 0) % 5, 5);
 
     let messageText = "";
     let fileUrl: string | null = null;
-    let sendEndpoint = "send/text";
-    let sendBody: any = {};
 
-    if (chosenType === "text" || !mediaByType[chosenType]?.length) {
-      const availableTexts = warmupTexts.filter((text) => text !== lastSentByGroup[groupJid]);
-      if (availableTexts.length > 0) {
-        messageText = pickRandom(availableTexts);
-      } else if (warmupTexts.length > 0) {
-        messageText = pickRandom(warmupTexts);
-      } else {
-        const cats = FALLBACK_MESSAGES[category] || FALLBACK_MESSAGES.continuacao;
-        messageText = pickRandom(cats);
-      }
-      sendEndpoint = "send/text";
-      sendBody = { number: groupJid, text: messageText };
-    } else {
-      const candidates = mediaByType[chosenType].filter((m) => m.file_url !== lastSentByGroup[groupJid]);
-      const picked = candidates.length ? pickRandom(candidates) : pickRandom(mediaByType[chosenType]);
-      fileUrl = picked.file_url;
-      messageText = picked.content || picked.file_name || chosenType;
-
-      if (chosenType === "image") {
-        sendEndpoint = "send/image";
-        sendBody = { number: groupJid, image: fileUrl, caption: messageText || "" };
-      } else if (chosenType === "video") {
-        sendEndpoint = "send/video";
-        sendBody = { number: groupJid, video: fileUrl, caption: messageText || "" };
-      } else if (chosenType === "sticker") {
-        sendEndpoint = "send/sticker";
-        sendBody = { number: groupJid, sticker: fileUrl };
-      } else if (chosenType === "audio") {
-        sendEndpoint = "send/document";
-        sendBody = { number: groupJid, document: fileUrl, fileName: picked.file_name || "audio.ogg" };
-      } else {
-        sendEndpoint = "send/document";
-        sendBody = { number: groupJid, document: fileUrl, fileName: picked.file_name || "arquivo" };
-      }
-    }
+    const fallbackTexts = FALLBACK_MESSAGES[category] || FALLBACK_MESSAGES.continuacao;
+    const getTextMessage = () => {
+      if (warmupTexts.length > 0) return pickRandom(warmupTexts);
+      return pickRandom(fallbackTexts);
+    };
 
     let sentOk = false;
     let sendError: string | null = null;
-    const appliedDelay = randomBetween(safePositiveInt(config.min_delay_seconds, 1), Math.max(safePositiveInt(config.min_delay_seconds, 1), safePositiveInt(config.max_delay_seconds, safePositiveInt(config.min_delay_seconds, 1))));
+    const appliedDelay = randomBetween(
+      safeNonNegativeInt(config.min_delay_seconds, 0),
+      Math.max(safeNonNegativeInt(config.min_delay_seconds, 0), safeNonNegativeInt(config.max_delay_seconds, safeNonNegativeInt(config.min_delay_seconds, 0))),
+    );
 
     try {
-      const resp = await fetch(`${baseUrl}/${sendEndpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", token: device.uazapi_token },
-        body: JSON.stringify(sendBody),
-      });
+      if (chosenType === "image") {
+        const picked = mediaByType.image?.length ? pickRandom(mediaByType.image) : null;
+        const resolvedImageUrl = String(picked?.file_url || pickRandom(systemImagePool) || "").trim();
+        fileUrl = resolvedImageUrl || null;
+        const caption = String(picked?.content || "").trim() || getTextMessage();
+        await uazapiSendImage(baseUrl, device.uazapi_token, groupJid, resolvedImageUrl, "");
+        await sleep(randomBetween(1000, 3000));
+        await uazapiSendText(baseUrl, device.uazapi_token, groupJid, caption);
+        messageText = `[IMG+TXT] ${caption}`;
+      } else if (chosenType === "sticker") {
+        const picked = mediaByType.sticker?.length ? pickRandom(mediaByType.sticker) : null;
+        const resolvedStickerUrl = String(picked?.file_url || pickRandom(systemImagePool) || "").trim();
+        fileUrl = resolvedStickerUrl || null;
+        await uazapiSendSticker(baseUrl, device.uazapi_token, groupJid, resolvedStickerUrl);
+        messageText = `[STICKER] ${picked?.content || "🎭"}`;
+      } else if (chosenType === "audio") {
+        const picked = mediaByType.audio?.length ? pickRandom(mediaByType.audio) : null;
+        const resolvedAudioUrl = String(picked?.file_url || pickRandom(systemAudioPool) || "").trim();
+        fileUrl = resolvedAudioUrl || null;
+        await uazapiSendAudio(baseUrl, device.uazapi_token, groupJid, resolvedAudioUrl);
+        messageText = `[AUDIO] ${picked?.content || "🎤"}`;
+      } else {
+        messageText = getTextMessage();
+        await uazapiSendText(baseUrl, device.uazapi_token, groupJid, messageText);
+      }
 
-      const responseText = await resp.text();
-      sentOk = resp.ok;
-      sendError = resp.ok ? null : `HTTP ${resp.status} - ${responseText.substring(0, 180)}`;
+      sentOk = true;
+      sendError = null;
     } catch (sendErr: any) {
       sendError = sendErr.message;
     }
@@ -546,7 +774,6 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
     });
 
     if (sentOk) {
-      lastSentByGroup[groupJid] = fileUrl || messageText;
       await admin.from("group_interactions").update({
         total_messages_sent: (config.total_messages_sent || 0) + 1,
         last_group_used: groupJid,
