@@ -875,11 +875,16 @@ const WarmupInstances = () => {
     const map = new Map<string, any>();
     for (const cycle of cycles) {
       if (!["completed", "error"].includes(cycle.phase)) {
-        map.set(cycle.device_id, cycle);
+        // Use daily_stats (trigger-based, accurate) instead of budget_used (inflated)
+        const accurateSent = (dailyStatsMap as Record<string, number>)[cycle.device_id];
+        map.set(cycle.device_id, {
+          ...cycle,
+          _messages_sent_today: accurateSent ?? cycle.daily_interaction_budget_used ?? 0,
+        });
       }
     }
     return map;
-  }, [cycles]);
+  }, [cycles, dailyStatsMap]);
 
   const isConnected = (status: string) => CONNECTED_STATUSES.includes(status);
 
