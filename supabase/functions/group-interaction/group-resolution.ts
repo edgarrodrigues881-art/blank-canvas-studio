@@ -123,6 +123,9 @@ export async function fetchDeviceGroups(baseUrl: string, token: string): Promise
 }
 
 function extractGroupFromResponse(data: any): ResolvedGroup | null {
+  const jsonStr = JSON.stringify(data ?? {});
+  const regexMatch = jsonStr.match(/(\d+@g\.us)/);
+
   const jid = String(
     data?.group?.JID ||
     data?.group?.jid ||
@@ -136,6 +139,7 @@ function extractGroupFromResponse(data: any): ResolvedGroup | null {
     data?.data?.jid ||
     data?.data?.id ||
     data?.data?.groupJid ||
+    regexMatch?.[1] ||
     "",
   ).trim();
 
@@ -206,11 +210,43 @@ export async function resolveGroupFromInvite(
       if (resolved) return resolved;
 
       const providerMessage = String(data?.message || data?.msg || data?.error || data?.raw || "").toLowerCase();
-      if (providerMessage.includes("already") || providerMessage.includes("já")) {
+      if (response.ok || response.status === 409 || providerMessage.includes("already") || providerMessage.includes("já")) {
         continue;
       }
     } catch {
       // tenta próxima estratégia
+    }
+  }
+
+  const infoEndpoints = [
+    { method: "POST", url: `${baseUrl}/group/info`, body: JSON.stringify({ inviteCode }) },
+    { method: "GET", url: `${baseUrl}/group/inviteInfo?inviteCode=${inviteCode}` },
+  ];
+
+  for (const endpoint of infoEndpoints) {
+    try {
+      const response = await fetch(endpoint.url, {
+        method: endpoint.method,
+        headers: {
+          token,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        ...(endpoint.body ? { body: endpoint.body } : {}),
+      });
+
+      const rawBody = await response.text();
+      let data: any = null;
+      try {
+        data = rawBody ? JSON.parse(rawBody) : null;
+      } catch {
+        data = { raw: rawBody };
+      }
+
+      const resolved = extractGroupFromResponse(data);
+      if (resolved) return resolved;
+    } catch {
+      // ignora
     }
   }
 
