@@ -162,7 +162,7 @@ function GroupJoinCampaignsWidget() {
 }
 
 /* ── Group List Component ── */
-function GroupList({ groups, isCustom, onDelete }: { groups: any[]; isCustom: boolean; onDelete?: (id: string) => void }) {
+function GroupList({ groups, isCustom, isSystem, onDelete }: { groups: any[]; isCustom: boolean; isSystem?: boolean; onDelete?: (id: string) => void }) {
   if (groups.length === 0) {
     return (
       <div className="relative rounded-2xl border border-border/20 bg-card/80 backdrop-blur-xl overflow-hidden">
@@ -188,6 +188,9 @@ function GroupList({ groups, isCustom, onDelete }: { groups: any[]; isCustom: bo
         {isCustom && (
           <Badge variant="outline" className="text-[10px] border-primary/20 text-primary/70">Seus grupos</Badge>
         )}
+        {isSystem && (
+          <Badge variant="outline" className="text-[10px] border-emerald-500/20 text-emerald-400/70">Grupos do sistema</Badge>
+        )}
       </div>
       <div className="divide-y divide-border/10">
         {groups.map((g: any) => (
@@ -199,10 +202,11 @@ function GroupList({ groups, isCustom, onDelete }: { groups: any[]; isCustom: bo
             </div>
             <div className="flex items-center gap-1 opacity-50 group-hover/row:opacity-100 transition-opacity">
               <CopyButton text={g.link} />
-              {isCustom && onDelete && (
+              {(isCustom || isSystem) && onDelete && (
                 <button
                   className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-destructive/10 text-muted-foreground/40 hover:text-destructive transition-colors"
                   onClick={() => onDelete(g.id)}
+                  title={isSystem ? "Remover grupo do sistema da sua lista" : "Remover grupo"}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
