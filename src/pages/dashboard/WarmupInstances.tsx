@@ -658,9 +658,7 @@ const WarmupInstances = () => {
   const [bulkDaysTotal, setBulkDaysTotal] = useState("30");
   const [bulkStartDay, setBulkStartDay] = useState("1");
   const [bulkLoading, setBulkLoading] = useState(false);
-  const bulkGroupSource = (() => {
-    try { return localStorage.getItem(`warmup_group_source_${user?.id}`) === "system" ? "system" : "custom"; } catch { return "custom"; }
-  })();
+  const [bulkGroupSourceState, setBulkGroupSourceState] = useState("custom");
   const [customGroupDialogOpen, setCustomGroupDialogOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupLink, setNewGroupLink] = useState("");
@@ -681,6 +679,10 @@ const WarmupInstances = () => {
   const { toast } = useToast();
   const engine = useWarmupEngine();
   const qc = useQueryClient();
+
+  const bulkGroupSource = useMemo(() => {
+    try { return localStorage.getItem(`warmup_group_source_${user?.id}`) === "system" ? "system" : "custom"; } catch { return "custom"; }
+  }, [user?.id]);
   const warmupCyclesQueryKey = ["warmup_cycles", user?.id] as const;
 
   // Fetch user's custom groups
