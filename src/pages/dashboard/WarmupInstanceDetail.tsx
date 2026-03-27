@@ -1556,8 +1556,8 @@ const WarmupInstanceDetail = () => {
               }
             }
 
-            // Use budget_used from cycle as authoritative total (logs may be truncated by the 500 row limit)
-            const doneToday = Math.max(cycle?.daily_interaction_budget_used ?? 0, sentTodayLogs.length);
+            // Use daily_stats (trigger-based, accurate) > logs count > budget_used (fallback)
+            const doneToday = dailyStatsSent ?? Math.max(sentTodayLogs.length, 0);
             const failedToday = displayJobs.filter((j) => j.status === "failed").length;
             const budgetTarget = cycle?.daily_interaction_budget_target || 1;
             // totalDisplay = the daily target (budget). This is the denominator.
