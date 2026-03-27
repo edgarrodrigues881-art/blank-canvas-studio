@@ -608,24 +608,44 @@ async function mainLoop() {
   try {
     const db = getDb();
 
+    // Test 0: Raw connectivity test with full error capture
+    log.info("Testing DB connectivity...", {
+      supabaseUrl: config.supabaseUrl,
+      serviceKeyPrefix: config.supabaseServiceKey.substring(0, 20) + "...",
+      serviceKeyLength: config.supabaseServiceKey.length,
+    });
+
     // Test 1: Basic connectivity
     const [{ count, error: countErr }, { data: sampleDevices, error: sampleErr }] = await Promise.all([
       db.from("devices").select("id", { count: "exact", head: true }),
       db.from("devices").select("id, name, status, uazapi_token, uazapi_base_url").limit(5),
     ]);
     if (countErr) {
-      log.error(`DB query error: ${countErr.message}`, {
-        code: countErr.code,
-        hint: countErr.hint,
-        details: countErr.details,
+      // Full error dump — the Supabase error object may not have standard .message
+      const rawError = JSON.stringify(countErr, Object.getOwnPropertyNames(countErr));
+      log.error(`DB query error (devices count)`, {
+        message: countErr.message || "NO_MESSAGE",
+        code: countErr.code || "NO_CODE",
+        hint: countErr.hint || "NO_HINT",
+        details: countErr.details || "NO_DETAILS",
+        status: (countErr as any).status || "NO_STATUS",
+        statusText: (countErr as any).statusText || "NO_STATUS_TEXT",
+        rawError,
       });
-      if (countErr.message?.includes("Invalid API key")) {
-        log.error("CRITICAL: The SUPABASE_SERVICE_ROLE_KEY appears to be invalid. Make sure you're using the service_role key (not the anon key). Find it in Supabase Dashboard > Settings > API.");
+      if (
+        rawError.includes("Invalid API key") ||
+        rawError.includes("apikey") ||
+        rawError.includes("401") ||
+        rawError.includes("403") ||
+        countErr.code === "PGRST301"
+      ) {
+        log.error("CRITICAL: The SUPABASE_SERVICE_ROLE_KEY appears to be invalid or incompatible. If using sb_secret_ format, ensure @supabase/supabase-js is v2.99+. Find the JWT key in Supabase Dashboard > Settings > API.");
       }
       process.exit(1);
     }
     if (sampleErr) {
-      log.warn(`Devices sample query failed: ${sampleErr.message}`);
+      const rawSampleErr = JSON.stringify(sampleErr, Object.getOwnPropertyNames(sampleErr));
+      log.warn(`Devices sample query failed`, { rawError: rawSampleErr });
     }
 
     const totalDevices = typeof count === "number" ? count : (sampleDevices?.length || 0);
