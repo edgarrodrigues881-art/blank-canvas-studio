@@ -69,7 +69,7 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
     queryFn: async () => {
       const { data } = await supabase
         .from("warmup_community_membership" as any)
-        .select("*")
+        .select("id, device_id, community_mode, community_day, messages_today, pairs_today, daily_limit, cooldown_until, is_enabled")
         .eq("device_id", deviceId)
         .maybeSingle();
       return data as any;

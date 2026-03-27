@@ -46,7 +46,7 @@ export function useWarmupFolders() {
     queryFn: async () => {
       const { data: folders, error } = await supabase
         .from("warmup_folders" as any)
-        .select("*")
+        .select("id, user_id, name, color, icon, sort_order, tags, created_at")
         .eq("user_id", user!.id)
         .order("created_at", { ascending: true });
       if (error) throw error;

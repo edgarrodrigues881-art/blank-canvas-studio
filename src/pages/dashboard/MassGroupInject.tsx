@@ -360,7 +360,7 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
     queryFn: async () => {
       const { data, error } = await supabase
         .from("mass_inject_campaigns")
-        .select("*")
+        .select("id, name, status, group_name, group_jid, total_contacts, injected_count, failed_count, created_at, updated_at, started_at, completed_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];

@@ -66,7 +66,7 @@ export function useChipConversationLogs(conversationId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("chip_conversation_logs")
-        .select("*")
+        .select("id, conversation_id, sender_device_id, receiver_device_id, sender_name, receiver_name, message_content, message_category, status, error_message, sent_at")
         .eq("conversation_id", conversationId!)
         .order("sent_at", { ascending: false })
         .limit(100);
