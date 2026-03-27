@@ -331,6 +331,14 @@ const Plans = () => {
             <CheckCircle2 className="w-3 h-3 text-white/30 flex-shrink-0 mt-0.5" />{item}
           </li>
         ))}
+        <li className={`flex items-start gap-1.5 text-[11px] font-medium ${p.whatsappIncluded ? "text-white/50" : "text-white/25"}`}>
+          {p.whatsappIncluded ? (
+            <CheckCircle2 className="w-3 h-3 text-white/30 flex-shrink-0 mt-0.5" />
+          ) : (
+            <span className="w-3 h-3 flex-shrink-0 mt-0.5 flex items-center justify-center text-white/20 font-bold text-[9px]">✕</span>
+          )}
+          {p.whatsappLine}
+        </li>
       </ul>
       <Button onClick={() => {
         if (p.name === "Custom") {
