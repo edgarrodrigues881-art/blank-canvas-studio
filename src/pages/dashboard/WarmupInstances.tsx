@@ -815,6 +815,7 @@ const WarmupInstances = () => {
   });
 
   const { data: cycles = [], isLoading: cyclesLoading } = useWarmupCycles();
+  useWarmupCyclesRealtime(); // Live counter updates via Supabase Realtime
   const isLoading = devicesLoading || cyclesLoading;
 
   // Proxies
