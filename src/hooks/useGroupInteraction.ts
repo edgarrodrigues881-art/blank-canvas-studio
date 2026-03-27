@@ -87,9 +87,14 @@ export function useGroupInteraction() {
   const createInteraction = useMutation({
     mutationFn: async (data: Partial<GroupInteraction>) => {
       if (!user) throw new Error("Não autenticado");
+      const payload = {
+        ...data,
+        user_id: user.id,
+        status: data.status === "active" ? "idle" : (data.status ?? "idle"),
+      };
       const { error } = await supabase
         .from("group_interactions" as any)
-        .insert({ ...data, user_id: user.id } as any);
+        .insert(payload as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -101,9 +106,14 @@ export function useGroupInteraction() {
 
   const updateInteraction = useMutation({
     mutationFn: async ({ id, ...data }: Partial<GroupInteraction> & { id: string }) => {
+      const payload = {
+        ...data,
+        status: data.status === "active" ? "idle" : data.status,
+        updated_at: new Date().toISOString(),
+      };
       const { error } = await supabase
         .from("group_interactions" as any)
-        .update({ ...data, updated_at: new Date().toISOString() } as any)
+        .update(payload as any)
         .eq("id", id) as any;
       if (error) throw error;
     },

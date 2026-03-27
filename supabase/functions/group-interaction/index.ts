@@ -186,7 +186,7 @@ async function processInteraction(admin: any, interactionId: string, userId: str
   try {
     const { data: config, error: cfgErr } = await admin
       .from("group_interactions").select("*").eq("id", interactionId).single();
-    if (cfgErr || !config || config.status !== "running") return;
+    if (cfgErr || !config || !["running", "active"].includes(config.status)) return;
 
     const groupIds: string[] = config.group_ids || [];
     if (groupIds.length === 0) return;
@@ -293,7 +293,7 @@ async function processInteraction(admin: any, interactionId: string, userId: str
       // Re-check status
       const { data: current } = await admin.from("group_interactions")
         .select("status").eq("id", interactionId).single();
-      if (!current || current.status !== "running") break;
+      if (!current || !["running", "active"].includes(current.status)) break;
 
       const group = shuffledGroups[i % shuffledGroups.length];
       const groupJid = group.jid;
