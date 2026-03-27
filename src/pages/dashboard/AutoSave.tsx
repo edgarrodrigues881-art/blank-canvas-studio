@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useCallback, memo, type CSSProperties, type ReactElement } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { List as VirtualList } from "react-window";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -89,6 +90,7 @@ const AutoSave = () => {
   // Disclaimer
   const disclaimerKey = `autosave_disclaimer_${user?.id}`;
   const [showDisclaimer, setShowDisclaimer] = useState(() => !localStorage.getItem(disclaimerKey));
+  const [disclaimerChecked, setDisclaimerChecked] = useState(false);
   const acceptDisclaimer = () => {
     localStorage.setItem(disclaimerKey, "1");
     setShowDisclaimer(false);
@@ -419,10 +421,14 @@ const AutoSave = () => {
             <p>Respeite as diretrizes da <span className="font-semibold text-foreground">LGPD</span>.</p>
             <p className="text-xs text-muted-foreground/60">Ao continuar, você declara estar ciente e de acordo com essas condições.</p>
           </div>
+          <div className="flex items-center gap-2 pt-2">
+            <Checkbox id="disclaimer-check" checked={disclaimerChecked} onCheckedChange={(v) => setDisclaimerChecked(!!v)} />
+            <label htmlFor="disclaimer-check" className="text-sm cursor-pointer select-none">Estou ciente e concordo</label>
+          </div>
           <DialogFooter>
-            <Button onClick={acceptDisclaimer} className="w-full gap-2">
+            <Button onClick={acceptDisclaimer} disabled={!disclaimerChecked} className="w-full gap-2">
               <CheckCircle2 className="w-4 h-4" />
-              Estou ciente e concordo
+              Continuar
             </Button>
           </DialogFooter>
         </DialogContent>
