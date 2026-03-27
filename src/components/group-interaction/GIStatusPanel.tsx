@@ -46,7 +46,7 @@ export default function GIStatusPanel({ interaction }: { interaction: GroupInter
     {
       icon: MessageCircle,
       label: "Interações hoje",
-      value: <span className="font-mono text-sm">{(interaction as any).today_count ?? interaction.total_messages_sent}</span>,
+      value: <span className="font-mono text-sm">{interaction.today_count ?? 0}</span>,
     },
     {
       icon: Users,
@@ -68,8 +68,8 @@ export default function GIStatusPanel({ interaction }: { interaction: GroupInter
       label: "Último envio",
       value: (
         <span className="text-xs text-muted-foreground">
-          {(interaction as any).last_sent_at
-            ? new Date((interaction as any).last_sent_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+          {interaction.last_sent_at
+            ? new Date(interaction.last_sent_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
             : "—"}
         </span>
       ),

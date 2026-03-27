@@ -689,15 +689,7 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
       (mediaByType[m.media_type] ??= []).push(m);
     }
 
-    // Today's messages count
-    const todayStart = new Date(brNow);
-    todayStart.setHours(0, 0, 0, 0);
-    const { count: todayTotal } = await admin.from("group_interaction_logs")
-      .select("*", { count: "exact", head: true })
-      .eq("interaction_id", interactionId)
-      .gte("sent_at", todayStart.toISOString());
-
-    console.log(`[group-interaction] Execution plan: delay=${config.min_delay_seconds}-${config.max_delay_seconds}s, total_sent=${todayTotal || 0}`);
+    console.log(`[group-interaction] Execution plan: delay=${config.min_delay_seconds}-${config.max_delay_seconds}s, today_count=${config.today_count || 0}, total_sent=${config.total_messages_sent || 0}`);
 
     const rotatedGroups = resolvedGroups.filter((group) => group.jid !== config.last_group_used);
     const group = pickRandom(rotatedGroups.length > 0 ? rotatedGroups : resolvedGroups);
@@ -708,7 +700,7 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
       hasSticker: (mediaByType.sticker?.length || 0) > 0 || systemImagePool.length > 0,
       hasAudio: (mediaByType.audio?.length || 0) > 0 || systemAudioPool.length > 0,
     });
-    const category = getCategoryForIndex((todayTotal || 0) % 5, 5);
+    const category = getCategoryForIndex((config.today_count || 0) % 5, 5);
 
     let messageText = "";
     let fileUrl: string | null = null;
@@ -759,7 +751,7 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
       sendError = sendErr.message;
     }
 
-    await admin.from("group_interaction_logs").insert({
+    const { error: logInsertErr } = await admin.from("group_interaction_logs").insert({
       interaction_id: interactionId,
       user_id: userId,
       group_id: groupJid,
@@ -772,14 +764,18 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
       pause_applied_seconds: appliedDelay,
       sent_at: new Date().toISOString(),
     });
+    if (logInsertErr) {
+      console.error(`[group-interaction] Log insert failed:`, JSON.stringify(logInsertErr));
+    }
 
     if (sentOk) {
+      const newTodayCount = (config.today_count || 0) + 1;
       await admin.from("group_interactions").update({
         total_messages_sent: (config.total_messages_sent || 0) + 1,
         last_group_used: groupJid,
         last_content_sent: messageText,
         last_sent_at: new Date().toISOString(),
-        today_count: (todayTotal || 0) + 1,
+        today_count: newTodayCount,
         last_error: null,
         updated_at: new Date().toISOString(),
       }).eq("id", interactionId);
