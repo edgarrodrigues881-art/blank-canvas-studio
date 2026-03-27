@@ -404,8 +404,8 @@ export function useWarmupAuditLogs(cycleId?: string, limit = 1000) {
       return ((data as unknown as WarmupAuditLog[]) || []).reverse();
     },
     enabled: !!user,
-    refetchInterval: 15_000,
-    staleTime: 10_000,
-    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 }
