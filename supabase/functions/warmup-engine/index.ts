@@ -779,13 +779,25 @@ async function handleStart(db: any, userId: string | null, body: any) {
 
   if (cycleErr) throw cycleErr;
 
-  // 3. Register groups — only groups marked for warmup use
-  const { data: userGroups } = await db
-    .from("warmup_groups")
-    .select("id, name, link")
-    .eq("user_id", userId)
-    .eq("is_custom", true)
-    .eq("use_in_warmup", true);
+  // 3. Register groups — based on group_source preference
+  let userGroups: any[] = [];
+  if (resolvedGroupSource === "system") {
+    // Use system groups (user_id IS NULL, is_custom = false)
+    const { data } = await db
+      .from("warmup_groups")
+      .select("id, name, link")
+      .is("user_id", null)
+      .eq("is_custom", false);
+    userGroups = data || [];
+  } else {
+    // Use user's custom groups
+    const { data } = await db
+      .from("warmup_groups")
+      .select("id, name, link")
+      .eq("user_id", userId)
+      .eq("is_custom", true);
+    userGroups = data || [];
+  }
   
   const allGroups = shuffleArray((userGroups || []).map((g: any) => ({
     id: g.id,
