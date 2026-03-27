@@ -226,42 +226,61 @@ const Features = () => (
 );
 
 // ─── 5. Planos ───
+const standardPlanFeatures = [
+  "Todas as funcionalidades inclusas",
+  "Mesmo nível de suporte",
+  "Monitoramento em tempo real",
+  "Infraestrutura completa",
+];
+
 const allPlans = [
   {
     name: "Essencial", instances: 5, price: "99,00", popular: false, whatsappReports: false,
-    subtitle: "Para quem está começando a aquecer chips com segurança e estrutura profissional.",
+    subtitle: "Ideal para quem está começando com poucas instâncias.",
     extraCopy: null, cta: "Começar",
-    features: ["Aquecimento automatizado", "Disparo interativo", "Monitoramento em tempo real limitado", "Suporte padrão", "Relatórios via WhatsApp (add-on)", "Módulos extras disponíveis"],
+    features: [...standardPlanFeatures],
+    whatsappLine: "Relatórios via WhatsApp",
+    whatsappIncluded: false,
   },
   {
     name: "Start", instances: 10, price: "187,00", popular: false, whatsappReports: false,
-    subtitle: "Para quem já validou a operação e quer expandir.",
-    extraCopy: "Melhor custo-benefício inicial", cta: "Começar",
-    features: ["Aquecimento automatizado", "Disparo interativo", "Painel centralizado", "Monitoramento em tempo real", "Organização de instâncias", "Relatórios via WhatsApp (add-on)", "Módulos extras disponíveis"],
+    subtitle: "Ideal para quem quer aumentar a capacidade.",
+    extraCopy: null, cta: "Começar",
+    features: [...standardPlanFeatures],
+    whatsappLine: "Relatórios via WhatsApp",
+    whatsappIncluded: false,
   },
   {
-    name: "Pro", instances: 30, price: "397,00", popular: true, whatsappReports: false,
-    subtitle: "Para operadores ativos que precisam escalar com consistência.",
-    extraCopy: "Recomendado para operações reais", cta: "Escalar",
-    features: ["Aquecimento automatizado", "Disparo interativo", "Painel centralizado", "Gestão avançada de instâncias", "Monitoramento completo", "Suporte prioritário", "Relatórios via WhatsApp (add-on)", "Módulos extras disponíveis"],
+    name: "Pro", instances: 30, price: "397,00", popular: true, whatsappReports: true,
+    subtitle: "Ideal para operações em crescimento.",
+    extraCopy: "Mais escolhido", cta: "Escalar",
+    features: [...standardPlanFeatures],
+    whatsappLine: "Relatórios via WhatsApp incluso",
+    whatsappIncluded: true,
   },
   {
     name: "Scale", instances: 50, price: "597,00", popular: false, whatsappReports: true,
-    subtitle: "Para quem precisa escalar com mais chips e visibilidade sobre toda a operação.",
+    subtitle: "Para quem precisa escalar com múltiplas instâncias.",
     extraCopy: null, cta: "Escalar",
-    features: ["Aquecimento automatizado", "Disparo interativo", "Painel centralizado", "Monitoramento em tempo real", "Suporte prioritário", "Relatórios via WhatsApp incluso", "Módulos extras disponíveis"],
+    features: [...standardPlanFeatures],
+    whatsappLine: "Relatórios via WhatsApp incluso",
+    whatsappIncluded: true,
   },
   {
     name: "Elite", instances: 100, price: "1.197,00", popular: false, whatsappReports: true,
-    subtitle: "Ideal para operações que exigem volume alto com performance e suporte dedicado.",
-    extraCopy: "Alta performance garantida", cta: "Contratar",
-    features: ["Aquecimento automatizado em escala", "Disparo avançado", "Monitoramento avançado", "Suporte VIP", "Relatórios via WhatsApp incluso", "Módulos extras disponíveis"],
+    subtitle: "Alta capacidade para operações grandes.",
+    extraCopy: null, cta: "Contratar",
+    features: [...standardPlanFeatures],
+    whatsappLine: "Relatórios via WhatsApp incluso",
+    whatsappIncluded: true,
   },
   {
     name: "Custom", instances: 200, price: null, popular: false, whatsappReports: true,
-    subtitle: "Soluções personalizadas para operações de grande escala com necessidades específicas.",
+    subtitle: "Solução personalizada para grande escala.",
     extraCopy: null, cta: "Consultar",
-    features: ["Instâncias sob medida", "Aquecimento automatizado em escala", "Estrutura personalizada", "Infraestrutura dedicada", "Suporte VIP", "Ajustes personalizados", "Relatórios via WhatsApp incluso", "Configuração sob consulta"],
+    features: [...standardPlanFeatures],
+    whatsappLine: "Relatórios via WhatsApp incluso",
+    whatsappIncluded: true,
   },
 ];
 
@@ -312,6 +331,14 @@ const Plans = () => {
             <CheckCircle2 className="w-3 h-3 text-white/30 flex-shrink-0 mt-0.5" />{item}
           </li>
         ))}
+        <li className={`flex items-start gap-1.5 text-[11px] font-medium ${p.whatsappIncluded ? "text-white/50" : "text-white/25"}`}>
+          {p.whatsappIncluded ? (
+            <CheckCircle2 className="w-3 h-3 text-white/30 flex-shrink-0 mt-0.5" />
+          ) : (
+            <span className="w-3 h-3 flex-shrink-0 mt-0.5 flex items-center justify-center text-white/20 font-bold text-[9px]">✕</span>
+          )}
+          {p.whatsappLine}
+        </li>
       </ul>
       <Button onClick={() => {
         if (p.name === "Custom") {

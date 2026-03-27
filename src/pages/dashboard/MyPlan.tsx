@@ -14,138 +14,108 @@ const buildAddonWhatsappUrl = () => {
 };
 
 
+const baseFeaturesNoWA = [
+  "Todas as funcionalidades inclusas",
+  "Mesmo nível de suporte",
+  "Monitoramento em tempo real",
+  "Infraestrutura completa",
+];
+
 const plans = [
   {
     name: "Essencial",
     instances: 5,
     price: "99,00",
-    subtitle: "Ideal para quem está iniciando e quer aquecer chips com segurança e estrutura profissional.",
+    subtitle: "Ideal para quem está começando com poucas instâncias.",
     extraCopy: null,
     cta: "Começar agora",
     popular: false,
     highlight: false,
     reportsIncluded: false,
-    features: [
-      "Aquecimento automatizado",
-      "Disparo interativo",
-      "Monitoramento em tempo real limitado",
-      "Suporte padrão",
-      "Relatórios via WhatsApp (add-on)",
-      "Módulos extras disponíveis",
-    ],
+    features: [...baseFeaturesNoWA],
+    whatsappLine: "Relatórios via WhatsApp",
+    whatsappIncluded: false,
   },
   {
     name: "Start",
     instances: 10,
     price: "187,00",
-    subtitle: "Ideal para quem quer escalar com segurança após validar a operação.",
-    extraCopy: "Melhor custo-benefício inicial",
+    subtitle: "Ideal para quem quer aumentar a capacidade.",
+    extraCopy: null,
     cta: "Começar agora",
     popular: false,
     highlight: false,
     reportsIncluded: false,
-    features: [
-      "Aquecimento automatizado",
-      "Disparo interativo",
-      "Painel centralizado",
-      "Monitoramento em tempo real",
-      "Organização de instâncias",
-      "Relatórios via WhatsApp (add-on)",
-      "Módulos extras disponíveis",
-    ],
+    features: [...baseFeaturesNoWA],
+    whatsappLine: "Relatórios via WhatsApp",
+    whatsappIncluded: false,
   },
   {
     name: "Pro",
     instances: 30,
     price: "397,00",
-    subtitle: "Estrutura ideal para operadores ativos que precisam escalar com consistência.",
-    extraCopy: "Recomendado para operações reais",
+    subtitle: "Ideal para operações em crescimento.",
+    extraCopy: "Mais escolhido",
     cta: "Escalar operação",
     popular: true,
     highlight: false,
-    reportsIncluded: false,
-    features: [
-      "Aquecimento automatizado",
-      "Disparo interativo",
-      "Painel centralizado",
-      "Gestão avançada de instâncias",
-      "Monitoramento completo",
-      "Suporte prioritário",
-      "Relatórios via WhatsApp (add-on)",
-      "Módulos extras disponíveis",
-    ],
+    reportsIncluded: true,
+    features: [...baseFeaturesNoWA],
+    whatsappLine: "Relatórios via WhatsApp incluso",
+    whatsappIncluded: true,
   },
   {
     name: "Scale",
     instances: 50,
     price: "597,00",
-    subtitle: "Para quem precisa escalar com mais chips e visibilidade sobre toda a operação.",
+    subtitle: "Para quem precisa escalar com múltiplas instâncias.",
     extraCopy: null,
     cta: "Escalar operação",
     popular: false,
     highlight: true,
     reportsIncluded: true,
-    features: [
-      "Aquecimento automatizado",
-      "Disparo interativo",
-      "Painel centralizado",
-      "Monitoramento em tempo real",
-      "Suporte prioritário",
-      "Relatórios via WhatsApp incluso",
-      "Módulos extras disponíveis",
-    ],
+    features: [...baseFeaturesNoWA],
+    whatsappLine: "Relatórios via WhatsApp incluso",
+    whatsappIncluded: true,
   },
   {
     name: "Elite",
     instances: 100,
     price: "1.197,00",
-    subtitle: "Ideal para operações que exigem volume alto com performance e suporte dedicado.",
-    extraCopy: "Alta performance garantida",
+    subtitle: "Alta capacidade para operações grandes.",
+    extraCopy: null,
     cta: "Ir para o Elite",
     popular: false,
     highlight: false,
     reportsIncluded: true,
-    features: [
-      "Aquecimento automatizado em escala",
-      "Disparo avançado",
-      "Monitoramento avançado",
-      "Suporte VIP",
-      "Relatórios via WhatsApp incluso",
-      "Módulos extras disponíveis",
-    ],
+    features: [...baseFeaturesNoWA],
+    whatsappLine: "Relatórios via WhatsApp incluso",
+    whatsappIncluded: true,
   },
   {
     name: "Custom",
     instances: "200+",
     price: "",
-    subtitle: "Soluções personalizadas para operações de grande escala com necessidades específicas.",
+    subtitle: "Solução personalizada para grande escala.",
     extraCopy: null,
     cta: "Falar com suporte",
     popular: false,
     highlight: false,
     reportsIncluded: true,
     isCustom: true,
-    features: [
-      "Instâncias sob medida",
-      "Aquecimento automatizado em escala",
-      "Estrutura personalizada",
-      "Infraestrutura dedicada",
-      "Suporte VIP",
-      "Ajustes personalizados",
-      "Relatórios via WhatsApp incluso",
-      "Configuração sob consulta",
-    ],
+    features: [...baseFeaturesNoWA],
+    whatsappLine: "Relatórios via WhatsApp incluso",
+    whatsappIncluded: true,
   },
 ];
 
 const comparisonRows = [
   { label: "Instâncias", values: ["5", "10", "30", "50", "100", "200+"] },
-  { label: "Aquecimento automático", values: [true, true, true, true, true, true] },
-  { label: "Disparo de mensagens", values: [true, true, true, true, true, true] },
-  { label: "Monitoramento", values: ["Limitado", "Tempo real", "Completo", "Tempo real", "Avançado", "Avançado"] },
-  { label: "Relatórios via WhatsApp", values: ["Add-on", "Add-on", "Add-on", "Incluso", "Incluso", "Incluso"] },
-  { label: "Suporte prioritário", values: [false, false, true, true, true, true] },
-  { label: "Módulos extras", values: ["Disponível", "Disponível", "Disponível", "Disponível", "Disponível", "Disponível"] },
+  { label: "Todas as funcionalidades", values: [true, true, true, true, true, true] },
+  { label: "Mesmo nível de suporte", values: [true, true, true, true, true, true] },
+  { label: "Monitoramento em tempo real", values: [true, true, true, true, true, true] },
+  { label: "Infraestrutura completa", values: [true, true, true, true, true, true] },
+  { label: "Relatórios via WhatsApp", values: [false, false, "Incluso", "Incluso", "Incluso", "Incluso"] },
 ];
 
 const MyPlan = () => {
@@ -261,6 +231,14 @@ const MyPlan = () => {
                         <span className="leading-snug">{f}</span>
                       </div>
                     ))}
+                    <div className={`flex items-start gap-2 text-[11px] xl:text-[10px] 2xl:text-[11px] ${plan.whatsappIncluded ? "text-muted-foreground" : "text-muted-foreground/40"}`}>
+                      {plan.whatsappIncluded ? (
+                        <Check className="w-3.5 h-3.5 min-w-[14px] min-h-[14px] shrink-0 mt-px text-muted-foreground/50" />
+                      ) : (
+                        <span className="w-3.5 h-3.5 min-w-[14px] min-h-[14px] shrink-0 mt-px flex items-center justify-center text-muted-foreground/30 font-bold text-xs">✕</span>
+                      )}
+                      <span className="leading-snug">{plan.whatsappLine}</span>
+                    </div>
                   </div>
 
                   {/* ── CTA BUTTON: always at bottom ── */}
