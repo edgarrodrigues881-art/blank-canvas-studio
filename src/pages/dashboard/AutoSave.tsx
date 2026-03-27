@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useCallback, memo, type CSSProperties, type ReactElement } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { List as VirtualList } from "react-window";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
