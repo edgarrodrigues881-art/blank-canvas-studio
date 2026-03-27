@@ -449,6 +449,27 @@ const Campaigns = () => {
   }, [devices]);
   const selectedDevicesData = devices.filter(d => selectedDevices.includes(d.id));
   const selectedDeviceData = selectedDevicesData[0];
+
+  // Auto-remove disconnected devices from selection
+  useEffect(() => {
+    if (selectedDevices.length === 0 || connectedDevices.length === 0) return;
+    const connectedIds = new Set(connectedDevices.map(d => d.id));
+    const stillConnected = selectedDevices.filter(id => connectedIds.has(id));
+    if (stillConnected.length < selectedDevices.length) {
+      const removed = selectedDevices
+        .filter(id => !connectedIds.has(id))
+        .map(id => devices.find(d => d.id === id)?.name || "Desconhecida");
+      setSelectedDevices(stillConnected);
+      if (removed.length > 0) {
+        toast({
+          title: "Instância removida",
+          description: `${removed.join(", ")} removida por estar desconectada.`,
+          variant: "destructive",
+        });
+      }
+    }
+  }, [connectedDevices]);
+
   const validContacts = useMemo(() => contacts.filter(c => c.numero.trim()), [contacts]);
   const invalidContacts = useMemo(() => contacts.filter(c => c.numero.trim() && !/^\d{10,15}$/.test(c.numero.replace(/\D/g, ""))), [contacts]);
   const duplicateCount = useMemo(() => contacts.length - new Set(contacts.map(c => c.numero.trim()).filter(Boolean)).size, [contacts]);
