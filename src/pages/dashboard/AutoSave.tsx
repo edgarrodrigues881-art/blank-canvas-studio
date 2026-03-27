@@ -409,7 +409,7 @@ const AutoSave = () => {
     <div className="space-y-5 max-w-4xl mx-auto">
       {/* Disclaimer Dialog */}
       <Dialog open={showDisclaimer} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-md [&>button]:hidden" onPointerDownOutside={e => e.preventDefault()} onEscapeKeyDown={e => e.preventDefault()}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={e => e.preventDefault()} onEscapeKeyDown={e => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
               <AlertTriangle className="w-5 h-5 text-yellow-500" />
