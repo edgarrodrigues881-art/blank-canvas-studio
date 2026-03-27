@@ -700,7 +700,7 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
       hasSticker: (mediaByType.sticker?.length || 0) > 0 || systemImagePool.length > 0,
       hasAudio: (mediaByType.audio?.length || 0) > 0 || systemAudioPool.length > 0,
     });
-    const category = getCategoryForIndex((todayTotal || 0) % 5, 5);
+    const category = getCategoryForIndex((config.today_count || 0) % 5, 5);
 
     let messageText = "";
     let fileUrl: string | null = null;
