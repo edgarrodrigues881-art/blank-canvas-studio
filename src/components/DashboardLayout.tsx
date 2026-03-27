@@ -190,6 +190,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               </div>
             )}
           </main>
+          <AnnouncementManager />
         </div>
       </div>
     </SidebarProvider>
