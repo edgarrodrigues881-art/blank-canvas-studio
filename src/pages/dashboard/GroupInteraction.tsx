@@ -20,7 +20,6 @@ import { toast } from "sonner";
 import GIStatusPanel from "@/components/group-interaction/GIStatusPanel";
 import GILogs from "@/components/group-interaction/GILogs";
 import GIPresets from "@/components/group-interaction/GIPresets";
-import GIContentConfig from "@/components/group-interaction/GIContentConfig";
 
 const DAYS = [
   { key: "mon", label: "Seg" },
@@ -557,12 +556,6 @@ export default function GroupInteractionPage() {
   function renderFormFields() {
     return (
       <div className="space-y-4">
-        {/* Content types */}
-        <GIContentConfig
-          contentTypes={form.content_types || defaultContentTypes}
-          onChange={(types) => updateForm({ content_types: types })}
-        />
-
         {/* Presets */}
         <div>
           <Label className="text-xs text-muted-foreground mb-2 block">Presets rápidos</Label>
