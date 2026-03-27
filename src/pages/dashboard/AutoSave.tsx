@@ -86,6 +86,14 @@ const AutoSave = () => {
   const { createContact, updateContact, deleteContact, bulkCreate } = useAutosaveMutations();
   const queryClient = useQueryClient();
 
+  // Disclaimer
+  const disclaimerKey = `autosave_disclaimer_${user?.id}`;
+  const [showDisclaimer, setShowDisclaimer] = useState(() => !localStorage.getItem(disclaimerKey));
+  const acceptDisclaimer = () => {
+    localStorage.setItem(disclaimerKey, "1");
+    setShowDisclaimer(false);
+  };
+
   // Filters
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState("");
@@ -397,6 +405,28 @@ const AutoSave = () => {
 
   return (
     <div className="space-y-5 max-w-4xl mx-auto">
+      {/* Disclaimer Dialog */}
+      <Dialog open={showDisclaimer} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md [&>button]:hidden" onPointerDownOutside={e => e.preventDefault()} onEscapeKeyDown={e => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+              Aviso Importante
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p>Utilize apenas números próprios com a função de resposta automática.</p>
+            <p>Respeite as diretrizes da <span className="font-semibold text-foreground">LGPD</span>.</p>
+            <p className="text-xs text-muted-foreground/60">Ao continuar, você declara estar ciente e de acordo com essas condições.</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={acceptDisclaimer} className="w-full gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              Estou ciente e concordo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {/* Header */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div>
