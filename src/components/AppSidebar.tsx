@@ -120,12 +120,6 @@ export function AppSidebar() {
       });
   }, [user]);
 
-  // Auto-expand folders only on warmup instance routes (not autosave/groups)
-  useEffect(() => {
-    if (location.pathname.startsWith("/dashboard/warmup")) {
-      setWarmupExpanded(true);
-    }
-  }, [location.pathname]);
 
   const displayName = profileData?.company || profileData?.full_name || user?.email?.split("@")[0] || "Usuário";
   const avatarUrl = profileData?.avatar_url;
