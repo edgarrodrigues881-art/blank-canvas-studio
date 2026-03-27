@@ -3,7 +3,7 @@
 // Serviço contínuo que roda na VPS com PM2
 // ══════════════════════════════════════════════════════════
 
-import express from "express";
+import express, { Request, Response } from "express";
 import { config } from "./config";
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
@@ -22,7 +22,7 @@ let lastCampaignTickAt: Date | null = null;
 let tickCount = 0;
 let tickErrors = 0;
 
-app.get("/health", (_req, res) => {
+app.get("/health", (_req: Request, res: Response) => {
   res.json({
     status: "ok",
     uptime: Math.round((Date.now() - startedAt.getTime()) / 1000),
@@ -47,39 +47,122 @@ app.listen(config.port, () => {
 
 interface DeviceCredentials {
   id: string;
+  name: string | null;
+  user_id: string | null;
   status: string;
   uazapi_token: string;
   uazapi_base_url: string;
   number: string | null;
+  tokenSource: "device" | "user_api_tokens" | "missing";
+  baseUrlSource: "device" | "env" | "missing";
+  isConnected: boolean;
+  hasValidCredentials: boolean;
+  isEligible: boolean;
+  eligibilityReason: string | null;
 }
 
 const CONNECTED_STATUSES = ["Ready", "Connected", "authenticated", "open", "active", "online"];
 
-async function resolveDeviceCredentials(deviceId: string): Promise<DeviceCredentials | null> {
-  const db = getDb();
-  const { data: device, error } = await db
-    .from("devices")
-    .select("id, status, uazapi_token, uazapi_base_url, number")
-    .eq("id", deviceId)
-    .maybeSingle();
+function cleanToken(value: unknown): string {
+  return String(value || "").trim();
+}
 
-  if (error) {
-    log.error(`DB error resolving device ${deviceId}`, { error: error.message });
-    return null;
-  }
+function cleanBaseUrl(value: unknown): string {
+  return String(value || "").trim().replace(/\/+$/, "");
+}
 
-  if (!device) {
-    log.warn(`Device not found: ${deviceId}`);
-    return null;
-  }
+function formatDeviceLabel(device: { id?: string; name?: string | null; number?: string | null }): string {
+  const id = device.id ? device.id.slice(0, 8) : "unknown";
+  const name = device.name?.trim() || `device:${id}`;
+  const number = device.number ? ` (${device.number})` : "";
+  return `${name}${number}`;
+}
+
+function summarizeDevice(device: DeviceCredentials) {
+  return {
+    id: device.id,
+    label: formatDeviceLabel(device),
+    status: device.status,
+    tokenSource: device.tokenSource,
+    baseUrlSource: device.baseUrlSource,
+    hasToken: !!device.uazapi_token,
+    hasBaseUrl: !!device.uazapi_base_url,
+    eligible: device.isEligible,
+    eligibilityReason: device.eligibilityReason,
+  };
+}
+
+function buildDeviceCredentials(device: any, tokenByDeviceId: Record<string, string>): DeviceCredentials {
+  const directToken = cleanToken(device?.uazapi_token);
+  const linkedToken = cleanToken(tokenByDeviceId[device?.id]);
+  const resolvedToken = directToken || linkedToken;
+  const directBaseUrl = cleanBaseUrl(device?.uazapi_base_url);
+  const envBaseUrl = cleanBaseUrl(config.defaultUazapiBaseUrl);
+  const resolvedBaseUrl = directBaseUrl || envBaseUrl;
+  const status = String(device?.status || "unknown");
+  const isConnected = CONNECTED_STATUSES.includes(status);
+  const hasValidCredentials = !!(resolvedToken && resolvedBaseUrl);
+
+  let eligibilityReason: string | null = null;
+  if (!resolvedToken) eligibilityReason = "missing_token";
+  else if (!resolvedBaseUrl) eligibilityReason = "missing_base_url";
+  else if (!isConnected) eligibilityReason = `device_status:${status}`;
 
   return {
     id: device.id,
-    status: device.status || "unknown",
-    uazapi_token: device.uazapi_token || "",
-    uazapi_base_url: (device.uazapi_base_url || "").replace(/\/+$/, ""),
+    name: device.name || null,
+    user_id: device.user_id || null,
+    status,
+    uazapi_token: resolvedToken,
+    uazapi_base_url: resolvedBaseUrl,
     number: device.number || null,
+    tokenSource: directToken ? "device" : linkedToken ? "user_api_tokens" : "missing",
+    baseUrlSource: directBaseUrl ? "device" : envBaseUrl ? "env" : "missing",
+    isConnected,
+    hasValidCredentials,
+    isEligible: isConnected && hasValidCredentials,
+    eligibilityReason,
   };
+}
+
+async function resolveDeviceCredentialsBatch(deviceIds: string[]): Promise<Record<string, DeviceCredentials>> {
+  const ids = [...new Set(deviceIds.filter(Boolean))];
+  if (ids.length === 0) return {};
+
+  const db = getDb();
+  const [{ data: devicesArr, error: devicesError }, { data: tokenRows, error: tokenError }] = await Promise.all([
+    db.from("devices").select("id, user_id, name, status, uazapi_token, uazapi_base_url, number").in("id", ids),
+    db.from("user_api_tokens").select("device_id, token, status").in("device_id", ids).eq("status", "in_use"),
+  ]);
+
+  if (devicesError) {
+    log.error("Failed to batch-load devices", { error: devicesError.message, code: devicesError.code, details: devicesError.details });
+  }
+
+  if (tokenError) {
+    log.error("Failed to batch-load user_api_tokens", { error: tokenError.message, code: tokenError.code, details: tokenError.details });
+  }
+
+  const tokenByDeviceId: Record<string, string> = {};
+  for (const row of tokenRows || []) {
+    if (row.device_id && !tokenByDeviceId[row.device_id]) {
+      tokenByDeviceId[row.device_id] = cleanToken(row.token);
+    }
+  }
+
+  const resolved: Record<string, DeviceCredentials> = {};
+  for (const device of devicesArr || []) {
+    resolved[device.id] = buildDeviceCredentials(device, tokenByDeviceId);
+  }
+
+  return resolved;
+}
+
+async function resolveDeviceCredentials(deviceId: string): Promise<DeviceCredentials | null> {
+  const devices = await resolveDeviceCredentialsBatch([deviceId]);
+  const resolved = devices[deviceId] || null;
+  if (!resolved) log.warn(`Device not found: ${deviceId}`);
+  return resolved;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -153,38 +236,42 @@ async function warmupTick() {
 
   // 4. Pre-load device credentials for all unique devices
   const uniqueDeviceIds = [...new Set(pendingJobs.map(j => j.device_id))];
-  const deviceCredentials: Record<string, DeviceCredentials> = {};
-  const invalidDevices = new Set<string>();
-
-  // Batch-load all devices at once (like the Edge Function does)
-  const { data: devicesArr, error: devErr } = await db
-    .from("devices")
-    .select("id, status, uazapi_token, uazapi_base_url, number")
-    .in("id", uniqueDeviceIds);
-
-  if (devErr) {
-    log.error("Failed to batch-load devices", { error: devErr.message });
-  }
-
-  for (const dev of devicesArr || []) {
-    deviceCredentials[dev.id] = {
-      id: dev.id,
-      status: dev.status || "unknown",
-      uazapi_token: dev.uazapi_token || "",
-      uazapi_base_url: (dev.uazapi_base_url || "").replace(/\/+$/, ""),
-      number: dev.number || null,
-    };
-  }
-
-  // Log diagnostic info
-  const devicesWithToken = Object.values(deviceCredentials).filter(d => d.uazapi_token.length > 0);
-  const devicesConnected = Object.values(deviceCredentials).filter(d => CONNECTED_STATUSES.includes(d.status));
-  log.info(`Devices loaded: ${Object.keys(deviceCredentials).length}/${uniqueDeviceIds.length} found, ${devicesWithToken.length} with token, ${devicesConnected.length} connected`);
-
-  // Log devices that weren't found
+  const deviceCredentials = await resolveDeviceCredentialsBatch(uniqueDeviceIds);
+  const resolvedDevices = Object.values(deviceCredentials);
   const missingDevices = uniqueDeviceIds.filter(id => !deviceCredentials[id]);
-  if (missingDevices.length > 0) {
-    log.warn(`Devices NOT found in DB: ${missingDevices.join(", ")}`);
+  const devicesWithToken = resolvedDevices.filter(d => !!d.uazapi_token);
+  const devicesWithoutToken = resolvedDevices.filter(d => !d.uazapi_token);
+  const devicesWithBaseUrl = resolvedDevices.filter(d => !!d.uazapi_base_url);
+  const ineligibleDevices = resolvedDevices.filter(d => !d.isEligible);
+
+  log.info("Warmup device eligibility summary", {
+    requestedDevices: uniqueDeviceIds.length,
+    foundDevices: resolvedDevices.length,
+    missingDevices,
+    eligibleDevices: resolvedDevices.filter(d => d.isEligible).length,
+    connectedDevices: resolvedDevices.filter(d => d.isConnected).length,
+    devicesWithToken: devicesWithToken.length,
+    devicesWithoutToken: devicesWithoutToken.length,
+    devicesWithBaseUrl: devicesWithBaseUrl.length,
+    devicesWithoutBaseUrl: resolvedDevices.filter(d => !d.uazapi_base_url).length,
+    tokenFromDevice: resolvedDevices.filter(d => d.tokenSource === "device").length,
+    tokenFromUserApiTokens: resolvedDevices.filter(d => d.tokenSource === "user_api_tokens").length,
+    baseUrlFromDevice: resolvedDevices.filter(d => d.baseUrlSource === "device").length,
+    baseUrlFromEnv: resolvedDevices.filter(d => d.baseUrlSource === "env").length,
+  });
+
+  if (devicesWithToken.length > 0) {
+    log.info("Devices with resolved token", {
+      devices: devicesWithToken.map(summarizeDevice),
+    });
+  }
+
+  if (devicesWithoutToken.length > 0 || ineligibleDevices.length > 0 || missingDevices.length > 0) {
+    log.warn("Devices skipped or incomplete for warmup", {
+      missingDevices,
+      withoutToken: devicesWithoutToken.map(summarizeDevice),
+      ineligibleDevices: ineligibleDevices.map(summarizeDevice),
+    });
   }
 
   // 5. Group by device for sequential processing per device
@@ -217,17 +304,26 @@ async function warmupTick() {
           return;
         }
 
-        if (!CONNECTED_STATUSES.includes(creds.status)) {
+        if (!creds.hasValidCredentials) {
+          log.warn(`Skipping device ${deviceId}: invalid UAZAPI credentials`, {
+            label: formatDeviceLabel(creds),
+            reason: creds.eligibilityReason,
+            tokenSource: creds.tokenSource,
+            baseUrlSource: creds.baseUrlSource,
+          });
+          for (const job of jobsByDevice[deviceId]) {
+            await db.from("warmup_jobs").update({
+              status: "failed",
+              last_error: `VPS: credenciais UAZAPI ausentes (${creds.eligibilityReason || "unknown"})`,
+            }).eq("id", job.id);
+            failed++;
+          }
+          return;
+        }
+
+        if (!creds.isConnected) {
           log.warn(`Skipping device ${deviceId}: status="${creds.status}" (not connected)`);
           // Don't fail - just skip, the Edge Function will handle cycle pausing
-        }
-
-        if (!creds.uazapi_base_url) {
-          log.warn(`Device ${deviceId}: no uazapi_base_url configured`);
-        }
-
-        if (!creds.uazapi_token) {
-          log.warn(`Device ${deviceId}: no uazapi_token configured (number: ${creds.number || "?"})`);
         }
 
         for (const job of jobsByDevice[deviceId]) {
@@ -243,16 +339,20 @@ async function warmupTick() {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
+                apikey: config.supabaseAnonKey,
                 Authorization: `Bearer ${config.supabaseAnonKey}`,
               },
               body: JSON.stringify({
                 job_id: job.id,
-                // Pass device credentials so the Edge Function doesn't need to re-fetch
                 _vps_device: {
                   id: creds.id,
+                  name: creds.name,
                   status: creds.status,
-                  uazapi_token: creds.uazapi_token ? "***present***" : "",
-                  uazapi_base_url: creds.uazapi_base_url ? "***present***" : "",
+                  number: creds.number,
+                  uazapi_token: creds.uazapi_token,
+                  uazapi_base_url: creds.uazapi_base_url,
+                  token_source: creds.tokenSource,
+                  base_url_source: creds.baseUrlSource,
                 },
               }),
             });
@@ -271,6 +371,8 @@ async function warmupTick() {
                 hasToken: !!creds.uazapi_token,
                 hasBaseUrl: !!creds.uazapi_base_url,
                 number: creds.number,
+                tokenSource: creds.tokenSource,
+                baseUrlSource: creds.baseUrlSource,
               });
               throw new Error(`Edge function returned ${res.status}: ${text.substring(0, 200)}`);
             }
@@ -443,7 +545,10 @@ async function mainLoop() {
     const db = getDb();
 
     // Test 1: Basic connectivity
-    const { count, error: countErr } = await db.from("devices").select("id", { count: "exact", head: true });
+    const [{ count, error: countErr }, { data: sampleDevices, error: sampleErr }] = await Promise.all([
+      db.from("devices").select("id", { count: "exact", head: true }),
+      db.from("devices").select("id, name, status, uazapi_token, uazapi_base_url").limit(5),
+    ]);
     if (countErr) {
       log.error(`DB query error: ${countErr.message}`, {
         code: countErr.code,
@@ -455,7 +560,22 @@ async function mainLoop() {
       }
       process.exit(1);
     }
-    log.info(`DB connected. ${count || 0} total devices in database.`);
+    if (sampleErr) {
+      log.warn(`Devices sample query failed: ${sampleErr.message}`);
+    }
+
+    const totalDevices = typeof count === "number" ? count : (sampleDevices?.length || 0);
+    log.info("DB connected", {
+      totalDevices,
+      countSource: typeof count === "number" ? "exact_count" : "sample_fallback",
+      sampleDevices: (sampleDevices || []).map((d: any) => ({
+        id: d.id,
+        label: d.name || d.id.slice(0, 8),
+        status: d.status,
+        hasToken: !!cleanToken(d.uazapi_token),
+        hasBaseUrl: !!cleanBaseUrl(d.uazapi_base_url),
+      })),
+    });
 
     // Test 2: Check warmup-eligible devices (running cycles)
     const { data: activeCycles, error: cycleErr } = await db.from("warmup_cycles")
@@ -469,8 +589,16 @@ async function mainLoop() {
     } else {
       log.info(`Active warmup cycles: ${activeCycles?.length || 0}`);
       if (activeCycles?.length) {
-        for (const cycle of activeCycles.slice(0, 3)) {
-          const creds = await resolveDeviceCredentials(cycle.device_id);
+        const activeCycleCredentials = await resolveDeviceCredentialsBatch(activeCycles.map((cycle) => cycle.device_id));
+        log.info("Active warmup eligibility", {
+          totalCycles: activeCycles.length,
+          eligibleCycles: activeCycles.filter((cycle) => activeCycleCredentials[cycle.device_id]?.isEligible).length,
+          withToken: activeCycles.filter((cycle) => !!activeCycleCredentials[cycle.device_id]?.uazapi_token).length,
+          withoutToken: activeCycles.filter((cycle) => !activeCycleCredentials[cycle.device_id]?.uazapi_token).length,
+        });
+
+        for (const cycle of activeCycles.slice(0, 10)) {
+          const creds = activeCycleCredentials[cycle.device_id] || null;
           log.info(`  Cycle ${cycle.id.substring(0, 8)}: device=${cycle.device_id.substring(0, 8)}, phase=${cycle.phase}, day=${cycle.day_index}`, {
             deviceStatus: creds?.status || "NOT_FOUND",
             hasToken: !!creds?.uazapi_token,
@@ -478,6 +606,10 @@ async function mainLoop() {
             hasBaseUrl: !!creds?.uazapi_base_url,
             baseUrl: creds?.uazapi_base_url ? creds.uazapi_base_url.substring(0, 30) + "..." : "MISSING",
             number: creds?.number || "?",
+            tokenSource: creds?.tokenSource || "missing",
+            baseUrlSource: creds?.baseUrlSource || "missing",
+            eligible: creds?.isEligible || false,
+            eligibilityReason: creds?.eligibilityReason || null,
           });
         }
       }
