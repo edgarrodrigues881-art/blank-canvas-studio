@@ -137,7 +137,7 @@ const Reports = () => {
       return data as DeviceRow[];
     },
     enabled: !!user,
-    refetchInterval: 60000, // Reports are not time-critical
+    staleTime: 300_000,
   });
 
   const { data: sessions = [] } = useQuery({
@@ -150,7 +150,7 @@ const Reports = () => {
       return data as WarmupSessionRow[];
     },
     enabled: !!user,
-    refetchInterval: 60000,
+    staleTime: 300_000,
   });
 
   const { data: logs = [] } = useQuery({
@@ -163,7 +163,7 @@ const Reports = () => {
       return data as WarmupLogRow[];
     },
     enabled: !!user,
-    refetchInterval: 60000,
+    staleTime: 300_000,
   });
 
   const chips = useMemo<ChipData[]>(() => {

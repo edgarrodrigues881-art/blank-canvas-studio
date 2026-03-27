@@ -75,7 +75,8 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
       return data as any;
     },
     enabled: !!deviceId,
-    refetchInterval: 30_000,
+    refetchInterval: () => document.hidden ? false : 120_000,
+    staleTime: 60_000,
   });
 
   const { data: activeSession } = useQuery({
@@ -92,7 +93,8 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
       return data;
     },
     enabled: !!deviceId,
-    refetchInterval: 15_000,
+    refetchInterval: () => document.hidden ? false : 60_000,
+    staleTime: 30_000,
   });
 
   const { data: recentSessions = [] } = useQuery({
@@ -107,7 +109,8 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
       return data || [];
     },
     enabled: !!deviceId,
-    refetchInterval: 60_000,
+    refetchInterval: () => document.hidden ? false : 120_000,
+    staleTime: 60_000,
   });
 
   const { data: recentAudit = [] } = useQuery({
@@ -122,7 +125,8 @@ export function CommunityDiagnostic({ deviceId, cycle }: Props) {
       return (data || []) as any[];
     },
     enabled: !!deviceId,
-    refetchInterval: 60_000,
+    refetchInterval: () => document.hidden ? false : 120_000,
+    staleTime: 60_000,
   });
 
   const mode = membership?.community_mode || "disabled";

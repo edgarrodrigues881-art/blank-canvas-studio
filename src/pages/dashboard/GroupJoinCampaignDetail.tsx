@@ -75,7 +75,7 @@ export default function GroupJoinCampaignDetail() {
     refetchInterval: (query) => {
       if (document.hidden) return false;
       const camp = query.state.data as any;
-      return camp && isActive(camp.status) ? 5_000 : false;
+      return camp && isActive(camp.status) ? 10_000 : false;
     },
     staleTime: 3_000,
   });
@@ -93,9 +93,9 @@ export default function GroupJoinCampaignDetail() {
     enabled: !!id && !!user,
     refetchInterval: () => {
       if (document.hidden) return false;
-      return campaign && isActive(campaign.status) ? 3_000 : false;
+      return campaign && isActive(campaign.status) ? 10_000 : false;
     },
-    staleTime: 2_000,
+    staleTime: 5_000,
   });
 
   useEffect(() => {

@@ -366,7 +366,8 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
       return data || [];
     },
     enabled: !!user,
-    refetchInterval: 10000,
+    refetchInterval: () => document.hidden ? false : 30_000,
+    staleTime: 15_000,
   });
 
   const filteredCampaigns = useMemo(() => {
@@ -1143,8 +1144,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
         });
     },
     enabled: !!user,
-    refetchInterval: 10_000,
-    refetchOnWindowFocus: true,
+    refetchInterval: () => document.hidden ? false : 30_000,
+    staleTime: 15_000,
   });
 
   const isDeviceOnline = (status: string) => {

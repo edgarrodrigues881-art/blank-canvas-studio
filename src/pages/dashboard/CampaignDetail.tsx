@@ -110,9 +110,10 @@ const CampaignDetail = () => {
     },
     enabled: !!id && !!user,
     refetchInterval: (query) => {
+      if (document.hidden) return false;
       const status = query.state.data?.status;
-      if (status && ["running", "processing"].includes(status)) return 3000;
-      if (status && ["paused", "queued", "scheduled"].includes(status)) return 15000;
+      if (status && ["running", "processing"].includes(status)) return 8000;
+      if (status && ["paused", "queued", "scheduled"].includes(status)) return 30000;
       return false;
     },
   });
@@ -154,7 +155,8 @@ const CampaignDetail = () => {
     },
     enabled: !!id && !!user,
     refetchInterval: () => {
-      if (campaign && ["running", "processing"].includes(campaign.status)) return 5000;
+      if (document.hidden) return false;
+      if (campaign && ["running", "processing"].includes(campaign.status)) return 10000;
       return false;
     },
   });

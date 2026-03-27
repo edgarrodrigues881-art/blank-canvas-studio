@@ -49,7 +49,7 @@ export default function GroupJoinCampaignList() {
       return (data || []) as any[];
     },
     enabled: !!user,
-    refetchInterval: () => document.hidden ? false : 20_000,
+    refetchInterval: () => document.hidden ? false : 60_000,
     staleTime: 30_000,
   });
 
