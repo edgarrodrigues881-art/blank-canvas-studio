@@ -37,12 +37,30 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 function randomBetween(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+  const safeMin = Number.isFinite(min) ? Math.max(0, Math.floor(min)) : 0;
+  const safeMax = Number.isFinite(max) ? Math.max(safeMin, Math.floor(max)) : safeMin;
+  return Math.floor(Math.random() * (safeMax - safeMin + 1)) + safeMin;
 }
 function getCategoryForIndex(i: number, total: number): string {
   if (i === 0) return "abertura";
   if (i === total - 1) return "encerramento";
   return pickRandom(["continuacao", "pergunta", "resposta_curta", "engajamento", "continuacao"]);
+}
+
+async function getUserWarmupMessages(admin: any, userId: string): Promise<string[]> {
+  const { data, error } = await admin.from("warmup_messages")
+    .select("content")
+    .eq("user_id", userId);
+
+  if (error || !data?.length) {
+    return Object.values(FALLBACK_MESSAGES).flat();
+  }
+
+  const messages = data
+    .map((row: any) => String(row.content || "").trim())
+    .filter((content: string) => content.length > 0);
+
+  return messages.length > 0 ? messages : Object.values(FALLBACK_MESSAGES).flat();
 }
 
 /** Pick content type based on weights */
@@ -270,6 +288,8 @@ async function processInteraction(admin: any, interactionId: string, userId: str
     const contentTypes = config.content_types || { text: true };
     const contentWeights = config.content_weights || { text: 50 };
 
+    const warmupTexts = await getUserWarmupMessages(admin, userId);
+
     // Load user media library
     const { data: userMedia } = await admin.from("group_interaction_media")
       .select("*").eq("user_id", userId).eq("is_active", true)
@@ -327,10 +347,11 @@ async function processInteraction(admin: any, interactionId: string, userId: str
       let sendBody: any = {};
 
       if (chosenType === "text" || !mediaByType[chosenType]?.length) {
-        const userTexts = mediaByType["text"]?.filter((m) => m.content !== lastSentByGroup[groupJid]);
-        if (userTexts?.length) {
-          const picked = pickRandom(userTexts);
-          messageText = picked.content;
+        const availableTexts = warmupTexts.filter((text) => text !== lastSentByGroup[groupJid]);
+        if (availableTexts.length > 0) {
+          messageText = pickRandom(availableTexts);
+        } else if (warmupTexts.length > 0) {
+          messageText = pickRandom(warmupTexts);
         } else {
           const cats = FALLBACK_MESSAGES[category] || FALLBACK_MESSAGES.continuacao;
           messageText = pickRandom(cats);
@@ -345,13 +366,16 @@ async function processInteraction(admin: any, interactionId: string, userId: str
 
         if (chosenType === "image") {
           sendEndpoint = "send/image";
-          sendBody = { number: groupJid, image: fileUrl, caption: "" };
+          sendBody = { number: groupJid, image: fileUrl, caption: messageText || "" };
         } else if (chosenType === "video") {
           sendEndpoint = "send/video";
-          sendBody = { number: groupJid, video: fileUrl, caption: "" };
+          sendBody = { number: groupJid, video: fileUrl, caption: messageText || "" };
         } else if (chosenType === "sticker") {
           sendEndpoint = "send/sticker";
           sendBody = { number: groupJid, sticker: fileUrl };
+        } else if (chosenType === "audio") {
+          sendEndpoint = "send/document";
+          sendBody = { number: groupJid, document: fileUrl, fileName: picked.file_name || "audio.ogg" };
         } else {
           sendEndpoint = "send/document";
           sendBody = { number: groupJid, document: fileUrl, fileName: picked.file_name || "arquivo" };
