@@ -148,6 +148,7 @@ const CampaignDetail = () => {
         .from("campaign_contacts")
         .select("id, campaign_id, phone, name, status, sent_at, error_message, created_at, device_id", { count: "exact" })
         .eq("campaign_id", id!)
+        .order("sent_at", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true })
         .range(from, to);
       if (error) throw error;
@@ -393,6 +394,7 @@ const CampaignDetail = () => {
         .select("id, phone, name, status, sent_at, error_message, device_id")
         .eq("campaign_id", id!)
         .in("status", statusFilters)
+        .order("sent_at", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true })
         .range(from, from + PAGE - 1);
       if (error) { toast({ title: "Erro ao buscar contatos", description: error.message, variant: "destructive" }); return; }
