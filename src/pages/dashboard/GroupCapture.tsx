@@ -437,6 +437,34 @@ const GroupCapture = () => {
         </TabsList>
 
         <TabsContent value="custom" className="space-y-4 mt-0">
+          {/* Toggle: usar meus grupos no aquecimento */}
+          <div className="relative rounded-2xl border border-border/20 bg-card/80 backdrop-blur-xl overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+            <div className="flex items-center justify-between px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${useCustomGroups ? "bg-primary/15" : "bg-muted/15"}`}>
+                  <Flame className={`w-4.5 h-4.5 transition-colors ${useCustomGroups ? "text-primary" : "text-muted-foreground/40"}`} />
+                </div>
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">Usar meus grupos no aquecimento</p>
+                  <p className="text-[11px] text-muted-foreground/50 mt-0.5">
+                    {useCustomGroups
+                      ? "O aquecimento automático usará seus grupos próprios"
+                      : "O aquecimento automático usará os grupos do sistema"}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant={useCustomGroups ? "default" : "outline"}
+                size="sm"
+                className="h-8 text-[11px] rounded-xl gap-1.5 px-4"
+                onClick={toggleWarmupGroupSource}
+              >
+                {useCustomGroups ? "Ativado" : "Desativado"}
+              </Button>
+            </div>
+          </div>
+
           {/* Add group form */}
           <div className="relative rounded-2xl border border-border/20 bg-card/80 backdrop-blur-xl overflow-hidden">
             <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
@@ -483,7 +511,7 @@ const GroupCapture = () => {
           {isLoading ? (
             <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground/30" /></div>
           ) : (
-            <GroupList groups={customGroups} isCustom={true} onDelete={handleDeleteGroup} onToggleWarmup={handleToggleWarmup} />
+            <GroupList groups={customGroups} isCustom={true} onDelete={handleDeleteGroup} />
           )}
         </TabsContent>
 
