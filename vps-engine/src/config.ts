@@ -60,7 +60,7 @@ export function validateConfig(): string[] {
   }
 
   if (!config.supabaseAnonKey) {
-    errors.push("SUPABASE_ANON_KEY is required (used to call Edge Functions)");
+    console.warn("⚠ SUPABASE_ANON_KEY not set — Edge Function calls will be skipped. Direct DB warmup will still work.");
   } else {
     if (!config.supabaseAnonKey.startsWith("sb_publishable_")) {
       const payload = decodeJwtPayload(config.supabaseAnonKey);
