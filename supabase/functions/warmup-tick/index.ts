@@ -2828,17 +2828,43 @@ async function handleTick(
         };
 
         if (joinedGroups.length > 0) {
-          // Shuffle and try all joined groups until we find one with a resolvable JID
-          const shuffled = joinedGroups.sort(() => Math.random() - 0.5);
-          for (const target of shuffled) {
+          // ── FAIR DISTRIBUTION: Pick the group with LEAST messages sent today ──
+          // Count today's messages per group_jid for this cycle
+          const resetFloor = cycle.last_daily_reset_at || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+          const { data: groupCounts } = await db.from("warmup_audit_logs")
+            .select("meta")
+            .eq("cycle_id", cycle.id)
+            .eq("event_type", "group_msg_sent")
+            .gte("created_at", resetFloor);
+
+          // Build a map of group_jid → count
+          const jidCountMap = new Map<string, number>();
+          for (const row of groupCounts || []) {
+            const jid = row.meta?.group_jid;
+            if (jid) jidCountMap.set(jid, (jidCountMap.get(jid) || 0) + 1);
+          }
+
+          // Resolve JIDs for all joined groups first, then pick least-used
+          const resolvedCandidates: Array<{ target: any; jid: string; count: number }> = [];
+          for (const target of joinedGroups) {
             const jid = await resolveJidForGroup(target);
             if (jid) {
-              groupJid = jid;
-              targetGroupId = target.group_id;
-              const grpRef = groupsMap[target.group_id];
-              groupName = grpRef?.name || target.group_name || "Grupo";
-              break;
+              resolvedCandidates.push({
+                target,
+                jid,
+                count: jidCountMap.get(jid) || 0,
+              });
             }
+          }
+
+          if (resolvedCandidates.length > 0) {
+            // Sort by count ascending (least messages first), with random tiebreaker
+            resolvedCandidates.sort((a, b) => a.count - b.count || (Math.random() - 0.5));
+            const chosen = resolvedCandidates[0];
+            groupJid = chosen.jid;
+            targetGroupId = chosen.target.group_id;
+            const grpRef = groupsMap[chosen.target.group_id];
+            groupName = grpRef?.name || chosen.target.group_name || "Grupo";
           }
         }
 
