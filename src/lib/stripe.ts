@@ -28,9 +28,16 @@ export async function startCheckout(payload: {
     { body: payload }
   );
 
-  if (error || !data?.url) {
-    throw new Error(error?.message ?? "Não foi possível iniciar o checkout.");
+  if (error) {
+    console.error("Checkout invoke error:", error);
+    throw new Error("Erro ao conectar com o servidor de pagamento.");
   }
 
-  redirectToCheckout(data.url);
+  if (!data?.url) {
+    console.error("Checkout response without url:", data);
+    throw new Error(data?.error || "Não foi possível iniciar o checkout.");
+  }
+
+  // Redirect to Stripe Checkout
+  window.location.href = data.url;
 }

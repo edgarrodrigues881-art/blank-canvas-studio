@@ -57,20 +57,25 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log("Creating checkout for:", { planName, instances, price, userId: user.id });
+
     // Convert Brazilian price string "397,00" → cents integer 39700
     const priceInCents = Math.round(
       parseFloat(price.replace(/\./g, "").replace(",", ".")) * 100
     );
 
+    console.log("Price in cents:", priceInCents);
+
     // Determine the origin for success/cancel URLs
     const origin =
       req.headers.get("origin") || req.headers.get("referer")?.replace(/\/+$/, "") || "https://app.dgcontingencia.com";
+    
+    console.log("Origin:", origin);
 
-    // Create Stripe Checkout Session via API (no SDK needed)
+    // Create Stripe Checkout Session via API
     const params = new URLSearchParams();
     params.append("mode", "subscription");
     params.append("payment_method_types[0]", "card");
-    params.append("payment_method_types[1]", "boleto");
     params.append("line_items[0][price_data][currency]", "brl");
     params.append(
       "line_items[0][price_data][product_data][name]",
