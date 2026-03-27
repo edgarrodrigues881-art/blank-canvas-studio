@@ -1469,25 +1469,9 @@ const WarmupInstanceDetail = () => {
 
             if (displayJobs.length === 0 && futureJobs.length === 0 && !advancingPhase) {
               return (
-                <div className="rounded-2xl border border-border/15 bg-card/50 backdrop-blur-xl p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-bold text-foreground">Sem tarefas visíveis no ciclo</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Isso acontece quando todos os jobs foram cancelados. Clique abaixo para reconstruir a fila automaticamente.
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-2"
-                      onClick={handleRestoreSchedule}
-                      disabled={repairingSchedule}
-                    >
-                      {repairingSchedule ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                      Restaurar tarefas
-                    </Button>
-                  </div>
+                <div className="rounded-2xl border border-border/15 bg-card/50 backdrop-blur-xl p-6 flex items-center justify-center gap-3">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">Calculando ciclo de aquecimento…</p>
                 </div>
               );
             }
