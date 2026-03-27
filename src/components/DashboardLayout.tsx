@@ -47,12 +47,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead, clearAll } = useNotifications();
   const { resolvedTheme, setTheme } = useTheme();
   const { isFeatureBlocked } = useFeatureControls();
-  const [maintenanceModal, setMaintenanceModal] = useState<{ name: string; message: string | null } | null>(null);
-  const { session } = useAuth();
-  const queryClient = useQueryClient();
-  const prevStatusRef = useRef<Record<string, string>>({});
 
-  // Auto-sync devices every 3s with global semaphore protection
+  // Auto-sync devices every 15s with global semaphore protection
   useAutoSyncDevices();
 
   // Realtime device status change notifications — REMOVED
