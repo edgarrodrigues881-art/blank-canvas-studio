@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -78,6 +79,7 @@ export default function GroupInteractionPage() {
   const [showBulkCreate, setShowBulkCreate] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({ ...defaultForm });
   const [bulkDeviceIds, setBulkDeviceIds] = useState<string[]>([]);
+  const [usePeriod2, setUsePeriod2] = useState(false);
 
   const { data: devices = [] } = useQuery({
     queryKey: ["devices-gi", user?.id],
@@ -578,13 +580,14 @@ export default function GroupInteractionPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5" /> Horários
+                <Clock className="w-3.5 h-3.5" /> Agenda
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              <Label className="text-xs font-medium">Período 1</Label>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Começa às</Label>
+                  <Label className="text-[11px] text-muted-foreground">Início</Label>
                   <Input
                     type="time"
                     value={form.start_hour || "07:00"}
@@ -593,7 +596,7 @@ export default function GroupInteractionPage() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Finaliza às</Label>
+                  <Label className="text-[11px] text-muted-foreground">Término</Label>
                   <Input
                     type="time"
                     value={form.end_hour || "21:00"}
@@ -602,35 +605,57 @@ export default function GroupInteractionPage() {
                   />
                 </div>
               </div>
-              <div>
-                <Label className="text-xs">Dias da semana</Label>
+
+              <div className="flex items-center gap-3 pt-1">
+                <Switch checked={usePeriod2} onCheckedChange={(v) => {
+                  setUsePeriod2(v);
+                  if (!v) updateForm({ start_hour_2: undefined, end_hour_2: undefined });
+                }} />
+                <Label className="text-xs">Adicionar 2º período (ex: tarde)</Label>
+              </div>
+
+              {usePeriod2 && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Período 2</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-[11px] text-muted-foreground">Início</Label>
+                      <Input
+                        type="time"
+                        value={form.start_hour_2 || "13:00"}
+                        onChange={(e) => updateForm({ start_hour_2: e.target.value })}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-muted-foreground">Término</Label>
+                      <Input
+                        type="time"
+                        value={form.end_hour_2 || "19:00"}
+                        onChange={(e) => updateForm({ end_hour_2: e.target.value })}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-1">
+                <Label className="text-xs">Dias ativos</Label>
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {DAYS.map((d) => (
                     <button
                       key={d.key}
                       onClick={() => toggleDay(d.key)}
-                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                         (form.active_days || []).includes(d.key)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/60"
+                          ? "bg-primary/15 text-primary border-primary/30"
+                          : "bg-muted/30 text-muted-foreground border-border hover:border-border/80"
                       }`}
                     >
                       {d.label}
                     </button>
                   ))}
-                  <button
-                    onClick={() =>
-                      updateForm({
-                        active_days:
-                          (form.active_days || []).length === 7
-                            ? ["mon", "tue", "wed", "thu", "fri"]
-                            : DAYS.map((d) => d.key),
-                      })
-                    }
-                    className="px-2.5 py-1 rounded-full text-[11px] font-medium border border-dashed border-border text-muted-foreground hover:bg-muted/40"
-                  >
-                    {(form.active_days || []).length === 7 ? "Dias úteis" : "Todos"}
-                  </button>
                 </div>
               </div>
             </CardContent>
