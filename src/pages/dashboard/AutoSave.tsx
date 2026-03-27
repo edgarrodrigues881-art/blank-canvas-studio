@@ -99,7 +99,6 @@ const AutoSave = () => {
   // Filters
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
 
   // Add modal
   const [addOpen, setAddOpen] = useState(false);
@@ -142,8 +141,6 @@ const AutoSave = () => {
   // Filtered contacts
   const filtered = useMemo(() => {
     return contacts.filter(c => {
-      if (statusFilter === "active" && !c.is_active) return false;
-      if (statusFilter === "inactive" && c.is_active) return false;
       if (search) {
         const q = search.toLowerCase();
         if (!c.contact_name.toLowerCase().includes(q) && !c.phone_e164.includes(q)) return false;
@@ -151,13 +148,7 @@ const AutoSave = () => {
       if (tagFilter && (!c.tags || !c.tags.toLowerCase().includes(tagFilter.toLowerCase()))) return false;
       return true;
     });
-  }, [contacts, search, tagFilter, statusFilter]);
-
-  const activeFiltered = useMemo(() => filtered.filter(c => c.is_active), [filtered]);
-  const inactiveFiltered = useMemo(() => filtered.filter(c => !c.is_active), [filtered]);
-  const activeCount = contacts.filter(c => c.is_active).length;
-  const inactiveCount = contacts.filter(c => !c.is_active).length;
-  const [showInactive, setShowInactive] = useState(false);
+  }, [contacts, search, tagFilter]);
 
   const handleEditContact = useCallback((c: WarmupAutosaveContact) => {
     setEditContact(c); setEditName(c.contact_name); setEditTags(c.tags || "");
@@ -202,30 +193,15 @@ const AutoSave = () => {
     );
   };
 
-  const handleToggleActive = (c: WarmupAutosaveContact) => {
-    updateContact.mutate(
-      { id: c.id, is_active: !c.is_active },
-      { onSuccess: () => toast({ title: c.is_active ? "Contato desativado" : "Contato ativado" }) }
-    );
-  };
-
   const handleDelete = (id: string) => {
     deleteContact.mutate(id, { onSuccess: () => toast({ title: "Contato excluído" }) });
   };
 
-  const activeRowProps = useMemo(() => ({
-    filtered: activeFiltered,
+  const rowProps = useMemo(() => ({
+    filtered,
     onEdit: handleEditContact,
-    onToggle: handleToggleActive,
     onDelete: handleDelete,
-  }), [activeFiltered, handleEditContact]);
-
-  const inactiveRowProps = useMemo(() => ({
-    filtered: inactiveFiltered,
-    onEdit: handleEditContact,
-    onToggle: handleToggleActive,
-    onDelete: handleDelete,
-  }), [inactiveFiltered, handleEditContact]);
+  }), [filtered, handleEditContact]);
 
   const handleDeleteAll = async () => {
     if (!contacts.length || !user) return;
@@ -461,25 +437,19 @@ const AutoSave = () => {
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: "Total", value: contacts.length, color: "#a1a1aa", icon: Users },
-          { label: "Ativos", value: activeCount, color: "#10b981", icon: CheckCircle2 },
-          { label: "Inativos", value: contacts.length - activeCount, color: "#6b7280", icon: XCircle },
-        ].map(s => (
-          <div key={s.label} className="relative rounded-2xl border border-border/20 bg-card/80 backdrop-blur-xl p-4 overflow-hidden group hover:border-border/40 transition-colors">
-            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent to-transparent" style={{ backgroundImage: `linear-gradient(to right, transparent, ${s.color}40, transparent)` }} />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold tabular-nums leading-none" style={{ color: s.color }}>{s.value}</p>
-                <p className="text-[10px] text-muted-foreground/60 uppercase tracking-widest font-semibold mt-1.5">{s.label}</p>
-              </div>
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${s.color}15` }}>
-                <s.icon className="w-4 h-4" style={{ color: s.color }} />
-              </div>
+      <div className="grid grid-cols-1 gap-3">
+        <div className="relative rounded-2xl border border-border/20 bg-card/80 backdrop-blur-xl p-4 overflow-hidden group hover:border-border/40 transition-colors">
+          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-2xl font-bold tabular-nums leading-none text-foreground">{contacts.length}</p>
+              <p className="text-[10px] text-muted-foreground/60 uppercase tracking-widest font-semibold mt-1.5">Total de Contatos</p>
+            </div>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-primary/10">
+              <Users className="w-4 h-4 text-primary" />
             </div>
           </div>
-        ))}
+        </div>
       </div>
 
       {/* Search & Tags */}
@@ -531,71 +501,32 @@ const AutoSave = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Active contacts */}
-          {activeFiltered.length > 0 && (
+          {filtered.length > 0 && (
             <div className="relative rounded-2xl border border-border/20 bg-card/80 backdrop-blur-xl overflow-hidden">
               <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
               <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/10">
                 <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                  {activeFiltered.length} contato{activeFiltered.length !== 1 ? "s" : ""} ativo{activeFiltered.length !== 1 ? "s" : ""}
+                  {filtered.length} contato{filtered.length !== 1 ? "s" : ""}
                 </h3>
               </div>
               <div
                 className="p-2"
                 style={{
                   contain: "layout style",
-                  height: Math.min(activeFiltered.length * 68, 520),
+                  height: Math.min(filtered.length * 68, 520),
                 }}
               >
                 <VirtualList
-                  rowCount={activeFiltered.length}
+                  rowCount={filtered.length}
                   rowHeight={68}
                   overscanCount={10}
                   style={{ height: "100%", width: "100%", overscrollBehavior: "contain", willChange: "scroll-position" }}
-                  rowProps={activeRowProps}
+                  rowProps={rowProps}
                   rowComponent={AutoSaveRowInner}
                 />
               </div>
             </div>
-          )}
-
-          {/* Inactive contacts - collapsible */}
-          {inactiveFiltered.length > 0 && (
-            <Collapsible open={showInactive} onOpenChange={setShowInactive}>
-              <div className="relative rounded-2xl border border-border/20 bg-card/60 backdrop-blur-xl overflow-hidden">
-                <CollapsibleTrigger className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-muted/10 transition-colors cursor-pointer">
-                  <h3 className="text-sm font-bold text-muted-foreground flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-muted-foreground/30" />
-                    {inactiveFiltered.length} contato{inactiveFiltered.length !== 1 ? "s" : ""} inválido{inactiveFiltered.length !== 1 ? "s" : ""}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-muted-foreground/40 font-medium">Números sem WhatsApp</span>
-                    <svg className={cn("w-4 h-4 text-muted-foreground/40 transition-transform duration-200", showInactive && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="border-t border-border/10">
-                    <div
-                      className="p-2"
-                      style={{
-                        contain: "layout style",
-                        height: Math.min(inactiveFiltered.length * 68, 340),
-                      }}
-                    >
-                      <VirtualList
-                        rowCount={inactiveFiltered.length}
-                        rowHeight={68}
-                        overscanCount={10}
-                        style={{ height: "100%", width: "100%", overscrollBehavior: "contain", willChange: "scroll-position" }}
-                        rowProps={inactiveRowProps}
-                        rowComponent={AutoSaveRowInner}
-                      />
-                    </div>
-                  </div>
-                </CollapsibleContent>
-              </div>
-            </Collapsible>
           )}
 
           {activeFiltered.length === 0 && inactiveFiltered.length === 0 && (
