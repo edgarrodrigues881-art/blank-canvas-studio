@@ -787,10 +787,13 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
       }).eq("id", interactionId);
     }
 
-    const nextDelay = appliedDelay;
+    // Subtract execution time from delay so real interval matches config
+    const elapsedSec = Math.floor((Date.now() - sendStartMs) / 1000);
+    const nextDelay = Math.max(0, targetDelay - elapsedSec);
+    console.log(`[group-interaction] targetDelay=${targetDelay}s, elapsed=${elapsedSec}s, nextDelay=${nextDelay}s`);
 
     await scheduleNextTick(admin, interactionId, nextDelay);
-    return jsonOk({ ok: true, sent: sentOk, next_delay_seconds: nextDelay, error: sendError });
+    return jsonOk({ ok: true, sent: sentOk, next_delay_seconds: targetDelay, error: sendError });
   } catch (err: any) {
     console.error("processInteraction error:", err);
     await admin.from("group_interactions").update({
