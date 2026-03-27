@@ -1,10 +1,7 @@
-import { Check, ArrowRight, Crown, Bell, Zap, Shield, Sparkles, BarChart3, Lock, Activity, TrendingUp, MessageSquare } from "lucide-react";
-
-const buildWhatsappUrl = (plan: { name: string; instances: number | string; price: string }) => {
-  const inst = typeof plan.instances === "number" ? plan.instances : plan.instances;
-  const msg = `Olá, tudo bem?\nTenho interesse em contratar o plano DG Contingência – ${plan.name} (${inst} Instâncias) no valor de R$ ${plan.price}/mês.\nPode me enviar os dados para ativação e pagamento?`;
-  return `https://wa.me/5562994192500?text=${encodeURIComponent(msg)}`;
-};
+import { useState } from "react";
+import { Check, ArrowRight, Crown, Bell, Zap, Shield, Sparkles, BarChart3, Lock, Activity, TrendingUp, MessageSquare, Loader2 } from "lucide-react";
+import { startCheckout } from "@/lib/stripe";
+import { toast } from "sonner";
 
 const buildCustomWhatsappUrl = () => {
   const msg = `Olá, quero um plano customizado para alta escala`;
@@ -152,6 +149,28 @@ const comparisonRows = [
 ];
 
 const MyPlan = () => {
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
+  const handleSelectPlan = async (plan: typeof plans[0]) => {
+    const isCustom = "isCustom" in plan && plan.isCustom;
+    if (isCustom) {
+      window.open(buildCustomWhatsappUrl(), "_blank");
+      return;
+    }
+    setLoadingPlan(plan.name);
+    try {
+      await startCheckout({
+        planName: plan.name,
+        instances: plan.instances,
+        price: plan.price,
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao iniciar checkout");
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+
   return (
     <div className="min-h-screen pb-24 -m-2.5 sm:-m-5 md:-m-8 bg-background">
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 space-y-16 sm:space-y-20">
@@ -245,11 +264,10 @@ const MyPlan = () => {
                   </div>
 
                   {/* ── CTA BUTTON: always at bottom ── */}
-                  <a
-                    href={isCustom ? buildCustomWhatsappUrl() : buildWhatsappUrl(plan as any)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`mt-auto w-full h-11 xl:h-10 2xl:h-11 rounded-lg font-semibold text-[13px] xl:text-[11px] 2xl:text-[13px] whitespace-nowrap flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.98] hover:brightness-110 ${
+                  <button
+                    onClick={() => handleSelectPlan(plan)}
+                    disabled={loadingPlan === plan.name}
+                    className={`mt-auto w-full h-11 xl:h-10 2xl:h-11 rounded-lg font-semibold text-[13px] xl:text-[11px] 2xl:text-[13px] whitespace-nowrap flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.98] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed ${
                       plan.popular
                         ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold shadow-[0_0_20px_-4px_rgba(245,158,11,0.4)]"
                         : plan.highlight
@@ -257,9 +275,15 @@ const MyPlan = () => {
                         : "bg-muted text-muted-foreground border border-border/60 hover:bg-muted/80"
                     }`}
                   >
-                    {plan.cta}
-                    <ArrowRight className="w-4 h-4 shrink-0" />
-                  </a>
+                    {loadingPlan === plan.name ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        {plan.cta}
+                        <ArrowRight className="w-4 h-4 shrink-0" />
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             );

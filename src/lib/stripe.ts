@@ -8,7 +8,6 @@ export const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 
 /**
  * Redirects the user to a Stripe Checkout session.
- * @param checkoutUrl - Full URL returned by the backend edge function
  */
 export function redirectToCheckout(checkoutUrl: string) {
   window.location.href = checkoutUrl;
@@ -16,12 +15,11 @@ export function redirectToCheckout(checkoutUrl: string) {
 
 /**
  * Calls the backend to create a checkout session and redirects.
- * Usage: await startCheckout({ planName: "Pro", priceId: "price_xxx" });
  */
 export async function startCheckout(payload: {
   planName: string;
-  priceId?: string;
-  [key: string]: unknown;
+  instances: number | string;
+  price: string;
 }) {
   const { supabase } = await import("@/integrations/supabase/client");
 
