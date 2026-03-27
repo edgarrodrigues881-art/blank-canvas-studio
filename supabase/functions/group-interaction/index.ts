@@ -762,7 +762,7 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
       device_id: device.id,
       status: sentOk ? "sent" : "failed",
       error_message: sendError,
-      pause_applied_seconds: appliedDelay,
+      pause_applied_seconds: targetDelay,
       sent_at: new Date().toISOString(),
     });
     if (logInsertErr) {
