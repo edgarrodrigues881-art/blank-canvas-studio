@@ -184,7 +184,7 @@ export default function GroupInteractionPage() {
     if (!form.device_id && !showBulkCreate) return "Selecione um dispositivo";
     if (!form.group_ids?.length) return "Selecione pelo menos um grupo";
     if (!form.start_hour || !form.end_hour) return "Defina os horários";
-    if (form.min_delay_seconds > form.max_delay_seconds) return "Delay mínimo não pode ser maior que o máximo";
+    if (form.min_delay_seconds != null && form.max_delay_seconds != null && form.min_delay_seconds > form.max_delay_seconds) return "Delay mínimo não pode ser maior que o máximo";
     if (form.pause_duration_min > form.pause_duration_max) return "Pausa mínima não pode ser maior que a máxima";
     return null;
   };
@@ -731,11 +731,23 @@ export default function GroupInteractionPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Delay mín. (seg)</Label>
-                <Input type="number" value={form.min_delay_seconds} onChange={(e) => updateForm({ min_delay_seconds: +e.target.value })} className="mt-1" min={0} />
+                <Input
+                  type="number"
+                  value={form.min_delay_seconds ?? ""}
+                  onChange={(e) => updateForm({ min_delay_seconds: e.target.value === "" ? undefined : Number(e.target.value) })}
+                  className="mt-1"
+                  min={0}
+                />
               </div>
               <div>
                 <Label className="text-xs">Delay máx. (seg)</Label>
-                <Input type="number" value={form.max_delay_seconds} onChange={(e) => updateForm({ max_delay_seconds: +e.target.value })} className="mt-1" min={0} />
+                <Input
+                  type="number"
+                  value={form.max_delay_seconds ?? ""}
+                  onChange={(e) => updateForm({ max_delay_seconds: e.target.value === "" ? undefined : Number(e.target.value) })}
+                  className="mt-1"
+                  min={0}
+                />
               </div>
             </div>
           </CardContent>
