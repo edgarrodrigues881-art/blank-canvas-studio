@@ -1,0 +1,1 @@
+ALTER TABLE warmup_cycles REPLICA IDENTITY FULL;
