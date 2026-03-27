@@ -122,6 +122,101 @@ export async function fetchDeviceGroups(baseUrl: string, token: string): Promise
   return groups;
 }
 
+function extractGroupFromResponse(data: any): ResolvedGroup | null {
+  const jid = String(
+    data?.group?.JID ||
+    data?.group?.jid ||
+    data?.JID ||
+    data?.jid ||
+    data?.id ||
+    data?.groupJid ||
+    data?.gid ||
+    data?.groupId ||
+    data?.data?.JID ||
+    data?.data?.jid ||
+    data?.data?.id ||
+    data?.data?.groupJid ||
+    "",
+  ).trim();
+
+  if (!jid || !jid.includes("@g.us")) return null;
+
+  const name = String(
+    data?.group?.Name ||
+    data?.group?.name ||
+    data?.group?.Subject ||
+    data?.group?.subject ||
+    data?.Name ||
+    data?.name ||
+    data?.Subject ||
+    data?.subject ||
+    data?.data?.Name ||
+    data?.data?.name ||
+    data?.data?.Subject ||
+    data?.data?.subject ||
+    "",
+  ).trim();
+
+  return { jid, name };
+}
+
+export async function resolveGroupFromInvite(
+  baseUrl: string,
+  token: string,
+  identifier: string,
+): Promise<ResolvedGroup | null> {
+  const raw = String(identifier ?? "").trim();
+  if (!raw) return null;
+  if (raw.includes("@g.us")) return { jid: raw, name: "" };
+
+  const inviteCode = extractInviteCode(raw);
+  if (!inviteCode) return null;
+
+  const cleanLink = raw.split("?")[0];
+  const strategies = [
+    { method: "GET", url: `${baseUrl}/group/inviteInfo?inviteCode=${inviteCode}` },
+    { method: "POST", url: `${baseUrl}/group/join`, body: JSON.stringify({ invitecode: inviteCode }) },
+    { method: "POST", url: `${baseUrl}/group/join`, body: JSON.stringify({ invitecode: cleanLink }) },
+    { method: "PUT", url: `${baseUrl}/group/acceptInviteGroup`, body: JSON.stringify({ inviteCode }) },
+  ];
+
+  for (const strategy of strategies) {
+    try {
+      const response = await fetch(strategy.url, {
+        method: strategy.method,
+        headers: {
+          token,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        ...(strategy.body ? { body: strategy.body } : {}),
+      });
+
+      if (response.status === 405) continue;
+
+      const rawBody = await response.text();
+      let data: any = null;
+      try {
+        data = rawBody ? JSON.parse(rawBody) : null;
+      } catch {
+        data = { raw: rawBody };
+      }
+
+      const resolved = extractGroupFromResponse(data);
+      if (resolved) return resolved;
+
+      const providerMessage = String(data?.message || data?.msg || data?.error || data?.raw || "").toLowerCase();
+      if (providerMessage.includes("already") || providerMessage.includes("já")) {
+        continue;
+      }
+    } catch {
+      // tenta próxima estratégia
+    }
+  }
+
+  return null;
+}
+
 export function resolveGroupJid(
   identifier: string,
   groupMap: Map<string, ResolvedGroup>,

@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { addResolvedGroup, fetchDeviceGroups, normalizeGroupName, resolveGroupJid } from "./group-resolution.ts";
+import { addResolvedGroup, fetchDeviceGroups, normalizeGroupName, resolveGroupFromInvite, resolveGroupJid } from "./group-resolution.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -264,7 +264,18 @@ async function processInteraction(admin: any, interactionId: string, userId: str
     const unresolvedGroups: string[] = [];
     for (const gid of groupIds) {
       const aliases = aliasesByIdentifier.get(gid) || [];
-      const resolved = resolveGroupJid(gid, groupMap, aliases);
+      let resolved = resolveGroupJid(gid, groupMap, aliases);
+      if (!resolved) {
+        const resolvedFromInvite = await resolveGroupFromInvite(baseUrl, device.uazapi_token, gid);
+        if (resolvedFromInvite) {
+          addResolvedGroup(groupMap, { jid: resolvedFromInvite.jid, name: resolvedFromInvite.name, invite: gid });
+          for (const alias of aliases) {
+            addResolvedGroup(groupMap, { jid: resolvedFromInvite.jid, name: alias, invite: gid });
+          }
+          resolved = resolveGroupJid(gid, groupMap, aliases);
+          console.log(`[group-interaction] Invite fallback resolved ${gid} => ${resolvedFromInvite.jid}`);
+        }
+      }
       if (resolved) {
         resolvedGroups.push(resolved);
       } else {
