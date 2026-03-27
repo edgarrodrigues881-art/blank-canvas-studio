@@ -358,7 +358,7 @@ export function useToggleAutosave() {
 
 
 // ── Audit Logs ──
-export function useWarmupAuditLogs(cycleId?: string, limit = 500) {
+export function useWarmupAuditLogs(cycleId?: string, limit = 1000) {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["warmup_audit_logs", cycleId, limit],
