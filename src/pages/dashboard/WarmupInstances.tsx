@@ -697,18 +697,25 @@ const WarmupInstances = () => {
     enabled: !!user,
   });
 
-  // Always validate: user must have warmup_groups to start warmup (any day)
+  // Always validate: user must have warmup_groups (custom OR system) to start warmup
   const selectedDeviceIds = useMemo(() => Array.from(bulkSelected), [bulkSelected]);
   const isAdvancedStart = Number(bulkStartDay) > 1;
   const { data: deviceGroupCounts = {} } = useQuery({
     queryKey: ["device_groups_fast_check", user?.id],
     queryFn: async () => {
-      const { count } = await supabase
+      // Check custom groups
+      const { count: customCount } = await supabase
         .from("warmup_groups")
         .select("id", { count: "exact", head: true })
         .eq("user_id", user!.id)
         .eq("is_custom", true);
-      return { _hasGroups: (count || 0) > 0 };
+      // Check system groups (user_id IS NULL, is_custom = false)
+      const { count: systemCount } = await supabase
+        .from("warmup_groups")
+        .select("id", { count: "exact", head: true })
+        .is("user_id", null)
+        .eq("is_custom", false);
+      return { _hasGroups: ((customCount || 0) + (systemCount || 0)) > 0 };
     },
     enabled: bulkOpen && !!user,
     staleTime: 30_000,

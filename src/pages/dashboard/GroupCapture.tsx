@@ -162,7 +162,7 @@ function GroupJoinCampaignsWidget() {
 }
 
 /* ── Group List Component ── */
-function GroupList({ groups, isCustom, onDelete }: { groups: any[]; isCustom: boolean; onDelete?: (id: string) => void }) {
+function GroupList({ groups, isCustom, isSystem, onDelete }: { groups: any[]; isCustom: boolean; isSystem?: boolean; onDelete?: (id: string) => void }) {
   if (groups.length === 0) {
     return (
       <div className="relative rounded-2xl border border-border/20 bg-card/80 backdrop-blur-xl overflow-hidden">
@@ -188,6 +188,9 @@ function GroupList({ groups, isCustom, onDelete }: { groups: any[]; isCustom: bo
         {isCustom && (
           <Badge variant="outline" className="text-[10px] border-primary/20 text-primary/70">Seus grupos</Badge>
         )}
+        {isSystem && (
+          <Badge variant="outline" className="text-[10px] border-emerald-500/20 text-emerald-400/70">Grupos do sistema</Badge>
+        )}
       </div>
       <div className="divide-y divide-border/10">
         {groups.map((g: any) => (
@@ -199,10 +202,11 @@ function GroupList({ groups, isCustom, onDelete }: { groups: any[]; isCustom: bo
             </div>
             <div className="flex items-center gap-1 opacity-50 group-hover/row:opacity-100 transition-opacity">
               <CopyButton text={g.link} />
-              {isCustom && onDelete && (
+              {(isCustom || isSystem) && onDelete && (
                 <button
                   className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-destructive/10 text-muted-foreground/40 hover:text-destructive transition-colors"
                   onClick={() => onDelete(g.id)}
+                  title={isSystem ? "Remover grupo do sistema da sua lista" : "Remover grupo"}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -234,11 +238,11 @@ const GroupCapture = () => {
 
   // Fetch ALL groups (system + custom)
   const { data: allGroups = [], isLoading } = useQuery({
-    queryKey: ["warmup-groups"],
+    queryKey: ["warmup-groups", user?.id],
     queryFn: async () => {
       const { data } = await supabase
         .from("warmup_groups")
-        .select("id, name, link, description, is_custom, created_at")
+        .select("id, name, link, description, is_custom, user_id, created_at")
         .order("name", { ascending: true });
       return (data || []) as any[];
     },
@@ -246,9 +250,23 @@ const GroupCapture = () => {
     staleTime: 30000,
   });
 
-  const systemGroups = useMemo(() => allGroups.filter((g: any) => !g.is_custom), [allGroups]);
-  const customGroups = useMemo(() => allGroups.filter((g: any) => g.is_custom), [allGroups]);
+  // Dismissed system group IDs (stored in localStorage)
+  const dismissKey = `dismissed_system_groups_${user?.id}`;
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(dismissKey) || "[]")); } catch { return new Set(); }
+  });
+
+  const systemGroups = useMemo(() => allGroups.filter((g: any) => !g.is_custom && !g.user_id && !dismissedIds.has(g.id)), [allGroups, dismissedIds]);
+  const customGroups = useMemo(() => allGroups.filter((g: any) => g.is_custom || (g.user_id === user?.id)), [allGroups, user]);
   const currentGroups = activeTab === "system" ? systemGroups : customGroups;
+
+  const dismissSystemGroup = (id: string) => {
+    const next = new Set(dismissedIds);
+    next.add(id);
+    setDismissedIds(next);
+    localStorage.setItem(dismissKey, JSON.stringify([...next]));
+    toast({ title: "Grupo removido da sua lista" });
+  };
 
   const { data: devices = [] } = useQuery({
     queryKey: ["devices-for-join"],
@@ -398,6 +416,11 @@ const GroupCapture = () => {
             Meus Grupos
             <Badge variant="secondary" className="text-[9px] ml-1 h-4 px-1.5">{customGroups.length}</Badge>
           </TabsTrigger>
+          <TabsTrigger value="system" className="text-xs rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm gap-1.5 px-4 py-2">
+            <Shield className="w-3.5 h-3.5" />
+            Grupos do Sistema
+            <Badge variant="secondary" className="text-[9px] ml-1 h-4 px-1.5">{systemGroups.length}</Badge>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="custom" className="space-y-4 mt-0">
@@ -448,6 +471,18 @@ const GroupCapture = () => {
             <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground/30" /></div>
           ) : (
             <GroupList groups={customGroups} isCustom={true} onDelete={handleDeleteGroup} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="system" className="space-y-4 mt-0">
+          <div className="rounded-xl border border-border/15 bg-muted/5 p-3 text-xs text-muted-foreground/60">
+            <p>Esses grupos são disponibilizados pelo sistema para aquecimento. Ao iniciar o aquecimento, suas instâncias serão adicionadas automaticamente a eles.</p>
+            <p className="mt-1">Se preferir usar apenas seus próprios grupos, você pode removê-los da sua lista.</p>
+          </div>
+          {isLoading ? (
+            <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground/30" /></div>
+          ) : (
+            <GroupList groups={systemGroups} isCustom={false} isSystem={true} onDelete={dismissSystemGroup} />
           )}
         </TabsContent>
       </Tabs>

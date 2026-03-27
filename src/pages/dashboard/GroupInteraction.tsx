@@ -111,7 +111,7 @@ export default function GroupInteractionPage() {
       const { data } = await supabase
         .from("warmup_groups" as any)
         .select("id, name, link")
-        .eq("user_id", user.id)
+        .or(`user_id.eq.${user.id},and(is_custom.eq.false,user_id.is.null)`)
         .order("name");
       return data || [];
     },
