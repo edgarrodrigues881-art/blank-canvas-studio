@@ -363,18 +363,6 @@ function ConversationCard({
         </Badge>
       </div>
 
-      {/* ── Activity Bar ── */}
-      {isRunning && (
-        <div className="px-4 pb-2">
-          <div className="flex items-center gap-2">
-            <Activity className="w-3 h-3 text-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider">Ativa</span>
-            <div className="flex-1 h-1 rounded-full bg-muted/20 overflow-hidden">
-              <div className="h-full rounded-full bg-gradient-to-r from-emerald-500/80 to-emerald-400/40 animate-pulse" style={{ width: "65%" }} />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── INFO GRID ── */}
       <div className="px-4 pb-3 grid grid-cols-2 gap-2 flex-1">
