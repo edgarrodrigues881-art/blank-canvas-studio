@@ -214,6 +214,29 @@ const WarmupInstanceDetail = () => {
     staleTime: 60_000,
   });
 
+  // Accurate daily count from trigger-based stats
+  const todayBrtKey = useMemo(() => {
+    const d = new Date();
+    const brt = new Date(d.getTime() - 3 * 60 * 60 * 1000);
+    return `${brt.getUTCFullYear()}-${String(brt.getUTCMonth() + 1).padStart(2, "0")}-${String(brt.getUTCDate()).padStart(2, "0")}`;
+  }, []);
+  const { data: dailyStatsSent } = useQuery({
+    queryKey: ["warmup_daily_stats_device", deviceId, todayBrtKey],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("warmup_daily_stats" as any)
+        .select("messages_sent")
+        .eq("device_id", deviceId!)
+        .eq("stat_date", todayBrtKey)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as any)?.messages_sent ?? null;
+    },
+    enabled: !!deviceId,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+
   // Fetch scheduled jobs for this cycle
   const { data: scheduledJobs = [] } = useQuery({
     queryKey: ["warmup_jobs_scheduled", cycle?.id],
