@@ -3,7 +3,7 @@
 // Serviço contínuo que roda na VPS com PM2
 // ══════════════════════════════════════════════════════════
 
-import express from "express";
+import express, { Request, Response } from "express";
 import { config } from "./config";
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
@@ -22,7 +22,7 @@ let lastCampaignTickAt: Date | null = null;
 let tickCount = 0;
 let tickErrors = 0;
 
-app.get("/health", (_req, res) => {
+app.get("/health", (_req: Request, res: Response) => {
   res.json({
     status: "ok",
     uptime: Math.round((Date.now() - startedAt.getTime()) / 1000),

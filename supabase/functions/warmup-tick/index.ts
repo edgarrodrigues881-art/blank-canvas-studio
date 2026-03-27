@@ -2263,11 +2263,12 @@ async function handleTick(
     return results;
   }
 
-  const [cyclesArr, subsArr, profilesArr, devicesArr, userMsgsArr, autosaveArr, instanceGroupsArr, groupsPoolArr, imagePool, audioPool] = await Promise.all([
+  const [cyclesArr, subsArr, profilesArr, devicesArr, tokenRows, userMsgsArr, autosaveArr, instanceGroupsArr, groupsPoolArr, imagePool, audioPool] = await Promise.all([
     batchLoad<any>("warmup_cycles", "id, user_id, device_id, phase, is_running, day_index, days_total, chip_state, daily_interaction_budget_min, daily_interaction_budget_max, daily_interaction_budget_target, daily_interaction_budget_used, daily_unique_recipients_cap, daily_unique_recipients_used, first_24h_ends_at, last_daily_reset_at, next_run_at, plan_id, created_at, started_at", "id", uniqueCycleIds),
     batchLoad<any>("subscriptions", "user_id, expires_at, created_at", "user_id", uniqueUserIds, q => q.order("created_at", { ascending: false })),
     batchLoad<any>("profiles", "id, status, instance_override", "id", uniqueUserIds),
     batchLoad<any>("devices", "id, status, uazapi_token, uazapi_base_url, number", "id", uniqueDeviceIds),
+    batchLoad<any>("user_api_tokens", "device_id, token, status", "device_id", uniqueDeviceIds, q => q.eq("status", "in_use")),
     batchLoad<any>("warmup_messages", "content, user_id", "user_id", uniqueUserIds),
     batchLoad<any>("warmup_autosave_contacts", "id, phone_e164, contact_name, user_id, created_at, updated_at, last_used_at, use_count, contact_status", "user_id", uniqueUserIds, q =>
       q.eq("is_active", true)
@@ -2292,6 +2293,10 @@ async function handleTick(
   profilesArr.forEach((p: any) => { profilesMap[p.id] = p; });
   const devicesMap: Record<string, any> = {};
   devicesArr.forEach((d: any) => { devicesMap[d.id] = d; });
+  const tokenMap: Record<string, string> = {};
+  tokenRows.forEach((row: any) => {
+    if (row.device_id && !tokenMap[row.device_id]) tokenMap[row.device_id] = String(row.token || "").trim();
+  });
   const injectedDevice = options?._vps_device && typeof options._vps_device === "object" ? options._vps_device : null;
   if (injectedDevice?.id) {
     devicesMap[injectedDevice.id] = {
@@ -2425,9 +2430,13 @@ async function handleTick(
       return false;
     }
 
-    const baseUrl = (device.uazapi_base_url || "").replace(/\/+$/, "");
-    const token = device.uazapi_token || "";
+    const baseUrl = String(device.uazapi_base_url || Deno.env.get("UAZAPI_BASE_URL") || "").trim().replace(/\/+$/, "");
+    const token = String(device.uazapi_token || tokenMap[job.device_id] || "").trim();
     const chipState = cycle.chip_state || "new";
+
+    if (!token || !baseUrl) {
+      console.warn(`[warmup-tick] Missing UAZAPI credentials for device ${job.device_id.substring(0, 8)} token=${token ? "yes" : "no"} baseUrl=${baseUrl ? "yes" : "no"}`);
+    }
 
     // Budget check for interaction jobs — fresh DB read to prevent race conditions between concurrent ticks
     if (INTERACTION_JOB_TYPES.includes(job.job_type)) {
