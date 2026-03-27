@@ -2194,7 +2194,7 @@ const WarmupInstances = () => {
                       const batch = ids.slice(i, i + BATCH);
                       const results = await Promise.allSettled(
                         batch.map(deviceId =>
-                          engine.mutateAsync({ action: "start", device_id: deviceId, chip_state: bulkChipState, days_total: Number(bulkDaysTotal), start_day: Number(bulkStartDay) > 1 ? Number(bulkStartDay) : undefined })
+                          engine.mutateAsync({ action: "start", device_id: deviceId, chip_state: bulkChipState, days_total: Number(bulkDaysTotal), start_day: Number(bulkStartDay) > 1 ? Number(bulkStartDay) : undefined, group_source: bulkGroupSource } as any)
                         )
                       );
                       results.forEach((r) => {
