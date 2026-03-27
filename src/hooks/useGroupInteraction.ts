@@ -50,6 +50,20 @@ export function useGroupInteraction() {
   const { user } = useAuth();
   const qc = useQueryClient();
 
+  const normalizeInteractionPayload = (data: Partial<GroupInteraction>) => {
+    const cycleMin = Number(data.messages_per_cycle_min);
+    const cycleMax = Number(data.messages_per_cycle_max);
+
+    const safeCycleMin = Number.isFinite(cycleMin) && cycleMin > 0 ? Math.floor(cycleMin) : 1;
+    const safeCycleMax = Number.isFinite(cycleMax) && cycleMax > 0 ? Math.max(Math.floor(cycleMax), safeCycleMin) : safeCycleMin;
+
+    return {
+      ...data,
+      messages_per_cycle_min: safeCycleMin,
+      messages_per_cycle_max: safeCycleMax,
+    };
+  };
+
   const { data: interactions = [], isLoading } = useQuery({
     queryKey: ["group-interactions", user?.id],
     queryFn: async () => {
@@ -88,7 +102,7 @@ export function useGroupInteraction() {
     mutationFn: async (data: Partial<GroupInteraction>) => {
       if (!user) throw new Error("Não autenticado");
       const payload = {
-        ...data,
+        ...normalizeInteractionPayload(data),
         user_id: user.id,
         status: "idle",
       };
@@ -120,7 +134,7 @@ export function useGroupInteraction() {
   const updateInteraction = useMutation({
     mutationFn: async ({ id, ...data }: Partial<GroupInteraction> & { id: string }) => {
       const payload = {
-        ...data,
+        ...normalizeInteractionPayload(data),
         status: data.status === "active" ? "idle" : data.status,
         updated_at: new Date().toISOString(),
       };
