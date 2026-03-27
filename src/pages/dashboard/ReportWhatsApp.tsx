@@ -12,6 +12,7 @@ import { Radio, RefreshCw, Flame, Megaphone, Plug, Loader2, Eye, Smartphone, Use
 import { Input } from "@/components/ui/input";
 import { usePlanGate } from "@/hooks/usePlanGate";
 import { PlanGateDialog } from "@/components/PlanGateDialog";
+import { startCheckout } from "@/lib/stripe";
 
 
 interface WhatsAppGroup {
@@ -492,12 +493,12 @@ export default function ReportWhatsApp() {
     <div className="space-y-6">
       {/* Plan gate banner */}
       {!canUseReport && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-destructive/20 bg-destructive/5">
-          <Ban className="w-4 h-4 text-destructive shrink-0" />
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/20 bg-primary/5">
+          <Lock className="w-4 h-4 text-primary shrink-0" />
           <div className="flex-1">
-            <p className="text-[13px] font-medium text-foreground">Funcionalidade bloqueada</p>
+            <p className="text-[13px] font-medium text-foreground">Recurso disponível para ativação</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              {isBlocked ? "Ative ou renove seu plano para usar notificações via WhatsApp." : "Solicite ao administrador a liberação desta funcionalidade."}
+              Libere notificações via WhatsApp e receba alertas em tempo real.
             </p>
           </div>
         </div>
@@ -668,39 +669,93 @@ export default function ReportWhatsApp() {
         </div>
       )}
 
-      {/* 3 Toggle Cards (no individual group selectors) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <ToggleCard
-          icon={<Flame className="w-4 h-4 text-orange-500" />}
-          iconColor="orange"
-          title="Aquecimento"
-          description="Relatórios após cada ciclo de 24h."
-          enabled={config?.toggle_warmup ?? false}
-          onToggle={(v) => handleToggle("toggle_warmup", v)}
-          monitoredEvents={["Ciclo de aquecimento concluído"]}
-          previewMessage={`🔥 RELATÓRIO DE AQUECIMENTO (24H)\\n\\nInstância: ${reportDevice?.name || "{nome_instancia}"}\\nNúmero: ${reportDevice?.number || "{numero}"}\\n\\n📊 Atividades registradas\\n\\n📨 Mensagens enviadas: {msgs_enviadas}\\n\\n📩 Mensagens recebidas: {msgs_recebidos}\\n\\n👥 Interações em grupos: {grupos_interacoes}\\n\\n⏱ Última atividade registrada:\\n{ultima_atividade}\\n\\n🔎 Status atual da instância: ${isConnected ? "🟢 Online" : "🔴 Offline"}\\n\\nRelatório gerado automaticamente após o ciclo de aquecimento de 24h.`}
-        />
-        <ToggleCard
-          icon={<Megaphone className="w-4 h-4 text-sky-500" />}
-          iconColor="sky"
-          title="Campanhas"
-          description="Alertas de eventos de campanha."
-          enabled={config?.toggle_campaigns ?? false}
-          onToggle={(v) => handleToggle("toggle_campaigns", v)}
-          monitoredEvents={["Campanha iniciada", "Campanha pausada", "Campanha finalizada", "Falhas detectadas"]}
-          previewMessage={`📣 CAMPANHA FINALIZADA\\n\\nCampanha: {nome_campanha}\\n\\n📊 Resultado da campanha\\n\\n👥 Total de contatos: {total}\\n\\n✅ Mensagens enviadas: {enviadas}\\n📬 Mensagens entregues: {entregues}\\n\\n❌ Falhas registradas: {falhas}\\n⏳ Pendentes: {pendentes}\\n\\n⏱ Tempo total de execução:\\n{tempo_execucao}\\n\\nStatus da campanha: Concluída`}
-        />
-        <ToggleCard
-          icon={<Plug className="w-4 h-4 text-emerald-500" />}
-          iconColor="emerald"
-          title="Conexão"
-          description="Alertas de mudança de status."
-          enabled={config?.alert_disconnect ?? false}
-          onToggle={(v) => handleToggle("alert_disconnect", v)}
-          monitoredEvents={["Instância conectada", "Instância desconectada"]}
-          previewMessage={`⚠️ ALERTA DE CONEXÃO\\n\\nInstância: ${reportDevice?.name || "{nome_instancia}"}\\nNúmero: ${reportDevice?.number || "{numero}"}\\n\\n❌ Status: Desconectado\\n\\n⏱ Horário da ocorrência:\\n${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}\\n\\nA instância perdeu conexão com o WhatsApp.`}
-        />
-      </div>
+      {/* 3 Toggle Cards */}
+      {canUseReport ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <ToggleCard
+            icon={<Flame className="w-4 h-4 text-orange-500" />}
+            iconColor="orange"
+            title="Aquecimento"
+            description="Relatórios após cada ciclo de 24h."
+            enabled={config?.toggle_warmup ?? false}
+            onToggle={(v) => handleToggle("toggle_warmup", v)}
+            monitoredEvents={["Ciclo de aquecimento concluído"]}
+            previewMessage={`🔥 RELATÓRIO DE AQUECIMENTO (24H)\\n\\nInstância: ${reportDevice?.name || "{nome_instancia}"}\\nNúmero: ${reportDevice?.number || "{numero}"}\\n\\n📊 Atividades registradas\\n\\n📨 Mensagens enviadas: {msgs_enviadas}\\n\\n📩 Mensagens recebidas: {msgs_recebidos}\\n\\n👥 Interações em grupos: {grupos_interacoes}\\n\\n⏱ Última atividade registrada:\\n{ultima_atividade}\\n\\n🔎 Status atual da instância: ${isConnected ? "🟢 Online" : "🔴 Offline"}\\n\\nRelatório gerado automaticamente após o ciclo de aquecimento de 24h.`}
+          />
+          <ToggleCard
+            icon={<Megaphone className="w-4 h-4 text-sky-500" />}
+            iconColor="sky"
+            title="Campanhas"
+            description="Alertas de eventos de campanha."
+            enabled={config?.toggle_campaigns ?? false}
+            onToggle={(v) => handleToggle("toggle_campaigns", v)}
+            monitoredEvents={["Campanha iniciada", "Campanha pausada", "Campanha finalizada", "Falhas detectadas"]}
+            previewMessage={`📣 CAMPANHA FINALIZADA\\n\\nCampanha: {nome_campanha}\\n\\n📊 Resultado da campanha\\n\\n👥 Total de contatos: {total}\\n\\n✅ Mensagens enviadas: {enviadas}\\n📬 Mensagens entregues: {entregues}\\n\\n❌ Falhas registradas: {falhas}\\n⏳ Pendentes: {pendentes}\\n\\n⏱ Tempo total de execução:\\n{tempo_execucao}\\n\\nStatus da campanha: Concluída`}
+          />
+          <ToggleCard
+            icon={<Plug className="w-4 h-4 text-emerald-500" />}
+            iconColor="emerald"
+            title="Conexão"
+            description="Alertas de mudança de status."
+            enabled={config?.alert_disconnect ?? false}
+            onToggle={(v) => handleToggle("alert_disconnect", v)}
+            monitoredEvents={["Instância conectada", "Instância desconectada"]}
+            previewMessage={`⚠️ ALERTA DE CONEXÃO\\n\\nInstância: ${reportDevice?.name || "{nome_instancia}"}\\nNúmero: ${reportDevice?.number || "{numero}"}\\n\\n❌ Status: Desconectado\\n\\n⏱ Horário da ocorrência:\\n${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}\\n\\nA instância perdeu conexão com o WhatsApp.`}
+          />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Locked cards for Essencial/Start */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {[
+              { icon: <Flame className="w-4 h-4 text-orange-500" />, title: "Aquecimento", description: "Relatórios após cada ciclo de 24h.", iconBg: "bg-orange-500/10" },
+              { icon: <Megaphone className="w-4 h-4 text-sky-500" />, title: "Campanhas", description: "Alertas de eventos de campanha.", iconBg: "bg-sky-500/10" },
+              { icon: <Plug className="w-4 h-4 text-emerald-500" />, title: "Conexão", description: "Alertas de mudança de status.", iconBg: "bg-emerald-500/10" },
+            ].map((card) => (
+              <div key={card.title} className="rounded-xl border-2 border-border bg-card opacity-60 pointer-events-none select-none">
+                <div className="p-4 pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl ${card.iconBg} flex items-center justify-center shrink-0`}>
+                        {card.icon}
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                          {card.title}
+                          <Lock className="w-3 h-3 text-muted-foreground" />
+                        </h3>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{card.description}</p>
+                      </div>
+                    </div>
+                    <Switch checked={false} disabled />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA Card */}
+          <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-6 flex flex-col items-center text-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <Zap className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-foreground">Libere notificações via WhatsApp</h3>
+              <p className="text-sm text-muted-foreground mt-1">Receba alertas em tempo real diretamente no seu WhatsApp.</p>
+            </div>
+            <Button
+              size="lg"
+              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+              onClick={() => {
+                startCheckout({ planName: "Relatórios WhatsApp", instances: "1", price: "18.90" });
+              }}
+            >
+              <Zap className="w-4 h-4" />
+              Desbloquear notificações
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ─── Connect Dialog (QR Code + Pairing Code) ─── */}
       <Dialog open={qrDialogOpen} onOpenChange={(open) => {
