@@ -295,12 +295,14 @@ async function processInteraction(admin: any, interactionId: string, userId: str
         .select("status").eq("id", interactionId).single();
       if (!current || current.status !== "running") break;
 
-      const groupId = shuffledGroups[i % shuffledGroups.length];
+      const group = shuffledGroups[i % shuffledGroups.length];
+      const groupJid = group.jid;
+      const groupName = group.name;
 
       // Per-group limit
       const { count: groupToday } = await admin.from("group_interaction_logs")
         .select("*", { count: "exact", head: true })
-        .eq("interaction_id", interactionId).eq("group_id", groupId)
+        .eq("interaction_id", interactionId).eq("group_id", groupJid)
         .gte("sent_at", todayStart.toISOString());
       if ((groupToday || 0) >= config.daily_limit_per_group) continue;
 
@@ -314,8 +316,7 @@ async function processInteraction(admin: any, interactionId: string, userId: str
       let sendBody: any = {};
 
       if (chosenType === "text" || !mediaByType[chosenType]?.length) {
-        // Use user texts or fallback
-        const userTexts = mediaByType["text"]?.filter((m) => m.content !== lastSentByGroup[groupId]);
+        const userTexts = mediaByType["text"]?.filter((m) => m.content !== lastSentByGroup[groupJid]);
         if (userTexts?.length) {
           const picked = pickRandom(userTexts);
           messageText = picked.content;
@@ -324,26 +325,25 @@ async function processInteraction(admin: any, interactionId: string, userId: str
           messageText = pickRandom(cats);
         }
         sendEndpoint = "send/text";
-        sendBody = { number: groupId, text: messageText };
+        sendBody = { number: groupJid, text: messageText };
       } else {
-        // Media content
-        const candidates = mediaByType[chosenType].filter((m) => m.file_url !== lastSentByGroup[groupId]);
+        const candidates = mediaByType[chosenType].filter((m) => m.file_url !== lastSentByGroup[groupJid]);
         const picked = candidates.length ? pickRandom(candidates) : pickRandom(mediaByType[chosenType]);
         fileUrl = picked.file_url;
         messageText = picked.content || picked.file_name || chosenType;
 
         if (chosenType === "image") {
           sendEndpoint = "send/image";
-          sendBody = { number: groupId, image: fileUrl, caption: "" };
+          sendBody = { number: groupJid, image: fileUrl, caption: "" };
         } else if (chosenType === "video") {
           sendEndpoint = "send/video";
-          sendBody = { number: groupId, video: fileUrl, caption: "" };
+          sendBody = { number: groupJid, video: fileUrl, caption: "" };
         } else if (chosenType === "sticker") {
           sendEndpoint = "send/sticker";
-          sendBody = { number: groupId, sticker: fileUrl };
+          sendBody = { number: groupJid, sticker: fileUrl };
         } else {
           sendEndpoint = "send/document";
-          sendBody = { number: groupId, document: fileUrl, fileName: picked.file_name || "arquivo" };
+          sendBody = { number: groupJid, document: fileUrl, fileName: picked.file_name || "arquivo" };
         }
       }
 
@@ -358,7 +358,8 @@ async function processInteraction(admin: any, interactionId: string, userId: str
         const errorMsg = resp.ok ? null : `HTTP ${resp.status}`;
 
         await admin.from("group_interaction_logs").insert({
-          interaction_id: interactionId, user_id: userId, group_id: groupId,
+          interaction_id: interactionId, user_id: userId, group_id: groupJid,
+          group_name: groupName,
           message_content: messageText, message_category: `${chosenType}:${category}`,
           device_id: device.id, status: logStatus, error_message: errorMsg,
           pause_applied_seconds: 0, sent_at: new Date().toISOString(),
@@ -367,18 +368,19 @@ async function processInteraction(admin: any, interactionId: string, userId: str
         if (resp.ok) {
           messagesSent++;
           consecutive++;
-          lastSentByGroup[groupId] = fileUrl || messageText;
+          lastSentByGroup[groupJid] = fileUrl || messageText;
 
           await admin.from("group_interactions").update({
             total_messages_sent: config.total_messages_sent + messagesSent,
-            last_group_used: groupId, last_content_sent: messageText,
+            last_group_used: groupJid, last_content_sent: messageText,
             last_sent_at: new Date().toISOString(), today_count: (todayTotal || 0) + messagesSent,
             updated_at: new Date().toISOString(),
           }).eq("id", interactionId);
         }
       } catch (sendErr: any) {
         await admin.from("group_interaction_logs").insert({
-          interaction_id: interactionId, user_id: userId, group_id: groupId,
+          interaction_id: interactionId, user_id: userId, group_id: groupJid,
+          group_name: groupName,
           message_content: messageText, message_category: `${chosenType}:${category}`,
           device_id: device.id, status: "failed", error_message: sendErr.message,
           sent_at: new Date().toISOString(),
