@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════
-// VPS Engine — Entry point
+// VPS Engine — Entry point (Phase 2: Inline Processing)
 // Serviço contínuo que roda na VPS com PM2
 // ══════════════════════════════════════════════════════════
 
@@ -40,7 +40,51 @@ app.listen(config.port, () => {
 });
 
 // ══════════════════════════════════════════════════════════
-// WARMUP TICK — Continuous loop (replaces pg_cron every 2min)
+// DEVICE CREDENTIAL RESOLVER
+// Reads uazapi_token and uazapi_base_url directly from devices table
+// (matches warmup-tick Edge Function logic: line 2256, 2401-2402)
+// ══════════════════════════════════════════════════════════
+
+interface DeviceCredentials {
+  id: string;
+  status: string;
+  uazapi_token: string;
+  uazapi_base_url: string;
+  number: string | null;
+}
+
+const CONNECTED_STATUSES = ["Ready", "Connected", "authenticated", "open", "active", "online"];
+
+async function resolveDeviceCredentials(deviceId: string): Promise<DeviceCredentials | null> {
+  const db = getDb();
+  const { data: device, error } = await db
+    .from("devices")
+    .select("id, status, uazapi_token, uazapi_base_url, number")
+    .eq("id", deviceId)
+    .maybeSingle();
+
+  if (error) {
+    log.error(`DB error resolving device ${deviceId}`, { error: error.message });
+    return null;
+  }
+
+  if (!device) {
+    log.warn(`Device not found: ${deviceId}`);
+    return null;
+  }
+
+  return {
+    id: device.id,
+    status: device.status || "unknown",
+    uazapi_token: device.uazapi_token || "",
+    uazapi_base_url: (device.uazapi_base_url || "").replace(/\/+$/, ""),
+    number: device.number || null,
+  };
+}
+
+// ══════════════════════════════════════════════════════════
+// WARMUP TICK — Continuous loop (replaces pg_cron)
+// Phase 2: Proxies to Edge Function with proper auth diagnostics
 // ══════════════════════════════════════════════════════════
 
 async function warmupTick() {
@@ -50,9 +94,17 @@ async function warmupTick() {
 
   // 1. Recover stale "running" jobs (>5min)
   const staleThreshold = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-  await db.from("warmup_jobs")
+  const { error: staleErr } = await db.from("warmup_jobs")
     .update({ status: "pending", last_error: "Recuperado de estado running travado (VPS)" })
     .eq("status", "running").lt("updated_at", staleThreshold);
+
+  if (staleErr) {
+    log.error("Failed to recover stale jobs", { error: staleErr.message, code: staleErr.code, hint: staleErr.hint });
+    // If it's an auth error, bail early with clear message
+    if (staleErr.message?.includes("Invalid API key") || staleErr.code === "PGRST301") {
+      throw new Error(`Supabase auth error: ${staleErr.message}. Check SUPABASE_SERVICE_ROLE_KEY in .env`);
+    }
+  }
 
   // 2. Cancel outside-window interaction jobs
   if (!withinWindow) {
@@ -70,6 +122,7 @@ async function warmupTick() {
             .update({ status: "cancelled", last_error: "Cancelado: fora da janela 07-19 BRT (VPS)" })
             .in("id", toCancel.slice(i, i + 200));
         }
+        log.info(`Cancelled ${toCancel.length} jobs outside operating window`);
       }
     }
   }
@@ -82,17 +135,66 @@ async function warmupTick() {
     .order("run_at", { ascending: true })
     .limit(2000);
 
-  if (fetchErr) throw fetchErr;
+  if (fetchErr) {
+    // Detailed error logging for auth/permission issues
+    log.error("Failed to fetch pending jobs", {
+      error: fetchErr.message,
+      code: fetchErr.code,
+      hint: fetchErr.hint,
+      details: fetchErr.details,
+    });
+    if (fetchErr.message?.includes("Invalid API key") || fetchErr.code === "PGRST301") {
+      throw new Error(`Supabase auth error fetching jobs: ${fetchErr.message}. Verify SUPABASE_SERVICE_ROLE_KEY is the service_role key (not anon key).`);
+    }
+    throw fetchErr;
+  }
+
   if (!pendingJobs?.length) return { processed: 0 };
 
-  // 4. Group by device for sequential processing per device
+  // 4. Pre-load device credentials for all unique devices
+  const uniqueDeviceIds = [...new Set(pendingJobs.map(j => j.device_id))];
+  const deviceCredentials: Record<string, DeviceCredentials> = {};
+  const invalidDevices = new Set<string>();
+
+  // Batch-load all devices at once (like the Edge Function does)
+  const { data: devicesArr, error: devErr } = await db
+    .from("devices")
+    .select("id, status, uazapi_token, uazapi_base_url, number")
+    .in("id", uniqueDeviceIds);
+
+  if (devErr) {
+    log.error("Failed to batch-load devices", { error: devErr.message });
+  }
+
+  for (const dev of devicesArr || []) {
+    deviceCredentials[dev.id] = {
+      id: dev.id,
+      status: dev.status || "unknown",
+      uazapi_token: dev.uazapi_token || "",
+      uazapi_base_url: (dev.uazapi_base_url || "").replace(/\/+$/, ""),
+      number: dev.number || null,
+    };
+  }
+
+  // Log diagnostic info
+  const devicesWithToken = Object.values(deviceCredentials).filter(d => d.uazapi_token.length > 0);
+  const devicesConnected = Object.values(deviceCredentials).filter(d => CONNECTED_STATUSES.includes(d.status));
+  log.info(`Devices loaded: ${Object.keys(deviceCredentials).length}/${uniqueDeviceIds.length} found, ${devicesWithToken.length} with token, ${devicesConnected.length} connected`);
+
+  // Log devices that weren't found
+  const missingDevices = uniqueDeviceIds.filter(id => !deviceCredentials[id]);
+  if (missingDevices.length > 0) {
+    log.warn(`Devices NOT found in DB: ${missingDevices.join(", ")}`);
+  }
+
+  // 5. Group by device for sequential processing per device
   const jobsByDevice: Record<string, any[]> = {};
   for (const job of pendingJobs) {
     if (!jobsByDevice[job.device_id]) jobsByDevice[job.device_id] = [];
     jobsByDevice[job.device_id].push(job);
   }
 
-  // 5. Process devices in parallel with semaphore
+  // 6. Process devices in parallel with semaphore
   let succeeded = 0;
   let failed = 0;
 
@@ -101,27 +203,75 @@ async function warmupTick() {
     deviceIds.map(async (deviceId) => {
       await sem.acquire();
       try {
+        const creds = deviceCredentials[deviceId];
+
+        // Validate device credentials before processing any jobs
+        if (!creds) {
+          log.warn(`Skipping device ${deviceId}: not found in DB`);
+          for (const job of jobsByDevice[deviceId]) {
+            await db.from("warmup_jobs").update({
+              status: "failed", last_error: "VPS: dispositivo não encontrado no banco",
+            }).eq("id", job.id);
+            failed++;
+          }
+          return;
+        }
+
+        if (!CONNECTED_STATUSES.includes(creds.status)) {
+          log.warn(`Skipping device ${deviceId}: status="${creds.status}" (not connected)`);
+          // Don't fail - just skip, the Edge Function will handle cycle pausing
+        }
+
+        if (!creds.uazapi_base_url) {
+          log.warn(`Device ${deviceId}: no uazapi_base_url configured`);
+        }
+
+        if (!creds.uazapi_token) {
+          log.warn(`Device ${deviceId}: no uazapi_token configured (number: ${creds.number || "?"})`);
+        }
+
         for (const job of jobsByDevice[deviceId]) {
           try {
             // Mark as running
             await db.from("warmup_jobs").update({ status: "running" }).eq("id", job.id);
 
-            // ── DELEGATE TO EDGE FUNCTION (Phase 1: proxy to existing logic) ──
-            // In Phase 1, we proxy heavy jobs to the Edge Function but with no timeout pressure
-            // In Phase 2+, this will be replaced with inline Node.js processing
-            const res = await fetch(`${config.supabaseUrl}/functions/v1/warmup-tick`, {
+            // ── DELEGATE TO EDGE FUNCTION ──
+            // The Edge Function handles all the complex logic (group interaction, autosave, community)
+            // We pass the job_id so it processes only this specific job
+            const edgeUrl = `${config.supabaseUrl}/functions/v1/warmup-tick`;
+            const res = await fetch(edgeUrl, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${config.supabaseServiceKey}`,
+                Authorization: `Bearer ${config.supabaseAnonKey}`,
               },
-              body: JSON.stringify({ job_id: job.id }),
+              body: JSON.stringify({
+                job_id: job.id,
+                // Pass device credentials so the Edge Function doesn't need to re-fetch
+                _vps_device: {
+                  id: creds.id,
+                  status: creds.status,
+                  uazapi_token: creds.uazapi_token ? "***present***" : "",
+                  uazapi_base_url: creds.uazapi_base_url ? "***present***" : "",
+                },
+              }),
             });
 
             if (res.ok) {
               succeeded++;
             } else {
               const text = await res.text();
+              // Log the full error for debugging
+              log.error(`Edge function error for job ${job.id}`, {
+                deviceId,
+                jobType: job.job_type,
+                status: res.status,
+                response: text.substring(0, 300),
+                deviceStatus: creds.status,
+                hasToken: !!creds.uazapi_token,
+                hasBaseUrl: !!creds.uazapi_base_url,
+                number: creds.number,
+              });
               throw new Error(`Edge function returned ${res.status}: ${text.substring(0, 200)}`);
             }
           } catch (err: any) {
@@ -216,7 +366,7 @@ async function campaignTick() {
     try {
       await fetch(`${config.supabaseUrl}/functions/v1/process-campaign`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.supabaseServiceKey}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.supabaseAnonKey}` },
         body: JSON.stringify({ action: "continue", campaignId: stuck.id, deviceId: stuck.device_id || undefined }),
       });
       log.info(`Watchdog restarted stuck campaign ${stuck.id}`);
@@ -243,7 +393,7 @@ async function campaignTick() {
     try {
       await fetch(`${config.supabaseUrl}/functions/v1/process-campaign`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.supabaseServiceKey}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.supabaseAnonKey}` },
         body: JSON.stringify({ action: "continue", campaignId: campaign.id, deviceId: campaign.device_id || undefined }),
       });
       log.info(`Triggered scheduled campaign ${campaign.id}`);
@@ -265,7 +415,7 @@ async function campaignTick() {
     try {
       await fetch(`${config.supabaseUrl}/functions/v1/group-interaction`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.supabaseServiceKey}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.supabaseAnonKey}` },
         body: JSON.stringify({ action: "tick", interactionId: interaction.id, scheduled_for: interaction.next_action_at }),
       });
     } catch (err: any) {
@@ -288,11 +438,68 @@ async function mainLoop() {
     campaignInterval: config.campaignTickMs,
   });
 
-  // Validate DB connection
+  // ── Validate DB connection with detailed diagnostics ──
   try {
     const db = getDb();
-    const { count } = await db.from("devices").select("id", { count: "exact", head: true });
-    log.info(`DB connected. ${count || 0} devices found.`);
+
+    // Test 1: Basic connectivity
+    const { count, error: countErr } = await db.from("devices").select("id", { count: "exact", head: true });
+    if (countErr) {
+      log.error(`DB query error: ${countErr.message}`, {
+        code: countErr.code,
+        hint: countErr.hint,
+        details: countErr.details,
+      });
+      if (countErr.message?.includes("Invalid API key")) {
+        log.error("CRITICAL: The SUPABASE_SERVICE_ROLE_KEY appears to be invalid. Make sure you're using the service_role key (not the anon key). Find it in Supabase Dashboard > Settings > API.");
+      }
+      process.exit(1);
+    }
+    log.info(`DB connected. ${count || 0} total devices in database.`);
+
+    // Test 2: Check warmup-eligible devices (running cycles)
+    const { data: activeCycles, error: cycleErr } = await db.from("warmup_cycles")
+      .select("id, device_id, user_id, phase, day_index, chip_state")
+      .eq("is_running", true)
+      .not("phase", "in", '("completed","paused","error")')
+      .limit(10);
+
+    if (cycleErr) {
+      log.warn(`Failed to query warmup_cycles: ${cycleErr.message}`);
+    } else {
+      log.info(`Active warmup cycles: ${activeCycles?.length || 0}`);
+      if (activeCycles?.length) {
+        for (const cycle of activeCycles.slice(0, 3)) {
+          const creds = await resolveDeviceCredentials(cycle.device_id);
+          log.info(`  Cycle ${cycle.id.substring(0, 8)}: device=${cycle.device_id.substring(0, 8)}, phase=${cycle.phase}, day=${cycle.day_index}`, {
+            deviceStatus: creds?.status || "NOT_FOUND",
+            hasToken: !!creds?.uazapi_token,
+            tokenLength: creds?.uazapi_token?.length || 0,
+            hasBaseUrl: !!creds?.uazapi_base_url,
+            baseUrl: creds?.uazapi_base_url ? creds.uazapi_base_url.substring(0, 30) + "..." : "MISSING",
+            number: creds?.number || "?",
+          });
+        }
+      }
+    }
+
+    // Test 3: Check pending warmup jobs
+    const { count: jobCount } = await db.from("warmup_jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending")
+      .lte("run_at", new Date().toISOString());
+    log.info(`Pending warmup jobs ready to process: ${jobCount || 0}`);
+
+    // Test 4: Verify Edge Function accessibility
+    try {
+      const testRes = await fetch(`${config.supabaseUrl}/functions/v1/warmup-tick`, {
+        method: "OPTIONS",
+      });
+      log.info(`Edge Function warmup-tick reachable: ${testRes.status}`);
+    } catch (err: any) {
+      log.warn(`Edge Function warmup-tick not reachable: ${err.message}`);
+    }
+
   } catch (err: any) {
     log.error(`DB connection failed: ${err.message}`);
     process.exit(1);
@@ -306,7 +513,7 @@ async function mainLoop() {
         lastTickAt = new Date();
         tickCount++;
         if (result.processed > 0) {
-          log.info(`Warmup tick: ${result.processed} jobs (${result.succeeded} ok, ${result.failed} fail)`);
+          log.info(`Warmup tick #${tickCount}: ${result.processed} jobs (${result.succeeded} ok, ${result.failed} fail, ${result.devices} devices)`);
         }
       } catch (err: any) {
         tickErrors++;
