@@ -297,7 +297,6 @@ async function processInteraction(admin: any, interactionId: string, userId: str
     const pauseAfter = randomBetween(config.pause_after_messages_min, config.pause_after_messages_max);
     const lastSentByGroup: Record<string, string> = {};
     for (let i = 0; i < toSend; i++) {
-      // Re-check status
       const { data: current } = await admin.from("group_interactions")
         .select("status").eq("id", interactionId).single();
       if (!current || !["running", "active"].includes(current.status)) break;
@@ -306,14 +305,19 @@ async function processInteraction(admin: any, interactionId: string, userId: str
       const groupJid = group.jid;
       const groupName = group.name;
 
-      // Per-group limit
       const { count: groupToday } = await admin.from("group_interaction_logs")
         .select("*", { count: "exact", head: true })
         .eq("interaction_id", interactionId).eq("group_id", groupJid)
         .gte("sent_at", todayStart.toISOString());
       if ((groupToday || 0) >= config.daily_limit_per_group) continue;
 
-      // Pick content type
+      const delay = i === 0 ? randomBetween(config.min_delay_seconds, config.max_delay_seconds) : randomBetween(config.min_delay_seconds, config.max_delay_seconds);
+      await new Promise((r) => setTimeout(r, delay * 1000));
+
+      const { data: currentAfterDelay } = await admin.from("group_interactions")
+        .select("status").eq("id", interactionId).single();
+      if (!currentAfterDelay || !["running", "active"].includes(currentAfterDelay.status)) break;
+
       const chosenType = pickContentType(contentTypes, contentWeights);
       const category = getCategoryForIndex(i, toSend);
 
@@ -369,7 +373,7 @@ async function processInteraction(admin: any, interactionId: string, userId: str
           group_name: groupName,
           message_content: messageText, message_category: `${chosenType}:${category}`,
           device_id: device.id, status: logStatus, error_message: errorMsg,
-          pause_applied_seconds: 0, sent_at: new Date().toISOString(),
+          pause_applied_seconds: delay, sent_at: new Date().toISOString(),
         });
 
         if (resp.ok) {
@@ -390,15 +394,11 @@ async function processInteraction(admin: any, interactionId: string, userId: str
           group_name: groupName,
           message_content: messageText, message_category: `${chosenType}:${category}`,
           device_id: device.id, status: "failed", error_message: sendErr.message,
+          pause_applied_seconds: delay,
           sent_at: new Date().toISOString(),
         });
       }
 
-      // Delay
-      const delay = randomBetween(config.min_delay_seconds, config.max_delay_seconds);
-      await new Promise((r) => setTimeout(r, delay * 1000));
-
-      // Pause after block
       if (consecutive >= pauseAfter) {
         const bigPause = randomBetween(config.pause_duration_min, config.pause_duration_max);
         await new Promise((r) => setTimeout(r, bigPause * 1000));
