@@ -713,10 +713,11 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
 
     let sentOk = false;
     let sendError: string | null = null;
-    const appliedDelay = randomBetween(
+    const targetDelay = randomBetween(
       safeNonNegativeInt(config.min_delay_seconds, 0),
       Math.max(safeNonNegativeInt(config.min_delay_seconds, 0), safeNonNegativeInt(config.max_delay_seconds, safeNonNegativeInt(config.min_delay_seconds, 0))),
     );
+    const sendStartMs = Date.now();
 
     try {
       if (chosenType === "image") {
@@ -761,7 +762,7 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
       device_id: device.id,
       status: sentOk ? "sent" : "failed",
       error_message: sendError,
-      pause_applied_seconds: appliedDelay,
+      pause_applied_seconds: targetDelay,
       sent_at: new Date().toISOString(),
     });
     if (logInsertErr) {
@@ -786,10 +787,13 @@ async function handleTick(admin: any, interactionId: string, scheduledFor?: stri
       }).eq("id", interactionId);
     }
 
-    const nextDelay = appliedDelay;
+    // Subtract execution time from delay so real interval matches config
+    const elapsedSec = Math.floor((Date.now() - sendStartMs) / 1000);
+    const nextDelay = Math.max(0, targetDelay - elapsedSec);
+    console.log(`[group-interaction] targetDelay=${targetDelay}s, elapsed=${elapsedSec}s, nextDelay=${nextDelay}s`);
 
     await scheduleNextTick(admin, interactionId, nextDelay);
-    return jsonOk({ ok: true, sent: sentOk, next_delay_seconds: nextDelay, error: sendError });
+    return jsonOk({ ok: true, sent: sentOk, next_delay_seconds: targetDelay, error: sendError });
   } catch (err: any) {
     console.error("processInteraction error:", err);
     await admin.from("group_interactions").update({
