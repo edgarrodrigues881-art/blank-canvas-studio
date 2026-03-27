@@ -443,8 +443,9 @@ const Campaigns = () => {
 
   const allTags = useMemo(() => Array.from(new Set(savedContacts.flatMap(c => c.tags || []))), [savedContacts]);
   const connectedDevices = useMemo(() => {
+    const connectedStatuses = new Set(["connected", "ready", "authenticated", "open", "online", "active"]);
     return devices
-      .filter(d => ["Connected", "Ready", "authenticated", "connected", "open", "online", "active"].includes(d.status?.toLowerCase?.() ?? ""))
+      .filter(d => connectedStatuses.has((d.status || "").trim().toLowerCase()))
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [devices]);
   const selectedDevicesData = devices.filter(d => selectedDevices.includes(d.id));

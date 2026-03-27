@@ -97,10 +97,11 @@ export default function GroupInteractionPage() {
   const eligibleDevices = useMemo(() => {
     const blockedTypes = new Set(["notificacao", "report", "report_wa"]);
 
+    const connectedStatuses = new Set(["connected", "ready", "authenticated", "open", "online", "active"]);
     return devices.filter((device: any) => {
       const normalizedStatus = String(device.status || "").trim().toLowerCase();
       const normalizedType = String(device.instance_type || "").trim().toLowerCase();
-      return normalizedStatus === "connected" && !blockedTypes.has(normalizedType);
+      return connectedStatuses.has(normalizedStatus) && !blockedTypes.has(normalizedType);
     });
   }, [devices]);
 
