@@ -21,26 +21,34 @@ interface Plan {
   isCustom?: boolean;
 }
 
+const standardFeatures = [
+  "Todas as funcionalidades inclusas",
+  "Mesmo nível de suporte",
+  "Monitoramento em tempo real",
+  "Infraestrutura completa",
+  "Relatórios via WhatsApp (add-on)",
+];
+
 const topPlans: Plan[] = [
   {
     name: "Essencial", instances: "5", price: "89,90",
-    subtitle: "Para quem está começando a aquecer chips com segurança e estrutura profissional.",
+    subtitle: "Ideal para operações pequenas que estão começando.",
     extraCopy: null, cta: "Começar agora", popular: false,
-    features: ["Aquecimento automatizado", "Disparo interativo", "Monitoramento em tempo real limitado", "Suporte padrão", "Relatórios via WhatsApp (add-on)", "Módulos extras disponíveis"],
+    features: standardFeatures,
     addon: null,
   },
   {
     name: "Start", instances: "10", price: "159,90",
-    subtitle: "Para quem já validou a operação e quer expandir após validar a operação.",
-    extraCopy: "Melhor custo-benefício inicial", cta: "Começar agora", popular: false,
-    features: ["Aquecimento automatizado", "Disparo interativo", "Painel centralizado", "Monitoramento em tempo real", "Organização de instâncias", "Relatórios via WhatsApp (add-on)", "Módulos extras disponíveis"],
+    subtitle: "Ideal para quem deseja aumentar a capacidade com mais instâncias.",
+    extraCopy: null, cta: "Começar agora", popular: false,
+    features: standardFeatures,
     addon: null,
   },
   {
     name: "Pro", instances: "30", price: "349,90",
-    subtitle: "Para operadores ativos que precisam escalar com consistência.",
-    extraCopy: "Recomendado para operações reais", cta: "Escalar operação", popular: true, highlight: "amber",
-    features: ["Aquecimento automatizado", "Disparo interativo", "Painel centralizado", "Gestão avançada de instâncias", "Monitoramento completo", "Suporte prioritário", "Relatórios via WhatsApp (add-on)", "Módulos extras disponíveis"],
+    subtitle: "Ideal para operações ativas que precisam de mais volume.",
+    extraCopy: "Mais escolhido", cta: "Escalar operação", popular: true, highlight: "amber",
+    features: standardFeatures,
     addon: null,
   },
 ];
@@ -48,23 +56,23 @@ const topPlans: Plan[] = [
 const bottomPlans: Plan[] = [
   {
     name: "Scale", instances: "50", price: "549,90",
-    subtitle: "Para quem precisa escalar com mais chips e visibilidade sobre toda a operação.",
+    subtitle: "Para quem precisa escalar com múltiplas instâncias simultâneas.",
     extraCopy: null, cta: "Escalar operação", popular: false,
-    features: ["Aquecimento automatizado", "Disparo interativo", "Painel centralizado", "Monitoramento em tempo real", "Suporte prioritário", "Relatórios via WhatsApp incluso", "Módulos extras disponíveis"],
+    features: standardFeatures,
     addon: null,
   },
   {
     name: "Elite", instances: "100", price: "999,90",
-    subtitle: "Ideal para operações que exigem volume alto com performance e suporte dedicado.",
-    extraCopy: "Alta performance garantida", cta: "Ir para o Elite", popular: false,
-    features: ["Aquecimento automatizado em escala", "Disparo avançado", "Monitoramento avançado", "Suporte VIP", "Relatórios via WhatsApp incluso", "Módulos extras disponíveis"],
+    subtitle: "Alta capacidade para operações grandes e exigentes.",
+    extraCopy: null, cta: "Ir para o Elite", popular: false,
+    features: standardFeatures,
     addon: null,
   },
   {
     name: "Custom", instances: "200+", price: null, priceLabel: "Sob consulta",
-    subtitle: "Soluções personalizadas para operações de grande escala com necessidades específicas.",
+    subtitle: "Solução sob medida para operações de larga escala.",
     extraCopy: null, cta: "Falar com suporte", popular: false, isCustom: true,
-    features: ["Instâncias sob medida", "Aquecimento automatizado em escala", "Estrutura personalizada", "Infraestrutura dedicada", "Suporte VIP", "Ajustes personalizados", "Relatórios via WhatsApp incluso", "Configuração sob consulta"],
+    features: standardFeatures,
     addon: null,
   },
 ];
