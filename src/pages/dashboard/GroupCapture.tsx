@@ -347,6 +347,21 @@ const GroupCapture = () => {
     }
   };
 
+  // Toggle use_in_warmup
+  const handleToggleWarmup = async (id: string, value: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("warmup_groups")
+        .update({ use_in_warmup: value } as any)
+        .eq("id", id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["warmup-groups"] });
+      toast({ title: value ? "Grupo ativado no aquecimento" : "Grupo removido do aquecimento" });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  };
+
   const toggleGroup = useCallback((link: string) =>
     setSelectedGroups((prev) => prev.includes(link) ? prev.filter((l) => l !== link) : [...prev, link]), []);
   const toggleDevice = useCallback((id: string) =>
