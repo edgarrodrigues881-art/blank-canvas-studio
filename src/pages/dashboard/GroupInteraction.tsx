@@ -666,66 +666,23 @@ export default function GroupInteractionPage() {
         </Card>
 
         {/* Delays & Limits */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Delays e Pausas</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Delay mín. (seg)</Label>
-                  <Input type="number" value={form.min_delay_seconds} onChange={(e) => updateForm({ min_delay_seconds: +e.target.value })} className="mt-1" min={5} />
-                </div>
-                <div>
-                  <Label className="text-xs">Delay máx. (seg)</Label>
-                  <Input type="number" value={form.max_delay_seconds} onChange={(e) => updateForm({ max_delay_seconds: +e.target.value })} className="mt-1" min={10} />
-                </div>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Delays</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Delay mín. (seg)</Label>
+                <Input type="number" value={form.min_delay_seconds} onChange={(e) => updateForm({ min_delay_seconds: +e.target.value })} className="mt-1" min={5} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Msgs antes da pausa (mín)</Label>
-                  <Input type="number" value={form.pause_after_messages_min} onChange={(e) => updateForm({ pause_after_messages_min: +e.target.value })} className="mt-1" min={2} />
-                </div>
-                <div>
-                  <Label className="text-xs">Msgs antes da pausa (máx)</Label>
-                  <Input type="number" value={form.pause_after_messages_max} onChange={(e) => updateForm({ pause_after_messages_max: +e.target.value })} className="mt-1" min={3} />
-                </div>
+              <div>
+                <Label className="text-xs">Delay máx. (seg)</Label>
+                <Input type="number" value={form.max_delay_seconds} onChange={(e) => updateForm({ max_delay_seconds: +e.target.value })} className="mt-1" min={10} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Pausa mín. (seg)</Label>
-                  <Input type="number" value={form.pause_duration_min} onChange={(e) => updateForm({ pause_duration_min: +e.target.value })} className="mt-1" min={30} />
-                </div>
-                <div>
-                  <Label className="text-xs">Pausa máx. (seg)</Label>
-                  <Input type="number" value={form.pause_duration_max} onChange={(e) => updateForm({ pause_duration_max: +e.target.value })} className="mt-1" min={60} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Limites Diários</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Limite por grupo</Label>
-                  <Input type="number" value={form.daily_limit_per_group} onChange={(e) => updateForm({ daily_limit_per_group: +e.target.value })} className="mt-1" min={1} />
-                </div>
-                <div>
-                  <Label className="text-xs">Limite total</Label>
-                  <Input type="number" value={form.daily_limit_total} onChange={(e) => updateForm({ daily_limit_total: +e.target.value })} className="mt-1" min={1} />
-                </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                O sistema enviará entre {form.daily_limit_per_group || 0} mensagens por grupo e {form.daily_limit_total || 0} no total por dia.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
