@@ -163,13 +163,16 @@ const Auth = () => {
         navigate(`/welcome?to=${encodeURIComponent(redirectTo)}`);
       } else {
         const trimmedPhone = phone.trim().replace(/\D/g, "");
-        if (trimmedPhone) {
-          const { data: phoneAvailable } = await supabase.rpc("check_phone_available", { _phone: trimmedPhone });
-          if (phoneAvailable === false) {
-            toast({ title: "Telefone já cadastrado", description: "Este número de telefone já está vinculado a outra conta.", variant: "destructive" });
-            setLoading(false);
-            return;
-          }
+        if (!trimmedPhone || trimmedPhone.length < 10) {
+          toast({ title: "Telefone obrigatório", description: "Informe um número de telefone válido para criar sua conta.", variant: "destructive" });
+          setLoading(false);
+          return;
+        }
+        const { data: phoneAvailable } = await supabase.rpc("check_phone_available", { _phone: trimmedPhone });
+        if (phoneAvailable === false) {
+          toast({ title: "Telefone já cadastrado", description: "Este número de telefone já está vinculado a outra conta. Cada número pode ter apenas uma conta.", variant: "destructive" });
+          setLoading(false);
+          return;
         }
         const { error } = await supabase.auth.signUp({
           email: email.trim(),
