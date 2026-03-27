@@ -10,6 +10,7 @@ import { createLogger } from "./lib/logger";
 import { Semaphore } from "./lib/concurrency";
 import { isWithinOperatingWindow, getBrtTodayAt } from "./lib/brt";
 import { backoffMinutes } from "./lib/retry";
+import { validateUazapiCredentials } from "./lib/uazapi";
 
 const log = createLogger("main");
 const sem = new Semaphore(config.maxConcurrentDevices);
@@ -53,15 +54,20 @@ interface DeviceCredentials {
   uazapi_token: string;
   uazapi_base_url: string;
   number: string | null;
-  tokenSource: "device" | "user_api_tokens" | "missing";
+  tokenSource: "device" | "user_api_tokens" | "env" | "missing";
   baseUrlSource: "device" | "env" | "missing";
   isConnected: boolean;
   hasValidCredentials: boolean;
   isEligible: boolean;
   eligibilityReason: string | null;
+  credentialValidationStatus: "valid" | "invalid" | "unknown";
+  credentialValidationReason: string | null;
+  credentialValidationHttpStatus: number | null;
 }
 
-const CONNECTED_STATUSES = ["Ready", "Connected", "authenticated", "open", "active", "online"];
+const CONNECTED_STATUSES = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"];
+const UAZAPI_VALIDATION_CACHE_TTL_MS = 5 * 60 * 1000;
+const uazapiValidationCache = new Map<string, { expiresAt: number; status: "valid" | "invalid" | "unknown"; reason: string; httpStatus: number | null }>();
 
 function cleanToken(value: unknown): string {
   return String(value || "").trim();
@@ -89,13 +95,42 @@ function summarizeDevice(device: DeviceCredentials) {
     hasBaseUrl: !!device.uazapi_base_url,
     eligible: device.isEligible,
     eligibilityReason: device.eligibilityReason,
+    credentialValidationStatus: device.credentialValidationStatus,
+    credentialValidationReason: device.credentialValidationReason,
+    credentialValidationHttpStatus: device.credentialValidationHttpStatus,
   };
+}
+
+function getValidationCacheKey(baseUrl: string, token: string) {
+  return `${cleanBaseUrl(baseUrl)}::${cleanToken(token)}`;
+}
+
+async function getCachedCredentialValidation(baseUrl: string, token: string) {
+  const key = getValidationCacheKey(baseUrl, token);
+  const now = Date.now();
+  const cached = uazapiValidationCache.get(key);
+
+  if (cached && cached.expiresAt > now) {
+    return cached;
+  }
+
+  const validation = await validateUazapiCredentials(baseUrl, token);
+  const ttl = validation.status === "invalid" ? 2 * 60 * 1000 : UAZAPI_VALIDATION_CACHE_TTL_MS;
+  const entry = {
+    status: validation.status,
+    reason: validation.reason,
+    httpStatus: validation.httpStatus,
+    expiresAt: now + ttl,
+  };
+  uazapiValidationCache.set(key, entry);
+  return entry;
 }
 
 function buildDeviceCredentials(device: any, tokenByDeviceId: Record<string, string>): DeviceCredentials {
   const directToken = cleanToken(device?.uazapi_token);
   const linkedToken = cleanToken(tokenByDeviceId[device?.id]);
-  const resolvedToken = directToken || linkedToken;
+  const envToken = cleanToken(config.defaultUazapiToken);
+  const resolvedToken = directToken || linkedToken || envToken;
   const directBaseUrl = cleanBaseUrl(device?.uazapi_base_url);
   const envBaseUrl = cleanBaseUrl(config.defaultUazapiBaseUrl);
   const resolvedBaseUrl = directBaseUrl || envBaseUrl;
@@ -116,12 +151,15 @@ function buildDeviceCredentials(device: any, tokenByDeviceId: Record<string, str
     uazapi_token: resolvedToken,
     uazapi_base_url: resolvedBaseUrl,
     number: device.number || null,
-    tokenSource: directToken ? "device" : linkedToken ? "user_api_tokens" : "missing",
+    tokenSource: directToken ? "device" : linkedToken ? "user_api_tokens" : envToken ? "env" : "missing",
     baseUrlSource: directBaseUrl ? "device" : envBaseUrl ? "env" : "missing",
     isConnected,
     hasValidCredentials,
     isEligible: isConnected && hasValidCredentials,
     eligibilityReason,
+    credentialValidationStatus: hasValidCredentials ? "unknown" : "invalid",
+    credentialValidationReason: hasValidCredentials ? null : eligibilityReason,
+    credentialValidationHttpStatus: null,
   };
 }
 
@@ -154,6 +192,20 @@ async function resolveDeviceCredentialsBatch(deviceIds: string[]): Promise<Recor
   for (const device of devicesArr || []) {
     resolved[device.id] = buildDeviceCredentials(device, tokenByDeviceId);
   }
+
+  await Promise.all(Object.values(resolved).map(async (device) => {
+    if (!device.hasValidCredentials) return;
+
+    const validation = await getCachedCredentialValidation(device.uazapi_base_url, device.uazapi_token);
+    device.credentialValidationStatus = validation.status;
+    device.credentialValidationReason = validation.reason;
+    device.credentialValidationHttpStatus = validation.httpStatus;
+
+    if (validation.status === "invalid") {
+      device.isEligible = false;
+      device.eligibilityReason = validation.reason || "invalid_api_key";
+    }
+  }));
 
   return resolved;
 }
@@ -243,6 +295,9 @@ async function warmupTick() {
   const devicesWithoutToken = resolvedDevices.filter(d => !d.uazapi_token);
   const devicesWithBaseUrl = resolvedDevices.filter(d => !!d.uazapi_base_url);
   const ineligibleDevices = resolvedDevices.filter(d => !d.isEligible);
+  const devicesWithValidatedToken = resolvedDevices.filter(d => d.credentialValidationStatus === "valid");
+  const devicesWithInvalidToken = resolvedDevices.filter(d => d.credentialValidationStatus === "invalid");
+  const devicesWithUnknownToken = resolvedDevices.filter(d => d.credentialValidationStatus === "unknown");
 
   log.info("Warmup device eligibility summary", {
     requestedDevices: uniqueDeviceIds.length,
@@ -254,8 +309,12 @@ async function warmupTick() {
     devicesWithoutToken: devicesWithoutToken.length,
     devicesWithBaseUrl: devicesWithBaseUrl.length,
     devicesWithoutBaseUrl: resolvedDevices.filter(d => !d.uazapi_base_url).length,
+    validatedTokens: devicesWithValidatedToken.length,
+    invalidTokens: devicesWithInvalidToken.length,
+    unknownTokenState: devicesWithUnknownToken.length,
     tokenFromDevice: resolvedDevices.filter(d => d.tokenSource === "device").length,
     tokenFromUserApiTokens: resolvedDevices.filter(d => d.tokenSource === "user_api_tokens").length,
+    tokenFromEnv: resolvedDevices.filter(d => d.tokenSource === "env").length,
     baseUrlFromDevice: resolvedDevices.filter(d => d.baseUrlSource === "device").length,
     baseUrlFromEnv: resolvedDevices.filter(d => d.baseUrlSource === "env").length,
   });
@@ -310,11 +369,14 @@ async function warmupTick() {
             reason: creds.eligibilityReason,
             tokenSource: creds.tokenSource,
             baseUrlSource: creds.baseUrlSource,
+            credentialValidationStatus: creds.credentialValidationStatus,
+            credentialValidationReason: creds.credentialValidationReason,
+            credentialValidationHttpStatus: creds.credentialValidationHttpStatus,
           });
           for (const job of jobsByDevice[deviceId]) {
             await db.from("warmup_jobs").update({
               status: "failed",
-              last_error: `VPS: credenciais UAZAPI ausentes (${creds.eligibilityReason || "unknown"})`,
+              last_error: `VPS: dispositivo ignorado (${creds.eligibilityReason || creds.credentialValidationReason || "invalid_credentials"})`,
             }).eq("id", job.id);
             failed++;
           }
@@ -373,6 +435,8 @@ async function warmupTick() {
                 number: creds.number,
                 tokenSource: creds.tokenSource,
                 baseUrlSource: creds.baseUrlSource,
+                credentialValidationStatus: creds.credentialValidationStatus,
+                credentialValidationReason: creds.credentialValidationReason,
               });
               throw new Error(`Edge function returned ${res.status}: ${text.substring(0, 200)}`);
             }
@@ -468,7 +532,7 @@ async function campaignTick() {
     try {
       await fetch(`${config.supabaseUrl}/functions/v1/process-campaign`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.supabaseAnonKey}` },
+        headers: { "Content-Type": "application/json", apikey: config.supabaseAnonKey, Authorization: `Bearer ${config.supabaseAnonKey}` },
         body: JSON.stringify({ action: "continue", campaignId: stuck.id, deviceId: stuck.device_id || undefined }),
       });
       log.info(`Watchdog restarted stuck campaign ${stuck.id}`);
@@ -495,7 +559,7 @@ async function campaignTick() {
     try {
       await fetch(`${config.supabaseUrl}/functions/v1/process-campaign`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.supabaseAnonKey}` },
+        headers: { "Content-Type": "application/json", apikey: config.supabaseAnonKey, Authorization: `Bearer ${config.supabaseAnonKey}` },
         body: JSON.stringify({ action: "continue", campaignId: campaign.id, deviceId: campaign.device_id || undefined }),
       });
       log.info(`Triggered scheduled campaign ${campaign.id}`);
@@ -517,7 +581,7 @@ async function campaignTick() {
     try {
       await fetch(`${config.supabaseUrl}/functions/v1/group-interaction`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.supabaseAnonKey}` },
+        headers: { "Content-Type": "application/json", apikey: config.supabaseAnonKey, Authorization: `Bearer ${config.supabaseAnonKey}` },
         body: JSON.stringify({ action: "tick", interactionId: interaction.id, scheduled_for: interaction.next_action_at }),
       });
     } catch (err: any) {
