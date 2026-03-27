@@ -70,9 +70,6 @@ const menuGroups = [
       { title: "Enviar Mensagem", url: "/dashboard/campaigns", icon: Send },
       { title: "Campanhas", url: "/dashboard/campaign-list", icon: Megaphone, badgeKey: "activeCampaigns" as const },
       { title: "Template", url: "/dashboard/templates", icon: FileText },
-      { title: "Meus Contatos", url: "/dashboard/contacts", icon: BookUser },
-      { title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn },
-      { title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus },
     ],
   },
 ];
@@ -429,13 +426,31 @@ export function AppSidebar() {
               
               {renderNavItem({ title: "Conversa entre Chips", url: "/dashboard/chip-conversation", icon: ArrowRightLeft })}
               {renderNavItem({ title: "Interação de Grupos", url: "/dashboard/group-interaction", icon: UsersRound })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* ── Ferramentas section ── */}
+        <SidebarGroup className="py-0 mt-1">
+          {!collapsed && (
+            <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
+              Ferramentas
+            </SidebarGroupLabel>
+          )}
+          {collapsed && (
+            <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />
+          )}
+          <SidebarGroupContent>
+            <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+              {renderNavItem({ title: "Meus Contatos", url: "/dashboard/contacts", icon: BookUser })}
+              {renderNavItem({ title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn })}
+              {renderNavItem({ title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus })}
               {renderNavItem({ title: "Grupos", url: "/dashboard/groups", icon: UsersRound })}
               {renderNavItem({ title: "Auto Save", url: "/dashboard/autosave", icon: SaveAll })}
               {renderNavItem({ title: "Relatório Via WhatsApp", url: "/dashboard/reports/whatsapp", icon: ScrollText })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
 
         {/* ── Suporte section ── */}
         <SidebarGroup className="py-0 mt-1">
