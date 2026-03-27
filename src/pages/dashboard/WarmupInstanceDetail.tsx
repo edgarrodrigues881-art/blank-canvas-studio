@@ -1468,10 +1468,17 @@ const WarmupInstanceDetail = () => {
             };
 
             if (displayJobs.length === 0 && futureJobs.length === 0 && !advancingPhase) {
+              const calcDay = cycle?.day_index ?? 1;
+              const calcTotal = cycle?.days_total ?? 30;
               return (
-                <div className="rounded-2xl border border-border/15 bg-card/50 backdrop-blur-xl p-6 flex items-center justify-center gap-3">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  <p className="text-sm text-muted-foreground">Calculando ciclo de aquecimento…</p>
+                <div className="rounded-2xl border border-border/15 bg-card/50 backdrop-blur-xl p-6 flex flex-col items-center justify-center gap-2">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">Calculando ciclo de aquecimento…</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground/70">
+                    Dia <span className="font-bold text-foreground">{calcDay}</span> de <span className="font-bold text-foreground">{calcTotal}</span> — Em andamento
+                  </p>
                 </div>
               );
             }
@@ -1611,7 +1618,7 @@ const WarmupInstanceDetail = () => {
                       <div className="mb-4">
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-[11px] font-semibold text-foreground">Total</span>
-                          <span className="text-sm font-extrabold text-foreground tabular-nums">{doneToday}<span className="text-muted-foreground font-medium">/{totalDisplay}</span></span>
+                          <span className="text-sm font-extrabold text-foreground tabular-nums">{doneToday}</span>
                         </div>
                         <div className="h-2.5 bg-muted/15 rounded-full overflow-hidden">
                           <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-primary to-emerald-400 transition-all duration-500 shadow-[0_0_12px_hsl(142_71%_45%/0.35)]" style={{ width: `${todayPercent}%` }} />
