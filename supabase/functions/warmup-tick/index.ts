@@ -1696,7 +1696,21 @@ async function handleTick(
   db: any,
   shardIndex = 0,
   shardTotal = 1,
-  options: { cycle_id?: string; device_id?: string; job_id?: string } = {},
+  options: {
+    cycle_id?: string;
+    device_id?: string;
+    job_id?: string;
+    _vps_device?: {
+      id?: string;
+      name?: string | null;
+      status?: string;
+      number?: string | null;
+      uazapi_token?: string;
+      uazapi_base_url?: string;
+      token_source?: string;
+      base_url_source?: string;
+    };
+  } = {},
 ) {
   const now = new Date().toISOString();
   const withinWindow = isWithinOperatingWindow();
@@ -2278,6 +2292,19 @@ async function handleTick(
   profilesArr.forEach((p: any) => { profilesMap[p.id] = p; });
   const devicesMap: Record<string, any> = {};
   devicesArr.forEach((d: any) => { devicesMap[d.id] = d; });
+  const injectedDevice = options?._vps_device && typeof options._vps_device === "object" ? options._vps_device : null;
+  if (injectedDevice?.id) {
+    devicesMap[injectedDevice.id] = {
+      ...(devicesMap[injectedDevice.id] || {}),
+      id: injectedDevice.id,
+      name: injectedDevice.name ?? devicesMap[injectedDevice.id]?.name ?? null,
+      status: injectedDevice.status ?? devicesMap[injectedDevice.id]?.status ?? "unknown",
+      number: injectedDevice.number ?? devicesMap[injectedDevice.id]?.number ?? null,
+      uazapi_token: String(injectedDevice.uazapi_token || devicesMap[injectedDevice.id]?.uazapi_token || "").trim(),
+      uazapi_base_url: String(injectedDevice.uazapi_base_url || devicesMap[injectedDevice.id]?.uazapi_base_url || "").trim().replace(/\/+$/, ""),
+    };
+    console.log(`[warmup-tick] Injected credentials for ${String(injectedDevice.id).substring(0, 8)} token=${devicesMap[injectedDevice.id]?.uazapi_token ? "yes" : "no"} baseUrl=${devicesMap[injectedDevice.id]?.uazapi_base_url ? "yes" : "no"} source=${injectedDevice.token_source || "unknown"}/${injectedDevice.base_url_source || "unknown"}`);
+  }
   const userMsgsMap: Record<string, string[]> = {};
   userMsgsArr.forEach((m: any) => {
     if (!userMsgsMap[m.user_id]) userMsgsMap[m.user_id] = [];
