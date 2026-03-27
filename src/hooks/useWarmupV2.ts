@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useEffect, useRef } from "react";
 
 // ── Types ──
 export interface WarmupCycle {
@@ -131,6 +132,32 @@ export function useWarmupCycles() {
     refetchInterval: 120_000,
     staleTime: 60_000,
   });
+}
+
+// ── Realtime for cycle counters (lightweight: only invalidates on UPDATE) ──
+export function useWarmupCyclesRealtime() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const lastInvalidateRef = useRef(0);
+
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("warmup-cycles-rt")
+      .on(
+        "postgres_changes" as any,
+        { event: "UPDATE", schema: "public", table: "warmup_cycles", filter: `user_id=eq.${user.id}` },
+        () => {
+          // Throttle: max 1 invalidation per 10s to avoid flooding
+          const now = Date.now();
+          if (now - lastInvalidateRef.current < 10_000) return;
+          lastInvalidateRef.current = now;
+          qc.invalidateQueries({ queryKey: ["warmup_cycles", user.id] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, qc]);
 }
 
 export function useDeviceCycle(deviceId: string) {
