@@ -503,7 +503,7 @@ const GroupCapture = () => {
           {isLoading ? (
             <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground/30" /></div>
           ) : (
-            <GroupList groups={customGroups} isCustom={true} onDelete={handleDeleteGroup} />
+            <GroupList groups={customGroups} isCustom={true} onDelete={handleDeleteGroup} onToggleWarmup={handleToggleWarmup} />
           )}
         </TabsContent>
 
