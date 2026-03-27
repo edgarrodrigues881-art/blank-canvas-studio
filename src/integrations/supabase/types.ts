@@ -2501,6 +2501,7 @@ export type Database = {
           notificacao_liberada: boolean
           phone: string | null
           risk_flag: boolean
+          signup_ip: string | null
           status: string
           updated_at: string
           whatsapp_monitor_token: string | null
@@ -2518,6 +2519,7 @@ export type Database = {
           notificacao_liberada?: boolean
           phone?: string | null
           risk_flag?: boolean
+          signup_ip?: string | null
           status?: string
           updated_at?: string
           whatsapp_monitor_token?: string | null
@@ -2535,6 +2537,7 @@ export type Database = {
           notificacao_liberada?: boolean
           phone?: string | null
           risk_flag?: boolean
+          signup_ip?: string | null
           status?: string
           updated_at?: string
           whatsapp_monitor_token?: string | null
@@ -3828,6 +3831,7 @@ export type Database = {
           notificacao_liberada: boolean
           phone: string | null
           risk_flag: boolean
+          signup_ip: string | null
           status: string
           updated_at: string
           whatsapp_monitor_token: string | null
