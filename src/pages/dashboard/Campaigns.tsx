@@ -444,11 +444,32 @@ const Campaigns = () => {
   const allTags = useMemo(() => Array.from(new Set(savedContacts.flatMap(c => c.tags || []))), [savedContacts]);
   const connectedDevices = useMemo(() => {
     return devices
-      .filter(d => ["Connected", "Ready", "authenticated"].includes(d.status))
+      .filter(d => ["Connected", "Ready", "authenticated", "connected", "open", "online", "active"].includes(d.status?.toLowerCase?.() ?? ""))
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [devices]);
   const selectedDevicesData = devices.filter(d => selectedDevices.includes(d.id));
   const selectedDeviceData = selectedDevicesData[0];
+
+  // Auto-remove disconnected devices from selection
+  useEffect(() => {
+    if (selectedDevices.length === 0 || connectedDevices.length === 0) return;
+    const connectedIds = new Set(connectedDevices.map(d => d.id));
+    const stillConnected = selectedDevices.filter(id => connectedIds.has(id));
+    if (stillConnected.length < selectedDevices.length) {
+      const removed = selectedDevices
+        .filter(id => !connectedIds.has(id))
+        .map(id => devices.find(d => d.id === id)?.name || "Desconhecida");
+      setSelectedDevices(stillConnected);
+      if (removed.length > 0) {
+        toast({
+          title: "Instância removida",
+          description: `${removed.join(", ")} removida por estar desconectada.`,
+          variant: "destructive",
+        });
+      }
+    }
+  }, [connectedDevices]);
+
   const validContacts = useMemo(() => contacts.filter(c => c.numero.trim()), [contacts]);
   const invalidContacts = useMemo(() => contacts.filter(c => c.numero.trim() && !/^\d{10,15}$/.test(c.numero.replace(/\D/g, ""))), [contacts]);
   const duplicateCount = useMemo(() => contacts.length - new Set(contacts.map(c => c.numero.trim()).filter(Boolean)).size, [contacts]);
@@ -539,16 +560,33 @@ const Campaigns = () => {
       return;
     }
 
-    const validDeviceIds = selectedDevices.filter(id => devices.some(d => d.id === id));
-    if (validDeviceIds.length === 0) {
-      setSelectedDevices([]);
-      toast({ title: "Dispositivo não encontrado", description: "O dispositivo selecionado foi removido. Selecione outro na aba Configurações.", variant: "destructive" });
-      return;
+    const connectedStatuses = new Set(["connected", "ready", "authenticated", "open", "online", "active"]);
+    const isDeviceOnline = (d: any) => connectedStatuses.has((d.status || "").toLowerCase());
+
+    const validDeviceIds: string[] = [];
+    const removedDeviceNames: string[] = [];
+    for (const devId of selectedDevices) {
+      const dev = devices.find(d => d.id === devId);
+      if (!dev) continue;
+      if (isDeviceOnline(dev)) {
+        validDeviceIds.push(devId);
+      } else {
+        removedDeviceNames.push(dev.name);
+      }
     }
 
-    const selectedDev = devices.find(d => d.id === validDeviceIds[0]);
-    if (selectedDev && selectedDev.status !== "Ready") {
-      toast({ title: "Instância offline", description: `"${selectedDev.name}" está desconectada. Reconecte antes de disparar.`, variant: "destructive" });
+    if (removedDeviceNames.length > 0) {
+      setSelectedDevices(validDeviceIds);
+      toast({
+        title: "Instâncias removidas",
+        description: `${removedDeviceNames.join(", ")} removida${removedDeviceNames.length > 1 ? "s" : ""} por estar${removedDeviceNames.length > 1 ? "em" : ""} desconectada${removedDeviceNames.length > 1 ? "s" : ""}.`,
+        variant: "destructive",
+      });
+    }
+
+    if (validDeviceIds.length === 0) {
+      setSelectedDevices([]);
+      toast({ title: "Nenhuma instância online", description: "Todas as instâncias selecionadas estão desconectadas. Selecione outra.", variant: "destructive" });
       return;
     }
     if (validContacts.length === 0) { toast({ title: "Sem contatos", description: "Adicione pelo menos um contato.", variant: "destructive" }); return; }
@@ -999,7 +1037,8 @@ const Campaigns = () => {
 
 
   const getDeviceStatus = (status: string) => {
-    if (status === "Ready") return { label: "Online", icon: Wifi, color: "text-emerald-400" };
+    const s = (status || "").toLowerCase();
+    if (["ready", "connected", "authenticated", "open", "online", "active"].includes(s)) return { label: "Online", icon: Wifi, color: "text-emerald-400" };
     if (status === "QR") return { label: "QR Pendente", icon: RefreshCw, color: "text-amber-400" };
     return { label: "Offline", icon: WifiOff, color: "text-red-400" };
   };
