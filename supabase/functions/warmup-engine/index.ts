@@ -442,57 +442,66 @@ async function scheduleDayJobs(
     }
   }
 
-  // ── AUTOSAVE INTERACTIONS (scaled to window) ──
+  // ── AUTOSAVE INTERACTIONS (spread evenly across FULL window) ──
   const scaledAutosaveContacts = Math.max(1, Math.floor(volumes.autosaveContacts * windowRatio));
   const scaledAutosaveRounds = volumes.autosaveRounds;
   
   if (scaledAutosaveContacts > 0 && scaledAutosaveRounds > 0) {
-    const asStartOffset = randInt(
-      Math.floor(windowMs * 0.1),
-      Math.floor(windowMs * 0.3)
-    );
-    let cursor = effectiveStart + asStartOffset;
+    const totalAutosaveJobs = scaledAutosaveContacts * scaledAutosaveRounds;
+    // Reserve 15% margins at start and end of window
+    const asWindowStart = effectiveStart + Math.floor(windowMs * 0.10);
+    const asWindowEnd = effectiveEnd - Math.floor(windowMs * 0.05);
+    const asWindowMs = asWindowEnd - asWindowStart;
+    const asSpacing = Math.floor(asWindowMs / Math.max(totalAutosaveJobs, 1));
 
+    let asIdx = 0;
     for (let c = 0; c < scaledAutosaveContacts; c++) {
       for (let r = 0; r < scaledAutosaveRounds; r++) {
-        if (cursor > effectiveEnd - 60000) break;
+        const baseTime = asWindowStart + asSpacing * asIdx;
+        const jitter = randInt(-Math.floor(asSpacing * 0.15), Math.floor(asSpacing * 0.15));
+        const runAt = Math.min(Math.max(baseTime + jitter, effectiveStart + 60000), effectiveEnd - 60000);
         jobs.push({
           user_id: userId, device_id: deviceId, cycle_id: cycleId,
           job_type: "autosave_interaction",
           payload: { recipient_index: c, msg_index: r },
-          run_at: new Date(cursor).toISOString(), status: "pending",
+          run_at: new Date(runAt).toISOString(), status: "pending",
         });
-        cursor += randInt(4, 7) * 60 * 1000;
+        asIdx++;
       }
-      cursor += randInt(5, 10) * 60 * 1000;
     }
-    console.log(`[scheduleDayJobs] Autosave: ${volumes.autosaveContacts} → ${scaledAutosaveContacts} contacts`);
+    console.log(`[scheduleDayJobs] Autosave: ${scaledAutosaveContacts} contacts × ${scaledAutosaveRounds} rounds = ${totalAutosaveJobs} jobs, spacing ~${Math.round(asSpacing / 60000)}min`);
   }
 
-  // ── COMMUNITY BURSTS (each job = 3-7 msgs, spaced across window) ──
+  // ── COMMUNITY BURSTS (spread evenly across FULL window) ──
   if (volumes.communityPeers > 0 && volumes.communityMsgsPerPeer > 0) {
+    const totalCommunityJobs = volumes.communityPeers * volumes.communityMsgsPerPeer;
+    // Reserve 10% margins at start and end
+    const cmWindowStart = effectiveStart + Math.floor(windowMs * 0.08);
+    const cmWindowEnd = effectiveEnd - Math.floor(windowMs * 0.05);
+    const cmWindowMs = cmWindowEnd - cmWindowStart;
+    const cmSpacing = Math.floor(cmWindowMs / Math.max(totalCommunityJobs, 1));
+    // Ensure minimum 15 min spacing
+    const safeCmSpacing = Math.max(cmSpacing, 15 * 60 * 1000);
+
+    let cmIdx = 0;
     for (let p = 0; p < volumes.communityPeers; p++) {
-      const convStartOffset = randInt(5, 20) * 60 * 1000 + p * randInt(5, 15) * 60 * 1000;
-      let cursor = effectiveStart + convStartOffset;
+      for (let m = 0; m < volumes.communityMsgsPerPeer; m++) {
+        const baseTime = cmWindowStart + safeCmSpacing * cmIdx;
+        if (baseTime > effectiveEnd - 5 * 60 * 1000) break;
 
-      const burstsForPeer = volumes.communityMsgsPerPeer;
-      const remainingWindow = effectiveEnd - cursor;
-      const baseSpacing = Math.floor(remainingWindow / Math.max(burstsForPeer, 1));
-
-      for (let m = 0; m < burstsForPeer; m++) {
-        if (cursor > effectiveEnd - 5 * 60 * 1000) break;
+        const jitter = randInt(-Math.floor(safeCmSpacing * 0.15), Math.floor(safeCmSpacing * 0.15));
+        const runAt = Math.min(Math.max(baseTime + jitter, effectiveStart + 60000), effectiveEnd - 5 * 60 * 1000);
 
         jobs.push({
           user_id: userId, device_id: deviceId, cycle_id: cycleId,
           job_type: "community_interaction",
           payload: { peer_index: p, burst_index: m },
-          run_at: new Date(cursor).toISOString(), status: "pending",
+          run_at: new Date(runAt).toISOString(), status: "pending",
         });
-
-        const jitter = randInt(-Math.floor(baseSpacing * 0.2), Math.floor(baseSpacing * 0.2));
-        cursor += Math.max(baseSpacing + jitter, 15 * 60 * 1000);
+        cmIdx++;
       }
     }
+    console.log(`[scheduleDayJobs] Community: ${volumes.communityPeers} peers × ${volumes.communityMsgsPerPeer} bursts = ${totalCommunityJobs} jobs, spacing ~${Math.round(safeCmSpacing / 60000)}min`);
   }
 
   let jobsToInsert = jobs;
