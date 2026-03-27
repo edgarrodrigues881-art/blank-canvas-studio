@@ -816,6 +816,27 @@ const WarmupInstances = () => {
 
   const { data: cycles = [], isLoading: cyclesLoading } = useWarmupCycles();
   useWarmupCyclesRealtime(); // Live counter updates via Supabase Realtime
+
+  // Fetch accurate daily stats (trigger-based, counts only successful sends)
+  const todayBrt = getBrtDateKey(new Date());
+  const { data: dailyStatsMap = {} } = useQuery({
+    queryKey: ["warmup_daily_stats_today", user?.id, todayBrt],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("warmup_daily_stats" as any)
+        .select("device_id, messages_sent")
+        .eq("user_id", user!.id)
+        .eq("stat_date", todayBrt);
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      for (const row of (data || [])) map[(row as any).device_id] = (row as any).messages_sent ?? 0;
+      return map;
+    },
+    enabled: !!user,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+
   const isLoading = devicesLoading || cyclesLoading;
 
   // Proxies
