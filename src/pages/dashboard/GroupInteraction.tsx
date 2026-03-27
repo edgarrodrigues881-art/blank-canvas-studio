@@ -450,7 +450,7 @@ export default function GroupInteractionPage() {
                     <Button
                       size="sm"
                       onClick={() => handleAction("start")}
-                      disabled={selected?.status === "running"}
+                      disabled={selected?.status === "running" || invokeAction.isPending}
                       className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
                     >
                       <Play className="w-3.5 h-3.5" /> Iniciar
@@ -459,7 +459,7 @@ export default function GroupInteractionPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleAction("pause")}
-                      disabled={selected?.status !== "running"}
+                      disabled={selected?.status !== "running" || invokeAction.isPending}
                       className="gap-1.5"
                     >
                       <Pause className="w-3.5 h-3.5" /> Pausar
@@ -468,7 +468,7 @@ export default function GroupInteractionPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleAction(selected?.status === "paused" ? "start" : "stop")}
-                      disabled={selected?.status === "idle"}
+                      disabled={selected?.status === "idle" || invokeAction.isPending}
                       className="gap-1.5"
                     >
                       {selected?.status === "paused" ? (

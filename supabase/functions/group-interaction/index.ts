@@ -80,8 +80,15 @@ Deno.serve(async (req) => {
     const { action, interactionId } = body;
 
     if (action === "start") {
+      const { data: current } = await admin.from("group_interactions")
+        .select("status").eq("id", interactionId).eq("user_id", user.id).single();
+      if (!current) return new Response(JSON.stringify({ error: "Automação não encontrada" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+      if (current.status === "running") return jsonOk({ ok: true, status: "running" });
+
       const { error } = await admin.from("group_interactions")
-        .update({ status: "running", started_at: new Date().toISOString(), last_error: null })
+        .update({ status: "running", started_at: new Date().toISOString(), completed_at: null, last_error: null })
         .eq("id", interactionId).eq("user_id", user.id);
       if (error) throw error;
       EdgeRuntime.waitUntil(processInteraction(admin, interactionId, user.id));

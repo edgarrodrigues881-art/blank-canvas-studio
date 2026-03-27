@@ -144,6 +144,7 @@ export function useGroupInteraction() {
         body: { interactionId, action },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       return data;
     },
     onSuccess: (_, vars) => {
