@@ -6,6 +6,7 @@ export const config = {
   supabaseUrl: process.env.SUPABASE_URL || "",
   supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
+  defaultUazapiToken: process.env.UAZAPI_TOKEN || "",
   defaultUazapiBaseUrl: (process.env.UAZAPI_BASE_URL || "").replace(/\/+$/, ""),
 
   port: Number(process.env.PORT) || 3500,

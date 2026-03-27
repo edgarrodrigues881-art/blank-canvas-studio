@@ -1217,7 +1217,7 @@ function pickMediaTypeCommunity(budgetUsed: number): "text" | "image" | "audio" 
 // ══════════════════════════════════════════════════════════
 // CONNECTED STATUS
 // ══════════════════════════════════════════════════════════
-const CONNECTED_STATUSES = ["Ready", "Connected", "authenticated"];
+const CONNECTED_STATUSES = ["Ready", "Connected", "connected", "authenticated", "open", "active"];
 const INTERACTION_JOB_TYPES = ["group_interaction", "autosave_interaction", "community_interaction"];
 
 // Max active pairs a device can participate in (as A or B)
@@ -2431,11 +2431,21 @@ async function handleTick(
     }
 
     const baseUrl = String(device.uazapi_base_url || Deno.env.get("UAZAPI_BASE_URL") || "").trim().replace(/\/+$/, "");
-    const token = String(device.uazapi_token || tokenMap[job.device_id] || "").trim();
+    const token = String(device.uazapi_token || tokenMap[job.device_id] || Deno.env.get("UAZAPI_TOKEN") || "").trim();
+    const tokenSource = device.uazapi_token
+      ? "device"
+      : tokenMap[job.device_id]
+        ? "user_api_tokens"
+        : Deno.env.get("UAZAPI_TOKEN")
+          ? "env"
+          : "missing";
+    const baseUrlSource = device.uazapi_base_url ? "device" : Deno.env.get("UAZAPI_BASE_URL") ? "env" : "missing";
     const chipState = cycle.chip_state || "new";
 
     if (!token || !baseUrl) {
-      console.warn(`[warmup-tick] Missing UAZAPI credentials for device ${job.device_id.substring(0, 8)} token=${token ? "yes" : "no"} baseUrl=${baseUrl ? "yes" : "no"}`);
+      console.warn(`[warmup-tick] Missing UAZAPI credentials for device ${job.device_id.substring(0, 8)} token=${token ? "yes" : "no"} baseUrl=${baseUrl ? "yes" : "no"} tokenSource=${tokenSource} baseUrlSource=${baseUrlSource}`);
+      await db.from("warmup_jobs").update({ status: "failed", last_error: `Credenciais UAZAPI ausentes (token:${tokenSource} base:${baseUrlSource})` }).eq("id", job.id);
+      return false;
     }
 
     // Budget check for interaction jobs — fresh DB read to prevent race conditions between concurrent ticks
