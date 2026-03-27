@@ -1467,7 +1467,18 @@ const WarmupInstanceDetail = () => {
               return <Clock className="w-3.5 h-3.5 text-muted-foreground/50" />;
             };
 
-            if (displayJobs.length === 0 && futureJobs.length === 0 && !advancingPhase) {
+            const brtTimeParts = new Intl.DateTimeFormat("en-US", {
+              timeZone: "America/Sao_Paulo",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            }).formatToParts(nowUtc);
+            const nowBrtHour = Number(brtTimeParts.find((part) => part.type === "hour")?.value ?? "0");
+            const nowBrtMinute = Number(brtTimeParts.find((part) => part.type === "minute")?.value ?? "0");
+            const nowBrtTotalMinutes = nowBrtHour * 60 + nowBrtMinute;
+            const showWarmupCalculatingState = nowBrtTotalMinutes <= (6 * 60 + 45);
+
+            if (displayJobs.length === 0 && futureJobs.length === 0 && !advancingPhase && showWarmupCalculatingState) {
               const calcDay = cycle?.day_index ?? 1;
               const calcTotal = cycle?.days_total ?? 30;
               return (
@@ -1544,7 +1555,6 @@ const WarmupInstanceDetail = () => {
 
             const cyclePercent = Math.round((cycle!.day_index / cycle!.days_total) * 100);
             // After 19:00 BRT the warmup window is closed — show 100%
-            const nowBrtHour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false }).format(nowUtc));
             const windowClosed = nowBrtHour >= 19;
             const todayPercent = windowClosed ? 100 : Math.min(100, totalDisplay > 0 ? Math.round(((doneToday + failedToday) / totalDisplay) * 100) : 0);
 
@@ -1600,7 +1610,7 @@ const WarmupInstanceDetail = () => {
                         Fase de proteção. Entrada nos grupos começa em 4-6 horas.
                       </p>
                     </div>
-                  ) : doneToday === 0 && failedToday === 0 && (nowBrtHour < 7 || windowClosed) ? (
+                  ) : doneToday === 0 && failedToday === 0 && showWarmupCalculatingState ? (
                     <div className="flex flex-col items-center justify-center gap-2 py-6">
                       <div className="flex items-center gap-3">
                         <Loader2 className="w-4 h-4 animate-spin text-primary" />
