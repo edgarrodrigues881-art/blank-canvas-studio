@@ -935,10 +935,16 @@ const CampaignDetail = () => {
                             </Tooltip>
                           ) : <span className="text-muted-foreground/20">—</span>}
                         </TableCell>
-                        <TableCell className="text-[10px] text-muted-foreground/60 py-2.5 font-mono tracking-tight">
+                        <TableCell className="text-[10px] text-muted-foreground/60 py-2.5">
                           {(() => {
                             const dev = (c as any).device_id ? devices.find(d => d.id === (c as any).device_id) : null;
-                            if (dev) return dev.number ? formatPhoneDisplay(dev.number) : dev.name;
+                            if (dev) return (
+                              <span className="flex items-center gap-1">
+                                <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", dev.status && ["connected", "Ready", "Connected", "authenticated", "open", "active"].includes(dev.status) ? "bg-primary" : "bg-muted-foreground/40")} />
+                                <span className="font-medium text-foreground/70">{dev.name}</span>
+                                {dev.number && <span className="text-muted-foreground/40 ml-0.5">({formatPhoneDisplay(dev.number).slice(-9)})</span>}
+                              </span>
+                            );
                             return <span className="text-muted-foreground/20">—</span>;
                           })()}
                         </TableCell>
