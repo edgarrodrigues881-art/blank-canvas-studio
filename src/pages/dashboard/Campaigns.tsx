@@ -394,7 +394,8 @@ const Campaigns = () => {
           }
           if (draft.contentType) setContentType(draft.contentType);
           if (draft.carouselCards?.length) setCarouselCards(draft.carouselCards);
-          if (draft.carouselMessage) setCarouselMessage(draft.carouselMessage);
+          if (draft.carouselMessages?.length) setCarouselMessages(draft.carouselMessages);
+          else if (draft.carouselMessage) setCarouselMessages([draft.carouselMessage, "", "", "", ""]);
         }
       } catch { /* ignore corrupt data */ }
 
@@ -442,10 +443,10 @@ const Campaigns = () => {
       campaignName, messages, rotationMode, messageType, mediaUrl, contacts,
       buttons, selectedDevices, messagesPerInstance, sendMode,
       minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax,
-      scheduleEnabled, scheduleDate, contentType, carouselCards, carouselMessage,
+      scheduleEnabled, scheduleDate, contentType, carouselCards, carouselMessages,
     };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  }, [draftLoaded, campaignName, messages, rotationMode, messageType, mediaUrl, contacts, buttons, selectedDevices, messagesPerInstance, sendMode, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, scheduleEnabled, scheduleDate, contentType, carouselCards, carouselMessage]);
+  }, [draftLoaded, campaignName, messages, rotationMode, messageType, mediaUrl, contacts, buttons, selectedDevices, messagesPerInstance, sendMode, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, scheduleEnabled, scheduleDate, contentType, carouselCards, carouselMessages]);
 
   const clearStep1 = () => {
     setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName("");
