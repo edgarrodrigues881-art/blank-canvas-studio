@@ -110,10 +110,22 @@ export function CarouselPreview({ cards, message, previewMode = "received" }: Ca
         className="flex-1 min-h-0 overflow-y-auto flex flex-col justify-end p-3 gap-2"
         style={{ backgroundColor: palette.chatBg }}
       >
-        {!hasCards ? (
+        {!hasCards && !message?.trim() ? (
           <div className="flex-1 flex items-center justify-center">
             <p className={cn("text-[13px] italic text-center", palette.metaText)}>
-              Adicione cards para<br />visualizar o carrossel
+              Digite a legenda para<br />visualizar o preview
+            </p>
+          </div>
+        ) : !hasCards ? (
+          <div className={cn("flex flex-col gap-1", isSent ? "items-end" : "items-start")}>
+            {message?.trim() && (
+              <div className={cn("max-w-[85%] rounded-lg px-3 py-2", isSent ? palette.sentBubble : palette.receivedBubble, palette.cardShadow)}>
+                <p className={cn("text-[13px] leading-snug whitespace-pre-wrap", isSent ? palette.sentText : palette.receivedText)}>{message}</p>
+                <p className={cn("text-[10px] mt-1 text-right", palette.metaText)}>agora</p>
+              </div>
+            )}
+            <p className={cn("text-[11px] italic text-center mt-2", palette.metaText)}>
+              Adicione cards ao carrossel
             </p>
           </div>
         ) : (

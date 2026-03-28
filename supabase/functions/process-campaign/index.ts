@@ -125,13 +125,18 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
     throw new Error("Carrossel sem cards configurados.");
   }
 
-  // Respect the user's message — if they cleared it, don't include text field
+  // Caption is required by WhatsApp carousel API
   const primaryText = typeof body === "string" && body.trim()
     ? body.trim()
     : null;
 
+  if (!primaryText) {
+    throw new Error("Carrossel exige uma legenda (mensagem principal).");
+  }
+
   const structuredCarouselPayload: Record<string, unknown> = {
     number: phone,
+    text: primaryText,
     carousel: normalizedCards.map((card) => ({
       text: (card.text || "").trim(),
       ...(card.mediaUrl?.trim() ? { image: card.mediaUrl.trim() } : {}),
@@ -140,11 +145,6 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
         .filter((button): button is { id: string; text: string; type: string } => Boolean(button)),
     })),
   };
-
-  // Only include text field if user provided a message
-  if (primaryText) {
-    structuredCarouselPayload.text = primaryText;
-  }
 
   const menuChoices = normalizedCards.flatMap((card, index) => {
     const title = (card.text || "").trim() || `Card ${index + 1}`;
@@ -186,11 +186,9 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
     const menuPayload: Record<string, unknown> = {
       number: phone,
       type: hasUrlButtons ? "list" : "carousel",
+      text: primaryText,
       choices: menuChoices,
     };
-    if (primaryText) {
-      menuPayload.text = primaryText;
-    }
     const menuResponse = await uazapiRequest(baseUrl, token, "/send/menu", menuPayload);
     console.log(JSON.stringify({ event: "carousel_send_success", origin: "campaign", strategy: "menu_fallback", hasUrlButtons }));
     return menuResponse;
