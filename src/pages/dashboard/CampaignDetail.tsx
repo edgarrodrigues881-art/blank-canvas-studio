@@ -125,7 +125,33 @@ const CampaignDetail = () => {
   const createTemplate = useCreateTemplate();
   const createCarouselTemplate = useCreateCarouselTemplate();
 
-  const { data: campaign, isLoading: campLoading } = useQuery({
+  const handleSaveTemplate = () => {
+    if (!campaign || !saveTemplateName.trim()) return;
+    const isCarousel = campaign.message_type === "carousel";
+    if (isCarousel) {
+      const carouselCards = Array.isArray(campaign.carousel_cards) ? campaign.carousel_cards : [];
+      createCarouselTemplate.mutate({
+        name: saveTemplateName.trim(),
+        message: campaign.message_content || "",
+        cards: carouselCards as any[],
+      }, {
+        onSuccess: () => { toast({ title: "Template salvo!", description: `"${saveTemplateName.trim()}" salvo em Template Carrossel.` }); setSaveTemplateOpen(false); setSaveTemplateName(""); },
+        onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+      });
+    } else {
+      createTemplate.mutate({
+        name: saveTemplateName.trim(),
+        content: campaign.message_content || "",
+        type: campaign.message_type || "texto",
+        media_url: campaign.media_url || undefined,
+        buttons: Array.isArray(campaign.buttons) ? campaign.buttons as any[] : [],
+      }, {
+        onSuccess: () => { toast({ title: "Template salvo!", description: `"${saveTemplateName.trim()}" salvo em Templates.` }); setSaveTemplateOpen(false); setSaveTemplateName(""); },
+        onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+      });
+    }
+  };
+
     queryKey: ["campaign", id],
     queryFn: async () => {
       const { data, error } = await supabase
