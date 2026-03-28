@@ -22,6 +22,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateTemplate } from "@/hooks/useTemplates";
+import { useCreateCarouselTemplate } from "@/hooks/useCarouselTemplates";
+import { serializeCarouselCards } from "@/components/campaigns/carousel-types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -121,13 +123,41 @@ const CampaignDetail = () => {
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [saveTemplateName, setSaveTemplateName] = useState("");
   const createTemplate = useCreateTemplate();
+  const createCarouselTemplate = useCreateCarouselTemplate();
+
+  const handleSaveTemplate = () => {
+    if (!campaign || !saveTemplateName.trim()) return;
+    const isCarousel = campaign.message_type === "carousel";
+    if (isCarousel) {
+      const carouselCards = Array.isArray(campaign.carousel_cards) ? campaign.carousel_cards : [];
+      createCarouselTemplate.mutate({
+        name: saveTemplateName.trim(),
+        message: campaign.message_content || "",
+        cards: carouselCards as any[],
+      }, {
+        onSuccess: () => { toast({ title: "Template salvo!", description: `"${saveTemplateName.trim()}" salvo em Template Carrossel.` }); setSaveTemplateOpen(false); setSaveTemplateName(""); },
+        onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+      });
+    } else {
+      createTemplate.mutate({
+        name: saveTemplateName.trim(),
+        content: campaign.message_content || "",
+        type: campaign.message_type || "texto",
+        media_url: campaign.media_url || undefined,
+        buttons: Array.isArray(campaign.buttons) ? campaign.buttons as any[] : [],
+      }, {
+        onSuccess: () => { toast({ title: "Template salvo!", description: `"${saveTemplateName.trim()}" salvo em Templates.` }); setSaveTemplateOpen(false); setSaveTemplateName(""); },
+        onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+      });
+    }
+  };
 
   const { data: campaign, isLoading: campLoading } = useQuery({
     queryKey: ["campaign", id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("campaigns")
-        .select("id, name, status, message_type, message_content, media_url, buttons, device_id, device_ids, total_contacts, sent_count, delivered_count, failed_count, min_delay_seconds, max_delay_seconds, pause_every_min, pause_every_max, pause_duration_min, pause_duration_max, messages_per_instance, scheduled_at, started_at, completed_at, created_at, updated_at, pause_on_disconnect")
+        .select("id, name, status, message_type, message_content, media_url, buttons, carousel_cards, device_id, device_ids, total_contacts, sent_count, delivered_count, failed_count, min_delay_seconds, max_delay_seconds, pause_every_min, pause_every_max, pause_duration_min, pause_duration_max, messages_per_instance, scheduled_at, started_at, completed_at, created_at, updated_at, pause_on_disconnect")
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -1031,6 +1061,11 @@ const CampaignDetail = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Salvar como Template</DialogTitle>
+            <DialogDescription>
+              {campaign?.message_type === "carousel"
+                ? "O template ficará disponível em Template Carrossel."
+                : "O template ficará disponível em Templates."}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div>
@@ -1043,40 +1078,16 @@ const CampaignDetail = () => {
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && saveTemplateName.trim() && campaign) {
-                    createTemplate.mutate({
-                      name: saveTemplateName.trim(),
-                      content: campaign.message_content || "",
-                      type: campaign.message_type || "texto",
-                      media_url: campaign.media_url || undefined,
-                      buttons: Array.isArray(campaign.buttons) ? campaign.buttons as any[] : [],
-                    }, {
-                      onSuccess: () => { toast({ title: "Template salvo!", description: `"${saveTemplateName.trim()}" salvo em Templates.` }); setSaveTemplateOpen(false); setSaveTemplateName(""); },
-                      onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
-                    });
+                    handleSaveTemplate();
                   }
                 }}
               />
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              O template ficará disponível em <strong>Templates</strong> para uso em futuras campanhas.
-            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setSaveTemplateOpen(false)}>Cancelar</Button>
-            <Button size="sm" disabled={createTemplate.isPending || !saveTemplateName.trim()} className="gap-1.5" onClick={() => {
-              if (!campaign) return;
-              createTemplate.mutate({
-                name: saveTemplateName.trim(),
-                content: campaign.message_content || "",
-                type: campaign.message_type || "texto",
-                media_url: campaign.media_url || undefined,
-                buttons: Array.isArray(campaign.buttons) ? campaign.buttons as any[] : [],
-              }, {
-                onSuccess: () => { toast({ title: "Template salvo!", description: `"${saveTemplateName.trim()}" salvo em Templates.` }); setSaveTemplateOpen(false); setSaveTemplateName(""); },
-                onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
-              });
-            }}>
-              {createTemplate.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            <Button size="sm" disabled={createTemplate.isPending || createCarouselTemplate.isPending || !saveTemplateName.trim()} className="gap-1.5" onClick={handleSaveTemplate}>
+              {(createTemplate.isPending || createCarouselTemplate.isPending) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               Salvar
             </Button>
           </DialogFooter>
