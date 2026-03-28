@@ -371,7 +371,7 @@ async function warmupTick() {
       note: "recover stale running jobs",
     }, staleErr);
     if (String(serializedStaleErr.raw).includes("Invalid API key") || String(serializedStaleErr.raw).includes("401") || serializedStaleErr.code === "PGRST301") {
-      throw new Error(`Supabase auth error: ${rawErr}. Check SUPABASE_SERVICE_ROLE_KEY in .env`);
+      throw new Error(`Supabase auth error: ${serializedStaleErr.raw}. Check SUPABASE_SERVICE_ROLE_KEY in .env`);
     }
   }
 
