@@ -143,14 +143,19 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) { setIsAdmin(false); return; }
     let cancelled = false;
-    supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle()
-      .then(({ data }) => { if (!cancelled) setIsAdmin(!!data); })
-      .catch(() => { if (!cancelled) setIsAdmin(false); });
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .eq("role", "admin")
+          .maybeSingle();
+        if (!cancelled) setIsAdmin(!!data);
+      } catch {
+        if (!cancelled) setIsAdmin(false);
+      }
+    })();
     return () => { cancelled = true; };
   }, [user]);
 
