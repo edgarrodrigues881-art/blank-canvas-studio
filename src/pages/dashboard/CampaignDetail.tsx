@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCreateTemplate } from "@/hooks/useTemplates";
 import { useCarouselTemplates, useCreateCarouselTemplate, useUpdateCarouselTemplate } from "@/hooks/useCarouselTemplates";
 import { serializeCarouselCards } from "@/components/campaigns/carousel-types";
+import { splitStoredMessageContent } from "@/lib/campaign-message";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -135,7 +136,7 @@ const CampaignDetail = () => {
       const normalizedName = saveTemplateName.trim();
       const payload = {
         name: normalizedName,
-        message: campaign.message_content || "",
+        message: splitStoredMessageContent(campaign.message_content || "").messageVariants.join("|||"),
         cards: carouselCards as any[],
       };
       const existingTemplate = carouselTemplates.find(
