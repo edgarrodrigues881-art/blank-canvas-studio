@@ -2490,10 +2490,10 @@ const Campaigns = () => {
                     </div>
                     <Switch checked={scheduleEnabled} onCheckedChange={(checked) => {
                       setScheduleEnabled(checked);
-                      if (checked) {
-                        const now = new Date();
-                        now.setMinutes(now.getMinutes() + 30);
-                        const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                      if (checked && !scheduleDate) {
+                        const future = new Date(Date.now() + 30 * 60 * 1000);
+                        const pad = (n: number) => String(n).padStart(2, "0");
+                        const local = `${future.getFullYear()}-${pad(future.getMonth() + 1)}-${pad(future.getDate())}T${pad(future.getHours())}:${pad(future.getMinutes())}`;
                         setScheduleDate(local);
                       }
                     }} />
