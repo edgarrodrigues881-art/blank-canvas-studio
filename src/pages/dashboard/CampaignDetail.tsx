@@ -22,6 +22,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateTemplate } from "@/hooks/useTemplates";
+import { useCreateCarouselTemplate } from "@/hooks/useCarouselTemplates";
+import { serializeCarouselCards } from "@/components/campaigns/carousel-types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -121,13 +123,14 @@ const CampaignDetail = () => {
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [saveTemplateName, setSaveTemplateName] = useState("");
   const createTemplate = useCreateTemplate();
+  const createCarouselTemplate = useCreateCarouselTemplate();
 
   const { data: campaign, isLoading: campLoading } = useQuery({
     queryKey: ["campaign", id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("campaigns")
-        .select("id, name, status, message_type, message_content, media_url, buttons, device_id, device_ids, total_contacts, sent_count, delivered_count, failed_count, min_delay_seconds, max_delay_seconds, pause_every_min, pause_every_max, pause_duration_min, pause_duration_max, messages_per_instance, scheduled_at, started_at, completed_at, created_at, updated_at, pause_on_disconnect")
+        .select("id, name, status, message_type, message_content, media_url, buttons, carousel_cards, device_id, device_ids, total_contacts, sent_count, delivered_count, failed_count, min_delay_seconds, max_delay_seconds, pause_every_min, pause_every_max, pause_duration_min, pause_duration_max, messages_per_instance, scheduled_at, started_at, completed_at, created_at, updated_at, pause_on_disconnect")
         .eq("id", id!)
         .single();
       if (error) throw error;
