@@ -12,6 +12,21 @@ interface CampaignButton {
   value?: string;
 }
 
+interface CarouselButton {
+  type?: string;
+  text?: string;
+  value?: string;
+}
+
+interface CarouselCard {
+  id?: string;
+  position?: number;
+  text?: string;
+  mediaUrl?: string;
+  mediaType?: string | null;
+  buttons?: CarouselButton[];
+}
+
 function buildMenuChoice(button: CampaignButton, index: number): string | null {
   const text = (button.text || "").trim();
   if (!text) return null;
@@ -25,6 +40,142 @@ function buildMenuChoice(button: CampaignButton, index: number): string | null {
   }
   const replyId = (button.value || `btn_${index}`).trim();
   return `${text}|${replyId}`;
+}
+
+function normalizeCarouselCards(rawCards: unknown): CarouselCard[] {
+  if (!Array.isArray(rawCards)) return [];
+
+  return rawCards
+    .map((raw, index) => {
+      const card = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+      const rawButtons = Array.isArray(card.buttons) ? card.buttons : [];
+
+      return {
+        id: typeof card.id === "string" ? card.id : `card-${index + 1}`,
+        position: typeof card.position === "number" ? card.position : index,
+        text: typeof card.text === "string" ? card.text : "",
+        mediaUrl: typeof card.mediaUrl === "string" ? card.mediaUrl : "",
+        mediaType: typeof card.mediaType === "string" ? card.mediaType : null,
+        buttons: rawButtons
+          .map((button) => {
+            const parsed = button && typeof button === "object" ? button as Record<string, unknown> : {};
+            return {
+              type: typeof parsed.type === "string" ? parsed.type : "reply",
+              text: typeof parsed.text === "string" ? parsed.text : "",
+              value: typeof parsed.value === "string" ? parsed.value : "",
+            };
+          })
+          .filter((button) => button.text.trim()),
+      } satisfies CarouselCard;
+    })
+    .filter((card) => card.text?.trim() || card.mediaUrl?.trim() || (card.buttons?.length || 0) > 0)
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+}
+
+function buildCarouselButton(button: CarouselButton, index: number) {
+  const text = (button.text || "").trim();
+  if (!text) return null;
+
+  const normalizedType = (button.type || "reply").toLowerCase();
+  const rawValue = (button.value || "").trim();
+
+  if (normalizedType === "url") {
+    if (!rawValue) return null;
+    return { id: rawValue, text, type: "URL" };
+  }
+
+  if (normalizedType === "phone" || normalizedType === "call") {
+    if (!rawValue) return null;
+    return { id: rawValue, text, type: "CALL" };
+  }
+
+  if (normalizedType === "copy") {
+    return { id: rawValue || text, text, type: "COPY" };
+  }
+
+  return { id: rawValue || `card_btn_${index + 1}`, text, type: "REPLY" };
+}
+
+function buildCarouselChoice(button: CarouselButton): string | null {
+  const text = (button.text || "").trim();
+  if (!text) return null;
+
+  const normalizedType = (button.type || "reply").toLowerCase();
+  const rawValue = (button.value || "").trim();
+
+  if (normalizedType === "url") {
+    return rawValue ? `${text}|${rawValue}` : null;
+  }
+
+  if (normalizedType === "phone" || normalizedType === "call") {
+    return rawValue ? `${text}|call:${rawValue}` : null;
+  }
+
+  if (normalizedType === "copy") {
+    return `${text}|copy:${rawValue || text}`;
+  }
+
+  return rawValue ? `${text}|${rawValue}` : text;
+}
+
+async function sendCarouselMessage(baseUrl: string, token: string, phone: string, body: string, cards: CarouselCard[]) {
+  const normalizedCards = normalizeCarouselCards(cards);
+  if (normalizedCards.length === 0) {
+    throw new Error("Carrossel sem cards configurados.");
+  }
+
+  const primaryText = typeof body === "string" && body.trim()
+    ? body.trim()
+    : normalizedCards.find((card) => card.text?.trim())?.text?.trim() || "Confira as opções abaixo";
+
+  const carouselPayload = {
+    number: phone,
+    text: primaryText,
+    carousel: normalizedCards.map((card) => ({
+      text: (card.text || "").trim(),
+      ...(card.mediaUrl?.trim() ? { image: card.mediaUrl.trim() } : {}),
+      buttons: (card.buttons || [])
+        .map((button, index) => buildCarouselButton(button, index))
+        .filter((button): button is { id: string; text: string; type: string } => Boolean(button)),
+    })),
+  };
+
+  console.log(JSON.stringify({
+    event: "carousel_payload_built",
+    origin: "campaign",
+    cardCount: normalizedCards.length,
+    textLength: primaryText.length,
+    cards: normalizedCards.map((card) => ({
+      hasText: Boolean(card.text?.trim()),
+      hasMedia: Boolean(card.mediaUrl?.trim()),
+      buttonCount: card.buttons?.length || 0,
+    })),
+  }));
+
+  try {
+    return await uazapiRequest(baseUrl, token, "/send/carousel", carouselPayload);
+  } catch (structuredError) {
+    console.warn(`Primary /send/carousel failed for ${phone}: ${structuredError instanceof Error ? structuredError.message : String(structuredError)}`);
+
+    const choices = normalizedCards.flatMap((card, index) => {
+      const title = (card.text || "").trim() || `Card ${index + 1}`;
+      const lines = [`[${title}]`];
+      if (card.mediaUrl?.trim()) {
+        lines.push(`{${card.mediaUrl.trim()}}`);
+      }
+      lines.push(...(card.buttons || [])
+        .map((button) => buildCarouselChoice(button))
+        .filter((choice): choice is string => Boolean(choice)));
+      return lines;
+    });
+
+    return await uazapiRequest(baseUrl, token, "/send/menu", {
+      number: phone,
+      type: "carousel",
+      text: primaryText,
+      choices,
+    });
+  }
 }
 
 async function oplog(client: any, userId: string, event: string, details: string, deviceId?: string | null, meta?: any) {
@@ -257,11 +408,12 @@ async function sendCaptionedMedia(baseUrl: string, token: string, phone: string,
   }
 }
 
-async function sendUazapiMessage(baseUrl: string, token: string, to: string, body: string, mediaUrl?: string | null, buttons?: CampaignButton[], messageType?: string) {
+async function sendUazapiMessage(baseUrl: string, token: string, to: string, body: string, mediaUrl?: string | null, buttons?: CampaignButton[], messageType?: string, carouselCards?: CarouselCard[]) {
   const phone = to.replace(/\D/g, "");
   const text = typeof body === "string" ? body.trim() : "";
   const hasButtons = buttons && buttons.length > 0;
   const choices = hasButtons ? buttons.map((b, i) => buildMenuChoice(b, i)).filter((choice): choice is string => Boolean(choice)) : [];
+  const normalizedCarouselCards = normalizeCarouselCards(carouselCards);
 
   console.log(JSON.stringify({
     event: "payload_built",
@@ -270,9 +422,14 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     hasMedia: Boolean(mediaUrl),
     hasButtons,
     buttonCount: choices.length,
+    carouselCount: normalizedCarouselCards.length,
     textLength: text.length,
     textPreview: text.substring(0, 80),
   }));
+
+  if (messageType === "carousel") {
+    return await sendCarouselMessage(baseUrl, token, phone, text, normalizedCarouselCards);
+  }
 
   if (choices.length > 0) {
     const mediaType = mediaUrl ? detectMediaType(mediaUrl) : null;
@@ -386,12 +543,12 @@ const RETRY_DELAY_MAX_MS = 60_000;
 
 async function sendWithRetry(
   baseUrl: string, token: string, to: string, body: string,
-  mediaUrl?: string | null, buttons?: CampaignButton[], messageType?: string
+  mediaUrl?: string | null, buttons?: CampaignButton[], messageType?: string, carouselCards?: CarouselCard[]
 ): Promise<{ success: boolean; attempts: number; error?: string }> {
   let lastError = "";
   for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
     try {
-      await sendUazapiMessage(baseUrl, token, to, body, mediaUrl, buttons, messageType);
+      await sendUazapiMessage(baseUrl, token, to, body, mediaUrl, buttons, messageType, carouselCards);
       if (attempt > 1) console.log(`✅ Retry ${attempt - 1} succeeded for ${to}`);
       return { success: true, attempts: attempt };
     } catch (err) {
@@ -830,7 +987,7 @@ Deno.serve(async (req) => {
       }
       const startTime = Date.now();
 
-      const { data: campaign, error: campErr } = await serviceClient.from("campaigns").select("id, user_id, name, status, message_type, message_content, media_url, buttons, device_id, device_ids, messages_per_instance, min_delay_seconds, max_delay_seconds, pause_every_min, pause_every_max, pause_duration_min, pause_duration_max, sent_count, failed_count, started_at, total_contacts, pause_on_disconnect").eq("id", campaignId).single();
+      const { data: campaign, error: campErr } = await serviceClient.from("campaigns").select("id, user_id, name, status, message_type, message_content, media_url, buttons, carousel_cards, device_id, device_ids, messages_per_instance, min_delay_seconds, max_delay_seconds, pause_every_min, pause_every_max, pause_duration_min, pause_duration_max, sent_count, failed_count, started_at, total_contacts, pause_on_disconnect").eq("id", campaignId).single();
       if (campErr || !campaign) {
         return new Response(JSON.stringify({ error: "Campanha não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
@@ -987,6 +1144,7 @@ Deno.serve(async (req) => {
         }
       }
       const campaignButtons: CampaignButton[] = Array.isArray(campaign.buttons) ? campaign.buttons : [];
+      const campaignCarouselCards = normalizeCarouselCards(campaign.carousel_cards);
       const msgType = campaign.message_type || "texto";
       const pauseOnDisconnect = campaign.pause_on_disconnect !== false;
       const usedRand4 = new Set<string>();
@@ -1079,7 +1237,7 @@ Deno.serve(async (req) => {
                   let lastSendError = "";
                   for (let mi = 0; mi < messageVariants.length; mi++) {
                     const allMsg = replaceVariables(messageVariants[mi], contact, rand4, rand3);
-                    const result = await sendWithRetry(devBaseUrl, devToken, normalized, allMsg, mi === 0 ? mediaUrl : null, mi === 0 ? campaignButtons : [], msgType);
+                    const result = await sendWithRetry(devBaseUrl, devToken, normalized, allMsg, mi === 0 ? mediaUrl : null, mi === 0 ? campaignButtons : [], msgType, mi === 0 ? campaignCarouselCards : []);
                     if (!result.success) {
                       allSendFailed = true;
                       lastSendError = result.error || "";
@@ -1105,7 +1263,7 @@ Deno.serve(async (req) => {
                     continue;
                   }
                 } else {
-                  const result = await sendWithRetry(devBaseUrl, devToken, normalized, msg, mediaUrl, campaignButtons, msgType);
+                  const result = await sendWithRetry(devBaseUrl, devToken, normalized, msg, mediaUrl, campaignButtons, msgType, campaignCarouselCards);
                   if (!result.success) {
                     const translated = translateErrorMessage(result.error || "Erro");
                     await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: normalized, status: "failed", deviceId: dev.id, errorMessage: `${translated} (${result.attempts} tentativas)` });
@@ -1277,7 +1435,7 @@ Deno.serve(async (req) => {
               let lastSendError = "";
               for (let mi = 0; mi < messageVariants.length; mi++) {
                 const allMsg = replaceVariables(messageVariants[mi], contact, rand4, rand3);
-                const result = await sendWithRetry(activeBaseUrl, activeToken, normalizedPhone, allMsg, mi === 0 ? mediaUrl : null, mi === 0 ? campaignButtons : [], msgType);
+                const result = await sendWithRetry(activeBaseUrl, activeToken, normalizedPhone, allMsg, mi === 0 ? mediaUrl : null, mi === 0 ? campaignButtons : [], msgType, mi === 0 ? campaignCarouselCards : []);
                 if (!result.success) {
                   allSendFailed = true;
                   lastSendError = result.error || "";
@@ -1301,7 +1459,7 @@ Deno.serve(async (req) => {
                 continue;
               }
             } else {
-              const result = await sendWithRetry(activeBaseUrl, activeToken, normalizedPhone, personalizedMessage, mediaUrl, campaignButtons, msgType);
+              const result = await sendWithRetry(activeBaseUrl, activeToken, normalizedPhone, personalizedMessage, mediaUrl, campaignButtons, msgType, campaignCarouselCards);
               if (!result.success) {
                 const translated = translateErrorMessage(result.error || "Erro");
                 await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: `${translated} (${result.attempts} tentativas)`, device_id: activeDevice.id }).eq("id", contact.id);
