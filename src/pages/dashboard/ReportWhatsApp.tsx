@@ -611,12 +611,13 @@ export default function ReportWhatsApp() {
                   </span>
                 </div>
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 px-3 shrink-0 text-xs"
                   onClick={() => upsertConfig.mutate({ group_id: null, group_name: null })}
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <RefreshCw className="w-3 h-3 mr-1.5" />
+                  Trocar
                 </Button>
               </div>
             ) : (
