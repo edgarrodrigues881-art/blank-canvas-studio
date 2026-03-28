@@ -450,6 +450,13 @@ const AdminClientsTable = memo(({ users, onSelectClient }: Props) => {
                       </div>
                     </td>
 
+                    {/* IP */}
+                    <td className="px-4 py-3">
+                      <span className="text-[11px] text-muted-foreground/50 font-mono">
+                        {(u as any).signup_ip || "—"}
+                      </span>
+                    </td>
+
                     {/* Ações */}
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
