@@ -2414,7 +2414,7 @@ const Campaigns = () => {
                       { ok: !!campaignName, text: "Nome definido" },
                       { ok: selectedDevices.length > 0, text: "Instância selecionada" },
                       { ok: validContacts.length > 0, text: `${validContacts.length} contatos prontos` },
-                      { ok: !!combinedMessage, text: "Mensagem configurada" },
+                      { ok: contentType === "carousel" ? carouselCards.some(c => c.text.trim()) : !!combinedMessage, text: "Mensagem configurada" },
                     ].map((c, i) => (
                       <div key={i} className="flex items-center gap-2">
                         {c.ok ? (
