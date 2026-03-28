@@ -1482,9 +1482,12 @@ const Campaigns = () => {
                               <DropdownMenuItem
                                 key={ct.id}
                                 onClick={() => {
-                                  const msg = ct.message || "";
-                                  // Load into first slot, clear others
-                                  setCarouselMessages([msg, "", "", "", ""]);
+                  const rawMsg = ct.message || "";
+                                  // Split back multi-message separators into individual slots
+                                  const parts = rawMsg.includes("|||") ? rawMsg.split("|||") : rawMsg.includes("|&&|") ? rawMsg.split("|&&|") : [rawMsg];
+                                  const restored: [string, string, string, string, string] = ["", "", "", "", ""];
+                                  parts.slice(0, 5).forEach((p, i) => { restored[i] = p; });
+                                  setCarouselMessages(restored);
                                   setActiveCarouselMsgTab(0);
                                   setCarouselCards(Array.isArray(ct.cards) && ct.cards.length > 0 ? ct.cards : [createEmptyCard(0)]);
                                   toast({ title: `Template "${ct.name}" carregado` });
