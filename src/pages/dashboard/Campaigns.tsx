@@ -614,8 +614,8 @@ const Campaigns = () => {
 
     createCampaign.mutate({
       name: campaignName,
-      message_type: detectMessageType(normalizedMessage.mediaUrl, normalizedMessage.hasButtons),
-      message_content: normalizedMessage.combinedMessage,
+      message_type: contentType === "carousel" ? "carousel" : detectMessageType(normalizedMessage.mediaUrl, normalizedMessage.hasButtons),
+      message_content: contentType === "carousel" ? (carouselCards[0]?.text || "Carrossel") : normalizedMessage.combinedMessage,
       media_url: normalizedMessage.mediaUrl || undefined,
       template_id: normalizedMessage.templateId || undefined,
       buttons: normalizedMessage.buttons.map(b => ({ type: b.type, text: b.text, value: b.value })),
