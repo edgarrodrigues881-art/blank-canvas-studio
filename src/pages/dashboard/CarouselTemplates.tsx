@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Plus, Search, Pencil, Trash2, Layers, Eye, Loader2, FileText } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Layers, Eye, Loader2, FileText, Bold, Italic, Strikethrough, Code, Smile } from "lucide-react";
 import {
   useCarouselTemplates,
   useCreateCarouselTemplate,
@@ -16,6 +17,8 @@ import { useToast } from "@/hooks/use-toast";
 import { CarouselEditor } from "@/components/campaigns/CarouselEditor";
 import { CarouselPreview } from "@/components/campaigns/CarouselPreview";
 import { CarouselCard, createEmptyCard } from "@/components/campaigns/carousel-types";
+
+const EMOJI_LIST = ["😀","😂","😍","🔥","✅","❌","👋","🎉","💰","📢","⚡","🚀","💬","📌","🏆","👏","💡","📲","🤝","⭐"];
 
 const CarouselTemplates = () => {
   const { toast } = useToast();
@@ -28,10 +31,52 @@ const CarouselTemplates = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
-  const [formMessage, setFormMessage] = useState("");
+  const [formMessages, setFormMessages] = useState<string[]>(["", "", "", "", ""]);
+  const [activeMsgTab, setActiveMsgTab] = useState(0);
   const [formCards, setFormCards] = useState<CarouselCard[]>([createEmptyCard(0)]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<any>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const currentMessage = formMessages[activeMsgTab] || "";
+  const setCurrentMessage = (val: string | ((prev: string) => string)) => {
+    setFormMessages(prev => {
+      const copy = [...prev];
+      copy[activeMsgTab] = typeof val === "function" ? val(copy[activeMsgTab]) : val;
+      return copy;
+    });
+  };
+  const activeCount = formMessages.filter(m => m.trim()).length;
+
+  const insertAtCursor = useCallback((text: string) => {
+    const el = textareaRef.current;
+    if (!el) { setCurrentMessage(prev => prev + text); return; }
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const current = formMessages[activeMsgTab] || "";
+    const newVal = current.substring(0, start) + text + current.substring(end);
+    setCurrentMessage(newVal);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.selectionStart = el.selectionEnd = start + text.length;
+    });
+  }, [activeMsgTab, formMessages]);
+
+  const wrapSelectedText = useCallback((before: string, after: string) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const current = formMessages[activeMsgTab] || "";
+    const selected = current.substring(start, end);
+    const newVal = current.substring(0, start) + before + selected + after + current.substring(end);
+    setCurrentMessage(newVal);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.selectionStart = start + before.length;
+      el.selectionEnd = end + before.length;
+    });
+  }, [activeMsgTab, formMessages]);
 
   const filtered = templates.filter(
     (t) =>
@@ -42,7 +87,8 @@ const CarouselTemplates = () => {
   const openCreate = () => {
     setEditingId(null);
     setFormName("");
-    setFormMessage("");
+    setFormMessages(["", "", "", "", ""]);
+    setActiveMsgTab(0);
     setFormCards([createEmptyCard(0)]);
     setDialogOpen(true);
   };
@@ -50,7 +96,13 @@ const CarouselTemplates = () => {
   const openEdit = (t: any) => {
     setEditingId(t.id);
     setFormName(t.name);
-    setFormMessage(t.message || "");
+    // Restore multi-message from ||| separator
+    const rawMsg = t.message || "";
+    const parts = rawMsg.split("|||");
+    const slots = ["", "", "", "", ""];
+    parts.slice(0, 5).forEach((p: string, i: number) => { slots[i] = p; });
+    setFormMessages(slots);
+    setActiveMsgTab(0);
     setFormCards(
       Array.isArray(t.cards) && t.cards.length > 0
         ? t.cards
@@ -69,7 +121,10 @@ const CarouselTemplates = () => {
       toast({ title: "Adicione pelo menos 1 card com conteúdo", variant: "destructive" });
       return;
     }
-    const payload = { name: formName, message: formMessage, cards: formCards };
+    // Save only filled messages joined by |||
+    const filledMessages = formMessages.filter(m => m.trim());
+    const combinedMessage = filledMessages.join("|||");
+    const payload = { name: formName, message: combinedMessage, cards: formCards };
     if (editingId) {
       updateTemplate.mutate(
         { id: editingId, ...payload },
@@ -203,14 +258,98 @@ const CarouselTemplates = () => {
               />
             </div>
 
-            {/* Message */}
-            <div className="space-y-1.5">
+            {/* Message with tabs + toolbar */}
+            <div className="space-y-2">
               <label className="text-xs font-medium text-muted-foreground">
                 Mensagem principal (enviada acima do carrossel)
               </label>
+
+              {/* Tabs */}
+              <div className="flex items-center gap-1 flex-wrap">
+                {[0, 1, 2, 3, 4].map(i => {
+                  const hasText = formMessages[i]?.trim();
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setActiveMsgTab(i)}
+                      className={cn(
+                        "px-3 py-1.5 text-[11px] transition-all border-0 rounded-sm font-sans font-extrabold",
+                        activeMsgTab === i
+                          ? "bg-primary/15 text-primary"
+                          : hasText
+                            ? "bg-muted/20 text-foreground/70 hover:bg-muted/30"
+                            : "bg-muted/8 text-muted-foreground/40 hover:bg-muted/15"
+                      )}
+                    >
+                      Msg {i + 1}
+                      {hasText && <span className="ml-1 w-1.5 h-1.5 rounded-full bg-primary inline-block" />}
+                    </button>
+                  );
+                })}
+                <span className="text-[9px] text-muted-foreground/40 ml-2">
+                  {activeCount}/5 ativas
+                </span>
+              </div>
+
+              {/* Toolbar */}
+              <div className="flex items-center gap-0.5 flex-wrap p-1.5 rounded-xl bg-muted/15 dark:bg-muted/8 border border-border/10">
+                {/* Variables */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 text-[11px] gap-1.5 text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium rounded-lg">
+                      <FileText className="w-3.5 h-3.5" /> Variável
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-1.5 bg-popover border-border z-50" align="start">
+                    <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 px-2 py-1">Contato</p>
+                    {[{ label: "Nome", tag: "{{nome}}" }, { label: "Número", tag: "{{numero}}" }].map(v => (
+                      <button key={v.tag} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-accent transition-colors flex items-center justify-between"
+                        onClick={() => insertAtCursor(v.tag)}>
+                        <span>{v.label}</span>
+                        <code className="text-[9px] text-muted-foreground">{v.tag}</code>
+                      </button>
+                    ))}
+                    <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 px-2 py-1 mt-1">Personalizadas</p>
+                    {["Variável 1", "Variável 2", "Variável 3", "Variável 4", "Variável 5", "Variável 6", "Variável 7"].map((v, i) => (
+                      <button key={v} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-accent transition-colors flex items-center justify-between"
+                        onClick={() => insertAtCursor(`{{var${i + 1}}}`)}>
+                        <span>{v}</span>
+                        <code className="text-[9px] text-muted-foreground">{`{{var${i + 1}}}`}</code>
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+
+                <div className="w-px h-5 bg-border/30 mx-0.5" />
+
+                {/* Formatting */}
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground" onClick={() => wrapSelectedText("*", "*")}><Bold className="w-3.5 h-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground" onClick={() => wrapSelectedText("_", "_")}><Italic className="w-3.5 h-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground" onClick={() => wrapSelectedText("~", "~")}><Strikethrough className="w-3.5 h-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground" onClick={() => wrapSelectedText("```", "```")}><Code className="w-3.5 h-3.5" /></Button>
+
+                <div className="w-px h-5 bg-border/30 mx-0.5" />
+
+                {/* Emoji */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"><Smile className="w-3.5 h-3.5" /></Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2 bg-popover border-border z-50" align="start">
+                    <div className="grid grid-cols-5 gap-1">
+                      {EMOJI_LIST.map(e => (
+                        <button key={e} className="text-lg hover:bg-accent rounded p-1 transition-colors" onClick={() => insertAtCursor(e)}>{e}</button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Textarea */}
               <Textarea
-                value={formMessage}
-                onChange={(e) => setFormMessage(e.target.value)}
+                ref={textareaRef}
+                value={currentMessage}
+                onChange={(e) => setCurrentMessage(e.target.value)}
                 placeholder="Olá! Confira nossas ofertas..."
                 className="rounded-xl min-h-[80px]"
               />
