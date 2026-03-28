@@ -21,6 +21,7 @@ import {
 import { useCampaigns, useDeleteCampaign } from "@/hooks/useCampaigns";
 import { useCreateTemplate } from "@/hooks/useTemplates";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,6 +45,7 @@ const CampaignList = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [clearAllOpen, setClearAllOpen] = useState(false);
@@ -99,11 +101,9 @@ const CampaignList = () => {
       queryClient.setQueryData(["campaigns", undefined], (old: any[] | undefined) =>
         old ? old.filter((campaign) => !ids.includes(campaign.id)) : old
       );
-      for (const c of campaigns) {
-        queryClient.setQueryData(["campaigns", c.user_id], (old: any[] | undefined) =>
-          old ? old.filter((campaign) => !ids.includes(campaign.id)) : old
-        );
-      }
+      queryClient.setQueryData(["campaigns", user?.id], (old: any[] | undefined) =>
+        old ? old.filter((campaign) => !ids.includes(campaign.id)) : old
+      );
 
       queryClient.invalidateQueries({ queryKey: ["campaigns"] });
       const skipped = campaigns.length - deletable.length;
