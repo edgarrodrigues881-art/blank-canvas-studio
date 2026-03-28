@@ -203,6 +203,7 @@ const Campaigns = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contentType, setContentType] = useState<"text" | "carousel">("text");
   const [carouselCards, setCarouselCards] = useState<CarouselCard[]>([createEmptyCard(0)]);
+  const [carouselMessage, setCarouselMessage] = useState("");
   const [messageType, setMessageType] = useState("texto");
   const [campaignName, setCampaignName] = useState("");
   const [messages, setMessages] = useState<string[]>(["", "", "", "", ""]);
