@@ -40,6 +40,10 @@ import {
 // XLSX is dynamically imported when needed to reduce initial bundle
 import { usePlanGate } from "@/hooks/usePlanGate";
 import { PlanGateDialog } from "@/components/PlanGateDialog";
+import { CarouselEditor } from "@/components/campaigns/CarouselEditor";
+import { CarouselPreview } from "@/components/campaigns/CarouselPreview";
+import { CarouselCard, createEmptyCard, validateCarouselCards, serializeCarouselCards } from "@/components/campaigns/carousel-types";
+import { Layers } from "lucide-react";
 
 // Compress images client-side before uploading
 const compressImage = (file: File, maxWidth = 1200, quality = 0.8): Promise<File> => {
