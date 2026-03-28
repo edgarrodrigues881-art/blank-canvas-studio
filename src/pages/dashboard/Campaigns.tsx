@@ -1658,6 +1658,32 @@ const Campaigns = () => {
                   {/* Rotation toggle - only show when multiple messages */}
 
                   {/* Toolbar */}
+                  {allMessages.length > 1 && (
+                    <div className="flex flex-col gap-2 p-3 rounded-xl bg-muted/10 border border-border/10">
+                      <p className="text-[11px] font-medium text-foreground/70">Modo de envio das mensagens</p>
+                      <div className="flex gap-2">
+                        {([
+                          { value: "random" as const, label: "Aleatório", icon: <Sparkles className="w-3 h-3 mr-1" />, desc: "Uma mensagem aleatória para cada contato" },
+                          { value: "all" as const, label: "Todas", icon: <ArrowDown className="w-3 h-3 mr-1" />, desc: "Todas as mensagens para cada contato" },
+                        ]).map(opt => (
+                          <button
+                            key={opt.value}
+                            onClick={() => setRotationMode(opt.value)}
+                            className={`flex-1 text-center p-2 rounded-lg border text-[10px] transition-all ${
+                              rotationMode === opt.value
+                                ? "border-primary bg-primary/10 text-primary font-medium"
+                                : "border-border/20 text-muted-foreground hover:border-border/40"
+                            }`}
+                          >
+                            <div className="flex items-center justify-center">{opt.icon}{opt.label}</div>
+                            <p className="text-[9px] text-muted-foreground/50 mt-1">{opt.desc}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Toolbar */}
                   <div className="flex items-center gap-0.5 flex-wrap p-1.5 rounded-xl bg-muted/15 dark:bg-muted/8 border border-border/10">
                     <Popover>
                       <PopoverTrigger asChild>
