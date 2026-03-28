@@ -182,12 +182,15 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
       (card.buttons || []).some((b) => (b.type || "").toLowerCase() === "url")
     );
 
-    const menuResponse = await uazapiRequest(baseUrl, token, "/send/menu", {
+    const menuPayload: Record<string, unknown> = {
       number: phone,
       type: hasUrlButtons ? "list" : "carousel",
-      text: primaryText,
       choices: menuChoices,
-    });
+    };
+    if (primaryText) {
+      menuPayload.text = primaryText;
+    }
+    const menuResponse = await uazapiRequest(baseUrl, token, "/send/menu", menuPayload);
     console.log(JSON.stringify({ event: "carousel_send_success", origin: "campaign", strategy: "menu_fallback", hasUrlButtons }));
     return menuResponse;
   }
