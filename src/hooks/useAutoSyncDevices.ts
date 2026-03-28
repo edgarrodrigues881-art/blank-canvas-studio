@@ -69,6 +69,8 @@ export function useAutoSyncDevices(intervalMs = 15_000) {
           if (shouldSkipSync()) return;
           const updated = payload.new as any;
           if (!updated?.id) return;
+          // Skip updates for recently deleted devices
+          if (recentlyDeletedIds.has(updated.id)) return;
 
           // Surgically update just the changed device in cache
           queryClient.setQueryData(["devices"], (old: any[] | undefined) => {
