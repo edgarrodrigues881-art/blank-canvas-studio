@@ -42,9 +42,10 @@ import { usePlanGate } from "@/hooks/usePlanGate";
 import { PlanGateDialog } from "@/components/PlanGateDialog";
 import { CarouselEditor } from "@/components/campaigns/CarouselEditor";
 import { CarouselPreview } from "@/components/campaigns/CarouselPreview";
-import { CarouselCard, createEmptyCard, validateCarouselCards, serializeCarouselCards } from "@/components/campaigns/carousel-types";
-import { useCarouselTemplates } from "@/hooks/useCarouselTemplates";
+import { CarouselCard, createEmptyCard, MAX_CAROUSEL_CARDS, validateCarouselCards, serializeCarouselCards } from "@/components/campaigns/carousel-types";
+import { useCarouselTemplates, useCreateCarouselTemplate } from "@/hooks/useCarouselTemplates";
 import { Layers } from "lucide-react";
+import { DialogDescription } from "@/components/ui/dialog";
 
 // Compress images client-side before uploading
 const compressImage = (file: File, maxWidth = 1200, quality = 0.8): Promise<File> => {
@@ -152,6 +153,7 @@ const Campaigns = () => {
   const createCampaign = useCreateCampaign();
   const startCampaign = useStartCampaign();
   const createTemplate = useCreateTemplate();
+  const createCarouselTemplate = useCreateCarouselTemplate();
   const { data: savedTemplates = [] } = useTemplates();
   const { data: carouselTemplates = [] } = useCarouselTemplates();
   const { data: savedContacts = [] } = useContacts();
@@ -682,6 +684,30 @@ const Campaigns = () => {
   const handleSaveAsTemplate = () => {
     if (!saveTemplateName.trim()) {
       toast({ title: "Nome obrigatório", description: "Informe um nome para o template.", variant: "destructive" });
+      return;
+    }
+
+    if (contentType === "carousel") {
+      const carouselErrors = validateCarouselCards(carouselCards);
+      if (carouselErrors.length > 0) {
+        toast({ title: "Carrossel inválido", description: carouselErrors[0], variant: "destructive" });
+        return;
+      }
+
+      createCarouselTemplate.mutate({
+        name: saveTemplateName.trim(),
+        message: carouselMessage.trim(),
+        cards: serializeCarouselCards(carouselCards),
+      }, {
+        onSuccess: () => {
+          toast({ title: "Template salvo!", description: `"${saveTemplateName.trim()}" foi salvo em Template Carrossel.` });
+          setSaveTemplateOpen(false);
+          setSaveTemplateName("");
+        },
+        onError: (err: any) => {
+          toast({ title: "Erro ao salvar template", description: err.message, variant: "destructive" });
+        },
+      });
       return;
     }
 
@@ -1366,7 +1392,8 @@ const Campaigns = () => {
                         </DropdownMenu>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground -mt-2">Texto enviado junto com o carrossel (aparece acima dos cards)</p>
+                      <p className="text-xs text-muted-foreground -mt-2">Texto enviado junto com o carrossel (aparece acima dos cards)</p>
+                      <p className="text-[11px] text-muted-foreground/70 -mt-1">Limite atual: até {MAX_CAROUSEL_CARDS} cards por envio compatível.</p>
                     <textarea
                       value={carouselMessage}
                       onChange={e => setCarouselMessage(e.target.value)}
@@ -2450,7 +2477,7 @@ const Campaigns = () => {
                       { ok: !!campaignName, text: "Nome definido" },
                       { ok: selectedDevices.length > 0, text: "Instância selecionada" },
                       { ok: validContacts.length > 0, text: `${validContacts.length} contatos prontos` },
-                      { ok: contentType === "carousel" ? carouselCards.some(c => c.text.trim()) : !!combinedMessage, text: "Mensagem configurada" },
+                      { ok: contentType === "carousel" ? carouselCards.some(c => c.text.trim() || c.mediaUrl) : !!combinedMessage, text: "Mensagem configurada" },
                     ].map((c, i) => (
                       <div key={i} className="flex items-center gap-2">
                         {c.ok ? (
@@ -2802,6 +2829,11 @@ const Campaigns = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Salvar como Template</DialogTitle>
+            <DialogDescription>
+              {contentType === "carousel"
+                ? "Esse modelo ficará disponível em Template Carrossel para reaproveitar cards e mensagem."
+                : "O template ficará disponível em Templates para uso em futuras campanhas."}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div>
@@ -2816,13 +2848,15 @@ const Campaigns = () => {
               />
             </div>
             <p className="text-[11px] text-muted-foreground">
-              O template ficará disponível em <strong>Templates</strong> para uso em futuras campanhas.
+              {contentType === "carousel"
+                ? <>O template ficará disponível em <strong>Template Carrossel</strong> para uso em futuras campanhas.</>
+                : <>O template ficará disponível em <strong>Templates</strong> para uso em futuras campanhas.</>}
             </p>
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setSaveTemplateOpen(false)}>Cancelar</Button>
-            <Button size="sm" onClick={handleSaveAsTemplate} disabled={createTemplate.isPending} className="gap-1.5">
-              {createTemplate.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            <Button size="sm" onClick={handleSaveAsTemplate} disabled={createTemplate.isPending || createCarouselTemplate.isPending} className="gap-1.5">
+              {(createTemplate.isPending || createCarouselTemplate.isPending) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               Salvar
             </Button>
           </DialogFooter>
