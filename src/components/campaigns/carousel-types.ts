@@ -15,6 +15,8 @@ export interface CarouselCard {
   buttons: CarouselCardButton[];
 }
 
+export const MAX_CAROUSEL_CARDS = 4;
+
 export function createEmptyCard(position: number): CarouselCard {
   return {
     id: `card-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -42,8 +44,8 @@ export function validateCarouselCards(cards: CarouselCard[]): string[] {
     errors.push("Adicione pelo menos 1 card ao carrossel.");
     return errors;
   }
-  if (cards.length > 10) {
-    errors.push("Máximo de 10 cards por carrossel.");
+  if (cards.length > MAX_CAROUSEL_CARDS) {
+    errors.push(`Máximo de ${MAX_CAROUSEL_CARDS} cards por carrossel.`);
   }
   cards.forEach((card, i) => {
     if (!card.text.trim() && !card.mediaUrl) {
