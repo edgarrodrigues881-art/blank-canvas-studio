@@ -226,7 +226,7 @@ const AdminClientsTable = memo(({ users, onSelectClient }: Props) => {
           <div className="relative flex-1 max-w-sm">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
             <Input
-              placeholder="Nome, email ou telefone..."
+              placeholder="Nome, email, telefone ou IP..."
               value={search}
               onChange={e => handleSearch(e.target.value)}
               className="pl-9 h-9 bg-card/50 border-border/60 text-sm placeholder:text-muted-foreground/40"
