@@ -1330,7 +1330,15 @@ const Campaigns = () => {
                 {/* Carousel Editor */}
                 {contentType === "carousel" ? (
                   <SurfaceCard className="p-4 sm:p-6 space-y-4 sm:space-y-5">
-                    <SectionLabel>Carrossel</SectionLabel>
+                    <SectionLabel>Mensagem do Carrossel</SectionLabel>
+                    <p className="text-xs text-muted-foreground -mt-2">Texto enviado junto com o carrossel (aparece acima dos cards)</p>
+                    <textarea
+                      value={carouselMessage}
+                      onChange={e => setCarouselMessage(e.target.value)}
+                      placeholder="Digite a mensagem principal que acompanha o carrossel..."
+                      className="w-full min-h-[80px] rounded-xl border border-border/20 bg-muted/10 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-y"
+                    />
+                    <SectionLabel>Cards</SectionLabel>
                     <CarouselEditor cards={carouselCards} onChange={setCarouselCards} />
                   </SurfaceCard>
                 ) : (
