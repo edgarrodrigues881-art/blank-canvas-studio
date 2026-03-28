@@ -2186,6 +2186,30 @@ export type Database = {
           },
         ]
       }
+      login_history: {
+        Row: {
+          id: string
+          ip_address: string
+          logged_in_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          ip_address: string
+          logged_in_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          ip_address?: string
+          logged_in_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       mass_inject_campaigns: {
         Row: {
           already_count: number
