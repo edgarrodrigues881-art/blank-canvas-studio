@@ -1496,7 +1496,7 @@ const Campaigns = () => {
               {/* Preview column */}
               <div className="lg:col-span-2 lg:sticky lg:top-4 self-start">
                 {contentType === "carousel" ? (
-                  <CarouselPreview cards={carouselCards} />
+                  <CarouselPreview cards={carouselCards} message={carouselMessage} />
                 ) : (
                   <WhatsAppPreview />
                 )}
