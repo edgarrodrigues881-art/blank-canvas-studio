@@ -117,7 +117,7 @@ export function CarouselPreview({ cards, message, previewMode = "received" }: Ca
             </p>
           </div>
         ) : (
-          <div className={cn("flex flex-col gap-1.5", isSent ? "items-end" : "items-start")}>
+          <div className={cn("flex flex-col gap-1", isSent ? "items-end" : "items-start")}>
             {/* Main message bubble */}
             {message?.trim() && (
               <div className={cn(
