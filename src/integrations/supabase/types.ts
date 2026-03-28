@@ -727,6 +727,7 @@ export type Database = {
       campaigns: {
         Row: {
           buttons: Json | null
+          carousel_cards: Json | null
           completed_at: string | null
           created_at: string
           delivered_count: number | null
@@ -757,6 +758,7 @@ export type Database = {
         }
         Insert: {
           buttons?: Json | null
+          carousel_cards?: Json | null
           completed_at?: string | null
           created_at?: string
           delivered_count?: number | null
@@ -787,6 +789,7 @@ export type Database = {
         }
         Update: {
           buttons?: Json | null
+          carousel_cards?: Json | null
           completed_at?: string | null
           created_at?: string
           delivered_count?: number | null
