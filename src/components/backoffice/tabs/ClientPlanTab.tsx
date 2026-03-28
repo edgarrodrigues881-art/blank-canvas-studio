@@ -19,11 +19,11 @@ type AutoreplyTier = keyof typeof AUTOREPLY_PRICES;
 const PLANS: Record<string, { price: number; max_instances: number; defaultDays?: number; reports_whatsapp_enabled?: boolean }> = {
   "Sem plano": { price: 0, max_instances: 0 },
   Trial: { price: 0, max_instances: 3, defaultDays: 3 },
-  Essencial: { price: 89.9, max_instances: 5 },
-  Start: { price: 159.9, max_instances: 10 },
-  Pro: { price: 349.9, max_instances: 30 },
-  Scale: { price: 549.9, max_instances: 50, reports_whatsapp_enabled: true },
-  Elite: { price: 999.9, max_instances: 100, reports_whatsapp_enabled: true },
+  Essencial: { price: 99, max_instances: 5 },
+  Start: { price: 187, max_instances: 10 },
+  Pro: { price: 397, max_instances: 30, reports_whatsapp_enabled: true },
+  Scale: { price: 597, max_instances: 50, reports_whatsapp_enabled: true },
+  Elite: { price: 1197, max_instances: 100, reports_whatsapp_enabled: true },
 };
 
 function addDays(dateStr: string, days: number) {

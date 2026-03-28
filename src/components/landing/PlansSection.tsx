@@ -33,23 +33,23 @@ const featuresWithoutWhatsApp = [...baseFeatures, "Relatórios via WhatsApp (add
 
 const topPlans: Plan[] = [
   {
-    name: "Essencial", instances: "5", price: "89,90",
+    name: "Essencial", instances: "5", price: "99,00",
     subtitle: "Ideal para quem está começando com poucas instâncias.",
-    extraCopy: null, cta: "Começar agora", popular: false,
+    extraCopy: null, cta: "Começar", popular: false,
     features: featuresWithoutWhatsApp,
     addon: null,
   },
   {
-    name: "Start", instances: "10", price: "159,90",
+    name: "Start", instances: "10", price: "187,00",
     subtitle: "Ideal para quem quer aumentar a capacidade.",
-    extraCopy: null, cta: "Começar agora", popular: false,
+    extraCopy: null, cta: "Começar", popular: false,
     features: featuresWithoutWhatsApp,
     addon: null,
   },
   {
-    name: "Pro", instances: "30", price: "349,90",
+    name: "Pro", instances: "30", price: "397,00",
     subtitle: "Ideal para operações em crescimento.",
-    extraCopy: "Mais escolhido", cta: "Escalar operação", popular: true, highlight: "amber",
+    extraCopy: "Mais escolhido", cta: "Escalar", popular: true, highlight: "amber",
     features: featuresWithWhatsApp,
     addon: null,
   },
@@ -57,16 +57,16 @@ const topPlans: Plan[] = [
 
 const bottomPlans: Plan[] = [
   {
-    name: "Scale", instances: "50", price: "549,90",
+    name: "Scale", instances: "50", price: "597,00",
     subtitle: "Para quem precisa escalar com múltiplas instâncias.",
-    extraCopy: null, cta: "Escalar operação", popular: false,
+    extraCopy: null, cta: "Escalar", popular: false,
     features: featuresWithWhatsApp,
     addon: null,
   },
   {
-    name: "Elite", instances: "100", price: "999,90",
+    name: "Elite", instances: "100", price: "1.197,00",
     subtitle: "Alta capacidade para operações grandes.",
-    extraCopy: null, cta: "Ir para o Elite", popular: false,
+    extraCopy: null, cta: "Contratar", popular: false,
     features: featuresWithWhatsApp,
     addon: null,
   },
