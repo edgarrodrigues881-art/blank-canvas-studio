@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ import {
 import { useCampaigns, useDeleteCampaign } from "@/hooks/useCampaigns";
 import { useCreateTemplate } from "@/hooks/useTemplates";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,12 +44,15 @@ const CampaignList = () => {
   const createTemplate = useCreateTemplate();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [clearAllOpen, setClearAllOpen] = useState(false);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [saveTemplateName, setSaveTemplateName] = useState("");
   const [savingCampaign, setSavingCampaign] = useState<any>(null);
+  const [isClearingAll, setIsClearingAll] = useState(false);
 
   const filtered = useMemo(() => {
     return campaigns.filter((c) => {
@@ -73,22 +78,41 @@ const CampaignList = () => {
   };
 
   const handleClearAll = async () => {
+    if (isClearingAll) return;
+
     try {
+      setIsClearingAll(true);
       const deletable = campaigns.filter((c) => !protectedStatuses.includes(c.status));
       if (deletable.length === 0) {
         toast({ title: "Nenhuma campanha pode ser excluída", description: "Todas estão em envio ou agendadas.", variant: "destructive" });
         setClearAllOpen(false);
         return;
       }
-      for (const c of deletable) {
-        await supabase.from("campaign_contacts").delete().eq("campaign_id", c.id);
-        await supabase.from("campaigns").delete().eq("id", c.id);
-      }
+      const ids = deletable.map((c) => c.id);
+
+      await Promise.all([
+        supabase.from("campaign_contacts").delete().in("campaign_id", ids),
+        supabase.from("campaigns").delete().in("id", ids),
+      ]);
+
+      queryClient.setQueryData(["campaigns"], (old: any[] | undefined) =>
+        old ? old.filter((campaign) => !ids.includes(campaign.id)) : old
+      );
+      queryClient.setQueryData(["campaigns", undefined], (old: any[] | undefined) =>
+        old ? old.filter((campaign) => !ids.includes(campaign.id)) : old
+      );
+      queryClient.setQueryData(["campaigns", user?.id], (old: any[] | undefined) =>
+        old ? old.filter((campaign) => !ids.includes(campaign.id)) : old
+      );
+
+      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
       const skipped = campaigns.length - deletable.length;
       setClearAllOpen(false);
       toast({ title: `${deletable.length} campanhas excluídas${skipped > 0 ? `, ${skipped} protegidas` : ""}` });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setIsClearingAll(false);
     }
   };
 
@@ -307,9 +331,9 @@ const CampaignList = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleClearAll} className="bg-destructive hover:bg-destructive/90">
-              Excluir todas
+            <AlertDialogCancel disabled={isClearingAll}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearAll} disabled={isClearingAll} className="bg-destructive hover:bg-destructive/90">
+              {isClearingAll ? "Excluindo..." : "Excluir todas"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
