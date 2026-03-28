@@ -35,16 +35,18 @@ const compressImage = (file: File, maxWidth = 1200, quality = 0.8): Promise<File
       canvas.height = h;
       const ctx = canvas.getContext("2d")!;
       ctx.drawImage(img, 0, 0, w, h);
+      const outputType = file.type === "image/png" ? "image/png" : "image/jpeg";
+      const outputExt = outputType === "image/png" ? ".png" : ".jpg";
       canvas.toBlob(
         (blob) => {
           if (blob && blob.size < file.size) {
-            resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), { type: "image/webp" }));
+            resolve(new File([blob], file.name.replace(/\.[^.]+$/, outputExt), { type: outputType }));
           } else {
             resolve(file);
           }
         },
-        "image/webp",
-        quality
+        outputType,
+        outputType === "image/jpeg" ? quality : undefined
       );
     };
     img.onerror = () => resolve(file);

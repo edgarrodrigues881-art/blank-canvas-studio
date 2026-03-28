@@ -46,6 +46,31 @@ const contactStatusConfig: Record<string, { label: string; icon: typeof CheckCir
   error:     { label: "Erro",     icon: AlertTriangle, className: "text-destructive" },
 };
 
+function resolveContactStatus(
+  contact: { status?: string | null; sent_at?: string | null; error_message?: string | null },
+  campaign?: { status?: string | null; sent_count?: number | null; total_contacts?: number | null } | null,
+) {
+  const rawStatus = (contact.status || "pending") as string;
+
+  if (["sent", "delivered", "failed", "error"].includes(rawStatus)) {
+    return rawStatus;
+  }
+
+  if (contact.sent_at && !contact.error_message) {
+    return "sent";
+  }
+
+  if (
+    campaign?.status === "completed"
+    && (campaign.sent_count ?? 0) >= Math.max(campaign.total_contacts ?? 0, 1)
+    && !contact.error_message
+  ) {
+    return "sent";
+  }
+
+  return rawStatus;
+}
+
 function translateError(msg: string | null): string | null {
   if (!msg) return null;
   if (msg.includes("not on Whats") || msg.includes("not registered") || msg.includes("not_exists")) return "Número inválido";
@@ -241,8 +266,16 @@ const CampaignDetail = () => {
   const [logSearch, setLogSearch] = useState("");
   const [logFilter, setLogFilter] = useState("all");
 
+  const normalizedContacts = useMemo(
+    () => contacts.map((contact) => ({
+      ...contact,
+      status: resolveContactStatus(contact, campaign),
+    })),
+    [contacts, campaign],
+  );
+
   const filteredContacts = useMemo(() => {
-    return contacts.filter(c => {
+    return normalizedContacts.filter(c => {
       const matchSearch = (c.phone || "").includes(logSearch) || (c.name || "").toLowerCase().includes(logSearch.toLowerCase());
       const matchFilter = logFilter === "all"
         || (logFilter === "sent" && (c.status === "sent" || c.status === "delivered"))
@@ -250,7 +283,7 @@ const CampaignDetail = () => {
         || (logFilter === "pending" && c.status === "pending");
       return matchSearch && matchFilter;
     });
-  }, [contacts, logSearch, logFilter]);
+  }, [normalizedContacts, logSearch, logFilter]);
 
   const isInvalidNumber = (msg: string | null) => {
     if (!msg) return false;
@@ -259,15 +292,15 @@ const CampaignDetail = () => {
   };
 
   const pageStats = useMemo(() => {
-    const failed = contacts.filter(c => c.status === "failed" || c.status === "error");
+    const failed = normalizedContacts.filter(c => c.status === "failed" || c.status === "error");
     return {
-      total: contacts.length,
-      sent: contacts.filter(c => c.status === "sent" || c.status === "delivered").length,
+      total: normalizedContacts.length,
+      sent: normalizedContacts.filter(c => c.status === "sent" || c.status === "delivered").length,
       failed: failed.length,
       failedResendable: failed.filter(c => !isInvalidNumber(c.error_message)).length,
-      pending: contacts.filter(c => c.status === "pending").length,
+      pending: normalizedContacts.filter(c => c.status === "pending").length,
     };
-  }, [contacts]);
+  }, [normalizedContacts]);
 
   const stats = useMemo(() => {
     const total = campaign?.total_contacts ?? pageStats.total;
@@ -417,7 +450,7 @@ const CampaignDetail = () => {
         return {
           Nome: c.name || "—",
           Telefone: c.phone,
-          Status: contactStatusConfig[c.status]?.label || c.status,
+          Status: contactStatusConfig[resolveContactStatus(c, campaign)]?.label || c.status,
           Horário: c.sent_at ? format(new Date(c.sent_at), "dd/MM/yyyy HH:mm:ss") : "",
           Erro: c.error_message || "",
           "Enviado por": dev ? (dev.number || dev.name) : "",
@@ -428,17 +461,23 @@ const CampaignDetail = () => {
     let total = 0;
 
     if (exportSent) {
-      const rows = toRows(allContacts.filter((c: any) => c.status === "sent" || c.status === "delivered"));
+      const rows = toRows(allContacts.filter((c: any) => {
+        const status = resolveContactStatus(c, campaign);
+        return status === "sent" || status === "delivered";
+      }));
       total += rows.length;
       if (rows.length > 0) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Enviadas");
     }
     if (exportFailed) {
-      const rows = toRows(allContacts.filter((c: any) => c.status === "failed" || c.status === "error"));
+      const rows = toRows(allContacts.filter((c: any) => {
+        const status = resolveContactStatus(c, campaign);
+        return status === "failed" || status === "error";
+      }));
       total += rows.length;
       if (rows.length > 0) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Falhas");
     }
     if (exportPending) {
-      const rows = toRows(allContacts.filter((c: any) => c.status === "pending"));
+      const rows = toRows(allContacts.filter((c: any) => resolveContactStatus(c, campaign) === "pending"));
       total += rows.length;
       if (rows.length > 0) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Pendentes");
     }
