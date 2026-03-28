@@ -419,10 +419,10 @@ const Campaigns = () => {
       campaignName, messages, rotationMode, messageType, mediaUrl, contacts,
       buttons, selectedDevices, messagesPerInstance, sendMode,
       minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax,
-      scheduleEnabled, scheduleDate,
+      scheduleEnabled, scheduleDate, contentType, carouselCards,
     };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  }, [draftLoaded, campaignName, messages, rotationMode, messageType, mediaUrl, contacts, buttons, selectedDevices, messagesPerInstance, sendMode, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, scheduleEnabled, scheduleDate]);
+  }, [draftLoaded, campaignName, messages, rotationMode, messageType, mediaUrl, contacts, buttons, selectedDevices, messagesPerInstance, sendMode, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, scheduleEnabled, scheduleDate, contentType, carouselCards]);
 
   const clearStep1 = () => {
     setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName("");
