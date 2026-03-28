@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo } from "react";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -64,6 +65,8 @@ const commonEmojis: Record<string, string[]> = {
 const Templates = () => {
   const { toast } = useToast();
   const { session } = useAuth();
+  const { resolvedTheme } = useTheme();
+  const isLight = resolvedTheme === "light";
   const { data: templates = [], isLoading } = useTemplates();
   const createTemplate = useCreateTemplate();
   const updateTemplate = useUpdateTemplate();
@@ -811,66 +814,79 @@ const Templates = () => {
       {/* ═══ Preview Dialog ═══ */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="sm:max-w-[380px] max-h-[85vh] overflow-y-auto p-0 border-0 bg-transparent shadow-none [&>button]:hidden">
-          <div className="rounded-2xl overflow-hidden border border-[#ffffff0a] shadow-[0_8px_30px_rgba(0,0,0,0.4)]" style={{ background: "#0b141a" }}>
-            {/* Header */}
-            <div className="px-4 py-3 flex items-center justify-between border-b border-[#ffffff08]" style={{ background: "#1f2c34" }}>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "#2a3942" }}>
-                  <MessageSquare className="w-4.5 h-4.5" style={{ color: "#aebac1" }} />
-                </div>
-                <div>
-                  <p className="text-[13px] font-semibold leading-tight" style={{ color: "#e9edef" }}>Destinatário</p>
-                  <p className="text-[10px]" style={{ color: "#8696a0" }}>online</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
-                {(["sent", "received"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => setPreviewMode(mode)}
-                    className="px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-150"
-                    style={{
-                      background: previewMode === mode ? "hsl(var(--primary) / 0.15)" : "transparent",
-                      color: previewMode === mode ? "hsl(var(--primary))" : "#8696a0",
-                      border: previewMode === mode ? "1px solid hsl(var(--primary) / 0.3)" : "1px solid transparent",
-                    }}
-                  >
-                    {mode === "sent" ? "Enviada" : "Recebida"}
-                  </button>
-                ))}
-                <button onClick={() => setPreviewOpen(false)} className="ml-1 w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#ffffff10] transition-colors">
-                  <X className="w-3.5 h-3.5" style={{ color: "#8696a0" }} />
-                </button>
-              </div>
-            </div>
+          {(() => {
+            const headerBg = isLight ? "#f0f2f5" : "#1f2c34";
+            const headerBorder = isLight ? "#e9edef" : "rgba(255,255,255,0.03)";
+            const shellBg = isLight ? "#efeae2" : "#0b141a";
+            const avatarBg = isLight ? "#dfe5e7" : "#2a3942";
+            const avatarColor = isLight ? "#54656f" : "#aebac1";
+            const titleColor = isLight ? "#111b21" : "#e9edef";
+            const subtitleColor = isLight ? "#667781" : "#8696a0";
+            const sentBubbleBg = isLight ? "#d9fdd3" : "#0b7a69";
+            const recvBubbleBg = isLight ? "#ffffff" : "#1f2c34";
+            const textColor = isLight ? "#111b21" : "#e9edef";
+            const metaColor = isLight ? "rgba(102,119,129,0.6)" : "rgba(255,255,255,0.45)";
+            const checkColor = isLight ? "#53BDEB" : "#53bdeb";
+            const accentColor = isLight ? "#027eb5" : "#00a884";
+            const btnBorderColor = isLight ? "#e9edef" : "rgba(255,255,255,0.06)";
+            const btnHoverBg = isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)";
+            const closeBtnColor = isLight ? "#54656f" : "#8696a0";
 
-            {/* Chat area */}
-            <div
-              className="px-5 py-8 min-h-[320px] flex flex-col justify-end gap-2"
-              style={{
-                backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'200\' height=\'200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cdefs%3E%3Cpattern id=\'p\' width=\'40\' height=\'40\' patternUnits=\'userSpaceOnUse\'%3E%3Ccircle cx=\'20\' cy=\'20\' r=\'0.8\' fill=\'%23ffffff06\'/%3E%3C/pattern%3E%3C/defs%3E%3Crect fill=\'url(%23p)\' width=\'200\' height=\'200\'/%3E%3C/svg%3E")',
-              }}
-            >
-              {previewTemplate && (() => {
-                const files = parseMediaFiles(previewTemplate.media_url);
-                const beforeFiles = files.filter((f: MediaFile) => f.sendMode === "before");
-                const withFile = files.find((f: MediaFile) => f.sendMode === "with");
-                const time = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-                const isSent = previewMode === "sent";
-                const bubbleBg = isSent ? "#005c4b" : "#1f2c34";
-                const align = isSent ? "self-end" : "self-start";
-                const buttons = previewTemplate.buttons || [];
+            return (
+              <div className="rounded-2xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.25)]" style={{ background: shellBg, border: `1px solid ${headerBorder}` }}>
+                {/* Header */}
+                <div className="px-4 py-3 flex items-center justify-between" style={{ background: headerBg, borderBottom: `1px solid ${headerBorder}` }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: avatarBg }}>
+                      <MessageSquare className="w-4.5 h-4.5" style={{ color: avatarColor }} />
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-semibold leading-tight" style={{ color: titleColor }}>Destinatário</p>
+                      <p className="text-[10px]" style={{ color: subtitleColor }}>online</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {(["sent", "received"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => setPreviewMode(mode)}
+                        className="px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-150"
+                        style={{
+                          background: previewMode === mode ? "hsl(var(--primary) / 0.15)" : "transparent",
+                          color: previewMode === mode ? "hsl(var(--primary))" : closeBtnColor,
+                          border: previewMode === mode ? "1px solid hsl(var(--primary) / 0.3)" : "1px solid transparent",
+                        }}
+                      >
+                        {mode === "sent" ? "Enviada" : "Recebida"}
+                      </button>
+                    ))}
+                    <button onClick={() => setPreviewOpen(false)} className="ml-1 w-7 h-7 rounded-lg flex items-center justify-center transition-colors" style={{ color: closeBtnColor }} onMouseEnter={e => e.currentTarget.style.background = btnHoverBg} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
 
-                return (
-                  <>
-                    {beforeFiles.map((file: MediaFile, i: number) => (
-                      <div key={`before-${i}`} className={`${align} max-w-[82%]`}>
+                {/* Chat area */}
+                <div className="px-5 py-8 min-h-[320px] flex flex-col justify-end gap-2">
+                  {previewTemplate && (() => {
+                    const files = parseMediaFiles(previewTemplate.media_url);
+                    const beforeFiles = files.filter((f: MediaFile) => f.sendMode === "before");
+                    const withFile = files.find((f: MediaFile) => f.sendMode === "with");
+                    const afterFiles = files.filter((f: MediaFile) => f.sendMode === "after");
+                    const time = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+                    const isSent = previewMode === "sent";
+                    const bubbleBg = isSent ? sentBubbleBg : recvBubbleBg;
+                    const align = isSent ? "self-end" : "self-start";
+                    const buttons = previewTemplate.buttons || [];
+
+                    const renderMediaBubble = (file: MediaFile, key: string) => (
+                      <div key={key} className={`${align} max-w-[82%]`}>
                         <div className="rounded-xl overflow-hidden shadow-sm" style={{ background: bubbleBg }}>
-                          {file.type === "image" && <img src={file.url} alt={file.name} className="w-full max-h-44 object-cover" style={{ aspectRatio: 'auto' }} />}
+                          {file.type === "image" && <img src={file.url} alt={file.name} className="w-full max-h-44 object-cover" />}
                           {file.type === "video" && <video src={file.url} controls className="w-full max-h-48" />}
                           {file.type === "audio" && (
                             <div className="px-3 py-2.5 flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: "#00a884" }}>
+                              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: accentColor }}>
                                 <Mic className="w-4 h-4 text-white" />
                               </div>
                               <audio src={file.url} controls className="w-full h-7 [&::-webkit-media-controls-panel]:bg-transparent" />
@@ -878,63 +894,87 @@ const Templates = () => {
                           )}
                           {file.type === "document" && (
                             <div className="px-3 py-2.5 flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(0,168,132,0.15)" }}>
-                                <FileText className="w-4 h-4" style={{ color: "#00a884" }} />
+                              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${accentColor}22` }}>
+                                <FileText className="w-4 h-4" style={{ color: accentColor }} />
                               </div>
-                              <span className="text-[11px] truncate" style={{ color: "#e9edef" }}>{file.name}</span>
+                              <span className="text-[11px] truncate" style={{ color: textColor }}>{file.name}</span>
                             </div>
                           )}
                           <div className="flex justify-end px-2.5 pb-1.5">
-                            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.55)" }}>{time} {isSent && "✓✓"}</span>
+                            <span className="text-[10px]" style={{ color: metaColor }}>{time} {isSent && "✓✓"}</span>
                           </div>
                         </div>
                       </div>
-                    ))}
+                    );
 
-                    <div className={`${align} max-w-[82%]`}>
-                      <div className="rounded-xl overflow-hidden shadow-md" style={{ background: bubbleBg }}>
-                        {withFile && (
-                          <>
-                            {withFile.type === "image" && <img src={withFile.url} alt={withFile.name} className="w-full max-h-44 object-cover" style={{ aspectRatio: 'auto' }} />}
-                            {withFile.type === "video" && <video src={withFile.url} controls className="w-full max-h-48" />}
-                          </>
-                        )}
-                        <div className="px-3 py-2">
-                          <p className="text-[13px] whitespace-pre-wrap leading-[1.4]" style={{ color: "#e9edef" }}>
-                            {(() => {
-                              const raw = previewTemplate.content || "";
-                              const parts = raw.includes("|||") ? raw.split("|||") : raw.includes("|&&|") ? raw.split("|&&|") : [raw];
-                              return parts[0];
-                            })()}
-                          </p>
-                          <div className="flex justify-end mt-1 gap-1 items-center">
-                            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.45)" }}>{time}</span>
-                            {isSent && <span className="text-[10px]" style={{ color: "#53bdeb" }}>✓✓</span>}
+                    return (
+                      <>
+                        {beforeFiles.map((file: MediaFile, i: number) => renderMediaBubble(file, `before-${i}`))}
+
+                        <div className={`${align} max-w-[82%]`}>
+                          <div className="rounded-xl overflow-hidden shadow-md" style={{ background: bubbleBg }}>
+                            {withFile && (
+                              <>
+                                {withFile.type === "image" && <img src={withFile.url} alt={withFile.name} className="w-full max-h-44 object-cover" />}
+                                {withFile.type === "video" && <video src={withFile.url} controls className="w-full max-h-48" />}
+                                {withFile.type === "audio" && (
+                                  <div className="px-3 py-2.5 flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: accentColor }}>
+                                      <Mic className="w-4 h-4 text-white" />
+                                    </div>
+                                    <audio src={withFile.url} controls className="w-full h-7" />
+                                  </div>
+                                )}
+                                {withFile.type === "document" && (
+                                  <div className="px-3 py-2.5 flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${accentColor}22` }}>
+                                      <FileText className="w-4 h-4" style={{ color: accentColor }} />
+                                    </div>
+                                    <span className="text-[11px] truncate" style={{ color: textColor }}>{withFile.name}</span>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                            <div className="px-3 py-2">
+                              <p className="text-[13px] whitespace-pre-wrap leading-[1.4]" style={{ color: textColor }}>
+                                {(() => {
+                                  const raw = previewTemplate.content || "";
+                                  const parts = raw.includes("|||") ? raw.split("|||") : raw.includes("|&&|") ? raw.split("|&&|") : [raw];
+                                  return parts[0];
+                                })()}
+                              </p>
+                              <div className="flex justify-end mt-1 gap-1 items-center">
+                                <span className="text-[10px]" style={{ color: metaColor }}>{time}</span>
+                                {isSent && <span className="text-[10px]" style={{ color: checkColor }}>✓✓</span>}
+                              </div>
+                            </div>
+                            {buttons.length > 0 && (
+                              <div style={{ borderTop: `1px solid ${btnBorderColor}` }}>
+                                {buttons.map((btn: any, i: number) => (
+                                  <div
+                                    key={i}
+                                    className="px-3 py-2.5 flex items-center justify-center gap-1.5 text-center cursor-pointer transition-colors"
+                                    style={{ borderBottom: i < buttons.length - 1 ? `1px solid ${btnBorderColor}` : "none" }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = btnHoverBg)}
+                                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                                  >
+                                    {btn.type === "url" ? <Link className="w-3.5 h-3.5" style={{ color: accentColor }} /> : <MousePointerClick className="w-3.5 h-3.5" style={{ color: accentColor }} />}
+                                    <span className="text-[13px] font-medium" style={{ color: accentColor }}>{btn.text}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
-                        {buttons.length > 0 && (
-                          <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                            {buttons.map((btn: any, i: number) => (
-                              <div
-                                key={i}
-                                className="px-3 py-2.5 flex items-center justify-center gap-1.5 text-center cursor-pointer transition-colors"
-                                style={{ borderBottom: i < buttons.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
-                                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
-                                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                              >
-                                {btn.type === "url" ? <Link className="w-3.5 h-3.5" style={{ color: "#00a884" }} /> : btn.type === "phone" ? <Phone className="w-3.5 h-3.5" style={{ color: "#00a884" }} /> : <MessageSquare className="w-3.5 h-3.5" style={{ color: "#00a884" }} />}
-                                <span className="text-[13px] font-medium" style={{ color: "#00a884" }}>{btn.text}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-          </div>
+
+                        {afterFiles.map((file: MediaFile, i: number) => renderMediaBubble(file, `after-${i}`))}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
