@@ -314,7 +314,7 @@ export function CarouselEditor({ cards, onChange }: CarouselEditorProps) {
                   >
                     <option value="reply">Resposta Rápida</option>
                     <option value="url">Link (URL)</option>
-                    <option value="phone">Telefone</option>
+                    
                   </select>
                 </div>
                 <button onClick={() => removeButton(btn.id)} className="text-muted-foreground/30 hover:text-destructive transition-colors p-1">
@@ -347,9 +347,6 @@ export function CarouselEditor({ cards, onChange }: CarouselEditorProps) {
             </Button>
             <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1 border-border/20" onClick={() => addButton("url")}>
               <Link className="w-3 h-3" /> URL
-            </Button>
-            <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1 border-border/20" onClick={() => addButton("phone")}>
-              <Phone className="w-3 h-3" /> Telefone
             </Button>
           </div>
         )}
