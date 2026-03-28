@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Link, Phone, Smartphone } from "lucide-react";
+import { ChevronLeft, ChevronRight, Link, Phone, Smartphone, Reply } from "lucide-react";
 import { CarouselCard } from "./carousel-types";
 import { useTheme } from "next-themes";
 
@@ -50,7 +50,7 @@ export function CarouselPreview({ cards, message, previewMode = "sent" }: Carous
       subtitle: "text-[#8696A0]",
       chatBg: "#0B141A",
       pattern: "%23ffffff",
-      sentBubble: "bg-[#005C4B] text-[#E9EDEF]",
+      sentBubble: "bg-[#0b7a69] text-[#E9EDEF]",
       receivedBubble: "bg-[#202C33] text-[#E9EDEF]",
       buttonHoverSent: "hover:bg-[#006B57]",
       buttonHoverReceived: "hover:bg-[#2A3942]",
@@ -148,12 +148,21 @@ export function CarouselPreview({ cards, message, previewMode = "sent" }: Carous
                   >
                     {/* Card media */}
                     {card.mediaUrl && (
-                      <img
-                        src={card.mediaUrl}
-                        alt={`Card ${i + 1}`}
-                        className="w-full h-28 object-cover"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
+                      card.mediaType === "video" ? (
+                        <video
+                          src={card.mediaUrl}
+                          className="w-full h-28 object-cover"
+                          muted
+                          playsInline
+                        />
+                      ) : (
+                        <img
+                          src={card.mediaUrl}
+                          alt={`Card ${i + 1}`}
+                          className="w-full h-28 object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      )
                     )}
 
                     {/* Card text */}
@@ -178,6 +187,7 @@ export function CarouselPreview({ cards, message, previewMode = "sent" }: Carous
                               isSent ? palette.buttonHoverSent : palette.buttonHoverReceived
                             )}
                           >
+                            {btn.type === "reply" && <Reply className={cn("w-3 h-3", palette.accentText)} />}
                             {btn.type === "url" && <Link className={cn("w-3 h-3", palette.accentText)} />}
                             {btn.type === "phone" && <Phone className={cn("w-3 h-3", palette.accentText)} />}
                             <span className={cn("text-[11px] font-medium truncate", palette.accentText)}>{btn.text}</span>
