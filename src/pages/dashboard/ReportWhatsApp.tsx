@@ -45,6 +45,7 @@ export default function ReportWhatsApp() {
   const [pairingLoading, setPairingLoading] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [pendingDeviceId, setPendingDeviceId] = useState<string | null>(null); // tracks newly created device before query refreshes
   const qrCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -110,7 +111,6 @@ export default function ReportWhatsApp() {
   const ensureReportDevice = async (): Promise<string | null> => {
     if (reportDevice?.id) return reportDevice.id;
     
-    // Fetch monitor token from profile to pre-fill the device
     const { data: profile } = await supabase
       .from("profiles")
       .select("whatsapp_monitor_token")
@@ -132,7 +132,8 @@ export default function ReportWhatsApp() {
       .select("id")
       .single();
     if (error) throw new Error("Erro ao criar instância de relatório: " + error.message);
-    // Invalidate to pick up the new device
+    // Track the new device ID immediately for realtime/polling
+    setPendingDeviceId(data.id);
     await queryClient.invalidateQueries({ queryKey: ["report-device"] });
     return data.id;
   };
@@ -293,18 +294,20 @@ export default function ReportWhatsApp() {
   }, [connectStep, qrCodeBase64, reportDevice?.id]);
 
   // Detect connection via Realtime (devices table changes) — much faster than polling
+  const activeDeviceId = reportDevice?.id || pendingDeviceId;
   useEffect(() => {
-    if (!qrDialogOpen || !reportDevice?.id || qrConnected) return;
+    if (!qrDialogOpen || !activeDeviceId || qrConnected) return;
     const channel = supabase
-      .channel(`report-device-${reportDevice.id}`)
+      .channel(`report-device-${activeDeviceId}`)
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'devices', filter: `id=eq.${reportDevice.id}` },
+        { event: 'UPDATE', schema: 'public', table: 'devices', filter: `id=eq.${activeDeviceId}` },
         (payload: any) => {
           const newStatus = payload.new?.status;
-          if (newStatus === 'Ready' || newStatus === 'Connected' || newStatus === 'authenticated') {
+          if (newStatus === 'Ready' || newStatus === 'Connected' || newStatus === 'authenticated' || newStatus === 'connected') {
             setQrConnected(true);
             setConnectStep("done");
+            setPendingDeviceId(null);
             queryClient.invalidateQueries({ queryKey: ["report-device"] });
             toast.success("Instância conectada com sucesso!");
             setTimeout(() => setQrDialogOpen(false), 1500);
@@ -313,26 +316,28 @@ export default function ReportWhatsApp() {
       )
       .subscribe();
 
-    // Fallback: also poll every 4s in case Realtime misses it
+    // Fallback: also poll every 3s in case Realtime misses it
     pollRef.current = setInterval(async () => {
       try {
-        const result = await callApi({ action: "status", deviceId: reportDevice.id });
-        if (result?.status === "authenticated" || result?.status === "connected") {
+        const result = await callApi({ action: "status", deviceId: activeDeviceId });
+        const st = result?.status?.toLowerCase?.() || "";
+        if (st === "authenticated" || st === "connected" || st === "ready" || st === "open") {
           if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
           setQrConnected(true);
           setConnectStep("done");
+          setPendingDeviceId(null);
           queryClient.invalidateQueries({ queryKey: ["report-device"] });
           toast.success("Instância conectada com sucesso!");
           setTimeout(() => setQrDialogOpen(false), 1500);
         }
       } catch {}
-    }, 4000);
+    }, 3000);
 
     return () => {
       supabase.removeChannel(channel);
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     };
-  }, [qrDialogOpen, reportDevice?.id, qrConnected]);
+  }, [qrDialogOpen, activeDeviceId, qrConnected]);
 
   const fetchGroups = async (deviceId: string, forceRefresh = false) => {
     setLoadingGroups(true);

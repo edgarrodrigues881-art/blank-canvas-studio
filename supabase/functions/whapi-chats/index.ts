@@ -278,15 +278,18 @@ Deno.serve(async (req) => {
       await fetchGroupListPaginated("S1");
 
       // UaZapi pode oscilar entre 4 e 9 grupos no mesmo minuto; faz retries e mantém união por JID
-      if (forceRefresh && allGroups.length < 8) {
-        for (let attempt = 1; attempt <= 2 && allGroups.length < 8; attempt++) {
-          await new Promise((r) => setTimeout(r, 900));
+      if (allGroups.length < 20) {
+        for (let attempt = 1; attempt <= 2 && allGroups.length < 20; attempt++) {
+          await new Promise((r) => setTimeout(r, 1200));
           await fetchGroupListPaginated(`S1R${attempt}`);
         }
       }
 
-      // Fallbacks only if primary endpoint failed (avoid mixing stale historical sources)
-      if (!primaryFetchSucceeded) {
+      // Run fallback strategies when we have fewer groups than expected (< 50)
+      // or when the primary endpoint failed entirely
+      const needsFallback = !primaryFetchSucceeded || allGroups.length < 50;
+
+      if (needsFallback) {
         // ─── S1b: /group/list with count ───
         const dataS1b = await fetchSafe(`${apiBaseUrl}/group/list?GetParticipants=true&count=500`, 1);
         if (dataS1b) {
@@ -312,7 +315,7 @@ Deno.serve(async (req) => {
         }
 
         // ─── S2: /group/fetchAllGroups ───
-        if (forceRefresh) {
+        if (forceRefresh || allGroups.length < 50) {
           const dataS2 = await fetchSafe(`${apiBaseUrl}/group/fetchAllGroups`, 1);
           if (dataS2) {
             fallbackFetchSucceeded = true;
@@ -348,7 +351,7 @@ Deno.serve(async (req) => {
         }
 
         // ─── S5: /group/list huge count ───
-        if (forceRefresh) {
+        if (forceRefresh || allGroups.length < 50) {
           const dataS5 = await fetchSafe(`${apiBaseUrl}/group/list?GetParticipants=true&count=9999`, 1);
           if (dataS5) {
             fallbackFetchSucceeded = true;
@@ -360,7 +363,7 @@ Deno.serve(async (req) => {
         }
 
         // ─── S6: /group/participating ───
-        if (forceRefresh) {
+        if (forceRefresh || allGroups.length < 50) {
           const dataS6 = await fetchSafe(`${apiBaseUrl}/group/participating`, 1);
           if (dataS6) {
             fallbackFetchSucceeded = true;
@@ -374,9 +377,22 @@ Deno.serve(async (req) => {
 
       console.log(`[${deviceId}] Total unique groups (raw): ${allGroups.length}`);
 
-      const authoritativeGroups = allGroups.filter((g) => groupHasDeviceAsParticipant(g));
-      if (authoritativeGroups.length !== allGroups.length) {
-        console.log(`[${deviceId}] Filtered by participant ownership: ${authoritativeGroups.length}/${allGroups.length}`);
+      // Only filter by participant ownership if we have a reliable device number
+      // AND the group has participant data. Skip filtering entirely if we have many groups
+      // (indicates the API returned correct data) or if device number is unknown.
+      let authoritativeGroups = allGroups;
+      if (deviceDigits && allGroups.length <= 200) {
+        const filtered = allGroups.filter((g) => groupHasDeviceAsParticipant(g));
+        // Only use filtered results if the filter didn't remove too many groups
+        // (removing >60% suggests the participant data is incomplete, not that the groups are wrong)
+        if (filtered.length >= allGroups.length * 0.4 || filtered.length >= 30) {
+          authoritativeGroups = filtered;
+          if (filtered.length !== allGroups.length) {
+            console.log(`[${deviceId}] Filtered by participant ownership: ${filtered.length}/${allGroups.length}`);
+          }
+        } else {
+          console.log(`[${deviceId}] Skipped participant filter (would remove ${allGroups.length - filtered.length}/${allGroups.length} groups — too aggressive)`);
+        }
       }
 
       // Map to standardized format
