@@ -835,6 +835,36 @@ export type Database = {
           },
         ]
       }
+      carousel_templates: {
+        Row: {
+          cards: Json
+          created_at: string
+          id: string
+          message: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cards?: Json
+          created_at?: string
+          id?: string
+          message?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cards?: Json
+          created_at?: string
+          id?: string
+          message?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chip_conversation_logs: {
         Row: {
           conversation_id: string
