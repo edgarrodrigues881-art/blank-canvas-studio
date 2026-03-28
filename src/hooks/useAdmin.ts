@@ -25,6 +25,7 @@ export interface AdminUser {
   instance_override: number;
   plan_expires_at: string | null;
   plan_started_at: string | null;
+  signup_ip: string | null;
 }
 
 export interface AdminDashboard {

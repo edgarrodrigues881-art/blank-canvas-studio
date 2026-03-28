@@ -119,7 +119,7 @@ const AdminClientsTable = memo(({ users, onSelectClient }: Props) => {
       if (filter === "active" && u.status !== "active") return false;
       if (filter === "suspended" && u.status !== "suspended") return false;
       if (filter === "cancelled" && u.status !== "cancelled") return false;
-      if (q && !u.full_name?.toLowerCase().includes(q) && !u.email?.toLowerCase().includes(q) && !u.phone?.includes(q)) return false;
+      if (q && !u.full_name?.toLowerCase().includes(q) && !u.email?.toLowerCase().includes(q) && !u.phone?.includes(q) && !(u.signup_ip || "").includes(q)) return false;
       return true;
     });
   }, [users, search, filter]);
