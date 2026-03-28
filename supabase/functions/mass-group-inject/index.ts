@@ -71,9 +71,9 @@ const FAILURE_STATUSES = new Set([
 
 const FINAL_CAMPAIGN_STATUSES = new Set(["done", "completed_with_failures", "paused", "cancelled", "failed"]);
 const RETRYABLE_QUEUE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped", "permission_unconfirmed", "unknown_failure", "timeout"] as const;
-const MAX_QUEUE_RETRIES = 3;
-const MAX_RATE_LIMIT_RETRIES = 8;
-const MAX_SESSION_DROP_RETRIES = 5; // session drops get more retries since they're transient
+const MAX_QUEUE_RETRIES = 5;
+const MAX_RATE_LIMIT_RETRIES = 15;
+const MAX_SESSION_DROP_RETRIES = 8; // session drops get more retries since they're transient
 const STALE_PROCESSING_TIMEOUT_MS = 3 * 60 * 1000;
 const API_TIMEOUT_MS = 25_000;
 const DISCONNECT_RECHECK_COUNT = 3; // Number of checks before confirming disconnect
@@ -856,8 +856,8 @@ function computeNextDelayMs(campaign: any, cooldownMs?: number, _deviceId?: stri
   return nextDelayMs;
 }
 
-// Consecutive failure tracking for auto-pause
-const MAX_CONSECUTIVE_FAILURES = 5;
+// Consecutive failure tracking for auto-pause (high threshold to support 1000+ contact campaigns)
+const MAX_CONSECUTIVE_FAILURES = 15;
 
 /**
  * Lightweight worker:
