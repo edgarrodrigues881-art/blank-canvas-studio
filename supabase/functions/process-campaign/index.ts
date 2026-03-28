@@ -172,13 +172,18 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
   } catch (structuredError) {
     console.warn(`Primary /send/carousel failed for ${phone}: ${structuredError instanceof Error ? structuredError.message : String(structuredError)}`);
 
+    // Determine if cards have URL buttons — if so, use "list" type which supports url: prefix
+    const hasUrlButtons = normalizedCards.some((card) =>
+      (card.buttons || []).some((b) => (b.type || "").toLowerCase() === "url")
+    );
+
     const menuResponse = await uazapiRequest(baseUrl, token, "/send/menu", {
       number: phone,
-      type: "carousel",
+      type: hasUrlButtons ? "list" : "carousel",
       text: primaryText,
       choices: menuChoices,
     });
-    console.log(JSON.stringify({ event: "carousel_send_success", origin: "campaign", strategy: "menu_carousel" }));
+    console.log(JSON.stringify({ event: "carousel_send_success", origin: "campaign", strategy: "menu_fallback", hasUrlButtons }));
     return menuResponse;
   }
 }
