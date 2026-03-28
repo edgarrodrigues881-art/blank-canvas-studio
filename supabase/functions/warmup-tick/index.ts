@@ -374,6 +374,11 @@ async function scheduleDayJobs(
   const windowMs = effectiveEnd - effectiveStart;
   if (windowMs < 30 * 60 * 1000) return 0;
 
+  // ── PROPORTIONAL REDUCTION for late connections ──
+  // If the chip connects mid-day, reduce volumes proportionally to the remaining window
+  const FULL_WINDOW_MS = 12 * 60 * 60 * 1000; // 07:00-19:00 = 12h
+  const windowFraction = Math.min(windowMs / FULL_WINDOW_MS, 1);
+
   // Fetch community_day for volume calculation
   let communityDay: number | undefined;
   if (isCommunityPhase(phase)) {
@@ -382,6 +387,20 @@ async function scheduleDayJobs(
     communityDay = membership?.community_day || 1;
   }
   const volumes = getVolumes(chipState, dayIndex, phase, communityDay);
+
+  // Apply proportional reduction when window is shorter than full 12h
+  if (windowFraction < 0.95) {
+    volumes.groupMsgs = Math.max(1, Math.ceil(volumes.groupMsgs * windowFraction));
+    // Keep at least 1 autosave contact if any were planned
+    if (volumes.autosaveContacts > 0) {
+      volumes.autosaveContacts = Math.max(1, Math.ceil(volumes.autosaveContacts * windowFraction));
+    }
+    // Community: reduce bursts per peer proportionally but keep all peers
+    if (volumes.communityMsgsPerPeer > 0) {
+      volumes.communityMsgsPerPeer = Math.max(1, Math.ceil(volumes.communityMsgsPerPeer * windowFraction));
+    }
+    console.log(`[scheduleDayJobs] Late connection: windowFraction=${windowFraction.toFixed(2)}, adjusted volumes: groups=${volumes.groupMsgs}, autosave=${volumes.autosaveContacts}×${volumes.autosaveRounds}, community=${volumes.communityPeers}×${volumes.communityMsgsPerPeer}`);
+  }
 
   const { data: existingCycle } = await db.from("warmup_cycles")
     .select("daily_interaction_budget_target, daily_interaction_budget_used, daily_unique_recipients_used")
@@ -442,14 +461,30 @@ async function scheduleDayJobs(
     return 0;
   }
 
+  // ── Helper: evenly sample N items from an array (preserving order) ──
+  function evenSample<T>(arr: T[], n: number): T[] {
+    if (n >= arr.length) return arr;
+    if (n <= 0) return [];
+    const result: T[] = [];
+    const step = arr.length / n;
+    for (let i = 0; i < n; i++) {
+      result.push(arr[Math.min(Math.floor(i * step), arr.length - 1)]);
+    }
+    return result;
+  }
+
   const jobs: any[] = [];
 
-  // Group interactions — primeiro job entre 1-5 min após abertura da janela
-  if (volumes.groupMsgs > 0) {
-    const firstJobOffset = randInt(60, 300) * 1000; // 1-5 min após abertura
+  // ── Determine ACTUAL counts after budget constraints FIRST ──
+  const actualGroupCount = remainingBudget !== null ? Math.min(volumes.groupMsgs, reservedGroupBudget) : volumes.groupMsgs;
+  const actualAutosaveCount = remainingBudget !== null ? Math.min(autosaveNeeded, reservedAutosaveBudget) : autosaveNeeded;
+
+  // Group interactions — spread evenly across the ENTIRE window
+  if (actualGroupCount > 0) {
+    const firstJobOffset = randInt(60, 300) * 1000; // 1-5 min after window opens
     const remainingWindow = windowMs - firstJobOffset;
-    const spacing = remainingWindow / Math.max(volumes.groupMsgs, 1);
-    for (let i = 0; i < volumes.groupMsgs; i++) {
+    const spacing = remainingWindow / Math.max(actualGroupCount, 1);
+    for (let i = 0; i < actualGroupCount; i++) {
       const offset = firstJobOffset + spacing * i + randInt(-60, 60) * 1000;
       const runAt = new Date(effectiveStart + Math.max(offset, 60000));
       if (runAt.getTime() > effectiveEnd) break;
@@ -461,19 +496,22 @@ async function scheduleDayJobs(
     }
   }
 
-  // Autosave: contact-by-contact, 3 msgs each, 4-7 min gaps, spread through day
+  // Autosave: spread contacts throughout the ENTIRE window with gaps between contacts
   if (volumes.autosaveContacts > 0 && volumes.autosaveRounds > 0) {
-    const asWindowMs = effectiveEnd - effectiveStart;
-    const asStartOffset = randInt(
-      Math.floor(asWindowMs * 0.1),
-      Math.floor(asWindowMs * 0.4)
-    );
-    let cursor = effectiveStart + asStartOffset;
+    const contactsToProcess = remainingBudget !== null
+      ? Math.min(volumes.autosaveContacts, Math.ceil(actualAutosaveCount / volumes.autosaveRounds))
+      : volumes.autosaveContacts;
 
-    for (let c = 0; c < volumes.autosaveContacts; c++) {
-      // Check window BEFORE starting a new contact — never break mid-contact
-      if (cursor > effectiveEnd) break;
+    // Divide the window into equal segments, one per contact
+    const segmentMs = windowMs / Math.max(contactsToProcess + 1, 2);
+
+    for (let c = 0; c < contactsToProcess; c++) {
+      // Each contact starts at a different segment of the window
+      const segmentStart = effectiveStart + segmentMs * (c + 0.5) + randInt(-120, 120) * 1000;
+      let cursor = Math.max(segmentStart, effectiveStart + 5 * 60 * 1000);
+
       for (let r = 0; r < volumes.autosaveRounds; r++) {
+        if (cursor > effectiveEnd) break;
         jobs.push({
           user_id: userId, device_id: deviceId, cycle_id: cycleId,
           job_type: "autosave_interaction",
@@ -482,12 +520,11 @@ async function scheduleDayJobs(
         });
         cursor += randInt(4, 7) * 60 * 1000;
       }
-      cursor += randInt(5, 10) * 60 * 1000;
     }
   }
 
   // Community bursts — each job = 1 burst of 2-4 msgs (real conversation)
-  // 8-12 bursts per peer, spaced ~40-90 min apart to fill the 12h window
+  // Spread evenly across the window with jitter
   if (volumes.communityPeers > 0 && volumes.communityMsgsPerPeer > 0) {
     for (let p = 0; p < volumes.communityPeers; p++) {
       const convStartOffset = randInt(5, 20) * 60 * 1000 + p * randInt(5, 15) * 60 * 1000;
@@ -515,21 +552,26 @@ async function scheduleDayJobs(
     }
   }
 
+  // ── Budget trimming with EVEN SAMPLING (not slice) ──
+  // This ensures trimmed jobs stay distributed across the full window
   let jobsToInsert = jobs;
   if (remainingBudget !== null) {
-    const groupJobs = jobs.filter((job) => job.job_type === "group_interaction").slice(0, reservedGroupBudget);
-    // Prioritize autosave over community when budget is limited
-    const autosaveJobs = jobs.filter((job) => job.job_type === "autosave_interaction").slice(0, reservedAutosaveBudget);
-    const communityJobs = jobs.filter((job) => job.job_type === "community_interaction");
-    const communityBudget = Math.max((nonGroupBudget ?? communityJobs.length) - autosaveJobs.length, 0);
-    const trimmedCommunity = communityJobs.slice(0, communityBudget);
+    const groupJobs = jobs.filter((job) => job.job_type === "group_interaction");
+    const trimmedGroupJobs = evenSample(groupJobs, reservedGroupBudget);
 
-    jobsToInsert = [...groupJobs, ...autosaveJobs, ...trimmedCommunity]
+    const autosaveJobs = jobs.filter((job) => job.job_type === "autosave_interaction");
+    const trimmedAutosaveJobs = evenSample(autosaveJobs, reservedAutosaveBudget);
+
+    const communityJobs = jobs.filter((job) => job.job_type === "community_interaction");
+    const communityBudget = Math.max((nonGroupBudget ?? communityJobs.length) - trimmedAutosaveJobs.length, 0);
+    const trimmedCommunity = evenSample(communityJobs, communityBudget);
+
+    jobsToInsert = [...trimmedGroupJobs, ...trimmedAutosaveJobs, ...trimmedCommunity]
       .sort((a, b) => new Date(a.run_at).getTime() - new Date(b.run_at).getTime());
 
     if (jobsToInsert.length < jobs.length) {
       console.log(
-        `[scheduleDayJobs] Prioritizing group jobs within remaining budget: ${jobs.length} → ${jobsToInsert.length} (groups reserved=${reservedGroupBudget}, non-group=${nonGroupBudget})`
+        `[scheduleDayJobs] Budget trim with even sampling: ${jobs.length} → ${jobsToInsert.length} (groups=${trimmedGroupJobs.length}, autosave=${trimmedAutosaveJobs.length}, community=${trimmedCommunity.length})`
       );
     }
   }
