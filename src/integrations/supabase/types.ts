@@ -2493,6 +2493,7 @@ export type Database = {
       profiles: {
         Row: {
           admin_notes: string | null
+          autosave_enabled: boolean
           avatar_url: string | null
           client_type: string
           company: string | null
@@ -2511,6 +2512,7 @@ export type Database = {
         }
         Insert: {
           admin_notes?: string | null
+          autosave_enabled?: boolean
           avatar_url?: string | null
           client_type: string
           company?: string | null
@@ -2529,6 +2531,7 @@ export type Database = {
         }
         Update: {
           admin_notes?: string | null
+          autosave_enabled?: boolean
           avatar_url?: string | null
           client_type?: string
           company?: string | null
@@ -3826,6 +3829,7 @@ export type Database = {
         Args: { profile_row: Database["public"]["Tables"]["profiles"]["Row"] }
         Returns: {
           admin_notes: string | null
+          autosave_enabled: boolean
           avatar_url: string | null
           client_type: string
           company: string | null

@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS autosave_enabled boolean NOT NULL DEFAULT true;

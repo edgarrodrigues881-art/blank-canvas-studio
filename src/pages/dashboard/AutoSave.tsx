@@ -1,5 +1,6 @@
-import { useState, useMemo, useRef, useCallback, memo, type CSSProperties, type ReactElement } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, memo, type CSSProperties, type ReactElement } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { List as VirtualList } from "react-window";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -86,6 +87,33 @@ const AutoSave = () => {
   const { data: contacts = [], isLoading } = useAutosaveContacts();
   const { createContact, updateContact, deleteContact, bulkCreate } = useAutosaveMutations();
   const queryClient = useQueryClient();
+
+  // Autosave global toggle
+  const [autosaveEnabled, setAutosaveEnabled] = useState(true);
+  const [togglingAutosave, setTogglingAutosave] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("profiles").select("autosave_enabled").eq("id", user.id).single().then(({ data }) => {
+      if (data && typeof (data as any).autosave_enabled === "boolean") {
+        setAutosaveEnabled((data as any).autosave_enabled);
+      }
+    });
+  }, [user]);
+
+  const handleToggleAutosave = async () => {
+    if (!user) return;
+    setTogglingAutosave(true);
+    const newVal = !autosaveEnabled;
+    const { error } = await supabase.from("profiles").update({ autosave_enabled: newVal } as any).eq("id", user.id);
+    if (error) {
+      toast({ title: "Erro ao alterar Auto Save", description: error.message, variant: "destructive" });
+    } else {
+      setAutosaveEnabled(newVal);
+      toast({ title: newVal ? "Auto Save ativado" : "Auto Save desativado", description: newVal ? "O Auto Save será incluído no aquecimento" : "O Auto Save não entrará no aquecimento" });
+    }
+    setTogglingAutosave(false);
+  };
 
   // Disclaimer
   const disclaimerKey = `autosave_disclaimer_${user?.id}`;
@@ -422,6 +450,15 @@ const AutoSave = () => {
           </p>
         </div>
         <div className="flex flex-col md:flex-col lg:flex-row items-stretch lg:items-center gap-1.5 w-full lg:w-auto">
+          <div className="flex items-center gap-2 px-3 h-9 rounded-xl border border-border/15 bg-muted/10 w-full lg:w-auto justify-between lg:justify-start">
+            <span className="text-xs font-medium text-muted-foreground">{autosaveEnabled ? "Ativo" : "Inativo"}</span>
+            <Switch
+              checked={autosaveEnabled}
+              onCheckedChange={handleToggleAutosave}
+              disabled={togglingAutosave}
+              className="data-[state=checked]:bg-emerald-500"
+            />
+          </div>
           <Button size="sm" variant="outline" className="gap-1.5 text-xs h-9 rounded-xl border-border/15 w-full lg:w-auto" onClick={() => setImportOpen(true)}>
             <Upload className="w-3.5 h-3.5" /> Importar
           </Button>
