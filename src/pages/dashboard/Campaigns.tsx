@@ -153,6 +153,7 @@ const Campaigns = () => {
   const startCampaign = useStartCampaign();
   const createTemplate = useCreateTemplate();
   const { data: savedTemplates = [] } = useTemplates();
+  const { data: carouselTemplates = [] } = useCarouselTemplates();
   const { data: savedContacts = [] } = useContacts();
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -1335,7 +1336,36 @@ const Campaigns = () => {
                 {/* Carousel Editor */}
                 {contentType === "carousel" ? (
                   <SurfaceCard className="p-4 sm:p-6 space-y-4 sm:space-y-5">
-                    <SectionLabel>Mensagem do Carrossel</SectionLabel>
+                    <div className="flex items-center justify-between">
+                      <SectionLabel>Mensagem do Carrossel</SectionLabel>
+                      {carouselTemplates.length > 0 && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-1.5 rounded-xl text-xs h-8">
+                              <Layers className="w-3.5 h-3.5" /> Carregar Template
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {carouselTemplates.map(ct => (
+                              <DropdownMenuItem
+                                key={ct.id}
+                                onClick={() => {
+                                  setCarouselMessage(ct.message || "");
+                                  setCarouselCards(Array.isArray(ct.cards) && ct.cards.length > 0 ? ct.cards : [createEmptyCard(0)]);
+                                  toast({ title: `Template "${ct.name}" carregado` });
+                                }}
+                              >
+                                <Layers className="w-3.5 h-3.5 mr-2 text-primary" />
+                                {ct.name}
+                                <Badge variant="outline" className="ml-auto text-[9px]">
+                                  {(ct.cards || []).filter((c: any) => c.text?.trim() || c.mediaUrl).length} cards
+                                </Badge>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground -mt-2">Texto enviado junto com o carrossel (aparece acima dos cards)</p>
                     <textarea
                       value={carouselMessage}
