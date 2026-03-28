@@ -245,6 +245,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   sessionStorage.removeItem(provisionKey);
                 });
               }
+
+              // Record login IP (non-blocking)
+              const ipKey = `login_ip_${newSession.user.id}`;
+              const lastIpLog = sessionStorage.getItem(ipKey);
+              if (!lastIpLog) {
+                sessionStorage.setItem(ipKey, Date.now().toString());
+                fetch("https://api.ipify.org?format=json")
+                  .then(r => r.json())
+                  .then(({ ip }) => {
+                    if (ip) {
+                      supabase.functions.invoke("admin-data?action=record-login-ip", {
+                        body: { ip_address: ip, user_agent: navigator.userAgent },
+                      }).catch(() => {});
+                    }
+                  })
+                  .catch(() => {});
+              }
             }
           }
           // Detect TOKEN_REFRESHED failure (event fires but session is null = failure)
