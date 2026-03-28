@@ -4,6 +4,7 @@
 // ══════════════════════════════════════════════════════════
 
 import express, { Request, Response } from "express";
+import { inspect } from "node:util";
 import { config } from "./config";
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
@@ -89,10 +90,14 @@ function serializeUnknownError(error: unknown) {
   }
 
   const target = error as Record<string, any>;
-  const keys = Array.from(new Set([...Object.keys(target), ...Object.getOwnPropertyNames(target)]));
+  const ownKeys = Reflect.ownKeys(target).map((key) => String(key));
+  const propertyNames = Object.getOwnPropertyNames(target);
+  const keys = Array.from(new Set([...Object.keys(target), ...propertyNames, ...ownKeys]));
   const record: Record<string, any> = {
     type: target?.constructor?.name || "Object",
     keys,
+    ownKeys,
+    propertyNames,
   };
 
   for (const key of keys) {
@@ -119,6 +124,12 @@ function serializeUnknownError(error: unknown) {
     record.raw = JSON.stringify(target, keys);
   } catch {
     record.raw = String(target);
+  }
+
+  try {
+    record.inspect = inspect(target, { depth: 8, showHidden: true, breakLength: 120 });
+  } catch (inspectErr: any) {
+    record.inspect = `[InspectFailed:${inspectErr?.message || "unknown"}]`;
   }
 
   return record;
@@ -152,9 +163,50 @@ function logQueryDiagnostics(stage: string, query: {
           stack: serializedError.stack,
           rawError: serializedError.raw,
           errorKeys: serializedError.keys,
+          errorOwnKeys: serializedError.ownKeys,
+          errorPropertyNames: serializedError.propertyNames,
+          errorInspect: serializedError.inspect,
         }
       : {}),
   });
+}
+
+async function runStartupStep<T>(
+  db: ReturnType<typeof getDb>,
+  stage: "startup_test_connection" | "startup_load_devices" | "startup_load_tokens" | "startup_load_cycles" | "startup_load_jobs",
+  query: {
+    schema?: string;
+    table: string;
+    columns: string;
+    filters?: Record<string, unknown>;
+    note?: string;
+  },
+  run: () => PromiseLike<{ data?: T | null; error?: unknown; count?: number | null }> | { data?: T | null; error?: unknown; count?: number | null },
+) {
+  try {
+    logQueryDiagnostics(stage, query);
+    const result = await run();
+
+    if (result.error) {
+      logQueryDiagnostics(stage, query, result.error);
+      throw result.error;
+    }
+
+    logQueryDiagnostics(stage, query, undefined, {
+      rows:
+        Array.isArray(result.data)
+          ? result.data.length
+          : result.data === null || result.data === undefined
+            ? 0
+            : 1,
+      count: typeof result.count === "number" ? result.count : null,
+    });
+
+    return result;
+  } catch (error) {
+    logQueryDiagnostics(stage, query, error);
+    throw error;
+  }
 }
 
 async function runDiagnosticSelect<T>(
@@ -749,38 +801,47 @@ async function mainLoop() {
       serviceKeyLength: config.supabaseServiceKey.length,
     });
 
-    // Test 1: Basic connectivity
-    const [{ count, error: countErr }, { data: sampleDevices, error: sampleErr }] = await Promise.all([
-      db.from("devices").select("id", { count: "exact", head: true }),
-      runDiagnosticSelect<any[]>(db, "startup.test2.devices.minimal", {
-        table: "devices",
-        columns: "id, name, status, uazapi_token, uazapi_base_url",
-        filters: { limit: 5 },
-        note: "startup minimal devices read",
-      }, () => db.from("devices").select("id, name, status, uazapi_token, uazapi_base_url").limit(5)),
-    ]);
-    if (countErr) {
-      const serializedCountErr = serializeUnknownError(countErr);
-      logQueryDiagnostics("startup.test1.connection", {
-        table: "devices",
-        columns: "id",
-        filters: { count: "exact", head: true },
-        note: "startup connectivity validation",
-      }, countErr);
-      if (
-        String(serializedCountErr.raw).includes("Invalid API key") ||
-        String(serializedCountErr.raw).includes("apikey") ||
-        String(serializedCountErr.raw).includes("401") ||
-        String(serializedCountErr.raw).includes("403") ||
-        serializedCountErr.code === "PGRST301"
-      ) {
-        log.error("CRITICAL: The SUPABASE_SERVICE_ROLE_KEY appears to be invalid or incompatible. If using sb_secret_ format, ensure @supabase/supabase-js is v2.99+. Find the JWT key in Supabase Dashboard > Settings > API.");
-      }
-      process.exit(1);
-    }
-    if (sampleErr) {
-      log.warn("Devices sample query failed", serializeUnknownError(sampleErr));
-    }
+    const { count } = await runStartupStep<any[]>(db, "startup_test_connection", {
+      table: "devices",
+      columns: "id",
+      filters: { count: "exact", head: true },
+      note: "startup connectivity validation",
+    }, () => db.from("devices").select("id", { count: "exact", head: true }));
+
+    const { data: sampleDevices } = await runStartupStep<any[]>(db, "startup_load_devices", {
+      table: "devices",
+      columns: "id, name, status, uazapi_token, uazapi_base_url",
+      filters: { limit: 5 },
+      note: "startup minimal devices read",
+    }, () => db.from("devices").select("id, name, status, uazapi_token, uazapi_base_url").limit(5));
+
+    await runStartupStep<any[]>(db, "startup_load_tokens", {
+      table: "user_api_tokens",
+      columns: "device_id, token, status",
+      filters: { status: "in_use", limit: 5 },
+      note: "startup token source validation",
+    }, () => db.from("user_api_tokens").select("device_id, token, status").eq("status", "in_use").limit(5));
+
+    const { data: activeCycles } = await runStartupStep<any[]>(db, "startup_load_cycles", {
+      table: "warmup_cycles",
+      columns: "id, device_id, user_id, phase, day_index, chip_state",
+      filters: { is_running: true, phase_not_in: ["completed", "paused", "error"], limit: 10 },
+      note: "startup active cycles read",
+    }, () => db.from("warmup_cycles")
+      .select("id, device_id, user_id, phase, day_index, chip_state")
+      .eq("is_running", true)
+      .not("phase", "in", '("completed","paused","error")')
+      .limit(10));
+
+    const { count: jobCount } = await runStartupStep<any[]>(db, "startup_load_jobs", {
+      table: "warmup_jobs",
+      columns: "id",
+      filters: { status: "pending", run_at_lte_now: true, count: "exact", head: true },
+      note: "startup pending jobs count",
+    }, () => db.from("warmup_jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending")
+      .lte("run_at", new Date().toISOString()));
 
     const totalDevices = typeof count === "number" ? count : (sampleDevices?.length || 0);
     log.info("DB connected", {
@@ -795,62 +856,33 @@ async function mainLoop() {
       })),
     });
 
-    // Test 2: Check warmup-eligible devices (running cycles)
-    const { data: activeCycles, error: cycleErr } = await runDiagnosticSelect<any[]>(db, "startup.test3.warmup_cycles", {
-      table: "warmup_cycles",
-      columns: "id, device_id, user_id, phase, day_index, chip_state",
-      filters: { is_running: true, phase_not_in: ["completed", "paused", "error"], limit: 10 },
-      note: "startup active cycles read",
-    }, () => db.from("warmup_cycles")
-      .select("id, device_id, user_id, phase, day_index, chip_state")
-      .eq("is_running", true)
-      .not("phase", "in", '("completed","paused","error")')
-      .limit(10));
+    log.info(`Active warmup cycles: ${activeCycles?.length || 0}`);
+    if (activeCycles?.length) {
+      const activeCycleCredentials = await resolveDeviceCredentialsBatch(activeCycles.map((cycle) => cycle.device_id));
+      log.info("Active warmup eligibility", {
+        totalCycles: activeCycles.length,
+        eligibleCycles: activeCycles.filter((cycle) => activeCycleCredentials[cycle.device_id]?.isEligible).length,
+        withToken: activeCycles.filter((cycle) => !!activeCycleCredentials[cycle.device_id]?.uazapi_token).length,
+        withoutToken: activeCycles.filter((cycle) => !activeCycleCredentials[cycle.device_id]?.uazapi_token).length,
+      });
 
-    if (cycleErr) {
-      log.warn("Failed to query warmup_cycles", serializeUnknownError(cycleErr));
-    } else {
-      log.info(`Active warmup cycles: ${activeCycles?.length || 0}`);
-      if (activeCycles?.length) {
-        const activeCycleCredentials = await resolveDeviceCredentialsBatch(activeCycles.map((cycle) => cycle.device_id));
-        log.info("Active warmup eligibility", {
-          totalCycles: activeCycles.length,
-          eligibleCycles: activeCycles.filter((cycle) => activeCycleCredentials[cycle.device_id]?.isEligible).length,
-          withToken: activeCycles.filter((cycle) => !!activeCycleCredentials[cycle.device_id]?.uazapi_token).length,
-          withoutToken: activeCycles.filter((cycle) => !activeCycleCredentials[cycle.device_id]?.uazapi_token).length,
+      for (const cycle of activeCycles.slice(0, 10)) {
+        const creds = activeCycleCredentials[cycle.device_id] || null;
+        log.info(`  Cycle ${cycle.id.substring(0, 8)}: device=${cycle.device_id.substring(0, 8)}, phase=${cycle.phase}, day=${cycle.day_index}`, {
+          deviceStatus: creds?.status || "NOT_FOUND",
+          hasToken: !!creds?.uazapi_token,
+          tokenLength: creds?.uazapi_token?.length || 0,
+          hasBaseUrl: !!creds?.uazapi_base_url,
+          baseUrl: creds?.uazapi_base_url ? creds.uazapi_base_url.substring(0, 30) + "..." : "MISSING",
+          number: creds?.number || "?",
+          tokenSource: creds?.tokenSource || "missing",
+          baseUrlSource: creds?.baseUrlSource || "missing",
+          eligible: creds?.isEligible || false,
+          eligibilityReason: creds?.eligibilityReason || null,
         });
-
-        for (const cycle of activeCycles.slice(0, 10)) {
-          const creds = activeCycleCredentials[cycle.device_id] || null;
-          log.info(`  Cycle ${cycle.id.substring(0, 8)}: device=${cycle.device_id.substring(0, 8)}, phase=${cycle.phase}, day=${cycle.day_index}`, {
-            deviceStatus: creds?.status || "NOT_FOUND",
-            hasToken: !!creds?.uazapi_token,
-            tokenLength: creds?.uazapi_token?.length || 0,
-            hasBaseUrl: !!creds?.uazapi_base_url,
-            baseUrl: creds?.uazapi_base_url ? creds.uazapi_base_url.substring(0, 30) + "..." : "MISSING",
-            number: creds?.number || "?",
-            tokenSource: creds?.tokenSource || "missing",
-            baseUrlSource: creds?.baseUrlSource || "missing",
-            eligible: creds?.isEligible || false,
-            eligibilityReason: creds?.eligibilityReason || null,
-          });
-        }
       }
     }
 
-    // Test 3: Check pending warmup jobs
-    const { count: jobCount, error: jobsCountErr } = await db.from("warmup_jobs")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending")
-      .lte("run_at", new Date().toISOString());
-    if (jobsCountErr) {
-      logQueryDiagnostics("startup.test4.warmup_jobs", {
-        table: "warmup_jobs",
-        columns: "id",
-        filters: { status: "pending", run_at_lte_now: true, count: "exact", head: true },
-        note: "startup pending jobs count",
-      }, jobsCountErr);
-    }
     log.info(`Pending warmup jobs ready to process: ${jobCount || 0}`);
 
     // Test 4: Verify Edge Function accessibility
