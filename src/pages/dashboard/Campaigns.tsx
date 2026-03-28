@@ -728,7 +728,7 @@ const Campaigns = () => {
 
       createCarouselTemplate.mutate({
         name: saveTemplateName.trim(),
-        message: (carouselMessages[0] || "").trim(),
+        message: carouselMessages.filter(m => m.trim()).join("|||"),
         cards: serializeCarouselCards(carouselCards),
       }, {
         onSuccess: () => {
