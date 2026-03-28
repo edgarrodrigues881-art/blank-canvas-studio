@@ -72,6 +72,7 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/campaign-list": () => { (CampaignList as any).__preload?.(); },
   "/dashboard/contacts": () => { (Contacts as any).__preload?.(); },
   "/dashboard/templates": () => { (Templates as any).__preload?.(); },
+  "/dashboard/carousel-templates": () => { (CarouselTemplates as any).__preload?.(); },
   "/dashboard/autosave": () => { (AutoSave as any).__preload?.(); },
   "/dashboard/proxy": () => { (Proxy as any).__preload?.(); },
   "/dashboard/group-interaction": () => { (GroupInteraction as any).__preload?.(); },
