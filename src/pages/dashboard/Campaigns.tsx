@@ -161,6 +161,7 @@ const Campaigns = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const carouselTextareaRef = useRef<HTMLTextAreaElement>(null);
   const mediaFileRef = useRef<HTMLInputElement>(null);
+  const sendLockRef = useRef(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showCarouselEmojiPicker, setShowCarouselEmojiPicker] = useState(false);
   const [mediaUrl, setMediaUrl] = useState("");
@@ -170,6 +171,7 @@ const Campaigns = () => {
   const [showVarPreview, setShowVarPreview] = useState(false);
   const [previewContactIndex, setPreviewContactIndex] = useState(0);
   const [buttonAddedFlash, setButtonAddedFlash] = useState(false);
+  const [isSubmittingCampaign, setIsSubmittingCampaign] = useState(false);
 
   const { data: devices = [] } = useQuery({
     queryKey: ["devices"],
@@ -574,11 +576,11 @@ const Campaigns = () => {
 
   // Handlers
   const handleSendCampaign = () => {
+    if (sendLockRef.current || isSubmittingCampaign || createCampaign.isPending || startCampaign.isPending) return;
     if (isBlocked) { setPlanGateOpen(true); return; }
     if (!campaignName.trim()) { toast({ title: "Nome obrigatório", description: "Informe o nome da campanha.", variant: "destructive" }); return; }
     if (selectedDevices.length === 0) { toast({ title: "Instância obrigatória", description: "Selecione pelo menos uma instância.", variant: "destructive" }); return; }
 
-    // Carousel validation
     if (contentType === "carousel") {
       const carouselErrors = validateCarouselCards(carouselCards);
       if (carouselErrors.length > 0) {
@@ -638,6 +640,13 @@ const Campaigns = () => {
     }
     if (validContacts.length === 0) { toast({ title: "Sem contatos", description: "Adicione pelo menos um contato.", variant: "destructive" }); return; }
 
+    sendLockRef.current = true;
+    setIsSubmittingCampaign(true);
+    const releaseSendLock = () => {
+      sendLockRef.current = false;
+      setIsSubmittingCampaign(false);
+    };
+
     createCampaign.mutate({
       name: campaignName,
       message_type: contentType === "carousel" ? "carousel" : detectMessageType(normalizedMessage.mediaUrl, normalizedMessage.hasButtons),
@@ -666,6 +675,7 @@ const Campaigns = () => {
             description: `Será iniciada em ${new Date(scheduleDate).toLocaleString("pt-BR")}`,
             action: <ToastAction altText="Ver campanha" onClick={() => navigate(`/dashboard/campaign/${newCampaign.id}`)}>Ver campanha</ToastAction>,
           });
+          releaseSendLock();
         } else {
           toast({
             title: "Campanha criada!",
@@ -677,14 +687,19 @@ const Campaigns = () => {
               if (data?.status === "queued") {
                 toast({ title: "Campanha na fila", description: data.message || "A instância está em uso. A campanha iniciará automaticamente." });
               }
+              releaseSendLock();
               navigate(`/dashboard/campaign/${newCampaign.id}`);
             },
-            onError: (err: any) => { toast({ title: "Erro no envio", description: err.message, variant: "destructive" }); },
+            onError: (err: any) => {
+              releaseSendLock();
+              toast({ title: "Erro no envio", description: err.message, variant: "destructive" });
+            },
           });
         }
         setCampaignName(""); setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName(""); setContacts([]); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]); setContentType("text"); setCarouselCards([createEmptyCard(0)]); setCarouselMessages(["", "", "", "", ""]); setActiveCarouselMsgTab(0); setStep(1); localStorage.removeItem(DRAFT_KEY);
       },
       onError: (err: any) => {
+        releaseSendLock();
         let desc = err.message || "Erro desconhecido";
         if (desc.includes("campaigns_device_id_fkey")) {
           desc = "O dispositivo selecionado não existe mais. Selecione outro na aba 'Configurações'.";
@@ -2756,10 +2771,10 @@ const Campaigns = () => {
                 </Button>
                 <Button 
                   onClick={handleSendCampaign} 
-                  disabled={createCampaign.isPending || !campaignName || selectedDevices.length === 0 || validContacts.length === 0 || (contentType === "carousel" ? !carouselCards.some(card => card.text.trim() || card.mediaUrl) : !message)}
+                  disabled={isSubmittingCampaign || createCampaign.isPending || startCampaign.isPending || !campaignName || selectedDevices.length === 0 || validContacts.length === 0 || (contentType === "carousel" ? !carouselCards.some(card => card.text.trim() || card.mediaUrl) : !message)}
                   className="gap-1.5 sm:gap-2.5 h-10 sm:h-11 flex-1 sm:flex-none sm:px-10 text-xs sm:text-sm font-bold tracking-wide shadow-lg shadow-primary/25 bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
-                  {createCampaign.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {(isSubmittingCampaign || createCampaign.isPending || startCampaign.isPending) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   {scheduleEnabled ? "AGENDAR" : "ENVIAR AGORA"}
                 </Button>
               </>
