@@ -159,8 +159,10 @@ const Campaigns = () => {
   const { data: savedContacts = [] } = useContacts();
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const carouselTextareaRef = useRef<HTMLTextAreaElement>(null);
   const mediaFileRef = useRef<HTMLInputElement>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showCarouselEmojiPicker, setShowCarouselEmojiPicker] = useState(false);
   const [mediaUrl, setMediaUrl] = useState("");
   const [mediaUploading, setMediaUploading] = useState(false);
   const [mediaFileName, setMediaFileName] = useState("");
@@ -207,7 +209,21 @@ const Campaigns = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contentType, setContentType] = useState<"text" | "carousel">("text");
   const [carouselCards, setCarouselCards] = useState<CarouselCard[]>([createEmptyCard(0)]);
-  const [carouselMessage, setCarouselMessage] = useState("");
+  const [carouselMessages, setCarouselMessages] = useState<string[]>(["", "", "", "", ""]);
+  const [activeCarouselMsgTab, setActiveCarouselMsgTab] = useState(0);
+  const carouselMessage = carouselMessages[activeCarouselMsgTab];
+  const setCarouselMessage = (val: string | ((prev: string) => string)) => {
+    setCarouselMessages(prev => {
+      const copy = [...prev];
+      copy[activeCarouselMsgTab] = typeof val === "function" ? val(copy[activeCarouselMsgTab]) : val;
+      return copy;
+    });
+  };
+  const allCarouselMessages = carouselMessages.filter(m => m.trim());
+  const [carouselRotationMode, setCarouselRotationMode] = useState<"random" | "all">("random");
+  const combinedCarouselMessage = allCarouselMessages.length > 1
+    ? (carouselRotationMode === "random" ? allCarouselMessages.join("|||") : allCarouselMessages.join("|&&|"))
+    : allCarouselMessages[0] || "";
   const [messageType, setMessageType] = useState("texto");
   const [campaignName, setCampaignName] = useState("");
   const [messages, setMessages] = useState<string[]>(["", "", "", "", ""]);
@@ -437,7 +453,8 @@ const Campaigns = () => {
     setSelectedTemplate("nova");
     setContentType("text");
     setCarouselCards([createEmptyCard(0)]);
-    setCarouselMessage("");
+    setCarouselMessages(["", "", "", "", ""]);
+    setActiveCarouselMsgTab(0);
     toast({ title: "Mensagem limpa" });
   };
   const clearStep2 = () => {
@@ -570,7 +587,7 @@ const Campaigns = () => {
     }
 
     const normalizedMessage = normalizeComposerMessage({
-      content: contentType === "carousel" ? (carouselMessage || "Carrossel") : combinedMessage,
+      content: contentType === "carousel" ? (combinedCarouselMessage || "Carrossel") : combinedMessage,
       media_url: contentType === "carousel" ? null : (mediaUrl || null),
       buttons: contentType === "carousel" ? [] : buttons.filter(b => b.text.trim()).map(b => ({ type: b.type, text: b.text, value: b.value })),
       source: selectedTemplate === "nova" ? "manual" : "template_import",
@@ -623,7 +640,7 @@ const Campaigns = () => {
     createCampaign.mutate({
       name: campaignName,
       message_type: contentType === "carousel" ? "carousel" : detectMessageType(normalizedMessage.mediaUrl, normalizedMessage.hasButtons),
-      message_content: contentType === "carousel" ? (carouselMessage || "") : normalizedMessage.combinedMessage,
+      message_content: contentType === "carousel" ? (combinedCarouselMessage || "") : normalizedMessage.combinedMessage,
       media_url: normalizedMessage.mediaUrl || undefined,
       template_id: normalizedMessage.templateId || undefined,
       buttons: normalizedMessage.buttons.map(b => ({ type: b.type, text: b.text, value: b.value })),
@@ -664,7 +681,7 @@ const Campaigns = () => {
             onError: (err: any) => { toast({ title: "Erro no envio", description: err.message, variant: "destructive" }); },
           });
         }
-        setCampaignName(""); setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName(""); setContacts([]); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]); setContentType("text"); setCarouselCards([createEmptyCard(0)]); setCarouselMessage(""); setStep(1); localStorage.removeItem(DRAFT_KEY);
+        setCampaignName(""); setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName(""); setContacts([]); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]); setContentType("text"); setCarouselCards([createEmptyCard(0)]); setCarouselMessages(["", "", "", "", ""]); setActiveCarouselMsgTab(0); setStep(1); localStorage.removeItem(DRAFT_KEY);
       },
       onError: (err: any) => {
         let desc = err.message || "Erro desconhecido";
@@ -695,7 +712,7 @@ const Campaigns = () => {
 
       createCarouselTemplate.mutate({
         name: saveTemplateName.trim(),
-        message: carouselMessage.trim(),
+        message: combinedCarouselMessage.trim(),
         cards: serializeCarouselCards(carouselCards),
       }, {
         onSuccess: () => {
@@ -789,6 +806,37 @@ const Campaigns = () => {
     const end = textarea.selectionEnd;
     const newText = message.substring(0, start) + text + message.substring(end);
     setMessage(newText);
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + text.length, start + text.length);
+    }, 0);
+  };
+
+  const wrapSelectedTextCarousel = (before: string, after: string) => {
+    const textarea = carouselTextareaRef.current;
+    if (!textarea) { setCarouselMessage(prev => prev + before + after); return; }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = carouselMessage.substring(start, end);
+    const newText = carouselMessage.substring(0, start) + before + selected + after + carouselMessage.substring(end);
+    setCarouselMessage(newText);
+    setTimeout(() => {
+      textarea.focus();
+      if (selected.length > 0) {
+        textarea.setSelectionRange(start + before.length, end + before.length);
+      } else {
+        textarea.setSelectionRange(start + before.length, start + before.length);
+      }
+    }, 0);
+  };
+
+  const insertAtCursorCarousel = (text: string) => {
+    const textarea = carouselTextareaRef.current;
+    if (!textarea) { setCarouselMessage(prev => prev + text); return; }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const newText = carouselMessage.substring(0, start) + text + carouselMessage.substring(end);
+    setCarouselMessage(newText);
     setTimeout(() => {
       textarea.focus();
       textarea.setSelectionRange(start + text.length, start + text.length);
