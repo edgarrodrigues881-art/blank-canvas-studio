@@ -90,7 +90,7 @@ const PlanCard = ({ plan, onContratarPlano, loading }: { plan: Plan; onContratar
     <div className={`relative flex flex-col rounded-2xl p-7 h-full bg-[#0f1419]`}>
       <div className="mb-1">
         <h3 className="text-xl font-bold text-white/90">{plan.name}</h3>
-        <p className="text-sm text-white/30">{plan.instances} instâncias</p>
+        <p className="text-sm text-white/30">até {plan.instances} instâncias</p>
       </div>
 
       <p className="text-xs text-white/25 leading-relaxed mb-2 min-h-[2.5rem]">{plan.subtitle}</p>
