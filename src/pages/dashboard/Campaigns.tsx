@@ -624,6 +624,7 @@ const Campaigns = () => {
       media_url: normalizedMessage.mediaUrl || undefined,
       template_id: normalizedMessage.templateId || undefined,
       buttons: normalizedMessage.buttons.map(b => ({ type: b.type, text: b.text, value: b.value })),
+      carousel_cards: contentType === "carousel" ? serializeCarouselCards(carouselCards) : undefined,
       contacts: validContacts.map(c => ({ phone: c.numero, name: c.nome || undefined, var1: c.var1 || "", var2: c.var2 || "", var3: c.var3 || "", var4: c.var4 || "", var5: c.var5 || "", var6: c.var6 || "", var7: c.var7 || "", var8: c.var8 || "", var9: c.var9 || "", var10: c.var10 || "" })),
       scheduled_at: scheduleEnabled && scheduleDate ? new Date(scheduleDate).toISOString() : undefined,
       min_delay_seconds: minDelay,
@@ -2461,14 +2462,14 @@ const Campaigns = () => {
                 <Button
                   variant="outline"
                   onClick={() => { setSaveTemplateName(campaignName || ""); setSaveTemplateOpen(true); }}
-                  disabled={!combinedMessage.trim() && !mediaUrl}
+                  disabled={contentType === "carousel" ? !carouselCards.some(card => card.text.trim() || card.mediaUrl) : (!combinedMessage.trim() && !mediaUrl)}
                   className="gap-1.5 h-10 sm:h-11 text-xs sm:text-sm font-bold border-border/40 text-muted-foreground hover:text-foreground"
                 >
                   <Save className="w-4 h-4" /> Salvar Template
                 </Button>
                 <Button 
                   onClick={handleSendCampaign} 
-                  disabled={createCampaign.isPending || !campaignName || selectedDevices.length === 0 || validContacts.length === 0 || !message}
+                  disabled={createCampaign.isPending || !campaignName || selectedDevices.length === 0 || validContacts.length === 0 || (contentType === "carousel" ? !carouselCards.some(card => card.text.trim() || card.mediaUrl) : !message)}
                   className="gap-1.5 sm:gap-2.5 h-10 sm:h-11 flex-1 sm:flex-none sm:px-10 text-xs sm:text-sm font-bold tracking-wide shadow-lg shadow-primary/25 bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
                   {createCampaign.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
