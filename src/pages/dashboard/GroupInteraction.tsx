@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, Fragment } from "react";
+import { useState, useEffect, useMemo, useCallback, Fragment, useRef } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useGroupInteraction, type GroupInteraction } from "@/hooks/useGroupInteraction";
@@ -31,6 +31,9 @@ const DAYS = [
   { key: "sat", label: "Sáb" },
   { key: "sun", label: "Dom" },
 ];
+
+const CONNECTED_GROUP_DEVICE_STATUSES = new Set(["connected", "ready", "authenticated", "open", "online", "active"]);
+const BLOCKED_GROUP_DEVICE_TYPES = new Set(["notificacao", "report", "report_wa"]);
 
 const defaultForm: Partial<GroupInteraction> & Record<string, any> = {
   name: "Interação de Grupos",
@@ -67,6 +70,22 @@ const statusLabels: Record<string, string> = {
 
 const defaultContentTypes = { text: true, image: false, audio: false, sticker: false };
 
+function isGroupInteractionDeviceEligible(device: any): boolean {
+  const normalizedStatus = String(device?.status || "").trim().toLowerCase();
+  const normalizedType = String(device?.instance_type || "").trim().toLowerCase();
+  return CONNECTED_GROUP_DEVICE_STATUSES.has(normalizedStatus) && !BLOCKED_GROUP_DEVICE_TYPES.has(normalizedType);
+}
+
+function getInteractionInvalidReason(interaction: GroupInteraction, deviceMap: Map<string, any>): string | null {
+  if (!interaction.device_id) return "Nenhuma instância vinculada.";
+
+  const device = deviceMap.get(interaction.device_id);
+  if (!device) return "A instância vinculada foi removida.";
+  if (!isGroupInteractionDeviceEligible(device)) return "A instância vinculada está desconectada.";
+
+  return null;
+}
+
 export default function GroupInteractionPage() {
   const { user } = useAuth();
   const {
@@ -81,6 +100,7 @@ export default function GroupInteractionPage() {
   const [bulkDeviceIds, setBulkDeviceIds] = useState<string[]>([]);
   const [usePeriod2, setUsePeriod2] = useState(false);
   const [groupSource, setGroupSource] = useState<"system" | "custom">("system");
+  const autoPausedInteractionIdsRef = useRef<Set<string>>(new Set());
 
   const { data: devices = [] } = useQuery({
     queryKey: ["devices-gi", user?.id],
@@ -97,15 +117,10 @@ export default function GroupInteractionPage() {
   });
 
   const eligibleDevices = useMemo(() => {
-    const blockedTypes = new Set(["notificacao", "report", "report_wa"]);
-
-    const connectedStatuses = new Set(["connected", "ready", "authenticated", "open", "online", "active"]);
-    return devices.filter((device: any) => {
-      const normalizedStatus = String(device.status || "").trim().toLowerCase();
-      const normalizedType = String(device.instance_type || "").trim().toLowerCase();
-      return connectedStatuses.has(normalizedStatus) && !blockedTypes.has(normalizedType);
-    });
+    return devices.filter((device: any) => isGroupInteractionDeviceEligible(device));
   }, [devices]);
+
+  const deviceMap = useMemo(() => new Map(devices.map((device: any) => [device.id, device])), [devices]);
 
   const { data: allWarmupGroups = [] } = useQuery({
     queryKey: ["warmup-groups-gi", user?.id],
@@ -132,6 +147,45 @@ export default function GroupInteractionPage() {
     () => interactions.find((i) => i.id === selectedId) || null,
     [interactions, selectedId]
   );
+
+  const selectedInvalidReason = useMemo(
+    () => (selected ? getInteractionInvalidReason(selected, deviceMap) : null),
+    [selected, deviceMap]
+  );
+
+  const selectedDisplayStatus = selectedInvalidReason && selected?.status === "running" ? "paused" : selected?.status;
+  const selectedPresentation = useMemo(() => {
+    if (!selected) return null;
+    if (!selectedDisplayStatus || selectedDisplayStatus === selected.status) return selected;
+    return { ...selected, status: selectedDisplayStatus, last_error: selected.last_error || selectedInvalidReason };
+  }, [selected, selectedDisplayStatus, selectedInvalidReason]);
+
+  useEffect(() => {
+    const invalidRunningInteractions = interactions.filter((interaction) => {
+      return interaction.status === "running" && Boolean(getInteractionInvalidReason(interaction, deviceMap));
+    });
+
+    const activeInvalidIds = new Set(invalidRunningInteractions.map((interaction) => interaction.id));
+    autoPausedInteractionIdsRef.current.forEach((interactionId) => {
+      if (!activeInvalidIds.has(interactionId)) autoPausedInteractionIdsRef.current.delete(interactionId);
+    });
+
+    if (invalidRunningInteractions.length === 0) return;
+
+    void Promise.allSettled(
+      invalidRunningInteractions.map(async (interaction) => {
+        if (autoPausedInteractionIdsRef.current.has(interaction.id)) return;
+        autoPausedInteractionIdsRef.current.add(interaction.id);
+        try {
+          await supabase.functions.invoke("group-interaction", {
+            body: { interactionId: interaction.id, action: "pause" },
+          });
+        } catch {
+          autoPausedInteractionIdsRef.current.delete(interaction.id);
+        }
+      })
+    );
+  }, [interactions, deviceMap]);
 
   useEffect(() => {
     if (selected) {
@@ -182,6 +236,7 @@ export default function GroupInteractionPage() {
 
   const validate = (): string | null => {
     if (!form.device_id && !showBulkCreate) return "Selecione um dispositivo";
+    if (!showBulkCreate && form.device_id && !eligibleDevices.some((device: any) => device.id === form.device_id)) return "A instância selecionada está desconectada";
     if (!form.group_ids?.length) return "Selecione pelo menos um grupo";
     if (!form.start_hour || !form.end_hour) return "Defina os horários";
     if (form.min_delay_seconds != null && form.max_delay_seconds != null && form.min_delay_seconds > form.max_delay_seconds) return "Delay mínimo não pode ser maior que o máximo";
@@ -310,70 +365,90 @@ export default function GroupInteractionPage() {
               Campanhas ({interactions.length})
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y divide-border/50">
+          <CardContent className="p-4 pt-0">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
               {interactions.map((inter) => (
-                <div
-                  key={inter.id}
-                  className={`flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer ${
-                    selectedId === inter.id ? "bg-muted/40" : ""
-                  }`}
-                  onClick={() => {
-                    setSelectedId(inter.id);
-                    setShowConfig(true);
-                  }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">{inter.name}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      {(inter.group_ids || []).length} grupos · {inter.total_messages_sent} msgs enviadas
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="outline" className={`text-[10px] ${statusColors[inter.status] || ""}`}>
-                      {statusLabels[inter.status] || inter.status}
-                    </Badge>
-                    {inter.status === "running" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 px-2 text-xs gap-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          invokeAction.mutate({ interactionId: inter.id, action: "pause" });
-                        }}
-                      >
-                        <Pause className="w-3 h-3" /> Pausar
-                      </Button>
-                    )}
-                    {inter.status === "paused" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 px-2 text-xs gap-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          invokeAction.mutate({ interactionId: inter.id, action: "start" });
-                        }}
-                      >
-                        <Play className="w-3 h-3" /> Retomar
-                      </Button>
-                    )}
-                    {(inter.status === "running" || inter.status === "paused") && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 px-2 text-xs gap-1 text-destructive hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          invokeAction.mutate({ interactionId: inter.id, action: "stop" });
-                        }}
-                      >
-                        <Square className="w-3 h-3" /> Cancelar
-                      </Button>
-                    )}
-                  </div>
-                </div>
+                (() => {
+                  const invalidReason = getInteractionInvalidReason(inter, deviceMap);
+                  const displayStatus = invalidReason && inter.status === "running" ? "paused" : inter.status;
+                  const deviceName = inter.device_id
+                    ? deviceMap.get(inter.device_id)?.name || "Instância removida"
+                    : "Sem instância";
+
+                  return (
+                    <div
+                      key={inter.id}
+                      className={`rounded-2xl border p-4 cursor-pointer transition-all hover:border-primary/30 hover:bg-muted/20 aspect-square flex flex-col justify-between ${
+                        selectedId === inter.id ? "bg-muted/40 border-primary/30" : "border-border/50"
+                      }`}
+                      onClick={() => {
+                        setSelectedId(inter.id);
+                        setShowConfig(true);
+                      }}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm line-clamp-2">{inter.name}</p>
+                            <p className="text-[11px] text-muted-foreground mt-1 truncate">{deviceName}</p>
+                          </div>
+                          <Badge variant="outline" className={`text-[10px] shrink-0 ${statusColors[displayStatus] || ""}`}>
+                            {statusLabels[displayStatus] || displayStatus}
+                          </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="rounded-lg border border-border/50 bg-muted/20 p-2">
+                            <p className="text-[10px] text-muted-foreground">Grupos</p>
+                            <p className="font-semibold text-sm">{(inter.group_ids || []).length}</p>
+                          </div>
+                          <div className="rounded-lg border border-border/50 bg-muted/20 p-2">
+                            <p className="text-[10px] text-muted-foreground">Mensagens</p>
+                            <p className="font-semibold text-sm">{inter.total_messages_sent}</p>
+                          </div>
+                        </div>
+
+                        {invalidReason && (
+                          <p className="text-[11px] text-destructive line-clamp-2">{invalidReason}</p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-3" onClick={(e) => e.stopPropagation()}>
+                        {displayStatus === "running" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 h-8 px-2 text-xs gap-1"
+                            onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "pause" })}
+                          >
+                            <Pause className="w-3 h-3" /> Pausar
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={Boolean(invalidReason)}
+                            className="flex-1 h-8 px-2 text-xs gap-1"
+                            onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "start" })}
+                          >
+                            <Play className="w-3 h-3" /> {displayStatus === "paused" ? "Retomar" : "Iniciar"}
+                          </Button>
+                        )}
+
+                        {(displayStatus === "running" || displayStatus === "paused") && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2 text-xs gap-1 text-destructive hover:text-destructive"
+                            onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "stop" })}
+                          >
+                            <Square className="w-3 h-3" /> Parar
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()
               ))}
             </div>
           </CardContent>
@@ -444,12 +519,12 @@ export default function GroupInteractionPage() {
               {/* Controls bar */}
               {selectedId && (
                 <>
-                  <GIStatusPanel interaction={selected!} />
+                  <GIStatusPanel interaction={(selectedPresentation || selected)!} />
                   <div className="flex items-center gap-2 flex-wrap">
                     <Button
                       size="sm"
                       onClick={() => handleAction("start")}
-                      disabled={selected?.status === "running" || invokeAction.isPending}
+                      disabled={selectedDisplayStatus === "running" || invokeAction.isPending || Boolean(selectedInvalidReason)}
                       className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
                     >
                       <Play className="w-3.5 h-3.5" /> Iniciar
@@ -458,7 +533,7 @@ export default function GroupInteractionPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleAction("pause")}
-                      disabled={selected?.status !== "running" || invokeAction.isPending}
+                      disabled={selectedDisplayStatus !== "running" || invokeAction.isPending}
                       className="gap-1.5"
                     >
                       <Pause className="w-3.5 h-3.5" /> Pausar
@@ -466,11 +541,11 @@ export default function GroupInteractionPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleAction(selected?.status === "paused" ? "start" : "stop")}
-                      disabled={selected?.status === "idle" || invokeAction.isPending}
+                      onClick={() => handleAction(selectedDisplayStatus === "paused" ? "start" : "stop")}
+                      disabled={selectedDisplayStatus === "idle" || invokeAction.isPending || (selectedDisplayStatus === "paused" && Boolean(selectedInvalidReason))}
                       className="gap-1.5"
                     >
-                      {selected?.status === "paused" ? (
+                      {selectedDisplayStatus === "paused" ? (
                         <><RotateCw className="w-3.5 h-3.5" /> Retomar</>
                       ) : (
                         <><Square className="w-3.5 h-3.5" /> Parar</>
@@ -494,6 +569,9 @@ export default function GroupInteractionPage() {
                       </Button>
                     </div>
                   </div>
+                  {selectedInvalidReason && (
+                    <p className="text-xs text-destructive">{selectedInvalidReason}</p>
+                  )}
                 </>
               )}
 
