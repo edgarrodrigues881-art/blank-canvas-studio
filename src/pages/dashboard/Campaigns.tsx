@@ -1465,11 +1465,16 @@ const Campaigns = () => {
                   />
 
                 </SurfaceCard>
+                )}
               </div>
 
               {/* Preview column */}
               <div className="lg:col-span-2 lg:sticky lg:top-4 self-start">
-                <WhatsAppPreview />
+                {contentType === "carousel" ? (
+                  <CarouselPreview cards={carouselCards} />
+                ) : (
+                  <WhatsAppPreview />
+                )}
               </div>
             </div>
 
