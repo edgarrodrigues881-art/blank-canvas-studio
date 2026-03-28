@@ -73,7 +73,7 @@ const bottomPlans: Plan[] = [
   {
     name: "Custom", instances: "200+", price: null, priceLabel: "Sob consulta",
     subtitle: "Solução personalizada para grande escala.",
-    extraCopy: null, cta: "Falar com suporte", popular: false, isCustom: true,
+    extraCopy: null, cta: "Consultar", popular: false, isCustom: true,
     features: featuresWithWhatsApp,
     addon: null,
   },
