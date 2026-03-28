@@ -10,7 +10,7 @@ interface CarouselPreviewProps {
   previewMode?: "sent" | "received";
 }
 
-export function CarouselPreview({ cards, message, previewMode = "sent" }: CarouselPreviewProps) {
+export function CarouselPreview({ cards, message, previewMode = "received" }: CarouselPreviewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const isSent = previewMode === "sent";
@@ -117,7 +117,7 @@ export function CarouselPreview({ cards, message, previewMode = "sent" }: Carous
             </p>
           </div>
         ) : (
-          <div className={cn("flex flex-col gap-1.5", isSent ? "items-end" : "items-start")}>
+          <div className={cn("flex flex-col gap-1", isSent ? "items-end" : "items-start")}>
             {/* Main message bubble */}
             {message?.trim() && (
               <div className={cn(
