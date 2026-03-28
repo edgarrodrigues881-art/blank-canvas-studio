@@ -5,10 +5,11 @@ import { CarouselCard } from "./carousel-types";
 
 interface CarouselPreviewProps {
   cards: CarouselCard[];
+  message?: string;
   previewMode?: "sent" | "received";
 }
 
-export function CarouselPreview({ cards, previewMode = "sent" }: CarouselPreviewProps) {
+export function CarouselPreview({ cards, message, previewMode = "sent" }: CarouselPreviewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollPos, setScrollPos] = useState(0);
   const isSent = previewMode === "sent";
@@ -52,6 +53,19 @@ export function CarouselPreview({ cards, previewMode = "sent" }: CarouselPreview
           </div>
         ) : (
           <div className={cn("flex flex-col gap-2", isSent ? "items-end" : "items-start")}>
+            {/* Main message bubble */}
+            {message?.trim() && (
+              <div className={cn(
+                "rounded-[12px] px-3 py-2 max-w-[85%] shadow-sm",
+                isSent ? "bg-[#005C4B]" : "bg-[#202C33]"
+              )}>
+                <p className="text-[13px] text-[#E9EDEF] whitespace-pre-wrap leading-[1.45]">{message}</p>
+                <div className="flex items-center justify-end gap-1 mt-1">
+                  <span className="text-[10px] text-[#8696A0]/65">12:00</span>
+                  {isSent && <span className="text-[10px] text-[#53BDEB]/70">✓✓</span>}
+                </div>
+              </div>
+            )}
             {/* Carousel scroll container */}
             <div className="w-full relative">
               {cards.length > 1 && (

@@ -203,6 +203,7 @@ const Campaigns = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contentType, setContentType] = useState<"text" | "carousel">("text");
   const [carouselCards, setCarouselCards] = useState<CarouselCard[]>([createEmptyCard(0)]);
+  const [carouselMessage, setCarouselMessage] = useState("");
   const [messageType, setMessageType] = useState("texto");
   const [campaignName, setCampaignName] = useState("");
   const [messages, setMessages] = useState<string[]>(["", "", "", "", ""]);
@@ -372,6 +373,9 @@ const Campaigns = () => {
               setScheduleDate(draft.scheduleDate);
             }
           }
+          if (draft.contentType) setContentType(draft.contentType);
+          if (draft.carouselCards?.length) setCarouselCards(draft.carouselCards);
+          if (draft.carouselMessage) setCarouselMessage(draft.carouselMessage);
         }
       } catch { /* ignore corrupt data */ }
 
@@ -419,10 +423,10 @@ const Campaigns = () => {
       campaignName, messages, rotationMode, messageType, mediaUrl, contacts,
       buttons, selectedDevices, messagesPerInstance, sendMode,
       minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax,
-      scheduleEnabled, scheduleDate, contentType, carouselCards,
+      scheduleEnabled, scheduleDate, contentType, carouselCards, carouselMessage,
     };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  }, [draftLoaded, campaignName, messages, rotationMode, messageType, mediaUrl, contacts, buttons, selectedDevices, messagesPerInstance, sendMode, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, scheduleEnabled, scheduleDate, contentType, carouselCards]);
+  }, [draftLoaded, campaignName, messages, rotationMode, messageType, mediaUrl, contacts, buttons, selectedDevices, messagesPerInstance, sendMode, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, scheduleEnabled, scheduleDate, contentType, carouselCards, carouselMessage]);
 
   const clearStep1 = () => {
     setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName("");
@@ -430,6 +434,7 @@ const Campaigns = () => {
     setSelectedTemplate("nova");
     setContentType("text");
     setCarouselCards([createEmptyCard(0)]);
+    setCarouselMessage("");
     toast({ title: "Mensagem limpa" });
   };
   const clearStep2 = () => {
@@ -562,7 +567,7 @@ const Campaigns = () => {
     }
 
     const normalizedMessage = normalizeComposerMessage({
-      content: contentType === "carousel" ? carouselCards[0]?.text || "" : combinedMessage,
+      content: contentType === "carousel" ? (carouselMessage || "Carrossel") : combinedMessage,
       media_url: contentType === "carousel" ? null : (mediaUrl || null),
       buttons: contentType === "carousel" ? [] : buttons.filter(b => b.text.trim()).map(b => ({ type: b.type, text: b.text, value: b.value })),
       source: selectedTemplate === "nova" ? "manual" : "template_import",
@@ -615,7 +620,7 @@ const Campaigns = () => {
     createCampaign.mutate({
       name: campaignName,
       message_type: contentType === "carousel" ? "carousel" : detectMessageType(normalizedMessage.mediaUrl, normalizedMessage.hasButtons),
-      message_content: contentType === "carousel" ? (carouselCards[0]?.text || "Carrossel") : normalizedMessage.combinedMessage,
+      message_content: contentType === "carousel" ? (carouselMessage || "Carrossel") : normalizedMessage.combinedMessage,
       media_url: normalizedMessage.mediaUrl || undefined,
       template_id: normalizedMessage.templateId || undefined,
       buttons: normalizedMessage.buttons.map(b => ({ type: b.type, text: b.text, value: b.value })),
@@ -655,7 +660,7 @@ const Campaigns = () => {
             onError: (err: any) => { toast({ title: "Erro no envio", description: err.message, variant: "destructive" }); },
           });
         }
-        setCampaignName(""); setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName(""); setContacts([]); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]); setContentType("text"); setCarouselCards([createEmptyCard(0)]); setStep(1); localStorage.removeItem(DRAFT_KEY);
+        setCampaignName(""); setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName(""); setContacts([]); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]); setContentType("text"); setCarouselCards([createEmptyCard(0)]); setCarouselMessage(""); setStep(1); localStorage.removeItem(DRAFT_KEY);
       },
       onError: (err: any) => {
         let desc = err.message || "Erro desconhecido";
@@ -1328,7 +1333,15 @@ const Campaigns = () => {
                 {/* Carousel Editor */}
                 {contentType === "carousel" ? (
                   <SurfaceCard className="p-4 sm:p-6 space-y-4 sm:space-y-5">
-                    <SectionLabel>Carrossel</SectionLabel>
+                    <SectionLabel>Mensagem do Carrossel</SectionLabel>
+                    <p className="text-xs text-muted-foreground -mt-2">Texto enviado junto com o carrossel (aparece acima dos cards)</p>
+                    <textarea
+                      value={carouselMessage}
+                      onChange={e => setCarouselMessage(e.target.value)}
+                      placeholder="Digite a mensagem principal que acompanha o carrossel..."
+                      className="w-full min-h-[80px] rounded-xl border border-border/20 bg-muted/10 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-y"
+                    />
+                    <SectionLabel>Cards</SectionLabel>
                     <CarouselEditor cards={carouselCards} onChange={setCarouselCards} />
                   </SurfaceCard>
                 ) : (
@@ -1483,7 +1496,7 @@ const Campaigns = () => {
               {/* Preview column */}
               <div className="lg:col-span-2 lg:sticky lg:top-4 self-start">
                 {contentType === "carousel" ? (
-                  <CarouselPreview cards={carouselCards} />
+                  <CarouselPreview cards={carouselCards} message={carouselMessage} />
                 ) : (
                   <WhatsAppPreview />
                 )}
@@ -2318,14 +2331,14 @@ const Campaigns = () => {
                   )}
 
                   {/* Warnings */}
-                  {(!campaignName || selectedDevices.length === 0 || validContacts.length === 0 || !message) && (
+                  {(!campaignName || selectedDevices.length === 0 || validContacts.length === 0 || (contentType === "carousel" ? carouselCards.length === 0 : !combinedMessage)) && (
                     <div className="flex items-center gap-3 text-sm text-destructive bg-destructive/5 border border-destructive/10 rounded-xl px-4 py-3">
                       <AlertTriangle className="w-4 h-4 shrink-0" />
                       <span className="text-[12px]">
                         {!campaignName && "Nome ausente. "}
                         {selectedDevices.length === 0 && "Sem instância. "}
                         {validContacts.length === 0 && "Sem contatos. "}
-                        {!combinedMessage && "Mensagem vazia."}
+                        {contentType === "carousel" ? (carouselCards.length === 0 && "Sem cards no carrossel.") : (!combinedMessage && "Mensagem vazia.")}
                       </span>
                     </div>
                   )}
@@ -2401,7 +2414,7 @@ const Campaigns = () => {
                       { ok: !!campaignName, text: "Nome definido" },
                       { ok: selectedDevices.length > 0, text: "Instância selecionada" },
                       { ok: validContacts.length > 0, text: `${validContacts.length} contatos prontos` },
-                      { ok: !!combinedMessage, text: "Mensagem configurada" },
+                      { ok: contentType === "carousel" ? carouselCards.some(c => c.text.trim()) : !!combinedMessage, text: "Mensagem configurada" },
                     ].map((c, i) => (
                       <div key={i} className="flex items-center gap-2">
                         {c.ok ? (
