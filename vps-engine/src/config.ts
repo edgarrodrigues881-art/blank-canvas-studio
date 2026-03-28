@@ -2,6 +2,66 @@
 // VPS Engine — Configuração central
 // ══════════════════════════════════════════════════════════
 
+import fs from "node:fs";
+import path from "node:path";
+import { config as loadDotenv } from "dotenv";
+
+const ENV_KEYS = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_ANON_KEY"] as const;
+type EnvKey = (typeof ENV_KEYS)[number];
+
+const runtimeRoot = path.resolve(__dirname, "..");
+const preferredRoot = "/root/blank-canvas-studio/vps-engine";
+const appRoot = fs.existsSync(preferredRoot) ? preferredRoot : runtimeRoot;
+const currentWorkingEnvPath = path.resolve(process.cwd(), ".env");
+
+const envCandidates = [
+  process.env.VPS_ENGINE_ENV_PATH,
+  path.join(appRoot, ".env"),
+  currentWorkingEnvPath,
+].filter((value): value is string => Boolean(value));
+
+const envBeforeLoad = Object.fromEntries(
+  ENV_KEYS.map((key) => [key, Boolean(process.env[key])]),
+) as Record<EnvKey, boolean>;
+
+const envPath = envCandidates.find((candidate) => fs.existsSync(candidate));
+const dotenvResult = envPath
+  ? loadDotenv({ path: envPath, override: false })
+  : undefined;
+
+if (envPath) {
+  process.env.VPS_ENGINE_ENV_PATH = envPath;
+}
+
+function envSource(key: EnvKey): string {
+  if (envBeforeLoad[key]) return "process.env";
+  if (envPath && process.env[key]) return `.env:${envPath}`;
+  return "absent";
+}
+
+console.info(
+  "[env] runtime diagnostics",
+  JSON.stringify({
+    cwd: process.cwd(),
+    runtimeRoot,
+    appRoot,
+    envFileFound: Boolean(envPath),
+    envFilePath: envPath ?? null,
+    dotenvLoaded: Boolean(dotenvResult),
+    dotenvError: dotenvResult?.error?.message ?? null,
+    loaded: {
+      SUPABASE_URL: Boolean(process.env.SUPABASE_URL),
+      SUPABASE_SERVICE_ROLE_KEY: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+      SUPABASE_ANON_KEY: Boolean(process.env.SUPABASE_ANON_KEY),
+    },
+    source: {
+      SUPABASE_URL: envSource("SUPABASE_URL"),
+      SUPABASE_SERVICE_ROLE_KEY: envSource("SUPABASE_SERVICE_ROLE_KEY"),
+      SUPABASE_ANON_KEY: envSource("SUPABASE_ANON_KEY"),
+    },
+  }),
+);
+
 export const config = {
   supabaseUrl: process.env.SUPABASE_URL || "",
   supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
