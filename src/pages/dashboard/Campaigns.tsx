@@ -552,21 +552,33 @@ const Campaigns = () => {
     if (!campaignName.trim()) { toast({ title: "Nome obrigatório", description: "Informe o nome da campanha.", variant: "destructive" }); return; }
     if (selectedDevices.length === 0) { toast({ title: "Instância obrigatória", description: "Selecione pelo menos uma instância.", variant: "destructive" }); return; }
 
+    // Carousel validation
+    if (contentType === "carousel") {
+      const carouselErrors = validateCarouselCards(carouselCards);
+      if (carouselErrors.length > 0) {
+        toast({ title: "Carrossel inválido", description: carouselErrors[0], variant: "destructive" });
+        return;
+      }
+    }
+
     const normalizedMessage = normalizeComposerMessage({
-      content: combinedMessage,
-      media_url: mediaUrl || null,
-      buttons: buttons.filter(b => b.text.trim()).map(b => ({ type: b.type, text: b.text, value: b.value })),
+      content: contentType === "carousel" ? carouselCards[0]?.text || "" : combinedMessage,
+      media_url: contentType === "carousel" ? null : (mediaUrl || null),
+      buttons: contentType === "carousel" ? [] : buttons.filter(b => b.text.trim()).map(b => ({ type: b.type, text: b.text, value: b.value })),
       source: selectedTemplate === "nova" ? "manual" : "template_import",
       templateId: selectedTemplate !== "nova" ? selectedTemplate : null,
     });
-    const validationErrors = validateNormalizedComposerMessage(normalizedMessage);
-    if (!normalizedMessage.primaryText.trim() && !normalizedMessage.hasMedia) {
-      toast({ title: "Mensagem vazia", description: "Escreva pelo menos uma mensagem.", variant: "destructive" });
-      return;
-    }
-    if (validationErrors.length > 0) {
-      toast({ title: "Template inconsistente", description: validationErrors[0], variant: "destructive" });
-      return;
+
+    if (contentType !== "carousel") {
+      const validationErrors = validateNormalizedComposerMessage(normalizedMessage);
+      if (!normalizedMessage.primaryText.trim() && !normalizedMessage.hasMedia) {
+        toast({ title: "Mensagem vazia", description: "Escreva pelo menos uma mensagem.", variant: "destructive" });
+        return;
+      }
+      if (validationErrors.length > 0) {
+        toast({ title: "Template inconsistente", description: validationErrors[0], variant: "destructive" });
+        return;
+      }
     }
 
     const connectedStatuses = new Set(["connected", "ready", "authenticated", "open", "online", "active"]);
