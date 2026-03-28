@@ -40,6 +40,10 @@ import {
 // XLSX is dynamically imported when needed to reduce initial bundle
 import { usePlanGate } from "@/hooks/usePlanGate";
 import { PlanGateDialog } from "@/components/PlanGateDialog";
+import { CarouselEditor } from "@/components/campaigns/CarouselEditor";
+import { CarouselPreview } from "@/components/campaigns/CarouselPreview";
+import { CarouselCard, createEmptyCard, validateCarouselCards, serializeCarouselCards } from "@/components/campaigns/carousel-types";
+import { Layers } from "lucide-react";
 
 // Compress images client-side before uploading
 const compressImage = (file: File, maxWidth = 1200, quality = 0.8): Promise<File> => {
@@ -197,6 +201,8 @@ const Campaigns = () => {
   // State
   const [step, setStep] = useState(1);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contentType, setContentType] = useState<"text" | "carousel">("text");
+  const [carouselCards, setCarouselCards] = useState<CarouselCard[]>([createEmptyCard(0)]);
   const [messageType, setMessageType] = useState("texto");
   const [campaignName, setCampaignName] = useState("");
   const [messages, setMessages] = useState<string[]>(["", "", "", "", ""]);
@@ -413,15 +419,17 @@ const Campaigns = () => {
       campaignName, messages, rotationMode, messageType, mediaUrl, contacts,
       buttons, selectedDevices, messagesPerInstance, sendMode,
       minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax,
-      scheduleEnabled, scheduleDate,
+      scheduleEnabled, scheduleDate, contentType, carouselCards,
     };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  }, [draftLoaded, campaignName, messages, rotationMode, messageType, mediaUrl, contacts, buttons, selectedDevices, messagesPerInstance, sendMode, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, scheduleEnabled, scheduleDate]);
+  }, [draftLoaded, campaignName, messages, rotationMode, messageType, mediaUrl, contacts, buttons, selectedDevices, messagesPerInstance, sendMode, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, scheduleEnabled, scheduleDate, contentType, carouselCards]);
 
   const clearStep1 = () => {
     setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName("");
     setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]);
     setSelectedTemplate("nova");
+    setContentType("text");
+    setCarouselCards([createEmptyCard(0)]);
     toast({ title: "Mensagem limpa" });
   };
   const clearStep2 = () => {
@@ -544,21 +552,33 @@ const Campaigns = () => {
     if (!campaignName.trim()) { toast({ title: "Nome obrigatório", description: "Informe o nome da campanha.", variant: "destructive" }); return; }
     if (selectedDevices.length === 0) { toast({ title: "Instância obrigatória", description: "Selecione pelo menos uma instância.", variant: "destructive" }); return; }
 
+    // Carousel validation
+    if (contentType === "carousel") {
+      const carouselErrors = validateCarouselCards(carouselCards);
+      if (carouselErrors.length > 0) {
+        toast({ title: "Carrossel inválido", description: carouselErrors[0], variant: "destructive" });
+        return;
+      }
+    }
+
     const normalizedMessage = normalizeComposerMessage({
-      content: combinedMessage,
-      media_url: mediaUrl || null,
-      buttons: buttons.filter(b => b.text.trim()).map(b => ({ type: b.type, text: b.text, value: b.value })),
+      content: contentType === "carousel" ? carouselCards[0]?.text || "" : combinedMessage,
+      media_url: contentType === "carousel" ? null : (mediaUrl || null),
+      buttons: contentType === "carousel" ? [] : buttons.filter(b => b.text.trim()).map(b => ({ type: b.type, text: b.text, value: b.value })),
       source: selectedTemplate === "nova" ? "manual" : "template_import",
       templateId: selectedTemplate !== "nova" ? selectedTemplate : null,
     });
-    const validationErrors = validateNormalizedComposerMessage(normalizedMessage);
-    if (!normalizedMessage.primaryText.trim() && !normalizedMessage.hasMedia) {
-      toast({ title: "Mensagem vazia", description: "Escreva pelo menos uma mensagem.", variant: "destructive" });
-      return;
-    }
-    if (validationErrors.length > 0) {
-      toast({ title: "Template inconsistente", description: validationErrors[0], variant: "destructive" });
-      return;
+
+    if (contentType !== "carousel") {
+      const validationErrors = validateNormalizedComposerMessage(normalizedMessage);
+      if (!normalizedMessage.primaryText.trim() && !normalizedMessage.hasMedia) {
+        toast({ title: "Mensagem vazia", description: "Escreva pelo menos uma mensagem.", variant: "destructive" });
+        return;
+      }
+      if (validationErrors.length > 0) {
+        toast({ title: "Template inconsistente", description: validationErrors[0], variant: "destructive" });
+        return;
+      }
     }
 
     const connectedStatuses = new Set(["connected", "ready", "authenticated", "open", "online", "active"]);
@@ -594,8 +614,8 @@ const Campaigns = () => {
 
     createCampaign.mutate({
       name: campaignName,
-      message_type: detectMessageType(normalizedMessage.mediaUrl, normalizedMessage.hasButtons),
-      message_content: normalizedMessage.combinedMessage,
+      message_type: contentType === "carousel" ? "carousel" : detectMessageType(normalizedMessage.mediaUrl, normalizedMessage.hasButtons),
+      message_content: contentType === "carousel" ? (carouselCards[0]?.text || "Carrossel") : normalizedMessage.combinedMessage,
       media_url: normalizedMessage.mediaUrl || undefined,
       template_id: normalizedMessage.templateId || undefined,
       buttons: normalizedMessage.buttons.map(b => ({ type: b.type, text: b.text, value: b.value })),
@@ -635,7 +655,7 @@ const Campaigns = () => {
             onError: (err: any) => { toast({ title: "Erro no envio", description: err.message, variant: "destructive" }); },
           });
         }
-        setCampaignName(""); setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName(""); setContacts([]); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]); setStep(1); localStorage.removeItem(DRAFT_KEY);
+        setCampaignName(""); setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName(""); setContacts([]); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]); setContentType("text"); setCarouselCards([createEmptyCard(0)]); setStep(1); localStorage.removeItem(DRAFT_KEY);
       },
       onError: (err: any) => {
         let desc = err.message || "Erro desconhecido";
@@ -1276,11 +1296,43 @@ const Campaigns = () => {
         {/* ===== STEP 1: Message ===== */}
         {step === 1 && (
           <div className="space-y-6 sm:space-y-12">
+            {/* Content Type Selector */}
+            <SurfaceCard className="p-4 sm:p-5">
+              <SectionLabel className="mb-3">Tipo de Conteúdo</SectionLabel>
+              <div className="flex gap-2">
+                {([
+                  { value: "text" as const, label: "Texto Normal", icon: <MessageSquare className="w-4 h-4 mr-1.5" />, desc: "Mensagem tradicional com variantes" },
+                  { value: "carousel" as const, label: "Carrossel", icon: <Layers className="w-4 h-4 mr-1.5" />, desc: "Cards com imagem, texto e botões" },
+                ] as const).map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setContentType(opt.value)}
+                    className={cn(
+                      "flex-1 text-center p-3 rounded-xl border text-xs transition-all",
+                      contentType === opt.value
+                        ? "border-primary bg-primary/10 text-primary font-semibold"
+                        : "border-border/20 text-muted-foreground hover:border-border/40"
+                    )}
+                  >
+                    <div className="flex items-center justify-center">{opt.icon}{opt.label}</div>
+                    <p className="text-[9px] text-muted-foreground/50 mt-1">{opt.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </SurfaceCard>
+
             {/* Editor + Preview */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-8 items-start">
               {/* Editor column */}
               <div className="lg:col-span-3 space-y-4 sm:space-y-8">
-                {/* Message editor */}
+                {/* Carousel Editor */}
+                {contentType === "carousel" ? (
+                  <SurfaceCard className="p-4 sm:p-6 space-y-4 sm:space-y-5">
+                    <SectionLabel>Carrossel</SectionLabel>
+                    <CarouselEditor cards={carouselCards} onChange={setCarouselCards} />
+                  </SurfaceCard>
+                ) : (
+                /* Normal message editor */
                 <SurfaceCard className="p-4 sm:p-6 space-y-4 sm:space-y-5">
                   <SectionLabel>Mensagem</SectionLabel>
                   
@@ -1425,16 +1477,21 @@ const Campaigns = () => {
                   />
 
                 </SurfaceCard>
+                )}
               </div>
 
               {/* Preview column */}
               <div className="lg:col-span-2 lg:sticky lg:top-4 self-start">
-                <WhatsAppPreview />
+                {contentType === "carousel" ? (
+                  <CarouselPreview cards={carouselCards} />
+                ) : (
+                  <WhatsAppPreview />
+                )}
               </div>
             </div>
 
-            {/* Template + Mídia Row - below editor */}
-            <div className="space-y-5">
+            {/* Template + Mídia Row - below editor (hidden in carousel mode) */}
+            {contentType !== "carousel" && <div className="space-y-5">
               <SurfaceCard className="p-5 space-y-3">
                 <SectionLabel>Modelo Base</SectionLabel>
                 <Select value={selectedTemplate} onValueChange={(val) => {
@@ -1598,7 +1655,7 @@ const Campaigns = () => {
                   <Plus className="w-4 h-4" /> Adicionar Botão
                 </Button>
               </SurfaceCard>
-            </div>
+            </div>}
           </div>
         )}
 
