@@ -657,7 +657,7 @@ const Campaigns = () => {
             onError: (err: any) => { toast({ title: "Erro no envio", description: err.message, variant: "destructive" }); },
           });
         }
-        setCampaignName(""); setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName(""); setContacts([]); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]); setContentType("text"); setCarouselCards([createEmptyCard(0)]); setStep(1); localStorage.removeItem(DRAFT_KEY);
+        setCampaignName(""); setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName(""); setContacts([]); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]); setContentType("text"); setCarouselCards([createEmptyCard(0)]); setCarouselMessage(""); setStep(1); localStorage.removeItem(DRAFT_KEY);
       },
       onError: (err: any) => {
         let desc = err.message || "Erro desconhecido";
