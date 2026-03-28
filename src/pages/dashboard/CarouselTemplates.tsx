@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { splitStoredMessageContent } from "@/lib/campaign-message";
 import { Plus, Search, Pencil, Trash2, Layers, Eye, Loader2, FileText, Bold, Italic, Strikethrough, Code, Smile } from "lucide-react";
 import {
   useCarouselTemplates,
@@ -39,6 +40,9 @@ const CarouselTemplates = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const currentMessage = formMessages[activeMsgTab] || "";
+  const getFirstTemplateMessage = useCallback((message?: string | null) => {
+    return splitStoredMessageContent(message).messageVariants[0] || "";
+  }, []);
   const setCurrentMessage = (val: string | ((prev: string) => string)) => {
     setFormMessages(prev => {
       const copy = [...prev];
@@ -96,9 +100,7 @@ const CarouselTemplates = () => {
   const openEdit = (t: any) => {
     setEditingId(t.id);
     setFormName(t.name);
-    // Restore multi-message from ||| separator
-    const rawMsg = t.message || "";
-    const parts = rawMsg.split("|||");
+    const parts = splitStoredMessageContent(t.message).messageVariants;
     const slots = ["", "", "", "", ""];
     parts.slice(0, 5).forEach((p: string, i: number) => { slots[i] = p; });
     setFormMessages(slots);
@@ -201,7 +203,7 @@ const CarouselTemplates = () => {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-foreground truncate">{t.name}</p>
                   <p className="text-xs text-muted-foreground/60 truncate mt-0.5">
-                    {t.message || "Sem mensagem principal"}
+                    {getFirstTemplateMessage(t.message) || "Sem mensagem principal"}
                   </p>
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -386,7 +388,7 @@ const CarouselTemplates = () => {
           {previewTemplate && (
             <CarouselPreview
               cards={previewTemplate.cards || []}
-              message={previewTemplate.message}
+              message={getFirstTemplateMessage(previewTemplate.message)}
             />
           )}
         </DialogContent>

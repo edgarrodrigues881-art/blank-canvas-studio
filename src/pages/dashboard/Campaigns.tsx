@@ -34,6 +34,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import {
   normalizeComposerMessage,
+  splitStoredMessageContent,
   serializeTemplateMedia,
   validateNormalizedComposerMessage,
 } from "@/lib/campaign-message";
@@ -1510,8 +1511,7 @@ const Campaigns = () => {
                               <DropdownMenuItem
                                 key={ct.id}
                                 onClick={() => {
-                  const rawMsg = ct.message || "";
-                                  const parts = rawMsg.split("|||");
+                                  const parts = splitStoredMessageContent(ct.message).messageVariants;
                                   const slots: [string, string, string, string, string] = ["", "", "", "", ""];
                                   parts.slice(0, 5).forEach((p: string, i: number) => { slots[i] = p; });
                                   setCarouselMessages(slots);
