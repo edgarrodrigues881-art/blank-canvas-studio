@@ -87,6 +87,13 @@ const PlanCard = ({ plan, onContratarPlano, loading }: { plan: Plan; onContratar
         : "border border-white/[0.06]"
     }`}
   >
+    {plan.highlight === "amber" && (
+      <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+        <span className="bg-amber-500 text-black text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+          Recomendado
+        </span>
+      </div>
+    )}
     <div className={`relative flex flex-col rounded-2xl p-7 h-full bg-[#0f1419]`}>
       <div className="mb-1">
         <h3 className="text-xl font-bold text-white/90">{plan.name}</h3>
