@@ -129,32 +129,31 @@ function getDailyBudget(dayIndex: number = 1, chipState: string = "new"): number
 }
 
 function getAutosaveContactsForDay(dayIndex: number, chipState: string): number {
+  const autosaveStart = getGroupsEndDay(chipState) + 1;
+  const daysSince = dayIndex - autosaveStart;
+  if (daysSince < 0) return 0;
+
   if (chipState === "new") {
-    const autosaveStart = getGroupsEndDay("new") + 1; // day 5
-    const daysSince = dayIndex - autosaveStart;
-    if (daysSince < 0) return 0;
-    if (daysSince === 0) return 3;
-    if (daysSince === 1) return 4;
+    // day5=1, day6=1, day7=2, day8=2, day9=3, day10=3, day11-15=4, day16+=5
+    if (daysSince <= 1) return 1;
+    if (daysSince <= 3) return 2;
+    if (daysSince <= 5) return 3;
+    if (daysSince <= 10) return 4;
     return 5;
   }
   if (chipState === "recovered") {
-    const autosaveStart = getGroupsEndDay("recovered") + 1; // day 6
-    const daysSince = dayIndex - autosaveStart;
-    if (daysSince < 0) return 0;
-    if (daysSince === 0) return 2;
-    if (daysSince === 1) return 3;
-    if (daysSince === 2) return 4;
+    // day6=1, day7=2, day8=2, day9=3, day10=3, day11-15=4, day16+=5
+    if (daysSince === 0) return 1;
+    if (daysSince <= 2) return 2;
+    if (daysSince <= 4) return 3;
+    if (daysSince <= 9) return 4;
     return 5;
   }
-  if (chipState === "unstable") {
-    const autosaveStart = getGroupsEndDay("unstable") + 1; // day 7
-    const daysSince = dayIndex - autosaveStart;
-    if (daysSince < 0) return 0;
-    if (daysSince === 0) return 1; // day 7: 1 contact
-    if (daysSince === 1) return 3; // day 8: 3 contacts
-    if (daysSince === 2) return 4; // day 9: 4 contacts
-    return 5; // day 10+: 5 contacts
-  }
+  // unstable: day7=1, day8=2, day9=3, day10=3, day11-15=4, day16+=5
+  if (daysSince === 0) return 1;
+  if (daysSince === 1) return 2;
+  if (daysSince <= 3) return 3;
+  if (daysSince <= 8) return 4;
   return 5;
 }
 
@@ -171,13 +170,13 @@ function getCommunityStartDayForChip(chipState: string): number {
 }
 
 // Progressão de duplas baseada em community_day (não warmup day)
-// community_day 1 = primeiro dia do comunitário
+// community_day 1 = primeiro dia do comunitário — cap fixo de 5 duplas
 function getCommunityPeersFromCommunityDay(communityDay: number): { min: number; max: number } {
-  if (communityDay <= 1) return { min: 1, max: 3 };
-  if (communityDay === 2) return { min: 2, max: 5 };
-  if (communityDay === 3) return { min: 4, max: 7 };
-  if (communityDay <= 6) return { min: 5, max: 8 };
-  return { min: 6, max: 10 };
+  if (communityDay <= 1) return { min: 1, max: 1 };
+  if (communityDay === 2) return { min: 2, max: 2 };
+  if (communityDay === 3) return { min: 3, max: 3 };
+  if (communityDay === 4) return { min: 4, max: 4 };
+  return { min: 5, max: 5 };
 }
 
 function getCommunityPeers(dayIndex: number, chipState: string, communityDay?: number): number {
@@ -204,9 +203,9 @@ function getCommunityBurstsPerPeer(dayIndex: number, chipState: string, communit
   return 8;
 }
 
-function getGroupMsgsForDay(dayIndex: number): number {
+function getGroupMsgsForDay(dayIndex: number, chipState: string = "new"): number {
   if (dayIndex < 2) return 0;
-  return randInt(120, 200);
+  return getProgressiveDailyBudget(dayIndex, chipState);
 }
 
 function getVolumes(chipState: string, dayIndex: number, phase: string, communityDay?: number): DayVolumes {
@@ -216,8 +215,8 @@ function getVolumes(chipState: string, dayIndex: number, phase: string, communit
   };
   if (["pre_24h", "completed", "paused", "error"].includes(phase)) return v;
 
-  // Grupo: faixa fixa 120-200 para todos os dias 2-30
-  v.groupMsgs = getGroupMsgsForDay(dayIndex);
+  // Grupo: volume progressivo por chip type
+  v.groupMsgs = getGroupMsgsForDay(dayIndex, chipState);
 
   if (phase === "autosave_enabled") {
     const asContacts = getAutosaveContactsForDay(dayIndex, chipState);

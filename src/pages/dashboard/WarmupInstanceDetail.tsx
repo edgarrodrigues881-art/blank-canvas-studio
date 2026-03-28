@@ -108,29 +108,30 @@ function getExpectedDailyVolume(dayIndex: number, chipState: string): { min: num
 
 /* ── Auto Save contacts helper (mirrors server logic) ── */
 function getAutosaveInfoForDay(dayIndex: number, chipState: string): { contacts: number; msgsPerContact: number; totalMsgs: number } {
-  const autosaveStartDay = (chipState === "unstable" ? 6 : chipState === "recovered" ? 5 : 4) + 1;
+  const autosaveStartDay = getAutosaveStartDay(chipState);
   if (dayIndex < autosaveStartDay) return { contacts: 0, msgsPerContact: 0, totalMsgs: 0 };
 
+  const daysSince = dayIndex - autosaveStartDay;
   let contacts: number;
   if (chipState === "new") {
-    const daysSince = dayIndex - autosaveStartDay;
-    if (daysSince === 0) contacts = 3;
-    else if (daysSince === 1) contacts = 4;
+    if (daysSince <= 1) contacts = 1;
+    else if (daysSince <= 3) contacts = 2;
+    else if (daysSince <= 5) contacts = 3;
+    else if (daysSince <= 10) contacts = 4;
     else contacts = 5;
   } else if (chipState === "recovered") {
-    const daysSince = dayIndex - autosaveStartDay;
-    if (daysSince === 0) contacts = 2;
-    else if (daysSince === 1) contacts = 3;
-    else if (daysSince === 2) contacts = 4;
-    else contacts = 5;
-  } else if (chipState === "unstable") {
-    const daysSince = dayIndex - autosaveStartDay;
     if (daysSince === 0) contacts = 1;
-    else if (daysSince === 1) contacts = 3;
-    else if (daysSince === 2) contacts = 4;
+    else if (daysSince <= 2) contacts = 2;
+    else if (daysSince <= 4) contacts = 3;
+    else if (daysSince <= 9) contacts = 4;
     else contacts = 5;
   } else {
-    contacts = 5;
+    // unstable
+    if (daysSince === 0) contacts = 1;
+    else if (daysSince === 1) contacts = 2;
+    else if (daysSince <= 3) contacts = 3;
+    else if (daysSince <= 8) contacts = 4;
+    else contacts = 5;
   }
   const msgsPerContact = chipState === "unstable" ? 5 : 3;
   return { contacts, msgsPerContact, totalMsgs: contacts * msgsPerContact };
@@ -144,12 +145,14 @@ const chipStateLabels: Record<string, string> = {
 
 /* ── Helper: autosave / community start day based on chip_state ── */
 function getAutosaveStartDay(chipState: string): number {
-  const groupsEnd = chipState === "unstable" ? 6 : chipState === "recovered" ? 5 : 4;
-  return groupsEnd + 1;
+  if (chipState === "unstable") return 7;
+  if (chipState === "recovered") return 6;
+  return 5; // new
 }
 function getCommunityStartDay(chipState: string): number {
-  const groupsEnd = chipState === "unstable" ? 6 : chipState === "recovered" ? 5 : 4;
-  return groupsEnd + 2;
+  if (chipState === "unstable") return 9;
+  if (chipState === "recovered") return 7;
+  return 6; // new
 }
 
 /* ── component ── */
