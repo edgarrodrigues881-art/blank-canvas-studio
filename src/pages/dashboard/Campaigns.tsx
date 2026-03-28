@@ -1482,7 +1482,10 @@ const Campaigns = () => {
                               <DropdownMenuItem
                                 key={ct.id}
                                 onClick={() => {
-                                  setCarouselMessage(ct.message || "");
+                                  const msg = ct.message || "";
+                                  // Load into first slot, clear others
+                                  setCarouselMessages([msg, "", "", "", ""]);
+                                  setActiveCarouselMsgTab(0);
                                   setCarouselCards(Array.isArray(ct.cards) && ct.cards.length > 0 ? ct.cards : [createEmptyCard(0)]);
                                   toast({ title: `Template "${ct.name}" carregado` });
                                 }}
@@ -1500,12 +1503,147 @@ const Campaigns = () => {
                     </div>
                       <p className="text-xs text-muted-foreground -mt-2">Texto enviado junto com o carrossel (aparece acima dos cards)</p>
                       <p className="text-[11px] text-muted-foreground/70 -mt-1">Limite atual: até {MAX_CAROUSEL_CARDS} cards por envio compatível.</p>
-                    <textarea
+
+                    {/* Carousel Message Tabs */}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {[0, 1, 2, 3, 4].map(i => {
+                        const hasText = carouselMessages[i]?.trim();
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => setActiveCarouselMsgTab(i)}
+                            className={cn(
+                              "px-3 py-1.5 text-[11px] transition-all border-0 rounded-sm opacity-100 font-sans font-extrabold",
+                              activeCarouselMsgTab === i
+                                ? "bg-primary/15 text-primary border-primary/30"
+                                : hasText
+                                  ? "bg-muted/20 text-foreground/70 border-border/20 hover:bg-muted/30"
+                                  : "bg-muted/8 text-muted-foreground/40 border-border/10 hover:bg-muted/15"
+                            )}
+                          >
+                            Msg {i + 1}
+                            {hasText && <span className="ml-1 w-1.5 h-1.5 rounded-full bg-primary inline-block" />}
+                          </button>
+                        );
+                      })}
+                      <span className="text-[9px] text-muted-foreground/40 ml-2">
+                        {allCarouselMessages.length}/5 ativas
+                      </span>
+                    </div>
+
+                    {/* Carousel rotation toggle */}
+                    {allCarouselMessages.length > 1 && (
+                      <div className="flex flex-col gap-2 p-3 rounded-xl bg-muted/10 border border-border/10">
+                        <p className="text-[11px] font-medium text-foreground/70">Modo de envio das mensagens</p>
+                        <div className="flex gap-2">
+                          {([
+                            { value: "random" as const, label: "Aleatório", icon: <Sparkles className="w-3 h-3 mr-1" />, desc: "Uma mensagem aleatória para cada contato" },
+                            { value: "all" as const, label: "Todas", icon: <ArrowDown className="w-3 h-3 mr-1" />, desc: "Todas as mensagens para cada contato" },
+                          ]).map(opt => (
+                            <button
+                              key={opt.value}
+                              onClick={() => setCarouselRotationMode(opt.value)}
+                              className={`flex-1 text-center p-2 rounded-lg border text-[10px] transition-all ${
+                                carouselRotationMode === opt.value
+                                  ? "border-primary bg-primary/10 text-primary font-medium"
+                                  : "border-border/20 text-muted-foreground hover:border-border/40"
+                              }`}
+                            >
+                              <div className="flex items-center justify-center">{opt.icon}{opt.label}</div>
+                              <p className="text-[9px] text-muted-foreground/50 mt-1">{opt.desc}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Carousel Toolbar */}
+                    <div className="flex items-center gap-0.5 flex-wrap p-1.5 rounded-xl bg-muted/15 dark:bg-muted/8 border border-border/10">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 text-[11px] gap-1.5 text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium rounded-lg">
+                            <FileText className="w-3.5 h-3.5" /> Variável
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-1.5 bg-popover border-border z-50" align="start">
+                          <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 px-2 py-1">Contato</p>
+                          {[{ label: "Nome", tag: "{{nome}}" }, { label: "Número", tag: "{{numero}}" }].map(v => (
+                            <button key={v.tag} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-accent transition-colors flex items-center justify-between"
+                              onClick={() => insertAtCursorCarousel(v.tag)}>
+                              <span>{v.label}</span>
+                              <code className="text-[9px] text-muted-foreground">{v.tag}</code>
+                            </button>
+                          ))}
+                          <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 px-2 py-1 mt-1">Personalizadas</p>
+                          {["Variável 1", "Variável 2", "Variável 3", "Variável 4", "Variável 5", "Variável 6", "Variável 7"].map((v, i) => (
+                            <button key={v} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-accent transition-colors flex items-center justify-between"
+                              onClick={() => insertAtCursorCarousel(`{{var${i + 1}}}`)}>
+                              <span>{v}</span>
+                              <code className="text-[9px] text-muted-foreground">{`{{var${i + 1}}}`}</code>
+                            </button>
+                          ))}
+                          <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 px-2 py-1 mt-1">Dinâmicas</p>
+                          {[
+                            { label: "Número Aleatório (4 dígitos)", tag: "{{rand4}}" },
+                            { label: "Texto Aleatório (3 letras)", tag: "{{rand3}}" },
+                          ].map(v => (
+                            <button key={v.tag} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-accent transition-colors flex items-center justify-between"
+                              onClick={() => insertAtCursorCarousel(v.tag)}>
+                              <span>{v.label}</span>
+                              <code className="text-[9px] text-muted-foreground">{v.tag}</code>
+                            </button>
+                          ))}
+                        </PopoverContent>
+                      </Popover>
+
+                      <div className="h-5 w-px bg-border/20 mx-0.5" />
+                      {[
+                        { icon: Bold, label: "Negrito", wrap: ["*", "*"] },
+                        { icon: Italic, label: "Itálico", wrap: ["_", "_"] },
+                        { icon: Strikethrough, label: "Tachado", wrap: ["~", "~"] },
+                        { icon: Code, label: "Código", wrap: ["```", "```"] },
+                      ].map(({ icon: Icon, label, wrap }) => (
+                        <Button key={label} variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground/50 hover:text-foreground hover:bg-background/60 rounded-lg transition-colors" title={label}
+                          onClick={() => wrapSelectedTextCarousel(wrap[0], wrap[1])}>
+                          <Icon className="w-3.5 h-3.5" />
+                        </Button>
+                      ))}
+                      <div className="h-5 w-px bg-border/20 mx-0.5" />
+
+                      <Popover open={showCarouselEmojiPicker} onOpenChange={setShowCarouselEmojiPicker}>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground/50 hover:text-foreground hover:bg-background/60 rounded-lg" title="Emoji">
+                            <Smile className="w-3.5 h-3.5" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[280px] p-2 bg-popover border-border z-50" align="start">
+                          <div className="flex items-center gap-0.5 mb-2 border-b border-border/20 pb-1.5">
+                            {Object.keys(commonEmojis).map(cat => (
+                              <button key={cat} onClick={() => setEmojiCategory(cat)}
+                                className={cn("px-2 py-1 rounded text-[10px] transition-colors",
+                                  emojiCategory === cat ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-accent"
+                                )}>{cat}</button>
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-8 gap-0.5">
+                            {(commonEmojis[emojiCategory as keyof typeof commonEmojis] || []).map(emoji => (
+                              <button key={emoji} className="w-7 h-7 flex items-center justify-center rounded hover:bg-accent transition-colors text-base"
+                                onClick={() => { insertAtCursorCarousel(emoji); setShowCarouselEmojiPicker(false); }}>{emoji}</button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <Textarea
+                      ref={carouselTextareaRef}
                       value={carouselMessage}
                       onChange={e => setCarouselMessage(e.target.value)}
-                      placeholder="Digite a mensagem principal que acompanha o carrossel..."
-                      className="w-full min-h-[80px] rounded-xl border border-border/20 bg-muted/10 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-y"
+                      placeholder="Olá, {{nome}}. \n\nEscreva sua mensagem aqui..."
+                      rows={5}
+                      className="text-sm leading-[1.8] bg-muted/8 dark:bg-muted/4 border-border/15 resize-none focus-visible:ring-1 focus-visible:ring-primary/30 px-4 py-3 text-foreground/90 placeholder:text-muted-foreground/30 rounded-xl"
                     />
+
                     <SectionLabel>Cards</SectionLabel>
                     <CarouselEditor cards={carouselCards} onChange={setCarouselCards} />
                   </SurfaceCard>
