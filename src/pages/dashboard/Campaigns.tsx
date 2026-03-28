@@ -431,6 +431,7 @@ const Campaigns = () => {
     setSelectedTemplate("nova");
     setContentType("text");
     setCarouselCards([createEmptyCard(0)]);
+    setCarouselMessage("");
     toast({ title: "Mensagem limpa" });
   };
   const clearStep2 = () => {
