@@ -28,28 +28,28 @@ const baseFeatures = [
   "Infraestrutura completa",
 ];
 
-const featuresWithWhatsApp = [...baseFeatures, "Relatórios via WhatsApp inclusos"];
-const featuresWithoutWhatsApp = [...baseFeatures, "Relatórios via WhatsApp (add-on)"];
+const featuresWithWhatsApp = [...baseFeatures, "Relatórios via WhatsApp incluso"];
+const featuresWithoutWhatsApp = [...baseFeatures, "Relatórios via WhatsApp"];
 
 const topPlans: Plan[] = [
   {
-    name: "Essencial", instances: "5", price: "89,90",
+    name: "Essencial", instances: "5", price: "99,00",
     subtitle: "Ideal para quem está começando com poucas instâncias.",
-    extraCopy: null, cta: "Começar agora", popular: false,
+    extraCopy: null, cta: "Começar", popular: false,
     features: featuresWithoutWhatsApp,
     addon: null,
   },
   {
-    name: "Start", instances: "10", price: "159,90",
+    name: "Start", instances: "10", price: "187,00",
     subtitle: "Ideal para quem quer aumentar a capacidade.",
-    extraCopy: null, cta: "Começar agora", popular: false,
+    extraCopy: null, cta: "Começar", popular: false,
     features: featuresWithoutWhatsApp,
     addon: null,
   },
   {
-    name: "Pro", instances: "30", price: "349,90",
+    name: "Pro", instances: "30", price: "397,00",
     subtitle: "Ideal para operações em crescimento.",
-    extraCopy: "Mais escolhido", cta: "Escalar operação", popular: true, highlight: "amber",
+    extraCopy: "Mais escolhido", cta: "Escalar", popular: true, highlight: "amber",
     features: featuresWithWhatsApp,
     addon: null,
   },
@@ -57,23 +57,23 @@ const topPlans: Plan[] = [
 
 const bottomPlans: Plan[] = [
   {
-    name: "Scale", instances: "50", price: "549,90",
+    name: "Scale", instances: "50", price: "597,00",
     subtitle: "Para quem precisa escalar com múltiplas instâncias.",
-    extraCopy: null, cta: "Escalar operação", popular: false,
+    extraCopy: null, cta: "Escalar", popular: false,
     features: featuresWithWhatsApp,
     addon: null,
   },
   {
-    name: "Elite", instances: "100", price: "999,90",
+    name: "Elite", instances: "100", price: "1.197,00",
     subtitle: "Alta capacidade para operações grandes.",
-    extraCopy: null, cta: "Ir para o Elite", popular: false,
+    extraCopy: null, cta: "Contratar", popular: false,
     features: featuresWithWhatsApp,
     addon: null,
   },
   {
     name: "Custom", instances: "200+", price: null, priceLabel: "Sob consulta",
     subtitle: "Solução personalizada para grande escala.",
-    extraCopy: null, cta: "Falar com suporte", popular: false, isCustom: true,
+    extraCopy: null, cta: "Consultar", popular: false, isCustom: true,
     features: featuresWithWhatsApp,
     addon: null,
   },
@@ -87,10 +87,17 @@ const PlanCard = ({ plan, onContratarPlano, loading }: { plan: Plan; onContratar
         : "border border-white/[0.06]"
     }`}
   >
+    {plan.highlight === "amber" && (
+      <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+        <span className="bg-amber-500 text-black text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+          Recomendado
+        </span>
+      </div>
+    )}
     <div className={`relative flex flex-col rounded-2xl p-7 h-full bg-[#0f1419]`}>
       <div className="mb-1">
         <h3 className="text-xl font-bold text-white/90">{plan.name}</h3>
-        <p className="text-sm text-white/30">{plan.instances} instâncias</p>
+        <p className="text-sm text-white/30">até {plan.instances} instâncias</p>
       </div>
 
       <p className="text-xs text-white/25 leading-relaxed mb-2 min-h-[2.5rem]">{plan.subtitle}</p>
@@ -118,12 +125,19 @@ const PlanCard = ({ plan, onContratarPlano, loading }: { plan: Plan; onContratar
       <div className="h-px bg-white/[0.05] mb-5" />
 
       <div className="space-y-3 mb-6 flex-1">
-        {plan.features.map((f, fi) => (
-          <div key={fi} className="flex items-start gap-3 text-sm text-white/50">
-            <Check className="w-4 h-4 min-w-[16px] min-h-[16px] text-white/30 shrink-0 mt-0.5" />
-            {f}
-          </div>
-        ))}
+        {plan.features.map((f, fi) => {
+          const isExcluded = f === "Relatórios via WhatsApp";
+          return (
+            <div key={fi} className={`flex items-start gap-3 text-sm ${isExcluded ? "text-white/25" : "text-white/50"}`}>
+              {isExcluded ? (
+                <span className="w-4 h-4 min-w-[16px] min-h-[16px] shrink-0 mt-0.5 text-white/15 text-center leading-4">✕</span>
+              ) : (
+                <Check className="w-4 h-4 min-w-[16px] min-h-[16px] text-white/30 shrink-0 mt-0.5" />
+              )}
+              {f}
+            </div>
+          );
+        })}
       </div>
 
       <button
