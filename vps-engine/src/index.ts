@@ -69,6 +69,125 @@ const CONNECTED_STATUSES = ["Ready", "Connected", "connected", "authenticated", 
 const UAZAPI_VALIDATION_CACHE_TTL_MS = 5 * 60 * 1000;
 const uazapiValidationCache = new Map<string, { expiresAt: number; status: "valid" | "invalid" | "unknown"; reason: string; httpStatus: number | null }>();
 
+function serializeUnknownError(error: unknown) {
+  if (error === null || error === undefined) {
+    return {
+      type: typeof error,
+      message: "NO_ERROR_OBJECT",
+      raw: String(error),
+      keys: [],
+    };
+  }
+
+  if (typeof error !== "object") {
+    return {
+      type: typeof error,
+      message: String(error),
+      raw: String(error),
+      keys: [],
+    };
+  }
+
+  const target = error as Record<string, any>;
+  const keys = Array.from(new Set([...Object.keys(target), ...Object.getOwnPropertyNames(target)]));
+  const record: Record<string, any> = {
+    type: target?.constructor?.name || "Object",
+    keys,
+  };
+
+  for (const key of keys) {
+    try {
+      const value = target[key];
+      if (typeof value === "bigint") record[key] = value.toString();
+      else if (value instanceof Error) record[key] = serializeUnknownError(value);
+      else record[key] = value;
+    } catch (readErr: any) {
+      record[key] = `[Unreadable:${readErr?.message || "unknown"}]`;
+    }
+  }
+
+  const fallbackMessage = target.message || target.error_description || target.error || target.msg || "NO_MESSAGE";
+  record.message = record.message || fallbackMessage;
+  record.code = record.code || target.code || null;
+  record.details = record.details || target.details || null;
+  record.hint = record.hint || target.hint || null;
+  record.status = record.status || target.status || target.statusCode || null;
+  record.statusText = record.statusText || target.statusText || null;
+  record.stack = record.stack || (new Error().stack ?? null);
+
+  try {
+    record.raw = JSON.stringify(target, keys);
+  } catch {
+    record.raw = String(target);
+  }
+
+  return record;
+}
+
+function logQueryDiagnostics(stage: string, query: {
+  schema?: string;
+  table: string;
+  columns: string;
+  filters?: Record<string, unknown>;
+  note?: string;
+}, error?: unknown, extra?: Record<string, unknown>) {
+  const serializedError = error ? serializeUnknownError(error) : null;
+
+  log[serializedError ? "error" : "info"](stage, {
+    schema: query.schema || "public",
+    table: query.table,
+    columns: query.columns,
+    filters: query.filters || {},
+    note: query.note || null,
+    ...(extra || {}),
+    ...(serializedError
+      ? {
+          errorType: serializedError.type,
+          httpStatus: serializedError.status,
+          statusText: serializedError.statusText,
+          message: serializedError.message,
+          details: serializedError.details,
+          hint: serializedError.hint,
+          code: serializedError.code,
+          stack: serializedError.stack,
+          rawError: serializedError.raw,
+          errorKeys: serializedError.keys,
+        }
+      : {}),
+  });
+}
+
+async function runDiagnosticSelect<T>(
+  db: ReturnType<typeof getDb>,
+  stage: string,
+  query: {
+    schema?: string;
+    table: string;
+    columns: string;
+    filters?: Record<string, unknown>;
+    note?: string;
+  },
+  run: () => Promise<{ data: T | null; error: unknown }>,
+) {
+  logQueryDiagnostics(stage, query);
+  const result = await run();
+
+  if (result.error) {
+    logQueryDiagnostics(stage, query, result.error);
+  } else {
+    logQueryDiagnostics(stage, query, undefined, {
+      rows:
+        Array.isArray(result.data)
+          ? result.data.length
+          : result.data === null || result.data === undefined
+            ? 0
+            : 1,
+    });
+  }
+
+  return result;
+}
+
 function cleanToken(value: unknown): string {
   return String(value || "").trim();
 }
@@ -169,16 +288,26 @@ async function resolveDeviceCredentialsBatch(deviceIds: string[]): Promise<Recor
 
   const db = getDb();
   const [{ data: devicesArr, error: devicesError }, { data: tokenRows, error: tokenError }] = await Promise.all([
-    db.from("devices").select("id, user_id, name, status, uazapi_token, uazapi_base_url, number").in("id", ids),
-    db.from("user_api_tokens").select("device_id, token, status").in("device_id", ids).eq("status", "in_use"),
+    runDiagnosticSelect<any[]>(db, "diagnostic.devices.batch", {
+      table: "devices",
+      columns: "id, user_id, name, status, uazapi_token, uazapi_base_url, number",
+      filters: { id_in_count: ids.length },
+      note: "resolveDeviceCredentialsBatch",
+    }, () => db.from("devices").select("id, user_id, name, status, uazapi_token, uazapi_base_url, number").in("id", ids)),
+    runDiagnosticSelect<any[]>(db, "diagnostic.user_api_tokens.batch", {
+      table: "user_api_tokens",
+      columns: "device_id, token, status",
+      filters: { device_id_in_count: ids.length, status: "in_use" },
+      note: "resolveDeviceCredentialsBatch",
+    }, () => db.from("user_api_tokens").select("device_id, token, status").in("device_id", ids).eq("status", "in_use")),
   ]);
 
   if (devicesError) {
-    log.error("Failed to batch-load devices", { error: devicesError.message, code: devicesError.code, details: devicesError.details });
+    log.error("Failed to batch-load devices", serializeUnknownError(devicesError));
   }
 
   if (tokenError) {
-    log.error("Failed to batch-load user_api_tokens", { error: tokenError.message, code: tokenError.code, details: tokenError.details });
+    log.error("Failed to batch-load user_api_tokens", serializeUnknownError(tokenError));
   }
 
   const tokenByDeviceId: Record<string, string> = {};
@@ -613,34 +742,34 @@ async function mainLoop() {
     // Test 1: Basic connectivity
     const [{ count, error: countErr }, { data: sampleDevices, error: sampleErr }] = await Promise.all([
       db.from("devices").select("id", { count: "exact", head: true }),
-      db.from("devices").select("id, name, status, uazapi_token, uazapi_base_url").limit(5),
+      runDiagnosticSelect<any[]>(db, "startup.test2.devices.minimal", {
+        table: "devices",
+        columns: "id, name, status, uazapi_token, uazapi_base_url",
+        filters: { limit: 5 },
+        note: "startup minimal devices read",
+      }, () => db.from("devices").select("id, name, status, uazapi_token, uazapi_base_url").limit(5)),
     ]);
     if (countErr) {
-      // Full error dump — the Supabase error object may not have standard .message
-      const rawError = JSON.stringify(countErr, Object.getOwnPropertyNames(countErr));
-      log.error(`DB query error (devices count)`, {
-        message: countErr.message || "NO_MESSAGE",
-        code: countErr.code || "NO_CODE",
-        hint: countErr.hint || "NO_HINT",
-        details: countErr.details || "NO_DETAILS",
-        status: (countErr as any).status || "NO_STATUS",
-        statusText: (countErr as any).statusText || "NO_STATUS_TEXT",
-        rawError,
-      });
+      const serializedCountErr = serializeUnknownError(countErr);
+      logQueryDiagnostics("startup.test1.connection", {
+        table: "devices",
+        columns: "id",
+        filters: { count: "exact", head: true },
+        note: "startup connectivity validation",
+      }, countErr);
       if (
-        rawError.includes("Invalid API key") ||
-        rawError.includes("apikey") ||
-        rawError.includes("401") ||
-        rawError.includes("403") ||
-        countErr.code === "PGRST301"
+        String(serializedCountErr.raw).includes("Invalid API key") ||
+        String(serializedCountErr.raw).includes("apikey") ||
+        String(serializedCountErr.raw).includes("401") ||
+        String(serializedCountErr.raw).includes("403") ||
+        serializedCountErr.code === "PGRST301"
       ) {
         log.error("CRITICAL: The SUPABASE_SERVICE_ROLE_KEY appears to be invalid or incompatible. If using sb_secret_ format, ensure @supabase/supabase-js is v2.99+. Find the JWT key in Supabase Dashboard > Settings > API.");
       }
       process.exit(1);
     }
     if (sampleErr) {
-      const rawSampleErr = JSON.stringify(sampleErr, Object.getOwnPropertyNames(sampleErr));
-      log.warn(`Devices sample query failed`, { rawError: rawSampleErr });
+      log.warn("Devices sample query failed", serializeUnknownError(sampleErr));
     }
 
     const totalDevices = typeof count === "number" ? count : (sampleDevices?.length || 0);
@@ -657,15 +786,19 @@ async function mainLoop() {
     });
 
     // Test 2: Check warmup-eligible devices (running cycles)
-    const { data: activeCycles, error: cycleErr } = await db.from("warmup_cycles")
+    const { data: activeCycles, error: cycleErr } = await runDiagnosticSelect<any[]>(db, "startup.test3.warmup_cycles", {
+      table: "warmup_cycles",
+      columns: "id, device_id, user_id, phase, day_index, chip_state",
+      filters: { is_running: true, phase_not_in: ["completed", "paused", "error"], limit: 10 },
+      note: "startup active cycles read",
+    }, () => db.from("warmup_cycles")
       .select("id, device_id, user_id, phase, day_index, chip_state")
       .eq("is_running", true)
       .not("phase", "in", '("completed","paused","error")')
-      .limit(10);
+      .limit(10));
 
     if (cycleErr) {
-      const rawErr = JSON.stringify(cycleErr, Object.getOwnPropertyNames(cycleErr));
-      log.warn(`Failed to query warmup_cycles`, { rawError: rawErr });
+      log.warn("Failed to query warmup_cycles", serializeUnknownError(cycleErr));
     } else {
       log.info(`Active warmup cycles: ${activeCycles?.length || 0}`);
       if (activeCycles?.length) {
@@ -696,10 +829,18 @@ async function mainLoop() {
     }
 
     // Test 3: Check pending warmup jobs
-    const { count: jobCount } = await db.from("warmup_jobs")
+    const { count: jobCount, error: jobsCountErr } = await db.from("warmup_jobs")
       .select("id", { count: "exact", head: true })
       .eq("status", "pending")
       .lte("run_at", new Date().toISOString());
+    if (jobsCountErr) {
+      logQueryDiagnostics("startup.test4.warmup_jobs", {
+        table: "warmup_jobs",
+        columns: "id",
+        filters: { status: "pending", run_at_lte_now: true, count: "exact", head: true },
+        note: "startup pending jobs count",
+      }, jobsCountErr);
+    }
     log.info(`Pending warmup jobs ready to process: ${jobCount || 0}`);
 
     // Test 4: Verify Edge Function accessibility
@@ -713,7 +854,7 @@ async function mainLoop() {
     }
 
   } catch (err: any) {
-    log.error(`DB connection failed: ${err.message}`);
+    log.error("DB connection failed", serializeUnknownError(err));
     process.exit(1);
   }
 
@@ -729,7 +870,7 @@ async function mainLoop() {
         }
       } catch (err: any) {
         tickErrors++;
-        log.error(`Warmup tick error: ${err.message}`);
+        log.error("Warmup tick error", serializeUnknownError(err));
       }
       await new Promise((r) => setTimeout(r, config.tickIntervalMs));
     }
@@ -742,7 +883,7 @@ async function mainLoop() {
         await campaignTick();
         lastCampaignTickAt = new Date();
       } catch (err: any) {
-        log.error(`Campaign tick error: ${err.message}`);
+        log.error("Campaign tick error", serializeUnknownError(err));
       }
       await new Promise((r) => setTimeout(r, config.campaignTickMs));
     }
@@ -757,6 +898,6 @@ process.on("SIGTERM", () => { log.info("SIGTERM received, shutting down..."); is
 process.on("SIGINT", () => { log.info("SIGINT received, shutting down..."); isRunning = false; });
 
 mainLoop().catch((err) => {
-  log.error(`Fatal error: ${err.message}`);
+  log.error("Fatal error", serializeUnknownError(err));
   process.exit(1);
 });
