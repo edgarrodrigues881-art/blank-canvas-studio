@@ -1655,7 +1655,7 @@ const Campaigns = () => {
                   <Plus className="w-4 h-4" /> Adicionar Botão
                 </Button>
               </SurfaceCard>
-            </div>
+            </div>}
           </div>
         )}
 
