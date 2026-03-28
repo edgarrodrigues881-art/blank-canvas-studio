@@ -118,12 +118,19 @@ const PlanCard = ({ plan, onContratarPlano, loading }: { plan: Plan; onContratar
       <div className="h-px bg-white/[0.05] mb-5" />
 
       <div className="space-y-3 mb-6 flex-1">
-        {plan.features.map((f, fi) => (
-          <div key={fi} className="flex items-start gap-3 text-sm text-white/50">
-            <Check className="w-4 h-4 min-w-[16px] min-h-[16px] text-white/30 shrink-0 mt-0.5" />
-            {f}
-          </div>
-        ))}
+        {plan.features.map((f, fi) => {
+          const isExcluded = f === "Relatórios via WhatsApp";
+          return (
+            <div key={fi} className={`flex items-start gap-3 text-sm ${isExcluded ? "text-white/25" : "text-white/50"}`}>
+              {isExcluded ? (
+                <span className="w-4 h-4 min-w-[16px] min-h-[16px] shrink-0 mt-0.5 text-white/15 text-center leading-4">✕</span>
+              ) : (
+                <Check className="w-4 h-4 min-w-[16px] min-h-[16px] text-white/30 shrink-0 mt-0.5" />
+              )}
+              {f}
+            </div>
+          );
+        })}
       </div>
 
       <button
