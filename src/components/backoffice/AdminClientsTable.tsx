@@ -359,13 +359,14 @@ const AdminClientsTable = memo(({ users, onSelectClient }: Props) => {
                 <th className="text-center px-4 py-3 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/50 font-semibold">Conta</th>
                 <th className="text-center px-4 py-3 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/50 font-semibold">Assinatura</th>
                 <th className="text-left px-4 py-3 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/50 font-semibold">Vencimento</th>
+                <th className="text-left px-4 py-3 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/50 font-semibold">IP</th>
                 <th className="w-28 px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
               {paginatedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12">
+                  <td colSpan={9} className="text-center py-12">
                     <Users size={24} className="mx-auto text-muted-foreground/20 mb-2" />
                     <p className="text-muted-foreground/50 text-sm">Nenhum cliente encontrado</p>
                   </td>
