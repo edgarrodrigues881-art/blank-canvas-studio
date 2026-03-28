@@ -5,15 +5,8 @@ interface Props {
 }
 
 export function MessagePreview({ data }: Props) {
-  const escaped = (data.text || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-  const text = escaped.replace(
-    /\{(\w+)\}/g,
-    (_, v) => `<span class="font-medium text-primary/80">«${v}»</span>`
-  );
+  // Split text by variable placeholders and render safely without dangerouslySetInnerHTML
+  const parts = (data.text || "").split(/(\{\w+\})/g);
 
   return (
     <div className="bg-muted/15 border border-border/30 rounded-2xl overflow-hidden">
@@ -28,10 +21,15 @@ export function MessagePreview({ data }: Props) {
         )}
         {data.text && (
           <div className="bg-card/80 rounded-xl px-3.5 py-2.5 border border-border/20">
-            <p
-              className="text-[11px] text-foreground/70 whitespace-pre-line leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: text }}
-            />
+            <p className="text-[11px] text-foreground/70 whitespace-pre-line leading-relaxed">
+              {parts.map((part, i) => {
+                const match = part.match(/^\{(\w+)\}$/);
+                if (match) {
+                  return <span key={i} className="font-medium text-primary/80">«{match[1]}»</span>;
+                }
+                return part;
+              })}
+            </p>
           </div>
         )}
         {data.buttons && data.buttons.length > 0 && (
