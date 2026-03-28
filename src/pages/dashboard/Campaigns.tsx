@@ -622,7 +622,7 @@ const Campaigns = () => {
     createCampaign.mutate({
       name: campaignName,
       message_type: contentType === "carousel" ? "carousel" : detectMessageType(normalizedMessage.mediaUrl, normalizedMessage.hasButtons),
-      message_content: contentType === "carousel" ? (carouselMessage || "Carrossel") : normalizedMessage.combinedMessage,
+      message_content: contentType === "carousel" ? (carouselMessage || "") : normalizedMessage.combinedMessage,
       media_url: normalizedMessage.mediaUrl || undefined,
       template_id: normalizedMessage.templateId || undefined,
       buttons: normalizedMessage.buttons.map(b => ({ type: b.type, text: b.text, value: b.value })),
@@ -2379,7 +2379,11 @@ const Campaigns = () => {
 
               {/* Message preview */}
               <div className="lg:col-span-2 space-y-3">
-                <WhatsAppPreview />
+                {contentType === "carousel" ? (
+                  <CarouselPreview cards={carouselCards} message={carouselMessage} />
+                ) : (
+                  <WhatsAppPreview />
+                )}
               </div>
             </div>
 
