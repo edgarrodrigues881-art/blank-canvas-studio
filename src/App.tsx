@@ -1,9 +1,10 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
 import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -135,6 +136,35 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!user) { setIsAdmin(false); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .eq("role", "admin")
+          .maybeSingle();
+        if (!cancelled) setIsAdmin(!!data);
+      } catch {
+        if (!cancelled) setIsAdmin(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  if (loading || isAdmin === null) return <Loading />;
+  if (!user) return <Navigate to="/auth" replace />;
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <Loading />;
@@ -199,13 +229,13 @@ const App = () => (
                 <Route path="/dashboard/proxy" element={<ProtectedRoute><DashboardLayout><Proxy /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/custom-module" element={<ProtectedRoute><DashboardLayout><CustomModule /></DashboardLayout></ProtectedRoute>} />
 
-                {/* Backoffice */}
-                <Route path="/backoffice" element={<BackOffice />} />
-                <Route path="/backoffice/campaigns" element={<BOCampaigns />} />
-                <Route path="/backoffice/campaign-list" element={<BOCampaignList />} />
-                <Route path="/backoffice/campaigns/list" element={<BOCampaignList />} />
-                <Route path="/backoffice/campaign/:id" element={<BOCampaignDetail />} />
-                <Route path="/backoffice/campaigns/:id" element={<BOCampaignDetail />} />
+                {/* Backoffice — all routes require admin role */}
+                <Route path="/backoffice" element={<AdminRoute><BackOffice /></AdminRoute>} />
+                <Route path="/backoffice/campaigns" element={<AdminRoute><BOCampaigns /></AdminRoute>} />
+                <Route path="/backoffice/campaign-list" element={<AdminRoute><BOCampaignList /></AdminRoute>} />
+                <Route path="/backoffice/campaigns/list" element={<AdminRoute><BOCampaignList /></AdminRoute>} />
+                <Route path="/backoffice/campaign/:id" element={<AdminRoute><BOCampaignDetail /></AdminRoute>} />
+                <Route path="/backoffice/campaigns/:id" element={<AdminRoute><BOCampaignDetail /></AdminRoute>} />
 
                 {/* Fallback */}
                 <Route path="*" element={<NotFound />} />
