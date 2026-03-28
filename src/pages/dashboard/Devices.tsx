@@ -199,6 +199,7 @@ const Devices = () => {
   const [pollingInterval, setPollingInterval] = useState<ReturnType<typeof setInterval> | null>(null);
   const [qrCountdown, setQrCountdown] = useState(30);
   const qrCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pendingConnectDeviceNameRef = useRef<string | null>(null);
 
   // Fetch devices from database
   const { data: devices = [], isLoading: devicesLoading, isError: devicesError } = useQuery({
@@ -561,6 +562,30 @@ const Devices = () => {
             has_api_config: data.device.has_api_config || false,
           } as Device : d);
         });
+
+        if (pendingConnectDeviceNameRef.current === data.device.name) {
+          pendingConnectDeviceNameRef.current = null;
+          setConnectingDevice({
+            id: data.device.id,
+            name: data.device.name,
+            number: data.device.number || "",
+            status: normalizeDeviceStatus(data.device.status, !!data.device.number),
+            login_type: data.device.login_type || "qr",
+            proxy_id: data.device.proxy_id || null,
+            profile_picture: null,
+            profile_name: null,
+            created_at: data.device.created_at || new Date().toISOString(),
+            updated_at: data.device.updated_at || new Date().toISOString(),
+            has_api_config: data.device.has_api_config || false,
+          });
+          setConnectStep("choose");
+          setQrCodeBase64("");
+          setPairingCode("");
+          setConnectError("");
+          stopPolling();
+          pauseKeepAlive();
+          setConnectOpen(true);
+        }
       }
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
@@ -1591,7 +1616,8 @@ const Devices = () => {
     }
     // Block connection attempts on optimistic (temp) devices that haven't been persisted yet
     if (device.id.startsWith("temp-")) {
-      toast({ title: "Aguarde", description: "A instância ainda está sendo criada. Tente novamente em instantes.", variant: "destructive" });
+      pendingConnectDeviceNameRef.current = device.name;
+      toast({ title: "Preparando conexão", description: "Vou abrir o QR code automaticamente assim que a instância terminar de criar." });
       return;
     }
     setConnectingDevice(device);
