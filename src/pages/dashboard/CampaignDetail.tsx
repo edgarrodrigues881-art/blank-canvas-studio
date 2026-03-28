@@ -152,6 +152,7 @@ const CampaignDetail = () => {
     }
   };
 
+  const { data: campaign, isLoading: campLoading } = useQuery({
     queryKey: ["campaign", id],
     queryFn: async () => {
       const { data, error } = await supabase
