@@ -118,15 +118,16 @@ export function CarouselEditor({ cards, onChange }: CarouselEditorProps) {
   };
 
   // Button operations for active card
-  const addButton = (type: "reply" | "url" | "phone") => {
+  const addButton = (type: "reply" | "url") => {
     if (!activeCard) return;
     if (activeCard.buttons.length >= 3) {
       toast({ title: "Máximo 3 botões por card", variant: "destructive" });
       return;
     }
-    updateCard(activeCardIndex, {
-      buttons: [...activeCard.buttons, { id: Date.now(), type, text: "", value: "" }],
-    });
+    const newBtn: CarouselCardButton = { id: Date.now() + Math.random(), type, text: "", value: "" };
+    const updatedButtons = [...activeCard.buttons, newBtn];
+    updateCard(activeCardIndex, { buttons: updatedButtons });
+    toast({ title: `Botão ${type === "url" ? "URL" : "Resposta"} adicionado`, description: `Preencha o texto do botão abaixo.` });
   };
 
   const removeButton = (btnId: number) => {

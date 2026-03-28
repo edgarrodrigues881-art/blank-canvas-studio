@@ -1137,18 +1137,74 @@ const Campaigns = () => {
     const bubbleMaxW = "max-w-[70%] sm:max-w-[75%]";
     const isSent = previewMode === "sent";
 
+    // Theme-aware palette
+    const resolvedTheme = document.documentElement.classList.contains("dark") ? "dark" : "light";
+    const isLight = resolvedTheme === "light";
+
+    const p = isLight ? {
+      shellBorder: "border-border",
+      shellShadow: "shadow-black/10",
+      header: "bg-card border-border/60",
+      avatarBg: "bg-muted",
+      avatarIcon: "text-muted-foreground",
+      titleColor: "text-foreground",
+      subtitleColor: "text-muted-foreground",
+      chatBg: "#efeae2",
+      pattern: "%23d6d0c8",
+      bubbleSent: "bg-[#d9fdd3]",
+      bubbleReceived: "bg-card",
+      textColor: "text-foreground",
+      metaColor: "text-muted-foreground/60",
+      checkColor: "text-[#53BDEB]",
+      accentColor: "text-[#027eb5]",
+      divider: "border-border/40",
+      hoverSent: "hover:bg-[#c8efc3]",
+      hoverReceived: "hover:bg-muted",
+      varBg: "bg-muted",
+      varText: "text-primary",
+      varBtnActive: "bg-primary text-primary-foreground",
+      varBtnInactive: "bg-muted text-muted-foreground hover:bg-muted/80",
+      navText: "text-muted-foreground",
+      navHover: "hover:bg-muted",
+    } : {
+      shellBorder: "border-[hsl(210_10%_18%)]",
+      shellShadow: "shadow-black/40",
+      header: "bg-[#202C33] border-[#313D45]",
+      avatarBg: "bg-[#6B7B8D]/30",
+      avatarIcon: "text-[#AEBAC1]",
+      titleColor: "text-[#E9EDEF]",
+      subtitleColor: "text-[#8696A0]",
+      chatBg: "#0B141A",
+      pattern: "%23ffffff",
+      bubbleSent: "bg-[#005C4B]",
+      bubbleReceived: "bg-[#202C33]",
+      textColor: "text-[#E9EDEF]",
+      metaColor: "text-[#8696A0]/65",
+      checkColor: "text-[#53BDEB]/70",
+      accentColor: "text-[#00A5F4]",
+      divider: "border-[#313D45]/40",
+      hoverSent: "hover:bg-[#006B57]",
+      hoverReceived: "hover:bg-[#2A3942]",
+      varBg: "bg-[#1D2C36]",
+      varText: "text-[#00A884]",
+      varBtnActive: "bg-[#00A884] text-white shadow-sm",
+      varBtnInactive: "bg-[#313D45] text-[#AEBAC1] hover:bg-[#3B4A54]",
+      navText: "text-[#AEBAC1]",
+      navHover: "hover:bg-[#313D45]",
+    };
+
     return (
-      <div className="rounded-[20px] overflow-hidden border-2 border-[hsl(210_10%_18%)] shadow-2xl shadow-black/40 flex flex-col" style={{ height: '520px' }}>
+      <div className={cn("rounded-[20px] overflow-hidden border-2 shadow-2xl flex flex-col", p.shellBorder, p.shellShadow)} style={{ height: '520px' }}>
         {/* ── WhatsApp Header ── */}
-        <div className="bg-[#202C33] px-4 py-3 flex items-center gap-3 border-b border-[#313D45]">
-          <div className="w-9 h-9 rounded-full bg-[#6B7B8D]/30 flex items-center justify-center">
-            <Smartphone className="w-4 h-4 text-[#AEBAC1]" />
+        <div className={cn("px-4 py-3 flex items-center gap-3 border-b", p.header)}>
+          <div className={cn("w-9 h-9 rounded-full flex items-center justify-center", p.avatarBg)}>
+            <Smartphone className={cn("w-4 h-4", p.avatarIcon)} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[#E9EDEF] text-[14px] font-medium leading-tight">
+            <p className={cn("text-[14px] font-medium leading-tight", p.titleColor)}>
               {showVarPreview && previewContact ? (previewContact.nome || previewContact.numero) : "Destinatário"}
             </p>
-            <p className="text-[#8696A0] text-[11px]">online</p>
+            <p className={cn("text-[11px]", p.subtitleColor)}>online</p>
           </div>
           {/* Var preview toggle */}
           {hasVarsInMessage && contacts.length > 0 && (
@@ -1158,15 +1214,15 @@ const Campaigns = () => {
                   <button
                     onClick={() => setPreviewContactIndex(Math.max(0, previewContactIndex - 1))}
                     disabled={previewContactIndex === 0}
-                    className="w-5 h-5 rounded flex items-center justify-center text-[#AEBAC1] hover:bg-[#313D45] disabled:opacity-30 transition-colors"
+                    className={cn("w-5 h-5 rounded flex items-center justify-center disabled:opacity-30 transition-colors", p.navText, p.navHover)}
                   >
                     <ArrowUp className="w-3 h-3" />
                   </button>
-                  <span className="text-[10px] text-[#8696A0] tabular-nums min-w-[24px] text-center">{previewContactIndex + 1}/{Math.min(contacts.length, 50)}</span>
+                  <span className={cn("text-[10px] tabular-nums min-w-[24px] text-center", p.subtitleColor)}>{previewContactIndex + 1}/{Math.min(contacts.length, 50)}</span>
                   <button
                     onClick={() => setPreviewContactIndex(Math.min(contacts.length - 1, previewContactIndex + 1))}
                     disabled={previewContactIndex >= contacts.length - 1}
-                    className="w-5 h-5 rounded flex items-center justify-center text-[#AEBAC1] hover:bg-[#313D45] disabled:opacity-30 transition-colors"
+                    className={cn("w-5 h-5 rounded flex items-center justify-center disabled:opacity-30 transition-colors", p.navText, p.navHover)}
                   >
                     <ArrowDown className="w-3 h-3" />
                   </button>
@@ -1176,13 +1232,11 @@ const Campaigns = () => {
                 onClick={() => { setShowVarPreview(!showVarPreview); setPreviewContactIndex(0); }}
                 className={cn(
                   "px-2 py-1 rounded-md text-[11px] font-medium transition-all duration-200",
-                  showVarPreview
-                    ? "bg-[#00A884] text-white shadow-sm"
-                    : "bg-[#313D45] text-[#AEBAC1] hover:bg-[#3B4A54]"
+                  showVarPreview ? p.varBtnActive : p.varBtnInactive
                 )}
               >
                 <Eye className="w-3 h-3 inline mr-1" />
-                {showVarPreview ? "Vars" : "Vars"}
+                Vars
               </button>
             </div>
           )}
@@ -1192,14 +1246,14 @@ const Campaigns = () => {
         <div
           className="p-4 flex-1 min-h-0 overflow-y-auto flex flex-col"
           style={{
-            backgroundColor: "#0B141A",
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M50 50v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm-30 0v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm30-30v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm-30 0v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4z'/%3E%3C/g%3E%3C/svg%3E")`,
+            backgroundColor: p.chatBg,
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='${p.pattern}' fill-opacity='0.02'%3E%3Cpath d='M50 50v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm-30 0v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm30-30v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm-30 0v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4z'/%3E%3C/g%3E%3C/svg%3E")`,
           }}
         >
           {/* Var preview indicator */}
           {showVarPreview && previewContact && (
             <div className="flex justify-center mb-3">
-              <div className="bg-[#1D2C36] rounded-lg px-3 py-1.5 text-[11px] text-[#00A884] font-medium flex items-center gap-1.5">
+              <div className={cn("rounded-lg px-3 py-1.5 text-[11px] font-medium flex items-center gap-1.5", p.varBg, p.varText)}>
                 <Sparkles className="w-3 h-3" />
                 Preview com dados de: {previewContact.nome || previewContact.numero}
               </div>
@@ -1211,18 +1265,18 @@ const Campaigns = () => {
             className={cn("flex flex-col gap-[6px]", isSent ? "items-end" : "items-start")}
           >
             {/* ── Bubble ── */}
-            <div className={cn(bubbleMaxW, "flex flex-col rounded-[12px] overflow-hidden shadow-md", isSent ? "bg-[#005C4B]" : "bg-[#202C33]")}>
+            <div className={cn(bubbleMaxW, "flex flex-col rounded-[12px] overflow-hidden shadow-md", isSent ? p.bubbleSent : p.bubbleReceived)}>
               {/* Media */}
               {mediaUrl && (/\.(ogg|mp3|wav|m4a|aac|opus|mpeg)(\?|$)/i.test(mediaUrl) ? (
-                <div className="px-3 py-2.5 flex items-center gap-3 bg-[#1B2B34] rounded-lg mx-2 mt-2">
-                  <div className="w-10 h-10 rounded-full bg-[#00A884]/20 flex items-center justify-center shrink-0">
-                    <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#00A884]" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                <div className="px-3 py-2.5 flex items-center gap-3 bg-black/10 rounded-lg mx-2 mt-2">
+                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" className="w-5 h-5 text-primary" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="h-1.5 bg-[#374045] rounded-full overflow-hidden">
-                      <div className="h-full w-1/3 bg-[#00A884] rounded-full" />
+                    <div className="h-1.5 bg-black/10 rounded-full overflow-hidden">
+                      <div className="h-full w-1/3 bg-primary rounded-full" />
                     </div>
-                    <p className="text-[10px] text-[#8696A0] mt-1">0:00 / --:--</p>
+                    <p className={cn("text-[10px] mt-1", p.metaColor)}>0:00 / --:--</p>
                   </div>
                 </div>
               ) : (
@@ -1230,32 +1284,32 @@ const Campaigns = () => {
               ))}
               {/* Text */}
               <div className="px-[14px] py-[10px]">
-                <p className="text-[14px] text-[#E9EDEF] whitespace-pre-wrap leading-[1.65] break-words">
+                <p className={cn("text-[14px] whitespace-pre-wrap leading-[1.65] break-words", p.textColor)}>
                   {hasContent ? displayMessage : (
-                    <span className="italic text-[#8696A0]/70">Sua mensagem aparecerá aqui…</span>
+                    <span className={cn("italic", p.metaColor)}>Sua mensagem aparecerá aqui…</span>
                   )}
                 </p>
                 {/* Meta */}
                 <div className="flex items-center justify-end gap-1 mt-[4px]">
-                  <span className="text-[11px] text-[#8696A0]/65 leading-none">12:00</span>
-                  {isSent && <span className="text-[11px] text-[#53BDEB]/70 leading-none">✓✓</span>}
+                  <span className={cn("text-[11px] leading-none", p.metaColor)}>12:00</span>
+                  {isSent && <span className={cn("text-[11px] leading-none", p.checkColor)}>✓✓</span>}
                 </div>
               </div>
               {/* Buttons inside the bubble */}
               {hasAnyButtons && (
-                <div className="flex flex-col gap-[1px] border-t border-[#313D45]/40">
+                <div className={cn("flex flex-col gap-[1px] border-t", p.divider)}>
                   {buttons.filter(b => b.text.trim()).map((btn) => (
                     <button
                       key={btn.id}
                       className={cn(
                         "w-full px-3 py-[10px] flex items-center justify-center gap-2 transition-colors duration-100",
-                        isSent ? "hover:bg-[#006B57]" : "hover:bg-[#2A3942]",
-                        buttonAddedFlash && "ring-1 ring-[#00A5F4]/30 ring-inset"
+                        isSent ? p.hoverSent : p.hoverReceived,
+                        buttonAddedFlash && "ring-1 ring-primary/30 ring-inset"
                       )}
                     >
-                      {btn.type === "url" && <Link className="w-[14px] h-[14px] text-[#00A5F4]" />}
-                      {btn.type === "phone" && <Phone className="w-[14px] h-[14px] text-[#00A5F4]" />}
-                      <span className="text-[14px] text-[#00A5F4] font-medium">{btn.text || "Botão"}</span>
+                      {btn.type === "url" && <Link className={cn("w-[14px] h-[14px]", p.accentColor)} />}
+                      {btn.type === "phone" && <Phone className={cn("w-[14px] h-[14px]", p.accentColor)} />}
+                      <span className={cn("text-[14px] font-medium", p.accentColor)}>{btn.text || "Botão"}</span>
                     </button>
                   ))}
                 </div>
@@ -1364,15 +1418,19 @@ const Campaigns = () => {
                   <SurfaceCard className="p-4 sm:p-6 space-y-4 sm:space-y-5">
                     <div className="flex items-center justify-between">
                       <SectionLabel>Mensagem do Carrossel</SectionLabel>
-                      {carouselTemplates.length > 0 && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="gap-1.5 rounded-xl text-xs h-8">
-                              <Layers className="w-3.5 h-3.5" /> Carregar Template
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {carouselTemplates.map(ct => (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="gap-1.5 rounded-xl text-xs h-8">
+                            <Layers className="w-3.5 h-3.5" /> Carregar Template
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {carouselTemplates.length === 0 ? (
+                            <DropdownMenuItem disabled>
+                              <span className="text-muted-foreground text-xs">Nenhum template salvo</span>
+                            </DropdownMenuItem>
+                          ) : (
+                            carouselTemplates.map(ct => (
                               <DropdownMenuItem
                                 key={ct.id}
                                 onClick={() => {
@@ -1387,10 +1445,10 @@ const Campaigns = () => {
                                   {(ct.cards || []).filter((c: any) => c.text?.trim() || c.mediaUrl).length} cards
                                 </Badge>
                               </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
+                            ))
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                       <p className="text-xs text-muted-foreground -mt-2">Texto enviado junto com o carrossel (aparece acima dos cards)</p>
                       <p className="text-[11px] text-muted-foreground/70 -mt-1">Limite atual: até {MAX_CAROUSEL_CARDS} cards por envio compatível.</p>
