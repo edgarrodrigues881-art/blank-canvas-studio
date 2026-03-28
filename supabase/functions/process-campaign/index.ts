@@ -166,6 +166,12 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
   }));
 
   try {
+    const structuredResponse = await uazapiRequest(baseUrl, token, "/send/carousel", structuredCarouselPayload);
+    console.log(JSON.stringify({ event: "carousel_send_success", origin: "campaign", strategy: "structured_carousel" }));
+    return structuredResponse;
+  } catch (structuredError) {
+    console.warn(`Primary /send/carousel failed for ${phone}: ${structuredError instanceof Error ? structuredError.message : String(structuredError)}`);
+
     const menuResponse = await uazapiRequest(baseUrl, token, "/send/menu", {
       number: phone,
       type: "carousel",
@@ -174,12 +180,6 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
     });
     console.log(JSON.stringify({ event: "carousel_send_success", origin: "campaign", strategy: "menu_carousel" }));
     return menuResponse;
-  } catch (menuError) {
-    console.warn(`Primary /send/menu carousel failed for ${phone}: ${menuError instanceof Error ? menuError.message : String(menuError)}`);
-
-    const structuredResponse = await uazapiRequest(baseUrl, token, "/send/carousel", structuredCarouselPayload);
-    console.log(JSON.stringify({ event: "carousel_send_success", origin: "campaign", strategy: "structured_carousel" }));
-    return structuredResponse;
   }
 }
 
