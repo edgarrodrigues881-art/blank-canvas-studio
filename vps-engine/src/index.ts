@@ -3,13 +3,11 @@
 // Serviço contínuo que roda na VPS com PM2
 // ══════════════════════════════════════════════════════════
 
-// Load .env BEFORE any config import
-import { config as dotenvConfig } from "dotenv";
-dotenvConfig();
-
 import express, { Request, Response } from "express";
 import { inspect } from "node:util";
 import { config } from "./config";
+import { getDb } from "./db";
+import { createLogger } from "./lib/logger";
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
 import { Semaphore } from "./lib/concurrency";
