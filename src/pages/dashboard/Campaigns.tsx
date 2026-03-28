@@ -728,7 +728,7 @@ const Campaigns = () => {
 
       createCarouselTemplate.mutate({
         name: saveTemplateName.trim(),
-        message: (carouselMessages[0] || "").trim(),
+        message: carouselMessages.filter(m => m.trim()).join("|||"),
         cards: serializeCarouselCards(carouselCards),
       }, {
         onSuccess: () => {
@@ -1498,7 +1498,10 @@ const Campaigns = () => {
                                 key={ct.id}
                                 onClick={() => {
                   const rawMsg = ct.message || "";
-                                  setCarouselMessages([rawMsg, "", "", "", ""]);
+                                  const parts = rawMsg.split("|||");
+                                  const slots: [string, string, string, string, string] = ["", "", "", "", ""];
+                                  parts.slice(0, 5).forEach((p: string, i: number) => { slots[i] = p; });
+                                  setCarouselMessages(slots);
                                   setActiveCarouselMsgTab(0);
                                   setCarouselCards(Array.isArray(ct.cards) && ct.cards.length > 0 ? ct.cards : [createEmptyCard(0)]);
                                   toast({ title: `Template "${ct.name}" carregado` });
