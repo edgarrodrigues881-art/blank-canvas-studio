@@ -111,7 +111,6 @@ export default function ReportWhatsApp() {
   const ensureReportDevice = async (): Promise<string | null> => {
     if (reportDevice?.id) return reportDevice.id;
     
-    // Fetch monitor token from profile to pre-fill the device
     const { data: profile } = await supabase
       .from("profiles")
       .select("whatsapp_monitor_token")
@@ -133,7 +132,8 @@ export default function ReportWhatsApp() {
       .select("id")
       .single();
     if (error) throw new Error("Erro ao criar instância de relatório: " + error.message);
-    // Invalidate to pick up the new device
+    // Track the new device ID immediately for realtime/polling
+    setPendingDeviceId(data.id);
     await queryClient.invalidateQueries({ queryKey: ["report-device"] });
     return data.id;
   };
