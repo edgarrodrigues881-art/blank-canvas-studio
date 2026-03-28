@@ -43,6 +43,7 @@ import { PlanGateDialog } from "@/components/PlanGateDialog";
 import { CarouselEditor } from "@/components/campaigns/CarouselEditor";
 import { CarouselPreview } from "@/components/campaigns/CarouselPreview";
 import { CarouselCard, createEmptyCard, validateCarouselCards, serializeCarouselCards } from "@/components/campaigns/carousel-types";
+import { useCarouselTemplates } from "@/hooks/useCarouselTemplates";
 import { Layers } from "lucide-react";
 
 // Compress images client-side before uploading
