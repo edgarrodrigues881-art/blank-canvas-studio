@@ -5,10 +5,11 @@ import { CarouselCard } from "./carousel-types";
 
 interface CarouselPreviewProps {
   cards: CarouselCard[];
+  message?: string;
   previewMode?: "sent" | "received";
 }
 
-export function CarouselPreview({ cards, previewMode = "sent" }: CarouselPreviewProps) {
+export function CarouselPreview({ cards, message, previewMode = "sent" }: CarouselPreviewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollPos, setScrollPos] = useState(0);
   const isSent = previewMode === "sent";
