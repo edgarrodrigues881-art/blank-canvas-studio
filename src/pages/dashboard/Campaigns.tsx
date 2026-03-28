@@ -2328,14 +2328,14 @@ const Campaigns = () => {
                   )}
 
                   {/* Warnings */}
-                  {(!campaignName || selectedDevices.length === 0 || validContacts.length === 0 || !message) && (
+                  {(!campaignName || selectedDevices.length === 0 || validContacts.length === 0 || (contentType === "carousel" ? carouselCards.length === 0 : !combinedMessage)) && (
                     <div className="flex items-center gap-3 text-sm text-destructive bg-destructive/5 border border-destructive/10 rounded-xl px-4 py-3">
                       <AlertTriangle className="w-4 h-4 shrink-0" />
                       <span className="text-[12px]">
                         {!campaignName && "Nome ausente. "}
                         {selectedDevices.length === 0 && "Sem instância. "}
                         {validContacts.length === 0 && "Sem contatos. "}
-                        {!combinedMessage && "Mensagem vazia."}
+                        {contentType === "carousel" ? (carouselCards.length === 0 && "Sem cards no carrossel.") : (!combinedMessage && "Mensagem vazia.")}
                       </span>
                     </div>
                   )}
