@@ -428,6 +428,8 @@ const Campaigns = () => {
     setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName("");
     setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]);
     setSelectedTemplate("nova");
+    setContentType("text");
+    setCarouselCards([createEmptyCard(0)]);
     toast({ title: "Mensagem limpa" });
   };
   const clearStep2 = () => {
