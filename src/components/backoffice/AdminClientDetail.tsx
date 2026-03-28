@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, User, CreditCard, Server, ScrollText, Loader2, DollarSign, MessageSquare, LayoutDashboard, Key } from "lucide-react";
+import { ArrowLeft, User, CreditCard, Server, ScrollText, Loader2, DollarSign, MessageSquare, LayoutDashboard, Key, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AdminUser } from "@/hooks/useAdmin";
@@ -12,6 +12,7 @@ import ClientMessagesTab from "./tabs/ClientMessagesTab";
 import ClientLogsTab from "./tabs/ClientLogsTab";
 import ClientPaymentsTab from "./tabs/ClientPaymentsTab";
 import ClientTokensTab from "./tabs/ClientTokensTab";
+import ClientIPTab from "./tabs/ClientIPTab";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 interface Props {
@@ -120,6 +121,9 @@ const AdminClientDetail = ({ client, onBack }: Props) => {
               <TabsTrigger value="tokens" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1 text-[11px] sm:text-xs px-2.5 sm:px-3">
                 <Key size={13} /> Tokens
               </TabsTrigger>
+              <TabsTrigger value="ips" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1 text-[11px] sm:text-xs px-2.5 sm:px-3">
+                <Globe size={13} /> IPs
+              </TabsTrigger>
               <TabsTrigger value="logs" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1 text-[11px] sm:text-xs px-2.5 sm:px-3">
                 <ScrollText size={13} /> Logs
               </TabsTrigger>
@@ -134,6 +138,7 @@ const AdminClientDetail = ({ client, onBack }: Props) => {
           <TabsContent value="tokens"><ClientTokensTab client={client} detail={detail} /></TabsContent>
           <TabsContent value="messages"><ClientMessagesTab client={client} detail={detail} /></TabsContent>
           <TabsContent value="payments"><ClientPaymentsTab client={client} detail={detail} /></TabsContent>
+          <TabsContent value="ips"><ClientIPTab detail={detail} /></TabsContent>
           <TabsContent value="logs"><ClientLogsTab detail={detail} /></TabsContent>
         </Tabs>
       )}
