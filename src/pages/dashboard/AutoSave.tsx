@@ -88,6 +88,33 @@ const AutoSave = () => {
   const { createContact, updateContact, deleteContact, bulkCreate } = useAutosaveMutations();
   const queryClient = useQueryClient();
 
+  // Autosave global toggle
+  const [autosaveEnabled, setAutosaveEnabled] = useState(true);
+  const [togglingAutosave, setTogglingAutosave] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("profiles").select("autosave_enabled").eq("id", user.id).single().then(({ data }) => {
+      if (data && typeof (data as any).autosave_enabled === "boolean") {
+        setAutosaveEnabled((data as any).autosave_enabled);
+      }
+    });
+  }, [user]);
+
+  const handleToggleAutosave = async () => {
+    if (!user) return;
+    setTogglingAutosave(true);
+    const newVal = !autosaveEnabled;
+    const { error } = await supabase.from("profiles").update({ autosave_enabled: newVal } as any).eq("id", user.id);
+    if (error) {
+      toast({ title: "Erro ao alterar Auto Save", description: error.message, variant: "destructive" });
+    } else {
+      setAutosaveEnabled(newVal);
+      toast({ title: newVal ? "Auto Save ativado" : "Auto Save desativado", description: newVal ? "O Auto Save será incluído no aquecimento" : "O Auto Save não entrará no aquecimento" });
+    }
+    setTogglingAutosave(false);
+  };
+
   // Disclaimer
   const disclaimerKey = `autosave_disclaimer_${user?.id}`;
   const [showDisclaimer, setShowDisclaimer] = useState(() => !localStorage.getItem(disclaimerKey));
