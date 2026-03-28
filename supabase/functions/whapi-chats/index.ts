@@ -377,9 +377,22 @@ Deno.serve(async (req) => {
 
       console.log(`[${deviceId}] Total unique groups (raw): ${allGroups.length}`);
 
-      const authoritativeGroups = allGroups.filter((g) => groupHasDeviceAsParticipant(g));
-      if (authoritativeGroups.length !== allGroups.length) {
-        console.log(`[${deviceId}] Filtered by participant ownership: ${authoritativeGroups.length}/${allGroups.length}`);
+      // Only filter by participant ownership if we have a reliable device number
+      // AND the group has participant data. Skip filtering entirely if we have many groups
+      // (indicates the API returned correct data) or if device number is unknown.
+      let authoritativeGroups = allGroups;
+      if (deviceDigits && allGroups.length <= 200) {
+        const filtered = allGroups.filter((g) => groupHasDeviceAsParticipant(g));
+        // Only use filtered results if the filter didn't remove too many groups
+        // (removing >60% suggests the participant data is incomplete, not that the groups are wrong)
+        if (filtered.length >= allGroups.length * 0.4 || filtered.length >= 30) {
+          authoritativeGroups = filtered;
+          if (filtered.length !== allGroups.length) {
+            console.log(`[${deviceId}] Filtered by participant ownership: ${filtered.length}/${allGroups.length}`);
+          }
+        } else {
+          console.log(`[${deviceId}] Skipped participant filter (would remove ${allGroups.length - filtered.length}/${allGroups.length} groups — too aggressive)`);
+        }
       }
 
       // Map to standardized format
