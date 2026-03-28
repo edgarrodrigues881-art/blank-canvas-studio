@@ -119,7 +119,7 @@ const AdminClientsTable = memo(({ users, onSelectClient }: Props) => {
       if (filter === "active" && u.status !== "active") return false;
       if (filter === "suspended" && u.status !== "suspended") return false;
       if (filter === "cancelled" && u.status !== "cancelled") return false;
-      if (q && !u.full_name?.toLowerCase().includes(q) && !u.email?.toLowerCase().includes(q) && !u.phone?.includes(q)) return false;
+      if (q && !u.full_name?.toLowerCase().includes(q) && !u.email?.toLowerCase().includes(q) && !u.phone?.includes(q) && !(u.signup_ip || "").includes(q)) return false;
       return true;
     });
   }, [users, search, filter]);
@@ -226,7 +226,7 @@ const AdminClientsTable = memo(({ users, onSelectClient }: Props) => {
           <div className="relative flex-1 max-w-sm">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
             <Input
-              placeholder="Nome, email ou telefone..."
+              placeholder="Nome, email, telefone ou IP..."
               value={search}
               onChange={e => handleSearch(e.target.value)}
               className="pl-9 h-9 bg-card/50 border-border/60 text-sm placeholder:text-muted-foreground/40"
@@ -359,13 +359,14 @@ const AdminClientsTable = memo(({ users, onSelectClient }: Props) => {
                 <th className="text-center px-4 py-3 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/50 font-semibold">Conta</th>
                 <th className="text-center px-4 py-3 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/50 font-semibold">Assinatura</th>
                 <th className="text-left px-4 py-3 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/50 font-semibold">Vencimento</th>
+                <th className="text-left px-4 py-3 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/50 font-semibold">IP</th>
                 <th className="w-28 px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
               {paginatedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12">
+                  <td colSpan={9} className="text-center py-12">
                     <Users size={24} className="mx-auto text-muted-foreground/20 mb-2" />
                     <p className="text-muted-foreground/50 text-sm">Nenhum cliente encontrado</p>
                   </td>
@@ -447,6 +448,13 @@ const AdminClientsTable = memo(({ users, onSelectClient }: Props) => {
                           </span>
                         )}
                       </div>
+                    </td>
+
+                    {/* IP */}
+                    <td className="px-4 py-3">
+                      <span className="text-[11px] text-muted-foreground/50 font-mono">
+                        {u.signup_ip || "—"}
+                      </span>
                     </td>
 
                     {/* Ações */}

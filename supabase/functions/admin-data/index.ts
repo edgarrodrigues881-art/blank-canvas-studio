@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
         costsRes,
       ] = await Promise.all([
         adminClient.auth.admin.listUsers(),
-        adminClient.from("profiles").select("id, full_name, company, phone, document, avatar_url, status, instance_override, client_type, notificacao_liberada, whatsapp_monitor_token, created_at, updated_at"),
+        adminClient.from("profiles").select("id, full_name, company, phone, document, avatar_url, status, instance_override, client_type, notificacao_liberada, whatsapp_monitor_token, signup_ip, created_at, updated_at"),
         adminClient.from("user_roles").select("id, user_id, role"),
         adminClient.from("devices").select("id, user_id, name, number, status, instance_type, login_type, proxy_id, created_at"),
         adminClient.from("campaigns").select("id, user_id, name, status, total_contacts, sent_count, failed_count, created_at"),
@@ -149,6 +149,7 @@ Deno.serve(async (req) => {
           instance_override: profile?.instance_override || 0,
           plan_expires_at: sub?.expires_at || null,
           plan_started_at: sub?.started_at || null,
+          signup_ip: profile?.signup_ip || null,
         };
       }) || [];
 
@@ -176,9 +177,9 @@ Deno.serve(async (req) => {
       const { target_user_id } = await req.json();
       
       // Run all queries in parallel
-      const [authUserRes, profileRes, adminDataRes, subRes, devicesRes, campaignsRes, logsRes, paymentsRes, cyclesRes, apiTokensRes] = await Promise.all([
+      const [authUserRes, profileRes, adminDataRes, subRes, devicesRes, campaignsRes, logsRes, paymentsRes, cyclesRes, apiTokensRes, loginHistoryRes] = await Promise.all([
         adminClient.auth.admin.getUserById(target_user_id),
-        adminClient.from("profiles").select("id, full_name, company, phone, document, avatar_url, status, instance_override, client_type, notificacao_liberada, whatsapp_monitor_token, created_at, updated_at").eq("id", target_user_id).maybeSingle(),
+        adminClient.from("profiles").select("id, full_name, company, phone, document, avatar_url, status, instance_override, client_type, notificacao_liberada, whatsapp_monitor_token, signup_ip, created_at, updated_at").eq("id", target_user_id).maybeSingle(),
         adminClient.from("admin_profile_data").select("id, admin_notes, risk_flag").eq("id", target_user_id).maybeSingle(),
         adminClient.from("subscriptions").select("id, user_id, plan_name, plan_price, max_instances, started_at, expires_at").eq("user_id", target_user_id).maybeSingle(),
         adminClient.from("devices").select("id, user_id, name, number, status, instance_type, login_type, proxy_id, uazapi_token, uazapi_base_url, created_at, updated_at").eq("user_id", target_user_id).order("created_at", { ascending: false }),
@@ -187,6 +188,7 @@ Deno.serve(async (req) => {
         adminClient.from("payments").select("id, user_id, admin_id, amount, discount, fee, method, notes, paid_at, created_at").eq("user_id", target_user_id).order("paid_at", { ascending: false }),
         adminClient.from("subscription_cycles").select("id, user_id, subscription_id, plan_name, status, cycle_start, cycle_end, cycle_amount, notes, created_at").eq("user_id", target_user_id).order("cycle_start", { ascending: false }),
         adminClient.from("user_api_tokens").select("id, user_id, device_id, token, status, healthy, label, assigned_at, last_checked_at, created_at").eq("user_id", target_user_id).order("created_at", { ascending: true }),
+        adminClient.from("login_history").select("id, ip_address, user_agent, logged_in_at").eq("user_id", target_user_id).order("logged_in_at", { ascending: false }).limit(200),
       ]);
 
       const authUser = authUserRes.data;
@@ -223,6 +225,7 @@ Deno.serve(async (req) => {
         payments: payments || [],
         cycles: cycles || [],
         api_tokens: enrichedTokens,
+        login_history: loginHistoryRes.data || [],
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
