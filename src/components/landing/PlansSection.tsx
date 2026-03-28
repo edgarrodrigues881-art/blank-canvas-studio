@@ -28,8 +28,8 @@ const baseFeatures = [
   "Infraestrutura completa",
 ];
 
-const featuresWithWhatsApp = [...baseFeatures, "Relatórios via WhatsApp inclusos"];
-const featuresWithoutWhatsApp = [...baseFeatures, "Relatórios via WhatsApp (add-on)"];
+const featuresWithWhatsApp = [...baseFeatures, "Relatórios via WhatsApp incluso"];
+const featuresWithoutWhatsApp = [...baseFeatures, "Relatórios via WhatsApp"];
 
 const topPlans: Plan[] = [
   {
