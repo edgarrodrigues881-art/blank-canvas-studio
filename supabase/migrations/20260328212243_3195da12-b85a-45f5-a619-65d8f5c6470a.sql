@@ -1,0 +1,1 @@
+ALTER TABLE public.report_wa_configs ALTER COLUMN group_id TYPE text USING group_id::text;
