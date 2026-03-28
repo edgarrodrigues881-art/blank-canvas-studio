@@ -105,11 +105,28 @@ function getConversationInvalidReason(conversation: ChipConversation, deviceMap:
 
   if (deviceIds.length < 2) return "Conecte pelo menos 2 chips para manter a conversa ativa.";
 
+  const removedDevices: string[] = [];
+  const offlineDevices: string[] = [];
+
   for (const deviceId of deviceIds) {
     const device = deviceMap.get(deviceId);
-    if (!device) return "Uma das instâncias foi removida.";
-    if (!isConversationDeviceConnected(device)) return "Uma das instâncias está desconectada.";
+    if (!device) {
+      removedDevices.push(deviceId);
+    } else if (!isConversationDeviceConnected(device)) {
+      offlineDevices.push(device.name || deviceId);
+    }
   }
+
+  if (removedDevices.length > 0) return `${removedDevices.length} instância(s) removida(s) do sistema.`;
+  if (offlineDevices.length > 0) return `Instância offline: ${offlineDevices.join(", ")}`;
+
+  // Count how many are actually connected
+  const connectedCount = deviceIds.filter((id) => {
+    const d = deviceMap.get(id);
+    return d && isConversationDeviceConnected(d);
+  }).length;
+
+  if (connectedCount < 2) return "Menos de 2 chips conectados.";
 
   return null;
 }
@@ -154,9 +171,10 @@ export default function ChipConversation() {
   );
 
   // Available devices = not busy (for creating new conversations)
+  // Available = connected + not busy
   const availableDevices = devices.filter((d: any) => isConversationDeviceConnected(d) && !busyDeviceIds.has(d.id));
 
-  // For editing, include the conversation's own devices + available
+  // For editing, include the conversation's own devices (even if offline, so user can see/remove them) + available connected ones
   const getEditDevices = (conv: ChipConversation) => {
     const ownIds = new Set(conv.device_ids || []);
     return devices.filter((d: any) => ownIds.has(d.id) || (isConversationDeviceConnected(d) && !busyDeviceIds.has(d.id)));
@@ -715,24 +733,33 @@ function CreateConversationForm({
           ) : (
             devices.map((device) => {
               const selected = selectedDevices.includes(device.id);
-              const isConnected = ["Connected", "Ready", "authenticated"].includes(device.status);
+              const isConnected = isConversationDeviceConnected(device);
+              const isOffline = !isConnected;
               return (
                 <button
                   key={device.id}
                   type="button"
-                  onClick={() => toggleDevice(device.id)}
+                  onClick={() => {
+                    if (isOffline && !selected) return; // block selecting offline devices
+                    toggleDevice(device.id);
+                  }}
                   className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all text-left ${
-                    selected
-                      ? "border-primary/50 bg-primary/10"
-                      : "border-border hover:border-border/80 hover:bg-muted/30"
+                    isOffline && !selected
+                      ? "border-border/30 bg-muted/10 opacity-50 cursor-not-allowed"
+                      : selected
+                        ? "border-primary/50 bg-primary/10"
+                        : "border-border hover:border-border/80 hover:bg-muted/30"
                   }`}
                 >
                   <Checkbox checked={selected} className="pointer-events-none" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-foreground truncate">{device.name}</p>
-                    <p className="text-[11px] text-muted-foreground">{device.number || "Sem número"}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {device.number || "Sem número"}
+                      {isOffline && <span className="ml-1 text-destructive">(offline)</span>}
+                    </p>
                   </div>
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${isConnected ? "bg-emerald-400" : "bg-muted-foreground/30"}`} />
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${isConnected ? "bg-emerald-400" : "bg-destructive/60"}`} />
                 </button>
               );
             })
