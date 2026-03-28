@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
         costsRes,
       ] = await Promise.all([
         adminClient.auth.admin.listUsers(),
-        adminClient.from("profiles").select("id, full_name, company, phone, document, avatar_url, status, instance_override, client_type, notificacao_liberada, whatsapp_monitor_token, created_at, updated_at"),
+        adminClient.from("profiles").select("id, full_name, company, phone, document, avatar_url, status, instance_override, client_type, notificacao_liberada, whatsapp_monitor_token, signup_ip, created_at, updated_at"),
         adminClient.from("user_roles").select("id, user_id, role"),
         adminClient.from("devices").select("id, user_id, name, number, status, instance_type, login_type, proxy_id, created_at"),
         adminClient.from("campaigns").select("id, user_id, name, status, total_contacts, sent_count, failed_count, created_at"),
@@ -149,6 +149,7 @@ Deno.serve(async (req) => {
           instance_override: profile?.instance_override || 0,
           plan_expires_at: sub?.expires_at || null,
           plan_started_at: sub?.started_at || null,
+          signup_ip: profile?.signup_ip || null,
         };
       }) || [];
 
