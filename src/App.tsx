@@ -229,13 +229,13 @@ const App = () => (
                 <Route path="/dashboard/proxy" element={<ProtectedRoute><DashboardLayout><Proxy /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/custom-module" element={<ProtectedRoute><DashboardLayout><CustomModule /></DashboardLayout></ProtectedRoute>} />
 
-                {/* Backoffice */}
-                <Route path="/backoffice" element={<BackOffice />} />
-                <Route path="/backoffice/campaigns" element={<BOCampaigns />} />
-                <Route path="/backoffice/campaign-list" element={<BOCampaignList />} />
-                <Route path="/backoffice/campaigns/list" element={<BOCampaignList />} />
-                <Route path="/backoffice/campaign/:id" element={<BOCampaignDetail />} />
-                <Route path="/backoffice/campaigns/:id" element={<BOCampaignDetail />} />
+                {/* Backoffice — all routes require admin role */}
+                <Route path="/backoffice" element={<AdminRoute><BackOffice /></AdminRoute>} />
+                <Route path="/backoffice/campaigns" element={<AdminRoute><BOCampaigns /></AdminRoute>} />
+                <Route path="/backoffice/campaign-list" element={<AdminRoute><BOCampaignList /></AdminRoute>} />
+                <Route path="/backoffice/campaigns/list" element={<AdminRoute><BOCampaignList /></AdminRoute>} />
+                <Route path="/backoffice/campaign/:id" element={<AdminRoute><BOCampaignDetail /></AdminRoute>} />
+                <Route path="/backoffice/campaigns/:id" element={<AdminRoute><BOCampaignDetail /></AdminRoute>} />
 
                 {/* Fallback */}
                 <Route path="*" element={<NotFound />} />
