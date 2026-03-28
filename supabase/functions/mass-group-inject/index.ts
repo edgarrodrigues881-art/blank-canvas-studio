@@ -120,21 +120,8 @@ function gaussianRandom(min: number, max: number): number {
   return Math.round(min + u * (max - min));
 }
 
-/** Hourly usage tracker per device (in-memory, resets per worker lifecycle) */
-const deviceHourlyUsage = new Map<string, { count: number; windowStart: number }>();
-const HOURLY_SOFT_LIMIT = 20; // max adds per hour per instance before slowdown
-const HOURLY_HARD_LIMIT = 30; // absolute max per hour
-
-function trackDeviceUsage(deviceId: string): { count: number; overSoftLimit: boolean; overHardLimit: boolean } {
-  const now = Date.now();
-  const entry = deviceHourlyUsage.get(deviceId);
-  if (!entry || (now - entry.windowStart) > 3600_000) {
-    deviceHourlyUsage.set(deviceId, { count: 1, windowStart: now });
-    return { count: 1, overSoftLimit: false, overHardLimit: false };
-  }
-  entry.count++;
-  return { count: entry.count, overSoftLimit: entry.count > HOURLY_SOFT_LIMIT, overHardLimit: entry.count > HOURLY_HARD_LIMIT };
-}
+// Hourly usage tracking removed — not effective in serverless (resets per invocation)
+// Rate limiting is handled by UAZAPI responses + exponential backoff
 
 function extractRetryCount(message: string | null | undefined) {
   const match = String(message || "").match(/^\[retry:(\d+)\]\s*/i);
