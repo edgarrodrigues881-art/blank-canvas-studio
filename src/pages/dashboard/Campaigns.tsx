@@ -1284,11 +1284,43 @@ const Campaigns = () => {
         {/* ===== STEP 1: Message ===== */}
         {step === 1 && (
           <div className="space-y-6 sm:space-y-12">
+            {/* Content Type Selector */}
+            <SurfaceCard className="p-4 sm:p-5">
+              <SectionLabel className="mb-3">Tipo de Conteúdo</SectionLabel>
+              <div className="flex gap-2">
+                {([
+                  { value: "text" as const, label: "Texto Normal", icon: <MessageSquare className="w-4 h-4 mr-1.5" />, desc: "Mensagem tradicional com variantes" },
+                  { value: "carousel" as const, label: "Carrossel", icon: <Layers className="w-4 h-4 mr-1.5" />, desc: "Cards com imagem, texto e botões" },
+                ] as const).map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setContentType(opt.value)}
+                    className={cn(
+                      "flex-1 text-center p-3 rounded-xl border text-xs transition-all",
+                      contentType === opt.value
+                        ? "border-primary bg-primary/10 text-primary font-semibold"
+                        : "border-border/20 text-muted-foreground hover:border-border/40"
+                    )}
+                  >
+                    <div className="flex items-center justify-center">{opt.icon}{opt.label}</div>
+                    <p className="text-[9px] text-muted-foreground/50 mt-1">{opt.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </SurfaceCard>
+
             {/* Editor + Preview */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-8 items-start">
               {/* Editor column */}
               <div className="lg:col-span-3 space-y-4 sm:space-y-8">
-                {/* Message editor */}
+                {/* Carousel Editor */}
+                {contentType === "carousel" ? (
+                  <SurfaceCard className="p-4 sm:p-6 space-y-4 sm:space-y-5">
+                    <SectionLabel>Carrossel</SectionLabel>
+                    <CarouselEditor cards={carouselCards} onChange={setCarouselCards} />
+                  </SurfaceCard>
+                ) : (
+                /* Normal message editor */
                 <SurfaceCard className="p-4 sm:p-6 space-y-4 sm:space-y-5">
                   <SectionLabel>Mensagem</SectionLabel>
                   
