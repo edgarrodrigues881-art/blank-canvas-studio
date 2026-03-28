@@ -278,15 +278,18 @@ Deno.serve(async (req) => {
       await fetchGroupListPaginated("S1");
 
       // UaZapi pode oscilar entre 4 e 9 grupos no mesmo minuto; faz retries e mantém união por JID
-      if (forceRefresh && allGroups.length < 8) {
-        for (let attempt = 1; attempt <= 2 && allGroups.length < 8; attempt++) {
-          await new Promise((r) => setTimeout(r, 900));
+      if (allGroups.length < 20) {
+        for (let attempt = 1; attempt <= 2 && allGroups.length < 20; attempt++) {
+          await new Promise((r) => setTimeout(r, 1200));
           await fetchGroupListPaginated(`S1R${attempt}`);
         }
       }
 
-      // Fallbacks only if primary endpoint failed (avoid mixing stale historical sources)
-      if (!primaryFetchSucceeded) {
+      // Run fallback strategies when we have fewer groups than expected (< 50)
+      // or when the primary endpoint failed entirely
+      const needsFallback = !primaryFetchSucceeded || allGroups.length < 50;
+
+      if (needsFallback) {
         // ─── S1b: /group/list with count ───
         const dataS1b = await fetchSafe(`${apiBaseUrl}/group/list?GetParticipants=true&count=500`, 1);
         if (dataS1b) {
@@ -312,7 +315,7 @@ Deno.serve(async (req) => {
         }
 
         // ─── S2: /group/fetchAllGroups ───
-        if (forceRefresh) {
+        if (forceRefresh || allGroups.length < 50) {
           const dataS2 = await fetchSafe(`${apiBaseUrl}/group/fetchAllGroups`, 1);
           if (dataS2) {
             fallbackFetchSucceeded = true;
@@ -348,7 +351,7 @@ Deno.serve(async (req) => {
         }
 
         // ─── S5: /group/list huge count ───
-        if (forceRefresh) {
+        if (forceRefresh || allGroups.length < 50) {
           const dataS5 = await fetchSafe(`${apiBaseUrl}/group/list?GetParticipants=true&count=9999`, 1);
           if (dataS5) {
             fallbackFetchSucceeded = true;
@@ -360,7 +363,7 @@ Deno.serve(async (req) => {
         }
 
         // ─── S6: /group/participating ───
-        if (forceRefresh) {
+        if (forceRefresh || allGroups.length < 50) {
           const dataS6 = await fetchSafe(`${apiBaseUrl}/group/participating`, 1);
           if (dataS6) {
             fallbackFetchSucceeded = true;
