@@ -1176,7 +1176,7 @@ const Campaigns = () => {
       subtitleColor: "text-[#8696A0]",
       chatBg: "#0B141A",
       pattern: "%23ffffff",
-      bubbleSent: "bg-[#005C4B]",
+      bubbleSent: "bg-[#0b7a69]",
       bubbleReceived: "bg-[#202C33]",
       textColor: "text-[#E9EDEF]",
       metaColor: "text-[#8696A0]/65",
