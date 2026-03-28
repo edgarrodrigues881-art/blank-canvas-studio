@@ -582,11 +582,6 @@ const Campaigns = () => {
         return;
       }
     }
-      if (validationErrors.length > 0) {
-        toast({ title: "Template inconsistente", description: validationErrors[0], variant: "destructive" });
-        return;
-      }
-    }
 
     const connectedStatuses = new Set(["connected", "ready", "authenticated", "open", "online", "active"]);
     const isDeviceOnline = (d: any) => connectedStatuses.has((d.status || "").toLowerCase());
