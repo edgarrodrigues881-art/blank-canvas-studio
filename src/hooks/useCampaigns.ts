@@ -79,6 +79,7 @@ export function useCreateCampaign() {
       message_content?: string;
       media_url?: string;
       buttons?: any[];
+      carousel_cards?: any[];
       template_id?: string;
       scheduled_at?: string;
       min_delay_seconds?: number;
@@ -116,6 +117,7 @@ export function useCreateCampaign() {
           message_content: campaignData.message_content || null,
           media_url: campaignData.media_url || null,
           buttons: campaignData.buttons || [],
+          carousel_cards: campaignData.carousel_cards || null,
           template_id: campaignData.template_id || null,
           scheduled_at: campaignData.scheduled_at || null,
           min_delay_seconds: campaignData.min_delay_seconds ?? 8,
