@@ -71,9 +71,9 @@ const FAILURE_STATUSES = new Set([
 
 const FINAL_CAMPAIGN_STATUSES = new Set(["done", "completed_with_failures", "paused", "cancelled", "failed"]);
 const RETRYABLE_QUEUE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped", "permission_unconfirmed", "unknown_failure", "timeout"] as const;
-const MAX_QUEUE_RETRIES = 3;
-const MAX_RATE_LIMIT_RETRIES = 8;
-const MAX_SESSION_DROP_RETRIES = 5; // session drops get more retries since they're transient
+const MAX_QUEUE_RETRIES = 5;
+const MAX_RATE_LIMIT_RETRIES = 15;
+const MAX_SESSION_DROP_RETRIES = 8; // session drops get more retries since they're transient
 const STALE_PROCESSING_TIMEOUT_MS = 3 * 60 * 1000;
 const API_TIMEOUT_MS = 25_000;
 const DISCONNECT_RECHECK_COUNT = 3; // Number of checks before confirming disconnect
@@ -120,21 +120,8 @@ function gaussianRandom(min: number, max: number): number {
   return Math.round(min + u * (max - min));
 }
 
-/** Hourly usage tracker per device (in-memory, resets per worker lifecycle) */
-const deviceHourlyUsage = new Map<string, { count: number; windowStart: number }>();
-const HOURLY_SOFT_LIMIT = 20; // max adds per hour per instance before slowdown
-const HOURLY_HARD_LIMIT = 30; // absolute max per hour
-
-function trackDeviceUsage(deviceId: string): { count: number; overSoftLimit: boolean; overHardLimit: boolean } {
-  const now = Date.now();
-  const entry = deviceHourlyUsage.get(deviceId);
-  if (!entry || (now - entry.windowStart) > 3600_000) {
-    deviceHourlyUsage.set(deviceId, { count: 1, windowStart: now });
-    return { count: 1, overSoftLimit: false, overHardLimit: false };
-  }
-  entry.count++;
-  return { count: entry.count, overSoftLimit: entry.count > HOURLY_SOFT_LIMIT, overHardLimit: entry.count > HOURLY_HARD_LIMIT };
-}
+// Hourly usage tracking removed — not effective in serverless (resets per invocation)
+// Rate limiting is handled by UAZAPI responses + exponential backoff
 
 function extractRetryCount(message: string | null | undefined) {
   const match = String(message || "").match(/^\[retry:(\d+)\]\s*/i);
@@ -856,8 +843,8 @@ function computeNextDelayMs(campaign: any, cooldownMs?: number, _deviceId?: stri
   return nextDelayMs;
 }
 
-// Consecutive failure tracking for auto-pause
-const MAX_CONSECUTIVE_FAILURES = 5;
+// Consecutive failure tracking for auto-pause (high threshold to support 1000+ contact campaigns)
+const MAX_CONSECUTIVE_FAILURES = 15;
 
 /**
  * Lightweight worker:
@@ -1334,12 +1321,14 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
 
     if (batchHasRateLimit) {
       const consecutiveRL = Number(campaign.rate_limit_count || 0) + batchRateLimitCount;
-      const rlBackoffMs = Math.min(30_000 * Math.pow(2, Math.min(consecutiveRL - 1, 5)), 600_000);
-      const rlDelay = rlBackoffMs + randomBetween(5_000, 15_000);
+      // Progressive backoff: starts at 60s, caps at 10 min — keeps campaign alive for 1000+ contacts
+      const baseBackoff = 60_000;
+      const expBackoff = baseBackoff * Math.pow(1.5, Math.min(consecutiveRL - 1, 8));
+      const rlDelay = Math.min(expBackoff + randomBetween(10_000, 30_000), 600_000);
       nextDelayMs = Math.max(nextDelayMs, rlDelay);
       console.log(`[mass-inject] campaign=${campaignId} RATE LIMIT BACKOFF: ${consecutiveRL} consecutive 429s, next batch in ${Math.round(rlDelay / 1000)}s`);
       await emitCampaignEvent(sb, campaignId, "rate_limit_backoff", "warning",
-        `Limite da API atingido (${batchRateLimitCount}/${batchContacts.length} contatos). Cooldown exponencial: ${Math.round(rlDelay / 1000)}s.`);
+        `Limite da API atingido (${batchRateLimitCount}/${batchContacts.length} contatos). Cooldown: ${Math.round(rlDelay / 1000)}s. A campanha continuará automaticamente.`);
     }
 
     console.log(`[mass-inject] campaign=${campaignId} batch done (${contactsProcessedThisRun} contacts), requeue in ${nextDelayMs}ms`);
