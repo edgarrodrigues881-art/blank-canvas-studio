@@ -255,7 +255,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   .then(r => r.json())
                   .then(({ ip }) => {
                     if (ip) {
-                      supabase.functions.invoke("admin-data?action=record-login-ip", {
+                      supabase.functions.invoke("record-login-ip", {
                         body: { ip_address: ip, user_agent: navigator.userAgent },
                       }).catch(() => {});
                     }
