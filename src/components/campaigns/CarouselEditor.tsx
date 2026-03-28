@@ -8,7 +8,7 @@ import {
   Plus, Trash2, Copy, ChevronLeft, ChevronRight, GripVertical,
   ImageIcon, X, Link, Phone, MousePointerClick, Loader2, ArrowUp, ArrowDown,
 } from "lucide-react";
-import { CarouselCard, CarouselCardButton, createEmptyCard, detectMediaType } from "./carousel-types";
+import { CarouselCard, CarouselCardButton, createEmptyCard, detectMediaType, MAX_CAROUSEL_CARDS } from "./carousel-types";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -70,8 +70,8 @@ export function CarouselEditor({ cards, onChange }: CarouselEditorProps) {
   };
 
   const addCard = () => {
-    if (cards.length >= 10) {
-      toast({ title: "Máximo de 10 cards", variant: "destructive" });
+    if (cards.length >= MAX_CAROUSEL_CARDS) {
+      toast({ title: `Máximo de ${MAX_CAROUSEL_CARDS} cards`, description: "Este é o limite compatível com o envio atual do carrossel.", variant: "destructive" });
       return;
     }
     const newCard = createEmptyCard(cards.length);
@@ -81,8 +81,8 @@ export function CarouselEditor({ cards, onChange }: CarouselEditorProps) {
   };
 
   const duplicateCard = (index: number) => {
-    if (cards.length >= 10) {
-      toast({ title: "Máximo de 10 cards", variant: "destructive" });
+    if (cards.length >= MAX_CAROUSEL_CARDS) {
+      toast({ title: `Máximo de ${MAX_CAROUSEL_CARDS} cards`, description: "Este é o limite compatível com o envio atual do carrossel.", variant: "destructive" });
       return;
     }
     const source = cards[index];
@@ -205,7 +205,7 @@ export function CarouselEditor({ cards, onChange }: CarouselEditorProps) {
           <Plus className="w-3 h-3" /> Card
         </button>
         <span className="text-[9px] text-muted-foreground/40 ml-2">
-          {cards.length}/10 cards
+          {cards.length}/{MAX_CAROUSEL_CARDS} cards
         </span>
       </div>
 
