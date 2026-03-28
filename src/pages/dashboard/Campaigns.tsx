@@ -43,7 +43,7 @@ import { PlanGateDialog } from "@/components/PlanGateDialog";
 import { CarouselEditor } from "@/components/campaigns/CarouselEditor";
 import { CarouselPreview } from "@/components/campaigns/CarouselPreview";
 import { CarouselCard, createEmptyCard, MAX_CAROUSEL_CARDS, validateCarouselCards, serializeCarouselCards } from "@/components/campaigns/carousel-types";
-import { useCarouselTemplates, useCreateCarouselTemplate } from "@/hooks/useCarouselTemplates";
+import { useCarouselTemplates, useCreateCarouselTemplate, useUpdateCarouselTemplate } from "@/hooks/useCarouselTemplates";
 import { Layers } from "lucide-react";
 import { DialogDescription } from "@/components/ui/dialog";
 
@@ -154,6 +154,7 @@ const Campaigns = () => {
   const startCampaign = useStartCampaign();
   const createTemplate = useCreateTemplate();
   const createCarouselTemplate = useCreateCarouselTemplate();
+  const updateCarouselTemplate = useUpdateCarouselTemplate();
   const { data: savedTemplates = [] } = useTemplates();
   const { data: carouselTemplates = [] } = useCarouselTemplates();
   const { data: savedContacts = [] } = useContacts();
@@ -726,20 +727,32 @@ const Campaigns = () => {
         return;
       }
 
-      createCarouselTemplate.mutate({
-        name: saveTemplateName.trim(),
+      const normalizedName = saveTemplateName.trim();
+      const payload = {
+        name: normalizedName,
         message: carouselMessages.filter(m => m.trim()).join("|||"),
         cards: serializeCarouselCards(carouselCards),
-      }, {
-        onSuccess: () => {
-          toast({ title: "Template salvo!", description: `"${saveTemplateName.trim()}" foi salvo em Template Carrossel.` });
-          setSaveTemplateOpen(false);
-          setSaveTemplateName("");
-        },
-        onError: (err: any) => {
-          toast({ title: "Erro ao salvar template", description: err.message, variant: "destructive" });
-        },
-      });
+      };
+      const existingTemplate = carouselTemplates.find(
+        (template) => template.name.trim().toLowerCase() === normalizedName.toLowerCase()
+      );
+      const onSuccess = () => {
+        toast({
+          title: existingTemplate ? "Template atualizado!" : "Template salvo!",
+          description: `"${normalizedName}" foi ${existingTemplate ? "atualizado" : "salvo"} em Template Carrossel.`,
+        });
+        setSaveTemplateOpen(false);
+        setSaveTemplateName("");
+      };
+      const onError = (err: any) => {
+        toast({ title: "Erro ao salvar template", description: err.message, variant: "destructive" });
+      };
+
+      if (existingTemplate) {
+        updateCarouselTemplate.mutate({ id: existingTemplate.id, ...payload }, { onSuccess, onError });
+      } else {
+        createCarouselTemplate.mutate(payload, { onSuccess, onError });
+      }
       return;
     }
 
@@ -3094,8 +3107,8 @@ const Campaigns = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setSaveTemplateOpen(false)}>Cancelar</Button>
-            <Button size="sm" onClick={handleSaveAsTemplate} disabled={createTemplate.isPending || createCarouselTemplate.isPending} className="gap-1.5">
-              {(createTemplate.isPending || createCarouselTemplate.isPending) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            <Button size="sm" onClick={handleSaveAsTemplate} disabled={createTemplate.isPending || createCarouselTemplate.isPending || updateCarouselTemplate.isPending} className="gap-1.5">
+              {(createTemplate.isPending || createCarouselTemplate.isPending || updateCarouselTemplate.isPending) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               Salvar
             </Button>
           </DialogFooter>
