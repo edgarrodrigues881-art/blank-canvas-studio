@@ -564,7 +564,7 @@ const Campaigns = () => {
     }
 
     const normalizedMessage = normalizeComposerMessage({
-      content: contentType === "carousel" ? carouselCards[0]?.text || "" : combinedMessage,
+      content: contentType === "carousel" ? (carouselMessage || "Carrossel") : combinedMessage,
       media_url: contentType === "carousel" ? null : (mediaUrl || null),
       buttons: contentType === "carousel" ? [] : buttons.filter(b => b.text.trim()).map(b => ({ type: b.type, text: b.text, value: b.value })),
       source: selectedTemplate === "nova" ? "manual" : "template_import",
@@ -577,6 +577,11 @@ const Campaigns = () => {
         toast({ title: "Mensagem vazia", description: "Escreva pelo menos uma mensagem.", variant: "destructive" });
         return;
       }
+      if (validationErrors.length > 0) {
+        toast({ title: "Template inconsistente", description: validationErrors[0], variant: "destructive" });
+        return;
+      }
+    }
       if (validationErrors.length > 0) {
         toast({ title: "Template inconsistente", description: validationErrors[0], variant: "destructive" });
         return;
