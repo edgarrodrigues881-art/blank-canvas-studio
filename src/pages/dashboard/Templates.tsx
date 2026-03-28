@@ -65,6 +65,8 @@ const commonEmojis: Record<string, string[]> = {
 const Templates = () => {
   const { toast } = useToast();
   const { session } = useAuth();
+  const { resolvedTheme } = useTheme();
+  const isLight = resolvedTheme === "light";
   const { data: templates = [], isLoading } = useTemplates();
   const createTemplate = useCreateTemplate();
   const updateTemplate = useUpdateTemplate();
