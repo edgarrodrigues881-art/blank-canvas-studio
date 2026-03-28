@@ -172,24 +172,6 @@ Deno.serve(async (req) => {
       if (config.toggle_campaigns) {
         const targetGroupId = (config.campaigns_group_id || "").trim() || config.group_id;
         if (targetGroupId) {
-          // Started campaigns
-          const { data: startedCampaigns } = await serviceClient
-            .from("campaigns")
-            .select("id, name, status, total_contacts, started_at, updated_at")
-            .eq("user_id", config.user_id)
-            .eq("status", "sending")
-            .gte("started_at", fiveMinAgo);
-
-          for (const camp of (startedCampaigns || [])) {
-            const alreadySent = await wasRecentlySent(config.user_id, `%campanha%${camp.name}%iniciada%`);
-            if (!alreadySent) {
-              const msg = `📣 CAMPANHA INICIADA\n\nCampanha: ${camp.name}\n\n👥 Total de contatos: ${camp.total_contacts || 0}\n\n⏱ Início: ${nowBRT}\n\nO envio de mensagens foi iniciado.`;
-              const sent = await sendToGroup(creds, targetGroupId, msg);
-              if (sent) totalSent++;
-              await logEvent(config.user_id, "INFO", `Campanha "${camp.name}" iniciada — alerta enviado`);
-            }
-          }
-
           // Paused campaigns
           const { data: pausedCampaigns } = await serviceClient
             .from("campaigns")
