@@ -373,6 +373,9 @@ const Campaigns = () => {
               setScheduleDate(draft.scheduleDate);
             }
           }
+          if (draft.contentType) setContentType(draft.contentType);
+          if (draft.carouselCards?.length) setCarouselCards(draft.carouselCards);
+          if (draft.carouselMessage) setCarouselMessage(draft.carouselMessage);
         }
       } catch { /* ignore corrupt data */ }
 
