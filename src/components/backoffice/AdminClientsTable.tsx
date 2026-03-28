@@ -453,7 +453,7 @@ const AdminClientsTable = memo(({ users, onSelectClient }: Props) => {
                     {/* IP */}
                     <td className="px-4 py-3">
                       <span className="text-[11px] text-muted-foreground/50 font-mono">
-                        {(u as any).signup_ip || "—"}
+                        {u.signup_ip || "—"}
                       </span>
                     </td>
 
