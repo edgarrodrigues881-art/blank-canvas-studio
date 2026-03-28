@@ -45,6 +45,7 @@ export default function ReportWhatsApp() {
   const [pairingLoading, setPairingLoading] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [pendingDeviceId, setPendingDeviceId] = useState<string | null>(null); // tracks newly created device before query refreshes
   const qrCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
