@@ -124,9 +124,10 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
     throw new Error("Carrossel sem cards configurados.");
   }
 
+  // Respect the user's message — if they cleared it, send empty/minimal text
   const primaryText = typeof body === "string" && body.trim()
     ? body.trim()
-    : normalizedCards.find((card) => card.text?.trim())?.text?.trim() || "Confira as opções abaixo";
+    : "";
 
   const structuredCarouselPayload = {
     number: phone,
