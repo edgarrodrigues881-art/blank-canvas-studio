@@ -229,8 +229,8 @@ const App = () => (
                 <Route path="/dashboard/proxy" element={<ProtectedRoute><DashboardLayout><Proxy /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/custom-module" element={<ProtectedRoute><DashboardLayout><CustomModule /></DashboardLayout></ProtectedRoute>} />
 
-                {/* Backoffice — all routes require admin role */}
-                <Route path="/backoffice" element={<AdminRoute><BackOffice /></AdminRoute>} />
+                {/* Backoffice — BackOffice.tsx manages its own auth + admin login internally */}
+                <Route path="/backoffice" element={<BackOffice />} />
                 <Route path="/backoffice/campaigns" element={<AdminRoute><BOCampaigns /></AdminRoute>} />
                 <Route path="/backoffice/campaign-list" element={<AdminRoute><BOCampaignList /></AdminRoute>} />
                 <Route path="/backoffice/campaigns/list" element={<AdminRoute><BOCampaignList /></AdminRoute>} />
