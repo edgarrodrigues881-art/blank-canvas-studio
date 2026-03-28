@@ -10,11 +10,11 @@ const WelcomeSplash = () => {
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase(1), 150);
-    const t2 = setTimeout(() => setPhase(2), 400);
-    const t3 = setTimeout(() => setPhase(3), 600);
-    const t4 = setTimeout(() => setPhase(4), 2400);
-    const t5 = setTimeout(() => navigate(redirectTo, { replace: true }), 2800);
+    const t1 = setTimeout(() => setPhase(1), 300);
+    const t2 = setTimeout(() => setPhase(2), 800);
+    const t3 = setTimeout(() => setPhase(3), 1300);
+    const t4 = setTimeout(() => setPhase(4), 4300);
+    const t5 = setTimeout(() => navigate(redirectTo, { replace: true }), 4800);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); };
   }, [navigate, redirectTo]);
 
@@ -120,7 +120,7 @@ const WelcomeSplash = () => {
                 }}
                 initial={{ scaleX: 0 }}
                 animate={phase >= 3 ? { scaleX: 1 } : undefined}
-                transition={{ duration: 1.5, ease: [0.4, 0, 0.2, 1] }}
+                transition={{ duration: 2.5, ease: [0.4, 0, 0.2, 1] }}
               />
             </motion.div>
           </div>
