@@ -135,18 +135,13 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
     throw new Error("Carrossel sem cards configurados.");
   }
 
-  // Caption is required by WhatsApp carousel API
   const primaryText = typeof body === "string" && body.trim()
     ? body.trim()
     : null;
 
-  if (!primaryText) {
-    throw new Error("Carrossel exige uma legenda (mensagem principal).");
-  }
-
   const structuredCarouselPayload: Record<string, unknown> = {
     number: phone,
-    text: primaryText,
+    ...(primaryText ? { text: primaryText } : {}),
     carousel: normalizedCards.map((card) => ({
       text: (card.text || "").trim(),
       ...(card.mediaUrl?.trim() ? { image: card.mediaUrl.trim() } : {}),
@@ -172,7 +167,7 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
     event: "carousel_payload_built",
     origin: "campaign",
     cardCount: normalizedCards.length,
-    textLength: primaryText.length,
+    textLength: primaryText?.length || 0,
     menuChoiceCount: menuChoices.length,
     cards: normalizedCards.map((card) => ({
       hasText: Boolean(card.text?.trim()),
@@ -196,7 +191,7 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
     const menuPayload: Record<string, unknown> = {
       number: phone,
       type: hasUrlButtons ? "list" : "carousel",
-      text: primaryText,
+      ...(primaryText ? { text: primaryText } : {}),
       choices: menuChoices,
     };
     const menuResponse = await uazapiRequest(baseUrl, token, "/send/menu", menuPayload);

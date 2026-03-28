@@ -562,10 +562,6 @@ const Campaigns = () => {
 
     // Carousel validation
     if (contentType === "carousel") {
-      if (!carouselMessage.trim()) {
-        toast({ title: "Legenda obrigatória", description: "O carrossel exige uma legenda (mensagem principal) para ser enviado pela API do WhatsApp.", variant: "destructive" });
-        return;
-      }
       const carouselErrors = validateCarouselCards(carouselCards);
       if (carouselErrors.length > 0) {
         toast({ title: "Carrossel inválido", description: carouselErrors[0], variant: "destructive" });
