@@ -2379,7 +2379,11 @@ const Campaigns = () => {
 
               {/* Message preview */}
               <div className="lg:col-span-2 space-y-3">
-                <WhatsAppPreview />
+                {contentType === "carousel" ? (
+                  <CarouselPreview cards={carouselCards} message={carouselMessage} />
+                ) : (
+                  <WhatsAppPreview />
+                )}
               </div>
             </div>
 
