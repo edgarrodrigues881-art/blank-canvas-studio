@@ -8,8 +8,6 @@ import { inspect } from "node:util";
 import { config } from "./config";
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
-import { getDb } from "./db";
-import { createLogger } from "./lib/logger";
 import { Semaphore } from "./lib/concurrency";
 import { isWithinOperatingWindow, getBrtTodayAt } from "./lib/brt";
 import { backoffMinutes } from "./lib/retry";
