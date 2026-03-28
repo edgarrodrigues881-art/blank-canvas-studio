@@ -233,8 +233,8 @@ export function CarouselEditor({ cards, onChange }: CarouselEditorProps) {
           <Copy className="w-3 h-3" /> Duplicar
         </Button>
         <Button
-          variant="ghost" size="sm"
-          className="h-7 text-[10px] gap-1 text-destructive/60 hover:text-destructive hover:bg-destructive/10"
+          variant="outline" size="sm"
+          className="h-7 text-[10px] gap-1 border-destructive/30 text-destructive hover:text-destructive hover:bg-destructive/10"
           onClick={() => removeCard(activeCardIndex)}
           disabled={cards.length <= 1}
         >
