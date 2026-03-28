@@ -167,7 +167,7 @@ async function runDiagnosticSelect<T>(
     filters?: Record<string, unknown>;
     note?: string;
   },
-  run: () => Promise<{ data: T | null; error: unknown }>,
+  run: () => PromiseLike<{ data: T | null; error: unknown }> | { data: T | null; error: unknown },
 ) {
   logQueryDiagnostics(stage, query);
   const result = await run();
@@ -363,9 +363,14 @@ async function warmupTick() {
     .eq("status", "running").lt("updated_at", staleThreshold);
 
   if (staleErr) {
-    const rawErr = JSON.stringify(staleErr, Object.getOwnPropertyNames(staleErr));
-    log.error("Failed to recover stale jobs", { rawError: rawErr, message: staleErr.message, code: staleErr.code, hint: staleErr.hint });
-    if (rawErr.includes("Invalid API key") || rawErr.includes("401") || staleErr.code === "PGRST301") {
+    const serializedStaleErr = serializeUnknownError(staleErr);
+    logQueryDiagnostics("warmup.stale_jobs.recovery", {
+      table: "warmup_jobs",
+      columns: "status, last_error",
+      filters: { status: "running", updated_at_lt: staleThreshold },
+      note: "recover stale running jobs",
+    }, staleErr);
+    if (String(serializedStaleErr.raw).includes("Invalid API key") || String(serializedStaleErr.raw).includes("401") || serializedStaleErr.code === "PGRST301") {
       throw new Error(`Supabase auth error: ${rawErr}. Check SUPABASE_SERVICE_ROLE_KEY in .env`);
     }
   }
@@ -400,12 +405,17 @@ async function warmupTick() {
     .limit(2000);
 
   if (fetchErr) {
-    const rawErr = JSON.stringify(fetchErr, Object.getOwnPropertyNames(fetchErr));
-    log.error("Failed to fetch pending jobs", { rawError: rawErr, message: fetchErr.message, code: fetchErr.code, hint: fetchErr.hint, details: fetchErr.details });
-    if (rawErr.includes("Invalid API key") || rawErr.includes("401") || fetchErr.code === "PGRST301") {
-      throw new Error(`Supabase auth error fetching jobs: ${rawErr}. Verify SUPABASE_SERVICE_ROLE_KEY.`);
+    const serializedFetchErr = serializeUnknownError(fetchErr);
+    logQueryDiagnostics("warmup.pending_jobs.fetch", {
+      table: "warmup_jobs",
+      columns: "id, user_id, device_id, cycle_id, job_type, payload, run_at, status, attempts, max_attempts",
+      filters: { status: "pending", run_at_lte: now, order_by: "run_at asc", limit: 2000 },
+      note: "fetch pending jobs for warmup tick",
+    }, fetchErr);
+    if (String(serializedFetchErr.raw).includes("Invalid API key") || String(serializedFetchErr.raw).includes("401") || serializedFetchErr.code === "PGRST301") {
+      throw new Error(`Supabase auth error fetching jobs: ${serializedFetchErr.raw}. Verify SUPABASE_SERVICE_ROLE_KEY.`);
     }
-    throw new Error(`DB fetch error: ${rawErr}`);
+    throw new Error(`DB fetch error: ${serializedFetchErr.raw}`);
   }
 
   if (!pendingJobs?.length) return { processed: 0 };
