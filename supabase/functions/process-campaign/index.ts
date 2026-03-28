@@ -72,6 +72,16 @@ function normalizeCarouselCards(rawCards: unknown): CarouselCard[] {
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 }
 
+function normalizeCarouselUrl(rawValue: string): string | null {
+  const trimmed = rawValue.trim();
+  if (!trimmed) return null;
+
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^[a-z]+:\/\//i.test(trimmed)) return trimmed;
+
+  return `https://${trimmed}`;
+}
+
 function buildCarouselButton(button: CarouselButton, index: number) {
   const text = (button.text || "").trim();
   if (!text) return null;
@@ -80,14 +90,14 @@ function buildCarouselButton(button: CarouselButton, index: number) {
   const rawValue = (button.value || "").trim();
 
   if (normalizedType === "url") {
-    if (!rawValue) return null;
-    // URL buttons need separate 'url' field — 'id' is just an identifier
-    return { id: String(index + 1), label: text, text, url: rawValue, type: "URL" };
+    const normalizedUrl = normalizeCarouselUrl(rawValue);
+    if (!normalizedUrl) return null;
+    return { id: normalizedUrl, label: text, text, url: normalizedUrl, type: "URL" };
   }
 
   if (normalizedType === "phone" || normalizedType === "call") {
     if (!rawValue) return null;
-    return { id: String(index + 1), label: text, text, phone: rawValue, type: "CALL" };
+    return { id: rawValue, label: text, text, phone: rawValue, type: "CALL" };
   }
 
   if (normalizedType === "copy") {
