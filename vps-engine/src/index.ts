@@ -3,6 +3,10 @@
 // Serviço contínuo que roda na VPS com PM2
 // ══════════════════════════════════════════════════════════
 
+// Load .env BEFORE any config import
+import { config as dotenvConfig } from "dotenv";
+dotenvConfig();
+
 import express, { Request, Response } from "express";
 import { inspect } from "node:util";
 import { config } from "./config";
