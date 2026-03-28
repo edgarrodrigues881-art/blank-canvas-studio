@@ -104,7 +104,7 @@ function buildCarouselChoice(button: CarouselButton): string | null {
   const rawValue = (button.value || "").trim();
 
   if (normalizedType === "url") {
-    return rawValue ? `${text}|${rawValue}` : null;
+    return rawValue ? `${text}|url:${rawValue}` : null;
   }
 
   if (normalizedType === "phone" || normalizedType === "call") {
