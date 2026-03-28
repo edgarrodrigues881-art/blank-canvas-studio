@@ -128,7 +128,7 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
     ? body.trim()
     : normalizedCards.find((card) => card.text?.trim())?.text?.trim() || "Confira as opções abaixo";
 
-  const carouselPayload = {
+  const structuredCarouselPayload = {
     number: phone,
     text: primaryText,
     carousel: normalizedCards.map((card) => ({
@@ -140,11 +140,24 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
     })),
   };
 
+  const menuChoices = normalizedCards.flatMap((card, index) => {
+    const title = (card.text || "").trim() || `Card ${index + 1}`;
+    const lines = [`[${title}]`];
+    if (card.mediaUrl?.trim()) {
+      lines.push(`{${card.mediaUrl.trim()}}`);
+    }
+    lines.push(...(card.buttons || [])
+      .map((button) => buildCarouselChoice(button))
+      .filter((choice): choice is string => Boolean(choice)));
+    return lines;
+  });
+
   console.log(JSON.stringify({
     event: "carousel_payload_built",
     origin: "campaign",
     cardCount: normalizedCards.length,
     textLength: primaryText.length,
+    menuChoiceCount: menuChoices.length,
     cards: normalizedCards.map((card) => ({
       hasText: Boolean(card.text?.trim()),
       hasMedia: Boolean(card.mediaUrl?.trim()),
@@ -153,28 +166,20 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
   }));
 
   try {
-    return await uazapiRequest(baseUrl, token, "/send/carousel", carouselPayload);
-  } catch (structuredError) {
-    console.warn(`Primary /send/carousel failed for ${phone}: ${structuredError instanceof Error ? structuredError.message : String(structuredError)}`);
-
-    const choices = normalizedCards.flatMap((card, index) => {
-      const title = (card.text || "").trim() || `Card ${index + 1}`;
-      const lines = [`[${title}]`];
-      if (card.mediaUrl?.trim()) {
-        lines.push(`{${card.mediaUrl.trim()}}`);
-      }
-      lines.push(...(card.buttons || [])
-        .map((button) => buildCarouselChoice(button))
-        .filter((choice): choice is string => Boolean(choice)));
-      return lines;
-    });
-
-    return await uazapiRequest(baseUrl, token, "/send/menu", {
+    const menuResponse = await uazapiRequest(baseUrl, token, "/send/menu", {
       number: phone,
       type: "carousel",
       text: primaryText,
-      choices,
+      choices: menuChoices,
     });
+    console.log(JSON.stringify({ event: "carousel_send_success", origin: "campaign", strategy: "menu_carousel" }));
+    return menuResponse;
+  } catch (menuError) {
+    console.warn(`Primary /send/menu carousel failed for ${phone}: ${menuError instanceof Error ? menuError.message : String(menuError)}`);
+
+    const structuredResponse = await uazapiRequest(baseUrl, token, "/send/carousel", structuredCarouselPayload);
+    console.log(JSON.stringify({ event: "carousel_send_success", origin: "campaign", strategy: "structured_carousel" }));
+    return structuredResponse;
   }
 }
 
