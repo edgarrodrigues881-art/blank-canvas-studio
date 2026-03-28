@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -72,6 +72,8 @@ const DAY_OPTIONS = [
   { key: "sun", label: "Dom" },
 ];
 
+const CONNECTED_DEVICE_STATUSES = new Set(["connected", "ready", "active", "online", "authenticated", "open"]);
+
 const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = {
   idle: { label: "Parado", color: "bg-muted text-muted-foreground", icon: Square },
   running: { label: "Rodando", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30", icon: Play },
@@ -93,6 +95,25 @@ function normalizeConversationStatus(status: string | null | undefined): Convers
   return "idle";
 }
 
+function isConversationDeviceConnected(device: any): boolean {
+  const normalized = String(device?.status || "").trim().toLowerCase();
+  return CONNECTED_DEVICE_STATUSES.has(normalized);
+}
+
+function getConversationInvalidReason(conversation: ChipConversation, deviceMap: Map<string, any>): string | null {
+  const deviceIds = Array.from(new Set(conversation.device_ids || []));
+
+  if (deviceIds.length < 2) return "Conecte pelo menos 2 chips para manter a conversa ativa.";
+
+  for (const deviceId of deviceIds) {
+    const device = deviceMap.get(deviceId);
+    if (!device) return "Uma das instâncias foi removida.";
+    if (!isConversationDeviceConnected(device)) return "Uma das instâncias está desconectada.";
+  }
+
+  return null;
+}
+
 function useDevices() {
   return useQuery({
     queryKey: ["devices_for_conversation"],
@@ -102,12 +123,10 @@ function useDevices() {
         .select("id, name, number, status, instance_type")
         .order("name");
       if (error) throw error;
-      const allowedStatuses = new Set(["connected", "ready", "active", "online", "authenticated", "open"]);
       const blockedTypes = new Set(["notificacao", "report", "report_wa"]);
       return (data || []).filter((d: any) => {
-        const s = String(d.status || "").trim().toLowerCase();
         const t = String(d.instance_type || "").trim().toLowerCase();
-        return allowedStatuses.has(s) && !blockedTypes.has(t);
+        return !blockedTypes.has(t);
       });
     },
   });
@@ -121,6 +140,8 @@ export default function ChipConversation() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingConv, setEditingConv] = useState<ChipConversation | null>(null);
+  const autoPausedConversationIdsRef = useRef<Set<string>>(new Set());
+  const deviceMap = useMemo(() => new Map(devices.map((device: any) => [device.id, device])), [devices]);
 
   // Chips already in active/running/paused conversations are busy
   const busyDeviceIds = new Set(
@@ -133,13 +154,41 @@ export default function ChipConversation() {
   );
 
   // Available devices = not busy (for creating new conversations)
-  const availableDevices = devices.filter((d: any) => !busyDeviceIds.has(d.id));
+  const availableDevices = devices.filter((d: any) => isConversationDeviceConnected(d) && !busyDeviceIds.has(d.id));
 
   // For editing, include the conversation's own devices + available
   const getEditDevices = (conv: ChipConversation) => {
     const ownIds = new Set(conv.device_ids || []);
-    return devices.filter((d: any) => ownIds.has(d.id) || !busyDeviceIds.has(d.id));
+    return devices.filter((d: any) => ownIds.has(d.id) || (isConversationDeviceConnected(d) && !busyDeviceIds.has(d.id)));
   };
+
+  useEffect(() => {
+    const invalidRunningConversations = conversations.filter((conversation) => {
+      const normalizedStatus = normalizeConversationStatus(conversation.status);
+      return normalizedStatus === "running" && Boolean(getConversationInvalidReason(conversation, deviceMap));
+    });
+
+    const activeInvalidIds = new Set(invalidRunningConversations.map((conversation) => conversation.id));
+    autoPausedConversationIdsRef.current.forEach((conversationId) => {
+      if (!activeInvalidIds.has(conversationId)) {
+        autoPausedConversationIdsRef.current.delete(conversationId);
+      }
+    });
+
+    if (invalidRunningConversations.length === 0) return;
+
+    void Promise.allSettled(
+      invalidRunningConversations.map(async (conversation) => {
+        if (autoPausedConversationIdsRef.current.has(conversation.id)) return;
+        autoPausedConversationIdsRef.current.add(conversation.id);
+        try {
+          await actions.pause.mutateAsync(conversation.id);
+        } catch {
+          autoPausedConversationIdsRef.current.delete(conversation.id);
+        }
+      })
+    );
+  }, [actions.pause, conversations, deviceMap]);
 
   const handleDelete = async (id: string) => {
     try {
@@ -238,12 +287,13 @@ export default function ChipConversation() {
           </Button>
         </Card>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-5">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
           {conversations.map((conv) => (
             <ConversationCard
               key={conv.id}
               conversation={conv}
               devices={devices}
+              invalidReason={getConversationInvalidReason(conv, deviceMap)}
               actions={actions}
               expanded={expandedId === conv.id}
               onToggleExpand={() => setExpandedId(expandedId === conv.id ? null : conv.id)}
@@ -266,6 +316,7 @@ export default function ChipConversation() {
 function ConversationCard({
   conversation: conv,
   devices,
+  invalidReason,
   actions,
   expanded,
   onToggleExpand,
@@ -276,6 +327,7 @@ function ConversationCard({
 }: {
   conversation: ChipConversation;
   devices: any[];
+  invalidReason: string | null;
   actions: ReturnType<typeof useChipConversationActions>;
   expanded: boolean;
   onToggleExpand: () => void;
@@ -285,8 +337,8 @@ function ConversationCard({
   onDelete: () => void;
 }) {
   const normalizedStatus = normalizeConversationStatus(conv.status);
-  const status = STATUS_MAP[normalizedStatus];
-  const StatusIcon = status.icon;
+  const displayStatus = invalidReason && normalizedStatus === "running" ? "paused" : normalizedStatus;
+  const status = STATUS_MAP[displayStatus];
   const deviceNames = (conv.device_ids || [])
     .map((id) => devices.find((d) => d.id === id)?.name || "???")
     .join(", ");
@@ -323,11 +375,11 @@ function ConversationCard({
   const isActionLoading = actions.start.isPending || actions.pause.isPending ||
     actions.resume.isPending || actions.stop.isPending;
 
-  const isRunning = normalizedStatus === "running";
-  const isPaused = normalizedStatus === "paused";
+  const isRunning = displayStatus === "running";
+  const isPaused = displayStatus === "paused";
 
   return (
-    <div className={`relative rounded-2xl border bg-card overflow-hidden transition-all duration-150 hover:scale-[1.01] flex flex-col max-w-[420px] ${
+    <div className={`relative rounded-2xl border bg-card overflow-hidden transition-all duration-150 hover:scale-[1.01] flex flex-col min-h-[260px] ${
       isRunning ? "border-emerald-500/25 shadow-[0_0_20px_-6px_hsl(142_71%_45%/0.12)]" :
       isPaused ? "border-amber-500/20" :
       "border-border/50"
@@ -383,25 +435,25 @@ function ConversationCard({
       </div>
 
       {/* Error Banner */}
-      {conv.last_error && (
+      {(invalidReason || conv.last_error) && (
         <div className="mx-4 mb-3 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20">
-          <p className="text-xs text-destructive font-medium truncate">{conv.last_error}</p>
+          <p className="text-xs text-destructive font-medium truncate">{invalidReason || conv.last_error}</p>
         </div>
       )}
 
       {/* ── FOOTER: Actions ── */}
       <div className="px-4 py-3 border-t border-border/30 flex items-center gap-2">
-        {normalizedStatus === "idle" || normalizedStatus === "completed" ? (
+        {displayStatus === "idle" || displayStatus === "completed" ? (
           <Button
             size="sm"
             onClick={() => handleAction("start")}
-            disabled={isActionLoading}
+            disabled={isActionLoading || Boolean(invalidReason)}
             className="gap-1.5 h-8 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex-1"
           >
             {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
             Iniciar
           </Button>
-        ) : normalizedStatus === "running" ? (
+        ) : displayStatus === "running" ? (
           <>
             <Button
               size="sm"
@@ -437,12 +489,12 @@ function ConversationCard({
               </AlertDialogContent>
             </AlertDialog>
           </>
-        ) : normalizedStatus === "paused" ? (
+        ) : displayStatus === "paused" ? (
           <>
             <Button
               size="sm"
               onClick={() => handleAction("resume")}
-              disabled={isActionLoading}
+              disabled={isActionLoading || Boolean(invalidReason)}
               className="gap-1.5 h-8 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex-1"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -467,7 +519,7 @@ function ConversationCard({
           <Pencil className="w-3.5 h-3.5" />
         </Button>
 
-        {(normalizedStatus === "idle" || normalizedStatus === "completed") && (
+        {(displayStatus === "idle" || displayStatus === "completed") && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button size="icon" variant="ghost" className="w-8 h-8 text-muted-foreground/40 hover:text-destructive shrink-0">
