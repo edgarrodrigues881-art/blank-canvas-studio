@@ -81,19 +81,20 @@ function buildCarouselButton(button: CarouselButton, index: number) {
 
   if (normalizedType === "url") {
     if (!rawValue) return null;
-    return { id: rawValue, text, type: "URL" };
+    // URL buttons need separate 'url' field — 'id' is just an identifier
+    return { id: String(index + 1), label: text, text, url: rawValue, type: "URL" };
   }
 
   if (normalizedType === "phone" || normalizedType === "call") {
     if (!rawValue) return null;
-    return { id: rawValue, text, type: "CALL" };
+    return { id: String(index + 1), label: text, text, phone: rawValue, type: "CALL" };
   }
 
   if (normalizedType === "copy") {
-    return { id: rawValue || text, text, type: "COPY" };
+    return { id: rawValue || text, label: text, text, type: "COPY" };
   }
 
-  return { id: rawValue || `card_btn_${index + 1}`, text, type: "REPLY" };
+  return { id: rawValue || `card_btn_${index + 1}`, label: text, text, type: "REPLY" };
 }
 
 function buildCarouselChoice(button: CarouselButton): string | null {
