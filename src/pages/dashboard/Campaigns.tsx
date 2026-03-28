@@ -1490,8 +1490,8 @@ const Campaigns = () => {
               </div>
             </div>
 
-            {/* Template + Mídia Row - below editor */}
-            <div className="space-y-5">
+            {/* Template + Mídia Row - below editor (hidden in carousel mode) */}
+            {contentType !== "carousel" && <div className="space-y-5">
               <SurfaceCard className="p-5 space-y-3">
                 <SectionLabel>Modelo Base</SectionLabel>
                 <Select value={selectedTemplate} onValueChange={(val) => {
