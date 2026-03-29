@@ -432,7 +432,7 @@ async function sendCaptionedMedia(baseUrl: string, token: string, phone: string,
 
 async function sendUazapiMessage(baseUrl: string, token: string, to: string, body: string, mediaUrl?: string | null, buttons?: CampaignButton[], messageType?: string, carouselCards?: CarouselCard[]) {
   const isLid = to.includes("@lid");
-  const phone = isLid ? to.replace("@lid", "") : to.replace(/\D/g, "");
+  const phone = isLid ? `${to.replace("@lid", "")}@lid` : to.replace(/\D/g, "");
   const text = typeof body === "string" ? body.trim() : "";
   const hasButtons = buttons && buttons.length > 0;
   const choices = hasButtons ? buttons.map((b, i) => buildMenuChoice(b, i)).filter((choice): choice is string => Boolean(choice)) : [];
