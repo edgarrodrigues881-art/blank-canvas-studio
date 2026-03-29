@@ -3,6 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
+const NOTIFICATION_DEDUP_WINDOW_MS = 8_000;
+const globalKnownIds = new Set<string>();
+const globalToastedIds = new Set<string>();
+const globalRecentToastTimestamps = new Map<string, number>();
+
 // Clean notification chime using Web Audio API
 const playChime = () => {
   try {
@@ -38,14 +43,39 @@ export interface Notification {
   created_at: string;
 }
 
+const getNotificationDedupKey = (n: Pick<Notification, "title" | "message" | "type">) =>
+  `${n.type}::${n.title}::${n.message}`;
+
+const isEquivalentNotification = (a: Notification, b: Notification) => {
+  if (getNotificationDedupKey(a) !== getNotificationDedupKey(b)) return false;
+  const timeA = new Date(a.created_at).getTime();
+  const timeB = new Date(b.created_at).getTime();
+  return Math.abs(timeA - timeB) <= NOTIFICATION_DEDUP_WINDOW_MS;
+};
+
+const dedupeNotifications = (items: Notification[]) => {
+  const unique: Notification[] = [];
+
+  for (const item of items) {
+    const alreadyIncluded = unique.some(
+      (existing) => existing.id === item.id || isEquivalentNotification(existing, item),
+    );
+
+    if (!alreadyIncluded) {
+      unique.push(item);
+    }
+  }
+
+  return unique.slice(0, 20);
+};
+
 export function useNotifications() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const audioUnlockedRef = useRef(false);
-  const knownIdsRef = useRef<Set<string>>(new Set());
-  const toastedIdsRef = useRef<Set<string>>(new Set());
-  const recentToastsRef = useRef<Map<string, number>>(new Map());
   const initialLoadDoneRef = useRef(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   // Unlock AudioContext on first user gesture
   useEffect(() => {
@@ -64,24 +94,32 @@ export function useNotifications() {
   }, []);
 
   const showToastForNotif = useCallback((n: Notification) => {
+    const dedupKey = getNotificationDedupKey(n);
+    const lastShown = globalRecentToastTimestamps.get(dedupKey) || 0;
+    if (Date.now() - lastShown <= NOTIFICATION_DEDUP_WINDOW_MS) return;
+
+    globalRecentToastTimestamps.set(dedupKey, Date.now());
     playChime();
-    const toastFn = n.type === "error" ? toast.error
-      : n.type === "warning" ? toast.warning
-      : n.type === "success" ? toast.success
-      : toast.info;
+
+    const toastFn = n.type === "error"
+      ? toast.error
+      : n.type === "warning"
+        ? toast.warning
+        : n.type === "success"
+          ? toast.success
+          : toast.info;
+
     toastFn(n.title, {
       description: n.message,
       duration: 4000,
-      id: `notif-${n.id}`,
+      id: `notif-${dedupKey}`,
     });
   }, []);
-
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(true);
 
   // Fetch notifications (no toasts — realtime handles toast display)
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
+
     const { data } = await supabase
       .from("notifications")
       .select("id, title, message, type, read, created_at, user_id")
@@ -89,23 +127,25 @@ export function useNotifications() {
       .limit(20);
 
     if (data) {
-      // Mark all fetched IDs as known so realtime won't re-toast them
-      for (const n of data) {
-        toastedIdsRef.current.add(n.id);
-        knownIdsRef.current.add(n.id);
+      const deduped = dedupeNotifications(data as Notification[]);
+      for (const n of deduped) {
+        globalKnownIds.add(n.id);
+        globalToastedIds.add(n.id);
       }
-      initialLoadDoneRef.current = true;
 
-      setNotifications(data as Notification[]);
-      setUnreadCount(data.filter((n) => !n.read).length);
+      initialLoadDoneRef.current = true;
+      setNotifications(deduped);
+      setUnreadCount(deduped.filter((n) => !n.read).length);
     }
+
     setLoading(false);
   }, [user]);
+
   // Mark single as read
   const markAsRead = useCallback(async (id: string) => {
     await supabase.from("notifications").update({ read: true }).eq("id", id);
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
     );
     setUnreadCount((c) => Math.max(0, c - 1));
   }, []);
@@ -135,7 +175,7 @@ export function useNotifications() {
     fetchNotifications();
     const interval = setInterval(() => {
       if (!document.hidden) fetchNotifications();
-    }, 300_000); // 5min — realtime handles the rest
+    }, 300_000);
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
@@ -155,28 +195,28 @@ export function useNotifications() {
         },
         (payload) => {
           const newNotif = payload.new as Notification;
-          if (!toastedIdsRef.current.has(newNotif.id)) {
-            toastedIdsRef.current.add(newNotif.id);
-            knownIdsRef.current.add(newNotif.id);
-            setNotifications((prev) => [newNotif, ...prev].slice(0, 20));
-            setUnreadCount((c) => c + 1);
+          if (globalKnownIds.has(newNotif.id)) return;
 
-            // Dedup by title+message within 10s window to prevent duplicate toasts
-            const dedupKey = `${newNotif.title}::${newNotif.message}`;
-            const lastShown = recentToastsRef.current.get(dedupKey) || 0;
-            if (Date.now() - lastShown > 10_000) {
-              recentToastsRef.current.set(dedupKey, Date.now());
-              showToastForNotif(newNotif);
-            }
+          globalKnownIds.add(newNotif.id);
+
+          setNotifications((prev) => {
+            const next = dedupeNotifications([newNotif, ...prev]);
+            setUnreadCount(next.filter((n) => !n.read).length);
+            return next;
+          });
+
+          if (!globalToastedIds.has(newNotif.id) && initialLoadDoneRef.current) {
+            globalToastedIds.add(newNotif.id);
+            showToastForNotif(newNotif);
           }
-        }
+        },
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, showToastForNotif]);
 
   return { notifications, unreadCount, loading, markAsRead, markAllAsRead, clearAll };
 }
