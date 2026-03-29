@@ -1827,8 +1827,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                 <div>
                   <div className="flex items-center gap-2 mb-2"><Timer className="w-3.5 h-3.5 text-muted-foreground" /><label className="text-xs font-semibold text-muted-foreground">Delay entre contatos (segundos)</label></div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div><span className="text-[10px] text-muted-foreground/60">Mínimo (30s+)</span><Input type="number" min={30} max={300} value={minDelay || ""} onChange={e => setMinDelay(e.target.value === "" ? 0 : Number(e.target.value))} onBlur={() => { const v = Math.max(30, minDelay || 30); setMinDelay(v); if (maxDelay < v) setMaxDelay(v); }} className="h-9 text-sm mt-1" /></div>
-                    <div><span className="text-[10px] text-muted-foreground/60">Máximo</span><Input type="number" min={30} max={600} value={maxDelay || ""} onChange={e => setMaxDelay(e.target.value === "" ? 0 : Number(e.target.value))} onBlur={() => setMaxDelay(Math.max(30, maxDelay || 30, minDelay || 30))} className="h-9 text-sm mt-1" /></div>
+                    <div><span className="text-[10px] text-muted-foreground/60">Mínimo (3s+)</span><Input type="number" min={3} max={300} value={minDelay || ""} onChange={e => setMinDelay(e.target.value === "" ? 0 : Number(e.target.value))} onBlur={() => { const v = Math.max(3, minDelay || 3); setMinDelay(v); if (maxDelay < v) setMaxDelay(v); }} className="h-9 text-sm mt-1" /></div>
+                    <div><span className="text-[10px] text-muted-foreground/60">Máximo</span><Input type="number" min={3} max={600} value={maxDelay || ""} onChange={e => setMaxDelay(e.target.value === "" ? 0 : Number(e.target.value))} onBlur={() => setMaxDelay(Math.max(3, maxDelay || 3, minDelay || 3))} className="h-9 text-sm mt-1" /></div>
                   </div>
                 </div>
                 <div>
