@@ -9,6 +9,7 @@ import {
   Flame,
   Shield,
   UsersRound,
+  Users,
   BotMessageSquare,
   ArrowRightLeft,
   Heart,
