@@ -601,6 +601,9 @@ async function checkNumberExists(baseUrl: string, token: string, phone: string):
     if (isDisconnectError(msg)) {
       return { exists: false, error: "WhatsApp desconectado" };
     }
+    if (isNotFoundError(msg)) {
+      return { exists: false, error: "Número não encontrado no WhatsApp" };
+    }
     if (msg.includes("not on Whats") || msg.includes("not registered") || msg.includes("not_exists")) {
       return { exists: false, error: "Número inválido" };
     }
