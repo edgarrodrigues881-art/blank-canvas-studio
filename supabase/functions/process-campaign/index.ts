@@ -1239,22 +1239,25 @@ Deno.serve(async (req) => {
                 const rand3 = generateUniqueRand3(devUsedRand3);
                 const chosenMessage = messageVariants[devRandomPicker.next()];
                 const msg = replaceVariables(chosenMessage, contact, rand4, rand3);
-                const normalized = normalizeBrazilianPhone(phone);
-                const check = await checkNumberExists(devBaseUrl, devToken, normalized);
-                if (!check.exists) {
-                  await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: check.error || "Número inválido", device_id: dev.id }).eq("id", contact.id);
-                  devFailed++;
-                  if (check.error === "WhatsApp desconectado") {
-                    // Revert remaining contacts in this device's chunk
-                    const idx = chunk.indexOf(contact);
-                    const remainingIds = chunk.slice(idx + 1).map((c: any) => c.id);
-                    if (remainingIds.length > 0) {
-                      await serviceClient.from("campaign_contacts").update({ status: "pending" }).eq("campaign_id", campaignId).in("id", remainingIds);
+                const sendTo = isLidContact ? phone : normalizeBrazilianPhone(phone);
+                
+                // Skip number validation for @lid contacts
+                if (!isLidContact) {
+                  const check = await checkNumberExists(devBaseUrl, devToken, sendTo);
+                  if (!check.exists) {
+                    await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: check.error || "Número inválido", device_id: dev.id }).eq("id", contact.id);
+                    devFailed++;
+                    if (check.error === "WhatsApp desconectado") {
+                      const idx = chunk.indexOf(contact);
+                      const remainingIds = chunk.slice(idx + 1).map((c: any) => c.id);
+                      if (remainingIds.length > 0) {
+                        await serviceClient.from("campaign_contacts").update({ status: "pending" }).eq("campaign_id", campaignId).in("id", remainingIds);
+                      }
+                      break;
                     }
-                    break;
+                    console.log(`Number ${sendTo} invalid, skipping`);
+                    continue;
                   }
-                  console.log(`Number ${normalized} invalid, skipping`);
-                  continue;
                 }
                 if (sendAllMode && messageVariants.length > 1) {
                   let allSendFailed = false;
