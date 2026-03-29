@@ -103,24 +103,30 @@ export default function GroupLeadExtractor() {
         totalRaw += data.total_before_dedup || 0;
       }
 
-      // Dedup across batches
-      const dedup = (arr: ExtractedLead[]) => {
+      // Dedup across batches — strict: phone uniqueness only
+      const dedupStrict = (arr: ExtractedLead[]) => {
         const seen = new Map<string, ExtractedLead>();
         for (const l of arr) if (!seen.has(l.phone)) seen.set(l.phone, l);
         return Array.from(seen.values());
       };
-      const validDedup = dedup(allValid);
-      const lidDedup = dedup(allLids);
+      const validDedup = dedupStrict(allValid);
+
+      // Cross-dedup: remove LIDs that already exist in valid list
+      const validPhones = new Set(validDedup.map(l => l.phone));
+      const lidsFiltered = allLids.filter(l => !validPhones.has(l.phone));
+      const lidDedup = dedupStrict(lidsFiltered);
 
       setLeads(validDedup);
       setLidLeads(lidDedup);
-      setTotalBeforeDedup(allValid.length);
+      setTotalBeforeDedup(allValid.length + allLids.length);
       setExtractProgress("");
 
-      const dupes = allValid.length - validDedup.length;
+      const totalRawAll = allValid.length + allLids.length;
+      const totalFinal = validDedup.length + lidDedup.length;
+      const totalDupes = totalRawAll - totalFinal;
       let msg = `${validDedup.length} leads com número`;
-      if (lidDedup.length > 0) msg += ` + ${lidDedup.length} @lead (comunidade)`;
-      if (dupes > 0) msg += ` — ${dupes} duplicados removidos`;
+      if (lidDedup.length > 0) msg += ` + ${lidDedup.length} @lead`;
+      if (totalDupes > 0) msg += ` — ${totalDupes} duplicados removidos`;
       toast.success(msg);
     } catch (err: any) {
       toast.error(err?.message || "Erro na extração");
