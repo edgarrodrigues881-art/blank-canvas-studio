@@ -496,11 +496,17 @@ function classifyAddFailure(rawMessage: string, httpStatus: number): FailureClas
 }
 
 async function getDeviceCredentials(sb: any, deviceId: string, userId: string | null, bypassUserFilter: boolean) {
-  const query = sb.from("devices").select("id, name, uazapi_base_url, uazapi_token, user_id").eq("id", deviceId);
+  const query = sb.from("devices").select("id, name, number, status, uazapi_base_url, uazapi_token, user_id").eq("id", deviceId);
   if (!bypassUserFilter && userId) query.eq("user_id", userId);
   const { data: device } = await query.single();
   if (!device?.uazapi_base_url || !device?.uazapi_token) return null;
   return { ...device, uazapi_base_url: String(device.uazapi_base_url).replace(/\/+$/, "") };
+}
+
+function isDeviceOperational(device: any) {
+  const status = String(device?.status || "").toLowerCase();
+  const hasNumber = !!String(device?.number || "").trim();
+  return hasNumber && ["connected", "ready", "active", "authenticated", "open", "online"].includes(status);
 }
 
 async function checkInstanceConnection(baseUrl: string, token: string): Promise<ConnectionCheckResult> {
