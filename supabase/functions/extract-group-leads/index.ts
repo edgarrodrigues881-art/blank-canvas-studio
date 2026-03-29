@@ -109,26 +109,55 @@ interface ParseResult {
   lids: Participant[];
 }
 
+// Try to find a real phone number from any field in a participant object
+function tryExtractPhone(p: any): string | null {
+  // Check all possible phone fields EXCEPT the primary jid/id (which might be @lid)
+  const candidates = [
+    p?.PhoneNumber, p?.phoneNumber, p?.phone, p?.number,
+    p?.Phone, p?.Number, p?.wid, p?.wa_id, p?.waId,
+  ];
+  for (const c of candidates) {
+    if (!c) continue;
+    const s = String(c).replace(/@.*$/, "").replace(/[^0-9]/g, "");
+    if (s.length >= 8 && s.length <= 15) return s;
+  }
+  // Try to extract from name if it looks like a phone (e.g. "+55 11 99999-9999" or "5511999999999")
+  const nameStr = String(p?.DisplayName || p?.displayName || p?.name || p?.pushName || p?.notify || p?.Name || "");
+  const digitsFromName = nameStr.replace(/[^0-9]/g, "");
+  if (digitsFromName.length >= 10 && digitsFromName.length <= 15) return digitsFromName;
+  return null;
+}
+
 function parseParticipants(rawParticipants: any[], groupJid: string, groupName: string): ParseResult {
   const valid: Participant[] = [];
   const lids: Participant[] = [];
   for (const p of rawParticipants) {
-    const phoneRaw = p?.PhoneNumber || p?.phoneNumber || p?.phone || p?.number || p?.id || p?.jid || p?.JID || "";
-    const phoneStr = String(phoneRaw);
+    const primaryId = p?.id || p?.jid || p?.JID || "";
+    const primaryStr = String(primaryId);
 
     const name = p?.DisplayName || p?.displayName || p?.name || p?.pushName || p?.notify || p?.Name || "";
     const isAdmin = p?.IsAdmin === true || p?.IsSuperAdmin === true ||
                     p?.isAdmin === true || p?.isSuperAdmin === true ||
                     p?.admin === "admin" || p?.admin === "superadmin";
 
-    // LID entries → separate bucket
-    if (phoneStr.includes("@lid") || phoneStr.includes("@newsletter")) {
-      const lidId = phoneStr.replace(/@.*$/, "");
-      lids.push({ phone: lidId, name: String(name || ""), group_jid: groupJid, group_name: groupName, is_admin: isAdmin });
+    const isLid = primaryStr.includes("@lid") || primaryStr.includes("@newsletter");
+
+    if (isLid) {
+      // Try to recover a real phone number from other fields
+      const recoveredPhone = tryExtractPhone(p);
+      if (recoveredPhone) {
+        // We found a real phone! Add to valid list instead
+        valid.push({ phone: recoveredPhone, name: String(name || ""), group_jid: groupJid, group_name: groupName, is_admin: isAdmin });
+      } else {
+        const lidId = primaryStr.replace(/@.*$/, "");
+        lids.push({ phone: lidId, name: String(name || ""), group_jid: groupJid, group_name: groupName, is_admin: isAdmin });
+      }
       continue;
     }
 
-    const cleanPhone = phoneStr.replace(/@.*$/, "").replace(/[^0-9]/g, "");
+    // Normal participant — try primary id first, then other fields
+    const phoneRaw = p?.PhoneNumber || p?.phoneNumber || p?.phone || p?.number || primaryStr;
+    const cleanPhone = String(phoneRaw).replace(/@.*$/, "").replace(/[^0-9]/g, "");
     if (!cleanPhone || cleanPhone.length < 8 || cleanPhone.length > 15) continue;
 
     valid.push({
