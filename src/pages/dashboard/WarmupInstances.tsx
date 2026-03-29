@@ -2097,12 +2097,13 @@ const WarmupInstances = () => {
                   <p className="text-[11px] font-extrabold text-foreground uppercase tracking-[0.18em]">Grupos de aquecimento</p>
                   <p className="text-[10px] text-muted-foreground -mt-1.5 font-medium">Os grupos cadastrados na página <strong>Grupos</strong> serão usados.</p>
 
-                  {userCustomGroups.length > 0 ? (
+                  {bulkDisplayGroups.length > 0 ? (
                     <div className="rounded-xl border-2 border-border/10 bg-card/20 p-2 max-h-[180px] overflow-y-auto space-y-1 scrollbar-thin">
-                      {userCustomGroups.map((g: any) => (
+                      {bulkDisplayGroups.map((g: any) => (
                         <div key={g.id} className="flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-muted/10 transition-colors">
                           <Users className="w-4 h-4 text-primary/60 shrink-0" />
                           <span className="text-xs font-bold text-foreground truncate flex-1">{g.name}</span>
+                          {g._source === "pool" && <span className="text-[9px] text-muted-foreground bg-muted/20 px-1.5 py-0.5 rounded">Sistema</span>}
                         </div>
                       ))}
                     </div>
