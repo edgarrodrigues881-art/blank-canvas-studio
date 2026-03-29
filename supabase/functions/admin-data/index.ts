@@ -240,6 +240,27 @@ Deno.serve(async (req) => {
         effectiveProfile.whatsapp_monitor_token = reportDevice.uazapi_token;
       }
 
+      // Find cross-user IP duplicates for this client's IPs
+      const clientIps = (loginHistoryRes.data || []).map((e: any) => e.ip_address);
+      const uniqueClientIps = [...new Set(clientIps)];
+      const ipDuplicates: Record<string, { count: number; user_ids: string[] }> = {};
+      
+      if (uniqueClientIps.length > 0) {
+        // Query all login_history entries with matching IPs from other users
+        for (const ip of uniqueClientIps) {
+          const { data: matches } = await adminClient
+            .from("login_history")
+            .select("user_id")
+            .eq("ip_address", ip)
+            .neq("user_id", target_user_id)
+            .limit(50);
+          if (matches && matches.length > 0) {
+            const otherUserIds = [...new Set(matches.map((m: any) => m.user_id))];
+            ipDuplicates[ip] = { count: otherUserIds.length + 1, user_ids: otherUserIds };
+          }
+        }
+      }
+
       return new Response(JSON.stringify({
         user: authUser?.user || null,
         profile: effectiveProfile,
@@ -251,6 +272,7 @@ Deno.serve(async (req) => {
         cycles: cycles || [],
         api_tokens: enrichedTokens,
         login_history: loginHistoryRes.data || [],
+        ip_duplicates: ipDuplicates,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
