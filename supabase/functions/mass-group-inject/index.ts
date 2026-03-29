@@ -601,6 +601,68 @@ async function checkGroupAccess(baseUrl: string, token: string, groupId: string)
   return { accessible: null, invalid: false, detail: "Não foi possível confirmar acesso ao grupo." };
 }
 
+// UAZAPI groupUpdated error codes that mean SUCCESS
+const UAZAPI_SUCCESS_CODES = new Set([0, 200, 201]);
+// UAZAPI error codes that mean "already in group"
+const UAZAPI_ALREADY_CODES = new Set([409]);
+
+function isGroupUpdatedSuccess(gu: any[]): { success: boolean; alreadyExists: boolean; errorCode: number } {
+  if (!Array.isArray(gu) || gu.length === 0) return { success: false, alreadyExists: false, errorCode: -1 };
+  const entry = gu[0];
+  const errorCode = Number(entry?.Error ?? entry?.error ?? -1);
+  if (UAZAPI_SUCCESS_CODES.has(errorCode)) return { success: true, alreadyExists: false, errorCode };
+  if (UAZAPI_ALREADY_CODES.has(errorCode)) return { success: false, alreadyExists: true, errorCode };
+  return { success: false, alreadyExists: false, errorCode };
+}
+
+/** Check if the response body contains group info indicating the operation succeeded */
+function responseHasGroupInfo(body: any, groupId: string): boolean {
+  const group = body?.group || body?.data?.group;
+  if (!group || typeof group !== "object") return false;
+  const jid = group?.JID || group?.jid || group?.id || "";
+  return jid === groupId || (typeof jid === "string" && jid.length > 10);
+}
+
+function processAddResponse(res: Response, body: any, raw: string, pm: string, groupId: string, strategyIndex: number): AddAttemptResult {
+  const rawLower = `${raw} ${pm}`.toLowerCase();
+
+  // 1. Check groupUpdated array (UAZAPI batch response)
+  const gu = body?.groupUpdated || body?.data?.groupUpdated;
+  if (Array.isArray(gu) && gu.length > 0) {
+    const result = isGroupUpdatedSuccess(gu);
+    if (result.success) {
+      return { ok: true, status: res.status, body, rawMessage: pm || "Adicionado com sucesso.", strategyIndex };
+    }
+    if (result.alreadyExists) {
+      return { ok: false, status: 409, body, rawMessage: pm || "Já no grupo.", errorCode: "already_exists", strategyIndex };
+    }
+    // Non-zero error code — but check if contact was actually added (some UAZAPI versions return weird codes)
+    // If HTTP 200 and no explicit failure text, treat as potential success
+    if ((res.status === 200 || res.status === 201) && !hasExplicitFailureText(rawLower)) {
+      console.log(`addToGroup: groupUpdated Error=${result.errorCode} but HTTP 200 and no failure text — treating as success`);
+      return { ok: true, status: res.status, body, rawMessage: pm || `Adicionado (code: ${result.errorCode}).`, strategyIndex };
+    }
+    return { ok: false, status: res.status, body, rawMessage: `Participant error code: ${result.errorCode}`, strategyIndex };
+  }
+
+  // 2. HTTP 200/201 with group info in response = success
+  if ((res.status === 200 || res.status === 201) && responseHasGroupInfo(body, groupId) && !hasExplicitFailureText(rawLower)) {
+    return { ok: true, status: res.status, body, rawMessage: pm || "Adicionado com sucesso (grupo atualizado).", strategyIndex };
+  }
+
+  // 3. Generic HTTP 200/201 without failure text
+  if ((res.status === 200 || res.status === 201) && !rawLower.includes("failed") && !rawLower.includes("bad-request") && !hasExplicitFailureText(rawLower)) {
+    return { ok: true, status: res.status, body, rawMessage: pm || raw, strategyIndex };
+  }
+
+  // 4. Already exists signals
+  if (rawLower.includes("already") || rawLower.includes("já") || rawLower.includes("memberaddmode") || res.status === 409) {
+    return { ok: false, status: 409, body, rawMessage: pm || raw, errorCode: "already_exists", strategyIndex };
+  }
+
+  return { ok: false, status: res.status, body, rawMessage: pm || raw, strategyIndex };
+}
+
 // ── CRITICAL FIX: addToGroup now uses endpoint caching to avoid flooding ──
 // Instead of trying 5 strategies every time, it tries the cached one first,
 // and only discovers new endpoints on the first call or if the cached one fails with 405.
@@ -627,29 +689,7 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
       const res = await fetchWithTimeout(strategy.url, { method: strategy.method, headers, body: JSON.stringify(strategy.body) });
       const { raw, body } = await readApiResponse(res);
       const pm = extractProviderMessage(body, raw);
-      const rawLower = `${raw} ${pm}`.toLowerCase();
-
-      // Check groupUpdated for per-participant errors (UAZAPI batch response)
-      const gu = body?.groupUpdated || body?.data?.groupUpdated;
-      if (Array.isArray(gu) && gu.length > 0) {
-        const entry = gu[0];
-        const errorCode = Number(entry?.Error ?? entry?.error ?? -1);
-        if (errorCode === 0) {
-          return { ok: true, status: res.status, body, rawMessage: pm || "Adicionado com sucesso.", strategyIndex: cachedStrategyIndex };
-        }
-        // Per-participant error even though HTTP was 200
-        const errDetail = `Participant error code: ${errorCode}`;
-        return { ok: false, status: res.status, body, rawMessage: errDetail, strategyIndex: cachedStrategyIndex };
-      }
-
-      if ((res.status === 200 || res.status === 201) && !rawLower.includes("failed") && !rawLower.includes("bad-request")) {
-        return { ok: true, status: res.status, body, rawMessage: pm || raw, strategyIndex: cachedStrategyIndex };
-      }
-      if (rawLower.includes("already") || rawLower.includes("já") || rawLower.includes("memberaddmode") || res.status === 409) {
-        return { ok: false, status: 409, body, rawMessage: pm || raw, errorCode: "already_exists", strategyIndex: cachedStrategyIndex };
-      }
-      // Any error from cached endpoint → return immediately, NEVER fallback to discovery
-      return { ok: false, status: res.status, body, rawMessage: pm || raw, strategyIndex: cachedStrategyIndex };
+      return processAddResponse(res, body, raw, pm, groupId, cachedStrategyIndex);
     } catch (error: any) {
       const isTimeout = error.message?.includes("Timeout");
       return { ok: false, status: isTimeout ? 408 : 0, rawMessage: error.message, strategyIndex: cachedStrategyIndex };
@@ -657,38 +697,17 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
   }
 
   // ── DISCOVERY MODE (first contact only): find the working endpoint ──
-  // Try strategies sequentially but STOP at the first that responds (even with error).
-  // Only skip 405 (method not allowed) since that means the endpoint doesn't exist.
   for (let i = 0; i < strategies.length; i++) {
     const strategy = strategies[i];
     try {
       console.log(`addToGroup DISCOVERY[${i}]: ${strategy.method} ${strategy.url}`);
       const res = await fetchWithTimeout(strategy.url, { method: strategy.method, headers, body: JSON.stringify(strategy.body) });
-      if (res.status === 405) continue; // Endpoint doesn't exist, try next
-
+      if (res.status === 405) continue;
       const { raw, body } = await readApiResponse(res);
       const pm = extractProviderMessage(body, raw);
-      const rawLower = `${raw} ${pm}`.toLowerCase();
-
-      // Check groupUpdated for per-participant errors (UAZAPI batch response)
-      const gu = body?.groupUpdated || body?.data?.groupUpdated;
-      if (Array.isArray(gu) && gu.length > 0) {
-        const entry = gu[0];
-        const errorCode = Number(entry?.Error ?? entry?.error ?? -1);
-        if (errorCode === 0) {
-          return { ok: true, status: res.status, body, rawMessage: pm || "Adicionado com sucesso.", strategyIndex: i };
-        }
-        return { ok: false, status: res.status, body, rawMessage: `Participant error code: ${errorCode}`, strategyIndex: i };
-      }
-
-      if ((res.status === 200 || res.status === 201) && !rawLower.includes("failed") && !rawLower.includes("bad-request")) {
-        return { ok: true, status: res.status, body, rawMessage: pm || raw, strategyIndex: i };
-      }
-      if (rawLower.includes("already") || rawLower.includes("já") || rawLower.includes("memberaddmode") || res.status === 409) {
-        return { ok: false, status: 409, body, rawMessage: pm || raw, errorCode: "already_exists", strategyIndex: i };
-      }
-      // Got a real response → this is the correct endpoint. Return error, do NOT try more.
-      return { ok: false, status: res.status, body, rawMessage: pm || raw, strategyIndex: i };
+      const result = processAddResponse(res, body, raw, pm, groupId, i);
+      // For discovery: if we got a non-405 response, this is the endpoint (even if error)
+      return result;
     } catch (error: any) {
       const isTimeout = error.message?.includes("Timeout");
       return { ok: false, status: isTimeout ? 408 : 0, rawMessage: error.message };
