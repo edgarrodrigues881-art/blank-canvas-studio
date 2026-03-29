@@ -400,14 +400,12 @@ export default function GroupLeadExtractor() {
             <div className="border border-border/30 rounded-b-md overflow-hidden">
               {filteredLeads.length > 0 ? (
                 <List
-                  height={Math.min(500, filteredLeads.length * ROW_HEIGHT)}
-                  itemCount={filteredLeads.length}
-                  itemSize={ROW_HEIGHT}
-                  width="100%"
+                  style={{ height: Math.min(500, filteredLeads.length * ROW_HEIGHT) }}
+                  rowComponent={VirtualRow as any}
+                  rowCount={filteredLeads.length}
+                  rowHeight={ROW_HEIGHT}
                   overscanCount={20}
-                >
-                  {VirtualRow}
-                </List>
+                />
               ) : (
                 <div className="py-8 text-center text-sm text-muted-foreground">
                   {searchLeads ? "Nenhum lead encontrado com esse filtro" : "Nenhum lead nesta categoria"}
