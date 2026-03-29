@@ -105,8 +105,31 @@ Deno.serve(async (req) => {
         adminClient.from("admin_costs").select("id, admin_id, category, amount, description, cost_date, created_at"),
       ]);
 
-      // Fetch admin-only profile data separately
-      const { data: adminProfileData } = await adminClient.from("admin_profile_data").select("id, admin_notes, risk_flag");
+      // Fetch admin-only profile data and login IPs for duplicate detection
+      const [adminProfileDataRes, loginHistoryAllRes] = await Promise.all([
+        adminClient.from("admin_profile_data").select("id, admin_notes, risk_flag"),
+        adminClient.from("login_history").select("user_id, ip_address").order("logged_in_at", { ascending: false }).limit(5000),
+      ]);
+      const adminProfileData = adminProfileDataRes.data;
+      const allLoginHistory = loginHistoryAllRes.data || [];
+
+      // Build cross-user IP map: ip -> set of user_ids
+      const ipUserMap: Record<string, Set<string>> = {};
+      for (const entry of allLoginHistory) {
+        if (!ipUserMap[entry.ip_address]) ipUserMap[entry.ip_address] = new Set();
+        ipUserMap[entry.ip_address].add(entry.user_id);
+      }
+      // IPs shared by 2+ different users
+      const duplicateIps: Record<string, number> = {};
+      for (const [ip, userSet] of Object.entries(ipUserMap)) {
+        if (userSet.size >= 2) duplicateIps[ip] = userSet.size;
+      }
+
+      // Build last_ip per user from login_history
+      const lastIpMap: Record<string, string> = {};
+      for (const entry of allLoginHistory) {
+        if (!lastIpMap[entry.user_id]) lastIpMap[entry.user_id] = entry.ip_address;
+      }
 
       const authUsers = authUsersRes.data;
       const profiles = profilesRes.data;
