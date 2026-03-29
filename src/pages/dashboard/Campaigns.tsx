@@ -463,6 +463,21 @@ const Campaigns = () => {
           if (resend.buttons && Array.isArray(resend.buttons) && resend.buttons.length > 0) {
             setButtons(resend.buttons);
           }
+          // Restore carousel mode if original campaign was carousel
+          if (resend.messageType === "carousel") {
+            setContentType("carousel");
+            if (resend.carouselCards?.length) setCarouselCards(resend.carouselCards);
+            // Carousel messages use ||| delimiter
+            if (resend.message) {
+              const parts = resend.message.split("|||").map((m: string) => m.trim());
+              const slots: [string, string, string, string, string] = ["", "", "", "", ""];
+              parts.slice(0, 5).forEach((p: string, i: number) => { slots[i] = p; });
+              setCarouselMessages(slots);
+              setActiveCarouselMsgTab(0);
+              // Clear text messages to avoid confusion
+              setMessages(["", "", "", "", ""]);
+            }
+          }
         }
       } catch { /* ignore */ }
 
