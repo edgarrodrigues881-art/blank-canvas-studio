@@ -664,7 +664,12 @@ const Campaigns = () => {
       template_id: normalizedMessage.templateId || undefined,
       buttons: normalizedMessage.buttons.map(b => ({ type: b.type, text: b.text, value: b.value })),
       carousel_cards: contentType === "carousel" ? serializeCarouselCards(carouselCards) : undefined,
-      contacts: validContacts.map(c => ({ phone: c.numero, name: c.nome || undefined, var1: c.var1 || "", var2: c.var2 || "", var3: c.var3 || "", var4: c.var4 || "", var5: c.var5 || "", var6: c.var6 || "", var7: c.var7 || "", var8: c.var8 || "", var9: c.var9 || "", var10: c.var10 || "" })),
+      contacts: validContacts.map(c => {
+        const phoneValue = contactMode === "lid"
+          ? (c.numero.includes("@lid") ? c.numero : `${c.numero.replace(/\D/g, "")}@lid`)
+          : c.numero;
+        return { phone: phoneValue, name: c.nome || undefined, var1: c.var1 || "", var2: c.var2 || "", var3: c.var3 || "", var4: c.var4 || "", var5: c.var5 || "", var6: c.var6 || "", var7: c.var7 || "", var8: c.var8 || "", var9: c.var9 || "", var10: c.var10 || "" };
+      }),
       scheduled_at: scheduleEnabled && scheduleDate ? new Date(scheduleDate).toISOString() : undefined,
       min_delay_seconds: minDelay,
       max_delay_seconds: maxDelay,
