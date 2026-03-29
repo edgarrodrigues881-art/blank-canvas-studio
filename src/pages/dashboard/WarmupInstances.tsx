@@ -2213,7 +2213,7 @@ const WarmupInstances = () => {
 
           {/* ── Footer with navigation ── */}
           <div className="px-7 pb-7 pt-4 border-t border-border/10">
-            {bulkStep === 3 && userCustomGroups.length === 0 && (
+            {bulkStep === 3 && !hasAnyGroups && (
               <div className="flex items-center gap-2 p-3.5 mb-3 rounded-xl bg-amber-500/10 border-2 border-amber-500/20 text-amber-400 text-xs font-bold">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 <span>Cadastre pelo menos 1 grupo no passo anterior.</span>
@@ -2242,7 +2242,7 @@ const WarmupInstances = () => {
                 </Button>
               ) : (
                 <Button
-                  disabled={bulkSelected.size === 0 || bulkLoading || userCustomGroups.length === 0 || (isAdvancedStart && devicesWithoutGroups.length > 0)}
+                  disabled={bulkSelected.size === 0 || bulkLoading || !hasAnyGroups || (isAdvancedStart && devicesWithoutGroups.length > 0)}
                   className={cn(
                     "flex-1 gap-2.5 h-12 rounded-xl font-black text-sm transition-all duration-300",
                     "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white",
