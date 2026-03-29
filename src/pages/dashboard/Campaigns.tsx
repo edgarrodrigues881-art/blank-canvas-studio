@@ -484,8 +484,8 @@ const Campaigns = () => {
   const connectedDevices = useMemo(() => {
     const connectedStatuses = new Set(["connected", "ready", "authenticated", "open", "online", "active"]);
     return devices
-      .filter(d => connectedStatuses.has((d.status || "").trim().toLowerCase()))
-      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      .filter(d => connectedStatuses.has((d.status || "").trim().toLowerCase()) && d.number)
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { numeric: true }));
   }, [devices]);
   const selectedDevicesData = devices.filter(d => selectedDevices.includes(d.id));
   const selectedDeviceData = selectedDevicesData[0];
@@ -2090,12 +2090,16 @@ const Campaigns = () => {
                         <DropdownMenuItem className="text-xs gap-2" onClick={removeDuplicates}>
                           <Copy className="w-3.5 h-3.5" /> Remover Duplicados
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-xs gap-2" onClick={removeInvalid}>
-                          <XCircle className="w-3.5 h-3.5" /> Remover Inválidos
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-xs gap-2" onClick={() => addPrefixToNumbers("55")}>
-                          <Phone className="w-3.5 h-3.5" /> Adicionar DDI (55)
-                        </DropdownMenuItem>
+                        {contactMode === "number" && (
+                          <>
+                            <DropdownMenuItem className="text-xs gap-2" onClick={removeInvalid}>
+                              <XCircle className="w-3.5 h-3.5" /> Remover Inválidos
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-xs gap-2" onClick={() => addPrefixToNumbers("55")}>
+                              <Phone className="w-3.5 h-3.5" /> Adicionar DDI (55)
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </>
@@ -2228,7 +2232,7 @@ const Campaigns = () => {
                       <tr className="border-b border-border/10">
                         <th className="text-left px-4 py-3.5 text-muted-foreground/40 font-semibold w-10 text-[10px]">#</th>
                         <th className="text-left px-4 py-3.5 text-muted-foreground/40 font-semibold text-[10px] uppercase tracking-wider">Nome</th>
-                        <th className="text-left px-4 py-3.5 text-muted-foreground/40 font-semibold text-[10px] uppercase tracking-wider">Número</th>
+                        <th className="text-left px-4 py-3.5 text-muted-foreground/40 font-semibold text-[10px] uppercase tracking-wider">{contactMode === "lid" ? "@Lead" : "Número"}</th>
                         {varKeys.map(k => (
                           <th key={k} className="text-left px-4 py-3.5 text-muted-foreground/40 font-semibold text-[10px] uppercase tracking-wider">{k.replace("var", "Var ")}</th>
                         ))}
@@ -2250,7 +2254,7 @@ const Campaigns = () => {
                           </td>
                           <td className="px-4 py-2.5">
                             <div className="flex items-center gap-2">
-                              <Input value={c.numero} onChange={(e) => updateContact(c.id, "numero", e.target.value)} className={cn("h-8 text-xs bg-transparent border-none p-0 font-mono focus-visible:ring-0", !valid && c.numero && "text-amber-400")} placeholder="Número" />
+                              <Input value={c.numero} onChange={(e) => updateContact(c.id, "numero", e.target.value)} className={cn("h-8 text-xs bg-transparent border-none p-0 font-mono focus-visible:ring-0", !valid && c.numero && "text-amber-400")} placeholder={contactMode === "lid" ? "@lead" : "Número"} />
                               {!valid && c.numero && (
                                 <div className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Número inválido" />
                               )}
