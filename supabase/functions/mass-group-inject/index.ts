@@ -249,16 +249,91 @@ function normalizeProviderConnectionState(payload: any): { state: "connected" | 
   return { state: "unknown", rawStatus, owner, qrcode };
 }
 
+function tryExtractParticipantPhone(value: any): string | null {
+  if (!value || typeof value !== "object") return null;
+
+  const candidates = [
+    value?.PhoneNumber,
+    value?.phoneNumber,
+    value?.phone,
+    value?.number,
+    value?.Phone,
+    value?.Number,
+    value?.wid,
+    value?.wa_id,
+    value?.waId,
+    value?.pn,
+    value?.user,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const digits = String(candidate).replace(/@.*$/, "").replace(/[^0-9]/g, "");
+    if (digits.length >= 8 && digits.length <= 15) return digits;
+  }
+
+  const nameStr = String(
+    value?.DisplayName || value?.displayName || value?.name || value?.pushName || value?.notify || value?.Name || "",
+  );
+  const digitsFromName = nameStr.replace(/[^0-9]/g, "");
+  if (digitsFromName.length >= 10 && digitsFromName.length <= 15) return digitsFromName;
+
+  return null;
+}
+
 function collectParticipantsFromValue(value: any, participants: Set<string>) {
   if (!value) return;
-  if (Array.isArray(value)) { value.forEach((entry) => collectParticipantsFromValue(entry, participants)); return; }
-  if (typeof value === "string") { for (const fp of buildPhoneFingerprints(value)) participants.add(fp); return; }
+
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectParticipantsFromValue(entry, participants));
+    return;
+  }
+
+  if (typeof value === "string") {
+    for (const fp of buildPhoneFingerprints(value)) participants.add(fp);
+    return;
+  }
+
   if (typeof value === "object") {
-    for (const key of ["id", "jid", "number", "phone", "participant", "user", "pn"]) {
-      if (typeof value[key] === "string") { for (const fp of buildPhoneFingerprints(value[key])) participants.add(fp); }
+    const primaryId = String(value?.id || value?.jid || value?.JID || value?.participant || "");
+    const isLid = primaryId.includes("@lid") || primaryId.includes("@newsletter");
+
+    if (isLid) {
+      const recoveredPhone = tryExtractParticipantPhone(value);
+      if (recoveredPhone) {
+        for (const fp of buildPhoneFingerprints(recoveredPhone)) participants.add(fp);
+      }
+    } else {
+      for (const key of [
+        "id",
+        "jid",
+        "JID",
+        "number",
+        "phone",
+        "Phone",
+        "Number",
+        "participant",
+        "user",
+        "pn",
+        "PhoneNumber",
+        "phoneNumber",
+        "wid",
+        "wa_id",
+        "waId",
+      ]) {
+        if (typeof value[key] === "string") {
+          for (const fp of buildPhoneFingerprints(value[key])) participants.add(fp);
+        }
+      }
+
+      const recoveredPhone = tryExtractParticipantPhone(value);
+      if (recoveredPhone) {
+        for (const fp of buildPhoneFingerprints(recoveredPhone)) participants.add(fp);
+      }
     }
-    for (const nk of ["participants", "Participants", "members", "data", "group", "memberAddMode"]) {
-      if (value[nk]) collectParticipantsFromValue(value[nk], participants);
+
+    for (const nestedKey of ["participants", "Participants", "members", "data", "group", "memberAddMode"]) {
+      if (value[nestedKey]) collectParticipantsFromValue(value[nestedKey], participants);
     }
   }
 }
@@ -284,11 +359,8 @@ async function getGroupParticipantsDetailed(baseUrl: string, token: string, grou
         if (targetGroup) {
           const pList = targetGroup?.Participants || targetGroup?.participants || targetGroup?.members || [];
           if (Array.isArray(pList)) {
-            for (const p of pList) {
-              const id = typeof p === "string" ? p : (p?.JID || p?.jid || p?.id || p?.number || p?.phone || p?.participant || "");
-              if (id) {
-                for (const fp of buildPhoneFingerprints(id)) participants.add(fp);
-              }
+            for (const participant of pList) {
+              collectParticipantsFromValue(participant, participants);
             }
           }
           if (participants.size > 0) {
