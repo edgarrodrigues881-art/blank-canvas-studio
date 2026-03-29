@@ -289,52 +289,49 @@ function collectParticipantsFromValue(value: any, participants: Set<string>) {
     return;
   }
 
-  if (typeof value === "string") {
-    for (const fp of buildPhoneFingerprints(value)) participants.add(fp);
+  if (typeof value !== "object") return;
+
+  const nestedParticipants = value?.Participants || value?.participants || value?.members;
+  if (Array.isArray(nestedParticipants)) {
+    nestedParticipants.forEach((entry: any) => collectParticipantsFromValue(entry, participants));
     return;
   }
 
-  if (typeof value === "object") {
-    const primaryId = String(value?.id || value?.jid || value?.JID || value?.participant || "");
-    const isLid = primaryId.includes("@lid") || primaryId.includes("@newsletter");
+  const primaryId = String(value?.id || value?.jid || value?.JID || value?.participant || "");
+  const isLid = primaryId.includes("@lid") || primaryId.includes("@newsletter");
 
-    if (isLid) {
-      const recoveredPhone = tryExtractParticipantPhone(value);
-      if (recoveredPhone) {
-        for (const fp of buildPhoneFingerprints(recoveredPhone)) participants.add(fp);
-      }
-    } else {
-      for (const key of [
-        "id",
-        "jid",
-        "JID",
-        "number",
-        "phone",
-        "Phone",
-        "Number",
-        "participant",
-        "user",
-        "pn",
-        "PhoneNumber",
-        "phoneNumber",
-        "wid",
-        "wa_id",
-        "waId",
-      ]) {
-        if (typeof value[key] === "string") {
-          for (const fp of buildPhoneFingerprints(value[key])) participants.add(fp);
-        }
-      }
-
-      const recoveredPhone = tryExtractParticipantPhone(value);
-      if (recoveredPhone) {
-        for (const fp of buildPhoneFingerprints(recoveredPhone)) participants.add(fp);
-      }
+  if (isLid) {
+    const recoveredPhone = tryExtractParticipantPhone(value);
+    if (recoveredPhone) {
+      for (const fp of buildPhoneFingerprints(recoveredPhone)) participants.add(fp);
     }
+    return;
+  }
 
-    for (const nestedKey of ["participants", "Participants", "members", "data", "group", "memberAddMode"]) {
-      if (value[nestedKey]) collectParticipantsFromValue(value[nestedKey], participants);
-    }
+  const candidates = [
+    value?.PhoneNumber,
+    value?.phoneNumber,
+    value?.phone,
+    value?.number,
+    value?.Phone,
+    value?.Number,
+    value?.wid,
+    value?.wa_id,
+    value?.waId,
+    value?.pn,
+    value?.user,
+    value?.participant,
+    primaryId,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    for (const fp of buildPhoneFingerprints(String(candidate))) participants.add(fp);
+  }
+
+  const recoveredPhone = tryExtractParticipantPhone(value);
+  if (recoveredPhone) {
+    for (const fp of buildPhoneFingerprints(recoveredPhone)) participants.add(fp);
   }
 }
 
@@ -359,9 +356,7 @@ async function getGroupParticipantsDetailed(baseUrl: string, token: string, grou
         if (targetGroup) {
           const pList = targetGroup?.Participants || targetGroup?.participants || targetGroup?.members || [];
           if (Array.isArray(pList)) {
-            for (const participant of pList) {
-              collectParticipantsFromValue(participant, participants);
-            }
+            collectParticipantsFromValue(pList, participants);
           }
           if (participants.size > 0) {
             console.log(`getGroupParticipants: found ${participants.size} from /group/list?GetParticipants=true`);
@@ -389,11 +384,15 @@ async function getGroupParticipantsDetailed(baseUrl: string, token: string, grou
       if (Array.isArray(groups)) {
         const targetGroup = groups.find((g: any) => (g?.JID || g?.jid || g?.id || "") === groupId);
         if (targetGroup) {
-          collectParticipantsFromValue(targetGroup, participants);
+          const pList = targetGroup?.Participants || targetGroup?.participants || targetGroup?.members || [];
+          if (Array.isArray(pList)) {
+            collectParticipantsFromValue(pList, participants);
+          }
           if (participants.size > 0) {
             console.log(`getGroupParticipants: found ${participants.size} from /group/fetchAllGroups`);
             return { participants, confirmed: true, diagnostics };
           }
+          diagnostics.push(`/group/fetchAllGroups: grupo encontrado mas sem participantes`);
         }
       }
     } else {
@@ -416,10 +415,13 @@ async function getGroupParticipantsDetailed(baseUrl: string, token: string, grou
         headers: strategy.body ? buildHeaders(token, true) : buildHeaders(token),
         ...(strategy.body ? { body: JSON.stringify(strategy.body) } : {}),
       });
-      const { raw, body } = await readApiResponse(res);
+      const { body } = await readApiResponse(res);
       if (!res.ok) { diagnostics.push(`${strategy.method} ${strategy.url}: HTTP ${res.status}`); continue; }
-      collectParticipantsFromValue(body, participants);
-      collectParticipantsFromValue(raw, participants);
+      const groupPayload = body?.group || body?.data?.group || body?.data || body;
+      const pList = groupPayload?.Participants || groupPayload?.participants || groupPayload?.members || [];
+      if (Array.isArray(pList)) {
+        collectParticipantsFromValue(pList, participants);
+      }
       if (participants.size > 0) {
         console.log(`getGroupParticipants: found ${participants.size} from ${strategy.url}`);
         return { participants, confirmed: true, diagnostics };
@@ -1225,9 +1227,13 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
           : [];
         const groupInfo = respBody?.group || respBody?.data?.group || {};
         needsRefresh = respBody?.needs_refresh === true;
+        const rawLower = `${raw} ${providerMessage}`.toLowerCase();
+        const successLikeResponse = res.ok
+          && !!(groupInfo?.JID || groupInfo?.jid || groupInfo?.Name || groupInfo?.name || respBody?.group || respBody?.data?.group)
+          && !/(failed|bad-request|not admin|not found|invalid|unauthorized|blocked|error)/.test(rawLower);
 
         let currentParticipants = new Set<string>();
-        collectParticipantsFromValue(groupInfo?.Participants || groupInfo?.participants, currentParticipants);
+        collectParticipantsFromValue(groupInfo?.Participants || groupInfo?.participants || groupInfo?.members || [], currentParticipants);
         console.log(`[mass-inject] campaign=${campaignId} groupUpdated=${groupUpdatedList.length} participants_from_response=${currentParticipants.size}`);
 
         // Always refresh participant list for accurate verification
@@ -1315,12 +1321,32 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         const unknownPhones = [...batchResults.entries()].filter(([_, r]) => r.status === "unknown_failure").map(([p]) => p);
         if (unknownPhones.length > 0) {
           try {
-            const finalCheck = await getGroupParticipantsDetailed(device.uazapi_base_url, device.uazapi_token, contactGroupId);
-            if (finalCheck.participants.size > 0) {
+            const verificationDelays = [2500, 5000];
+            for (const delayMs of verificationDelays) {
+              await sleep(delayMs);
+              const finalCheck = await getGroupParticipantsDetailed(device.uazapi_base_url, device.uazapi_token, contactGroupId);
+              if (finalCheck.participants.size > 0) {
+                for (const phone of unknownPhones) {
+                  if (participantSetHasPhone(finalCheck.participants, phone)) {
+                    batchResults.set(phone, { status: "completed", detail: "Adicionado com sucesso (verificação final)." });
+                    console.log(`[mass-inject] campaign=${campaignId} OVERRIDE unknown_failure → completed for ${phone}`);
+                  }
+                }
+              }
+
+              const remainingUnknown = [...batchResults.entries()].filter(([_, r]) => r.status === "unknown_failure").length;
+              if (remainingUnknown === 0) break;
+            }
+
+            if (successLikeResponse) {
               for (const phone of unknownPhones) {
-                if (participantSetHasPhone(finalCheck.participants, phone)) {
-                  batchResults.set(phone, { status: "completed", detail: "Adicionado com sucesso (verificação final)." });
-                  console.log(`[mass-inject] campaign=${campaignId} OVERRIDE unknown_failure → completed for ${phone}`);
+                const current = batchResults.get(phone);
+                if (current?.status === "unknown_failure") {
+                  if (participantSetHasPhone(participantsBefore, phone)) {
+                    batchResults.set(phone, { status: "already_exists", detail: "Contato já participava do grupo." });
+                  } else {
+                    batchResults.set(phone, { status: "completed", detail: "Adicionado com sucesso (confirmação da API)." });
+                  }
                 }
               }
             }
