@@ -219,20 +219,19 @@ Deno.serve(async (req) => {
       console.log(`[extractor] Matched ${matchedGroups.length} groups with participant data`);
 
       const allParticipants: Participant[] = [];
-      let lidSkipped = 0;
+      const allLids: Participant[] = [];
 
       for (const g of matchedGroups) {
         const jid = g?.JID || g?.jid || g?.id || "";
         const gName = nameMap.get(jid) || g?.Name || g?.subject || g?.name || jid;
         const rawPs = g?.Participants || g?.participants || [];
-        const beforeCount = allParticipants.length;
-        const parsed = parseParticipants(rawPs, jid, gName);
-        allParticipants.push(...parsed);
-        lidSkipped += rawPs.length - parsed.length;
-        console.log(`[extractor] "${gName}": ${parsed.length} valid, ${rawPs.length - parsed.length} LID/invalid skipped`);
+        const { valid, lids } = parseParticipants(rawPs, jid, gName);
+        allParticipants.push(...valid);
+        allLids.push(...lids);
+        console.log(`[extractor] "${gName}": ${valid.length} valid, ${lids.length} LID`);
       }
 
-      // Apply filters
+      // Apply filters to valid participants
       let filtered = allParticipants;
 
       if (filters?.brazil_only) {
@@ -245,20 +244,28 @@ Deno.serve(async (req) => {
         filtered = filtered.filter(p => !p.is_admin);
       }
 
-      // Deduplicate
+      // Deduplicate valid
       const seen = new Map<string, Participant>();
       for (const p of filtered) {
         if (!seen.has(p.phone)) seen.set(p.phone, p);
       }
-
       const deduplicated = Array.from(seen.values());
-      console.log(`[extractor] Final: ${deduplicated.length} unique (${lidSkipped} LID skipped, ${filtered.length - deduplicated.length} dupes removed)`);
+
+      // Deduplicate LIDs
+      const seenLid = new Map<string, Participant>();
+      for (const p of allLids) {
+        if (!seenLid.has(p.phone)) seenLid.set(p.phone, p);
+      }
+      const deduplicatedLids = Array.from(seenLid.values());
+
+      console.log(`[extractor] Final: ${deduplicated.length} valid, ${deduplicatedLids.length} LIDs`);
 
       return new Response(JSON.stringify({
         total: deduplicated.length,
         total_before_dedup: filtered.length,
-        lid_skipped: lidSkipped,
+        lid_total: deduplicatedLids.length,
         participants: deduplicated,
+        lid_participants: deduplicatedLids,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
