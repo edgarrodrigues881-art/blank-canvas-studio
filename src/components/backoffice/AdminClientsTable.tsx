@@ -452,9 +452,20 @@ const AdminClientsTable = memo(({ users, onSelectClient }: Props) => {
 
                     {/* IP */}
                     <td className="px-4 py-3">
-                      <span className="text-[11px] text-muted-foreground/50 font-mono">
-                        {u.signup_ip || "—"}
-                      </span>
+                      {u.last_ip ? (
+                        <span className={`text-[11px] font-mono ${
+                          u.ip_shared_users >= 2 ? "text-red-400 font-bold" : "text-muted-foreground/50"
+                        }`}>
+                          {u.last_ip}
+                          {u.ip_shared_users >= 2 && (
+                            <span className="ml-1 text-[9px] text-red-400">({u.ip_shared_users} contas)</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground/50 font-mono">
+                          {u.signup_ip || "—"}
+                        </span>
+                      )}
                     </td>
 
                     {/* Ações */}
