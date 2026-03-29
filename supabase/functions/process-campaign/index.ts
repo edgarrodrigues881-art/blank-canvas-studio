@@ -464,57 +464,29 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
       throw new Error("Mensagens com botão exigem copy/texto principal. O sistema não envia mais 'Escolha uma opção' automaticamente.");
     }
 
-    // IMAGE + BUTTONS: Try to send everything in one message (image + copy + buttons).
-    // Strategy: 1) Try /send/menu with image field, 2) Fallback: image with caption + buttons separately.
+    // IMAGE + BUTTONS: Send image first, then copy + buttons as separate message.
+    // Unified sending via /send/menu does NOT support images reliably.
     if (hasVisualMedia && mediaUrl) {
       console.log(JSON.stringify({
-        event: "template_import_normalized",
+        event: "split_image_then_buttons",
         origin: "campaign",
-        strategy: "image_text_buttons_unified",
         buttonCount: choices.length,
         hasMedia: true,
         captionLength: text.length,
       }));
 
-      // Attempt 1: Send image + text + buttons together via /send/menu with image field
-      try {
-        await uazapiRequest(baseUrl, token, "/send/menu", {
-          number: phone,
-          type: "button",
-          text,
-          image: mediaUrl,
-          choices,
-        });
-        console.log(JSON.stringify({ event: "unified_image_buttons_success", strategy: "menu_with_image" }));
-        return;
-      } catch (unifiedErr) {
-        console.warn(`Unified image+buttons failed: ${unifiedErr instanceof Error ? unifiedErr.message : String(unifiedErr)}`);
-      }
-
-      // Attempt 2: Try with imageButton field name
-      try {
-        await uazapiRequest(baseUrl, token, "/send/menu", {
-          number: phone,
-          type: "button",
-          text,
-          imageButton: mediaUrl,
-          choices,
-        });
-        console.log(JSON.stringify({ event: "unified_image_buttons_success", strategy: "menu_with_imageButton" }));
-        return;
-      } catch (unifiedErr2) {
-        console.warn(`Unified imageButton failed: ${unifiedErr2 instanceof Error ? unifiedErr2.message : String(unifiedErr2)}`);
-      }
-
-      // Fallback: Send image with caption, then buttons with copy
-      await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType || "image", text);
+      // Step 1: Send the image (no caption to avoid duplicate text)
+      await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType || "image", "");
       await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1500));
+
+      // Step 2: Send copy + buttons
       await uazapiRequest(baseUrl, token, "/send/menu", {
         number: phone,
         type: "button",
         text,
         choices,
       });
+      console.log(JSON.stringify({ event: "split_image_buttons_success" }));
       return;
     }
 
