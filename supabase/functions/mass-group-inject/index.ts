@@ -1004,23 +1004,17 @@ async function campaignCanKeepRunning(sb: any, campaignId: string) {
 }
 
 /**
- * Human-like delay computation:
- * 1. Non-linear base delay using gaussian distribution
- * 2. Random jitter (±30%) to avoid patterns
- * 3. Mandatory block pauses every 3-5 contacts (2-5 min)
- * 4. Occasional long pauses (5-10 min) ~15% chance after blocks
- * 5. Random "inactivity" simulation (~10% chance of extra 30-90s idle)
- * 6. Hourly limit slowdown when approaching cap
+ * Delay computation — strictly respects user-configured min/max delay.
+ * Only adds block pauses and error cooldowns on top.
  */
 function computeNextDelayMs(campaign: any, cooldownMs?: number, _deviceId?: string) {
-  const minDelaySec = Math.max(Number(campaign.min_delay || 30), 8);
-  const maxDelaySec = Math.max(Number(campaign.max_delay || 60), minDelaySec);
+  const ABSOLUTE_MIN_DELAY_SEC = 3; // Safety floor
+  const minDelaySec = Math.max(Number(campaign.min_delay || 10), ABSOLUTE_MIN_DELAY_SEC);
+  const maxDelaySec = Math.max(Number(campaign.max_delay || 30), minDelaySec);
   
-  // Use user's configured delay with small jitter (±15%)
+  // Random delay between user's min and max — NO jitter outside this range
   const baseDelaySec = randomBetween(minDelaySec, maxDelaySec);
-  const jitterFactor = 0.85 + (Math.random() * 0.3); // 0.85 to 1.15
-  let nextDelayMs = Math.round(baseDelaySec * jitterFactor) * 1000;
-  nextDelayMs = Math.max(nextDelayMs, minDelaySec * 1000); // never below user minimum
+  let nextDelayMs = baseDelaySec * 1000;
   
   // User-configured block pauses
   const pauseAfter = Number(campaign.pause_after || 0);
