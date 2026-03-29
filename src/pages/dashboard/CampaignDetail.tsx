@@ -235,7 +235,7 @@ const CampaignDetail = () => {
     enabled: !!id && !!user,
     refetchInterval: () => {
       if (document.hidden) return false;
-      if (campaign && ["running", "processing", "pending"].includes(campaign.status)) return 5000;
+      if (campaign && ["running", "processing", "pending", "paused"].includes(campaign.status)) return 5000;
       return false;
     },
   });

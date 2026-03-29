@@ -1306,10 +1306,8 @@ Deno.serve(async (req) => {
 
                 const isLastInChunk = chunk.indexOf(contact) === chunk.length - 1;
                 if (!isLastInChunk) {
-                  const pApiElapsed = Date.now() - pSendStart;
                   const pTargetDelay = randomBetween(minDelayMs, maxDelayMs);
-                  const pActualDelay = Math.max(500, pTargetDelay - pApiElapsed);
-                  await new Promise(r => setTimeout(r, pActualDelay));
+                  await new Promise(r => setTimeout(r, pTargetDelay));
                 }
               } catch (err) {
                 const translated = translateErrorMessage(err.message || "Erro");
@@ -1354,18 +1352,41 @@ Deno.serve(async (req) => {
         // ─── SEQUENTIAL / ROTATION MODE ───
         if (pendingPauseMs > 0) {
           console.log(`Applying deferred pause of ${Math.round(pendingPauseMs / 1000)}s`);
-          if (pendingPauseMs > MAX_EXECUTION_MS - 5000) {
-            const waitNow = MAX_EXECUTION_MS - 10000;
-            const remaining = pendingPauseMs - waitNow;
-            await new Promise(resolve => setTimeout(resolve, waitNow));
+          
+          // For pauses longer than we can handle in one invocation, chain selfContinue
+          const maxWaitThisRound = MAX_EXECUTION_MS - 10000; // Leave 10s buffer
+          
+          if (pendingPauseMs > maxWaitThisRound) {
+            // Wait as long as we can, then chain
+            await new Promise(resolve => setTimeout(resolve, maxWaitThisRound));
             await heartbeatLock(serviceClient, campaignId);
+            
+            // RE-CHECK status before continuing (user may have paused/canceled during wait)
+            const { data: pauseCheck } = await serviceClient.from("campaigns").select("status").eq("id", campaignId).single();
+            if (pauseCheck && pauseCheck.status !== "running") {
+              console.log(`Campaign ${campaignId} status changed to ${pauseCheck.status} during deferred pause`);
+              await releaseDeviceLocks(serviceClient, deviceIds, campaignId);
+              return new Response(JSON.stringify({ success: true, status: pauseCheck.status }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            }
+            
+            const remaining = pendingPauseMs - maxWaitThisRound;
             selfContinue(supabaseUrl, serviceRoleKey, campaignId, deviceId, { batchSent, currentDeviceIndex, instanceMsgCount, msgsSincePause: 0, pauseAfter, pendingPauseMs: remaining });
             return new Response(JSON.stringify({ success: true, status: "running", waitingPause: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
           }
+          
+          // Short enough to handle in this invocation
           await new Promise(resolve => setTimeout(resolve, pendingPauseMs));
           pendingPauseMs = 0;
           msgsSincePause = 0;
           pauseAfter = Math.round(randomBetween(pauseEveryMin, pauseEveryMax));
+          
+          // RE-CHECK status after pause wait
+          const { data: afterPauseCheck } = await serviceClient.from("campaigns").select("status").eq("id", campaignId).single();
+          if (afterPauseCheck && afterPauseCheck.status !== "running") {
+            console.log(`Campaign ${campaignId} status changed to ${afterPauseCheck.status} after pause wait`);
+            await releaseDeviceLocks(serviceClient, deviceIds, campaignId);
+            return new Response(JSON.stringify({ success: true, status: afterPauseCheck.status }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
         }
 
         for (const contact of contacts) {
@@ -1506,11 +1527,11 @@ Deno.serve(async (req) => {
 
             const isLastContact = contacts.indexOf(contact) === contacts.length - 1;
             if (!isLastContact) {
-              const apiElapsed = Date.now() - sendStartTime;
+              // Use FULL configured delay — don't subtract API time
+              // The user expects the delay to be the actual wait between messages
               const targetDelay = randomBetween(minDelayMs, maxDelayMs);
-              const actualDelay = Math.max(500, targetDelay - apiElapsed);
-              console.log(`✅ Sent to ${phone} via ${activeDevice.name} | batch=${batchSent} sincePause=${msgsSincePause}/${pauseAfter} | wait=${Math.round(actualDelay / 1000)}s`);
-              await new Promise(resolve => setTimeout(resolve, actualDelay));
+              console.log(`✅ Sent to ${phone} via ${activeDevice.name} | batch=${batchSent} sincePause=${msgsSincePause}/${pauseAfter} | wait=${Math.round(targetDelay / 1000)}s`);
+              await new Promise(resolve => setTimeout(resolve, targetDelay));
             }
 
             if (msgsSincePause >= pauseAfter) {
