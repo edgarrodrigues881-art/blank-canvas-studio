@@ -51,6 +51,10 @@ function translateError(msg: string | null): string | null {
   return msg;
 }
 
+function isLidPhone(phone: string | null | undefined): boolean {
+  return /@lid$/i.test((phone || "").trim());
+}
+
 function formatPhoneDisplay(phone: string): string {
   const d = phone.replace(/\D/g, "");
   if (d.length === 13) return `+${d.slice(0,2)} (${d.slice(2,4)}) ${d.slice(4,9)}-${d.slice(9)}`;
@@ -219,7 +223,8 @@ const CampaignDetail = () => {
     });
   }, [contacts, logSearch, logFilter]);
 
-  const isInvalidNumber = (msg: string | null) => {
+  const isInvalidNumber = (phone: string | null, msg: string | null) => {
+    if (isLidPhone(phone)) return false;
     if (!msg) return false;
     const lower = msg.toLowerCase();
     return lower.includes("número inválido") || lower.includes("not on whats") || lower.includes("not registered") || lower.includes("not_exists");
@@ -231,7 +236,7 @@ const CampaignDetail = () => {
       total: contacts.length,
       sent: contacts.filter(c => c.status === "sent" || c.status === "delivered").length,
       failed: failed.length,
-      failedResendable: failed.filter(c => !isInvalidNumber(c.error_message)).length,
+      failedResendable: failed.filter(c => !isInvalidNumber(c.phone, c.error_message)).length,
       pending: contacts.filter(c => c.status === "pending").length,
     };
   }, [contacts]);
@@ -295,9 +300,7 @@ const CampaignDetail = () => {
   const handleResendConfirm = () => {
     const selectedContacts = contacts.filter(c => {
       if (resendFailed && (c.status === "failed" || c.status === "error")) {
-        // Exclude invalid numbers from resend
-        const err = (c.error_message || "").toLowerCase();
-        if (err.includes("número inválido") || err.includes("not on whats") || err.includes("not registered") || err.includes("not_exists")) return false;
+        if (isInvalidNumber(c.phone, c.error_message)) return false;
         return true;
       }
       if (resendPending && c.status === "pending") return true;
@@ -307,12 +310,14 @@ const CampaignDetail = () => {
       toast({ title: "Nenhum contato selecionado para reenviar", variant: "destructive" });
       return;
     }
+    const resendContactMode: "number" | "lid" = selectedContacts.some((c) => isLidPhone(c.phone)) ? "lid" : "number";
     const resendData = {
       contacts: selectedContacts.map((c, i) => ({
         id: i + 1, nome: c.name || "", numero: c.phone,
         var1: "", var2: "", var3: "", var4: "", var5: "",
         var6: "", var7: "", var8: "", var9: "", var10: "",
       })),
+      contactMode: resendContactMode,
       message: campaign?.message_content || "",
       mediaUrl: campaign?.media_url || "",
       buttons: campaign?.buttons || [],
