@@ -23,6 +23,7 @@ const translateAuthError = (msg: string): string => {
     "For security purposes, you can only request this after 60 seconds.": "Por segurança, aguarde 60 segundos antes de tentar novamente.",
     "User not found": "Usuário não encontrado.",
     "New password should be different from the old password.": "A nova senha deve ser diferente da anterior.",
+    "Password is known to be weak and easy to guess, please choose a different one.": "Essa senha é muito fraca e fácil de adivinhar. Por favor, escolha uma senha mais forte.",
   };
   return map[msg] || msg;
 };
