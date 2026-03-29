@@ -1264,7 +1264,7 @@ Deno.serve(async (req) => {
                   let lastSendError = "";
                   for (let mi = 0; mi < messageVariants.length; mi++) {
                     const allMsg = replaceVariables(messageVariants[mi], contact, rand4, rand3);
-                    const result = await sendWithRetry(devBaseUrl, devToken, normalized, allMsg, mi === 0 ? mediaUrl : null, mi === 0 ? campaignButtons : [], msgType, mi === 0 ? campaignCarouselCards : []);
+                    const result = await sendWithRetry(devBaseUrl, devToken, sendTo, allMsg, mi === 0 ? mediaUrl : null, mi === 0 ? campaignButtons : [], msgType, mi === 0 ? campaignCarouselCards : []);
                     if (!result.success) {
                       allSendFailed = true;
                       lastSendError = result.error || "";
@@ -1290,10 +1290,10 @@ Deno.serve(async (req) => {
                     continue;
                   }
                 } else {
-                  const result = await sendWithRetry(devBaseUrl, devToken, normalized, msg, mediaUrl, campaignButtons, msgType, campaignCarouselCards);
+                  const result = await sendWithRetry(devBaseUrl, devToken, sendTo, msg, mediaUrl, campaignButtons, msgType, campaignCarouselCards);
                   if (!result.success) {
                     const translated = translateErrorMessage(result.error || "Erro");
-                    await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: normalized, status: "failed", deviceId: dev.id, errorMessage: `${translated} (${result.attempts} tentativas)` });
+                    await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: sendTo, status: "failed", deviceId: dev.id, errorMessage: `${translated} (${result.attempts} tentativas)` });
                     devFailed++;
                     if (isDisconnectError(result.error || "")) {
                       const idx = chunk.indexOf(contact);
@@ -1306,7 +1306,7 @@ Deno.serve(async (req) => {
                     continue;
                   }
                 }
-                await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: normalized, status: "sent", deviceId: dev.id });
+                await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: sendTo, status: "sent", deviceId: dev.id });
                 devSent++;
 
                 const isLastInChunk = chunk.indexOf(contact) === chunk.length - 1;
