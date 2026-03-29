@@ -431,7 +431,8 @@ async function sendCaptionedMedia(baseUrl: string, token: string, phone: string,
 }
 
 async function sendUazapiMessage(baseUrl: string, token: string, to: string, body: string, mediaUrl?: string | null, buttons?: CampaignButton[], messageType?: string, carouselCards?: CarouselCard[]) {
-  const phone = to.replace(/\D/g, "");
+  const isLid = to.includes("@lid");
+  const phone = isLid ? `${to.replace("@lid", "")}@lid` : to.replace(/\D/g, "");
   const text = typeof body === "string" ? body.trim() : "";
   const hasButtons = buttons && buttons.length > 0;
   const choices = hasButtons ? buttons.map((b, i) => buildMenuChoice(b, i)).filter((choice): choice is string => Boolean(choice)) : [];
@@ -1225,8 +1226,9 @@ Deno.serve(async (req) => {
                 }
               }
 
-              const phone = contact.phone.replace(/\D/g, "");
-              if (phone.length < 10) {
+              const isLidContact = contact.phone.includes("@lid");
+              const phone = isLidContact ? contact.phone.replace("@lid", "") : contact.phone.replace(/\D/g, "");
+              if (!isLidContact && phone.length < 10) {
                 await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: "Número inválido", device_id: dev.id }).eq("id", contact.id);
                 devFailed++;
                 continue;
@@ -1237,29 +1239,32 @@ Deno.serve(async (req) => {
                 const rand3 = generateUniqueRand3(devUsedRand3);
                 const chosenMessage = messageVariants[devRandomPicker.next()];
                 const msg = replaceVariables(chosenMessage, contact, rand4, rand3);
-                const normalized = normalizeBrazilianPhone(phone);
-                const check = await checkNumberExists(devBaseUrl, devToken, normalized);
-                if (!check.exists) {
-                  await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: check.error || "Número inválido", device_id: dev.id }).eq("id", contact.id);
-                  devFailed++;
-                  if (check.error === "WhatsApp desconectado") {
-                    // Revert remaining contacts in this device's chunk
-                    const idx = chunk.indexOf(contact);
-                    const remainingIds = chunk.slice(idx + 1).map((c: any) => c.id);
-                    if (remainingIds.length > 0) {
-                      await serviceClient.from("campaign_contacts").update({ status: "pending" }).eq("campaign_id", campaignId).in("id", remainingIds);
+                const sendTo = isLidContact ? phone : normalizeBrazilianPhone(phone);
+                
+                // Skip number validation for @lid contacts
+                if (!isLidContact) {
+                  const check = await checkNumberExists(devBaseUrl, devToken, sendTo);
+                  if (!check.exists) {
+                    await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: check.error || "Número inválido", device_id: dev.id }).eq("id", contact.id);
+                    devFailed++;
+                    if (check.error === "WhatsApp desconectado") {
+                      const idx = chunk.indexOf(contact);
+                      const remainingIds = chunk.slice(idx + 1).map((c: any) => c.id);
+                      if (remainingIds.length > 0) {
+                        await serviceClient.from("campaign_contacts").update({ status: "pending" }).eq("campaign_id", campaignId).in("id", remainingIds);
+                      }
+                      break;
                     }
-                    break;
+                    console.log(`Number ${sendTo} invalid, skipping`);
+                    continue;
                   }
-                  console.log(`Number ${normalized} invalid, skipping`);
-                  continue;
                 }
                 if (sendAllMode && messageVariants.length > 1) {
                   let allSendFailed = false;
                   let lastSendError = "";
                   for (let mi = 0; mi < messageVariants.length; mi++) {
                     const allMsg = replaceVariables(messageVariants[mi], contact, rand4, rand3);
-                    const result = await sendWithRetry(devBaseUrl, devToken, normalized, allMsg, mi === 0 ? mediaUrl : null, mi === 0 ? campaignButtons : [], msgType, mi === 0 ? campaignCarouselCards : []);
+                    const result = await sendWithRetry(devBaseUrl, devToken, sendTo, allMsg, mi === 0 ? mediaUrl : null, mi === 0 ? campaignButtons : [], msgType, mi === 0 ? campaignCarouselCards : []);
                     if (!result.success) {
                       allSendFailed = true;
                       lastSendError = result.error || "";
@@ -1285,10 +1290,10 @@ Deno.serve(async (req) => {
                     continue;
                   }
                 } else {
-                  const result = await sendWithRetry(devBaseUrl, devToken, normalized, msg, mediaUrl, campaignButtons, msgType, campaignCarouselCards);
+                  const result = await sendWithRetry(devBaseUrl, devToken, sendTo, msg, mediaUrl, campaignButtons, msgType, campaignCarouselCards);
                   if (!result.success) {
                     const translated = translateErrorMessage(result.error || "Erro");
-                    await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: normalized, status: "failed", deviceId: dev.id, errorMessage: `${translated} (${result.attempts} tentativas)` });
+                    await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: sendTo, status: "failed", deviceId: dev.id, errorMessage: `${translated} (${result.attempts} tentativas)` });
                     devFailed++;
                     if (isDisconnectError(result.error || "")) {
                       const idx = chunk.indexOf(contact);
@@ -1301,7 +1306,7 @@ Deno.serve(async (req) => {
                     continue;
                   }
                 }
-                await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: normalized, status: "sent", deviceId: dev.id });
+                await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: sendTo, status: "sent", deviceId: dev.id });
                 devSent++;
 
                 const isLastInChunk = chunk.indexOf(contact) === chunk.length - 1;

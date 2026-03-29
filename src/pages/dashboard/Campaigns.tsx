@@ -22,7 +22,7 @@ import {
   Phone, Type, ImageIcon, Flame, ShieldAlert, Activity,
   Zap, Clock, Hash, Wifi, WifiOff, RefreshCw, Settings2, Calendar,
   CheckCircle2, XCircle, Copy, Eraser, Sparkles, Loader2, Check,
-  ArrowRight, Lock, Timer, TrendingUp, ArrowUp, ArrowDown, Pencil, Search, Save
+  ArrowRight, Lock, Timer, TrendingUp, ArrowUp, ArrowDown, Pencil, Search, Save, EyeOff
 } from "lucide-react";
 import { useCreateCampaign, useStartCampaign } from "@/hooks/useCampaigns";
 import { useTemplates, useCreateTemplate } from "@/hooks/useTemplates";
@@ -287,6 +287,7 @@ const Campaigns = () => {
   const [pauseDurationMax, setPauseDurationMax] = useState(120);
   const [messagesPerInstance, setMessagesPerInstance] = useState(0);
   const [sendMode, setSendMode] = useState<"single" | "rotation" | "parallel">("rotation");
+  const [contactMode, setContactMode] = useState<"number" | "lid">("number");
 
   // Delay profile mutations (after delay state is declared)
   const saveDelayProfile = useMutation({
@@ -510,7 +511,13 @@ const Campaigns = () => {
   }, [connectedDevices]);
 
   const validContacts = useMemo(() => contacts.filter(c => c.numero.trim()), [contacts]);
-  const invalidContacts = useMemo(() => contacts.filter(c => c.numero.trim() && !/^\d{10,15}$/.test(c.numero.replace(/\D/g, ""))), [contacts]);
+  const invalidContacts = useMemo(() => {
+    if (contactMode === "lid") {
+      // LID mode: any non-empty value is valid
+      return contacts.filter(c => c.numero.trim() && c.numero.trim().length < 3);
+    }
+    return contacts.filter(c => c.numero.trim() && !/^\d{10,15}$/.test(c.numero.replace(/\D/g, "")));
+  }, [contacts, contactMode]);
   const duplicateCount = useMemo(() => contacts.length - new Set(contacts.map(c => c.numero.trim()).filter(Boolean)).size, [contacts]);
   const hasButtons = buttons.filter(b => b.text.trim()).length > 0;
   const computedMessageType = detectMessageType(mediaUrl, hasButtons);
@@ -657,7 +664,12 @@ const Campaigns = () => {
       template_id: normalizedMessage.templateId || undefined,
       buttons: normalizedMessage.buttons.map(b => ({ type: b.type, text: b.text, value: b.value })),
       carousel_cards: contentType === "carousel" ? serializeCarouselCards(carouselCards) : undefined,
-      contacts: validContacts.map(c => ({ phone: c.numero, name: c.nome || undefined, var1: c.var1 || "", var2: c.var2 || "", var3: c.var3 || "", var4: c.var4 || "", var5: c.var5 || "", var6: c.var6 || "", var7: c.var7 || "", var8: c.var8 || "", var9: c.var9 || "", var10: c.var10 || "" })),
+      contacts: validContacts.map(c => {
+        const phoneValue = contactMode === "lid"
+          ? (c.numero.includes("@lid") ? c.numero : `${c.numero.replace(/\D/g, "")}@lid`)
+          : c.numero;
+        return { phone: phoneValue, name: c.nome || undefined, var1: c.var1 || "", var2: c.var2 || "", var3: c.var3 || "", var4: c.var4 || "", var5: c.var5 || "", var6: c.var6 || "", var7: c.var7 || "", var8: c.var8 || "", var9: c.var9 || "", var10: c.var10 || "" };
+      }),
       scheduled_at: scheduleEnabled && scheduleDate ? new Date(scheduleDate).toISOString() : undefined,
       min_delay_seconds: minDelay,
       max_delay_seconds: maxDelay,
@@ -2027,8 +2039,34 @@ const Campaigns = () => {
                 </button>
               )}
 
-              {/* Action bar — always visible */}
-              <div className="px-5 py-3.5 flex items-center gap-2 border-b border-border/8 bg-muted/3 dark:bg-muted/2">
+              {/* Mode toggle + Action bar */}
+              <div className="px-5 py-3.5 flex flex-wrap items-center gap-2 border-b border-border/8 bg-muted/3 dark:bg-muted/2">
+                {/* Contact mode toggle */}
+                <div className="flex items-center rounded-lg border border-border/30 overflow-hidden mr-1">
+                  <button
+                    onClick={() => setContactMode("number")}
+                    className={cn(
+                      "px-3 py-1.5 text-[11px] font-semibold transition-colors",
+                      contactMode === "number"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    )}
+                  >
+                    <Phone className="w-3 h-3 inline mr-1" />Número
+                  </button>
+                  <button
+                    onClick={() => setContactMode("lid")}
+                    className={cn(
+                      "px-3 py-1.5 text-[11px] font-semibold transition-colors",
+                      contactMode === "lid"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    )}
+                  >
+                    <EyeOff className="w-3 h-3 inline mr-1" />@lead
+                  </button>
+                </div>
+
                 <Button variant="outline" size="sm" className="text-xs h-9 border-border/20 gap-1.5 hover:bg-primary/5 hover:border-primary/30" onClick={() => fileRef.current?.click()}>
                   <Upload className="w-3.5 h-3.5" /> Planilha
                 </Button>
