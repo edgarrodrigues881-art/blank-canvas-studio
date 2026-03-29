@@ -440,7 +440,7 @@ const CampaignDetail = () => {
       return;
     }
     const resendContactMode: "number" | "lid" = selectedContacts.some((c) => isLidPhone(c.phone)) ? "lid" : "number";
-    const resendData = {
+    const resendData: Record<string, any> = {
       contacts: selectedContacts.map((c, i) => ({
         id: i + 1, nome: c.name || "", numero: c.phone,
         var1: "", var2: "", var3: "", var4: "", var5: "",
@@ -451,7 +451,12 @@ const CampaignDetail = () => {
       mediaUrl: campaign?.media_url || "",
       buttons: campaign?.buttons || [],
       campaignName: `${campaign?.name} (Reenvio)`,
+      messageType: campaign?.message_type || "text",
     };
+    // Preserve carousel data for resend
+    if (campaign?.message_type === "carousel" && campaign?.carousel_cards) {
+      resendData.carouselCards = campaign.carousel_cards;
+    }
     sessionStorage.setItem("resend_campaign_data", JSON.stringify(resendData));
     setResendOpen(false);
     navigate("/dashboard/campaigns");
