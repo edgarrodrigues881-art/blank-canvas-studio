@@ -119,7 +119,7 @@ const AdminClientsTable = memo(({ users, onSelectClient }: Props) => {
       if (filter === "active" && u.status !== "active") return false;
       if (filter === "suspended" && u.status !== "suspended") return false;
       if (filter === "cancelled" && u.status !== "cancelled") return false;
-      if (q && !u.full_name?.toLowerCase().includes(q) && !u.email?.toLowerCase().includes(q) && !u.phone?.includes(q) && !(u.signup_ip || "").includes(q)) return false;
+      if (q && !u.full_name?.toLowerCase().includes(q) && !u.email?.toLowerCase().includes(q) && !u.phone?.includes(q) && !(u.last_ip || u.signup_ip || "").includes(q)) return false;
       return true;
     });
   }, [users, search, filter]);
@@ -452,9 +452,20 @@ const AdminClientsTable = memo(({ users, onSelectClient }: Props) => {
 
                     {/* IP */}
                     <td className="px-4 py-3">
-                      <span className="text-[11px] text-muted-foreground/50 font-mono">
-                        {u.signup_ip || "—"}
-                      </span>
+                      {u.last_ip ? (
+                        <span className={`text-[11px] font-mono ${
+                          u.ip_shared_users >= 2 ? "text-red-400 font-bold" : "text-muted-foreground/50"
+                        }`}>
+                          {u.last_ip}
+                          {u.ip_shared_users >= 2 && (
+                            <span className="ml-1 text-[9px] text-red-400">({u.ip_shared_users} contas)</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground/50 font-mono">
+                          {u.signup_ip || "—"}
+                        </span>
+                      )}
                     </td>
 
                     {/* Ações */}

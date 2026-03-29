@@ -53,6 +53,26 @@ async function clearInvalidLocalSession() {
   await supabase.auth.signOut({ scope: "local" });
 }
 
+// Record login IP — throttled via localStorage (5 min cooldown)
+function recordLoginIp(userId: string) {
+  const ipKey = `login_ip_${userId}`;
+  const last = localStorage.getItem(ipKey);
+  if (last && Date.now() - parseInt(last) < 5 * 60 * 1000) return;
+
+  localStorage.setItem(ipKey, Date.now().toString());
+  fetch("https://api.ipify.org?format=json")
+    .then(r => r.json())
+    .then(({ ip }) => {
+      if (ip) {
+        supabase.functions.invoke("record-login-ip", {
+          body: { ip_address: ip, user_agent: navigator.userAgent },
+        }).catch(() => localStorage.removeItem(ipKey));
+      }
+    })
+    .catch(() => localStorage.removeItem(ipKey));
+}
+
+
 async function getValidatedSession() {
   const {
     data: { session: currentSession },
@@ -204,6 +224,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(currentSession?.user ?? null);
         markBackendRecovered();
         if (isMounted) setBackendDown(false);
+        // Record IP on initial session load too
+        if (currentSession?.user) {
+          recordLoginIp(currentSession.user.id);
+        }
         if (remember === "false") {
           sessionStorage.setItem("dg_session_alive", "true");
         }
@@ -246,22 +270,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 });
               }
 
-              // Record login IP (non-blocking)
-              const ipKey = `login_ip_${newSession.user.id}`;
-              const lastIpLog = sessionStorage.getItem(ipKey);
-              if (!lastIpLog) {
-                sessionStorage.setItem(ipKey, Date.now().toString());
-                fetch("https://api.ipify.org?format=json")
-                  .then(r => r.json())
-                  .then(({ ip }) => {
-                    if (ip) {
-                      supabase.functions.invoke("record-login-ip", {
-                        body: { ip_address: ip, user_agent: navigator.userAgent },
-                      }).catch(() => {});
-                    }
-                  })
-                  .catch(() => {});
-              }
+              // Record login IP (non-blocking, throttled 5min via localStorage)
+              recordLoginIp(newSession.user.id);
             }
           }
           // Detect TOKEN_REFRESHED failure (event fires but session is null = failure)

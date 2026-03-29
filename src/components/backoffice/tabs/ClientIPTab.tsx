@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Globe, AlertTriangle, Copy, Search } from "lucide-react";
+import { Globe, AlertTriangle, Copy, Search, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -12,15 +12,7 @@ const ClientIPTab = ({ detail }: Props) => {
   const [search, setSearch] = useState("");
   const loginHistory: any[] = detail?.login_history || [];
   const signupIp: string | null = detail?.profile?.signup_ip || null;
-
-  // Count IPs globally for duplicate detection
-  const ipCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const entry of loginHistory) {
-      counts[entry.ip_address] = (counts[entry.ip_address] || 0) + 1;
-    }
-    return counts;
-  }, [loginHistory]);
+  const ipDuplicates: Record<string, { count: number; user_ids: string[] }> = detail?.ip_duplicates || {};
 
   // Unique IPs
   const uniqueIps = useMemo(() => {
@@ -30,6 +22,15 @@ const ClientIPTab = ({ detail }: Props) => {
       seen.add(e.ip_address);
       return true;
     });
+  }, [loginHistory]);
+
+  // Count per IP (within this user)
+  const ipCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const entry of loginHistory) {
+      counts[entry.ip_address] = (counts[entry.ip_address] || 0) + 1;
+    }
+    return counts;
   }, [loginHistory]);
 
   const filtered = useMemo(() => {
@@ -43,6 +44,9 @@ const ClientIPTab = ({ detail }: Props) => {
     toast.success("IP copiado!");
   };
 
+  const isDuplicate = (ip: string) => !!ipDuplicates[ip];
+  const duplicateCount = (ip: string) => ipDuplicates[ip]?.count || 1;
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -54,6 +58,11 @@ const ClientIPTab = ({ detail }: Props) => {
           <h3 className="text-base font-bold text-foreground">Histórico de IPs</h3>
           <p className="text-xs text-muted-foreground">
             {loginHistory.length} login{loginHistory.length !== 1 ? "s" : ""} · {uniqueIps.length} IP{uniqueIps.length !== 1 ? "s" : ""} único{uniqueIps.length !== 1 ? "s" : ""}
+            {Object.keys(ipDuplicates).length > 0 && (
+              <span className="text-red-400 font-semibold ml-2">
+                ⚠ {Object.keys(ipDuplicates).length} IP{Object.keys(ipDuplicates).length !== 1 ? "s" : ""} compartilhado{Object.keys(ipDuplicates).length !== 1 ? "s" : ""} com outras contas
+              </span>
+            )}
           </p>
         </div>
       </div>
@@ -90,22 +99,32 @@ const ClientIPTab = ({ detail }: Props) => {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
           {uniqueIps.map(entry => {
             const count = ipCounts[entry.ip_address];
-            const isDuplicate = count > 5;
+            const dup = isDuplicate(entry.ip_address);
+            const dupCount = duplicateCount(entry.ip_address);
             return (
               <div
                 key={entry.ip_address}
                 className={`bg-card border rounded-xl px-3 py-2.5 cursor-pointer hover:border-primary/20 transition-all ${
-                  isDuplicate ? "border-yellow-500/30" : "border-border"
+                  dup ? "border-red-500/40 bg-red-500/5" : "border-border"
                 }`}
                 onClick={() => copyIp(entry.ip_address)}
               >
                 <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-xs font-mono text-foreground truncate">{entry.ip_address}</span>
-                  {isDuplicate && <AlertTriangle size={11} className="text-yellow-400 shrink-0" />}
+                  <span className={`text-xs font-mono truncate ${dup ? "text-red-400 font-bold" : "text-foreground"}`}>
+                    {entry.ip_address}
+                  </span>
+                  {dup && <AlertTriangle size={11} className="text-red-400 shrink-0" />}
                 </div>
-                <span className="text-[10px] text-muted-foreground">
-                  {count} acesso{count !== 1 ? "s" : ""}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground">
+                    {count} acesso{count !== 1 ? "s" : ""}
+                  </span>
+                  {dup && (
+                    <span className="text-[10px] text-red-400 font-semibold flex items-center gap-0.5">
+                      <Users size={9} /> {dupCount} contas
+                    </span>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -120,32 +139,34 @@ const ClientIPTab = ({ detail }: Props) => {
         </div>
       ) : (
         <div className="space-y-1.5">
-          {filtered.map((entry: any) => {
+          {filtered.map((entry: any, idx: number) => {
             const time = new Date(entry.logged_in_at).toLocaleString("pt-BR", {
               day: "2-digit", month: "2-digit", year: "2-digit",
               hour: "2-digit", minute: "2-digit",
             });
-            const count = ipCounts[entry.ip_address];
-            const isDuplicate = count > 5;
+            const dup = isDuplicate(entry.ip_address);
+            const dupCount = duplicateCount(entry.ip_address);
 
             return (
               <div
-                key={entry.id}
+                key={entry.id || idx}
                 className={`flex items-center gap-3 bg-card border rounded-xl px-4 py-2.5 hover:border-primary/15 transition-all ${
-                  isDuplicate ? "border-yellow-500/20" : "border-border"
+                  dup ? "border-red-500/30 bg-red-500/5" : "border-border"
                 }`}
               >
                 <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                  isDuplicate ? "bg-yellow-500/10" : "bg-primary/10"
+                  dup ? "bg-red-500/10" : "bg-primary/10"
                 }`}>
-                  <Globe size={13} className={isDuplicate ? "text-yellow-400" : "text-primary"} />
+                  <Globe size={13} className={dup ? "text-red-400" : "text-primary"} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-foreground">{entry.ip_address}</span>
-                    {isDuplicate && (
-                      <Badge variant="outline" className="text-[9px] border-yellow-500/30 text-yellow-400 px-1.5 py-0">
-                        frequente
+                    <span className={`text-xs font-mono ${dup ? "text-red-400 font-bold" : "text-foreground"}`}>
+                      {entry.ip_address}
+                    </span>
+                    {dup && (
+                      <Badge variant="outline" className="text-[9px] border-red-500/30 text-red-400 px-1.5 py-0">
+                        {dupCount} contas
                       </Badge>
                     )}
                   </div>

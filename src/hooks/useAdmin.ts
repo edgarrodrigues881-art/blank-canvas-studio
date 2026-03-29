@@ -26,6 +26,8 @@ export interface AdminUser {
   plan_expires_at: string | null;
   plan_started_at: string | null;
   signup_ip: string | null;
+  last_ip: string | null;
+  ip_shared_users: number;
 }
 
 export interface AdminDashboard {

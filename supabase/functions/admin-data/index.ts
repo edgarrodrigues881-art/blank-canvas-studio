@@ -105,8 +105,31 @@ Deno.serve(async (req) => {
         adminClient.from("admin_costs").select("id, admin_id, category, amount, description, cost_date, created_at"),
       ]);
 
-      // Fetch admin-only profile data separately
-      const { data: adminProfileData } = await adminClient.from("admin_profile_data").select("id, admin_notes, risk_flag");
+      // Fetch admin-only profile data and login IPs for duplicate detection
+      const [adminProfileDataRes, loginHistoryAllRes] = await Promise.all([
+        adminClient.from("admin_profile_data").select("id, admin_notes, risk_flag"),
+        adminClient.from("login_history").select("user_id, ip_address").order("logged_in_at", { ascending: false }).limit(5000),
+      ]);
+      const adminProfileData = adminProfileDataRes.data;
+      const allLoginHistory = loginHistoryAllRes.data || [];
+
+      // Build cross-user IP map: ip -> set of user_ids
+      const ipUserMap: Record<string, Set<string>> = {};
+      for (const entry of allLoginHistory) {
+        if (!ipUserMap[entry.ip_address]) ipUserMap[entry.ip_address] = new Set();
+        ipUserMap[entry.ip_address].add(entry.user_id);
+      }
+      // IPs shared by 2+ different users
+      const duplicateIps: Record<string, number> = {};
+      for (const [ip, userSet] of Object.entries(ipUserMap)) {
+        if (userSet.size >= 2) duplicateIps[ip] = userSet.size;
+      }
+
+      // Build last_ip per user from login_history
+      const lastIpMap: Record<string, string> = {};
+      for (const entry of allLoginHistory) {
+        if (!lastIpMap[entry.user_id]) lastIpMap[entry.user_id] = entry.ip_address;
+      }
 
       const authUsers = authUsersRes.data;
       const profiles = profilesRes.data;
@@ -150,6 +173,8 @@ Deno.serve(async (req) => {
           plan_expires_at: sub?.expires_at || null,
           plan_started_at: sub?.started_at || null,
           signup_ip: profile?.signup_ip || null,
+          last_ip: lastIpMap[u.id] || null,
+          ip_shared_users: lastIpMap[u.id] ? (duplicateIps[lastIpMap[u.id]] || 0) : 0,
         };
       }) || [];
 
@@ -167,7 +192,7 @@ Deno.serve(async (req) => {
         total_subscriptions: subscriptions?.length || 0,
       };
 
-      return new Response(JSON.stringify({ users, devices: devicesWithOwner, stats, cycles: cycles || [], payments: payments || [], admin_logs: adminLogs || [], costs: costs || [] }), {
+      return new Response(JSON.stringify({ users, devices: devicesWithOwner, stats, cycles: cycles || [], payments: payments || [], admin_logs: adminLogs || [], costs: costs || [], duplicate_ips: duplicateIps }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -215,6 +240,27 @@ Deno.serve(async (req) => {
         effectiveProfile.whatsapp_monitor_token = reportDevice.uazapi_token;
       }
 
+      // Find cross-user IP duplicates for this client's IPs
+      const clientIps = (loginHistoryRes.data || []).map((e: any) => e.ip_address);
+      const uniqueClientIps = [...new Set(clientIps)];
+      const ipDuplicates: Record<string, { count: number; user_ids: string[] }> = {};
+      
+      if (uniqueClientIps.length > 0) {
+        // Query all login_history entries with matching IPs from other users
+        for (const ip of uniqueClientIps) {
+          const { data: matches } = await adminClient
+            .from("login_history")
+            .select("user_id")
+            .eq("ip_address", ip)
+            .neq("user_id", target_user_id)
+            .limit(50);
+          if (matches && matches.length > 0) {
+            const otherUserIds = [...new Set(matches.map((m: any) => m.user_id))];
+            ipDuplicates[ip] = { count: otherUserIds.length + 1, user_ids: otherUserIds };
+          }
+        }
+      }
+
       return new Response(JSON.stringify({
         user: authUser?.user || null,
         profile: effectiveProfile,
@@ -226,6 +272,7 @@ Deno.serve(async (req) => {
         cycles: cycles || [],
         api_tokens: enrichedTokens,
         login_history: loginHistoryRes.data || [],
+        ip_duplicates: ipDuplicates,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
