@@ -16,8 +16,7 @@ async function fetchWithTimeout(url: string, opts: RequestInit, timeout = TIMEOU
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
-    const res = await fetch(url, { ...opts, signal: controller.signal });
-    return res;
+    return await fetch(url, { ...opts, signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }
@@ -27,6 +26,7 @@ interface GroupInfo {
   jid: string;
   name: string;
   participants_count: number;
+  participants?: any[];
 }
 
 interface Participant {
@@ -37,12 +37,12 @@ interface Participant {
   is_admin: boolean;
 }
 
-// ── List groups from UAZAPI ──
-async function listGroups(baseUrl: string, token: string): Promise<GroupInfo[]> {
+// ── Fetch all groups WITH participants from UAZAPI ──
+async function fetchGroupsWithParticipants(baseUrl: string, token: string): Promise<GroupInfo[]> {
   const endpoints = [
-    `${baseUrl}/group/fetchAllGroups?getParticipants=false`,
+    `${baseUrl}/group/list?GetParticipants=true&count=500`,
     `${baseUrl}/group/fetchAllGroups`,
-    `${baseUrl}/group/list?GetParticipants=false&count=500`,
+    `${baseUrl}/group/fetchAllGroups?getParticipants=true`,
     `${baseUrl}/group/listAll`,
     `${baseUrl}/chats?type=group`,
   ];
@@ -52,109 +52,76 @@ async function listGroups(baseUrl: string, token: string): Promise<GroupInfo[]> 
 
   for (const ep of endpoints) {
     try {
+      console.log(`[extractor] Trying endpoint: ${ep}`);
       const res = await fetchWithTimeout(ep, { method: "GET", headers });
-      if (!res.ok) continue;
+      if (!res.ok) {
+        console.log(`[extractor] ${ep} returned ${res.status}`);
+        continue;
+      }
       const raw = await res.text();
       let parsed: any = null;
       try { parsed = raw ? JSON.parse(raw) : null; } catch { continue; }
       if (!parsed) continue;
 
+      // Find the groups array
       const candidates = [parsed, parsed?.groups, parsed?.data, parsed?.data?.groups, parsed?.chats, parsed?.data?.chats];
       const rows: any[] = [];
       for (const c of candidates) {
-        if (Array.isArray(c)) rows.push(...c);
+        if (Array.isArray(c)) { rows.push(...c); break; }
       }
+
+      console.log(`[extractor] Found ${rows.length} groups from ${ep}`);
 
       for (const g of rows) {
         const jid = g?.JID || g?.jid || g?.id || g?.groupJid || g?.chatId || null;
-        const name = g?.subject || g?.name || g?.Name || g?.title || "Grupo";
+        const name = g?.Name || g?.subject || g?.name || g?.title || "Grupo";
         if (!jid || !String(jid).includes("@g.us")) continue;
-        const pCount = g?.size || g?.participants?.length || g?.memberCount || g?.Size || 0;
-        if (!dedup.has(jid)) dedup.set(jid, { jid, name, participants_count: pCount });
+
+        // Get participants array
+        const participants = g?.Participants || g?.participants || [];
+        const pCount = participants.length || g?.size || g?.memberCount || g?.Size || 0;
+
+        if (!dedup.has(jid)) {
+          dedup.set(jid, { jid, name, participants_count: pCount, participants });
+        }
       }
 
-      if (dedup.size > 0) return Array.from(dedup.values());
-    } catch { continue; }
+      if (dedup.size > 0) {
+        console.log(`[extractor] Success: ${dedup.size} groups with participants`);
+        return Array.from(dedup.values());
+      }
+    } catch (err: any) {
+      console.log(`[extractor] Error on ${ep}: ${err?.message}`);
+      continue;
+    }
   }
   return [];
 }
 
-// ── Extract participants from a single group ──
-async function extractParticipants(baseUrl: string, token: string, groupJid: string, groupName: string): Promise<Participant[]> {
-  const endpoints = [
-    { url: `${baseUrl}/group/participants?groupJid=${encodeURIComponent(groupJid)}`, method: "GET" as const },
-    { url: `${baseUrl}/group/fetchAllGroups`, method: "GET" as const },
-    { url: `${baseUrl}/group/inviteInfo`, method: "POST" as const, body: { groupJid } },
-  ];
+// ── Extract participants from cached group data ──
+function parseParticipants(rawParticipants: any[], groupJid: string, groupName: string): Participant[] {
+  const results: Participant[] = [];
+  for (const p of rawParticipants) {
+    // PhoneNumber format: "5511913292286@s.whatsapp.net" or plain number
+    const phoneRaw = p?.PhoneNumber || p?.phoneNumber || p?.phone || p?.number || p?.id || p?.jid || p?.JID || "";
+    const cleanPhone = String(phoneRaw).replace(/@.*$/, "").replace(/[^0-9]/g, "");
+    if (!cleanPhone || cleanPhone.length < 8) continue;
 
-  const headers: Record<string, string> = { token, Accept: "application/json" };
-  const participants: Participant[] = [];
+    const name = p?.DisplayName || p?.displayName || p?.name || p?.pushName || p?.notify || p?.Name || "";
+    const isAdmin = p?.IsAdmin === true || p?.IsSuperAdmin === true ||
+                    p?.isAdmin === true || p?.isSuperAdmin === true ||
+                    p?.admin === "admin" || p?.admin === "superadmin" ||
+                    p?.role === "admin" || p?.role === "superadmin";
 
-  for (const ep of endpoints) {
-    try {
-      const opts: RequestInit = { method: ep.method, headers: { ...headers } };
-      if (ep.method === "POST") {
-        (opts.headers as any)["Content-Type"] = "application/json";
-        opts.body = JSON.stringify(ep.body || {});
-      }
-      const res = await fetchWithTimeout(ep.url, opts);
-      if (!res.ok) continue;
-      const raw = await res.text();
-      let parsed: any = null;
-      try { parsed = raw ? JSON.parse(raw) : null; } catch { continue; }
-      if (!parsed) continue;
-
-      // Try to find participants array
-      let pList: any[] = [];
-
-      // Direct array of participants
-      if (Array.isArray(parsed)) {
-        pList = parsed;
-      } else if (Array.isArray(parsed?.participants)) {
-        pList = parsed.participants;
-      } else if (Array.isArray(parsed?.data)) {
-        pList = parsed.data;
-      } else if (Array.isArray(parsed?.data?.participants)) {
-        pList = parsed.data.participants;
-      }
-
-      // If this is fetchAllGroups, find specific group
-      if (pList.length === 0 && !Array.isArray(parsed)) {
-        const candidates = [parsed, parsed?.groups, parsed?.data];
-        for (const c of candidates) {
-          if (!Array.isArray(c)) continue;
-          const group = c.find((g: any) => {
-            const gJid = g?.JID || g?.jid || g?.id || g?.groupJid || "";
-            return gJid === groupJid;
-          });
-          if (group?.participants) {
-            pList = group.participants;
-            break;
-          }
-        }
-      }
-
-      for (const p of pList) {
-        const phone = p?.id || p?.phone || p?.number || p?.jid || p?.ID || "";
-        const cleanPhone = String(phone).replace(/@.*$/, "").replace(/[^0-9]/g, "");
-        if (!cleanPhone || cleanPhone.length < 8) continue;
-
-        const name = p?.name || p?.pushName || p?.notify || p?.Name || "";
-        const isAdmin = p?.admin === "admin" || p?.admin === "superadmin" || p?.isAdmin === true || p?.isSuperAdmin === true || p?.role === "admin" || p?.role === "superadmin";
-
-        participants.push({
-          phone: cleanPhone,
-          name: String(name || ""),
-          group_jid: groupJid,
-          group_name: groupName,
-          is_admin: isAdmin,
-        });
-      }
-
-      if (participants.length > 0) return participants;
-    } catch { continue; }
+    results.push({
+      phone: cleanPhone,
+      name: String(name || ""),
+      group_jid: groupJid,
+      group_name: groupName,
+      is_admin: isAdmin,
+    });
   }
-  return participants;
+  return results;
 }
 
 Deno.serve(async (req) => {
@@ -168,7 +135,6 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Auth: verify user
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -181,7 +147,6 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, device_id, group_jids, filters } = body;
 
-    // Get device credentials
     const { data: device, error: devErr } = await adminClient
       .from("devices")
       .select("id, name, uazapi_base_url, uazapi_token, user_id, status")
@@ -192,7 +157,6 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Device not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Verify ownership
     if (device.user_id !== user.id) {
       return new Response(JSON.stringify({ error: "Not your device" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -205,9 +169,16 @@ Deno.serve(async (req) => {
     const token = device.uazapi_token;
 
     // ── ACTION: list_groups ──
+    // Returns groups WITH participant counts (fetched with participants to get accurate count)
     if (action === "list_groups") {
-      const groups = await listGroups(baseUrl, token);
-      return new Response(JSON.stringify({ groups }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const groups = await fetchGroupsWithParticipants(baseUrl, token);
+      // Strip participants from response to keep it light
+      const summary = groups.map(g => ({
+        jid: g.jid,
+        name: g.name,
+        participants_count: g.participants_count,
+      }));
+      return new Response(JSON.stringify({ groups: summary }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ── ACTION: extract_participants ──
@@ -216,16 +187,25 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "No groups selected" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      const selectedJids = new Set(group_jids.map((g: any) => typeof g === "string" ? g : g.jid));
+      const selectedNames = new Map<string, string>();
+      for (const g of group_jids) {
+        if (typeof g === "object") selectedNames.set(g.jid, g.name || g.jid);
+      }
+
+      console.log(`[extractor] Extracting from ${selectedJids.size} groups`);
+
+      // Fetch all groups with full participant data
+      const allGroups = await fetchGroupsWithParticipants(baseUrl, token);
+
       const allParticipants: Participant[] = [];
 
-      // Process groups sequentially to avoid API overload
-      for (const gInfo of group_jids) {
-        const jid = typeof gInfo === "string" ? gInfo : gInfo.jid;
-        const name = typeof gInfo === "string" ? jid : (gInfo.name || jid);
-        try {
-          const participants = await extractParticipants(baseUrl, token, jid, name);
-          allParticipants.push(...participants);
-        } catch { /* skip failed group */ }
+      for (const group of allGroups) {
+        if (!selectedJids.has(group.jid)) continue;
+        const gName = selectedNames.get(group.jid) || group.name;
+        const participants = parseParticipants(group.participants || [], group.jid, gName);
+        console.log(`[extractor] Group "${gName}": ${participants.length} participants`);
+        allParticipants.push(...participants);
       }
 
       // Apply filters
@@ -241,7 +221,7 @@ Deno.serve(async (req) => {
         filtered = filtered.filter(p => !p.is_admin);
       }
 
-      // Deduplicate by phone number (keep first occurrence)
+      // Deduplicate by phone number
       const seen = new Map<string, Participant>();
       for (const p of filtered) {
         if (!seen.has(p.phone)) {
@@ -250,6 +230,7 @@ Deno.serve(async (req) => {
       }
 
       const deduplicated = Array.from(seen.values());
+      console.log(`[extractor] Result: ${deduplicated.length} unique leads (${filtered.length} before dedup)`);
 
       return new Response(JSON.stringify({
         total: deduplicated.length,
@@ -260,6 +241,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ error: "Invalid action" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
+    console.error(`[extractor] Fatal error: ${err?.message}`);
     return new Response(JSON.stringify({ error: err?.message || "Internal error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
