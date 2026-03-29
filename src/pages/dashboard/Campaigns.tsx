@@ -99,6 +99,29 @@ interface Contact {
   var10: string;
 }
 
+const CONTACT_VARIANT_KEYS = ["var1", "var2", "var3", "var4", "var5", "var6", "var7", "var8", "var9", "var10"] as const;
+
+const normalizeNumberValue = (value: string) => value.replace(/\D/g, "");
+
+const normalizeLidValue = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  return trimmed.replace(/\s+/g, "").replace(/^@+/, "").replace(/@lid$/i, "");
+};
+
+const normalizeContactIdentifier = (value: string, mode: "number" | "lid") =>
+  mode === "lid" ? normalizeLidValue(value).toLowerCase() : normalizeNumberValue(value);
+
+const buildCampaignRecipient = (value: string, mode: "number" | "lid") => {
+  if (mode === "lid") {
+    const normalized = normalizeLidValue(value);
+    return normalized ? `${normalized}@lid` : "";
+  }
+
+  return normalizeNumberValue(value);
+};
+
 type ColumnMapping = "nome" | "numero" | "var1" | "var2" | "var3" | "var4" | "var5" | "var6" | "var7" | "var8" | "var9" | "var10" | "ignorar";
 
 interface RawImportData {
@@ -288,6 +311,7 @@ const Campaigns = () => {
   const [messagesPerInstance, setMessagesPerInstance] = useState(0);
   const [sendMode, setSendMode] = useState<"single" | "rotation" | "parallel">("rotation");
   const [contactMode, setContactMode] = useState<"number" | "lid">("number");
+  const [manualVariantCount, setManualVariantCount] = useState(0);
 
   // Delay profile mutations (after delay state is declared)
   const saveDelayProfile = useMutation({
@@ -464,7 +488,7 @@ const Campaigns = () => {
     toast({ title: "Mensagem limpa" });
   };
   const clearStep2 = () => {
-    setContacts([]); setShowContactTable(false); setContactPage(0);
+    setContacts([]); setShowContactTable(false); setContactPage(0); setManualVariantCount(0);
     toast({ title: "Contatos limpos" });
   };
   const clearStep3 = () => {
@@ -510,15 +534,27 @@ const Campaigns = () => {
     }
   }, [connectedDevices]);
 
-  const validContacts = useMemo(() => contacts.filter(c => c.numero.trim()), [contacts]);
+  const validContacts = useMemo(() => contacts.filter(c => normalizeContactIdentifier(c.numero, contactMode)), [contacts, contactMode]);
   const invalidContacts = useMemo(() => {
     if (contactMode === "lid") {
-      // LID mode: any non-empty value is valid
-      return contacts.filter(c => c.numero.trim() && c.numero.trim().length < 3);
+      return contacts.filter(c => {
+        const normalized = normalizeLidValue(c.numero);
+        return normalized.length > 0 && normalized.length < 3;
+      });
     }
     return contacts.filter(c => c.numero.trim() && !/^\d{10,15}$/.test(c.numero.replace(/\D/g, "")));
   }, [contacts, contactMode]);
-  const duplicateCount = useMemo(() => contacts.length - new Set(contacts.map(c => c.numero.trim()).filter(Boolean)).size, [contacts]);
+  const duplicateCount = useMemo(() => {
+    const normalizedContacts = contacts.map(c => normalizeContactIdentifier(c.numero, contactMode)).filter(Boolean);
+    return normalizedContacts.length - new Set(normalizedContacts).size;
+  }, [contacts, contactMode]);
+  const detectedVariantCount = useMemo(() => {
+    const lastUsedIndex = CONTACT_VARIANT_KEYS.reduce((max, key, index) => (
+      contacts.some(contact => contact[key]?.trim()) ? index + 1 : max
+    ), 0);
+
+    return Math.max(lastUsedIndex, manualVariantCount);
+  }, [contacts, manualVariantCount]);
   const hasButtons = buttons.filter(b => b.text.trim()).length > 0;
   const computedMessageType = detectMessageType(mediaUrl, hasButtons);
 
@@ -665,9 +701,7 @@ const Campaigns = () => {
       buttons: normalizedMessage.buttons.map(b => ({ type: b.type, text: b.text, value: b.value })),
       carousel_cards: contentType === "carousel" ? serializeCarouselCards(carouselCards) : undefined,
       contacts: validContacts.map(c => {
-        const phoneValue = contactMode === "lid"
-          ? (c.numero.includes("@lid") ? c.numero : `${c.numero.replace(/\D/g, "")}@lid`)
-          : c.numero;
+        const phoneValue = buildCampaignRecipient(c.numero, contactMode);
         return { phone: phoneValue, name: c.nome || undefined, var1: c.var1 || "", var2: c.var2 || "", var3: c.var3 || "", var4: c.var4 || "", var5: c.var5 || "", var6: c.var6 || "", var7: c.var7 || "", var8: c.var8 || "", var9: c.var9 || "", var10: c.var10 || "" };
       }),
       scheduled_at: scheduleEnabled && scheduleDate ? new Date(scheduleDate).toISOString() : undefined,
@@ -710,7 +744,7 @@ const Campaigns = () => {
             },
           });
         }
-        setCampaignName(""); setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName(""); setContacts([]); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]); setContentType("text"); setCarouselCards([createEmptyCard(0)]); setCarouselMessages(["", "", "", "", ""]); setActiveCarouselMsgTab(0); setStep(1); localStorage.removeItem(DRAFT_KEY);
+        setCampaignName(""); setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName(""); setContacts([]); setManualVariantCount(0); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]); setContentType("text"); setCarouselCards([createEmptyCard(0)]); setCarouselMessages(["", "", "", "", ""]); setActiveCarouselMsgTab(0); setStep(1); localStorage.removeItem(DRAFT_KEY);
       },
       onError: (err: any) => {
         releaseSendLock();
@@ -897,12 +931,17 @@ const Campaigns = () => {
   const addContact = () => { setContacts(prev => [{ id: Date.now(), nome: "", numero: "", var1: "", var2: "", var3: "", var4: "", var5: "", var6: "", var7: "", var8: "", var9: "", var10: "" }, ...prev]); setShowContactTable(true); };
   const updateContact = (id: number, field: keyof Contact, value: string) => setContacts(contacts.map(c => c.id === id ? { ...c, [field]: value } : c));
   const removeContact = (id: number) => setContacts(contacts.filter(c => c.id !== id));
+  const addManualVariant = () => {
+    setManualVariantCount(prev => Math.min(prev + 1, CONTACT_VARIANT_KEYS.length));
+    setContacts(prev => prev.length > 0 ? prev : [{ id: Date.now(), nome: "", numero: "", var1: "", var2: "", var3: "", var4: "", var5: "", var6: "", var7: "", var8: "", var9: "", var10: "" }]);
+    setShowContactTable(true);
+  };
 
   const removeDuplicates = () => {
     const before = contacts.length;
     const seen = new Set<string>();
     const unique = contacts.filter(c => {
-      const num = c.numero.trim();
+      const num = normalizeContactIdentifier(c.numero, contactMode);
       if (!num) return true; // keep contacts without number
       if (seen.has(num)) return false;
       seen.add(num);
@@ -959,7 +998,7 @@ const Campaigns = () => {
       ? savedContacts.filter(c => selectedSavedContactIds.has(c.id))
       : filteredSavedContacts;
     const imported: Contact[] = toImport.map((c, i) => ({
-      id: Date.now() + i, nome: c.name, numero: c.phone.replace(/\D/g, ""),
+      id: Date.now() + i, nome: c.name, numero: normalizeContactIdentifier(c.phone, contactMode),
       var1: c.var1 || "", var2: c.var2 || "", var3: c.var3 || "", var4: c.var4 || "", var5: c.var5 || "",
       var6: c.var6 || "", var7: c.var7 || "", var8: c.var8 || "", var9: c.var9 || "", var10: c.var10 || "",
     }));
@@ -1080,7 +1119,7 @@ const Campaigns = () => {
       imported.push({
         id: Date.now() + i,
         nome,
-        numero: rawNum.replace(/\D/g, ""),
+        numero: normalizeContactIdentifier(rawNum, contactMode),
         var1: varIndices.var1 !== undefined ? String(row[varIndices.var1] ?? "") : "",
         var2: varIndices.var2 !== undefined ? String(row[varIndices.var2] ?? "") : "",
         var3: varIndices.var3 !== undefined ? String(row[varIndices.var3] ?? "") : "",
@@ -2076,6 +2115,9 @@ const Campaigns = () => {
                 <Button variant="outline" size="sm" className="text-xs h-9 border-border/20 gap-1.5 hover:bg-primary/5 hover:border-primary/30" onClick={addContact}>
                   <Plus className="w-3.5 h-3.5" /> Manual
                 </Button>
+                <Button variant="outline" size="sm" className="text-xs h-9 border-border/20 gap-1.5 hover:bg-primary/5 hover:border-primary/30" onClick={addManualVariant} disabled={detectedVariantCount >= CONTACT_VARIANT_KEYS.length}>
+                  <Hash className="w-3.5 h-3.5" /> Adicionar variante
+                </Button>
 
                 {contacts.length > 0 && (
                   <>
@@ -2221,9 +2263,10 @@ const Campaigns = () => {
 
             {/* Contact table */}
             {showContactTable && contacts.length > 0 && (() => {
-              const varKeys = (["var1","var2","var3","var4","var5","var6","var7","var8","var9","var10"] as const)
-                .filter(k => contacts.some(c => c[k]?.trim()));
-              const isNumValid = (n: string) => /^\d{10,15}$/.test(n.replace(/\D/g, ""));
+              const varKeys = CONTACT_VARIANT_KEYS.slice(0, detectedVariantCount);
+              const isNumValid = (n: string) => contactMode === "lid"
+                ? normalizeLidValue(n).length >= 3
+                : /^\d{10,15}$/.test(n.replace(/\D/g, ""));
               return (
               <SurfaceCard className="p-0 overflow-hidden">
                 <div className="overflow-x-auto overflow-y-auto max-h-[420px] rounded-xl scrollbar-thin">
@@ -2256,7 +2299,7 @@ const Campaigns = () => {
                             <div className="flex items-center gap-2">
                               <Input value={c.numero} onChange={(e) => updateContact(c.id, "numero", e.target.value)} className={cn("h-8 text-xs bg-transparent border-none p-0 font-mono focus-visible:ring-0", !valid && c.numero && "text-amber-400")} placeholder={contactMode === "lid" ? "@lead" : "Número"} />
                               {!valid && c.numero && (
-                                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Número inválido" />
+                                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title={contactMode === "lid" ? "@Lead inválido" : "Número inválido"} />
                               )}
                             </div>
                           </td>
