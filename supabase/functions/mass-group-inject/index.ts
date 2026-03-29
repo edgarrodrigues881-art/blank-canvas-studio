@@ -266,14 +266,78 @@ function collectParticipantsFromValue(value: any, participants: Set<string>) {
 async function getGroupParticipantsDetailed(baseUrl: string, token: string, groupId: string): Promise<{ participants: Set<string>; confirmed: boolean; diagnostics: string[] }> {
   const participants = new Set<string>();
   const diagnostics: string[] = [];
-  const strategies = [
-    { method: "GET", url: `${baseUrl}/group/participants?groupJid=${encodeURIComponent(groupId)}` },
-    { method: "GET", url: `${baseUrl}/group/participantsList?groupJid=${encodeURIComponent(groupId)}` },
+
+  // ── Strategy 1 (BEST): /group/list?GetParticipants=true — returns all groups with full participant lists ──
+  // This is the same endpoint used by the group extractor and is the most reliable
+  try {
+    const listUrl = `${baseUrl}/group/list?GetParticipants=true&count=500`;
+    console.log(`getGroupParticipants: trying ${listUrl}`);
+    const res = await fetchWithTimeout(listUrl, { method: "GET", headers: buildHeaders(token) });
+    if (res.ok) {
+      const { body } = await readApiResponse(res);
+      const groups = Array.isArray(body) ? body : body?.groups || body?.data || [];
+      if (Array.isArray(groups)) {
+        const targetGroup = groups.find((g: any) => {
+          const jid = g?.JID || g?.jid || g?.id || g?.groupId || "";
+          return jid === groupId;
+        });
+        if (targetGroup) {
+          const pList = targetGroup?.Participants || targetGroup?.participants || targetGroup?.members || [];
+          if (Array.isArray(pList)) {
+            for (const p of pList) {
+              const id = typeof p === "string" ? p : (p?.JID || p?.jid || p?.id || p?.number || p?.phone || p?.participant || "");
+              if (id) {
+                for (const fp of buildPhoneFingerprints(id)) participants.add(fp);
+              }
+            }
+          }
+          if (participants.size > 0) {
+            console.log(`getGroupParticipants: found ${participants.size} from /group/list?GetParticipants=true`);
+            return { participants, confirmed: true, diagnostics };
+          }
+          diagnostics.push(`/group/list?GetParticipants=true: grupo encontrado mas sem participantes`);
+        } else {
+          diagnostics.push(`/group/list?GetParticipants=true: grupo ${groupId} não encontrado na lista (${groups.length} grupos)`);
+        }
+      }
+    } else {
+      diagnostics.push(`/group/list?GetParticipants=true: HTTP ${res.status}`);
+    }
+  } catch (error) {
+    diagnostics.push(`/group/list?GetParticipants=true: ${error instanceof Error ? error.message : "erro"}`);
+  }
+
+  // ── Strategy 2: /group/fetchAllGroups — alternative bulk endpoint ──
+  try {
+    const fetchAllUrl = `${baseUrl}/group/fetchAllGroups`;
+    const res = await fetchWithTimeout(fetchAllUrl, { method: "GET", headers: buildHeaders(token) });
+    if (res.ok) {
+      const { body } = await readApiResponse(res);
+      const groups = Array.isArray(body) ? body : body?.groups || body?.data || [];
+      if (Array.isArray(groups)) {
+        const targetGroup = groups.find((g: any) => (g?.JID || g?.jid || g?.id || "") === groupId);
+        if (targetGroup) {
+          collectParticipantsFromValue(targetGroup, participants);
+          if (participants.size > 0) {
+            console.log(`getGroupParticipants: found ${participants.size} from /group/fetchAllGroups`);
+            return { participants, confirmed: true, diagnostics };
+          }
+        }
+      }
+    } else {
+      diagnostics.push(`/group/fetchAllGroups: HTTP ${res.status}`);
+    }
+  } catch (error) {
+    diagnostics.push(`/group/fetchAllGroups: ${error instanceof Error ? error.message : "erro"}`);
+  }
+
+  // ── Strategy 3-5: individual group info endpoints (fallback) ──
+  const fallbackStrategies = [
     { method: "POST", url: `${baseUrl}/group/info`, body: { groupJid: groupId } },
     { method: "GET", url: `${baseUrl}/group/info?groupJid=${encodeURIComponent(groupId)}` },
     { method: "POST", url: `${baseUrl}/chat/info`, body: { chatId: groupId } },
   ];
-  for (const strategy of strategies) {
+  for (const strategy of fallbackStrategies) {
     try {
       const res = await fetchWithTimeout(strategy.url, {
         method: strategy.method,
@@ -284,7 +348,10 @@ async function getGroupParticipantsDetailed(baseUrl: string, token: string, grou
       if (!res.ok) { diagnostics.push(`${strategy.method} ${strategy.url}: HTTP ${res.status}`); continue; }
       collectParticipantsFromValue(body, participants);
       collectParticipantsFromValue(raw, participants);
-      if (participants.size > 0) return { participants, confirmed: true, diagnostics };
+      if (participants.size > 0) {
+        console.log(`getGroupParticipants: found ${participants.size} from ${strategy.url}`);
+        return { participants, confirmed: true, diagnostics };
+      }
       diagnostics.push(`${strategy.method} ${strategy.url}: resposta sem participantes`);
     } catch (error) {
       diagnostics.push(`${strategy.method} ${strategy.url}: ${error instanceof Error ? error.message : "erro"}`);
