@@ -287,6 +287,7 @@ const Campaigns = () => {
   const [pauseDurationMax, setPauseDurationMax] = useState(120);
   const [messagesPerInstance, setMessagesPerInstance] = useState(0);
   const [sendMode, setSendMode] = useState<"single" | "rotation" | "parallel">("rotation");
+  const [contactMode, setContactMode] = useState<"number" | "lid">("number");
 
   // Delay profile mutations (after delay state is declared)
   const saveDelayProfile = useMutation({
@@ -510,7 +511,13 @@ const Campaigns = () => {
   }, [connectedDevices]);
 
   const validContacts = useMemo(() => contacts.filter(c => c.numero.trim()), [contacts]);
-  const invalidContacts = useMemo(() => contacts.filter(c => c.numero.trim() && !/^\d{10,15}$/.test(c.numero.replace(/\D/g, ""))), [contacts]);
+  const invalidContacts = useMemo(() => {
+    if (contactMode === "lid") {
+      // LID mode: any non-empty value is valid
+      return contacts.filter(c => c.numero.trim() && c.numero.trim().length < 3);
+    }
+    return contacts.filter(c => c.numero.trim() && !/^\d{10,15}$/.test(c.numero.replace(/\D/g, "")));
+  }, [contacts, contactMode]);
   const duplicateCount = useMemo(() => contacts.length - new Set(contacts.map(c => c.numero.trim()).filter(Boolean)).size, [contacts]);
   const hasButtons = buttons.filter(b => b.text.trim()).length > 0;
   const computedMessageType = detectMessageType(mediaUrl, hasButtons);
