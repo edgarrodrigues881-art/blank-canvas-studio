@@ -809,7 +809,7 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     return contacts.filter((c: any) => RETRYABLE_EXPORT_STATUSES.has(c.status));
   }, [contacts]);
 
-  const isRunning = campaign.status === "processing" || campaign.status === "queued";
+  const isRunning = campaign?.status === "processing" || campaign?.status === "queued";
 
   const nextRunAtLabel = useMemo(() => {
     if (!campaign?.next_run_at || !isRunning) return "Sem agendamento ativo";
