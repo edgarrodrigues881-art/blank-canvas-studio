@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -159,10 +159,10 @@ export default function GroupLeadExtractor() {
     toast.success(`${leads.length} números copiados!`);
   };
 
-  const exportCSV = () => {
+  const exportCSV = useCallback(() => {
     const header = "Número,Nome,Grupo,Admin\n";
-    const rows = leads.map(l => `${l.phone},"${l.name}","${l.group_name}",${l.is_admin ? "Sim" : "Não"}`).join("\n");
-    const blob = new Blob([header + rows], { type: "text/csv" });
+    const rows = leads.map(l => `${l.phone},"${l.name.replace(/"/g, '""')}","${l.group_name.replace(/"/g, '""')}",${l.is_admin ? "Sim" : "Não"}`).join("\n");
+    const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -170,7 +170,31 @@ export default function GroupLeadExtractor() {
     a.click();
     URL.revokeObjectURL(url);
     toast.success("CSV exportado!");
-  };
+  }, [leads]);
+
+  const exportXLSX = useCallback(async () => {
+    const XLSX = await import("xlsx");
+    const data = leads.map((l, i) => ({
+      "#": i + 1,
+      "Número": l.phone,
+      "Nome": l.name || "",
+      "Grupo": l.group_name,
+      "Tipo": l.is_admin ? "Admin" : "Membro",
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    // Auto column widths
+    ws["!cols"] = [
+      { wch: 5 },
+      { wch: 18 },
+      { wch: 25 },
+      { wch: 30 },
+      { wch: 10 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Leads");
+    XLSX.writeFile(wb, `leads_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success("XLSX exportado!");
+  }, [leads]);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -348,7 +372,10 @@ export default function GroupLeadExtractor() {
                   <Copy className="w-3.5 h-3.5 mr-1.5" /> Copiar Números
                 </Button>
                 <Button variant="outline" size="sm" onClick={exportCSV}>
-                  <Download className="w-3.5 h-3.5 mr-1.5" /> Exportar CSV
+                  <Download className="w-3.5 h-3.5 mr-1.5" /> CSV
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportXLSX}>
+                  <Download className="w-3.5 h-3.5 mr-1.5" /> XLSX
                 </Button>
               </div>
             </div>
