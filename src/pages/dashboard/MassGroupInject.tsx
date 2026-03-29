@@ -809,6 +809,8 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     return contacts.filter((c: any) => RETRYABLE_EXPORT_STATUSES.has(c.status));
   }, [contacts]);
 
+  const isRunning = campaign.status === "processing" || campaign.status === "queued";
+
   const nextRunAtLabel = useMemo(() => {
     if (!campaign?.next_run_at || !isRunning) return "Sem agendamento ativo";
     const diffMs = new Date(campaign.next_run_at).getTime() - Date.now();
@@ -870,7 +872,6 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
   const failedCount = hasContactSnapshot ? derivedCounts.failed : (campaign.fail_count || 0);
   const pendingCount = hasContactSnapshot ? derivedCounts.pending : contacts.filter((c: any) => ACTIVE_QUEUE_STATUSES.has(c.status)).length;
 
-  const isRunning = campaign.status === "processing" || campaign.status === "queued";
   const canResume = (campaign.status === "paused" || campaign.status === "draft") && pendingCount > 0 && !isActionPending;
   const canPause = isRunning && !isActionPending;
   const canCancel = (isRunning || campaign.status === "paused") && campaign.status !== "cancelled" && campaign.status !== "done" && !isActionPending;
