@@ -2039,8 +2039,34 @@ const Campaigns = () => {
                 </button>
               )}
 
-              {/* Action bar — always visible */}
-              <div className="px-5 py-3.5 flex items-center gap-2 border-b border-border/8 bg-muted/3 dark:bg-muted/2">
+              {/* Mode toggle + Action bar */}
+              <div className="px-5 py-3.5 flex flex-wrap items-center gap-2 border-b border-border/8 bg-muted/3 dark:bg-muted/2">
+                {/* Contact mode toggle */}
+                <div className="flex items-center rounded-lg border border-border/30 overflow-hidden mr-1">
+                  <button
+                    onClick={() => setContactMode("number")}
+                    className={cn(
+                      "px-3 py-1.5 text-[11px] font-semibold transition-colors",
+                      contactMode === "number"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    )}
+                  >
+                    <Phone className="w-3 h-3 inline mr-1" />Número
+                  </button>
+                  <button
+                    onClick={() => setContactMode("lid")}
+                    className={cn(
+                      "px-3 py-1.5 text-[11px] font-semibold transition-colors",
+                      contactMode === "lid"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    )}
+                  >
+                    <EyeOff className="w-3 h-3 inline mr-1" />@lead
+                  </button>
+                </div>
+
                 <Button variant="outline" size="sm" className="text-xs h-9 border-border/20 gap-1.5 hover:bg-primary/5 hover:border-primary/30" onClick={() => fileRef.current?.click()}>
                   <Upload className="w-3.5 h-3.5" /> Planilha
                 </Button>
