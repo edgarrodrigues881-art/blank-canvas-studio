@@ -592,21 +592,21 @@ async function sendWithRetry(
 async function checkNumberExists(baseUrl: string, token: string, phone: string): Promise<{ exists: boolean; error?: string }> {
   try {
     const result = await uazapiRequest(baseUrl, token, "/check/exist", { number: phone });
+    // Only trust explicit "does not exist" responses from the API
     if (result?.exists === false || result?.numberExists === false || result?.status === "not_exists") {
       return { exists: false, error: "Número inválido" };
     }
     return { exists: true };
   } catch (err) {
     const msg = err.message || "";
+    // Only treat as disconnect if it's clearly a session/auth issue
     if (isDisconnectError(msg)) {
       return { exists: false, error: "WhatsApp desconectado" };
     }
-    if (isNotFoundError(msg)) {
-      return { exists: false, error: "Número não encontrado no WhatsApp" };
-    }
-    if (msg.includes("not on Whats") || msg.includes("not registered") || msg.includes("not_exists")) {
-      return { exists: false, error: "Número inválido" };
-    }
+    // For ANY other error (including "Not Found.", timeouts, 404s, etc.),
+    // assume number exists and let the actual send attempt determine the outcome.
+    // This prevents false negatives when /check/exist endpoint is unavailable or broken.
+    console.log(`checkNumberExists error for ${phone}: "${msg}" — assuming exists (will try to send)`);
     return { exists: true };
   }
 }
