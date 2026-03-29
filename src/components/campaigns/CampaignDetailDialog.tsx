@@ -136,7 +136,7 @@ export function CampaignDetailDialog({ open, onOpenChange, campaignId, campaignN
                   return (
                     <TableRow key={c.id}>
                       <TableCell className="text-sm text-foreground">
-                        {c.name || "—"}
+                        {c.name || c.phone || "—"}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground font-mono">
                         {c.phone}
