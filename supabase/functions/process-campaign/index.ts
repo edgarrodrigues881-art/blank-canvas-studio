@@ -1413,8 +1413,9 @@ Deno.serve(async (req) => {
           const activeToken = activeDevice.uazapi_token;
           const activeBaseUrl = (activeDevice.uazapi_base_url || "").replace(/\/+$/, "");
 
-          const phone = contact.phone.replace(/\D/g, "");
-          if (phone.length < 10) {
+          const isLidContact = contact.phone.includes("@lid");
+          const phone = isLidContact ? contact.phone.replace(/@lid/i, "") : contact.phone.replace(/\D/g, "");
+          if (!isLidContact && phone.length < 10) {
                 await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone, status: "failed", deviceId: activeDevice.id, errorMessage: "Número inválido" });
             failedCount++;
             if (failedCount % 5 === 0) await serviceClient.from("campaigns").update({ failed_count: failedCount }).eq("id", campaignId);
@@ -1429,7 +1430,7 @@ Deno.serve(async (req) => {
             const chosenMessage = messageVariants[msgIndex % messageVariants.length];
             if (sequentialMode) sequentialIndex = (sequentialIndex + 1) % messageVariants.length;
             const personalizedMessage = replaceVariables(chosenMessage, contact, rand4, rand3);
-            const normalizedPhone = normalizeBrazilianPhone(phone);
+            const normalizedPhone = isLidContact ? `${phone}@lid` : normalizeBrazilianPhone(phone);
 
             if (heartbeatCounter % 3 === 1) {
               const { data: deviceStatus } = await serviceClient.from("devices").select("status").eq("id", activeDevice.id).single();
@@ -1444,17 +1445,19 @@ Deno.serve(async (req) => {
               }
             }
 
-            const check = await checkNumberExists(activeBaseUrl, activeToken, normalizedPhone);
-            if (!check.exists) {
-                await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: normalizedPhone, status: "failed", deviceId: activeDevice.id, errorMessage: check.error || "Número inválido" });
-              failedCount++;
-              if (failedCount % 5 === 0) await serviceClient.from("campaigns").update({ failed_count: failedCount }).eq("id", campaignId);
-              if (check.error === "WhatsApp desconectado") {
-                const didPause = await handleDisconnectPause(serviceClient, campaignId, deviceIds, failedCount, campaign.name, campaign.user_id, pauseOnDisconnect);
-                if (didPause) break;
-                // If not paused, just skip this contact and continue
+            if (!isLidContact) {
+              const check = await checkNumberExists(activeBaseUrl, activeToken, normalizedPhone);
+              if (!check.exists) {
+                  await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: normalizedPhone, status: "failed", deviceId: activeDevice.id, errorMessage: check.error || "Número inválido" });
+                failedCount++;
+                if (failedCount % 5 === 0) await serviceClient.from("campaigns").update({ failed_count: failedCount }).eq("id", campaignId);
+                if (check.error === "WhatsApp desconectado") {
+                  const didPause = await handleDisconnectPause(serviceClient, campaignId, deviceIds, failedCount, campaign.name, campaign.user_id, pauseOnDisconnect);
+                  if (didPause) break;
+                  // If not paused, just skip this contact and continue
+                }
+                continue;
               }
-              continue;
             }
 
             if (sendAllMode && messageVariants.length > 1) {
