@@ -190,8 +190,9 @@ export default function GroupLeadExtractor() {
 
   // Virtualized row renderer
   const ROW_HEIGHT = 40;
-  const VirtualRow = ({ index, style }: { index: number; style: CSSProperties }) => {
+  const VirtualRow = ({ index, style }: { index: number; style: CSSProperties; [key: string]: any }) => {
     const lead = filteredLeads[index];
+    if (!lead) return null;
     return (
       <div style={style} className="flex items-center px-3 border-b border-border/20 text-sm hover:bg-muted/30">
         <div className="w-[50px] text-muted-foreground text-[11px] shrink-0">{index + 1}</div>
