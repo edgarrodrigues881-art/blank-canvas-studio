@@ -191,7 +191,7 @@ const CampaignDetail = () => {
       if (document.hidden) return false;
       const status = query.state.data?.status;
       if (status && ["running", "processing"].includes(status)) return 8000;
-      if (status && ["paused", "queued", "scheduled"].includes(status)) return 30000;
+      if (status && ["pending", "paused", "queued", "scheduled"].includes(status)) return 5000;
       return false;
     },
   });
@@ -235,7 +235,7 @@ const CampaignDetail = () => {
     enabled: !!id && !!user,
     refetchInterval: () => {
       if (document.hidden) return false;
-      if (campaign && ["running", "processing"].includes(campaign.status)) return 10000;
+      if (campaign && ["running", "processing", "pending"].includes(campaign.status)) return 5000;
       return false;
     },
   });
