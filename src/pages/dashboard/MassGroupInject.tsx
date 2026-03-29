@@ -11,6 +11,7 @@ import {
   StopCircle, AlertTriangle, TrendingUp, Plus, ArrowLeft,
   Eye, Info, WifiOff, Link2, Hash, AlertCircle, Download, RotateCcw
 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
