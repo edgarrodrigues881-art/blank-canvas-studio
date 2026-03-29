@@ -381,7 +381,10 @@ export default function GroupLeadExtractor() {
               disabled={selectedGroups.size === 0 || extracting}
             >
               {extracting ? (
-                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Extraindo leads...</>
+                <div className="flex flex-col items-center gap-1">
+                  <span className="flex items-center"><Loader2 className="w-4 h-4 animate-spin mr-2" /> Extraindo leads...</span>
+                  {extractProgress && <span className="text-[11px] opacity-70">{extractProgress}</span>}
+                </div>
               ) : (
                 <><Download className="w-4 h-4 mr-2" /> Extrair Leads de {selectedGroups.size} grupo(s)</>
               )}
@@ -402,6 +405,11 @@ export default function GroupLeadExtractor() {
                 {totalBeforeDedup > leads.length && (
                   <span className="text-[11px] text-muted-foreground">
                     ({totalBeforeDedup - leads.length} duplicados removidos)
+                  </span>
+                )}
+                {lidSkipped > 0 && (
+                  <span className="text-[11px] text-muted-foreground">
+                    • {lidSkipped} ocultos (comunidade)
                   </span>
                 )}
               </CardTitle>
