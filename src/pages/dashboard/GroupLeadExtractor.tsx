@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, CSSProperties } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,46 +8,34 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { List } from "react-window";
 import {
   Search, Users, Download, Loader2, Smartphone, Filter,
-  CheckCircle2, AlertCircle, RefreshCw, Copy, UserCheck, ShieldCheck
+  CheckCircle2, AlertCircle, RefreshCw, Copy, UserCheck, ShieldCheck, EyeOff
 } from "lucide-react";
 
-interface GroupInfo {
-  jid: string;
-  name: string;
-  participants_count: number;
-}
-
-interface ExtractedLead {
-  phone: string;
-  name: string;
-  group_jid: string;
-  group_name: string;
-  is_admin: boolean;
-}
+interface GroupInfo { jid: string; name: string; participants_count: number }
+interface ExtractedLead { phone: string; name: string; group_jid: string; group_name: string; is_admin: boolean }
 
 export default function GroupLeadExtractor() {
-  const [selectedDevice, setSelectedDevice] = useState<string>("");
+  const [selectedDevice, setSelectedDevice] = useState("");
   const [groups, setGroups] = useState<GroupInfo[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [extractProgress, setExtractProgress] = useState("");
   const [leads, setLeads] = useState<ExtractedLead[]>([]);
+  const [lidLeads, setLidLeads] = useState<ExtractedLead[]>([]);
   const [totalBeforeDedup, setTotalBeforeDedup] = useState(0);
-  const [lidSkipped, setLidSkipped] = useState(0);
   const [searchGroups, setSearchGroups] = useState("");
   const [searchLeads, setSearchLeads] = useState("");
-
-  // Filters
+  const [activeTab, setActiveTab] = useState("valid");
   const [brazilOnly, setBrazilOnly] = useState(false);
   const [participantType, setParticipantType] = useState<"all" | "admin" | "member">("all");
 
-  // Fetch user's connected devices
   const { data: devices = [] } = useQuery({
     queryKey: ["devices-for-extractor"],
     queryFn: async () => {
@@ -63,13 +51,10 @@ export default function GroupLeadExtractor() {
     staleTime: 30_000,
   });
 
-  // Load groups from selected device
   const handleLoadGroups = async () => {
     if (!selectedDevice) return;
     setLoadingGroups(true);
-    setGroups([]);
-    setSelectedGroups(new Set());
-    setLeads([]);
+    setGroups([]); setSelectedGroups(new Set()); setLeads([]); setLidLeads([]);
     try {
       const { data, error } = await supabase.functions.invoke("extract-group-leads", {
         body: { action: "list_groups", device_id: selectedDevice },
@@ -77,11 +62,9 @@ export default function GroupLeadExtractor() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setGroups(data.groups || []);
-      if ((data.groups || []).length === 0) {
-        toast.warning("Nenhum grupo encontrado nesta instância");
-      } else {
-        toast.success(`${data.groups.length} grupos encontrados`);
-      }
+      (data.groups?.length || 0) === 0
+        ? toast.warning("Nenhum grupo encontrado nesta instância")
+        : toast.success(`${data.groups.length} grupos encontrados`);
     } catch (err: any) {
       toast.error(err?.message || "Erro ao buscar grupos");
     } finally {
@@ -89,26 +72,14 @@ export default function GroupLeadExtractor() {
     }
   };
 
-  // Extract participants
   const handleExtract = async () => {
-    if (selectedGroups.size === 0) {
-      toast.warning("Selecione pelo menos um grupo");
-      return;
-    }
-    setExtracting(true);
-    setLeads([]);
-    setLidSkipped(0);
-    setExtractProgress("Iniciando extração...");
-
+    if (selectedGroups.size === 0) { toast.warning("Selecione pelo menos um grupo"); return; }
+    setExtracting(true); setLeads([]); setLidLeads([]); setExtractProgress("Iniciando extração...");
     try {
-      const allGroupInfos = groups
-        .filter(g => selectedGroups.has(g.jid))
-        .map(g => ({ jid: g.jid, name: g.name }));
-
-      // Process in batches of 20 to avoid timeouts
+      const allGroupInfos = groups.filter(g => selectedGroups.has(g.jid)).map(g => ({ jid: g.jid, name: g.name }));
       const BATCH_SIZE = 20;
-      const allLeads: ExtractedLead[] = [];
-      let totalLidSkipped = 0;
+      const allValid: ExtractedLead[] = [];
+      const allLids: ExtractedLead[] = [];
       let totalRaw = 0;
 
       for (let i = 0; i < allGroupInfos.length; i += BATCH_SIZE) {
@@ -122,36 +93,34 @@ export default function GroupLeadExtractor() {
             action: "extract_participants",
             device_id: selectedDevice,
             group_jids: batch,
-            filters: {
-              brazil_only: brazilOnly,
-              participant_type: participantType === "all" ? null : participantType,
-            },
+            filters: { brazil_only: brazilOnly, participant_type: participantType === "all" ? null : participantType },
           },
         });
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
-
-        allLeads.push(...(data.participants || []));
-        totalLidSkipped += data.lid_skipped || 0;
+        allValid.push(...(data.participants || []));
+        allLids.push(...(data.lid_participants || []));
         totalRaw += data.total_before_dedup || 0;
       }
 
-      // Final client-side dedup across batches
-      const seen = new Map<string, ExtractedLead>();
-      for (const l of allLeads) {
-        if (!seen.has(l.phone)) seen.set(l.phone, l);
-      }
-      const deduplicated = Array.from(seen.values());
+      // Dedup across batches
+      const dedup = (arr: ExtractedLead[]) => {
+        const seen = new Map<string, ExtractedLead>();
+        for (const l of arr) if (!seen.has(l.phone)) seen.set(l.phone, l);
+        return Array.from(seen.values());
+      };
+      const validDedup = dedup(allValid);
+      const lidDedup = dedup(allLids);
 
-      setLeads(deduplicated);
-      setTotalBeforeDedup(allLeads.length);
-      setLidSkipped(totalLidSkipped);
+      setLeads(validDedup);
+      setLidLeads(lidDedup);
+      setTotalBeforeDedup(allValid.length);
       setExtractProgress("");
 
-      const dupes = allLeads.length - deduplicated.length;
-      let msg = `${deduplicated.length} leads extraídos`;
-      if (dupes > 0) msg += ` (${dupes} duplicados removidos)`;
-      if (totalLidSkipped > 0) msg += ` — ${totalLidSkipped} contatos de comunidade ignorados (número oculto)`;
+      const dupes = allValid.length - validDedup.length;
+      let msg = `${validDedup.length} leads com número`;
+      if (lidDedup.length > 0) msg += ` + ${lidDedup.length} @lead (comunidade)`;
+      if (dupes > 0) msg += ` — ${dupes} duplicados removidos`;
       toast.success(msg);
     } catch (err: any) {
       toast.error(err?.message || "Erro na extração");
@@ -167,106 +136,109 @@ export default function GroupLeadExtractor() {
     return groups.filter(g => g.name.toLowerCase().includes(q) || g.jid.includes(q));
   }, [groups, searchGroups]);
 
+  const currentLeads = activeTab === "valid" ? leads : lidLeads;
+
   const filteredLeads = useMemo(() => {
-    if (!searchLeads) return leads;
+    if (!searchLeads) return currentLeads;
     const q = searchLeads.toLowerCase();
-    return leads.filter(l =>
+    return currentLeads.filter(l =>
       l.phone.includes(q) || l.name.toLowerCase().includes(q) || l.group_name.toLowerCase().includes(q)
     );
-  }, [leads, searchLeads]);
+  }, [currentLeads, searchLeads]);
 
   const toggleGroup = (jid: string) => {
-    setSelectedGroups(prev => {
-      const next = new Set(prev);
-      next.has(jid) ? next.delete(jid) : next.add(jid);
-      return next;
-    });
+    setSelectedGroups(prev => { const n = new Set(prev); n.has(jid) ? n.delete(jid) : n.add(jid); return n; });
   };
-
   const toggleAll = () => {
-    if (selectedGroups.size === filteredGroups.length) {
-      setSelectedGroups(new Set());
-    } else {
-      setSelectedGroups(new Set(filteredGroups.map(g => g.jid)));
-    }
+    selectedGroups.size === filteredGroups.length
+      ? setSelectedGroups(new Set())
+      : setSelectedGroups(new Set(filteredGroups.map(g => g.jid)));
   };
 
-  const copyAllPhones = () => {
-    const phones = leads.map(l => l.phone).join("\n");
+  const copyPhones = useCallback(() => {
+    const phones = currentLeads.map(l => l.phone).join("\n");
     navigator.clipboard.writeText(phones);
-    toast.success(`${leads.length} números copiados!`);
-  };
+    toast.success(`${currentLeads.length} números copiados!`);
+  }, [currentLeads]);
 
   const exportCSV = useCallback(() => {
-    const header = "Número,Nome,Grupo,Admin\n";
-    const rows = leads.map(l => `${l.phone},"${l.name.replace(/"/g, '""')}","${l.group_name.replace(/"/g, '""')}",${l.is_admin ? "Sim" : "Não"}`).join("\n");
+    const header = "Número,Nome,Grupo,Tipo\n";
+    const rows = currentLeads.map(l =>
+      `${l.phone},"${l.name.replace(/"/g, '""')}","${l.group_name.replace(/"/g, '""')}",${l.is_admin ? "Admin" : "Membro"}`
+    ).join("\n");
     const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `leads_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const a = document.createElement("a"); a.href = url;
+    a.download = `leads_${activeTab}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
     toast.success("CSV exportado!");
-  }, [leads]);
+  }, [currentLeads, activeTab]);
 
   const exportXLSX = useCallback(async () => {
     const XLSX = await import("xlsx");
-    const data = leads.map((l, i) => ({
-      "#": i + 1,
-      "Número": l.phone,
-      "Nome": l.name || "",
-      "Grupo": l.group_name,
+    const data = currentLeads.map((l, i) => ({
+      "#": i + 1, "Número": l.phone, "Nome": l.name || "", "Grupo": l.group_name,
       "Tipo": l.is_admin ? "Admin" : "Membro",
     }));
     const ws = XLSX.utils.json_to_sheet(data);
-    // Auto column widths
-    ws["!cols"] = [
-      { wch: 5 },
-      { wch: 18 },
-      { wch: 25 },
-      { wch: 30 },
-      { wch: 10 },
-    ];
+    ws["!cols"] = [{ wch: 5 }, { wch: 18 }, { wch: 25 }, { wch: 30 }, { wch: 10 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Leads");
-    XLSX.writeFile(wb, `leads_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `leads_${activeTab}_${new Date().toISOString().slice(0, 10)}.xlsx`);
     toast.success("XLSX exportado!");
-  }, [leads]);
+  }, [currentLeads, activeTab]);
+
+  // Virtualized row renderer
+  const ROW_HEIGHT = 40;
+  const VirtualRow = ({ index, style }: { index: number; style: CSSProperties; [key: string]: any }) => {
+    const lead = filteredLeads[index];
+    if (!lead) return null;
+    return (
+      <div style={style} className="flex items-center px-3 border-b border-border/20 text-sm hover:bg-muted/30">
+        <div className="w-[50px] text-muted-foreground text-[11px] shrink-0">{index + 1}</div>
+        <div className="w-[160px] font-mono shrink-0 truncate">{lead.phone}</div>
+        <div className="w-[200px] shrink-0 truncate">{lead.name || <span className="text-muted-foreground/40">—</span>}</div>
+        <div className="flex-1 text-muted-foreground truncate min-w-0">{lead.group_name}</div>
+        <div className="w-[80px] shrink-0 text-right">
+          {lead.is_admin ? (
+            <Badge variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/20">
+              <ShieldCheck className="w-3 h-3 mr-0.5" /> Admin
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="text-[10px]">Membro</Badge>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const hasResults = leads.length > 0 || lidLeads.length > 0;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Users className="w-6 h-6 text-primary" />
           Extrator de Grupos
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Extraia leads de grupos e comunidades do WhatsApp
-        </p>
+        <p className="text-sm text-muted-foreground mt-1">Extraia leads de grupos e comunidades do WhatsApp</p>
       </div>
 
-      {/* Step 1: Select Instance */}
+      {/* Step 1 */}
       <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Smartphone className="w-4 h-4 text-primary" />
-            1. Selecionar Instância
+            <Smartphone className="w-4 h-4 text-primary" /> 1. Selecionar Instância
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex gap-3 items-end">
             <div className="flex-1">
               <Select value={selectedDevice} onValueChange={setSelectedDevice}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma instância conectada" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Selecione uma instância conectada" /></SelectTrigger>
                 <SelectContent>
                   {devices.map(d => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name} {d.number ? `(${d.number})` : ""}
-                    </SelectItem>
+                    <SelectItem key={d.id} value={d.id}>{d.name} {d.number ? `(${d.number})` : ""}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -279,14 +251,13 @@ export default function GroupLeadExtractor() {
         </CardContent>
       </Card>
 
-      {/* Step 2: Groups List */}
+      {/* Step 2 */}
       {groups.length > 0 && (
         <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Users className="w-4 h-4 text-primary" />
-                2. Selecionar Grupos
+                <Users className="w-4 h-4 text-primary" /> 2. Selecionar Grupos
                 <Badge variant="secondary" className="ml-2">{groups.length} grupos</Badge>
               </CardTitle>
               <div className="flex items-center gap-2">
@@ -300,35 +271,21 @@ export default function GroupLeadExtractor() {
           <CardContent>
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar grupo..."
-                value={searchGroups}
-                onChange={e => setSearchGroups(e.target.value)}
-                className="pl-9"
-              />
+              <Input placeholder="Buscar grupo..." value={searchGroups} onChange={e => setSearchGroups(e.target.value)} className="pl-9" />
             </div>
             <ScrollArea className="h-[300px] rounded-md border border-border/30">
               <div className="space-y-0.5 p-2">
                 {filteredGroups.map(g => (
-                  <label
-                    key={g.jid}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
-                      selectedGroups.has(g.jid)
-                        ? "bg-primary/10 border border-primary/20"
-                        : "hover:bg-muted/40 border border-transparent"
-                    }`}
-                  >
-                    <Checkbox
-                      checked={selectedGroups.has(g.jid)}
-                      onCheckedChange={() => toggleGroup(g.jid)}
-                    />
+                  <label key={g.jid} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
+                    selectedGroups.has(g.jid) ? "bg-primary/10 border border-primary/20" : "hover:bg-muted/40 border border-transparent"
+                  }`}>
+                    <Checkbox checked={selectedGroups.has(g.jid)} onCheckedChange={() => toggleGroup(g.jid)} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{g.name}</p>
                       <p className="text-[11px] text-muted-foreground font-mono truncate">{g.jid}</p>
                     </div>
                     <Badge variant="secondary" className="shrink-0 text-[11px]">
-                      <Users className="w-3 h-3 mr-1" />
-                      {g.participants_count || "?"}
+                      <Users className="w-3 h-3 mr-1" />{g.participants_count || "?"}
                     </Badge>
                   </label>
                 ))}
@@ -338,13 +295,12 @@ export default function GroupLeadExtractor() {
         </Card>
       )}
 
-      {/* Step 3: Filters */}
+      {/* Step 3 */}
       {groups.length > 0 && (
         <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Filter className="w-4 h-4 text-primary" />
-              3. Filtros
+              <Filter className="w-4 h-4 text-primary" /> 3. Filtros
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -356,30 +312,16 @@ export default function GroupLeadExtractor() {
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Tipo:</span>
                 <Select value={participantType} onValueChange={(v: any) => setParticipantType(v)}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">
-                      <span className="flex items-center gap-2"><Users className="w-3.5 h-3.5" /> Todos</span>
-                    </SelectItem>
-                    <SelectItem value="admin">
-                      <span className="flex items-center gap-2"><ShieldCheck className="w-3.5 h-3.5" /> Apenas Admins</span>
-                    </SelectItem>
-                    <SelectItem value="member">
-                      <span className="flex items-center gap-2"><UserCheck className="w-3.5 h-3.5" /> Apenas Membros</span>
-                    </SelectItem>
+                    <SelectItem value="all"><span className="flex items-center gap-2"><Users className="w-3.5 h-3.5" /> Todos</span></SelectItem>
+                    <SelectItem value="admin"><span className="flex items-center gap-2"><ShieldCheck className="w-3.5 h-3.5" /> Apenas Admins</span></SelectItem>
+                    <SelectItem value="member"><span className="flex items-center gap-2"><UserCheck className="w-3.5 h-3.5" /> Apenas Membros</span></SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
-
-            <Button
-              className="mt-4 w-full"
-              size="lg"
-              onClick={handleExtract}
-              disabled={selectedGroups.size === 0 || extracting}
-            >
+            <Button className="mt-4 w-full" size="lg" onClick={handleExtract} disabled={selectedGroups.size === 0 || extracting}>
               {extracting ? (
                 <div className="flex flex-col items-center gap-1">
                   <span className="flex items-center"><Loader2 className="w-4 h-4 animate-spin mr-2" /> Extraindo leads...</span>
@@ -393,93 +335,97 @@ export default function GroupLeadExtractor() {
         </Card>
       )}
 
-      {/* Step 4: Results */}
-      {leads.length > 0 && (
+      {/* Step 4: Results with tabs */}
+      {hasResults && (
         <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                 Leads Extraídos
-                <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">{leads.length}</Badge>
-                {totalBeforeDedup > leads.length && (
-                  <span className="text-[11px] text-muted-foreground">
-                    ({totalBeforeDedup - leads.length} duplicados removidos)
-                  </span>
-                )}
-                {lidSkipped > 0 && (
-                  <span className="text-[11px] text-muted-foreground">
-                    • {lidSkipped} ocultos (comunidade)
-                  </span>
-                )}
               </CardTitle>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={copyAllPhones}>
-                  <Copy className="w-3.5 h-3.5 mr-1.5" /> Copiar Números
+                <Button variant="outline" size="sm" onClick={copyPhones} disabled={currentLeads.length === 0}>
+                  <Copy className="w-3.5 h-3.5 mr-1.5" /> Copiar ({currentLeads.length})
                 </Button>
-                <Button variant="outline" size="sm" onClick={exportCSV}>
+                <Button variant="outline" size="sm" onClick={exportCSV} disabled={currentLeads.length === 0}>
                   <Download className="w-3.5 h-3.5 mr-1.5" /> CSV
                 </Button>
-                <Button variant="outline" size="sm" onClick={exportXLSX}>
+                <Button variant="outline" size="sm" onClick={exportXLSX} disabled={currentLeads.length === 0}>
                   <Download className="w-3.5 h-3.5 mr-1.5" /> XLSX
                 </Button>
               </div>
             </div>
           </CardHeader>
           <CardContent>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-3">
+              <TabsList>
+                <TabsTrigger value="valid" className="gap-1.5">
+                  <Users className="w-3.5 h-3.5" /> Com Número
+                  <Badge variant="secondary" className="ml-1 text-[10px] px-1.5">{leads.length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="lid" className="gap-1.5">
+                  <EyeOff className="w-3.5 h-3.5" /> @lead (Ocultos)
+                  <Badge variant="secondary" className="ml-1 text-[10px] px-1.5">{lidLeads.length}</Badge>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {totalBeforeDedup > leads.length && activeTab === "valid" && (
+              <p className="text-[11px] text-muted-foreground mb-2">
+                {totalBeforeDedup - leads.length} duplicados removidos
+              </p>
+            )}
+
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar lead por número, nome ou grupo..."
+                placeholder="Buscar por número, nome ou grupo..."
                 value={searchLeads}
                 onChange={e => setSearchLeads(e.target.value)}
                 className="pl-9"
               />
             </div>
-            <ScrollArea className="h-[400px] rounded-md border border-border/30">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[40px]">#</TableHead>
-                    <TableHead>Número</TableHead>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Grupo</TableHead>
-                    <TableHead className="w-[80px]">Tipo</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredLeads.map((lead, i) => (
-                    <TableRow key={`${lead.phone}-${lead.group_jid}-${i}`}>
-                      <TableCell className="text-muted-foreground text-[11px]">{i + 1}</TableCell>
-                      <TableCell className="font-mono text-sm">{lead.phone}</TableCell>
-                      <TableCell className="text-sm">{lead.name || <span className="text-muted-foreground/50">—</span>}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground truncate max-w-[200px]">{lead.group_name}</TableCell>
-                      <TableCell>
-                        {lead.is_admin ? (
-                          <Badge variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/20">
-                            <ShieldCheck className="w-3 h-3 mr-0.5" /> Admin
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-[10px]">Membro</Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
+
+            {/* Header */}
+            <div className="flex items-center px-3 py-2 bg-muted/50 rounded-t-md border border-border/30 border-b-0 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <div className="w-[50px] shrink-0">#</div>
+              <div className="w-[160px] shrink-0">Número</div>
+              <div className="w-[200px] shrink-0">Nome</div>
+              <div className="flex-1 min-w-0">Grupo</div>
+              <div className="w-[80px] shrink-0 text-right">Tipo</div>
+            </div>
+
+            {/* Virtualized list */}
+            <div className="border border-border/30 rounded-b-md overflow-hidden">
+              {filteredLeads.length > 0 ? (
+                <List
+                  style={{ height: Math.min(500, filteredLeads.length * ROW_HEIGHT) }}
+                  rowComponent={VirtualRow as any}
+                  rowCount={filteredLeads.length}
+                  rowHeight={ROW_HEIGHT}
+                  rowProps={{}}
+                  overscanCount={20}
+                />
+              ) : (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  {searchLeads ? "Nenhum lead encontrado com esse filtro" : "Nenhum lead nesta categoria"}
+                </div>
+              )}
+            </div>
+
+            <p className="text-[11px] text-muted-foreground mt-2">
+              Exibindo {filteredLeads.length.toLocaleString()} de {currentLeads.length.toLocaleString()} leads
+            </p>
           </CardContent>
         </Card>
       )}
 
-      {/* Empty state */}
       {groups.length === 0 && !loadingGroups && (
         <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
           <CardContent className="py-12 text-center">
             <AlertCircle className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-muted-foreground text-sm">
-              Selecione uma instância e clique em "Buscar Grupos" para começar
-            </p>
+            <p className="text-muted-foreground text-sm">Selecione uma instância e clique em "Buscar Grupos" para começar</p>
           </CardContent>
         </Card>
       )}
