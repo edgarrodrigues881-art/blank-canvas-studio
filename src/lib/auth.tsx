@@ -271,10 +271,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               }
 
               // Redirect to Welcome splash on first login (email confirmation redirect)
+              // Never hijack the dedicated backoffice entry flow.
+              const currentPath = window.location.pathname + window.location.search;
+              const isBackofficeRoute = window.location.pathname.startsWith("/backoffice");
               const welcomeShown = localStorage.getItem(`dg_welcome_shown_${newSession.user.id}`);
-              if (!welcomeShown && window.location.pathname !== "/welcome") {
+              if (!welcomeShown && window.location.pathname !== "/welcome" && !isBackofficeRoute) {
                 localStorage.setItem(`dg_welcome_shown_${newSession.user.id}`, "true");
-                const currentPath = window.location.pathname + window.location.search;
                 const redirectTo = currentPath.startsWith("/dashboard") ? currentPath : "/dashboard";
                 window.location.href = `/welcome?to=${encodeURIComponent(redirectTo)}`;
               }
