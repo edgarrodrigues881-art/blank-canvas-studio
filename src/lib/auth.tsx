@@ -224,6 +224,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(currentSession?.user ?? null);
         markBackendRecovered();
         if (isMounted) setBackendDown(false);
+        // Record IP on initial session load too
+        if (currentSession?.user) {
+          recordLoginIp(currentSession.user.id);
+        }
         if (remember === "false") {
           sessionStorage.setItem("dg_session_alive", "true");
         }
