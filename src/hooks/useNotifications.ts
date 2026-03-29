@@ -71,6 +71,7 @@ const dedupeNotifications = (items: Notification[]) => {
 
 export function useNotifications() {
   const { user } = useAuth();
+
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const audioUnlockedRef = useRef(false);
   const initialLoadDoneRef = useRef(false);
