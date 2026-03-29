@@ -395,6 +395,7 @@ const Campaigns = () => {
           if (draft.rotationMode) setRotationMode(draft.rotationMode);
           else if (draft.rotateMessages !== undefined) setRotationMode(draft.rotateMessages ? "random" : "all");
           if (draft.messageType) setMessageType(draft.messageType);
+          if (draft.contactMode === "lid" || draft.contactMode === "number") setContactMode(draft.contactMode);
           if (draft.mediaUrl) setMediaUrl(draft.mediaUrl);
           if (draft.contacts?.length) { setContacts(draft.contacts); setShowContactTable(true); }
           if (draft.buttons?.length) setButtons(draft.buttons);
@@ -434,6 +435,11 @@ const Campaigns = () => {
         if (resendRaw) {
           sessionStorage.removeItem("resend_campaign_data");
           const resend = JSON.parse(resendRaw);
+          const resendContactMode: "number" | "lid" = resend.contactMode === "lid"
+            || resend.contacts?.some((contact: { numero?: string }) => typeof contact?.numero === "string" && /@lid$/i.test(contact.numero.trim()))
+            ? "lid"
+            : "number";
+          setContactMode(resendContactMode);
           if (resend.contacts?.length) { setContacts(resend.contacts); setShowContactTable(true); }
           if (resend.message) {
             // Split message variants back into individual slots
@@ -469,13 +475,13 @@ const Campaigns = () => {
   useEffect(() => {
     if (!draftLoaded) return;
     const draft = {
-      campaignName, messages, rotationMode, messageType, mediaUrl, contacts,
+      campaignName, messages, rotationMode, messageType, contactMode, mediaUrl, contacts,
       buttons, selectedDevices, messagesPerInstance, sendMode,
       minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax,
       scheduleEnabled, scheduleDate, contentType, carouselCards, carouselMessages,
     };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  }, [draftLoaded, campaignName, messages, rotationMode, messageType, mediaUrl, contacts, buttons, selectedDevices, messagesPerInstance, sendMode, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, scheduleEnabled, scheduleDate, contentType, carouselCards, carouselMessages]);
+  }, [draftLoaded, campaignName, messages, rotationMode, messageType, contactMode, mediaUrl, contacts, buttons, selectedDevices, messagesPerInstance, sendMode, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, scheduleEnabled, scheduleDate, contentType, carouselCards, carouselMessages]);
 
   const clearStep1 = () => {
     setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random"); setMediaUrl(""); setMediaFileName("");
