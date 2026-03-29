@@ -628,6 +628,8 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
 
   // ── Toast notifications from events table (reliable, no event loss) ──
   const eventGroupRef = useRef<{ counts: Record<string, { count: number; level: string }>; timer: ReturnType<typeof setTimeout> | null }>({ counts: {}, timer: null });
+  const consumeEventsInFlightRef = useRef(false);
+  const consumedEventIdsRef = useRef<Set<string>>(new Set());
 
   const EVENT_LABELS: Record<string, { msg: string; groupable?: boolean }> = {
     contact_added: { msg: "Contato adicionado com sucesso", groupable: true },
@@ -672,6 +674,9 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
   useEffect(() => {
     if (!campaignId) return;
     const consumeEvents = async () => {
+      if (consumeEventsInFlightRef.current) return;
+      consumeEventsInFlightRef.current = true;
+
       const { data: events } = await supabase
         .from("mass_inject_events")
         .select("id, event_type, event_level, message")
@@ -680,10 +685,16 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
         .order("created_at", { ascending: true })
         .limit(50);
 
-      if (!events || events.length === 0) return;
+      const unseenEvents = (events || []).filter((event: any) => !consumedEventIdsRef.current.has(event.id));
+      if (unseenEvents.length === 0) {
+        consumeEventsInFlightRef.current = false;
+        return;
+      }
+
+      unseenEvents.forEach((event: any) => consumedEventIdsRef.current.add(event.id));
 
       // Mark all as consumed immediately
-      const ids = events.map((e: any) => e.id);
+      const ids = unseenEvents.map((e: any) => e.id);
       await supabase
         .from("mass_inject_events")
         .update({ consumed: true })
@@ -691,7 +702,7 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
 
       // Process events
       const ref = eventGroupRef.current;
-      for (const ev of events) {
+      for (const ev of unseenEvents) {
         const label = EVENT_LABELS[ev.event_type];
         if (!label) continue;
 
@@ -709,6 +720,8 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
       if (Object.keys(ref.counts).length > 0 && !ref.timer) {
         ref.timer = setTimeout(flushGroupedEvents, 3000);
       }
+
+      consumeEventsInFlightRef.current = false;
     };
 
     // Only poll while campaign is active
@@ -1118,7 +1131,6 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   const [liveCurrentDevice, setLiveCurrentDevice] = useState("");
   const [liveStatus, setLiveStatus] = useState<"running" | "paused" | "waiting_pause" | "done" | "cancelled">("running");
   const [liveElapsed, setLiveElapsed] = useState(0);
-  const [campaignId, setCampaignId] = useState<string | null>(null);
   const [liveRuntimeNote, setLiveRuntimeNote] = useState("A fila será processada com validação isolada por contato.");
 
   const cancelRef = useRef(false);
@@ -1165,19 +1177,6 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [isProcessing]);
-
-  // ── Auto-pause campaign on unmount ──
-  useEffect(() => {
-    return () => {
-      if (campaignId && isProcessing) {
-        cancelRef.current = true;
-        supabase.from("mass_inject_campaigns").update({
-          status: "paused",
-          updated_at: new Date().toISOString(),
-        } as any).eq("id", campaignId).then(() => {});
-      }
-    };
-  }, [campaignId, isProcessing]);
 
   // ── Load groups for a SINGLE device (clear previous state) ──
   const handleLoadGroups = useCallback(async (deviceId: string) => {
@@ -1430,6 +1429,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   }, [validationResult, groupId, selectedGroups, primaryDeviceId]);
 
   const handleProcess = useCallback(async () => {
+    if (isProcessing) return;
     const contacts = participantCheck?.ready?.length ? participantCheck.ready : (validationResult?.valid || []);
     if (contacts.length === 0) return toast.error("Nenhum contato válido para processar");
     setConfirmOpen(false);
@@ -1472,7 +1472,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     } finally {
       setIsProcessing(false);
     }
-  }, [validationResult, participantCheck, groupId, groupName, selectedGroups, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, campaignName, selectedGroup, qc, onCampaignCreated]);
+  }, [validationResult, participantCheck, groupId, groupName, selectedGroups, selectedDeviceIds, minDelay, maxDelay, pauseAfter, pauseDuration, rotateAfter, campaignName, selectedGroup, qc, onCampaignCreated, isProcessing]);
 
   const handlePause = useCallback(() => { pauseRef.current = !pauseRef.current; setIsPaused(pauseRef.current); }, []);
   const handleCancel = useCallback(() => { cancelRef.current = true; pauseRef.current = false; setIsPaused(false); }, []);
@@ -1508,7 +1508,7 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => {
+            <Button variant="ghost" size="sm" disabled={isProcessing} onClick={() => {
             if (isProcessing) {
               toast.info("Campanha pausada. Você pode retomá-la pela lista de campanhas.", { duration: 4000 });
             }
@@ -2109,8 +2109,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                 <Search className="w-4 h-4" /> Verificar Existentes
               </Button>
             )}
-            <Button onClick={() => setConfirmOpen(true)} disabled={totalToProcess === 0 || isChecking} className="gap-2 h-11 px-8 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg">
-              <Play className="w-4 h-4" /> Iniciar Campanha ({totalToProcess} contatos)
+            <Button onClick={() => setConfirmOpen(true)} disabled={totalToProcess === 0 || isChecking || isProcessing} className="gap-2 h-11 px-8 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg">
+              {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} {isProcessing ? "Iniciando campanha..." : `Iniciar Campanha (${totalToProcess} contatos)`}
             </Button>
           </div>
         </div>
@@ -2136,8 +2136,13 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleProcess} className="bg-emerald-600 hover:bg-emerald-700 text-white">Iniciar Campanha</AlertDialogAction>
+            <AlertDialogCancel disabled={isProcessing}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={isProcessing} onClick={(event) => {
+              event.preventDefault();
+              void handleProcess();
+            }} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              {isProcessing ? "Iniciando..." : "Iniciar Campanha"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
