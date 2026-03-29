@@ -1123,8 +1123,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   };
   const draft = useRef(loadDraft());
 
-  const [minDelay, setMinDelay] = useState(draft.current?.minDelay ?? 30);
-  const [maxDelay, setMaxDelay] = useState(draft.current?.maxDelay ?? 60);
+  const [minDelay, setMinDelay] = useState(draft.current?.minDelay ?? 10);
+  const [maxDelay, setMaxDelay] = useState(draft.current?.maxDelay ?? 30);
   const [pauseAfter, setPauseAfter] = useState(draft.current?.pauseAfter ?? 0);
   const [pauseDuration, setPauseDuration] = useState(draft.current?.pauseDuration ?? 30);
   const [rotateAfter, setRotateAfter] = useState(draft.current?.rotateAfter ?? 0);
