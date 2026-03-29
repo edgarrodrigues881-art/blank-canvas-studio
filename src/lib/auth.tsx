@@ -73,6 +73,7 @@ function recordLoginIp(userId: string) {
 }
 
 
+async function getValidatedSession() {
   const {
     data: { session: currentSession },
   } = await supabase.auth.getSession();
