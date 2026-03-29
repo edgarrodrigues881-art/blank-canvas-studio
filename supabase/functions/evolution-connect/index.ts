@@ -648,10 +648,14 @@ Deno.serve(async (req) => {
       // CRITICAL FIX: Pre-disconnect to clear stale sessions that block QR generation
       // If the instance is in a half-state (not connected, not fully disconnected),
       // Uazapi won't generate a new QR code. Force disconnect first.
+      // Also force disconnect when device has NO number in DB (fresh/recreated device)
+      // but UAZAPI reports "connected" — this means a stale session from a deleted instance.
       const preCheck = await uazapi(instanceUrl, "/instance/status", currentToken, "GET", undefined, { timeoutMs: 5000, retries: 0 });
       const preStatus = (preCheck.data?.instance?.status || preCheck.data?.status || "").toLowerCase();
-      if (preCheck.ok && preStatus !== "disconnected" && preStatus !== "connected") {
-        console.log(`[evolution-connect] pre-disconnect: status="${preStatus}" — forcing disconnect before connect`);
+      const deviceHasNoNumber = !device?.number || device.number.trim() === "";
+      const isStaleConnected = preStatus === "connected" && deviceHasNoNumber;
+      if (preCheck.ok && (isStaleConnected || (preStatus !== "disconnected" && preStatus !== "connected"))) {
+        console.log(`[evolution-connect] pre-disconnect: status="${preStatus}" deviceHasNumber=${!deviceHasNoNumber} stale=${isStaleConnected} — forcing disconnect before connect`);
         await uazapi(instanceUrl, "/instance/disconnect", currentToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
         await new Promise(r => setTimeout(r, 1500));
       }

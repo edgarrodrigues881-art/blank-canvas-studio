@@ -701,6 +701,53 @@ const WarmupInstances = () => {
     enabled: !!user,
   });
 
+  // Fetch system groups (from warmup_groups where user_id IS NULL + warmup_groups_pool active)
+  const { data: systemGroups = [] } = useQuery({
+    queryKey: ["warmup_system_groups_bulk"],
+    queryFn: async () => {
+      const [wgRes, poolRes] = await Promise.all([
+        supabase
+          .from("warmup_groups" as any)
+          .select("id, name, link, is_custom, created_at")
+          .is("user_id", null)
+          .eq("is_custom", false)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("warmup_groups_pool")
+          .select("id, name, external_group_ref, is_active, created_at")
+          .eq("is_active", true)
+          .order("created_at", { ascending: false }),
+      ]);
+      const wgData = (wgRes.data || []) as any[];
+      const poolData = (poolRes.data || []).map((g: any) => ({
+        id: g.id,
+        name: g.name,
+        link: g.external_group_ref || "",
+        is_custom: false,
+        created_at: g.created_at,
+        _source: "pool",
+      }));
+      // Dedupe by name
+      const seen = new Set<string>();
+      const all: any[] = [];
+      for (const g of [...wgData, ...poolData]) {
+        const key = (g.name || "").toLowerCase().trim();
+        if (key && seen.has(key)) continue;
+        if (key) seen.add(key);
+        all.push(g);
+      }
+      return all;
+    },
+    enabled: bulkOpen,
+  });
+
+  // Combined groups for display based on source
+  const bulkDisplayGroups = useMemo(() => {
+    if (bulkGroupSource === "system") return systemGroups;
+    return userCustomGroups;
+  }, [bulkGroupSource, systemGroups, userCustomGroups]);
+  const hasAnyGroups = userCustomGroups.length > 0 || systemGroups.length > 0;
+
   // Always validate: user must have warmup_groups (custom OR system) to start warmup
   const selectedDeviceIds = useMemo(() => Array.from(bulkSelected), [bulkSelected]);
   const isAdvancedStart = Number(bulkStartDay) > 1;
