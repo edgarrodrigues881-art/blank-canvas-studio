@@ -484,8 +484,8 @@ const Campaigns = () => {
   const connectedDevices = useMemo(() => {
     const connectedStatuses = new Set(["connected", "ready", "authenticated", "open", "online", "active"]);
     return devices
-      .filter(d => connectedStatuses.has((d.status || "").trim().toLowerCase()))
-      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      .filter(d => connectedStatuses.has((d.status || "").trim().toLowerCase()) && d.number)
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { numeric: true }));
   }, [devices]);
   const selectedDevicesData = devices.filter(d => selectedDevices.includes(d.id));
   const selectedDeviceData = selectedDevicesData[0];
