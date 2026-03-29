@@ -2090,12 +2090,16 @@ const Campaigns = () => {
                         <DropdownMenuItem className="text-xs gap-2" onClick={removeDuplicates}>
                           <Copy className="w-3.5 h-3.5" /> Remover Duplicados
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-xs gap-2" onClick={removeInvalid}>
-                          <XCircle className="w-3.5 h-3.5" /> Remover Inválidos
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-xs gap-2" onClick={() => addPrefixToNumbers("55")}>
-                          <Phone className="w-3.5 h-3.5" /> Adicionar DDI (55)
-                        </DropdownMenuItem>
+                        {contactMode === "number" && (
+                          <>
+                            <DropdownMenuItem className="text-xs gap-2" onClick={removeInvalid}>
+                              <XCircle className="w-3.5 h-3.5" /> Remover Inválidos
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-xs gap-2" onClick={() => addPrefixToNumbers("55")}>
+                              <Phone className="w-3.5 h-3.5" /> Adicionar DDI (55)
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </>
