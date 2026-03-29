@@ -1506,11 +1506,11 @@ Deno.serve(async (req) => {
 
             const isLastContact = contacts.indexOf(contact) === contacts.length - 1;
             if (!isLastContact) {
-              const apiElapsed = Date.now() - sendStartTime;
+              // Use FULL configured delay — don't subtract API time
+              // The user expects the delay to be the actual wait between messages
               const targetDelay = randomBetween(minDelayMs, maxDelayMs);
-              const actualDelay = Math.max(500, targetDelay - apiElapsed);
-              console.log(`✅ Sent to ${phone} via ${activeDevice.name} | batch=${batchSent} sincePause=${msgsSincePause}/${pauseAfter} | wait=${Math.round(actualDelay / 1000)}s`);
-              await new Promise(resolve => setTimeout(resolve, actualDelay));
+              console.log(`✅ Sent to ${phone} via ${activeDevice.name} | batch=${batchSent} sincePause=${msgsSincePause}/${pauseAfter} | wait=${Math.round(targetDelay / 1000)}s`);
+              await new Promise(resolve => setTimeout(resolve, targetDelay));
             }
 
             if (msgsSincePause >= pauseAfter) {
