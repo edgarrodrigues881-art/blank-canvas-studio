@@ -1306,10 +1306,8 @@ Deno.serve(async (req) => {
 
                 const isLastInChunk = chunk.indexOf(contact) === chunk.length - 1;
                 if (!isLastInChunk) {
-                  const pApiElapsed = Date.now() - pSendStart;
                   const pTargetDelay = randomBetween(minDelayMs, maxDelayMs);
-                  const pActualDelay = Math.max(500, pTargetDelay - pApiElapsed);
-                  await new Promise(r => setTimeout(r, pActualDelay));
+                  await new Promise(r => setTimeout(r, pTargetDelay));
                 }
               } catch (err) {
                 const translated = translateErrorMessage(err.message || "Erro");
