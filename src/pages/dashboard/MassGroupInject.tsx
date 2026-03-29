@@ -16,7 +16,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -473,9 +472,8 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
                         </p>
                       )}
                       {c.status === "processing" && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <Progress value={progress} className="h-1.5 flex-1 max-w-[200px]" />
-                          <span className="text-[10px] text-primary font-semibold">{progress}%</span>
+                        <div className="mt-2 text-[10px] text-primary font-semibold">
+                          Em andamento • {sc}/{c.total_contacts || 0} processados
                         </div>
                       )}
                     </div>
@@ -811,6 +809,28 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     return contacts.filter((c: any) => RETRYABLE_EXPORT_STATUSES.has(c.status));
   }, [contacts]);
 
+  const isRunning = campaign.status === "processing" || campaign.status === "queued";
+
+  const nextRunAtLabel = useMemo(() => {
+    if (!campaign?.next_run_at || !isRunning) return "Sem agendamento ativo";
+    const diffMs = new Date(campaign.next_run_at).getTime() - Date.now();
+    if (diffMs <= 0) return "Executando agora";
+    const totalSec = Math.ceil(diffMs / 1000);
+    const min = Math.floor(totalSec / 60);
+    const sec = totalSec % 60;
+    return min > 0 ? `${min}m ${sec}s` : `${sec}s`;
+  }, [campaign?.next_run_at, isRunning]);
+
+  const lastDeviceUsed = useMemo(() => {
+    return contacts.find((contact: any) => !!contact.device_used)?.device_used || "—";
+  }, [contacts]);
+
+  const rotationSummary = useMemo(() => {
+    const rotateAfter = Number(campaign?.rotate_after || 0);
+    if (rotateAfter <= 0) return "Instância fixa";
+    return `Rotação a cada ${rotateAfter} contato(s)`;
+  }, [campaign?.rotate_after]);
+
   const handleExportNotAdded = useCallback(() => {
     if (retryableContacts.length === 0) { toast.info("Nenhum contato disponível para exportação"); return; }
     const lines = retryableContacts.map((c: any) => c.phone);
@@ -840,17 +860,18 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
 
   const derivedCounts = contacts.reduce((acc: any, contact: any) => {
     if (contact.status === "completed") acc.success++;
+    if (contact.status === "already_exists") acc.already++;
+    if (isFailureStatus(contact.status)) acc.failed++;
     if (ACTIVE_QUEUE_STATUSES.has(contact.status)) acc.pending++;
     return acc;
-  }, { success: 0, pending: 0 });
+  }, { success: 0, already: 0, failed: 0, pending: 0 });
 
   const hasContactSnapshot = contacts.length > 0;
   const successCount = hasContactSnapshot ? derivedCounts.success : (campaign.success_count || 0);
+  const alreadyCount = hasContactSnapshot ? derivedCounts.already : (campaign.already_count || 0);
+  const failedCount = hasContactSnapshot ? derivedCounts.failed : (campaign.fail_count || 0);
   const pendingCount = hasContactSnapshot ? derivedCounts.pending : contacts.filter((c: any) => ACTIVE_QUEUE_STATUSES.has(c.status)).length;
-  const processed = successCount + (campaign.total_contacts - successCount - pendingCount);
-  const progress = campaign.total_contacts > 0 ? Math.round((processed / campaign.total_contacts) * 100) : 0;
 
-  const isRunning = campaign.status === "processing" || campaign.status === "queued";
   const canResume = (campaign.status === "paused" || campaign.status === "draft") && pendingCount > 0 && !isActionPending;
   const canPause = isRunning && !isActionPending;
   const canCancel = (isRunning || campaign.status === "paused") && campaign.status !== "cancelled" && campaign.status !== "done" && !isActionPending;
@@ -949,11 +970,26 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
           <CardContent className="py-4 px-5">
             <div className="flex items-center gap-3 mb-3">
               <Loader2 className="w-5 h-5 text-primary animate-spin" />
-              <span className="text-sm font-semibold text-foreground">Campanha em andamento...</span>
-              <span className="text-sm text-primary font-bold ml-auto">{progress}%</span>
+              <span className="text-sm font-semibold text-foreground">Campanha em andamento</span>
             </div>
-            <Progress value={progress} className="h-2.5" />
-            
+            <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <div className="text-xs text-muted-foreground">Próxima tentativa</div>
+                <div className="font-medium text-foreground">{nextRunAtLabel}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Última instância</div>
+                <div className="font-medium text-foreground">{lastDeviceUsed}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Rotação</div>
+                <div className="font-medium text-foreground">{rotationSummary}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Resumo</div>
+                <div className="font-medium text-foreground">{successCount} add • {alreadyCount} já estavam • {failedCount} falhas</div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}

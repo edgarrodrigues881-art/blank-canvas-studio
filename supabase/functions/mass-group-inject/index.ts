@@ -162,6 +162,23 @@ function participantSetHasPhone(participants: Set<string>, phone: string) {
   return buildPhoneFingerprints(phone).some((fp) => participants.has(fp));
 }
 
+function hasExplicitFailureText(message: string) {
+  const normalized = String(message || "").toLowerCase();
+  return [
+    "failed",
+    "bad-request",
+    "not admin",
+    "not found",
+    "invalid group",
+    "invalid participant",
+    "unauthorized",
+    "blocked",
+    "forbidden",
+    "denied",
+    "unable to add",
+  ].some((token) => normalized.includes(token));
+}
+
 function buildHeaders(token: string, includeJson = false): Record<string, string> {
   const headers: Record<string, string> = {
     token,
@@ -791,18 +808,15 @@ function pickDeviceIdWithBlacklist(campaign: any, blacklist?: Set<string>) {
   const deviceIds = parseDeviceIds(campaign.device_ids).filter(id => !blacklist || !blacklist.has(id));
   if (deviceIds.length === 0) return null;
   if (deviceIds.length === 1) return deviceIds[0];
-  
+
+  const rotateAfterRaw = Number(campaign.rotate_after || 0);
+  if (rotateAfterRaw <= 0) return deviceIds[0];
+
   // Rotate based on TOTAL processed (success + fail + already), not just success
   const totalProcessed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0) + Number(campaign.already_count || 0);
-  const rotateAfter = Math.max(Number(campaign.rotate_after || 1), 1); // default: rotate every contact
+  const rotateAfter = Math.max(rotateAfterRaw, 1);
   const idx = Math.floor(totalProcessed / rotateAfter) % deviceIds.length;
-  
-  // Add randomness: 20% chance to pick a random device instead of sequential
-  if (Math.random() < 0.2 && deviceIds.length > 1) {
-    const randomIdx = randomBetween(0, deviceIds.length - 1);
-    return deviceIds[randomIdx];
-  }
-  
+
   return deviceIds[idx] || deviceIds[0];
 }
 
@@ -1230,7 +1244,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         const rawLower = `${raw} ${providerMessage}`.toLowerCase();
         const successLikeResponse = res.ok
           && !!(groupInfo?.JID || groupInfo?.jid || groupInfo?.Name || groupInfo?.name || respBody?.group || respBody?.data?.group)
-          && !/(failed|bad-request|not admin|not found|invalid|unauthorized|blocked|error)/.test(rawLower);
+          && !hasExplicitFailureText(providerMessage || rawLower);
 
         let currentParticipants = new Set<string>();
         collectParticipantsFromValue(groupInfo?.Participants || groupInfo?.participants || groupInfo?.members || [], currentParticipants);
@@ -1245,6 +1259,16 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
           }
         } catch (error) {
           console.warn(`[mass-inject] campaign=${campaignId} failed to refresh participants after add`, error);
+        }
+
+        if (groupUpdatedList.length === 0 && currentParticipants.size === 0 && successLikeResponse) {
+          for (const phone of phones) {
+            if (participantSetHasPhone(participantsBefore, phone)) {
+              batchResults.set(phone, { status: "already_exists", detail: "Contato já participava do grupo." });
+            } else {
+              batchResults.set(phone, { status: "completed", detail: "Adicionado com sucesso (resposta confirmada pela API)." });
+            }
+          }
         }
 
         // If no groupUpdated but we have participant list, check directly
@@ -1582,6 +1606,23 @@ Deno.serve(async (req) => {
     const { action } = body;
 
     if (action === "run-campaign") {
+      if (!internalRun) {
+        const { data: existingCampaign } = await sb
+          .from("mass_inject_campaigns")
+          .select("id, status, next_run_at")
+          .eq("id", body.campaignId)
+          .maybeSingle();
+
+        if (!existingCampaign) {
+          return new Response(JSON.stringify({ error: "Campanha não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        const nextRunAtMs = existingCampaign.next_run_at ? new Date(existingCampaign.next_run_at).getTime() : null;
+        if (["queued", "processing"].includes(existingCampaign.status) && nextRunAtMs && nextRunAtMs > Date.now() + 2000) {
+          return new Response(JSON.stringify({ success: true, skipped: true, reason: "already_scheduled" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+
       await runCampaignWorker(sb, body.campaignId, Number(body.initialDelayMs || 0));
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
