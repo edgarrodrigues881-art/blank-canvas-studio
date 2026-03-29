@@ -2228,7 +2228,7 @@ const Campaigns = () => {
                       <tr className="border-b border-border/10">
                         <th className="text-left px-4 py-3.5 text-muted-foreground/40 font-semibold w-10 text-[10px]">#</th>
                         <th className="text-left px-4 py-3.5 text-muted-foreground/40 font-semibold text-[10px] uppercase tracking-wider">Nome</th>
-                        <th className="text-left px-4 py-3.5 text-muted-foreground/40 font-semibold text-[10px] uppercase tracking-wider">Número</th>
+                        <th className="text-left px-4 py-3.5 text-muted-foreground/40 font-semibold text-[10px] uppercase tracking-wider">{contactMode === "lid" ? "@Lead" : "Número"}</th>
                         {varKeys.map(k => (
                           <th key={k} className="text-left px-4 py-3.5 text-muted-foreground/40 font-semibold text-[10px] uppercase tracking-wider">{k.replace("var", "Var ")}</th>
                         ))}
@@ -2250,7 +2250,7 @@ const Campaigns = () => {
                           </td>
                           <td className="px-4 py-2.5">
                             <div className="flex items-center gap-2">
-                              <Input value={c.numero} onChange={(e) => updateContact(c.id, "numero", e.target.value)} className={cn("h-8 text-xs bg-transparent border-none p-0 font-mono focus-visible:ring-0", !valid && c.numero && "text-amber-400")} placeholder="Número" />
+                              <Input value={c.numero} onChange={(e) => updateContact(c.id, "numero", e.target.value)} className={cn("h-8 text-xs bg-transparent border-none p-0 font-mono focus-visible:ring-0", !valid && c.numero && "text-amber-400")} placeholder={contactMode === "lid" ? "@lead" : "Número"} />
                               {!valid && c.numero && (
                                 <div className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Número inválido" />
                               )}
