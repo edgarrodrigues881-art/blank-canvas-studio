@@ -273,37 +273,37 @@ Deno.serve(async (req) => {
 
             if (!dev) continue;
 
-            // Get warmup audit logs for last 24h (v2 system uses warmup_audit_logs)
+            // ── Primary source: warmup_daily_stats (trigger-fed, most reliable) ──
+            const todayBRT = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+            const { data: dailyStat } = await serviceClient
+              .from("warmup_daily_stats")
+              .select("messages_sent, messages_failed, messages_total")
+              .eq("device_id", cycle.device_id)
+              .eq("stat_date", todayBRT)
+              .maybeSingle();
+
+            // ── Fallback: count from warmup_audit_logs (last 24h) ──
             const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
             const { data: auditLogs } = await serviceClient
               .from("warmup_audit_logs")
-              .select("id, event_type, level, meta")
+              .select("id, event_type, level")
               .eq("user_id", config.user_id)
               .eq("device_id", cycle.device_id)
               .gte("created_at", oneDayAgo);
 
-            if (!auditLogs || auditLogs.length === 0) continue;
+            const logs = auditLogs || [];
 
-            // Count by event type
-            const interactionEvents = auditLogs.filter(l => 
-              ["group_msg_sent", "autosave_msg_sent", "community_msg_sent", "group_interaction", "autosave_interaction", "community_interaction"].includes(l.event_type)
-            );
-            const groupMsgs = auditLogs.filter(l => l.event_type === "group_msg_sent" || l.event_type === "group_interaction").length;
-            const autosaveMsgs = auditLogs.filter(l => l.event_type === "autosave_msg_sent" || l.event_type === "autosave_interaction").length;
-            const communityMsgs = auditLogs.filter(l => l.event_type === "community_msg_sent" || l.event_type === "community_interaction").length;
-            const totalSentMsgs = groupMsgs + autosaveMsgs + communityMsgs;
-            const errors = auditLogs.filter(l => l.level === "error").length;
-            const warnings = auditLogs.filter(l => l.level === "warn").length;
+            // Count by event type from audit logs
+            const groupMsgs = logs.filter(l => l.event_type === "group_msg_sent" || l.event_type === "group_interaction").length;
+            const autosaveMsgs = logs.filter(l => l.event_type === "autosave_msg_sent" || l.event_type === "autosave_interaction").length;
+            const communityMsgs = logs.filter(l => l.event_type === "community_msg_sent" || l.event_type === "community_interaction" || l.event_type === "community_turn_sent" || l.event_type === "community_conversation_completed").length;
+            const auditTotal = groupMsgs + autosaveMsgs + communityMsgs;
+            const errors = logs.filter(l => l.level === "error").length;
+            const warnings = logs.filter(l => l.level === "warn").length;
 
-            // Count by media type
-            let textCount = 0, imageCount = 0, stickerCount = 0, otherCount = 0;
-            for (const log of interactionEvents) {
-              const mediaType = (log.meta as any)?.media_type || "text";
-              if (mediaType === "text") textCount++;
-              else if (mediaType === "image") imageCount++;
-              else if (mediaType === "sticker") stickerCount++;
-              else otherCount++;
-            }
+            // Use the highest value between daily_stats and audit log count
+            const totalSentMsgs = Math.max(dailyStat?.messages_sent || 0, auditTotal);
+            const totalFailed = Math.max(dailyStat?.messages_failed || 0, errors);
 
             const phaseLabels: Record<string, string> = {
               pre_24h: "Pré 24h",
@@ -321,17 +321,12 @@ Deno.serve(async (req) => {
               unstable: "Chip Fraco",
             };
 
-            const mediaBreakdown = [
-              textCount > 0 ? `💬 Textos: ${textCount}` : null,
-              imageCount > 0 ? `🖼 Imagens: ${imageCount}` : null,
-              stickerCount > 0 ? `🎭 Figurinhas: ${stickerCount}` : null,
-              otherCount > 0 ? `📎 Outros: ${otherCount}` : null,
-            ].filter(Boolean).join("\n");
+            const statusIcon = ["Ready", "Connected", "connected", "authenticated", "open"].includes(dev.status || "") ? "🟢 Online" : "🔴 Offline";
 
-            const msg = `🔥 RELATÓRIO DE AQUECIMENTO (24H)\n\n🖥 Instância: ${dev.name}\n📞 Número: ${dev.number || "N/A"}\n📋 Perfil: ${chipLabels[cycle.chip_state] || cycle.chip_state}\n📅 Dia: ${cycle.day_index}/${cycle.days_total}\n🔄 Fase: ${phaseLabels[cycle.phase] || cycle.phase}\n\n📊 Atividade nas últimas 24h\n\n👥 Msgs em grupos: ${groupMsgs}\n💾 Msgs Auto Save: ${autosaveMsgs}\n🤝 Msgs Comunitário: ${communityMsgs}\n📨 Total enviadas: ${totalSentMsgs}\n\n📦 Tipos de conteúdo\n${mediaBreakdown || "Nenhum envio"}\n\n📈 Orçamento do dia: ${cycle.daily_interaction_budget_used}/${cycle.daily_interaction_budget_target}\n👤 Destinatários: ${cycle.daily_unique_recipients_used}/${cycle.daily_unique_recipients_cap}\n\n${errors > 0 ? `❌ Erros: ${errors}\n` : ""}${warnings > 0 ? `⚠️ Avisos: ${warnings}\n` : ""}\n🔎 Status: ${dev.status === "Ready" ? "🟢 Online" : "🔴 Offline"}\n⏱ ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`;
+            const msg = `🔥 RELATÓRIO DE AQUECIMENTO\n\n🖥 Instância: ${dev.name}\n📞 Número: ${dev.number || "N/A"}\n📋 Perfil: ${chipLabels[cycle.chip_state] || cycle.chip_state}\n📅 Dia: ${cycle.day_index}/${cycle.days_total}\n🔄 Fase: ${phaseLabels[cycle.phase] || cycle.phase}\n\n📊 Atividade do dia\n\n👥 Msgs em grupos: ${groupMsgs}\n💾 Msgs Auto Save: ${autosaveMsgs}\n🤝 Msgs Comunitário: ${communityMsgs}\n📨 Total enviadas: ${totalSentMsgs}\n${totalFailed > 0 ? `❌ Falhas: ${totalFailed}\n` : ""}${warnings > 0 ? `⚠️ Avisos: ${warnings}\n` : ""}\n🔎 Status: ${statusIcon}\n⏱ ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`;
             const didSend = await sendToGroup(creds, warmupTarget, msg);
             if (didSend) totalSent++;
-            await logEvent(config.user_id, "INFO", `Resumo aquecimento ${cycle.device_id.substring(0, 8)} enviado: ${totalSentMsgs} msgs, ${errors} erros`);
+            await logEvent(config.user_id, "INFO", `Resumo aquecimento ${cycle.device_id.substring(0, 8)} enviado: ${totalSentMsgs} msgs, ${totalFailed} erros`);
           }
         }
       }
