@@ -464,32 +464,31 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
       throw new Error("Mensagens com botão exigem copy/texto principal. O sistema não envia mais 'Escolha uma opção' automaticamente.");
     }
 
-    // IMAGE + BUTTONS: Always send as two separate messages.
+    // IMAGE + BUTTONS: Send as two separate messages.
     // Uazapi's /send/menu does NOT support imageButton — sending it creates
     // messages that show as "incompatible" on WhatsApp mobile.
-    // Strategy: 1) image with caption (copy), 2) delay, 3) buttons with same text.
+    // Strategy: 1) image standalone, 2) delay, 3) copy text + buttons together.
     if (hasVisualMedia && mediaUrl) {
       console.log(JSON.stringify({
         event: "template_import_normalized",
         origin: "campaign",
-        strategy: "split_media_then_buttons",
+        strategy: "split_media_then_text_buttons",
         buttonCount: choices.length,
         hasMedia: true,
         captionLength: text.length,
       }));
 
-      // Step 1: Send image WITH caption (the user's copy)
-      await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType || "image", text);
+      // Step 1: Send image standalone (caption often ignored by API)
+      await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType || "image", "");
 
       // Step 2: Small humanized delay between messages
       await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1500));
 
-      // Step 3: Send buttons as a separate text+button message
-      // Use a short contextual intro instead of repeating the full copy
+      // Step 3: Send copy text + buttons together so the user's text is always delivered
       await uazapiRequest(baseUrl, token, "/send/menu", {
         number: phone,
         type: "button",
-        text: "👇 Escolha uma opção:",
+        text,
         choices,
       });
       return;
