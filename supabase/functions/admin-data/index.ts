@@ -192,7 +192,7 @@ Deno.serve(async (req) => {
         total_subscriptions: subscriptions?.length || 0,
       };
 
-      return new Response(JSON.stringify({ users, devices: devicesWithOwner, stats, cycles: cycles || [], payments: payments || [], admin_logs: adminLogs || [], costs: costs || [] }), {
+      return new Response(JSON.stringify({ users, devices: devicesWithOwner, stats, cycles: cycles || [], payments: payments || [], admin_logs: adminLogs || [], costs: costs || [], duplicate_ips: duplicateIps }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
