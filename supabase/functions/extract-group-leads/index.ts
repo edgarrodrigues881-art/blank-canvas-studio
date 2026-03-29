@@ -104,24 +104,34 @@ async function fetchGroupsWithParticipants(baseUrl: string, token: string, targe
   return [];
 }
 
-function parseParticipants(rawParticipants: any[], groupJid: string, groupName: string): Participant[] {
-  const results: Participant[] = [];
+interface ParseResult {
+  valid: Participant[];
+  lids: Participant[];
+}
+
+function parseParticipants(rawParticipants: any[], groupJid: string, groupName: string): ParseResult {
+  const valid: Participant[] = [];
+  const lids: Participant[] = [];
   for (const p of rawParticipants) {
     const phoneRaw = p?.PhoneNumber || p?.phoneNumber || p?.phone || p?.number || p?.id || p?.jid || p?.JID || "";
     const phoneStr = String(phoneRaw);
-
-    // Skip LID entries (community hidden numbers)
-    if (phoneStr.includes("@lid") || phoneStr.includes("@newsletter")) continue;
-
-    const cleanPhone = phoneStr.replace(/@.*$/, "").replace(/[^0-9]/g, "");
-    if (!cleanPhone || cleanPhone.length < 8 || cleanPhone.length > 15) continue;
 
     const name = p?.DisplayName || p?.displayName || p?.name || p?.pushName || p?.notify || p?.Name || "";
     const isAdmin = p?.IsAdmin === true || p?.IsSuperAdmin === true ||
                     p?.isAdmin === true || p?.isSuperAdmin === true ||
                     p?.admin === "admin" || p?.admin === "superadmin";
 
-    results.push({
+    // LID entries → separate bucket
+    if (phoneStr.includes("@lid") || phoneStr.includes("@newsletter")) {
+      const lidId = phoneStr.replace(/@.*$/, "");
+      lids.push({ phone: lidId, name: String(name || ""), group_jid: groupJid, group_name: groupName, is_admin: isAdmin });
+      continue;
+    }
+
+    const cleanPhone = phoneStr.replace(/@.*$/, "").replace(/[^0-9]/g, "");
+    if (!cleanPhone || cleanPhone.length < 8 || cleanPhone.length > 15) continue;
+
+    valid.push({
       phone: cleanPhone,
       name: String(name || ""),
       group_jid: groupJid,
@@ -129,7 +139,7 @@ function parseParticipants(rawParticipants: any[], groupJid: string, groupName: 
       is_admin: isAdmin,
     });
   }
-  return results;
+  return { valid, lids };
 }
 
 Deno.serve(async (req) => {
