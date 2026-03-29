@@ -393,6 +393,21 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 space-y-6">
+      {/* Beta Warning */}
+      <div className="rounded-xl border border-[hsl(var(--warning))]/30 bg-[hsl(var(--warning))]/5 px-5 py-4 flex items-start gap-4">
+        <div className="w-10 h-10 rounded-full bg-[hsl(var(--warning))]/15 flex items-center justify-center shrink-0 mt-0.5">
+          <AlertTriangle className="w-5 h-5 text-[hsl(var(--warning))]" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-foreground">Ferramenta em fase beta</p>
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+            A <strong>Adição em Massa</strong> ainda está em desenvolvimento e pode apresentar instabilidades ou comportamentos inesperados.
+            Use com cautela — estamos trabalhando para aprimorá-la continuamente.
+          </p>
+        </div>
+      </div>
+
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center">
@@ -446,46 +461,39 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {filteredCampaigns.map((c: any) => {
             const sc = c.success_count || 0;
-            const progress = c.total_contacts > 0 ? Math.round((sc / c.total_contacts) * 100) : 0;
             return (
-              <Card key={c.id} className="border-border/40 bg-card/80 hover:bg-card/90 transition-colors cursor-pointer group" onClick={() => onViewCampaign(c.id)}>
-                <CardContent className="py-4 px-5">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-3 mb-1.5">
-                        <h3 className="text-sm font-semibold text-foreground truncate">{c.name}</h3>
-                        <Badge variant="outline" className={`text-[10px] font-semibold shrink-0 ${statusBadge(c.status)}`}>
-                          {statusLabel(c.status)}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span className="truncate max-w-[200px]">{c.group_name || c.group_id?.substring(0, 15) + "..."}</span>
-                        <span>{c.total_contacts} contatos</span>
-                        <span className="text-emerald-500">{sc} adicionados</span>
-                        <span>{new Date(c.created_at).toLocaleDateString("pt-BR")}</span>
-                      </div>
-                      {c.pause_reason && c.status === "paused" && (
-                        <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3" /> {c.pause_reason}
-                        </p>
-                      )}
-                      {c.status === "processing" && (
-                        <div className="mt-2 text-[10px] text-primary font-semibold">
-                          Em andamento • {sc}/{c.total_contacts || 0} processados
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button variant="ghost" size="sm" className="gap-1.5 text-xs opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                        onClick={(e) => { e.stopPropagation(); setDeleteId(c.id); }}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-                    </div>
+              <Card key={c.id} className="border-border/40 bg-card/80 hover:bg-card/90 hover:border-primary/20 transition-all cursor-pointer group" onClick={() => onViewCampaign(c.id)}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <h3 className="text-sm font-semibold text-foreground truncate flex-1">{c.name}</h3>
+                    <Badge variant="outline" className={`text-[10px] font-semibold shrink-0 ${statusBadge(c.status)}`}>
+                      {statusLabel(c.status)}
+                    </Badge>
                   </div>
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-2">
+                    <Globe className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{c.group_name || c.group_id?.substring(0, 20)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3">
+                      <span className="text-muted-foreground">{c.total_contacts} contatos</span>
+                      <span className="text-[hsl(var(--success))] font-medium">{sc} adicionados</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground/60">{new Date(c.created_at).toLocaleDateString("pt-BR")}</span>
+                  </div>
+                  {c.pause_reason && c.status === "paused" && (
+                    <p className="text-[10px] text-[hsl(var(--warning))] mt-2 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" /> {c.pause_reason}
+                    </p>
+                  )}
+                  {c.status === "processing" && (
+                    <div className="mt-2 w-full bg-muted/30 rounded-full h-1.5">
+                      <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${c.total_contacts > 0 ? Math.round((sc / c.total_contacts) * 100) : 0}%` }} />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -2202,48 +2210,26 @@ export default function MassGroupInject() {
     setView("create");
   }, []);
 
-  const betaWarning = (
-    <Alert variant="destructive" className="border-warning/50 bg-warning/10 text-warning-foreground mb-6">
-      <AlertTriangle className="h-5 w-5 !text-[hsl(var(--warning))]" />
-      <AlertTitle className="text-sm font-semibold text-foreground">⚠️ Ferramenta em fase beta</AlertTitle>
-      <AlertDescription className="text-xs text-muted-foreground mt-1">
-        A <strong>Adição em Massa</strong> ainda está em desenvolvimento e pode apresentar instabilidades ou comportamentos inesperados.
-        Use com cautela — estamos trabalhando para aprimorá-la continuamente.
-      </AlertDescription>
-    </Alert>
-  );
-
   if (view === "create") {
     return (
-      <div>
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-6">{betaWarning}</div>
-        <CreateCampaign
-          onBack={() => { setView("list"); setPrefillContacts(undefined); setPrefillName(undefined); }}
-          onCampaignCreated={(id) => { setSelectedCampaignId(id); setView("detail"); setPrefillContacts(undefined); setPrefillName(undefined); }}
-          prefillContacts={prefillContacts}
-          prefillName={prefillName}
-        />
-      </div>
+      <CreateCampaign
+        onBack={() => { setView("list"); setPrefillContacts(undefined); setPrefillName(undefined); }}
+        onCampaignCreated={(id) => { setSelectedCampaignId(id); setView("detail"); setPrefillContacts(undefined); setPrefillName(undefined); }}
+        prefillContacts={prefillContacts}
+        prefillName={prefillName}
+      />
     );
   }
 
   if (view === "detail" && selectedCampaignId) {
     return (
-      <div>
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-6">{betaWarning}</div>
-        <CampaignDetail
-          campaignId={selectedCampaignId}
-          onBack={() => { setSelectedCampaignId(null); setView("list"); }}
-          onNewCampaignFromFailed={handleNewCampaignFromFailed}
-        />
-      </div>
+      <CampaignDetail
+        campaignId={selectedCampaignId}
+        onBack={() => { setSelectedCampaignId(null); setView("list"); }}
+        onNewCampaignFromFailed={handleNewCampaignFromFailed}
+      />
     );
   }
 
-  return (
-    <div>
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-6">{betaWarning}</div>
-      <CampaignList onCreateNew={() => { localStorage.removeItem("mass-inject-draft"); setView("create"); }} onViewCampaign={(id) => { setSelectedCampaignId(id); setView("detail"); }} />
-    </div>
-  );
+  return <CampaignList onCreateNew={() => { localStorage.removeItem("mass-inject-draft"); setView("create"); }} onViewCampaign={(id) => { setSelectedCampaignId(id); setView("detail"); }} />;
 }
