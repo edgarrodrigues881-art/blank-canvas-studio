@@ -270,6 +270,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 });
               }
 
+              // Redirect to Welcome splash on first login (email confirmation redirect)
+              const welcomeShown = localStorage.getItem(`dg_welcome_shown_${newSession.user.id}`);
+              if (!welcomeShown && window.location.pathname !== "/welcome") {
+                localStorage.setItem(`dg_welcome_shown_${newSession.user.id}`, "true");
+                const currentPath = window.location.pathname + window.location.search;
+                const redirectTo = currentPath.startsWith("/dashboard") ? currentPath : "/dashboard";
+                window.location.href = `/welcome?to=${encodeURIComponent(redirectTo)}`;
+              }
+
               // Record login IP (non-blocking, throttled 5min via localStorage)
               recordLoginIp(newSession.user.id);
             }
