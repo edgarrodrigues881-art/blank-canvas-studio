@@ -431,7 +431,8 @@ async function sendCaptionedMedia(baseUrl: string, token: string, phone: string,
 }
 
 async function sendUazapiMessage(baseUrl: string, token: string, to: string, body: string, mediaUrl?: string | null, buttons?: CampaignButton[], messageType?: string, carouselCards?: CarouselCard[]) {
-  const phone = to.replace(/\D/g, "");
+  const isLid = to.includes("@lid");
+  const phone = isLid ? to.replace("@lid", "") : to.replace(/\D/g, "");
   const text = typeof body === "string" ? body.trim() : "";
   const hasButtons = buttons && buttons.length > 0;
   const choices = hasButtons ? buttons.map((b, i) => buildMenuChoice(b, i)).filter((choice): choice is string => Boolean(choice)) : [];
@@ -1225,8 +1226,9 @@ Deno.serve(async (req) => {
                 }
               }
 
-              const phone = contact.phone.replace(/\D/g, "");
-              if (phone.length < 10) {
+              const isLidContact = contact.phone.includes("@lid");
+              const phone = isLidContact ? contact.phone.replace("@lid", "") : contact.phone.replace(/\D/g, "");
+              if (!isLidContact && phone.length < 10) {
                 await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: "Número inválido", device_id: dev.id }).eq("id", contact.id);
                 devFailed++;
                 continue;
