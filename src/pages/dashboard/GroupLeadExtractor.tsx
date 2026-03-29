@@ -36,8 +36,10 @@ export default function GroupLeadExtractor() {
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const [extractProgress, setExtractProgress] = useState("");
   const [leads, setLeads] = useState<ExtractedLead[]>([]);
   const [totalBeforeDedup, setTotalBeforeDedup] = useState(0);
+  const [lidSkipped, setLidSkipped] = useState(0);
   const [searchGroups, setSearchGroups] = useState("");
   const [searchLeads, setSearchLeads] = useState("");
 
