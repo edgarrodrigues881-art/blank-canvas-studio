@@ -742,19 +742,41 @@ async function executeAddWithRecovery(baseUrl: string, token: string, groupId: s
     return { status: "already_exists", detail: "Contato já participava do grupo.", attempts: 1 };
   }
 
+  // Cache the working endpoint even on failure (we know it responds)
+  if (addResult.strategyIndex !== undefined && cacheKey) {
+    endpointCache.set(cacheKey, addResult.strategyIndex);
+  }
+
   const providerMessage = addResult.rawMessage || "Falha sem detalhe.";
   let failure = classifyAddFailure(providerMessage, addResult.status);
   let connectionCheck: ConnectionCheckResult | null = null;
 
+  // ── POST-ADD VERIFICATION for unknown_failure ──
+  // If the API returned an ambiguous response, check if the contact is now in the group
+  if (failure.status === "unknown_failure" && addResult.status >= 200 && addResult.status < 300) {
+    console.log(`executeAddWithRecovery: unknown_failure with HTTP ${addResult.status} — running post-add verification for ${phone}`);
+    await sleep(2000); // Wait 2s for WhatsApp propagation
+    try {
+      const isInGroup = await confirmAlreadyInGroup(baseUrl, token, groupId, phone);
+      if (isInGroup) {
+        console.log(`executeAddWithRecovery: post-add verification CONFIRMED ${phone} is in group — marking as completed`);
+        return {
+          status: "completed",
+          detail: "Contato adicionado com sucesso (confirmado via verificação pós-adição).",
+          attempts: 1,
+          workingStrategy: addResult.strategyIndex,
+        };
+      }
+    } catch (verifyErr) {
+      console.log(`executeAddWithRecovery: post-add verification failed: ${verifyErr}`);
+    }
+  }
+
   // IMPORTANT: no internal retry loop here.
-  // Each worker invocation processes a single attempt and lets the queue handle retries,
-  // preventing burst calls that were causing 429 + false disconnect cascades.
   if (failure.status === "connection_unconfirmed") {
-    // Multi-check revalidation: don't trust a single disconnect signal
     const { finalResult: connectionCheck, checks, confirmedDisconnect } = await checkInstanceConnectionWithRetries(baseUrl, token, `add_failure:${phone}`);
     
     if (connectionCheck.connected === true) {
-      // Instance is actually connected — this was a transient API hiccup
       failure = {
         status: "api_temporary",
         detail: "A integração acusou desconexão, mas a instância continua conectada.",
@@ -762,7 +784,6 @@ async function executeAddWithRecovery(baseUrl: string, token: string, groupId: s
         cooldownMs: randomBetween(20_000, 35_000),
       };
     } else if (confirmedDisconnect) {
-      // ALL checks confirmed disconnected — but this is still a SESSION issue, not a BAN
       failure = {
         status: "session_dropped",
         detail: `Sessão da API desconectada (${DISCONNECT_RECHECK_COUNT}/${DISCONNECT_RECHECK_COUNT} verificações offline). Aguardando reconexão.`,
@@ -770,7 +791,6 @@ async function executeAddWithRecovery(baseUrl: string, token: string, groupId: s
         cooldownMs: randomBetween(30_000, 60_000),
       };
     } else {
-      // Mixed/unknown results — treat as transient
       failure = {
         status: "session_dropped",
         detail: `Sessão instável: ${checks.filter(c => c.connected === false).length} offline de ${DISCONNECT_RECHECK_COUNT} verificações. Aguardando estabilização.`,
