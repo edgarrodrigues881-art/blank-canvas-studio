@@ -1622,6 +1622,24 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "Instância não encontrada." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      // ── PRE-CHECK: automatically detect contacts already in each target group ──
+      const groupParticipantsMap = new Map<string, Set<string>>();
+      let preCheckSucceeded = false;
+      try {
+        for (const gt of groupTargets) {
+          const result = await getGroupParticipantsDetailed(primaryDevice.uazapi_base_url, primaryDevice.uazapi_token, gt.group_id);
+          if (result.confirmed && result.participants.size > 0) {
+            groupParticipantsMap.set(gt.group_id, result.participants);
+            preCheckSucceeded = true;
+            console.log(`[create-campaign] pre-check group=${gt.group_id} participants=${result.participants.size}`);
+          } else {
+            console.log(`[create-campaign] pre-check group=${gt.group_id} FAILED (confirmed=${result.confirmed}, size=${result.participants.size})`);
+          }
+        }
+      } catch (e: any) {
+        console.warn(`[create-campaign] pre-check error: ${e.message}`);
+      }
+
       const { data: campaign, error } = await sb.from("mass_inject_campaigns").insert({
         user_id: user!.id,
         name: body.name || `Campanha ${new Date().toLocaleString("pt-BR")}`,
@@ -1644,21 +1662,72 @@ Deno.serve(async (req) => {
       } as any).select().single();
       if (error || !campaign) throw error || new Error("Erro ao criar campanha.");
 
+      let alreadyExistsCount = 0;
       const rows = contacts.map((phone, i) => {
         const target = groupTargets[i % groupTargets.length];
-        return { campaign_id: campaign.id, phone, status: "pending", target_group_id: target.group_id, target_group_name: target.group_name };
+        const groupParticipants = groupParticipantsMap.get(target.group_id);
+        const isAlreadyInGroup = groupParticipants ? participantSetHasPhone(groupParticipants, phone) : false;
+
+        if (isAlreadyInGroup) {
+          alreadyExistsCount++;
+          return {
+            campaign_id: campaign.id,
+            phone,
+            status: "already_exists",
+            error_message: null,
+            target_group_id: target.group_id,
+            target_group_name: target.group_name,
+            processed_at: nowIso(),
+            device_used: "pre-check",
+          };
+        }
+
+        return {
+          campaign_id: campaign.id,
+          phone,
+          status: "pending",
+          target_group_id: target.group_id,
+          target_group_name: target.group_name,
+        };
       });
+
       for (let i = 0; i < rows.length; i += 500) {
         await sb.from("mass_inject_contacts").insert(rows.slice(i, i + 500) as any);
+      }
+
+      // Update campaign counters with pre-check results
+      if (alreadyExistsCount > 0) {
+        await sb.from("mass_inject_campaigns").update({
+          already_count: alreadyExistsCount,
+          total_contacts: contacts.length,
+        }).eq("id", campaign.id);
+      }
+
+      const readyCount = contacts.length - alreadyExistsCount;
+
+      // If all contacts are already in the group, finalize immediately
+      if (readyCount === 0) {
+        await sb.from("mass_inject_campaigns").update({
+          status: "done",
+          completed_at: nowIso(),
+          updated_at: nowIso(),
+        }).eq("id", campaign.id);
+        return new Response(JSON.stringify({
+          success: true,
+          campaignId: campaign.id,
+          readyCount: 0,
+          alreadyExistsCount,
+          deferredParticipantCheck: false,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       await queueCampaignRun(campaign.id, 0);
       return new Response(JSON.stringify({
         success: true,
         campaignId: campaign.id,
-        readyCount: contacts.length,
-        alreadyExistsCount: 0,
-        deferredParticipantCheck: true,
+        readyCount,
+        alreadyExistsCount,
+        deferredParticipantCheck: !preCheckSucceeded,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
