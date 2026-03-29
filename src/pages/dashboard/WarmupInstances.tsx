@@ -701,6 +701,53 @@ const WarmupInstances = () => {
     enabled: !!user,
   });
 
+  // Fetch system groups (from warmup_groups where user_id IS NULL + warmup_groups_pool active)
+  const { data: systemGroups = [] } = useQuery({
+    queryKey: ["warmup_system_groups_bulk"],
+    queryFn: async () => {
+      const [wgRes, poolRes] = await Promise.all([
+        supabase
+          .from("warmup_groups" as any)
+          .select("id, name, link, is_custom, created_at")
+          .is("user_id", null)
+          .eq("is_custom", false)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("warmup_groups_pool")
+          .select("id, name, external_group_ref, is_active, created_at")
+          .eq("is_active", true)
+          .order("created_at", { ascending: false }),
+      ]);
+      const wgData = (wgRes.data || []) as any[];
+      const poolData = (poolRes.data || []).map((g: any) => ({
+        id: g.id,
+        name: g.name,
+        link: g.external_group_ref || "",
+        is_custom: false,
+        created_at: g.created_at,
+        _source: "pool",
+      }));
+      // Dedupe by name
+      const seen = new Set<string>();
+      const all: any[] = [];
+      for (const g of [...wgData, ...poolData]) {
+        const key = (g.name || "").toLowerCase().trim();
+        if (key && seen.has(key)) continue;
+        if (key) seen.add(key);
+        all.push(g);
+      }
+      return all;
+    },
+    enabled: bulkOpen,
+  });
+
+  // Combined groups for display based on source
+  const bulkDisplayGroups = useMemo(() => {
+    if (bulkGroupSource === "system") return systemGroups;
+    return userCustomGroups;
+  }, [bulkGroupSource, systemGroups, userCustomGroups]);
+  const hasAnyGroups = userCustomGroups.length > 0 || systemGroups.length > 0;
+
   // Always validate: user must have warmup_groups (custom OR system) to start warmup
   const selectedDeviceIds = useMemo(() => Array.from(bulkSelected), [bulkSelected]);
   const isAdvancedStart = Number(bulkStartDay) > 1;
@@ -2050,12 +2097,13 @@ const WarmupInstances = () => {
                   <p className="text-[11px] font-extrabold text-foreground uppercase tracking-[0.18em]">Grupos de aquecimento</p>
                   <p className="text-[10px] text-muted-foreground -mt-1.5 font-medium">Os grupos cadastrados na página <strong>Grupos</strong> serão usados.</p>
 
-                  {userCustomGroups.length > 0 ? (
+                  {bulkDisplayGroups.length > 0 ? (
                     <div className="rounded-xl border-2 border-border/10 bg-card/20 p-2 max-h-[180px] overflow-y-auto space-y-1 scrollbar-thin">
-                      {userCustomGroups.map((g: any) => (
+                      {bulkDisplayGroups.map((g: any) => (
                         <div key={g.id} className="flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-muted/10 transition-colors">
                           <Users className="w-4 h-4 text-primary/60 shrink-0" />
                           <span className="text-xs font-bold text-foreground truncate flex-1">{g.name}</span>
+                          {g._source === "pool" && <span className="text-[9px] text-muted-foreground bg-muted/20 px-1.5 py-0.5 rounded">Sistema</span>}
                         </div>
                       ))}
                     </div>
@@ -2165,7 +2213,7 @@ const WarmupInstances = () => {
 
           {/* ── Footer with navigation ── */}
           <div className="px-7 pb-7 pt-4 border-t border-border/10">
-            {bulkStep === 3 && userCustomGroups.length === 0 && (
+            {bulkStep === 3 && !hasAnyGroups && (
               <div className="flex items-center gap-2 p-3.5 mb-3 rounded-xl bg-amber-500/10 border-2 border-amber-500/20 text-amber-400 text-xs font-bold">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 <span>Cadastre pelo menos 1 grupo no passo anterior.</span>
@@ -2194,7 +2242,7 @@ const WarmupInstances = () => {
                 </Button>
               ) : (
                 <Button
-                  disabled={bulkSelected.size === 0 || bulkLoading || userCustomGroups.length === 0 || (isAdvancedStart && devicesWithoutGroups.length > 0)}
+                  disabled={bulkSelected.size === 0 || bulkLoading || !hasAnyGroups || (isAdvancedStart && devicesWithoutGroups.length > 0)}
                   className={cn(
                     "flex-1 gap-2.5 h-12 rounded-xl font-black text-sm transition-all duration-300",
                     "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white",
