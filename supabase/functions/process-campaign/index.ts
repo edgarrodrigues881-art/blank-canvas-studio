@@ -537,9 +537,15 @@ function isDisconnectError(msg: string): boolean {
     lower.includes("session") || lower.includes("not authenticated") || lower.includes("desconectado");
 }
 
+function isNotFoundError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return lower === "not found." || lower === "not found" || lower.includes("user not found") || lower.includes("unknown user") || lower.includes("usuário desconhecido");
+}
+
 function isTemporaryError(msg: string): boolean {
   const lower = msg.toLowerCase();
   if (isDisconnectError(lower)) return false;
+  if (isNotFoundError(lower)) return false;
   if (lower.includes("not on whats") || lower.includes("not registered") || lower.includes("not_exists") || lower.includes("número inválido")) return false;
   return lower.includes("timeout") || lower.includes("timed out") || lower.includes("econnreset") ||
     lower.includes("econnrefused") || lower.includes("network") || lower.includes("socket") ||
@@ -551,6 +557,7 @@ function isTemporaryError(msg: string): boolean {
 
 function translateErrorMessage(msg: string): string {
   if (isDisconnectError(msg)) return "WhatsApp desconectado";
+  if (isNotFoundError(msg)) return "Número não encontrado no WhatsApp";
   if (msg.includes("not on Whats") || msg.includes("not registered") || msg.includes("not_exists") || msg.includes("não está no WhatsApp")) return "Número inválido";
   return msg;
 }
