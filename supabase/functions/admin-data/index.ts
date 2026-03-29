@@ -173,6 +173,8 @@ Deno.serve(async (req) => {
           plan_expires_at: sub?.expires_at || null,
           plan_started_at: sub?.started_at || null,
           signup_ip: profile?.signup_ip || null,
+          last_ip: lastIpMap[u.id] || null,
+          ip_shared_users: lastIpMap[u.id] ? (duplicateIps[lastIpMap[u.id]] || 0) : 0,
         };
       }) || [];
 
