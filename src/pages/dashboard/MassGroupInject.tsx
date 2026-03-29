@@ -2202,26 +2202,48 @@ export default function MassGroupInject() {
     setView("create");
   }, []);
 
+  const betaWarning = (
+    <Alert variant="destructive" className="border-warning/50 bg-warning/10 text-warning-foreground mb-6">
+      <AlertTriangle className="h-5 w-5 !text-[hsl(var(--warning))]" />
+      <AlertTitle className="text-sm font-semibold text-foreground">⚠️ Ferramenta em fase beta</AlertTitle>
+      <AlertDescription className="text-xs text-muted-foreground mt-1">
+        A <strong>Adição em Massa</strong> ainda está em desenvolvimento e pode apresentar instabilidades ou comportamentos inesperados.
+        Use com cautela — estamos trabalhando para aprimorá-la continuamente.
+      </AlertDescription>
+    </Alert>
+  );
+
   if (view === "create") {
     return (
-      <CreateCampaign
-        onBack={() => { setView("list"); setPrefillContacts(undefined); setPrefillName(undefined); }}
-        onCampaignCreated={(id) => { setSelectedCampaignId(id); setView("detail"); setPrefillContacts(undefined); setPrefillName(undefined); }}
-        prefillContacts={prefillContacts}
-        prefillName={prefillName}
-      />
+      <div>
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-6">{betaWarning}</div>
+        <CreateCampaign
+          onBack={() => { setView("list"); setPrefillContacts(undefined); setPrefillName(undefined); }}
+          onCampaignCreated={(id) => { setSelectedCampaignId(id); setView("detail"); setPrefillContacts(undefined); setPrefillName(undefined); }}
+          prefillContacts={prefillContacts}
+          prefillName={prefillName}
+        />
+      </div>
     );
   }
 
   if (view === "detail" && selectedCampaignId) {
     return (
-      <CampaignDetail
-        campaignId={selectedCampaignId}
-        onBack={() => { setSelectedCampaignId(null); setView("list"); }}
-        onNewCampaignFromFailed={handleNewCampaignFromFailed}
-      />
+      <div>
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-6">{betaWarning}</div>
+        <CampaignDetail
+          campaignId={selectedCampaignId}
+          onBack={() => { setSelectedCampaignId(null); setView("list"); }}
+          onNewCampaignFromFailed={handleNewCampaignFromFailed}
+        />
+      </div>
     );
   }
 
-  return <CampaignList onCreateNew={() => { localStorage.removeItem("mass-inject-draft"); setView("create"); }} onViewCampaign={(id) => { setSelectedCampaignId(id); setView("detail"); }} />;
+  return (
+    <div>
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-6">{betaWarning}</div>
+      <CampaignList onCreateNew={() => { localStorage.removeItem("mass-inject-draft"); setView("create"); }} onViewCampaign={(id) => { setSelectedCampaignId(id); setView("detail"); }} />
+    </div>
+  );
 }
