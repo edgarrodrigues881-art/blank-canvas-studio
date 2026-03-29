@@ -36,8 +36,10 @@ export default function GroupLeadExtractor() {
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const [extractProgress, setExtractProgress] = useState("");
   const [leads, setLeads] = useState<ExtractedLead[]>([]);
   const [totalBeforeDedup, setTotalBeforeDedup] = useState(0);
+  const [lidSkipped, setLidSkipped] = useState(0);
   const [searchGroups, setSearchGroups] = useState("");
   const [searchLeads, setSearchLeads] = useState("");
 
@@ -95,29 +97,65 @@ export default function GroupLeadExtractor() {
     }
     setExtracting(true);
     setLeads([]);
+    setLidSkipped(0);
+    setExtractProgress("Iniciando extração...");
+
     try {
-      const groupInfos = groups
+      const allGroupInfos = groups
         .filter(g => selectedGroups.has(g.jid))
         .map(g => ({ jid: g.jid, name: g.name }));
 
-      const { data, error } = await supabase.functions.invoke("extract-group-leads", {
-        body: {
-          action: "extract_participants",
-          device_id: selectedDevice,
-          group_jids: groupInfos,
-          filters: {
-            brazil_only: brazilOnly,
-            participant_type: participantType === "all" ? null : participantType,
+      // Process in batches of 20 to avoid timeouts
+      const BATCH_SIZE = 20;
+      const allLeads: ExtractedLead[] = [];
+      let totalLidSkipped = 0;
+      let totalRaw = 0;
+
+      for (let i = 0; i < allGroupInfos.length; i += BATCH_SIZE) {
+        const batch = allGroupInfos.slice(i, i + BATCH_SIZE);
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(allGroupInfos.length / BATCH_SIZE);
+        setExtractProgress(`Processando lote ${batchNum}/${totalBatches} (${i + batch.length}/${allGroupInfos.length} grupos)...`);
+
+        const { data, error } = await supabase.functions.invoke("extract-group-leads", {
+          body: {
+            action: "extract_participants",
+            device_id: selectedDevice,
+            group_jids: batch,
+            filters: {
+              brazil_only: brazilOnly,
+              participant_type: participantType === "all" ? null : participantType,
+            },
           },
-        },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      setLeads(data.participants || []);
-      setTotalBeforeDedup(data.total_before_dedup || 0);
-      toast.success(`${data.total} leads extraídos (${data.total_before_dedup - data.total} duplicados removidos)`);
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        allLeads.push(...(data.participants || []));
+        totalLidSkipped += data.lid_skipped || 0;
+        totalRaw += data.total_before_dedup || 0;
+      }
+
+      // Final client-side dedup across batches
+      const seen = new Map<string, ExtractedLead>();
+      for (const l of allLeads) {
+        if (!seen.has(l.phone)) seen.set(l.phone, l);
+      }
+      const deduplicated = Array.from(seen.values());
+
+      setLeads(deduplicated);
+      setTotalBeforeDedup(allLeads.length);
+      setLidSkipped(totalLidSkipped);
+      setExtractProgress("");
+
+      const dupes = allLeads.length - deduplicated.length;
+      let msg = `${deduplicated.length} leads extraídos`;
+      if (dupes > 0) msg += ` (${dupes} duplicados removidos)`;
+      if (totalLidSkipped > 0) msg += ` — ${totalLidSkipped} contatos de comunidade ignorados (número oculto)`;
+      toast.success(msg);
     } catch (err: any) {
       toast.error(err?.message || "Erro na extração");
+      setExtractProgress("");
     } finally {
       setExtracting(false);
     }
@@ -343,7 +381,10 @@ export default function GroupLeadExtractor() {
               disabled={selectedGroups.size === 0 || extracting}
             >
               {extracting ? (
-                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Extraindo leads...</>
+                <div className="flex flex-col items-center gap-1">
+                  <span className="flex items-center"><Loader2 className="w-4 h-4 animate-spin mr-2" /> Extraindo leads...</span>
+                  {extractProgress && <span className="text-[11px] opacity-70">{extractProgress}</span>}
+                </div>
               ) : (
                 <><Download className="w-4 h-4 mr-2" /> Extrair Leads de {selectedGroups.size} grupo(s)</>
               )}
@@ -364,6 +405,11 @@ export default function GroupLeadExtractor() {
                 {totalBeforeDedup > leads.length && (
                   <span className="text-[11px] text-muted-foreground">
                     ({totalBeforeDedup - leads.length} duplicados removidos)
+                  </span>
+                )}
+                {lidSkipped > 0 && (
+                  <span className="text-[11px] text-muted-foreground">
+                    • {lidSkipped} ocultos (comunidade)
                   </span>
                 )}
               </CardTitle>

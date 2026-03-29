@@ -22,13 +22,6 @@ async function fetchWithTimeout(url: string, opts: RequestInit, timeout = TIMEOU
   }
 }
 
-interface GroupInfo {
-  jid: string;
-  name: string;
-  participants_count: number;
-  participants?: any[];
-}
-
 interface Participant {
   phone: string;
   name: string;
@@ -37,81 +30,96 @@ interface Participant {
   is_admin: boolean;
 }
 
-// ── Fetch all groups WITH participants from UAZAPI ──
-async function fetchGroupsWithParticipants(baseUrl: string, token: string): Promise<GroupInfo[]> {
+// Check if a phone string is a valid number (not a LID)
+function isValidPhone(raw: string): boolean {
+  const clean = raw.replace(/@.*$/, "").replace(/[^0-9]/g, "");
+  return clean.length >= 8 && !/^[0-9]{15,}$/.test(clean); // LIDs tend to be very long non-phone numbers
+}
+
+// ── Fetch all groups from UAZAPI (lightweight, no participants) ──
+async function fetchGroupsList(baseUrl: string, token: string): Promise<any[]> {
   const endpoints = [
-    `${baseUrl}/group/list?GetParticipants=true&count=500`,
-    `${baseUrl}/group/fetchAllGroups`,
-    `${baseUrl}/group/fetchAllGroups?getParticipants=true`,
+    `${baseUrl}/group/list?GetParticipants=false&count=500`,
+    `${baseUrl}/group/fetchAllGroups?getParticipants=false`,
     `${baseUrl}/group/listAll`,
     `${baseUrl}/chats?type=group`,
   ];
 
   const headers: Record<string, string> = { token, Accept: "application/json", "Cache-Control": "no-cache" };
-  const dedup = new Map<string, GroupInfo>();
 
   for (const ep of endpoints) {
     try {
-      console.log(`[extractor] Trying endpoint: ${ep}`);
       const res = await fetchWithTimeout(ep, { method: "GET", headers });
-      if (!res.ok) {
-        console.log(`[extractor] ${ep} returned ${res.status}`);
-        continue;
-      }
+      if (!res.ok) continue;
       const raw = await res.text();
       let parsed: any = null;
       try { parsed = raw ? JSON.parse(raw) : null; } catch { continue; }
       if (!parsed) continue;
 
-      // Find the groups array
-      const candidates = [parsed, parsed?.groups, parsed?.data, parsed?.data?.groups, parsed?.chats, parsed?.data?.chats];
-      const rows: any[] = [];
+      const candidates = [parsed, parsed?.groups, parsed?.data, parsed?.data?.groups, parsed?.chats];
       for (const c of candidates) {
-        if (Array.isArray(c)) { rows.push(...c); break; }
-      }
-
-      console.log(`[extractor] Found ${rows.length} groups from ${ep}`);
-
-      for (const g of rows) {
-        const jid = g?.JID || g?.jid || g?.id || g?.groupJid || g?.chatId || null;
-        const name = g?.Name || g?.subject || g?.name || g?.title || "Grupo";
-        if (!jid || !String(jid).includes("@g.us")) continue;
-
-        // Get participants array
-        const participants = g?.Participants || g?.participants || [];
-        const pCount = participants.length || g?.size || g?.memberCount || g?.Size || 0;
-
-        if (!dedup.has(jid)) {
-          dedup.set(jid, { jid, name, participants_count: pCount, participants });
+        if (Array.isArray(c) && c.length > 0) {
+          console.log(`[extractor] Found ${c.length} groups from ${ep.split('?')[0]}`);
+          return c;
         }
       }
-
-      if (dedup.size > 0) {
-        console.log(`[extractor] Success: ${dedup.size} groups with participants`);
-        return Array.from(dedup.values());
-      }
-    } catch (err: any) {
-      console.log(`[extractor] Error on ${ep}: ${err?.message}`);
-      continue;
-    }
+    } catch { continue; }
   }
   return [];
 }
 
-// ── Extract participants from cached group data ──
+// ── Fetch participants for specific groups ──
+async function fetchGroupsWithParticipants(baseUrl: string, token: string, targetJids?: Set<string>): Promise<any[]> {
+  const endpoints = [
+    `${baseUrl}/group/list?GetParticipants=true&count=500`,
+    `${baseUrl}/group/fetchAllGroups`,
+  ];
+
+  const headers: Record<string, string> = { token, Accept: "application/json", "Cache-Control": "no-cache" };
+
+  for (const ep of endpoints) {
+    try {
+      const res = await fetchWithTimeout(ep, { method: "GET", headers });
+      if (!res.ok) continue;
+      const raw = await res.text();
+      let parsed: any = null;
+      try { parsed = raw ? JSON.parse(raw) : null; } catch { continue; }
+      if (!parsed) continue;
+
+      const candidates = [parsed, parsed?.groups, parsed?.data];
+      for (const c of candidates) {
+        if (Array.isArray(c) && c.length > 0) {
+          // If targetJids provided, only return matching groups
+          if (targetJids) {
+            return c.filter((g: any) => {
+              const jid = g?.JID || g?.jid || g?.id || "";
+              return targetJids.has(jid);
+            });
+          }
+          return c;
+        }
+      }
+    } catch { continue; }
+  }
+  return [];
+}
+
 function parseParticipants(rawParticipants: any[], groupJid: string, groupName: string): Participant[] {
   const results: Participant[] = [];
   for (const p of rawParticipants) {
-    // PhoneNumber format: "5511913292286@s.whatsapp.net" or plain number
     const phoneRaw = p?.PhoneNumber || p?.phoneNumber || p?.phone || p?.number || p?.id || p?.jid || p?.JID || "";
-    const cleanPhone = String(phoneRaw).replace(/@.*$/, "").replace(/[^0-9]/g, "");
-    if (!cleanPhone || cleanPhone.length < 8) continue;
+    const phoneStr = String(phoneRaw);
+
+    // Skip LID entries (community hidden numbers)
+    if (phoneStr.includes("@lid") || phoneStr.includes("@newsletter")) continue;
+
+    const cleanPhone = phoneStr.replace(/@.*$/, "").replace(/[^0-9]/g, "");
+    if (!cleanPhone || cleanPhone.length < 8 || cleanPhone.length > 15) continue;
 
     const name = p?.DisplayName || p?.displayName || p?.name || p?.pushName || p?.notify || p?.Name || "";
     const isAdmin = p?.IsAdmin === true || p?.IsSuperAdmin === true ||
                     p?.isAdmin === true || p?.isSuperAdmin === true ||
-                    p?.admin === "admin" || p?.admin === "superadmin" ||
-                    p?.role === "admin" || p?.role === "superadmin";
+                    p?.admin === "admin" || p?.admin === "superadmin";
 
     results.push({
       phone: cleanPhone,
@@ -168,44 +176,50 @@ Deno.serve(async (req) => {
     const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
     const token = device.uazapi_token;
 
-    // ── ACTION: list_groups ──
-    // Returns groups WITH participant counts (fetched with participants to get accurate count)
+    // ── ACTION: list_groups (lightweight — no participants) ──
     if (action === "list_groups") {
-      const groups = await fetchGroupsWithParticipants(baseUrl, token);
-      // Strip participants from response to keep it light
-      const summary = groups.map(g => ({
-        jid: g.jid,
-        name: g.name,
-        participants_count: g.participants_count,
-      }));
-      return new Response(JSON.stringify({ groups: summary }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const rawGroups = await fetchGroupsList(baseUrl, token);
+      const groups = rawGroups.map((g: any) => {
+        const jid = g?.JID || g?.jid || g?.id || g?.groupJid || "";
+        const name = g?.Name || g?.subject || g?.name || g?.title || "Grupo";
+        const participants = g?.Participants || g?.participants || [];
+        const pCount = participants.length || g?.size || g?.memberCount || g?.Size || 0;
+        return { jid, name, participants_count: pCount };
+      }).filter((g: any) => g.jid.includes("@g.us"));
+
+      return new Response(JSON.stringify({ groups }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ── ACTION: extract_participants ──
+    // ── ACTION: extract_participants (batch-aware) ──
     if (action === "extract_participants") {
       if (!Array.isArray(group_jids) || group_jids.length === 0) {
         return new Response(JSON.stringify({ error: "No groups selected" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      const selectedJids = new Set(group_jids.map((g: any) => typeof g === "string" ? g : g.jid));
-      const selectedNames = new Map<string, string>();
+      const selectedJids = new Set<string>(group_jids.map((g: any) => typeof g === "string" ? g : g.jid));
+      const nameMap = new Map<string, string>();
       for (const g of group_jids) {
-        if (typeof g === "object") selectedNames.set(g.jid, g.name || g.jid);
+        if (typeof g === "object") nameMap.set(g.jid, g.name || g.jid);
       }
 
       console.log(`[extractor] Extracting from ${selectedJids.size} groups`);
 
-      // Fetch all groups with full participant data
-      const allGroups = await fetchGroupsWithParticipants(baseUrl, token);
+      // Fetch groups with participants (filtered to selected only)
+      const matchedGroups = await fetchGroupsWithParticipants(baseUrl, token, selectedJids);
+      console.log(`[extractor] Matched ${matchedGroups.length} groups with participant data`);
 
       const allParticipants: Participant[] = [];
+      let lidSkipped = 0;
 
-      for (const group of allGroups) {
-        if (!selectedJids.has(group.jid)) continue;
-        const gName = selectedNames.get(group.jid) || group.name;
-        const participants = parseParticipants(group.participants || [], group.jid, gName);
-        console.log(`[extractor] Group "${gName}": ${participants.length} participants`);
-        allParticipants.push(...participants);
+      for (const g of matchedGroups) {
+        const jid = g?.JID || g?.jid || g?.id || "";
+        const gName = nameMap.get(jid) || g?.Name || g?.subject || g?.name || jid;
+        const rawPs = g?.Participants || g?.participants || [];
+        const beforeCount = allParticipants.length;
+        const parsed = parseParticipants(rawPs, jid, gName);
+        allParticipants.push(...parsed);
+        lidSkipped += rawPs.length - parsed.length;
+        console.log(`[extractor] "${gName}": ${parsed.length} valid, ${rawPs.length - parsed.length} LID/invalid skipped`);
       }
 
       // Apply filters
@@ -221,27 +235,26 @@ Deno.serve(async (req) => {
         filtered = filtered.filter(p => !p.is_admin);
       }
 
-      // Deduplicate by phone number
+      // Deduplicate
       const seen = new Map<string, Participant>();
       for (const p of filtered) {
-        if (!seen.has(p.phone)) {
-          seen.set(p.phone, p);
-        }
+        if (!seen.has(p.phone)) seen.set(p.phone, p);
       }
 
       const deduplicated = Array.from(seen.values());
-      console.log(`[extractor] Result: ${deduplicated.length} unique leads (${filtered.length} before dedup)`);
+      console.log(`[extractor] Final: ${deduplicated.length} unique (${lidSkipped} LID skipped, ${filtered.length - deduplicated.length} dupes removed)`);
 
       return new Response(JSON.stringify({
         total: deduplicated.length,
         total_before_dedup: filtered.length,
+        lid_skipped: lidSkipped,
         participants: deduplicated,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify({ error: "Invalid action" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
-    console.error(`[extractor] Fatal error: ${err?.message}`);
+    console.error(`[extractor] Fatal: ${err?.message}`);
     return new Response(JSON.stringify({ error: err?.message || "Internal error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
