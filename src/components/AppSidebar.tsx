@@ -439,6 +439,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
               {renderNavItem({ title: "Meus Contatos", url: "/dashboard/contacts", icon: BookUser })}
+              {renderNavItem({ title: "Extrator de Grupos", url: "/dashboard/group-extractor", icon: Users })}
               {renderNavItem({ title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn })}
               {renderNavItem({ title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus })}
               {renderNavItem({ title: "Grupos", url: "/dashboard/groups", icon: UsersRound })}
