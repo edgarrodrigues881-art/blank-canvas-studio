@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { FixedSizeList as List } from "react-window";
+import { List } from "react-window";
 import {
   Search, Users, Download, Loader2, Smartphone, Filter,
   CheckCircle2, AlertCircle, RefreshCw, Copy, UserCheck, ShieldCheck, EyeOff
