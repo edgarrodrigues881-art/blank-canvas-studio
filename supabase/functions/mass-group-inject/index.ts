@@ -1101,17 +1101,24 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       const candidateId = pickDeviceIdWithBlacklist(campaign, failedDeviceIds);
       if (!candidateId) break;
       const candidate = await getDeviceCredentials(sb, candidateId, campaign.user_id, true);
-      if (candidate) {
-        device = candidate;
-        break;
+      if (!candidate || !isDeviceOperational(candidate)) {
+        console.log(`[mass-inject] campaign=${campaignId} skipping device=${candidate?.name || candidateId} status=${candidate?.status || "missing"} number=${candidate?.number || "missing"}`);
+        failedDeviceIds.add(candidateId);
+        continue;
       }
-      failedDeviceIds.add(candidateId);
+      device = candidate;
+      break;
     }
 
     if (!device) {
-      console.log(`[mass-inject] campaign=${campaignId} NO devices available — failing campaign`);
-      await sb.from("mass_inject_campaigns").update({ status: "failed", updated_at: nowIso(), completed_at: nowIso(), next_run_at: null }).eq("id", campaignId);
-      await emitCampaignEvent(sb, campaignId, "campaign_failed_no_devices", "error");
+      console.log(`[mass-inject] campaign=${campaignId} NO operational devices available — pausing campaign`);
+      await sb.from("mass_inject_campaigns").update({
+        status: "paused",
+        updated_at: nowIso(),
+        next_run_at: null,
+        pause_reason: "Nenhuma instância conectada e válida disponível. Conecte outra conta e retome.",
+      }).eq("id", campaignId);
+      await emitCampaignEvent(sb, campaignId, "campaign_failed_no_devices", "warning", "Nenhuma instância conectada e válida disponível. Conecte outra conta e retome.");
       return;
     }
 
@@ -1126,17 +1133,18 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       
       if (confirmedDisconnect) {
         console.log(`[mass-inject] campaign=${campaignId} device=${device.name} SESSION DROPPED (confirmed by ${DISCONNECT_RECHECK_COUNT} checks)`);
-        // Don't immediately mark as Disconnected — give it a chance to recover
         failedDeviceIds.add(device.id);
 
-        // Check if other devices are available
         let anyConnected = false;
         for (const did of parseDeviceIds(campaign.device_ids)) {
           if (failedDeviceIds.has(did)) continue;
           const altDevice = await getDeviceCredentials(sb, did, campaign.user_id, true);
-          if (!altDevice) continue;
+          if (!altDevice || !isDeviceOperational(altDevice)) {
+            failedDeviceIds.add(did);
+            continue;
+          }
           const altConn = await checkInstanceConnection(altDevice.uazapi_base_url, altDevice.uazapi_token);
-          if (altConn.connected !== false) {
+          if (altConn.connected === true) {
             anyConnected = true;
             break;
           }
@@ -1144,7 +1152,6 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         }
 
         if (!anyConnected) {
-          // ALL devices offline — but DON'T fail the campaign, just pause with recovery option
           console.log(`[mass-inject] campaign=${campaignId} ALL devices sessions dropped — pausing (NOT failing)`);
           await sb.from("mass_inject_campaigns").update({
             status: "paused",
@@ -1157,15 +1164,13 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
           return;
         }
 
-        // Some devices still connected — redistribute with LONG cooldown (5-10 min recovery)
-        const retryDelay = randomBetween(300_000, 600_000); // 5-10 minutes
+        const retryDelay = randomBetween(300_000, 600_000);
         await emitCampaignEvent(sb, campaignId, "session_dropped", "warning", 
           `Sessão da instância ${device.name} desconectada. Recuperação em ${Math.round(retryDelay/1000/60)} min com outra instância.`);
         await scheduleCampaignRun(sb, campaignId, retryDelay);
         nextRunScheduled = true;
         return;
       } else if (connCheck.connected === null) {
-        // Unstable connection — wait and retry
         const retryDelay = randomBetween(20_000, 40_000);
         console.log(`[mass-inject] campaign=${campaignId} device=${device.name} connection unstable, retrying in ${retryDelay}ms`);
         await emitCampaignEvent(sb, campaignId, "connection_unstable", "warning",
@@ -1181,14 +1186,14 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
       await emitCampaignEvent(sb, campaignId, "campaign_started", "info");
     }
 
+    const globalMinIntervalMs = Math.max(Number(campaign.min_delay || 3) * 1000, 3000);
     const { data: waitMs } = await sb.rpc("claim_device_send_slot", {
       p_device_id: device.id,
-      p_min_interval_ms: 12000,
+      p_min_interval_ms: globalMinIntervalMs,
     });
     if (waitMs && waitMs > 0) {
-      const jitteredWait = waitMs + randomBetween(1000, 3000);
-      console.log(`[mass-inject] campaign=${campaignId} device=${device.name} global rate limit: requeue in ${jitteredWait}ms`);
-      await scheduleCampaignRun(sb, campaignId, jitteredWait);
+      console.log(`[mass-inject] campaign=${campaignId} device=${device.name} global rate limit: requeue in ${waitMs}ms`);
+      await scheduleCampaignRun(sb, campaignId, waitMs);
       nextRunScheduled = true;
       return;
     }
