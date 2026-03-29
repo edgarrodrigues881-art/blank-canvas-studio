@@ -22,7 +22,7 @@ import {
   Phone, Type, ImageIcon, Flame, ShieldAlert, Activity,
   Zap, Clock, Hash, Wifi, WifiOff, RefreshCw, Settings2, Calendar,
   CheckCircle2, XCircle, Copy, Eraser, Sparkles, Loader2, Check,
-  ArrowRight, Lock, Timer, TrendingUp, ArrowUp, ArrowDown, Pencil, Search, Save
+  ArrowRight, Lock, Timer, TrendingUp, ArrowUp, ArrowDown, Pencil, Search, Save, EyeOff
 } from "lucide-react";
 import { useCreateCampaign, useStartCampaign } from "@/hooks/useCampaigns";
 import { useTemplates, useCreateTemplate } from "@/hooks/useTemplates";
