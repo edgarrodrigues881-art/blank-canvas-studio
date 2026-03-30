@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,12 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { useTemplates } from "@/hooks/useTemplates";
+import { useCarouselTemplates } from "@/hooks/useCarouselTemplates";
 import { toast } from "sonner";
 import {
   useWelcomeAutomations,
@@ -35,7 +37,6 @@ import {
   Trash2,
   RefreshCw,
   Download,
-  Eye,
   RotateCcw,
   XCircle,
   CheckCircle2,
@@ -44,10 +45,42 @@ import {
   Users,
   Send,
   Shield,
-  Filter,
   Search,
+  FileText,
+  Smile,
+  Variable,
+  Import,
+  Type,
+  Bold,
+  Italic,
+  Strikethrough,
+  Code,
 } from "lucide-react";
 import { format } from "date-fns";
+
+/* ───────── helpers ───────── */
+const CONNECTED_STATUSES = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"];
+
+function useConnectedDevices(enabled = true) {
+  return useQuery({
+    queryKey: ["devices-connected-welcome"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("devices")
+        .select("id, name, status, number, instance_type")
+        .in("status", CONNECTED_STATUSES)
+        .not("number", "is", null)
+        .order("name");
+      return (data || []).filter(d => d.number && !["notificacao", "report"].includes(d.instance_type)).sort((a, b) => {
+        const na = a.name.replace(/\d+/, m => m.padStart(6, "0"));
+        const nb = b.name.replace(/\d+/, m => m.padStart(6, "0"));
+        return na.localeCompare(nb);
+      });
+    },
+    enabled,
+    staleTime: 30_000,
+  });
+}
 
 const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = {
   pending: { label: "Pendente", color: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30", icon: Clock },
@@ -77,6 +110,184 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+/* ───────── Variables Toolbar ───────── */
+const VARIABLES = [
+  { key: "{nome}", label: "Nome" },
+  { key: "{numero}", label: "Número" },
+  { key: "{grupo}", label: "Grupo" },
+  { key: "{data}", label: "Data" },
+  { key: "{hora}", label: "Hora" },
+];
+
+const FORMAT_BUTTONS = [
+  { icon: Bold, wrap: ["*", "*"], label: "Negrito" },
+  { icon: Italic, wrap: ["_", "_"], label: "Itálico" },
+  { icon: Strikethrough, wrap: ["~", "~"], label: "Tachado" },
+  { icon: Code, wrap: ["```", "```"], label: "Código" },
+];
+
+function MessageEditor({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { data: templates } = useTemplates();
+  const { data: carouselTemplates } = useCarouselTemplates();
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  const insertAtCursor = (text: string) => {
+    const ta = textareaRef.current;
+    if (!ta) { onChange(value + text); return; }
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const newVal = value.slice(0, start) + text + value.slice(end);
+    onChange(newVal);
+    setTimeout(() => {
+      ta.selectionStart = ta.selectionEnd = start + text.length;
+      ta.focus();
+    }, 0);
+  };
+
+  const wrapSelection = (before: string, after: string) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const selected = value.slice(start, end);
+    const newVal = value.slice(0, start) + before + selected + after + value.slice(end);
+    onChange(newVal);
+    setTimeout(() => {
+      ta.selectionStart = start + before.length;
+      ta.selectionEnd = start + before.length + selected.length;
+      ta.focus();
+    }, 0);
+  };
+
+  const importTemplate = (content: string) => {
+    onChange(content);
+    setShowTemplates(false);
+    toast.success("Template importado!");
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* Toolbar */}
+      <div className="flex items-center gap-1 flex-wrap rounded-lg border border-border bg-muted/30 p-1.5">
+        {/* Format buttons */}
+        {FORMAT_BUTTONS.map(fb => (
+          <Button
+            key={fb.label}
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            title={fb.label}
+            onClick={() => wrapSelection(fb.wrap[0], fb.wrap[1])}
+          >
+            <fb.icon className="w-3.5 h-3.5" />
+          </Button>
+        ))}
+
+        <div className="w-px h-5 bg-border mx-0.5" />
+
+        {/* Variables */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px]">
+              <Variable className="w-3.5 h-3.5" />
+              Variáveis
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-1" align="start">
+            {VARIABLES.map(v => (
+              <button
+                key={v.key}
+                className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-muted transition-colors"
+                onClick={() => insertAtCursor(v.key)}
+              >
+                <span className="font-mono text-primary">{v.key}</span>
+                <span className="text-muted-foreground ml-2">— {v.label}</span>
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
+
+        <div className="w-px h-5 bg-border mx-0.5" />
+
+        {/* Import from template */}
+        <Popover open={showTemplates} onOpenChange={setShowTemplates}>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px]">
+              <Import className="w-3.5 h-3.5" />
+              Importar Template
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 p-0" align="start">
+            <div className="p-2 border-b">
+              <p className="text-xs font-medium text-muted-foreground">Selecione um template</p>
+            </div>
+            <ScrollArea className="max-h-[250px]">
+              {templates && templates.length > 0 && (
+                <div className="p-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wider">Templates Normais</p>
+                  {templates.map(t => (
+                    <button
+                      key={t.id}
+                      className="w-full text-left px-2.5 py-2 text-xs rounded hover:bg-muted transition-colors"
+                      onClick={() => importTemplate(t.content)}
+                    >
+                      <span className="font-medium">{t.name}</span>
+                      <span className="block text-[10px] text-muted-foreground truncate mt-0.5">{t.content.slice(0, 60)}...</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {carouselTemplates && carouselTemplates.length > 0 && (
+                <div className="p-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wider">Templates Carrossel</p>
+                  {carouselTemplates.map(t => (
+                    <button
+                      key={t.id}
+                      className="w-full text-left px-2.5 py-2 text-xs rounded hover:bg-muted transition-colors"
+                      onClick={() => importTemplate(t.message.split("|||")[0])}
+                    >
+                      <span className="font-medium">{t.name}</span>
+                      <span className="block text-[10px] text-muted-foreground truncate mt-0.5">{t.message.split("|||")[0].slice(0, 60)}...</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {(!templates?.length && !carouselTemplates?.length) && (
+                <p className="text-xs text-muted-foreground p-4 text-center">Nenhum template disponível</p>
+              )}
+            </ScrollArea>
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* Textarea */}
+      <Textarea
+        ref={textareaRef}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder || "Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉"}
+        className={`min-h-[120px] text-sm font-mono ${className || ""}`}
+      />
+      <p className="text-[10px] text-muted-foreground">
+        Variáveis disponíveis: <span className="font-mono text-primary">{"{nome}"}</span>, <span className="font-mono text-primary">{"{numero}"}</span>, <span className="font-mono text-primary">{"{grupo}"}</span>, <span className="font-mono text-primary">{"{data}"}</span>, <span className="font-mono text-primary">{"{hora}"}</span>
+      </p>
+    </div>
+  );
+}
+
+/* ───────── MAIN PAGE ───────── */
 export default function WelcomeAutomationPage() {
   const { user } = useAuth();
   const { data: automations, isLoading } = useWelcomeAutomations();
@@ -142,22 +353,14 @@ export default function WelcomeAutomationPage() {
     if (!filteredQueue.length) return;
     const headers = ["Participante", "Nome", "Grupo", "Status", "Detectado", "Processado", "Tentativas", "Erro"];
     const rows = filteredQueue.map(q => [
-      q.participant_phone,
-      q.participant_name || "",
-      q.group_name || q.group_id,
-      q.status,
-      q.detected_at,
-      q.processed_at || "",
-      String(q.attempts),
-      q.error_reason || "",
+      q.participant_phone, q.participant_name || "", q.group_name || q.group_id,
+      q.status, q.detected_at, q.processed_at || "", String(q.attempts), q.error_reason || "",
     ]);
     const csv = [headers.join(","), ...rows.map(r => r.map(c => `"${c}"`).join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = `boas-vindas-fila-${Date.now()}.csv`;
-    a.click();
+    a.href = url; a.download = `boas-vindas-fila-${Date.now()}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -185,13 +388,12 @@ export default function WelcomeAutomationPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {isLoading && <p className="text-muted-foreground text-sm col-span-full">Carregando...</p>}
           {automations?.length === 0 && !isLoading && (
-            <Card className="col-span-full">
+            <Card className="col-span-full border-dashed">
               <CardContent className="py-12 text-center">
                 <Heart className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-muted-foreground">Nenhuma automação criada</p>
                 <Button onClick={() => setShowCreate(true)} className="mt-4 gap-2" size="sm">
-                  <Plus className="w-4 h-4" />
-                  Criar primeira automação
+                  <Plus className="w-4 h-4" /> Criar primeira automação
                 </Button>
               </CardContent>
             </Card>
@@ -201,7 +403,7 @@ export default function WelcomeAutomationPage() {
             return (
               <Card
                 key={a.id}
-                className="cursor-pointer hover:border-primary/40 transition-colors"
+                className="cursor-pointer hover:border-primary/40 transition-all hover:shadow-md"
                 onClick={() => { setSelectedId(a.id); setTab("config"); }}
               >
                 <CardHeader className="pb-2">
@@ -228,17 +430,11 @@ export default function WelcomeAutomationPage() {
       {/* Detail View */}
       {selected && (
         <div className="flex flex-col gap-4">
-          {/* Back + Actions */}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <Button variant="ghost" size="sm" onClick={() => setSelectedId(null)}>← Voltar</Button>
             <div className="flex gap-2 flex-wrap">
               {selected.status !== "completed" && (
-                <Button
-                  size="sm"
-                  variant={selected.status === "active" ? "outline" : "default"}
-                  onClick={handleToggleStatus}
-                  className="gap-1.5"
-                >
+                <Button size="sm" variant={selected.status === "active" ? "outline" : "default"} onClick={handleToggleStatus} className="gap-1.5">
                   {selected.status === "active" ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                   {selected.status === "active" ? "Pausar" : "Iniciar"}
                 </Button>
@@ -254,7 +450,7 @@ export default function WelcomeAutomationPage() {
             </div>
           </div>
 
-          {/* Stats Cards */}
+          {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
             {[
               { label: "Total", value: stats.total, color: "text-foreground" },
@@ -293,17 +489,10 @@ export default function WelcomeAutomationPage() {
                     <div className="flex gap-2 flex-wrap">
                       <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                        <Input
-                          placeholder="Buscar..."
-                          value={queueFilter}
-                          onChange={e => setQueueFilter(e.target.value)}
-                          className="pl-8 h-8 w-40 text-xs"
-                        />
+                        <Input placeholder="Buscar..." value={queueFilter} onChange={e => setQueueFilter(e.target.value)} className="pl-8 h-8 w-40 text-xs" />
                       </div>
                       <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="h-8 w-32 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
+                        <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Todos</SelectItem>
                           {Object.entries(STATUS_MAP).map(([k, v]) => (
@@ -345,42 +534,24 @@ export default function WelcomeAutomationPage() {
                             <TableCell className="text-xs font-mono">
                               <div>
                                 <span>{item.participant_phone}</span>
-                                {item.participant_name && (
-                                  <span className="block text-muted-foreground text-[10px]">{item.participant_name}</span>
-                                )}
+                                {item.participant_name && <span className="block text-muted-foreground text-[10px]">{item.participant_name}</span>}
                               </div>
                             </TableCell>
                             <TableCell className="text-xs max-w-[120px] truncate">{item.group_name || item.group_id.slice(0, 12)}</TableCell>
                             <TableCell><StatusBadge status={item.status} /></TableCell>
-                            <TableCell className="text-[11px] text-muted-foreground">
-                              {format(new Date(item.detected_at), "dd/MM HH:mm")}
-                            </TableCell>
-                            <TableCell className="text-[11px] text-muted-foreground">
-                              {item.processed_at ? format(new Date(item.processed_at), "dd/MM HH:mm") : "—"}
-                            </TableCell>
+                            <TableCell className="text-[11px] text-muted-foreground">{format(new Date(item.detected_at), "dd/MM HH:mm")}</TableCell>
+                            <TableCell className="text-[11px] text-muted-foreground">{item.processed_at ? format(new Date(item.processed_at), "dd/MM HH:mm") : "—"}</TableCell>
                             <TableCell className="text-xs text-center">{item.attempts}</TableCell>
                             <TableCell className="text-[11px] text-red-400 max-w-[120px] truncate">{item.error_reason || "—"}</TableCell>
                             <TableCell>
                               <div className="flex gap-1">
                                 {(item.status === "failed" || item.status === "ignored") && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 w-6 p-0"
-                                    title="Reenfileirar"
-                                    onClick={() => handleRequeue(item.id)}
-                                  >
+                                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0" title="Reenfileirar" onClick={() => handleRequeue(item.id)}>
                                     <RotateCcw className="w-3 h-3" />
                                   </Button>
                                 )}
                                 {item.status === "pending" && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 w-6 p-0"
-                                    title="Ignorar"
-                                    onClick={() => handleIgnore(item.id)}
-                                  >
+                                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0" title="Ignorar" onClick={() => handleIgnore(item.id)}>
                                     <XCircle className="w-3 h-3" />
                                   </Button>
                                 )}
@@ -398,12 +569,12 @@ export default function WelcomeAutomationPage() {
         </div>
       )}
 
-      {/* Create Dialog */}
       <CreateAutomationDialog open={showCreate} onOpenChange={setShowCreate} />
     </div>
   );
 }
 
+/* ───────── Automation Config ───────── */
 function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
   const update = useUpdateWelcomeAutomation();
   const [minDelay, setMinDelay] = useState(automation.min_delay_seconds);
@@ -433,101 +604,117 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
   };
 
   return (
-    <Card>
-      <CardContent className="pt-5 space-y-5">
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-xs">Delay mínimo (segundos)</Label>
-            <Input type="number" value={minDelay} onChange={e => setMinDelay(Number(e.target.value))} className="h-9" />
+    <div className="space-y-4">
+      {/* Delay & Limits */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Clock className="w-4 h-4 text-primary" />
+            Delays e Limites
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Delay mínimo (s)</Label>
+              <Input type="number" value={minDelay} onChange={e => setMinDelay(Number(e.target.value))} className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Delay máximo (s)</Label>
+              <Input type="number" value={maxDelay} onChange={e => setMaxDelay(Number(e.target.value))} className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Máximo por conta</Label>
+              <Input type="number" value={maxPerAccount} onChange={e => setMaxPerAccount(Number(e.target.value))} className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tentativas máximas</Label>
+              <Input type="number" value={maxRetries} onChange={e => setMaxRetries(Number(e.target.value))} className="h-9" />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Delay máximo (segundos)</Label>
-            <Input type="number" value={maxDelay} onChange={e => setMaxDelay(Number(e.target.value))} className="h-9" />
+        </CardContent>
+      </Card>
+
+      {/* Schedule & Anti-dupe */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Shield className="w-4 h-4 text-primary" />
+            Horário e Anti-duplicidade
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Horário início</Label>
+              <Input type="time" value={startHour} onChange={e => setStartHour(e.target.value)} className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Horário fim</Label>
+              <Input type="time" value={endHour} onChange={e => setEndHour(e.target.value)} className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Regra anti-duplicidade</Label>
+              <Select value={dedupeRule} onValueChange={setDedupeRule}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="same_group">Mesmo nº no mesmo grupo</SelectItem>
+                  <SelectItem value="any_group">Mesmo nº em qualquer grupo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Janela anti-dup (dias)</Label>
+              <Input type="number" value={dedupeDays} onChange={e => setDedupeDays(Number(e.target.value))} className="h-9" />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Máximo por conta</Label>
-            <Input type="number" value={maxPerAccount} onChange={e => setMaxPerAccount(Number(e.target.value))} className="h-9" />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Tentativas máximas</Label>
-            <Input type="number" value={maxRetries} onChange={e => setMaxRetries(Number(e.target.value))} className="h-9" />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Horário início</Label>
-            <Input type="time" value={startHour} onChange={e => setStartHour(e.target.value)} className="h-9" />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Horário fim</Label>
-            <Input type="time" value={endHour} onChange={e => setEndHour(e.target.value)} className="h-9" />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Regra anti-duplicidade</Label>
-            <Select value={dedupeRule} onValueChange={setDedupeRule}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="same_group">Mesmo número no mesmo grupo</SelectItem>
-                <SelectItem value="any_group">Mesmo número em qualquer grupo</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Janela anti-duplicidade (dias)</Label>
-            <Input type="number" value={dedupeDays} onChange={e => setDedupeDays(Number(e.target.value))} className="h-9" />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs">Mensagem de Boas-vindas</Label>
-          <Textarea
-            value={messageContent}
-            onChange={e => setMessageContent(e.target.value)}
-            placeholder="Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉"
-            className="min-h-[100px] text-sm"
-          />
-          <p className="text-[10px] text-muted-foreground">Variáveis: {"{nome}"}, {"{numero}"}, {"{grupo}"}, {"{data}"}, {"{hora}"}</p>
-        </div>
-        <Button onClick={save} disabled={update.isPending} className="gap-2">
-          {update.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
-          Salvar Configuração
-        </Button>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {/* Message */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Send className="w-4 h-4 text-primary" />
+            Mensagem de Boas-vindas
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <MessageEditor value={messageContent} onChange={setMessageContent} />
+        </CardContent>
+      </Card>
+
+      <Button onClick={save} disabled={update.isPending} className="gap-2 w-full sm:w-auto">
+        {update.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+        Salvar Configuração
+      </Button>
+    </div>
   );
 }
 
+/* ───────── Create Dialog ───────── */
 function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { user } = useAuth();
   const create = useCreateWelcomeAutomation();
   const [name, setName] = useState("");
   const [monitoringDevice, setMonitoringDevice] = useState("");
-  const [messageContent, setMessageContent] = useState("Olá! Seja bem-vindo(a) ao grupo! 🎉");
+  const [messageContent, setMessageContent] = useState("Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉");
   const [selectedSenders, setSelectedSenders] = useState<string[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<{ group_id: string; group_name: string }[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [availableGroups, setAvailableGroups] = useState<{ id: string; name: string }[]>([]);
 
-  const { data: devices } = useQuery({
-    queryKey: ["devices-for-welcome"],
-    queryFn: async () => {
-      const { data } = await supabase.from("devices").select("id, name, status, number").order("name");
-      return data || [];
-    },
-    enabled: open,
-  });
-
-  const connectedDevices = devices?.filter(d => ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"].includes(d.status)) || [];
+  const { data: devices } = useConnectedDevices(open);
 
   const loadGroups = async () => {
     if (!monitoringDevice) return;
     setGroupsLoading(true);
     try {
-      const device = devices?.find(d => d.id === monitoringDevice);
-      if (!device) return;
       const { data: deviceFull } = await supabase.from("devices").select("uazapi_token, uazapi_base_url").eq("id", monitoringDevice).single();
       if (!deviceFull?.uazapi_token || !deviceFull?.uazapi_base_url) {
         toast.error("Dispositivo sem credenciais configuradas");
         return;
       }
-      // Try to fetch groups via edge function
       const { data, error } = await supabase.functions.invoke("whapi-chats", {
         body: { deviceId: monitoringDevice, type: "groups" },
       });
@@ -556,18 +743,13 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
       sender_device_ids: selectedSenders,
     });
     onOpenChange(false);
-    setName("");
-    setMonitoringDevice("");
-    setMessageContent("Olá! Seja bem-vindo(a) ao grupo! 🎉");
-    setSelectedSenders([]);
-    setSelectedGroups([]);
+    setName(""); setMonitoringDevice(""); setMessageContent("Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉");
+    setSelectedSenders([]); setSelectedGroups([]); setAvailableGroups([]);
   };
 
   const toggleGroup = (g: { id: string; name: string }) => {
     setSelectedGroups(prev =>
-      prev.some(sg => sg.group_id === g.id)
-        ? prev.filter(sg => sg.group_id !== g.id)
-        : [...prev, { group_id: g.id, group_name: g.name }]
+      prev.some(sg => sg.group_id === g.id) ? prev.filter(sg => sg.group_id !== g.id) : [...prev, { group_id: g.id, group_name: g.name }]
     );
   };
 
@@ -577,97 +759,106 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Heart className="w-5 h-5 text-primary" />
             Nova Automação de Boas-vindas
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label className="text-xs">Nome da automação *</Label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Boas-vindas Grupo VIP" className="h-9" />
-          </div>
 
-          <div className="space-y-2">
-            <Label className="text-xs">Conta de monitoramento *</Label>
-            <Select value={monitoringDevice} onValueChange={(v) => { setMonitoringDevice(v); setAvailableGroups([]); setSelectedGroups([]); }}>
-              <SelectTrigger className="h-9"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-              <SelectContent>
-                {connectedDevices.map(d => (
-                  <SelectItem key={d.id} value={d.id}>{d.name} {d.number ? `(${d.number})` : ""}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <ScrollArea className="flex-1 pr-3">
+          <div className="space-y-5 pb-2">
+            {/* Name */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Nome da automação *</Label>
+              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Boas-vindas Grupo VIP" className="h-9" />
+            </div>
 
-          {monitoringDevice && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">Grupos monitorados</Label>
-                <Button size="sm" variant="outline" onClick={loadGroups} disabled={groupsLoading} className="h-7 text-[11px] gap-1">
-                  {groupsLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                  Carregar
-                </Button>
+            {/* Monitoring account */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Conta de monitoramento *</Label>
+              <Select value={monitoringDevice} onValueChange={(v) => { setMonitoringDevice(v); setAvailableGroups([]); setSelectedGroups([]); }}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Selecione uma conta conectada..." /></SelectTrigger>
+                <SelectContent>
+                  {devices?.map(d => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name} ({d.number})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">Somente contas conectadas e com número são exibidas</p>
+            </div>
+
+            {/* Groups */}
+            {monitoringDevice && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium">Grupos monitorados</Label>
+                  <Button size="sm" variant="outline" onClick={loadGroups} disabled={groupsLoading} className="h-7 text-[11px] gap-1">
+                    {groupsLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    Carregar Grupos
+                  </Button>
+                </div>
+                {availableGroups.length > 0 && (
+                  <ScrollArea className="h-[140px] border rounded-lg p-2">
+                    <div className="space-y-0.5">
+                      {availableGroups.map(g => (
+                        <label key={g.id} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/40 rounded cursor-pointer text-xs">
+                          <Checkbox
+                            checked={selectedGroups.some(sg => sg.group_id === g.id)}
+                            onCheckedChange={() => toggleGroup(g)}
+                          />
+                          <span className="truncate">{g.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+                {selectedGroups.length > 0 && (
+                  <p className="text-[10px] text-emerald-400">{selectedGroups.length} grupo(s) selecionado(s)</p>
+                )}
               </div>
-              {availableGroups.length > 0 && (
-                <ScrollArea className="max-h-[150px] border rounded-lg p-2">
-                  {availableGroups.map(g => (
-                    <label key={g.id} className="flex items-center gap-2 py-1 px-1 hover:bg-muted/30 rounded cursor-pointer text-xs">
-                      <input
-                        type="checkbox"
-                        checked={selectedGroups.some(sg => sg.group_id === g.id)}
-                        onChange={() => toggleGroup(g)}
-                        className="rounded"
+            )}
+
+            {/* Sender accounts */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Contas remetentes *</Label>
+              <ScrollArea className="h-[160px] border rounded-lg p-2">
+                <div className="space-y-0.5">
+                  {devices?.map(d => (
+                    <label key={d.id} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/40 rounded cursor-pointer text-xs">
+                      <Checkbox
+                        checked={selectedSenders.includes(d.id)}
+                        onCheckedChange={() => toggleSender(d.id)}
                       />
-                      <span className="truncate">{g.name}</span>
+                      <span className="truncate">{d.name} ({d.number})</span>
                     </label>
                   ))}
-                </ScrollArea>
-              )}
-              {selectedGroups.length > 0 && (
-                <p className="text-[10px] text-muted-foreground">{selectedGroups.length} grupo(s) selecionado(s)</p>
+                  {(!devices || devices.length === 0) && (
+                    <p className="text-xs text-muted-foreground p-2">Nenhuma conta conectada encontrada</p>
+                  )}
+                </div>
+              </ScrollArea>
+              {selectedSenders.length > 0 && (
+                <p className="text-[10px] text-emerald-400">{selectedSenders.length} conta(s) selecionada(s)</p>
               )}
             </div>
-          )}
 
-          <div className="space-y-2">
-            <Label className="text-xs">Contas remetentes *</Label>
-            <ScrollArea className="max-h-[120px] border rounded-lg p-2">
-              {connectedDevices.map(d => (
-                <label key={d.id} className="flex items-center gap-2 py-1 px-1 hover:bg-muted/30 rounded cursor-pointer text-xs">
-                  <input
-                    type="checkbox"
-                    checked={selectedSenders.includes(d.id)}
-                    onChange={() => toggleSender(d.id)}
-                    className="rounded"
-                  />
-                  <span className="truncate">{d.name} {d.number ? `(${d.number})` : ""}</span>
-                </label>
-              ))}
-            </ScrollArea>
-            {selectedSenders.length > 0 && (
-              <p className="text-[10px] text-muted-foreground">{selectedSenders.length} conta(s) selecionada(s)</p>
-            )}
+            {/* Message */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Mensagem de Boas-vindas *</Label>
+              <MessageEditor value={messageContent} onChange={setMessageContent} />
+            </div>
           </div>
+        </ScrollArea>
 
-          <div className="space-y-2">
-            <Label className="text-xs">Mensagem *</Label>
-            <Textarea
-              value={messageContent}
-              onChange={e => setMessageContent(e.target.value)}
-              placeholder="Olá {nome}! Seja bem-vindo(a)!"
-              className="min-h-[80px] text-sm"
-            />
-            <p className="text-[10px] text-muted-foreground">Use: {"{nome}"}, {"{numero}"}, {"{grupo}"}, {"{data}"}, {"{hora}"}</p>
-          </div>
-        </div>
-        <DialogFooter>
+        <DialogFooter className="border-t pt-3 mt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleCreate} disabled={create.isPending} className="gap-2">
             {create.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            Criar
+            Criar Automação
           </Button>
         </DialogFooter>
       </DialogContent>
