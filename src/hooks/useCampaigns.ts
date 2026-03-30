@@ -142,7 +142,7 @@ export function useCreateCampaign() {
         const contactRows = contacts.map(c => ({
           campaign_id: newCampaign.id,
           phone: c.phone,
-          name: c.name || null,
+          name: (c.name || "").trim() || c.phone,
           status: "pending",
           var1: c.var1 || "",
           var2: c.var2 || "",
