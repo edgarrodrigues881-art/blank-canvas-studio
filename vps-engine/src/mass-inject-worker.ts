@@ -524,7 +524,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       continue;
     }
 
-    // 7. Add to group
+    // 8. Add to group
     const result = await addToGroup(baseUrl, device.uazapi_token, groupId, phone);
 
     if (result.ok) {
