@@ -637,18 +637,22 @@ export async function massInjectTick(isRunningRef: { value: boolean }) {
     .eq("status", "processing")
     .lt("processed_at", staleThreshold);
 
-  // 2. Find active campaigns
+  // 2. Find active campaigns (skip ones already being processed)
   const { data: campaigns } = await db.from("mass_inject_campaigns")
     .select("*")
     .in("status", ["queued", "processing"])
     .order("created_at", { ascending: true })
-    .limit(5);
+    .limit(10);
 
   if (!campaigns?.length) return;
 
-  // Process one at a time (sequential, not parallel)
-  for (const campaign of campaigns) {
-    if (!isRunningRef.value) break;
+  // Filter out campaigns already running in parallel
+  const newCampaigns = campaigns.filter(c => !activeCampaignIds.has(c.id));
+  if (!newCampaigns.length) return;
+
+  // Process ALL campaigns in parallel (not sequential)
+  await Promise.all(newCampaigns.map(async (campaign) => {
+    if (!isRunningRef.value) return;
 
     // Check if there are pending contacts
     const { count } = await db.from("mass_inject_contacts")
@@ -658,7 +662,7 @@ export async function massInjectTick(isRunningRef: { value: boolean }) {
 
     if (Number(count || 0) === 0) {
       await finalizeCampaign(db, campaign.id);
-      continue;
+      return;
     }
 
     try {
@@ -666,7 +670,7 @@ export async function massInjectTick(isRunningRef: { value: boolean }) {
     } catch (err: any) {
       log.error(`Campaign ${campaign.id.slice(0, 8)} error: ${err.message}`);
     }
-  }
+  }));
 
   lastMassInjectTickAt = new Date();
 }
