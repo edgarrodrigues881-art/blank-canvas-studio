@@ -190,8 +190,8 @@ Deno.serve(async (req) => {
         return normalizedCandidates.some((value) => matchesDeviceNumber(value));
       };
 
-      // ─── S-1: Wake up session before listing (always) ───
-      {
+      // ─── S-1: Wake up session before listing (skip in quick mode) ───
+      if (!quickMode) {
         const statusRes = await fetchSafe(`${apiBaseUrl}/instance/status`, 1);
         const st = statusRes?.instance?.status || statusRes?.status || "";
         console.log(`[S-1] Instance status: ${st}`);
