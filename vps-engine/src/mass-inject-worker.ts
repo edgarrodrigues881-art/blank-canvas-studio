@@ -11,8 +11,8 @@ const log = createLogger("mass-inject");
 
 const API_TIMEOUT_MS = 25_000;
 const MAX_CONSECUTIVE_FAILURES = 15;
-const MAX_RETRIES = 5;
-const RETRYABLE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped", "permission_unconfirmed", "unknown_failure", "timeout"];
+const MAX_RETRIES = 1; // Try once — if it fails, mark as failed and move on
+const RETRYABLE_STATUSES = ["pending"];
 
 // ── In-memory caches (persist across contacts within same campaign run) ──
 const participantCache = new Map<string, { participants: Set<string>; fetchedAt: number }>();
