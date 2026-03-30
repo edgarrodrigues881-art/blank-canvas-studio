@@ -133,7 +133,7 @@ async function fetchGroupParticipants(baseUrl: string, token: string, groupId: s
   try {
     const res = await fetchWithTimeout(`${baseUrl}/group/list?GetParticipants=true&count=500`, { headers: buildHeaders(token) });
     if (res.ok) {
-      const body = await res.json();
+      const body: any = await res.json();
       const groups = Array.isArray(body) ? body : body?.groups || body?.data || [];
       const target = groups.find((g: any) => (g?.JID || g?.jid || g?.id || "") === groupId);
       if (target) {
