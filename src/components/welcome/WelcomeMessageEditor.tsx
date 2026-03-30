@@ -94,8 +94,8 @@ function WhatsAppPreview({ content, buttons }: { content: string; buttons?: { te
   );
 }
 
-export function WelcomeMessageEditor({ value, onChange }: {
-  value: string; onChange: (v: string) => void;
+export function WelcomeMessageEditor({ value, onChange, buttons }: {
+  value: string; onChange: (v: string) => void; buttons?: { text: string; action?: string }[];
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { data: templates } = useTemplates();

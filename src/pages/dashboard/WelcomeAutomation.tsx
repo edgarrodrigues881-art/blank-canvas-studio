@@ -344,8 +344,8 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
   const [maxPerAccount, setMaxPerAccount] = useState(automation.max_per_account);
   const [messageContent, setMessageContent] = useState(automation.message_content || "");
   const [messageType, setMessageType] = useState<string>((automation as any).message_type || "text");
-  const [buttons, setButtons] = useState<{ text: string; url: string }[]>(() => {
-    try { const b = (automation as any).buttons; return Array.isArray(b) ? b : []; } catch { return []; }
+  const [buttons, setButtons] = useState<{ text: string; url: string; action: string }[]>(() => {
+    try { const b = (automation as any).buttons; return Array.isArray(b) ? b.map((x: any) => ({ text: x.text || "", url: x.url || "", action: x.action || "link" })) : []; } catch { return []; }
   });
   const [carouselCards, setCarouselCards] = useState<{ title: string; description: string; image_url: string; buttons: { text: string; url: string }[] }[]>(() => {
     try { const c = (automation as any).carousel_cards; return Array.isArray(c) ? c : []; } catch { return []; }
