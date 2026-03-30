@@ -189,7 +189,7 @@ export function WelcomeMessageEditor({ value, onChange, buttons, carouselCards, 
         url: btn?.url || btn?.value || "",
         action: btn?.action || btn?.type || "link",
       }))
-      .slice(0, 3);
+      .slice(0, 10);
   };
 
   const inferTemplateType = (template: any): "text" | "buttons" => {

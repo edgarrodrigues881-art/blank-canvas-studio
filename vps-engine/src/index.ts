@@ -38,7 +38,6 @@ app.get("/health", (_req: Request, res: Response) => {
   const chipConvStatus = getChipConvStatus();
   const groupJoinStatus = getGroupJoinStatus();
   const welcomeStatus = getWelcomeStatus();
-  const groupJoinStatus = getGroupJoinStatus();
   res.json({
     status: "ok",
     uptime: Math.round((Date.now() - startedAt.getTime()) / 1000),
