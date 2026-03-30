@@ -602,7 +602,7 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
             ))}
           </div>
 
-          <WelcomeMessageEditor value={messageContent} onChange={setMessageContent} buttons={messageType === "buttons" ? buttons : undefined} />
+          <WelcomeMessageEditor value={messageContent} onChange={setMessageContent} buttons={messageType === "buttons" ? buttons : undefined} carouselCards={messageType === "carousel" ? carouselCards : undefined} />
 
           {/* Buttons editor */}
           {messageType === "buttons" && (
