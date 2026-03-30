@@ -263,9 +263,19 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
         endpointCache.set(cacheKey, idx);
         return { ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx };
       }
+      // 403 = privacy restriction — contact only allows being added by saved contacts
+      if (errCode === 403) {
+        endpointCache.set(cacheKey, idx);
+        return { ok: false, alreadyExists: false, detail: "Privacidade: só aceita convite de contatos salvos.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx };
+      }
+      // Other known error codes — classify as failure
+      if (errCode >= 400) {
+        endpointCache.set(cacheKey, idx);
+        return classifyFailure(fullText, errCode, idx);
+      }
       if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(fullText)) {
         endpointCache.set(cacheKey, idx);
-        return { ok: true, alreadyExists: false, detail: `Adicionado (code: ${errCode}).`, retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx };
+        return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx };
       }
     }
 
