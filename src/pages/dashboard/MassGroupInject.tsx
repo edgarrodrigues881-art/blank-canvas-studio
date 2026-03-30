@@ -347,45 +347,6 @@ function NextActionCountdown({ contacts, campaign }: { contacts: any[]; campaign
 }
 
 // ═══════════════════════════════════════════════════════════════
-// BETA GATE — shown once per session before accessing the tool
-// ═══════════════════════════════════════════════════════════════
-function BetaGate({ onAccept }: { onAccept: () => void }) {
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-[2px] p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-border/50 bg-card shadow-2xl p-8 space-y-6 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto">
-          <AlertTriangle className="w-8 h-8 text-amber-500" />
-        </div>
-        <div className="space-y-2">
-          <h2 className="text-xl font-bold text-foreground">Ferramenta em Fase Beta</h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            A <strong className="text-foreground">Adição em Massa</strong> ainda está em desenvolvimento ativo e pode apresentar instabilidades ou comportamentos inesperados.
-          </p>
-        </div>
-        <div className="rounded-xl bg-muted/30 border border-border/30 p-4 text-left space-y-2">
-          <p className="text-xs text-muted-foreground flex items-start gap-2">
-            <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-            Resultados podem variar dependendo da API do WhatsApp
-          </p>
-          <p className="text-xs text-muted-foreground flex items-start gap-2">
-            <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-            Use delays adequados para evitar bloqueios
-          </p>
-          <p className="text-xs text-muted-foreground flex items-start gap-2">
-            <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-            Estamos aprimorando continuamente
-          </p>
-        </div>
-        <Button onClick={onAccept} className="w-full h-11 gap-2 text-sm font-semibold">
-          <CheckCircle2 className="w-4 h-4" /> Entendi, continuar
-        </Button>
-      </div>
-    </div>,
-    document.body
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════
 // CAMPAIGN LIST VIEW
 // ═══════════════════════════════════════════════════════════════
 function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void; onViewCampaign: (id: string) => void }) {
@@ -2169,14 +2130,6 @@ export default function MassGroupInject() {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [prefillContacts, setPrefillContacts] = useState<string[] | undefined>();
   const [prefillName, setPrefillName] = useState<string | undefined>();
-  const [betaAccepted, setBetaAccepted] = useState(() => {
-    try { return sessionStorage.getItem("mass-inject-beta") === "1"; } catch { return false; }
-  });
-
-  const handleAcceptBeta = useCallback(() => {
-    setBetaAccepted(true);
-    try { sessionStorage.setItem("mass-inject-beta", "1"); } catch {}
-  }, []);
 
   const handleNewCampaignFromFailed = useCallback((phones: string[], sourceName: string) => {
     setPrefillContacts(phones);
@@ -2207,10 +2160,5 @@ export default function MassGroupInject() {
     return <CampaignList onCreateNew={() => { localStorage.removeItem("mass-inject-draft"); setView("create"); }} onViewCampaign={(id) => { setSelectedCampaignId(id); setView("detail"); }} />;
   })();
 
-  return (
-    <>
-      {!betaAccepted && <BetaGate onAccept={handleAcceptBeta} />}
-      {mainContent}
-    </>
-  );
+  return <>{mainContent}</>;
 }
