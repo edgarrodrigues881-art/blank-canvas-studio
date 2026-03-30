@@ -130,8 +130,8 @@ function WhatsAppPreview({ content, buttons, carouselCards }: {
   );
 }
 
-export function WelcomeMessageEditor({ value, onChange, buttons }: {
-  value: string; onChange: (v: string) => void; buttons?: { text: string; action?: string }[];
+export function WelcomeMessageEditor({ value, onChange, buttons, carouselCards }: {
+  value: string; onChange: (v: string) => void; buttons?: { text: string; action?: string }[]; carouselCards?: CarouselCard[];
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { data: templates } = useTemplates();
