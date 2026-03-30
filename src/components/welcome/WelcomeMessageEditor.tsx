@@ -215,7 +215,7 @@ export function WelcomeMessageEditor({ value, onChange, buttons }: {
 
       {/* Preview – fixed height, internal scroll */}
       <div className="min-w-0">
-        <WhatsAppPreview content={value} />
+        <WhatsAppPreview content={value} buttons={buttons} />
       </div>
     </div>
   );
