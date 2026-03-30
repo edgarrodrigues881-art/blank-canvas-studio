@@ -2160,10 +2160,5 @@ export default function MassGroupInject() {
     return <CampaignList onCreateNew={() => { localStorage.removeItem("mass-inject-draft"); setView("create"); }} onViewCampaign={(id) => { setSelectedCampaignId(id); setView("detail"); }} />;
   })();
 
-  return (
-    <>
-      {!betaAccepted && <BetaGate onAccept={handleAcceptBeta} />}
-      {mainContent}
-    </>
-  );
+  return <>{mainContent}</>;
 }
