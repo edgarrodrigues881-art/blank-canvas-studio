@@ -27,7 +27,7 @@ import { AutomationStatusBadge } from "@/components/welcome/WelcomeStatusBadge";
 import {
   Heart, Plus, Play, Pause, Square, Trash2, RefreshCw,
   CheckCircle2, Clock, Users, Send, Search,
-  ArrowLeft, Settings, ListChecks, Radio, Zap, Eye,
+  ArrowLeft, Settings, ListChecks, Radio, Zap, Eye, Upload, ImageIcon,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -370,7 +370,7 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
         ? c.map((card: any) => ({
             title: card?.title || "",
             description: card?.description || card?.text || "",
-            image_url: card?.image_url || card?.image || card?.media_url || "",
+            image_url: card?.image_url || card?.image || card?.media_url || card?.mediaUrl || "",
             buttons: Array.isArray(card?.buttons)
               ? card.buttons.map((btn: any) => ({
                   text: btn?.text || btn?.label || "",
@@ -446,7 +446,7 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
       const importedCards = (payload.carouselCards || []).slice(0, 10).map((card, i) => ({
         title: card?.title || `Card ${i + 1}`,
         description: card?.description || "",
-        image_url: card?.image_url || "",
+        image_url: (card as any)?.image_url || (card as any)?.image || (card as any)?.media_url || (card as any)?.mediaUrl || "",
         buttons: (card?.buttons || []).slice(0, 2).map((btn, j) => ({
           text: btn?.text || `Botão ${j + 1}`,
           url: btn?.url || "",
@@ -655,25 +655,42 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
           </div>
         </CardHeader>
         <CardContent className="pt-2 space-y-4">
-          {/* Type selector */}
-          <div className="flex items-center gap-2">
-            {[
-              { value: "text", label: "Texto simples" },
-              { value: "buttons", label: "Botões" },
-              { value: "carousel", label: "Carrossel" },
-            ].map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => setMessageType(opt.value)}
-                className={`px-4 py-2 rounded-xl text-xs font-medium transition-all border ${
-                  messageType === opt.value
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-muted/20 text-muted-foreground border-border/50 hover:bg-muted/40"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+          {/* Type selector + clear button */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              {[
+                { value: "text", label: "Texto simples" },
+                { value: "buttons", label: "Botões" },
+                { value: "carousel", label: "Carrossel" },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setMessageType(opt.value)}
+                  className={`px-4 py-2 rounded-xl text-xs font-medium transition-all border ${
+                    messageType === opt.value
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted/20 text-muted-foreground border-border/50 hover:bg-muted/40"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs rounded-lg gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={() => {
+                setMessageContent("");
+                setButtons([]);
+                setCarouselCards([]);
+                setMessageType("text");
+                toast.success("Mensagem limpa!");
+              }}
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Limpar tudo
+            </Button>
           </div>
 
           <WelcomeMessageEditor value={messageContent} onChange={setMessageContent} buttons={messageType === "buttons" ? buttons : undefined} carouselCards={messageType === "carousel" ? carouselCards : undefined} onImportTemplate={handleImportTemplate} />
@@ -730,19 +747,34 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
                     </div>
                     <Input placeholder="Título" value={card.title} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, title: e.target.value } : c))} className="h-9 text-xs rounded-lg" />
                     <Input placeholder="Descrição" value={card.description} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, description: e.target.value } : c))} className="h-9 text-xs rounded-lg" />
-                    {/* Image field - compact with thumbnail */}
+                    {/* Image field - upload or URL with thumbnail */}
                     <div className="flex items-center gap-2">
                       {card.image_url ? (
                         <div className="relative group shrink-0">
-                          <img src={card.image_url} alt="" className="w-12 h-12 rounded-lg object-cover border border-border/30" onError={e => (e.currentTarget.src = "")} />
-                          <button type="button" className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[8px] opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, image_url: "" } : c))}>✕</button>
+                          <img src={card.image_url} alt="" className="w-14 h-14 rounded-lg object-cover border border-border/30" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                          <button type="button" className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[9px] opacity-0 group-hover:opacity-100 transition-opacity shadow-sm" onClick={() => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, image_url: "" } : c))}>✕</button>
                         </div>
                       ) : (
-                        <div className="w-12 h-12 rounded-lg border border-dashed border-border/50 bg-muted/20 flex items-center justify-center shrink-0">
-                          <Eye className="w-4 h-4 text-muted-foreground/40" />
-                        </div>
+                        <label className="w-14 h-14 rounded-lg border-2 border-dashed border-border/50 bg-muted/10 flex flex-col items-center justify-center shrink-0 cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors">
+                          <Upload className="w-4 h-4 text-muted-foreground/50" />
+                          <span className="text-[8px] text-muted-foreground/50 mt-0.5">Upload</span>
+                          <input type="file" accept="image/*" className="hidden" onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = ev => {
+                              const dataUrl = ev.target?.result as string;
+                              setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, image_url: dataUrl } : c));
+                            };
+                            reader.readAsDataURL(file);
+                            e.target.value = "";
+                          }} />
+                        </label>
                       )}
-                      <Input placeholder="Cole a URL da imagem" value={card.image_url || ""} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, image_url: e.target.value } : c))} className="h-9 text-xs rounded-lg flex-1" />
+                      <div className="flex-1 min-w-0">
+                        <Input placeholder="Ou cole a URL da imagem" value={card.image_url?.startsWith("data:") ? "" : (card.image_url || "")} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, image_url: e.target.value } : c))} className="h-9 text-xs rounded-lg" />
+                        <p className="text-[9px] text-muted-foreground mt-0.5 ml-1">Arraste ou clique no quadrado para enviar imagem</p>
+                      </div>
                     </div>
                     {/* Card buttons */}
                     <div className="pt-1 space-y-1.5">
