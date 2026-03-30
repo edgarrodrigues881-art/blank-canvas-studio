@@ -887,195 +887,197 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
   const isDone = ["done", "completed_with_failures", "cancelled", "failed"].includes(campaign.status || "");
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
-          <ArrowLeft className="w-4 h-4" /> Voltar
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 space-y-5">
+      {/* Header — compact, clean */}
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0 h-9 w-9 rounded-xl">
+          <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold text-foreground truncate">{campaign.name}</h1>
-          <p className="text-xs text-muted-foreground">Grupo: {campaign.group_name || campaign.group_id}</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-bold text-foreground truncate">{campaign.name}</h1>
+            <Badge variant="outline" className={`text-[10px] font-semibold shrink-0 ${statusBadge(campaign.status)}`}>
+              {statusLabel(campaign.status)}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+            <Globe className="w-3 h-3" /> {campaign.group_name || campaign.group_id}
+          </p>
         </div>
-        <Badge variant="outline" className={`text-xs font-semibold ${statusBadge(campaign.status)}`}>
-          {statusLabel(campaign.status)}
-        </Badge>
-      </div>
-
-      {/* Action buttons */}
-      <div className="flex items-center gap-3 flex-wrap">
-        {canResume && (
-            <Button onClick={handleResume} disabled={isActionPending} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-              {isActionPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-              {isActionPending ? "Preparando..." : "Retomar Campanha"}
-          </Button>
-        )}
-        {canPause && (
-          <Button onClick={handlePause} variant="outline" className="gap-2 border-amber-500/30 text-amber-600 hover:bg-amber-500/10">
-            <Pause className="w-4 h-4" /> Pausar
-          </Button>
-        )}
-        {canCancel && (
-          <Button onClick={handleCancel} variant="outline" className="gap-2 border-destructive/30 text-destructive hover:bg-destructive/10">
-            <StopCircle className="w-4 h-4" /> Cancelar
-          </Button>
-        )}
-        <Button variant="ghost" size="sm" onClick={handleManualRefresh} disabled={isManualRefreshing} className="gap-1.5 text-xs">
-          <RefreshCw className={`w-3.5 h-3.5 ${isManualRefreshing ? "animate-spin" : ""}`} />
-          {isManualRefreshing ? "Atualizando..." : "Atualizar"}
-        </Button>
-        {isDone && retryableContacts.length > 0 && (
-          <>
-            <div className="w-px h-6 bg-border/40" />
-            <Button variant="outline" size="sm" onClick={handleExportNotAdded} className="gap-1.5 text-xs">
-              <Download className="w-3.5 h-3.5" /> Exportar não adicionados ({retryableContacts.length})
+        {/* Actions — integrated in header */}
+        <div className="flex items-center gap-2 shrink-0">
+          {canResume && (
+            <Button onClick={handleResume} disabled={isActionPending} size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 h-8 text-xs">
+              {isActionPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+              Retomar
             </Button>
-            {onNewCampaignFromFailed && (
-              <Button variant="outline" size="sm" onClick={handleNewCampaignFromFailed} className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10">
-                <RotateCcw className="w-3.5 h-3.5" /> Nova campanha com não adicionados
-              </Button>
-            )}
-          </>
-        )}
+          )}
+          {canPause && (
+            <Button onClick={handlePause} variant="outline" size="sm" className="gap-1.5 h-8 text-xs border-amber-500/30 text-amber-600 hover:bg-amber-500/10">
+              <Pause className="w-3.5 h-3.5" /> Pausar
+            </Button>
+          )}
+          {canCancel && (
+            <Button onClick={handleCancel} variant="outline" size="sm" className="gap-1.5 h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/10">
+              <StopCircle className="w-3.5 h-3.5" /> Cancelar
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" onClick={handleManualRefresh} disabled={isManualRefreshing} className="h-8 w-8">
+            <RefreshCw className={`w-3.5 h-3.5 ${isManualRefreshing ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
       </div>
 
       {/* Runtime note */}
       {(isActionPending || liveRuntimeNote) && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="py-3 px-5 flex items-center gap-3">
-            <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
-            <span className="text-sm text-foreground">{liveRuntimeNote || "Processando..."}</span>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-primary/5 border border-primary/10 rounded-lg px-4 py-2.5">
+          <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
+          <span>{liveRuntimeNote || "Processando..."}</span>
+        </div>
       )}
-
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: "Total", value: campaign.total_contacts, color: "text-foreground" },
-          { label: "Adicionados", value: successCount, color: "text-emerald-500" },
-          { label: "Pendentes", value: pendingCount, color: "text-muted-foreground" },
-        ].map(s => (
-          <Card key={s.label} className="border-border/40 bg-card/80">
-            <CardContent className="pt-4 pb-3 px-4">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{s.label}</span>
-              <p className={`text-2xl font-bold ${s.color} mt-1`}>{s.value}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
 
       {/* Pause reason */}
       {campaign.status === "paused" && campaign.pause_reason && (
-        <Card className="border-amber-500/20 bg-amber-500/5">
-          <CardContent className="py-3 px-5 flex items-center gap-3">
-            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-            <span className="text-sm text-amber-600 font-medium">{campaign.pause_reason}</span>
-          </CardContent>
-        </Card>
-      )}
-
-      {isRunning && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="py-4 px-5">
-            <div className="flex items-center gap-3 mb-3">
-              <Loader2 className="w-5 h-5 text-primary animate-spin" />
-              <span className="text-sm font-semibold text-foreground">Campanha em andamento</span>
-            </div>
-            <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
-              <div>
-                <div className="text-xs text-muted-foreground">Próxima tentativa</div>
-                <div className="font-medium text-foreground">{nextRunAtLabel}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Última instância</div>
-                <div className="font-medium text-foreground">{lastDeviceUsed}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Rotação</div>
-                <div className="font-medium text-foreground">{rotationSummary}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Resumo</div>
-                <div className="font-medium text-foreground">{successCount} add • {alreadyCount} já estavam • {failedCount} falhas</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <div className="flex items-center gap-2 flex-wrap">
-          {[
-            { key: "all", label: `Todos (${contacts.length})` },
-            { key: "completed", label: `Adicionados (${successCount})` },
-            { key: "pending", label: `Pendentes (${pendingCount})` },
-          ].map(f => (
-            <Button key={f.key} variant={activeFilter === f.key ? "default" : "outline"} size="sm" onClick={() => setActiveFilter(f.key)} className="text-xs h-8 rounded-lg">
-              {f.label}
-            </Button>
-          ))}
+        <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-500/5 border border-amber-500/15 rounded-lg px-4 py-2.5">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="font-medium">{campaign.pause_reason}</span>
         </div>
-        <Input value={searchContact} onChange={e => setSearchContact(e.target.value)} placeholder="Buscar número..." className="h-8 max-w-[200px] text-xs" />
+      )}
+
+      {/* Stats bar — single row */}
+      <div className="grid grid-cols-5 gap-px bg-border/30 rounded-xl overflow-hidden border border-border/40">
+        {[
+          { label: "Total", value: campaign.total_contacts, color: "text-foreground" },
+          { label: "Adicionados", value: successCount, color: "text-emerald-500" },
+          { label: "Já no grupo", value: alreadyCount, color: "text-blue-500" },
+          { label: "Pendentes", value: pendingCount, color: "text-muted-foreground" },
+          { label: "Falhas", value: failedCount, color: "text-destructive" },
+        ].map(s => (
+          <div key={s.label} className="bg-card/90 px-4 py-3 text-center">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">{s.label}</p>
+            <p className={`text-xl font-bold ${s.color} mt-0.5 tabular-nums`}>{s.value}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Results table */}
-      <Card className="border-border/40 bg-card/80">
-        <CardContent className="p-0">
-          <div className="max-h-[500px] overflow-y-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border/30 bg-muted/30">
-                  <TableHead className="text-xs w-14 font-semibold">#</TableHead>
-                  <TableHead className="text-xs font-semibold">Contato</TableHead>
-                  <TableHead className="text-xs font-semibold">Status</TableHead>
-                  <TableHead className="text-xs font-semibold">Instância</TableHead>
-                  <TableHead className="text-xs font-semibold">Detalhe</TableHead>
-                  <TableHead className="text-xs font-semibold">Atualização</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredContacts.map((r: any, i: number) => {
-                  const updatedAt = r.processed_at ? new Date(r.processed_at) : null;
-                  const timeStr = updatedAt && !isNaN(updatedAt.getTime())
-                    ? updatedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
-                    : "—";
-                  return (
-                    <TableRow key={r.id} className="border-border/15 hover:bg-muted/20">
-                      <TableCell className="text-xs text-muted-foreground font-mono">{i + 1}</TableCell>
-                      <TableCell className="text-xs font-mono font-medium">{r.phone}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={`text-[10px] font-semibold ${statusBadge(r.status)}`}>
-                          {statusLabel(r.status)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{r.device_used || "—"}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground max-w-[280px] whitespace-normal break-words">
-                        {r.error_message
-                          ? translateError(r.error_message)
-                          : r.status === "completed" ? "Adicionado com sucesso."
-                          : r.status === "already_exists" ? "Contato já estava no grupo."
-                          : r.status === "pending" ? "Aguardando processamento"
-                          : r.status === "cancelled" ? "Cancelado pelo usuário"
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="text-[10px] text-muted-foreground/70 font-mono whitespace-nowrap">{timeStr}</TableCell>
-                    </TableRow>
-                  );
-                })}
-                {filteredContacts.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-10 text-sm text-muted-foreground">Nenhum resultado encontrado</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+      {/* Progress bar for active campaigns */}
+      {isRunning && campaign.total_contacts > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
+              <span className="font-medium text-foreground">Em andamento</span>
+              <span>• {lastDeviceUsed !== "—" ? lastDeviceUsed : "Aguardando"}</span>
+              <span>• {rotationSummary}</span>
+            </div>
+            <span className="font-mono tabular-nums">{Math.round(((successCount + alreadyCount + failedCount) / campaign.total_contacts) * 100)}%</span>
           </div>
-        </CardContent>
+          <div className="h-2 w-full rounded-full bg-muted/40 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-primary transition-all duration-500"
+              style={{ width: `${Math.round(((successCount + alreadyCount + failedCount) / campaign.total_contacts) * 100)}%` }}
+            />
+          </div>
+          <NextActionCountdown contacts={contacts} campaign={campaign} />
+        </div>
+      )}
+
+      {/* Done actions */}
+      {isDone && retryableContacts.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={handleExportNotAdded} className="gap-1.5 text-xs h-8">
+            <Download className="w-3.5 h-3.5" /> Exportar não adicionados ({retryableContacts.length})
+          </Button>
+          {onNewCampaignFromFailed && (
+            <Button variant="outline" size="sm" onClick={handleNewCampaignFromFailed} className="gap-1.5 text-xs h-8 border-primary/30 text-primary hover:bg-primary/10">
+              <RotateCcw className="w-3.5 h-3.5" /> Nova campanha com falhos
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Contacts table — clean */}
+      <Card className="border-border/40 bg-card/80 overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/30 flex items-center gap-3">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {[
+              { key: "all", label: "Todos", count: contacts.length },
+              { key: "completed", label: "Adicionados", count: successCount },
+              { key: "failed", label: "Falhas", count: failedCount },
+              { key: "pending", label: "Pendentes", count: pendingCount },
+            ].filter(f => f.count > 0 || f.key === "all").map(f => (
+              <button
+                key={f.key}
+                onClick={() => setActiveFilter(f.key)}
+                className={`text-xs px-2.5 py-1 rounded-md font-medium transition-colors ${
+                  activeFilter === f.key
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted/50"
+                }`}
+              >
+                {f.label} ({f.count})
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="max-h-[500px] overflow-y-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border/30 bg-muted/20">
+                <TableHead className="text-[10px] w-10 font-semibold">#</TableHead>
+                <TableHead className="text-[10px] font-semibold">Contato</TableHead>
+                <TableHead className="text-[10px] font-semibold">Resultado</TableHead>
+                <TableHead className="text-[10px] font-semibold">Instância</TableHead>
+                <TableHead className="text-[10px] font-semibold text-right">Hora</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredContacts.map((r: any, i: number) => {
+                const updatedAt = r.processed_at ? new Date(r.processed_at) : null;
+                const timeStr = updatedAt && !isNaN(updatedAt.getTime())
+                  ? updatedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                  : "—";
+                const detail = r.error_message
+                  ? translateError(r.error_message)
+                  : r.status === "completed" ? "Adicionado"
+                  : r.status === "already_exists" ? "Já no grupo"
+                  : r.status === "pending" ? "Aguardando"
+                  : r.status === "cancelled" ? "Cancelado"
+                  : "—";
+                return (
+                  <TableRow key={r.id} className="border-border/10 hover:bg-muted/15">
+                    <TableCell className="text-[10px] text-muted-foreground/60 font-mono py-2">{i + 1}</TableCell>
+                    <TableCell className="text-xs font-mono font-medium py-2">{r.phone}</TableCell>
+                    <TableCell className="py-2">
+                      <span className={`text-[11px] font-medium ${
+                        r.status === "completed" ? "text-emerald-500" :
+                        r.status === "already_exists" ? "text-blue-500" :
+                        isFailureStatus(r.status) ? "text-destructive" :
+                        r.status === "processing" ? "text-primary" :
+                        "text-muted-foreground"
+                      }`}>
+                        {detail}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-[10px] text-muted-foreground/70 py-2">{r.device_used || "—"}</TableCell>
+                    <TableCell className="text-[10px] text-muted-foreground/50 font-mono text-right py-2">{timeStr}</TableCell>
+                  </TableRow>
+                );
+              })}
+              {filteredContacts.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-10 text-sm text-muted-foreground">Nenhum resultado encontrado</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </Card>
     </div>
   );
 }
+
+
 
 // ═══════════════════════════════════════════════════════════════
 // CREATE CAMPAIGN VIEW
