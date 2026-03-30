@@ -344,8 +344,8 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
   const [maxPerAccount, setMaxPerAccount] = useState(automation.max_per_account);
   const [messageContent, setMessageContent] = useState(automation.message_content || "");
   const [messageType, setMessageType] = useState<string>((automation as any).message_type || "text");
-  const [buttons, setButtons] = useState<{ text: string; url: string }[]>(() => {
-    try { const b = (automation as any).buttons; return Array.isArray(b) ? b : []; } catch { return []; }
+  const [buttons, setButtons] = useState<{ text: string; url: string; action: string }[]>(() => {
+    try { const b = (automation as any).buttons; return Array.isArray(b) ? b.map((x: any) => ({ text: x.text || "", url: x.url || "", action: x.action || "link" })) : []; } catch { return []; }
   });
   const [carouselCards, setCarouselCards] = useState<{ title: string; description: string; image_url: string; buttons: { text: string; url: string }[] }[]>(() => {
     try { const c = (automation as any).carousel_cards; return Array.isArray(c) ? c : []; } catch { return []; }
@@ -602,22 +602,32 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
             ))}
           </div>
 
-          <WelcomeMessageEditor value={messageContent} onChange={setMessageContent} />
+          <WelcomeMessageEditor value={messageContent} onChange={setMessageContent} buttons={messageType === "buttons" ? buttons : undefined} />
 
           {/* Buttons editor */}
           {messageType === "buttons" && (
             <div className="space-y-3 border-t border-border/20 pt-4">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Botões</Label>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs rounded-lg" onClick={() => setButtons(prev => [...prev, { text: "", url: "" }])} disabled={buttons.length >= 3}>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Botões (máx. 3)</Label>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs rounded-lg" onClick={() => setButtons(prev => [...prev, { text: "", url: "", action: "link" }])} disabled={buttons.length >= 3}>
                   <Plus className="w-3 h-3 mr-1" /> Adicionar
                 </Button>
               </div>
               {buttons.map((btn, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Input placeholder="Texto do botão" value={btn.text} onChange={e => setButtons(prev => prev.map((b, j) => j === i ? { ...b, text: e.target.value } : b))} className="h-9 text-xs rounded-lg flex-1" />
-                  <Input placeholder="https://..." value={btn.url} onChange={e => setButtons(prev => prev.map((b, j) => j === i ? { ...b, url: e.target.value } : b))} className="h-9 text-xs rounded-lg flex-1" />
-                  <Button type="button" variant="ghost" size="sm" className="h-9 w-9 p-0 text-destructive" onClick={() => setButtons(prev => prev.filter((_, j) => j !== i))}>
+                <div key={i} className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                  <Input placeholder="Texto do botão" value={btn.text} onChange={e => setButtons(prev => prev.map((b, j) => j === i ? { ...b, text: e.target.value } : b))} className="h-9 text-xs rounded-lg flex-1 min-w-[120px]" />
+                  <Select value={btn.action || "link"} onValueChange={v => setButtons(prev => prev.map((b, j) => j === i ? { ...b, action: v } : b))}>
+                    <SelectTrigger className="h-9 text-xs rounded-lg w-[140px] shrink-0"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="link">Abrir link</SelectItem>
+                      <SelectItem value="reply">Resposta rápida</SelectItem>
+                      <SelectItem value="whatsapp">Abrir WhatsApp</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {(btn.action || "link") !== "reply" && (
+                    <Input placeholder={btn.action === "whatsapp" ? "5511999999999" : "https://..."} value={btn.url} onChange={e => setButtons(prev => prev.map((b, j) => j === i ? { ...b, url: e.target.value } : b))} className="h-9 text-xs rounded-lg flex-1 min-w-[140px]" />
+                  )}
+                  <Button type="button" variant="ghost" size="sm" className="h-9 w-9 p-0 shrink-0 text-destructive hover:text-destructive" onClick={() => setButtons(prev => prev.filter((_, j) => j !== i))}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
