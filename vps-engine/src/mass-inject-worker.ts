@@ -516,7 +516,14 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       await updateCounters(sb, campaignId, "already_exists");
       consecutiveFailures = 0;
       log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} is the device's own number — skipped`);
-      await sleep(500);
+      // Still apply configured delay even for skipped contacts
+      {
+        const minD = Number(freshCampaign.min_delay || 0);
+        const maxD = Math.max(Number(freshCampaign.max_delay || 0), minD);
+        const skipDelay = minD === maxD ? minD * 1000 : randomBetween(minD * 1000, maxD * 1000);
+        if (skipDelay > 0) await sleep(skipDelay);
+        else await sleep(500);
+      }
       continue;
     }
 
