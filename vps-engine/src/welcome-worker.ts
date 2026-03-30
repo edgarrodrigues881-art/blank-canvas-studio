@@ -88,7 +88,7 @@ async function fetchGroupParticipants(baseUrl: string, token: string, groupId: s
         body: JSON.stringify({ groupJid: groupId }),
       });
       if (res.ok) {
-        const body = await res.json();
+        const body: any = await res.json();
         const extracted = extractParticipantPhones(body?.group || body?.data || body);
         extracted.forEach(p => participants.add(p));
       }
