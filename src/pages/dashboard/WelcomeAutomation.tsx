@@ -443,7 +443,7 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
     }
 
     if (payload.type === "carousel") {
-      const importedCards = (payload.carouselCards || []).slice(0, 5).map((card, i) => ({
+      const importedCards = (payload.carouselCards || []).slice(0, 10).map((card, i) => ({
         title: card?.title || `Card ${i + 1}`,
         description: card?.description || "",
         image_url: card?.image_url || "",
@@ -714,8 +714,8 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
           {messageType === "carousel" && (
             <div className="space-y-3 border-t border-border/20 pt-4">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cards do Carrossel (máx. 5)</Label>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs rounded-lg" onClick={() => setCarouselCards(prev => [...prev, { title: "", description: "", image_url: "", buttons: [] }])} disabled={carouselCards.length >= 5}>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cards do Carrossel (máx. 10)</Label>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs rounded-lg" onClick={() => setCarouselCards(prev => [...prev, { title: "", description: "", image_url: "", buttons: [] }])} disabled={carouselCards.length >= 10}>
                   <Plus className="w-3 h-3 mr-1" /> Adicionar Card
                 </Button>
               </div>
