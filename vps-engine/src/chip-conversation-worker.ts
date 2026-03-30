@@ -122,7 +122,7 @@ async function processOneConversation(sb: any, conv: any) {
     message_content: messageText, message_category: "general",
     status: result.ok ? "sent" : "failed", error_message: result.ok ? null : result.error,
     sent_at: new Date().toISOString(),
-  }).catch(() => {});
+  }).then(() => {}, () => {});
 
   await sb.from("chip_conversations").update({ total_messages_sent: newTotal, last_error: result.ok ? null : result.error, status: "active" }).eq("id", conversationId);
 
@@ -158,7 +158,7 @@ export async function chipConversationTick() {
       log.info(`Chip conv ${conv.id.slice(0, 8)}: next in ${nextDelay}s`);
     } catch (err: any) {
       log.error(`Chip conv ${conv.id.slice(0, 8)} error: ${err.message}`);
-      await db.from("chip_conversations").update({ last_error: err.message }).eq("id", conv.id).catch(() => {});
+      await db.from("chip_conversations").update({ last_error: err.message }).eq("id", conv.id).then(() => {}, () => {});
     }
   }
 

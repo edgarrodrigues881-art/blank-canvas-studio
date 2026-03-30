@@ -435,11 +435,11 @@ async function monitorPhase() {
             await db.from("welcome_events").insert({
               automation_id: automation.id,
               user_id: automation.user_id,
-              event_type: "participant_detected",
-              level: "info",
-              message: `Novo participante detectado: ${phone}`,
-              payload_json: { phone, group_id: group.group_id },
-            }).catch(() => {});
+               event_type: "participant_detected",
+               level: "info",
+               message: `Novo participante detectado: ${phone}`,
+               payload_json: { phone, group_id: group.group_id },
+             }).then(() => {}, () => {});
           }
         }
       } catch (err: any) {
@@ -459,7 +459,7 @@ async function processPhase() {
     .update({ status: "pending", locked_at: null } as any)
     .eq("status", "processing")
     .lt("locked_at", staleThreshold)
-    .catch(() => {});
+    .then(() => {}, () => {});
 
   // Get active automations with pending queue items
   const { data: automations } = await db
@@ -573,7 +573,7 @@ async function processPhase() {
         message_text: finalMessage,
         result: result.ok ? "sent" : "failed",
         external_response: { detail: result.detail },
-      }).catch(() => {});
+      }).then(() => {}, () => {});
 
       // Log event
       await db.from("welcome_events").insert({
@@ -586,7 +586,7 @@ async function processPhase() {
           : `Falha ao enviar para ${item.participant_phone}: ${result.detail}`,
         reference_id: item.id,
         payload_json: { phone: item.participant_phone, sender: sender.id, messageType, result: result.detail },
-      }).catch(() => {});
+      }).then(() => {}, () => {});
 
       log.info(`${result.ok ? "✓" : "✗"} [${messageType}] ${item.participant_phone} via ${sender.name}: ${result.detail}`);
 
