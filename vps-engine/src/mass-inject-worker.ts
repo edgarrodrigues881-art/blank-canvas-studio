@@ -586,10 +586,12 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     }
 
     // Update next_run_at for frontend countdown
-    await sb.from("mass_inject_campaigns").update({
-      next_run_at: new Date(Date.now() + delayMs).toISOString(),
-      updated_at: nowIso(),
-    }).eq("id", campaignId).catch(() => {});
+    try {
+      await sb.from("mass_inject_campaigns").update({
+        next_run_at: new Date(Date.now() + delayMs).toISOString(),
+        updated_at: nowIso(),
+      }).eq("id", campaignId);
+    } catch { /* non-critical */ }
 
     await sleep(delayMs);
   }
