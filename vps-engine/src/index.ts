@@ -24,6 +24,7 @@ let lastTickAt: Date | null = null;
 let lastCampaignTickAt: Date | null = null;
 let tickCount = 0;
 let tickErrors = 0;
+const massInjectRunningRef = { value: true };
 
 app.get("/health", (_req: Request, res: Response) => {
   res.json({
