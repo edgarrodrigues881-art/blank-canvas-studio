@@ -954,13 +954,15 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
             </Button>
           )}
           {canPause && (
-            <Button onClick={handlePause} variant="outline" size="sm" className="gap-1.5 h-8 text-xs border-amber-500/30 text-amber-600 hover:bg-amber-500/10">
-              <Pause className="w-3.5 h-3.5" /> Pausar
+            <Button onClick={handlePause} disabled={isActionPending} variant="outline" size="sm" className="gap-1.5 h-8 text-xs border-amber-500/30 text-amber-600 hover:bg-amber-500/10">
+              {isActionPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pause className="w-3.5 h-3.5" />}
+              Pausar
             </Button>
           )}
           {canCancel && (
-            <Button onClick={handleCancel} variant="outline" size="sm" className="gap-1.5 h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/10">
-              <StopCircle className="w-3.5 h-3.5" /> Cancelar
+            <Button onClick={handleCancel} disabled={isActionPending} variant="outline" size="sm" className="gap-1.5 h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/10">
+              {isActionPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <StopCircle className="w-3.5 h-3.5" />}
+              Cancelar
             </Button>
           )}
           <Button variant="ghost" size="icon" onClick={handleManualRefresh} disabled={isManualRefreshing} className="h-8 w-8">
