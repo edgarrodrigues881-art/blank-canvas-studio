@@ -274,7 +274,7 @@ async function sendWelcomeMessage(
       headers: buildHeaders(token),
       body: JSON.stringify({ chatId: recipient, message }),
     });
-    const body = await res.json().catch(() => ({}));
+    const body: any = await res.json().catch(() => ({}));
     if (res.ok && !String(body?.error || "").toLowerCase().includes("fail")) {
       return { ok: true, detail: "Enviado com sucesso" };
     }

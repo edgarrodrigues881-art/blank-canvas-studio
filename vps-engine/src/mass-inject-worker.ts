@@ -212,7 +212,7 @@ function rememberParticipantInCache(baseUrl: string, groupId: string, phone: str
 async function isDeviceConnected(baseUrl: string, token: string): Promise<boolean | null> {
   try {
     const res = await fetchWithTimeout(`${baseUrl}/instance/status?t=${Date.now()}`, { headers: buildHeaders(token) }, 8000);
-    const body = await res.json().catch(() => ({}));
+    const body: any = await res.json().catch(() => ({}));
     const statusObj = body?.status;
     if (statusObj && typeof statusObj === "object") {
       if (statusObj.connected === true) return true;

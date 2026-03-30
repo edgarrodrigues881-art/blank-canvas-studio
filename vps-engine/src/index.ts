@@ -987,7 +987,7 @@ async function mainLoop() {
   const runGroupJoinWorker = async () => {
     while (isRunning) {
       try {
-        await groupJoinTick();
+        await groupJoinTick({ value: isRunning });
       } catch (err: any) {
         log.error("Group join worker tick error", serializeUnknownError(err));
       }
