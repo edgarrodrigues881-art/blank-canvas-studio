@@ -602,22 +602,21 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
   const consumeEventsInFlightRef = useRef(false);
   const consumedEventIdsRef = useRef<Set<string>>(new Set());
 
+  // Events that generate noisy pause/resume loops are silenced (consumed but not shown)
+  const SILENCED_EVENTS = new Set(["campaign_paused", "campaign_resumed", "retry_waiting", "retry_resumed"]);
+
   const EVENT_LABELS: Record<string, { msg: string; groupable?: boolean }> = {
     contact_added: { msg: "Contato adicionado com sucesso", groupable: true },
     contact_already_exists: { msg: "Contato já está no grupo", groupable: true },
     contact_not_found: { msg: "Número não encontrado no WhatsApp", groupable: true },
     contact_error: { msg: "Erro ao adicionar contato", groupable: true },
-    rate_limited: { msg: "Limite de API atingido — aguardando cooldown" },
-    retry_waiting: { msg: "Aguardando cooldown antes de nova tentativa" },
-    retry_resumed: { msg: "Processamento retomado" },
+    rate_limited: { msg: "Limite de API atingido — aguardando cooldown", groupable: true },
     instance_disconnected: { msg: "Instância desconectada" },
     instance_reconnected: { msg: "Instância reconectada" },
     no_admin_permission: { msg: "Sem privilégio de administrador no grupo" },
     all_instances_disconnected: { msg: "Todas as instâncias desconectadas — campanha finalizada" },
     campaign_failed_no_devices: { msg: "Nenhuma instância disponível — campanha finalizada" },
     campaign_started: { msg: "Campanha iniciada" },
-    campaign_paused: { msg: "Campanha pausada" },
-    campaign_resumed: { msg: "Campanha retomada" },
     campaign_completed: { msg: "Campanha concluída!" },
     timeout: { msg: "Timeout na API externa", groupable: true },
   };
@@ -674,6 +673,9 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
       // Process events
       const ref = eventGroupRef.current;
       for (const ev of unseenEvents) {
+        // Silenced events: consume but don't show toast
+        if (SILENCED_EVENTS.has(ev.event_type)) continue;
+
         const label = EVENT_LABELS[ev.event_type];
         if (!label) continue;
 
