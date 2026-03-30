@@ -2035,39 +2035,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
         </div>
       )}
 
-      {/* Reimport dialog */}
-      <AlertDialog open={reimportMode === "ask"} onOpenChange={(open) => { if (!open) setReimportMode(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reimportar contatos</AlertDialogTitle>
-            <AlertDialogDescription>
-              Já existem {importStats.total} contatos importados ({importStats.valid} válidos). O que deseja fazer?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <Button variant="outline" onClick={() => {
-              setReimportMode(null);
-              pendingMergeRef.current = true;
-              setHasImported(false);
-              toast.info("Importe um novo arquivo para adicionar aos contatos existentes");
-            }} className="gap-1.5">
-              <Plus className="w-4 h-4" /> Adicionar aos existentes
-            </Button>
-            <AlertDialogAction onClick={() => {
-              setReimportMode(null);
-              setRawInput("");
-              setImportedContacts([]);
-              setHasImported(false);
-              setValidationResult(null);
-              setParticipantCheck(null);
-              toast.info("Contatos anteriores removidos. Importe novamente.");
-            }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Substituir tudo
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+
+
 
       {/* ══ PREVIEW ══ */}
       {step === "preview" && validationResult && (
