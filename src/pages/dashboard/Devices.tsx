@@ -2535,7 +2535,7 @@ const Devices = () => {
                     toast({ title: "Proxy inválida", description: result.error, variant: "destructive" });
                     return;
                   }
-                  if (result.alreadyConnected) { setConnectStep("done"); toast({ title: "Já conectado!" }); return; }
+                  if (result.alreadyConnected) { setConnectStep("done"); return; }
                   const code = result.pairingCode || result.pairing_code;
                   if (code) { setPairingCode(code); startPolling(connectingDevice.id, null); }
                   else if (result.suggestQr) { toast({ title: "Código não suportado", description: "Use o QR Code.", variant: "destructive" }); setConnectStep("qr"); if (result.qrCode) setQrCodeBase64(result.qrCode); startPolling(connectingDevice.id, null); }
