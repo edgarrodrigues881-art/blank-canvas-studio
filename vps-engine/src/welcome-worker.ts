@@ -586,7 +586,7 @@ async function processPhase() {
           : `Falha ao enviar para ${item.participant_phone}: ${result.detail}`,
         reference_id: item.id,
         payload_json: { phone: item.participant_phone, sender: sender.id, messageType, result: result.detail },
-      }).catch(() => {});
+      }).then(() => {}, () => {});
 
       log.info(`${result.ok ? "✓" : "✗"} [${messageType}] ${item.participant_phone} via ${sender.name}: ${result.detail}`);
 

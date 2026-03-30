@@ -314,7 +314,7 @@ export async function groupInteractionTick() {
       await db.from("group_interactions").update({ last_error: err.message }).eq("id", interaction.id).then(() => {}, () => {});
       // Reschedule in 2 min
       const retryAt = new Date(Date.now() + 120_000).toISOString();
-      await db.from("group_interactions").update({ next_action_at: retryAt }).eq("id", interaction.id).in("status", ["running", "active"]).catch(() => {});
+      await db.from("group_interactions").update({ next_action_at: retryAt }).eq("id", interaction.id).in("status", ["running", "active"]).then(() => {}, () => {});
     }
   }
 

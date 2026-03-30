@@ -157,7 +157,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
             group_name: item.group_name, group_link: normalizedLink, invite_code: inviteCode,
             endpoint_called: "group/join", response_status: responseStatus || 0,
             result: status, error_message: errorMsg, attempt: 1, duration_ms: 0,
-          }).catch(() => {});
+          }).then(() => {}, () => {});
         }
       }
 

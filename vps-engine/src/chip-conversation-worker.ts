@@ -158,7 +158,7 @@ export async function chipConversationTick() {
       log.info(`Chip conv ${conv.id.slice(0, 8)}: next in ${nextDelay}s`);
     } catch (err: any) {
       log.error(`Chip conv ${conv.id.slice(0, 8)} error: ${err.message}`);
-      await db.from("chip_conversations").update({ last_error: err.message }).eq("id", conv.id).catch(() => {});
+      await db.from("chip_conversations").update({ last_error: err.message }).eq("id", conv.id).then(() => {}, () => {});
     }
   }
 
