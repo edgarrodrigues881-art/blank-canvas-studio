@@ -166,8 +166,6 @@ export function WelcomeMessageEditor({ value, onChange, buttons, carouselCards, 
     setTimeout(() => { ta.selectionStart = start + before.length; ta.selectionEnd = start + before.length + selected.length; ta.focus(); }, 0);
   };
 
-  const importTemplate = (content: string) => { onChange(content); setShowTemplates(false); toast.success("Template importado!"); };
-
   const importStructuredTemplate = (payload: {
     type: "text" | "buttons" | "carousel";
     content: string;
@@ -181,6 +179,24 @@ export function WelcomeMessageEditor({ value, onChange, buttons, carouselCards, 
     }
     setShowTemplates(false);
     toast.success("Template importado!");
+  };
+
+  const normalizeButtons = (rawButtons: any) => {
+    if (!Array.isArray(rawButtons)) return [] as { text: string; url?: string; action?: string }[];
+    return rawButtons
+      .map((btn: any, i: number) => ({
+        text: btn?.text || btn?.label || btn?.title || `Botão ${i + 1}`,
+        url: btn?.url || btn?.value || "",
+        action: btn?.action || btn?.type || "link",
+      }))
+      .slice(0, 3);
+  };
+
+  const inferTemplateType = (template: any): "text" | "buttons" => {
+    const type = String(template?.type || "").toLowerCase();
+    const hasButtons = normalizeButtons(template?.buttons).length > 0;
+    if (type.includes("button") || hasButtons) return "buttons";
+    return "text";
   };
 
   return (
@@ -225,12 +241,27 @@ export function WelcomeMessageEditor({ value, onChange, buttons, carouselCards, 
                 {templates && templates.length > 0 && (
                   <div className="p-1.5">
                     <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Texto</p>
-                    {templates.map(t => (
-                      <button key={t.id} className="w-full text-left px-3 py-2.5 text-xs rounded-lg hover:bg-muted transition-colors" onClick={() => importTemplate(t.content)}>
-                        <span className="font-medium">{t.name}</span>
-                        <span className="block text-[10px] text-muted-foreground truncate mt-0.5">{t.content.slice(0, 60)}...</span>
-                      </button>
-                    ))}
+                    {templates.map(t => {
+                      const inferredType = inferTemplateType(t);
+                      const normalizedButtons = normalizeButtons((t as any)?.buttons);
+
+                      return (
+                        <button
+                          key={t.id}
+                          className="w-full text-left px-3 py-2.5 text-xs rounded-lg hover:bg-muted transition-colors"
+                          onClick={() =>
+                            importStructuredTemplate({
+                              type: inferredType,
+                              content: t.content || "",
+                              buttons: inferredType === "buttons" ? normalizedButtons : [],
+                            })
+                          }
+                        >
+                          <span className="font-medium">{t.name}</span>
+                          <span className="block text-[10px] text-muted-foreground truncate mt-0.5">{(t.content || "").slice(0, 60)}...</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
                 {carouselTemplates && carouselTemplates.length > 0 && (

@@ -345,10 +345,44 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
   const [messageContent, setMessageContent] = useState(automation.message_content || "");
   const [messageType, setMessageType] = useState<string>((automation as any).message_type || "text");
   const [buttons, setButtons] = useState<{ text: string; url: string; action: string }[]>(() => {
-    try { const b = (automation as any).buttons; return Array.isArray(b) ? b.map((x: any) => ({ text: x.text || "", url: x.url || "", action: x.action || "link" })) : []; } catch { return []; }
+    try {
+      const b = (automation as any).buttons;
+      return Array.isArray(b)
+        ? b.map((x: any) => ({
+            text: x?.text || x?.label || "",
+            url: x?.url || x?.value || "",
+            action: x?.action || x?.type || "link",
+          }))
+        : [];
+    } catch {
+      return [];
+    }
   });
-  const [carouselCards, setCarouselCards] = useState<{ title: string; description: string; image_url: string; buttons: { text: string; url: string }[] }[]>(() => {
-    try { const c = (automation as any).carousel_cards; return Array.isArray(c) ? c : []; } catch { return []; }
+  const [carouselCards, setCarouselCards] = useState<{
+    title: string;
+    description: string;
+    image_url: string;
+    buttons: { text: string; url: string; action?: string }[];
+  }[]>(() => {
+    try {
+      const c = (automation as any).carousel_cards;
+      return Array.isArray(c)
+        ? c.map((card: any) => ({
+            title: card?.title || "",
+            description: card?.description || card?.text || "",
+            image_url: card?.image_url || card?.image || card?.media_url || "",
+            buttons: Array.isArray(card?.buttons)
+              ? card.buttons.map((btn: any) => ({
+                  text: btn?.text || btn?.label || "",
+                  url: btn?.url || btn?.value || "",
+                  action: btn?.action || btn?.type || "link",
+                }))
+              : [],
+          }))
+        : [];
+    } catch {
+      return [];
+    }
   });
   const [selectedSenders, setSelectedSenders] = useState<string[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<{ group_id: string; group_name: string }[]>([]);
@@ -386,6 +420,46 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
 
   const toggleSender = (id: string) => {
     setSelectedSenders(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
+  };
+
+  const handleImportTemplate = (payload: {
+    type: "text" | "buttons" | "carousel";
+    content: string;
+    buttons?: { text: string; url?: string; action?: string }[];
+    carouselCards?: { title: string; description: string; image_url?: string; buttons?: { text: string; url?: string; action?: string }[] }[];
+  }) => {
+    setMessageType(payload.type);
+    setMessageContent(payload.content || "");
+
+    if (payload.type === "buttons") {
+      const importedButtons = (payload.buttons || []).slice(0, 3).map((btn, i) => ({
+        text: btn?.text || `Botão ${i + 1}`,
+        url: btn?.url || "",
+        action: btn?.action || "link",
+      }));
+      setButtons(importedButtons);
+      setCarouselCards([]);
+      return;
+    }
+
+    if (payload.type === "carousel") {
+      const importedCards = (payload.carouselCards || []).slice(0, 5).map((card, i) => ({
+        title: card?.title || `Card ${i + 1}`,
+        description: card?.description || "",
+        image_url: card?.image_url || "",
+        buttons: (card?.buttons || []).slice(0, 2).map((btn, j) => ({
+          text: btn?.text || `Botão ${j + 1}`,
+          url: btn?.url || "",
+          action: btn?.action || "link",
+        })),
+      }));
+      setCarouselCards(importedCards);
+      setButtons([]);
+      return;
+    }
+
+    setButtons([]);
+    setCarouselCards([]);
   };
 
   const save = async () => {
