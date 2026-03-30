@@ -976,7 +976,7 @@ async function finalizeCampaignIfNeeded(sb: any, campaignId: string) {
   return true;
 }
 
-function queueCampaignRun(campaignId: string, delayMs = 0) {
+async function queueCampaignRun(campaignId: string, delayMs = 0) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -994,7 +994,11 @@ function queueCampaignRun(campaignId: string, delayMs = 0) {
   const edgeRuntime = (globalThis as any).EdgeRuntime;
   if (edgeRuntime?.waitUntil) {
     edgeRuntime.waitUntil(request);
+    return;
   }
+
+  // Fallback for runtimes without waitUntil support: ensure dispatch is executed
+  await request;
 }
 
 async function scheduleCampaignRun(sb: any, campaignId: string, delayMs: number) {
@@ -1672,12 +1676,19 @@ Deno.serve(async (req) => {
       }
 
       const initialDelayMs = Math.max(0, Math.round(Number(body.initialDelayMs) || 0));
-      const workerTask = runCampaignWorker(sb, body.campaignId, initialDelayMs)
+      const edgeRuntime = (globalThis as any).EdgeRuntime;
+      const supportsWaitUntil = !!edgeRuntime?.waitUntil;
+
+      // In runtimes without waitUntil, avoid long sleeps here to prevent timeout.
+      const effectiveInitialDelayMs = supportsWaitUntil ? initialDelayMs : 0;
+
+      const workerTask = runCampaignWorker(sb, body.campaignId, effectiveInitialDelayMs)
         .catch((error) => console.error(`[mass-inject] run-campaign fallback error campaign=${body.campaignId}`, error));
 
-      const edgeRuntime = (globalThis as any).EdgeRuntime;
-      if (edgeRuntime?.waitUntil) {
+      if (supportsWaitUntil) {
         edgeRuntime.waitUntil(workerTask);
+      } else {
+        await workerTask;
       }
 
       return new Response(JSON.stringify({ success: true, engine: "hybrid" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
