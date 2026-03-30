@@ -396,6 +396,9 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
       max_delay_seconds: Math.max(maxDelay, minDelay),
       max_per_account: maxPerAccount,
       message_content: messageContent,
+      message_type: messageType,
+      buttons: messageType === "buttons" ? buttons : [],
+      carousel_cards: messageType === "carousel" ? carouselCards : [],
     } as any);
 
     await supabase.from("welcome_automation_groups").delete().eq("automation_id", automation.id);
