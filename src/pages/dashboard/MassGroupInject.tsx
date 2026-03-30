@@ -2291,24 +2291,4 @@ export default function MassGroupInject() {
       {mainContent}
     </>
   );
-      <CreateCampaign
-        onBack={() => { setView("list"); setPrefillContacts(undefined); setPrefillName(undefined); }}
-        onCampaignCreated={(id) => { setSelectedCampaignId(id); setView("detail"); setPrefillContacts(undefined); setPrefillName(undefined); }}
-        prefillContacts={prefillContacts}
-        prefillName={prefillName}
-      />
-    );
-  }
-
-  if (view === "detail" && selectedCampaignId) {
-    return (
-      <CampaignDetail
-        campaignId={selectedCampaignId}
-        onBack={() => { setSelectedCampaignId(null); setView("list"); }}
-        onNewCampaignFromFailed={handleNewCampaignFromFailed}
-      />
-    );
-  }
-
-  return <CampaignList onCreateNew={() => { localStorage.removeItem("mass-inject-draft"); setView("create"); }} onViewCampaign={(id) => { setSelectedCampaignId(id); setView("detail"); }} />;
 }
