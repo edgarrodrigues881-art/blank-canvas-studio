@@ -1158,8 +1158,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     setHasImported(false);
     setValidationResult(null);
     setParticipantCheck(null);
-    setMinDelay(30);
-    setMaxDelay(60);
+    setMinDelay(10);
+    setMaxDelay(30);
     setPauseAfter(0);
     setPauseDuration(30);
     setRotateAfter(0);
@@ -1838,15 +1838,16 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                 <div>
                   <div className="flex items-center gap-2 mb-2"><Timer className="w-3.5 h-3.5 text-muted-foreground" /><label className="text-xs font-semibold text-muted-foreground">Delay entre contatos (segundos)</label></div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div><span className="text-[10px] text-muted-foreground/60">Mínimo (3s+)</span><Input type="number" min={3} max={300} value={minDelay || ""} onChange={e => setMinDelay(e.target.value === "" ? 0 : Number(e.target.value))} onBlur={() => { const v = Math.max(3, minDelay || 3); setMinDelay(v); if (maxDelay < v) setMaxDelay(v); }} className="h-9 text-sm mt-1" /></div>
-                    <div><span className="text-[10px] text-muted-foreground/60">Máximo</span><Input type="number" min={3} max={600} value={maxDelay || ""} onChange={e => setMaxDelay(e.target.value === "" ? 0 : Number(e.target.value))} onBlur={() => setMaxDelay(Math.max(3, maxDelay || 3, minDelay || 3))} className="h-9 text-sm mt-1" /></div>
+                    <div><span className="text-[10px] text-muted-foreground/60">Mínimo</span><Input type="number" min={0} max={600} value={minDelay || ""} onChange={e => setMinDelay(e.target.value === "" ? 0 : Number(e.target.value))} onBlur={() => { const v = Math.max(0, minDelay || 0); setMinDelay(v); if (maxDelay < v) setMaxDelay(v); }} className="h-9 text-sm mt-1" /></div>
+                    <div><span className="text-[10px] text-muted-foreground/60">Máximo</span><Input type="number" min={0} max={600} value={maxDelay || ""} onChange={e => setMaxDelay(e.target.value === "" ? 0 : Number(e.target.value))} onBlur={() => setMaxDelay(Math.max(0, maxDelay || 0, minDelay || 0))} className="h-9 text-sm mt-1" /></div>
                   </div>
+                  <p className="text-[10px] text-muted-foreground/50 mt-1">Defina o intervalo entre cada adição. 0 = sem delay.</p>
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-2"><Pause className="w-3.5 h-3.5 text-muted-foreground" /><label className="text-xs font-semibold text-muted-foreground">Pausa automática</label></div>
                   <div className="grid grid-cols-2 gap-3">
                     <div><span className="text-[10px] text-muted-foreground/60">A cada X adições</span><Input type="number" min={0} value={pauseAfter} onChange={e => setPauseAfter(Number(e.target.value) || 0)} className="h-9 text-sm mt-1" /></div>
-                    <div><span className="text-[10px] text-muted-foreground/60">Duração (segundos)</span><Input type="number" min={5} max={600} value={pauseDuration} onChange={e => setPauseDuration(Number(e.target.value) || 30)} className="h-9 text-sm mt-1" /></div>
+                    <div><span className="text-[10px] text-muted-foreground/60">Duração (segundos)</span><Input type="number" min={0} max={600} value={pauseDuration} onChange={e => setPauseDuration(Number(e.target.value) || 0)} className="h-9 text-sm mt-1" /></div>
                   </div>
                   <p className="text-[10px] text-muted-foreground/50 mt-1">Deixe "A cada" em 0 para desativar</p>
                 </div>
