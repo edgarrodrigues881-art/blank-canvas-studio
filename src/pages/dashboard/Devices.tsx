@@ -1590,7 +1590,7 @@ const Devices = () => {
           setConnectStep("done");
           queryClient.invalidateQueries({ queryKey: ["devices"] });
           queryClient.invalidateQueries({ queryKey: ["proxies"] });
-          toast({ title: "Conectado!", description: "Instância conectada com sucesso!" });
+          // Toast removido — o trigger do banco já gera a notificação automática
           // Sync in background (non-blocking)
           try {
             if (session?.access_token || (await supabase.auth.getSession()).data.session?.access_token) {
@@ -1699,7 +1699,7 @@ const Devices = () => {
         queryClient.invalidateQueries({ queryKey: ["devices"] });
         setConnectStep("done");
         const phoneMsg = connectResult.phone ? ` Número: ${connectResult.phone}` : "";
-        toast({ title: "Já conectado!", description: `Esta instância já está autenticada.${phoneMsg}` });
+        // Toast removido — trigger do banco já notifica
         setConnectOpen(false); resumeKeepAlive();
         return;
       }
@@ -1714,7 +1714,7 @@ const Devices = () => {
           if (statusResult?.alreadyConnected || statusResult?.status === "authenticated" || statusResult?.status === "connected") {
             queryClient.invalidateQueries({ queryKey: ["devices"] });
             setConnectStep("done");
-            toast({ title: "Já conectado!", description: "Instância autenticada." });
+            // Toast removido — trigger do banco já notifica
             setConnectOpen(false); resumeKeepAlive();
             return;
           }
@@ -2490,7 +2490,7 @@ const Devices = () => {
                         stopPolling();
                         setConnectStep("done");
                         queryClient.invalidateQueries({ queryKey: ["devices"] });
-                        toast({ title: "Conectado!" });
+                        // Toast removido — trigger do banco já notifica
                         try {
                           if (session?.access_token || (await supabase.auth.getSession()).data.session?.access_token) {
                             await callSyncDevices();
@@ -2535,7 +2535,7 @@ const Devices = () => {
                     toast({ title: "Proxy inválida", description: result.error, variant: "destructive" });
                     return;
                   }
-                  if (result.alreadyConnected) { setConnectStep("done"); toast({ title: "Já conectado!" }); return; }
+                  if (result.alreadyConnected) { setConnectStep("done"); return; }
                   const code = result.pairingCode || result.pairing_code;
                   if (code) { setPairingCode(code); startPolling(connectingDevice.id, null); }
                   else if (result.suggestQr) { toast({ title: "Código não suportado", description: "Use o QR Code.", variant: "destructive" }); setConnectStep("qr"); if (result.qrCode) setQrCodeBase64(result.qrCode); startPolling(connectingDevice.id, null); }
