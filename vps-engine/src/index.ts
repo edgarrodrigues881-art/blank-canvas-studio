@@ -10,6 +10,7 @@ import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
 import { Semaphore } from "./lib/concurrency";
 import { isWithinOperatingWindow, getBrtTodayAt } from "./lib/brt";
+import { massInjectTick, getMassInjectStatus, lastMassInjectTickAt } from "./mass-inject-worker";
 import { backoffMinutes } from "./lib/retry";
 import { validateUazapiCredentials } from "./lib/uazapi";
 
@@ -23,13 +24,17 @@ let lastTickAt: Date | null = null;
 let lastCampaignTickAt: Date | null = null;
 let tickCount = 0;
 let tickErrors = 0;
+const massInjectRunningRef = { value: true };
 
 app.get("/health", (_req: Request, res: Response) => {
+  const massInjectStatus = getMassInjectStatus();
   res.json({
     status: "ok",
     uptime: Math.round((Date.now() - startedAt.getTime()) / 1000),
     lastTick: lastTickAt?.toISOString() || null,
     lastCampaignTick: lastCampaignTickAt?.toISOString() || null,
+    lastMassInjectTick: lastMassInjectTickAt?.toISOString() || null,
+    activeMassInjectCampaign: massInjectStatus.activeCampaign,
     tickCount,
     tickErrors,
     concurrency: { active: sem.active, waiting: sem.waiting, max: config.maxConcurrentDevices },
@@ -931,13 +936,26 @@ async function mainLoop() {
     }
   };
 
-  // Run both loops concurrently
-  await Promise.all([runWarmupTick(), runCampaignTick()]);
+  // Mass inject worker loop
+  const runMassInjectTick = async () => {
+    while (isRunning) {
+      try {
+        await massInjectTick(massInjectRunningRef);
+      } catch (err: any) {
+        log.error("Mass inject tick error", serializeUnknownError(err));
+      }
+      // Short poll interval — the actual delays happen inside processOneCampaign
+      await new Promise(r => setTimeout(r, 10_000));
+    }
+  };
+
+  // Run all loops concurrently
+  await Promise.all([runWarmupTick(), runCampaignTick(), runMassInjectTick()]);
 }
 
 // Graceful shutdown
-process.on("SIGTERM", () => { log.info("SIGTERM received, shutting down..."); isRunning = false; });
-process.on("SIGINT", () => { log.info("SIGINT received, shutting down..."); isRunning = false; });
+process.on("SIGTERM", () => { log.info("SIGTERM received, shutting down..."); isRunning = false; massInjectRunningRef.value = false; });
+process.on("SIGINT", () => { log.info("SIGINT received, shutting down..."); isRunning = false; massInjectRunningRef.value = false; });
 
 mainLoop().catch((err) => {
   log.error("Fatal error", serializeUnknownError(err));

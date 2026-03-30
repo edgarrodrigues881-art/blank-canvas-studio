@@ -1650,25 +1650,29 @@ Deno.serve(async (req) => {
     const { action } = body;
 
     if (action === "run-campaign") {
-      if (!internalRun) {
-        const { data: existingCampaign } = await sb
-          .from("mass_inject_campaigns")
-          .select("id, status, next_run_at")
-          .eq("id", body.campaignId)
-          .maybeSingle();
+      // VPS Engine now handles campaign processing via continuous polling.
+      // This endpoint just ensures the campaign is in "queued" or "processing" status.
+      const { data: existingCampaign } = await sb
+        .from("mass_inject_campaigns")
+        .select("id, status")
+        .eq("id", body.campaignId)
+        .maybeSingle();
 
-        if (!existingCampaign) {
-          return new Response(JSON.stringify({ error: "Campanha não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
-
-        const nextRunAtMs = existingCampaign.next_run_at ? new Date(existingCampaign.next_run_at).getTime() : null;
-        if (["queued", "processing"].includes(existingCampaign.status) && nextRunAtMs && nextRunAtMs > Date.now() + 2000) {
-          return new Response(JSON.stringify({ success: true, skipped: true, reason: "already_scheduled" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
+      if (!existingCampaign) {
+        return new Response(JSON.stringify({ error: "Campanha não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      await runCampaignWorker(sb, body.campaignId, Number(body.initialDelayMs || 0));
-      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      // If paused, set back to queued so VPS picks it up
+      if (existingCampaign.status === "paused") {
+        await sb.from("mass_inject_campaigns").update({
+          status: "queued",
+          updated_at: nowIso(),
+          pause_reason: null,
+          next_run_at: null,
+        }).eq("id", body.campaignId);
+      }
+
+      return new Response(JSON.stringify({ success: true, engine: "vps" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ── RECOVER STALLED: cron-triggered action to resume interrupted campaigns ──
