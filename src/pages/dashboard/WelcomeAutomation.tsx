@@ -797,7 +797,7 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-medium">Grupos monitorados</Label>
-                  <Button size="sm" variant="outline" onClick={loadGroups} disabled={groupsLoading} className="h-7 text-[11px] gap-1">
+                  <Button size="sm" variant="outline" onClick={() => loadGroups()} disabled={groupsLoading} className="h-7 text-[11px] gap-1">
                     {groupsLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                     Carregar Grupos
                   </Button>
