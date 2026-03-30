@@ -922,9 +922,9 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
   const failedCount = hasContactSnapshot ? derivedCounts.failed : (campaign.fail_count || 0);
   const pendingCount = hasContactSnapshot ? derivedCounts.pending : contacts.filter((c: any) => ACTIVE_QUEUE_STATUSES.has(c.status)).length;
 
-  const canResume = (campaign.status === "paused" || campaign.status === "draft") && pendingCount > 0 && !isActionPending;
-  const canPause = isRunning && !isActionPending;
-  const canCancel = (isRunning || campaign.status === "paused") && campaign.status !== "cancelled" && campaign.status !== "done" && !isActionPending;
+  const canResume = (campaign.status === "paused" || campaign.status === "draft") && pendingCount > 0;
+  const canPause = isRunning;
+  const canCancel = (isRunning || campaign.status === "paused") && campaign.status !== "cancelled" && campaign.status !== "done";
   const isDone = ["done", "completed_with_failures", "cancelled", "failed"].includes(campaign.status || "");
 
   return (
