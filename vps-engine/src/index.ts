@@ -15,6 +15,7 @@ import { campaignWorkerTick, getCampaignWorkerStatus, lastCampaignWorkerTickAt }
 import { groupInteractionTick, getGroupInteractionStatus, lastGroupInteractionTickAt } from "./group-interaction-worker";
 import { chipConversationTick, getChipConvStatus, lastChipConvTickAt } from "./chip-conversation-worker";
 import { groupJoinTick, getGroupJoinStatus, lastGroupJoinTickAt } from "./group-join-worker";
+import { welcomeTick, getWelcomeStatus, lastWelcomeTickAt } from "./welcome-worker";
 import { backoffMinutes } from "./lib/retry";
 import { validateUazapiCredentials } from "./lib/uazapi";
 
