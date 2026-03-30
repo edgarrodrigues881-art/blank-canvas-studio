@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useCarouselTemplates } from "@/hooks/useCarouselTemplates";
 import { toast } from "sonner";
@@ -280,20 +280,35 @@ export default function WelcomeAutomationPage() {
 
 /* ───────── Simple Create Dialog (name only) ───────── */
 function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const create = useCreateWelcomeAutomation();
   const [name, setName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const qc = useQueryClient();
 
   const handleCreate = async () => {
     if (!name.trim()) { toast.error("Digite um nome para a automação"); return; }
-    await create.mutateAsync({
-      name: name.trim(),
-      monitoring_device_id: "",
-      message_content: "Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉",
-      group_ids: [],
-      sender_device_ids: [],
-    });
-    onOpenChange(false);
-    setName("");
+    setCreating(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("welcome_automations")
+        .insert({
+          user_id: userData.user?.id,
+          name: name.trim(),
+          monitoring_device_id: null,
+          message_content: "Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉",
+        } as any)
+        .select()
+        .single();
+      if (error) { toast.error(error.message); return; }
+      qc.invalidateQueries({ queryKey: ["welcome-automations"] });
+      toast.success("Automação criada com sucesso!");
+      onOpenChange(false);
+      setName("");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao criar automação");
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -320,8 +335,8 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleCreate} disabled={create.isPending || !name.trim()} className="gap-2">
-            {create.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+          <Button onClick={handleCreate} disabled={creating || !name.trim()} className="gap-2">
+            {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             Criar Automação
           </Button>
         </DialogFooter>
