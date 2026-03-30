@@ -621,7 +621,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     await sleep(delayMs);
   }
 
-  activeCampaignId = null;
+  activeCampaignIds.delete(campaignId);
 }
 
 // ══════════════════════════════════════════════════════════
