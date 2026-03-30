@@ -435,11 +435,11 @@ async function monitorPhase() {
             await db.from("welcome_events").insert({
               automation_id: automation.id,
               user_id: automation.user_id,
-              event_type: "participant_detected",
-              level: "info",
-              message: `Novo participante detectado: ${phone}`,
-              payload_json: { phone, group_id: group.group_id },
-            }).catch(() => {});
+               event_type: "participant_detected",
+               level: "info",
+               message: `Novo participante detectado: ${phone}`,
+               payload_json: { phone, group_id: group.group_id },
+             }).then(() => {}, () => {});
           }
         }
       } catch (err: any) {
