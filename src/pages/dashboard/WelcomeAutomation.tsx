@@ -280,8 +280,9 @@ export default function WelcomeAutomationPage() {
 
 /* ───────── Simple Create Dialog (name only) ───────── */
 function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const create = useCreateWelcomeAutomation();
   const [name, setName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const qc = (await import("@tanstack/react-query")).useQueryClient();
 
   const handleCreate = async () => {
     if (!name.trim()) { toast.error("Digite um nome para a automação"); return; }
