@@ -543,18 +543,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       await updateCounters(sb, campaignId, "already_exists");
       consecutiveFailures = 0;
     } else {
-      // Failure
-      const retryCount = Number(String(contact.error_message || "").match(/\[retry:(\d+)\]/)?.[1] || 0);
-      const newRetry = retryCount + 1;
-      const isFinal = !result.retryable || newRetry >= MAX_RETRIES;
-
-      const status = isFinal ? "failed" : (result.detail.includes("Rate limit") ? "rate_limited" : "pending");
-      const errorMsg = isFinal
-        ? result.detail
-        : `[retry:${newRetry}] ${result.detail}`;
-
+      // Failure — single attempt, mark as failed immediately (no retries)
       await sb.from("mass_inject_contacts").update({
-        status, error_message: errorMsg, processed_at: nowIso(),
+        status: "failed", error_message: result.detail, processed_at: nowIso(),
       }).eq("id", contact.id);
       await updateCounters(sb, campaignId, "failed");
 
@@ -578,19 +569,12 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         await emitEvent(sb, campaignId, "campaign_paused", "warning", reason);
         break;
       }
-
-      // Extra cooldown for errors
-      if (result.cooldownMs > 0) {
-        log.info(`Campaign ${campaignId.slice(0, 8)}: cooldown ${result.cooldownMs}ms`);
-        await sleep(result.cooldownMs);
-        continue; // Skip normal delay
-      }
     }
 
-    // 8. Apply delay between contacts
-    const minDelay = Math.max(Number(freshCampaign.min_delay || 10), 3);
-    const maxDelay = Math.max(Number(freshCampaign.max_delay || 30), minDelay);
-    let delayMs = randomBetween(minDelay * 1000, maxDelay * 1000);
+    // 9. Apply delay — use EXACTLY what the user configured (no forced minimums)
+    const minDelay = Number(freshCampaign.min_delay || 0);
+    const maxDelay = Math.max(Number(freshCampaign.max_delay || 0), minDelay);
+    let delayMs = minDelay === maxDelay ? minDelay * 1000 : randomBetween(minDelay * 1000, maxDelay * 1000);
 
     // Block pause check
     const pauseAfter = Number(freshCampaign.pause_after || 0);
