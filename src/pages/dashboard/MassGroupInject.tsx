@@ -1712,55 +1712,47 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                         <span className="text-sm text-muted-foreground">Carregando grupos da instância...</span>
                       </div>
                     ) : groups.length > 0 ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Input value={groupSearch} onChange={e => setGroupSearch(e.target.value)} placeholder="Buscar grupo..." className="h-9 text-sm flex-1" />
-                          {selectedGroups.length > 0 && (
-                            <Badge variant="outline" className="ml-2 text-xs shrink-0">{selectedGroups.length} selecionado(s)</Badge>
-                          )}
+                      selectedGroups.length > 0 ? (
+                        /* Show only selected group(s) with option to change */
+                        <div className="space-y-2">
+                          <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 px-3 py-2.5 flex items-center gap-3">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold truncate">{selectedGroups[0].name}</p>
+                              <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{selectedGroups[0].jid}</p>
+                            </div>
+                            <button onClick={() => { setSelectedGroups([]); setGroupId(""); setGroupName(""); }} className="text-[11px] text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                              Trocar
+                            </button>
+                          </div>
                         </div>
-                        <div className="max-h-[200px] overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/20">
-                          {filteredGroups.map(g => {
-                            const isSelected = selectedGroups.some(sg => sg.jid === g.jid);
-                            return (
+                      ) : (
+                        /* Show group list for selection */
+                        <div className="space-y-2">
+                          <Input value={groupSearch} onChange={e => setGroupSearch(e.target.value)} placeholder="Buscar grupo..." className="h-8 text-sm" />
+                          <div className="max-h-[180px] overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/20">
+                            {filteredGroups.map(g => (
                               <button key={g.jid} onClick={() => {
-                                if (isSelected) {
-                                  const updated = selectedGroups.filter(sg => sg.jid !== g.jid);
-                                  setSelectedGroups(updated);
-                                  if (groupId === g.jid) {
-                                    setGroupId(updated[0]?.jid || "");
-                                    setGroupName(updated[0]?.name || "");
-                                  }
-                                } else {
-                                  const updated = [...selectedGroups, { jid: g.jid, name: g.name }];
-                                  setSelectedGroups(updated);
-                                  if (!groupId) { setGroupId(g.jid); setGroupName(g.name); }
-                                }
+                                setSelectedGroups([{ jid: g.jid, name: g.name }]);
+                                setGroupId(g.jid);
+                                setGroupName(g.name);
                               }}
-                                className={`w-full text-left px-3.5 py-2.5 transition-colors hover:bg-muted/50 flex items-center gap-3 ${isSelected ? "bg-primary/10 border-l-2 border-l-primary" : ""}`}>
-                                <Checkbox checked={isSelected} className="shrink-0 pointer-events-none" />
+                                className="w-full text-left px-3 py-2 transition-colors hover:bg-muted/50 flex items-center gap-2">
                                 <div className="min-w-0 flex-1">
                                   <p className="text-sm font-medium truncate">{g.name}</p>
                                   <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{g.jid}</p>
                                 </div>
                               </button>
-                            );
-                          })}
-                          {filteredGroups.length === 0 && groupSearch && (
-                            <p className="text-xs text-muted-foreground text-center py-3">Nenhum grupo com esse nome</p>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleLoadGroups(primaryDeviceId)} className="flex-1 gap-2 text-xs h-8">
+                            ))}
+                            {filteredGroups.length === 0 && groupSearch && (
+                              <p className="text-xs text-muted-foreground text-center py-3">Nenhum grupo com esse nome</p>
+                            )}
+                          </div>
+                          <button onClick={() => handleLoadGroups(primaryDeviceId)} className="text-[11px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
                             <RefreshCw className="w-3 h-3" /> Recarregar
-                          </Button>
-                          {selectedGroups.length > 0 && (
-                            <Button variant="ghost" size="sm" onClick={() => { setSelectedGroups([]); setGroupId(""); setGroupName(""); }} className="text-xs h-8 text-destructive hover:text-destructive">
-                              Limpar seleção
-                            </Button>
-                          )}
+                          </button>
                         </div>
-                      </div>
+                      )
                     ) : (
                       <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 px-4 py-4 space-y-2">
                         <div className="flex items-start gap-2">
@@ -1839,64 +1831,39 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                   </div>
                 )}
 
-                {/* Selected groups summary - for list mode with multi-select */}
-                {groupInputMode === "list" && selectedGroups.length > 0 && (
-                  <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 px-4 py-3 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <p className="text-xs font-semibold text-foreground">{selectedGroups.length} grupo(s) selecionado(s)</p>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedGroups.map(g => (
-                        <Badge key={g.jid} variant="outline" className="text-[10px] gap-1 bg-emerald-500/5 border-emerald-500/20">
-                          {g.name}
-                          <button onClick={() => {
-                            const updated = selectedGroups.filter(sg => sg.jid !== g.jid);
-                            setSelectedGroups(updated);
-                            if (groupId === g.jid) { setGroupId(updated[0]?.jid || ""); setGroupName(updated[0]?.name || ""); }
-                          }} className="ml-0.5 hover:text-destructive">
-                            <XCircle className="w-3 h-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                    {selectedGroups.length > 1 && (
-                      <p className="text-[10px] text-muted-foreground">
-                        Os contatos serão distribuídos entre os grupos em rodízio (round-robin).
-                      </p>
-                    )}
-                  </div>
-                )}
               </CardContent>
             </Card>
 
-            {/* Advanced config */}
+            {/* Compact delay config */}
             <Card className="border-border/40 bg-card/80 backdrop-blur-sm shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2.5"><Settings2 className="w-4 h-4 text-primary" />Configurações Avançadas</CardTitle>
+              <CardHeader className="pb-2 pt-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2"><Settings2 className="w-3.5 h-3.5 text-primary" />Delay & Pausa</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-5">
-                <div>
-                  <div className="flex items-center gap-2 mb-2"><Timer className="w-3.5 h-3.5 text-muted-foreground" /><label className="text-xs font-semibold text-muted-foreground">Delay entre contatos (segundos)</label></div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><span className="text-[10px] text-muted-foreground/60">Mínimo</span><Input type="number" min={0} max={600} value={minDelay || ""} onChange={e => setMinDelay(e.target.value === "" ? 0 : Number(e.target.value))} onBlur={() => { const v = Math.max(0, minDelay || 0); setMinDelay(v); if (maxDelay < v) setMaxDelay(v); }} className="h-9 text-sm mt-1" /></div>
-                    <div><span className="text-[10px] text-muted-foreground/60">Máximo</span><Input type="number" min={0} max={600} value={maxDelay || ""} onChange={e => setMaxDelay(e.target.value === "" ? 0 : Number(e.target.value))} onBlur={() => setMaxDelay(Math.max(0, maxDelay || 0, minDelay || 0))} className="h-9 text-sm mt-1" /></div>
+              <CardContent className="space-y-3 pb-4">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[10px] text-muted-foreground/60">Delay mín (s)</span>
+                    <Input type="number" min={0} max={600} value={minDelay || ""} onChange={e => setMinDelay(e.target.value === "" ? 0 : Number(e.target.value))} onBlur={() => { const v = Math.max(0, minDelay || 0); setMinDelay(v); if (maxDelay < v) setMaxDelay(v); }} className="h-8 text-sm mt-0.5" />
                   </div>
-                  <p className="text-[10px] text-muted-foreground/50 mt-1">Defina o intervalo entre cada adição. 0 = sem delay.</p>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground/60">Delay máx (s)</span>
+                    <Input type="number" min={0} max={600} value={maxDelay || ""} onChange={e => setMaxDelay(e.target.value === "" ? 0 : Number(e.target.value))} onBlur={() => setMaxDelay(Math.max(0, maxDelay || 0, minDelay || 0))} className="h-8 text-sm mt-0.5" />
+                  </div>
                 </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-2"><Pause className="w-3.5 h-3.5 text-muted-foreground" /><label className="text-xs font-semibold text-muted-foreground">Pausa automática</label></div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><span className="text-[10px] text-muted-foreground/60">A cada X adições</span><Input type="number" min={0} value={pauseAfter} onChange={e => setPauseAfter(Number(e.target.value) || 0)} className="h-9 text-sm mt-1" /></div>
-                    <div><span className="text-[10px] text-muted-foreground/60">Duração (segundos)</span><Input type="number" min={0} max={600} value={pauseDuration} onChange={e => setPauseDuration(Number(e.target.value) || 0)} className="h-9 text-sm mt-1" /></div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[10px] text-muted-foreground/60">Pausa a cada X</span>
+                    <Input type="number" min={0} value={pauseAfter} onChange={e => setPauseAfter(Number(e.target.value) || 0)} className="h-8 text-sm mt-0.5" />
                   </div>
-                  <p className="text-[10px] text-muted-foreground/50 mt-1">Deixe "A cada" em 0 para desativar</p>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground/60">Duração (s)</span>
+                    <Input type="number" min={0} max={600} value={pauseDuration} onChange={e => setPauseDuration(Number(e.target.value) || 0)} className="h-8 text-sm mt-0.5" />
+                  </div>
                 </div>
                 {selectedDeviceIds.length > 1 && (
                   <div>
-                    <div className="flex items-center gap-2 mb-2"><ArrowLeftRight className="w-3.5 h-3.5 text-muted-foreground" /><label className="text-xs font-semibold text-muted-foreground">Rotação de instância</label></div>
-                    <Input type="number" min={0} value={rotateAfter} onChange={e => setRotateAfter(Number(e.target.value) || 0)} className="h-9 text-sm" />
-                    <p className="text-[10px] text-muted-foreground/50 mt-1">Trocar de instância a cada X adições (0 = desativado)</p>
+                    <span className="text-[10px] text-muted-foreground/60">Rotação a cada X</span>
+                    <Input type="number" min={0} value={rotateAfter} onChange={e => setRotateAfter(Number(e.target.value) || 0)} className="h-8 text-sm mt-0.5" />
                   </div>
                 )}
               </CardContent>
@@ -1906,147 +1873,90 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
           {/* Import contacts - full width below */}
           <div className="lg:col-span-2">
             <Card className="border-border/40 bg-card/80 backdrop-blur-sm shadow-sm h-full">
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2.5"><Upload className="w-4 h-4 text-primary" />Importar Contatos</CardTitle>
-                  {hasImported && (
-                    <Button variant="outline" size="sm" onClick={() => setReimportMode("ask")} className="gap-1.5 text-xs">
-                      <RotateCcw className="w-3.5 h-3.5" /> Reimportar
-                    </Button>
-                  )}
-                </div>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2"><Upload className="w-3.5 h-3.5 text-primary" />Contatos</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-5">
+              <CardContent className="space-y-4">
                 {hasImported ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {/* Stats row */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-4 gap-2">
                       {[
                         { label: "Total", value: importStats.total, color: "text-foreground" },
                         { label: "Válidos", value: importStats.valid, color: "text-emerald-500" },
                         { label: "Duplicados", value: importStats.duplicate, color: "text-amber-500" },
                         { label: "Inválidos", value: importStats.invalid + importStats.empty, color: "text-destructive" },
                       ].map(s => (
-                        <div key={s.label} className="rounded-lg bg-muted/30 border border-border/30 px-3 py-2 text-center">
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{s.label}</span>
-                          <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
+                        <div key={s.label} className="rounded-lg bg-muted/30 border border-border/30 px-2 py-1.5 text-center">
+                          <span className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">{s.label}</span>
+                          <p className={`text-base font-bold ${s.color}`}>{s.value}</p>
                         </div>
                       ))}
                     </div>
 
-                    {/* Filter tabs */}
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div className="flex gap-1.5 flex-wrap">
-                        {([
-                          { key: "all" as const, label: `Todos (${importStats.total})` },
-                          { key: "valid" as const, label: `Válidos (${importStats.valid})` },
-                          { key: "duplicate" as const, label: `Duplicados (${importStats.duplicate})` },
-                          { key: "invalid" as const, label: `Inválidos (${importStats.invalid + importStats.empty})` },
-                        ] as const).map(f => (
-                          <Button key={f.key} variant={importFilter === f.key ? "default" : "outline"} size="sm" onClick={() => setImportFilter(f.key)} className="text-[10px] h-7 rounded-lg px-2.5">
-                            {f.label}
-                          </Button>
-                        ))}
-                      </div>
-                      <div className="flex gap-1.5">
-                        {(importStats.invalid + importStats.empty) > 0 && (
-                          <Button variant="outline" size="sm" className="text-[10px] h-7 rounded-lg px-2.5 border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => {
-                            const cleaned = importedContacts.filter(c => c.classification !== "invalid" && c.classification !== "empty");
-                            setImportedContacts(cleaned);
-                            setRawInput(cleaned.map(c => c.raw).join("\n"));
-                            setImportFilter("all");
-                            toast.success(`${importStats.invalid + importStats.empty} inválido(s) removido(s)`);
-                          }}>
-                            Limpar Inválidos
-                          </Button>
-                        )}
-                        <Button variant="outline" size="sm" className="text-[10px] h-7 rounded-lg px-2.5 border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => {
-                          setImportedContacts([]);
-                          setRawInput("");
-                          setHasImported(false);
-                          setValidationResult(null);
-                          setImportFilter("all");
-                          toast.success("Todos os contatos removidos");
-                        }}>
-                          Limpar Tudo
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Contact table */}
-                    <div className="max-h-[340px] overflow-y-auto rounded-xl border border-border/30">
+                    {/* Contact table — clean, no filters */}
+                    <div className="max-h-[240px] overflow-y-auto rounded-xl border border-border/30">
                       <Table>
                         <TableHeader>
                           <TableRow className="border-border/30 bg-muted/30">
                             <TableHead className="text-[10px] w-10">#</TableHead>
                             <TableHead className="text-[10px]">Número</TableHead>
                             <TableHead className="text-[10px]">Status</TableHead>
-                            <TableHead className="text-[10px] w-10"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredImportedContacts.slice(0, 200).map((c, i) => {
-                            const globalIdx = importedContacts.indexOf(c);
-                            return (
-                              <TableRow key={i} className="border-border/15">
-                                <TableCell className="text-[10px] font-mono text-muted-foreground py-1.5">{globalIdx + 1}</TableCell>
-                                <TableCell className="text-xs font-mono font-medium py-1.5">{c.raw || "(vazio)"}</TableCell>
-                                <TableCell className="py-1.5">
-                                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
-                                    c.classification === "valid" ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5" :
-                                    c.classification === "duplicate" ? "border-amber-500/30 text-amber-500 bg-amber-500/5" :
-                                    "border-destructive/30 text-destructive bg-destructive/5"
-                                  }`}>
-                                    {c.classification === "valid" ? "Válido" :
-                                     c.classification === "duplicate" ? "Duplicado" :
-                                     c.classification === "invalid" ? "Inválido" : "Vazio"}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="py-1.5">
-                                  <button onClick={() => {
-                                    const updated = importedContacts.filter((_, idx) => idx !== globalIdx);
-                                    const reclassified = classifyContacts(updated.map(u => u.raw));
-                                    setImportedContacts(reclassified);
-                                    setRawInput(reclassified.map(u => u.raw).join("\n"));
-                                    if (reclassified.length === 0) setHasImported(false);
-                                  }} className="text-muted-foreground/40 hover:text-destructive transition-colors p-0.5 rounded">
-                                    <XCircle className="w-3.5 h-3.5" />
-                                  </button>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                          {filteredImportedContacts.length > 200 && (
+                          {importedContacts.slice(0, 200).map((c, i) => (
+                            <TableRow key={i} className="border-border/15">
+                              <TableCell className="text-[10px] font-mono text-muted-foreground py-1">{i + 1}</TableCell>
+                              <TableCell className="text-xs font-mono font-medium py-1">{c.raw || "(vazio)"}</TableCell>
+                              <TableCell className="py-1">
+                                <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${
+                                  c.classification === "valid" ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5" :
+                                  c.classification === "duplicate" ? "border-amber-500/30 text-amber-500 bg-amber-500/5" :
+                                  "border-destructive/30 text-destructive bg-destructive/5"
+                                }`}>
+                                  {c.classification === "valid" ? "Válido" : c.classification === "duplicate" ? "Duplicado" : "Inválido"}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {importedContacts.length > 200 && (
                             <TableRow>
-                              <TableCell colSpan={4} className="text-center text-[10px] text-muted-foreground py-2">
-                                ...e mais {filteredImportedContacts.length - 200} linhas
+                              <TableCell colSpan={3} className="text-center text-[10px] text-muted-foreground py-2">
+                                ...e mais {importedContacts.length - 200} linhas
                               </TableCell>
                             </TableRow>
                           )}
                         </TableBody>
                       </Table>
                     </div>
+                    <button onClick={() => {
+                      setImportedContacts([]);
+                      setRawInput("");
+                      setHasImported(false);
+                      setValidationResult(null);
+                    }} className="text-[11px] text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1">
+                      <RotateCcw className="w-3 h-3" /> Reimportar
+                    </button>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {/* Paste area */}
+                  <div className="space-y-3">
                     <Textarea value={rawInput} onChange={e => setRawInput(e.target.value)}
                       placeholder={"Um número por linha\n5562999999999\n5521988888888"}
-                      className="min-h-[180px] font-mono text-xs resize-none bg-muted/20 border-border/40" />
-                    
-                    <div className="flex gap-3">
+                      className="min-h-[140px] font-mono text-xs resize-none bg-muted/20 border-border/40" />
+                    <div className="flex gap-2">
                       {rawInput.trim() && (
                         <Button onClick={() => {
                           const lines = rawInput.split(/[\n,;]+/).map(c => c.trim());
                           handleImportContacts(lines);
-                        }} disabled={isImporting} className="flex-1 gap-2 h-10 bg-emerald-600 hover:bg-emerald-700 text-white">
-                          {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                          Importar {rawInput.split(/[\n,;]+/).filter(c => c.trim()).length} contatos
+                        }} disabled={isImporting} className="flex-1 gap-2 h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                          {isImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                          Importar {rawInput.split(/[\n,;]+/).filter(c => c.trim()).length}
                         </Button>
                       )}
-                      <label className={`flex items-center gap-2 px-4 h-10 rounded-md border border-border/40 text-xs font-medium text-muted-foreground hover:bg-muted/30 transition-colors ${isImporting ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
+                      <label className={`flex items-center gap-1.5 px-3 h-9 rounded-md border border-border/40 text-xs font-medium text-muted-foreground hover:bg-muted/30 transition-colors ${isImporting ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
                         <Upload className="w-3.5 h-3.5" />
-                        Importar Arquivo
+                        Arquivo
                         <input type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" disabled={isImporting} onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
@@ -2079,9 +1989,9 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                   </div>
                 )}
 
-                <Button onClick={handleValidate} disabled={isValidating || isImporting || importStats.valid === 0 || !groupId.trim() || selectedDeviceIds.length === 0 || !campaignName.trim()} className="w-full h-11 gap-2 text-sm font-semibold rounded-xl" size="lg">
+                <Button onClick={handleValidate} disabled={isValidating || isImporting || importStats.valid === 0 || !groupId.trim() || selectedDeviceIds.length === 0 || !campaignName.trim()} className="w-full h-10 gap-2 text-sm font-semibold rounded-xl" size="lg">
                   {isValidating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                  {isValidating ? "Validando contatos..." : `Validar e Revisar (${importStats.valid} válidos)`}
+                  {isValidating ? "Validando..." : `Validar e Revisar (${importStats.valid})`}
                 </Button>
               </CardContent>
             </Card>
@@ -2089,39 +1999,8 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
         </div>
       )}
 
-      {/* Reimport dialog */}
-      <AlertDialog open={reimportMode === "ask"} onOpenChange={(open) => { if (!open) setReimportMode(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reimportar contatos</AlertDialogTitle>
-            <AlertDialogDescription>
-              Já existem {importStats.total} contatos importados ({importStats.valid} válidos). O que deseja fazer?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <Button variant="outline" onClick={() => {
-              setReimportMode(null);
-              pendingMergeRef.current = true;
-              setHasImported(false);
-              toast.info("Importe um novo arquivo para adicionar aos contatos existentes");
-            }} className="gap-1.5">
-              <Plus className="w-4 h-4" /> Adicionar aos existentes
-            </Button>
-            <AlertDialogAction onClick={() => {
-              setReimportMode(null);
-              setRawInput("");
-              setImportedContacts([]);
-              setHasImported(false);
-              setValidationResult(null);
-              setParticipantCheck(null);
-              toast.info("Contatos anteriores removidos. Importe novamente.");
-            }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Substituir tudo
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+
+
 
       {/* ══ PREVIEW ══ */}
       {step === "preview" && validationResult && (

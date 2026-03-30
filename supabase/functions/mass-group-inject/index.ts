@@ -1014,9 +1014,9 @@ async function campaignCanKeepRunning(sb: any, campaignId: string) {
  * Only adds block pauses and error cooldowns on top.
  */
 function computeNextDelayMs(campaign: any, cooldownMs?: number, _deviceId?: string) {
-  const ABSOLUTE_MIN_DELAY_SEC = 3; // Safety floor
-  const minDelaySec = Math.max(Number(campaign.min_delay || 10), ABSOLUTE_MIN_DELAY_SEC);
-  const maxDelaySec = Math.max(Number(campaign.max_delay || 30), minDelaySec);
+  const ABSOLUTE_MIN_DELAY_SEC = 0; // User controls delay fully
+  const minDelaySec = Math.max(Number(campaign.min_delay ?? 10), ABSOLUTE_MIN_DELAY_SEC);
+  const maxDelaySec = Math.max(Number(campaign.max_delay ?? 30), minDelaySec);
   
   // Random delay between user's min and max — NO jitter outside this range
   const baseDelaySec = randomBetween(minDelaySec, maxDelaySec);
@@ -1907,11 +1907,11 @@ Deno.serve(async (req) => {
         success_count: 0,
         already_count: 0,
         fail_count: 0,
-        min_delay: Math.max(Number(body.minDelay || 30), 8),
-        max_delay: Math.max(Number(body.maxDelay || 60), Number(body.minDelay || 30), 8),
-        pause_after: Math.max(Number(body.pauseAfter || 0), 0),
-        pause_duration: Math.max(Number(body.pauseDuration || 30), 0),
-        rotate_after: Math.max(Number(body.rotateAfter || 0), 0),
+        min_delay: Math.max(Number(body.minDelay ?? 10), 0),
+        max_delay: Math.max(Number(body.maxDelay ?? 30), Number(body.minDelay ?? 10), 0),
+        pause_after: Math.max(Number(body.pauseAfter ?? 0), 0),
+        pause_duration: Math.max(Number(body.pauseDuration ?? 0), 0),
+        rotate_after: Math.max(Number(body.rotateAfter ?? 0), 0),
         started_at: nowIso(),
       } as any).select().single();
       if (error || !campaign) throw error || new Error("Erro ao criar campanha.");
