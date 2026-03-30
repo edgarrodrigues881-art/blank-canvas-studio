@@ -951,7 +951,7 @@ async function mainLoop() {
   const runCampaignWorker = async () => {
     while (isRunning) {
       try {
-        await campaignWorkerTick();
+        await campaignWorkerTick({ value: isRunning });
       } catch (err: any) {
         log.error("Campaign worker tick error", serializeUnknownError(err));
       }
