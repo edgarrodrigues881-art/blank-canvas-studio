@@ -343,6 +343,13 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
   const [maxDelay, setMaxDelay] = useState(automation.max_delay_seconds);
   const [maxPerAccount, setMaxPerAccount] = useState(automation.max_per_account);
   const [messageContent, setMessageContent] = useState(automation.message_content || "");
+  const [messageType, setMessageType] = useState<string>((automation as any).message_type || "text");
+  const [buttons, setButtons] = useState<{ text: string; url: string }[]>(() => {
+    try { const b = (automation as any).buttons; return Array.isArray(b) ? b : []; } catch { return []; }
+  });
+  const [carouselCards, setCarouselCards] = useState<{ title: string; description: string; image_url: string; buttons: { text: string; url: string }[] }[]>(() => {
+    try { const c = (automation as any).carousel_cards; return Array.isArray(c) ? c : []; } catch { return []; }
+  });
   const [selectedSenders, setSelectedSenders] = useState<string[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<{ group_id: string; group_name: string }[]>([]);
   const [availableGroups, setAvailableGroups] = useState<{ id: string; name: string }[]>([]);
