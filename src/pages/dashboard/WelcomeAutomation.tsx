@@ -342,11 +342,6 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
   const [minDelay, setMinDelay] = useState(automation.min_delay_seconds);
   const [maxDelay, setMaxDelay] = useState(automation.max_delay_seconds);
   const [maxPerAccount, setMaxPerAccount] = useState(automation.max_per_account);
-  const [maxRetries, setMaxRetries] = useState(automation.max_retries);
-  const [dedupeRule, setDedupeRule] = useState(automation.dedupe_rule);
-  const [dedupeDays, setDedupeDays] = useState(automation.dedupe_window_days);
-  const [startHour, setStartHour] = useState(automation.send_start_hour);
-  const [endHour, setEndHour] = useState(automation.send_end_hour);
   const [messageContent, setMessageContent] = useState(automation.message_content || "");
   const [selectedSenders, setSelectedSenders] = useState<string[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<{ group_id: string; group_name: string }[]>([]);
