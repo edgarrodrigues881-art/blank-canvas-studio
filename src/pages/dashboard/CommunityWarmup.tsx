@@ -326,7 +326,7 @@ export default function CommunityWarmup() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 max-w-5xl mx-auto px-4 py-6">
+      <div className="space-y-6 w-full px-4 py-6">
         <Skeleton className="h-10 w-72" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" />
