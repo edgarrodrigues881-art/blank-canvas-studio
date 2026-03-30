@@ -27,11 +27,14 @@ let tickErrors = 0;
 const massInjectRunningRef = { value: true };
 
 app.get("/health", (_req: Request, res: Response) => {
+  const massInjectStatus = getMassInjectStatus();
   res.json({
     status: "ok",
     uptime: Math.round((Date.now() - startedAt.getTime()) / 1000),
     lastTick: lastTickAt?.toISOString() || null,
     lastCampaignTick: lastCampaignTickAt?.toISOString() || null,
+    lastMassInjectTick: lastMassInjectTickAt?.toISOString() || null,
+    activeMassInjectCampaign: massInjectStatus.activeCampaign,
     tickCount,
     tickErrors,
     concurrency: { active: sem.active, waiting: sem.waiting, max: config.maxConcurrentDevices },
