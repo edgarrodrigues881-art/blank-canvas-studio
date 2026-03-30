@@ -343,6 +343,13 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
   const [maxDelay, setMaxDelay] = useState(automation.max_delay_seconds);
   const [maxPerAccount, setMaxPerAccount] = useState(automation.max_per_account);
   const [messageContent, setMessageContent] = useState(automation.message_content || "");
+  const [messageType, setMessageType] = useState<string>((automation as any).message_type || "text");
+  const [buttons, setButtons] = useState<{ text: string; url: string }[]>(() => {
+    try { const b = (automation as any).buttons; return Array.isArray(b) ? b : []; } catch { return []; }
+  });
+  const [carouselCards, setCarouselCards] = useState<{ title: string; description: string; image_url: string; buttons: { text: string; url: string }[] }[]>(() => {
+    try { const c = (automation as any).carousel_cards; return Array.isArray(c) ? c : []; } catch { return []; }
+  });
   const [selectedSenders, setSelectedSenders] = useState<string[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<{ group_id: string; group_name: string }[]>([]);
   const [availableGroups, setAvailableGroups] = useState<{ id: string; name: string }[]>([]);
@@ -389,6 +396,9 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
       max_delay_seconds: Math.max(maxDelay, minDelay),
       max_per_account: maxPerAccount,
       message_content: messageContent,
+      message_type: messageType,
+      buttons: messageType === "buttons" ? buttons : [],
+      carousel_cards: messageType === "carousel" ? carouselCards : [],
     } as any);
 
     await supabase.from("welcome_automation_groups").delete().eq("automation_id", automation.id);
@@ -570,8 +580,79 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
             <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-full">Etapa 4</span>
           </div>
         </CardHeader>
-        <CardContent className="pt-2">
+        <CardContent className="pt-2 space-y-4">
+          {/* Type selector */}
+          <div className="flex items-center gap-2">
+            {[
+              { value: "text", label: "Texto simples" },
+              { value: "buttons", label: "Botões" },
+              { value: "carousel", label: "Carrossel" },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setMessageType(opt.value)}
+                className={`px-4 py-2 rounded-xl text-xs font-medium transition-all border ${
+                  messageType === opt.value
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/20 text-muted-foreground border-border/50 hover:bg-muted/40"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
           <WelcomeMessageEditor value={messageContent} onChange={setMessageContent} />
+
+          {/* Buttons editor */}
+          {messageType === "buttons" && (
+            <div className="space-y-3 border-t border-border/20 pt-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Botões</Label>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs rounded-lg" onClick={() => setButtons(prev => [...prev, { text: "", url: "" }])} disabled={buttons.length >= 3}>
+                  <Plus className="w-3 h-3 mr-1" /> Adicionar
+                </Button>
+              </div>
+              {buttons.map((btn, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Input placeholder="Texto do botão" value={btn.text} onChange={e => setButtons(prev => prev.map((b, j) => j === i ? { ...b, text: e.target.value } : b))} className="h-9 text-xs rounded-lg flex-1" />
+                  <Input placeholder="https://..." value={btn.url} onChange={e => setButtons(prev => prev.map((b, j) => j === i ? { ...b, url: e.target.value } : b))} className="h-9 text-xs rounded-lg flex-1" />
+                  <Button type="button" variant="ghost" size="sm" className="h-9 w-9 p-0 text-destructive" onClick={() => setButtons(prev => prev.filter((_, j) => j !== i))}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              ))}
+              {buttons.length === 0 && <p className="text-xs text-muted-foreground italic">Nenhum botão adicionado</p>}
+            </div>
+          )}
+
+          {/* Carousel editor */}
+          {messageType === "carousel" && (
+            <div className="space-y-3 border-t border-border/20 pt-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cards do Carrossel</Label>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs rounded-lg" onClick={() => setCarouselCards(prev => [...prev, { title: "", description: "", image_url: "", buttons: [] }])} disabled={carouselCards.length >= 4}>
+                  <Plus className="w-3 h-3 mr-1" /> Adicionar Card
+                </Button>
+              </div>
+              {carouselCards.map((card, i) => (
+                <Card key={i} className="border-border/30 bg-muted/5">
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase">Card {i + 1}</span>
+                      <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => setCarouselCards(prev => prev.filter((_, j) => j !== i))}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                    <Input placeholder="Título" value={card.title} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, title: e.target.value } : c))} className="h-9 text-xs rounded-lg" />
+                    <Input placeholder="Descrição" value={card.description} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, description: e.target.value } : c))} className="h-9 text-xs rounded-lg" />
+                    <Input placeholder="URL da imagem (opcional)" value={card.image_url} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, image_url: e.target.value } : c))} className="h-9 text-xs rounded-lg" />
+                  </CardContent>
+                </Card>
+              ))}
+              {carouselCards.length === 0 && <p className="text-xs text-muted-foreground italic">Nenhum card adicionado</p>}
+            </div>
+          )}
         </CardContent>
       </Card>
 

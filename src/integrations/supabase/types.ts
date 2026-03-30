@@ -3874,6 +3874,8 @@ export type Database = {
       welcome_automations: {
         Row: {
           active_days: Json
+          buttons: Json
+          carousel_cards: Json
           created_at: string
           dedupe_rule: string
           dedupe_window_days: number
@@ -3900,6 +3902,8 @@ export type Database = {
         }
         Insert: {
           active_days?: Json
+          buttons?: Json
+          carousel_cards?: Json
           created_at?: string
           dedupe_rule?: string
           dedupe_window_days?: number
@@ -3926,6 +3930,8 @@ export type Database = {
         }
         Update: {
           active_days?: Json
+          buttons?: Json
+          carousel_cards?: Json
           created_at?: string
           dedupe_rule?: string
           dedupe_window_days?: number
