@@ -21,10 +21,10 @@ const PARTICIPANT_CACHE_TTL_MS = 5 * 60_000; // 5 min
 
 // ── Tracking ──
 export let lastMassInjectTickAt: Date | null = null;
-let activeCampaignId: string | null = null;
+const activeCampaignIds = new Set<string>();
 
 export function getMassInjectStatus() {
-  return { lastTick: lastMassInjectTickAt, activeCampaign: activeCampaignId };
+  return { lastTick: lastMassInjectTickAt, activeCampaigns: Array.from(activeCampaignIds) };
 }
 
 // ── Utilities ──
