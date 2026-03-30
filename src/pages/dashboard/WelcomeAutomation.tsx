@@ -779,7 +779,7 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
             {/* Monitoring account */}
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Conta de monitoramento *</Label>
-              <Select value={monitoringDevice} onValueChange={(v) => { setMonitoringDevice(v); setAvailableGroups([]); setSelectedGroups([]); }}>
+              <Select value={monitoringDevice} onValueChange={(v) => { setMonitoringDevice(v); setAvailableGroups([]); setSelectedGroups([]); loadGroups(v); }}>
                 <SelectTrigger className="h-9"><SelectValue placeholder="Selecione uma conta conectada..." /></SelectTrigger>
                 <SelectContent>
                   {devices?.map(d => (
