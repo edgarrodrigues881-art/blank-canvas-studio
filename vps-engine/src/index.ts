@@ -936,13 +936,26 @@ async function mainLoop() {
     }
   };
 
-  // Run both loops concurrently
-  await Promise.all([runWarmupTick(), runCampaignTick()]);
+  // Mass inject worker loop
+  const runMassInjectTick = async () => {
+    while (isRunning) {
+      try {
+        await massInjectTick(massInjectRunningRef);
+      } catch (err: any) {
+        log.error("Mass inject tick error", serializeUnknownError(err));
+      }
+      // Short poll interval — the actual delays happen inside processOneCampaign
+      await new Promise(r => setTimeout(r, 10_000));
+    }
+  };
+
+  // Run all loops concurrently
+  await Promise.all([runWarmupTick(), runCampaignTick(), runMassInjectTick()]);
 }
 
 // Graceful shutdown
-process.on("SIGTERM", () => { log.info("SIGTERM received, shutting down..."); isRunning = false; });
-process.on("SIGINT", () => { log.info("SIGINT received, shutting down..."); isRunning = false; });
+process.on("SIGTERM", () => { log.info("SIGTERM received, shutting down..."); isRunning = false; massInjectRunningRef.value = false; });
+process.on("SIGINT", () => { log.info("SIGINT received, shutting down..."); isRunning = false; massInjectRunningRef.value = false; });
 
 mainLoop().catch((err) => {
   log.error("Fatal error", serializeUnknownError(err));
