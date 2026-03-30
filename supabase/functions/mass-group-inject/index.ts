@@ -1014,9 +1014,9 @@ async function campaignCanKeepRunning(sb: any, campaignId: string) {
  * Only adds block pauses and error cooldowns on top.
  */
 function computeNextDelayMs(campaign: any, cooldownMs?: number, _deviceId?: string) {
-  const ABSOLUTE_MIN_DELAY_SEC = 3; // Safety floor
-  const minDelaySec = Math.max(Number(campaign.min_delay || 10), ABSOLUTE_MIN_DELAY_SEC);
-  const maxDelaySec = Math.max(Number(campaign.max_delay || 30), minDelaySec);
+  const ABSOLUTE_MIN_DELAY_SEC = 0; // User controls delay fully
+  const minDelaySec = Math.max(Number(campaign.min_delay ?? 10), ABSOLUTE_MIN_DELAY_SEC);
+  const maxDelaySec = Math.max(Number(campaign.max_delay ?? 30), minDelaySec);
   
   // Random delay between user's min and max — NO jitter outside this range
   const baseDelaySec = randomBetween(minDelaySec, maxDelaySec);
