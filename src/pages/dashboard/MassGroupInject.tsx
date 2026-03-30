@@ -1052,15 +1052,29 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
         );
       })()}
 
-      {/* Done actions */}
+      {/* Done actions — styled as cards */}
       {isDone && retryableContacts.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={handleExportNotAdded} className="gap-1.5 text-xs h-8">
-            <Download className="w-3.5 h-3.5" /> Exportar não adicionados ({retryableContacts.length})
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportNotAdded}
+            className="gap-2 text-xs h-9 rounded-lg border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all"
+          >
+            <Download className="w-4 h-4 text-muted-foreground" />
+            <span>Exportar não adicionados</span>
+            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 bg-muted/50 font-bold">{retryableContacts.length}</Badge>
           </Button>
           {onNewCampaignFromFailed && (
-            <Button variant="outline" size="sm" onClick={handleNewCampaignFromFailed} className="gap-1.5 text-xs h-8 border-primary/30 text-primary hover:bg-primary/10">
-              <RotateCcw className="w-3.5 h-3.5" /> Nova campanha com falhos
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNewCampaignFromFailed}
+              className="gap-2 text-xs h-9 rounded-lg border-primary/30 text-primary hover:bg-primary/10 transition-all"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Retentar com nova campanha</span>
+              <Badge variant="secondary" className="text-[10px] h-5 px-1.5 bg-primary/10 text-primary font-bold">{retryableContacts.length}</Badge>
             </Button>
           )}
         </div>
