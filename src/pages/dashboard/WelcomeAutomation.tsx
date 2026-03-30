@@ -27,7 +27,7 @@ import { AutomationStatusBadge } from "@/components/welcome/WelcomeStatusBadge";
 import {
   Heart, Plus, Play, Pause, Square, Trash2, RefreshCw,
   CheckCircle2, Clock, Users, Send, Search,
-  ArrowLeft, Settings, ListChecks, Radio, Zap, Eye,
+  ArrowLeft, Settings, ListChecks, Radio, Zap, Eye, Upload, ImageIcon,
 } from "lucide-react";
 import { format } from "date-fns";
 
