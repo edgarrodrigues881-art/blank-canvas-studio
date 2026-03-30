@@ -87,6 +87,7 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/my-plan": () => { (MyPlan as any).__preload?.(); },
   "/dashboard/settings": () => { (Settings as any).__preload?.(); },
   "/dashboard/group-join": () => { (GroupJoinCampaignList as any).__preload?.(); },
+  "/dashboard/welcome": () => { (WelcomeAutomation as any).__preload?.(); },
   "/dashboard/notifications": () => { (Notifications as any).__preload?.(); },
 };
 
