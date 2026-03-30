@@ -10,6 +10,7 @@ import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
 import { Semaphore } from "./lib/concurrency";
 import { isWithinOperatingWindow, getBrtTodayAt } from "./lib/brt";
+import { massInjectTick, getMassInjectStatus, lastMassInjectTickAt } from "./mass-inject-worker";
 import { backoffMinutes } from "./lib/retry";
 import { validateUazapiCredentials } from "./lib/uazapi";
 
