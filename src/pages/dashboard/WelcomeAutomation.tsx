@@ -655,25 +655,42 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
           </div>
         </CardHeader>
         <CardContent className="pt-2 space-y-4">
-          {/* Type selector */}
-          <div className="flex items-center gap-2">
-            {[
-              { value: "text", label: "Texto simples" },
-              { value: "buttons", label: "Botões" },
-              { value: "carousel", label: "Carrossel" },
-            ].map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => setMessageType(opt.value)}
-                className={`px-4 py-2 rounded-xl text-xs font-medium transition-all border ${
-                  messageType === opt.value
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-muted/20 text-muted-foreground border-border/50 hover:bg-muted/40"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+          {/* Type selector + clear button */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              {[
+                { value: "text", label: "Texto simples" },
+                { value: "buttons", label: "Botões" },
+                { value: "carousel", label: "Carrossel" },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setMessageType(opt.value)}
+                  className={`px-4 py-2 rounded-xl text-xs font-medium transition-all border ${
+                    messageType === opt.value
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted/20 text-muted-foreground border-border/50 hover:bg-muted/40"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs rounded-lg gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={() => {
+                setMessageContent("");
+                setButtons([]);
+                setCarouselCards([]);
+                setMessageType("text");
+                toast.success("Mensagem limpa!");
+              }}
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Limpar tudo
+            </Button>
           </div>
 
           <WelcomeMessageEditor value={messageContent} onChange={setMessageContent} buttons={messageType === "buttons" ? buttons : undefined} carouselCards={messageType === "carousel" ? carouselCards : undefined} onImportTemplate={handleImportTemplate} />
