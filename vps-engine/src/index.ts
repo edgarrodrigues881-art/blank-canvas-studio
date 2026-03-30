@@ -940,13 +940,68 @@ async function mainLoop() {
       } catch (err: any) {
         log.error("Mass inject tick error", serializeUnknownError(err));
       }
-      // Short poll interval — the actual delays happen inside processOneCampaign
+      await new Promise(r => setTimeout(r, 10_000));
+    }
+  };
+
+  // Campaign worker loop (inline processing — replaces Edge Function proxy)
+  const runCampaignWorker = async () => {
+    while (isRunning) {
+      try {
+        await campaignWorkerTick();
+      } catch (err: any) {
+        log.error("Campaign worker tick error", serializeUnknownError(err));
+      }
+      await new Promise(r => setTimeout(r, 15_000));
+    }
+  };
+
+  // Group interaction worker loop
+  const runGroupInteractionWorker = async () => {
+    while (isRunning) {
+      try {
+        await groupInteractionTick();
+      } catch (err: any) {
+        log.error("Group interaction worker tick error", serializeUnknownError(err));
+      }
+      await new Promise(r => setTimeout(r, 20_000));
+    }
+  };
+
+  // Chip conversation worker loop
+  const runChipConvWorker = async () => {
+    while (isRunning) {
+      try {
+        await chipConversationTick();
+      } catch (err: any) {
+        log.error("Chip conversation worker tick error", serializeUnknownError(err));
+      }
+      await new Promise(r => setTimeout(r, 30_000));
+    }
+  };
+
+  // Group join worker loop
+  const runGroupJoinWorker = async () => {
+    while (isRunning) {
+      try {
+        await groupJoinTick();
+      } catch (err: any) {
+        log.error("Group join worker tick error", serializeUnknownError(err));
+      }
       await new Promise(r => setTimeout(r, 10_000));
     }
   };
 
   // Run all loops concurrently
-  await Promise.all([runWarmupTick(), runCampaignTick(), runMassInjectTick()]);
+  await Promise.all([
+    runWarmupTick(),
+    runCampaignTick(),
+    runMassInjectTick(),
+    runCampaignWorker(),
+    runGroupInteractionWorker(),
+    runChipConvWorker(),
+    runGroupJoinWorker(),
+  ]);
 }
 
 // Graceful shutdown
