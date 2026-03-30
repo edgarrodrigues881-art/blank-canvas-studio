@@ -213,8 +213,8 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ─── S0: Restart/resync instance to force WA group refresh (only on forceRefresh) ───
-      if (forceRefresh) {
+      // ─── S0: Restart/resync instance to force WA group refresh (only on forceRefresh, never in quick) ───
+      if (forceRefresh && !quickMode) {
         console.log("[S0] Forcing instance resync...");
         const restartAttempts = [
           { ep: "/instance/restart", method: "GET" },
