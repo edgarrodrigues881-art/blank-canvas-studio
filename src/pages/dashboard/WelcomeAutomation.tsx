@@ -388,11 +388,6 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
       min_delay_seconds: minDelay,
       max_delay_seconds: Math.max(maxDelay, minDelay),
       max_per_account: maxPerAccount,
-      max_retries: maxRetries,
-      dedupe_rule: dedupeRule,
-      dedupe_window_days: dedupeDays,
-      send_start_hour: startHour,
-      send_end_hour: endHour,
       message_content: messageContent,
     } as any);
 
