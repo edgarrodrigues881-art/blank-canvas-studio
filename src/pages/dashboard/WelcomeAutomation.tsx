@@ -26,7 +26,7 @@ import { WelcomeMessageEditor } from "@/components/welcome/WelcomeMessageEditor"
 import { AutomationStatusBadge } from "@/components/welcome/WelcomeStatusBadge";
 import {
   Heart, Plus, Play, Pause, Square, Trash2, RefreshCw,
-  CheckCircle2, Clock, Users, Send, Shield, Search,
+  CheckCircle2, Clock, Users, Send, Search,
   ArrowLeft, Settings, ListChecks, Radio, Zap, Eye,
 } from "lucide-react";
 import { format } from "date-fns";
