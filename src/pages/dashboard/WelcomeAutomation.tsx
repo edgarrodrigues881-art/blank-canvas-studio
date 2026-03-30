@@ -706,8 +706,9 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
 
   const { data: devices } = useConnectedDevices(open);
 
-  const loadGroups = async () => {
-    if (!monitoringDevice) return;
+  const loadGroups = async (deviceId?: string) => {
+    const targetDevice = deviceId || monitoringDevice;
+    if (!targetDevice) return;
     setGroupsLoading(true);
     try {
       const { data: deviceFull } = await supabase.from("devices").select("uazapi_token, uazapi_base_url").eq("id", monitoringDevice).single();
