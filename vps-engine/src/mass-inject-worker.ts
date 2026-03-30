@@ -157,8 +157,9 @@ async function fetchGroupParticipants(baseUrl: string, token: string, groupId: s
       if (target) {
         collectParticipants(target?.Participants || target?.participants || target?.members || [], participants);
         if (participants.size > 0) {
-          participantCache.set(cacheKey, { participants, fetchedAt: Date.now() });
-          return participants;
+          const entry = { participants, fetchedAt: Date.now(), confirmed: true };
+          participantCache.set(cacheKey, entry);
+          return entry;
         }
       }
     }
