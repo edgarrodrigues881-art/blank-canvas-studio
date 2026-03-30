@@ -408,6 +408,7 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
       const groups = (data?.chats || data?.groups || []).filter((g: any) => g.id?.includes("@g.us")).map((g: any) => ({ id: g.id, name: g.name || g.subject || g.id }));
       if (groups.length === 0) toast.info("Nenhum grupo encontrado nesta conta");
       setAvailableGroups(groups);
+      if (groups.length > 0) setGroupsExpanded(true);
     } catch (err: any) {
       toast.error("Erro ao carregar grupos: " + (err.message || "desconhecido"));
     } finally {
