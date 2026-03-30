@@ -1075,8 +1075,8 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
       </Card>
     </div>
   );
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold text-foreground truncate">{campaign.name}</h1>
+}
+
           <p className="text-xs text-muted-foreground">Grupo: {campaign.group_name || campaign.group_id}</p>
         </div>
         <Badge variant="outline" className={`text-xs font-semibold ${statusBadge(campaign.status)}`}>
