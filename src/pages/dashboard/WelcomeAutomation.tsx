@@ -26,7 +26,7 @@ import { WelcomeMessageEditor } from "@/components/welcome/WelcomeMessageEditor"
 import { AutomationStatusBadge } from "@/components/welcome/WelcomeStatusBadge";
 import {
   Heart, Plus, Play, Pause, Square, Trash2, RefreshCw,
-  CheckCircle2, Clock, Users, Send, Shield, Search,
+  CheckCircle2, Clock, Users, Send, Search,
   ArrowLeft, Settings, ListChecks, Radio, Zap, Eye,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -342,11 +342,6 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
   const [minDelay, setMinDelay] = useState(automation.min_delay_seconds);
   const [maxDelay, setMaxDelay] = useState(automation.max_delay_seconds);
   const [maxPerAccount, setMaxPerAccount] = useState(automation.max_per_account);
-  const [maxRetries, setMaxRetries] = useState(automation.max_retries);
-  const [dedupeRule, setDedupeRule] = useState(automation.dedupe_rule);
-  const [dedupeDays, setDedupeDays] = useState(automation.dedupe_window_days);
-  const [startHour, setStartHour] = useState(automation.send_start_hour);
-  const [endHour, setEndHour] = useState(automation.send_end_hour);
   const [messageContent, setMessageContent] = useState(automation.message_content || "");
   const [selectedSenders, setSelectedSenders] = useState<string[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<{ group_id: string; group_name: string }[]>([]);
@@ -393,11 +388,6 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
       min_delay_seconds: minDelay,
       max_delay_seconds: Math.max(maxDelay, minDelay),
       max_per_account: maxPerAccount,
-      max_retries: maxRetries,
-      dedupe_rule: dedupeRule,
-      dedupe_window_days: dedupeDays,
-      send_start_hour: startHour,
-      send_end_hour: endHour,
       message_content: messageContent,
     } as any);
 
@@ -543,62 +533,24 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
             </div>
             <div>
               <CardTitle className="text-base">Regras de Envio</CardTitle>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Delays, limites, horários e anti-duplicidade</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Delays e limites por conta</p>
             </div>
             <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider text-orange-400 bg-orange-500/10 px-2.5 py-1 rounded-full">Etapa 3</span>
           </div>
         </CardHeader>
         <CardContent className="pt-2 space-y-5">
-          {/* Delays */}
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
-              <Clock className="w-3.5 h-3.5" /> Delays e Limites
-            </p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {[
-                { label: "Delay mínimo (s)", value: minDelay, set: setMinDelay },
-                { label: "Delay máximo (s)", value: maxDelay, set: setMaxDelay },
-                { label: "Máx. por conta", value: maxPerAccount, set: setMaxPerAccount },
-                { label: "Tentativas máx.", value: maxRetries, set: setMaxRetries },
-              ].map(f => (
-                <div key={f.label} className="space-y-1.5">
-                  <Label className="text-[11px] text-muted-foreground">{f.label}</Label>
-                  <Input type="number" value={f.value} onChange={e => f.set(Number(e.target.value))} className="h-10 rounded-xl border-border/50 bg-muted/10" />
-                </div>
-              ))}
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">Delay mínimo (s)</Label>
+              <Input type="number" value={minDelay} onChange={e => setMinDelay(Number(e.target.value))} className="h-10 rounded-xl border-border/50 bg-muted/10" />
             </div>
-          </div>
-
-          <div className="border-t border-border/20" />
-
-          {/* Schedule & Anti-dupe */}
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
-              <Shield className="w-3.5 h-3.5" /> Horário e Anti-duplicidade
-            </p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground">Horário início</Label>
-                <Input type="time" value={startHour} onChange={e => setStartHour(e.target.value)} className="h-10 rounded-xl border-border/50 bg-muted/10" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground">Horário fim</Label>
-                <Input type="time" value={endHour} onChange={e => setEndHour(e.target.value)} className="h-10 rounded-xl border-border/50 bg-muted/10" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground">Regra anti-duplicidade</Label>
-                <Select value={dedupeRule} onValueChange={setDedupeRule}>
-                  <SelectTrigger className="h-10 rounded-xl border-border/50"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="same_group">Mesmo nº no mesmo grupo</SelectItem>
-                    <SelectItem value="any_group">Mesmo nº em qualquer grupo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground">Janela anti-dup (dias)</Label>
-                <Input type="number" value={dedupeDays} onChange={e => setDedupeDays(Number(e.target.value))} className="h-10 rounded-xl border-border/50 bg-muted/10" />
-              </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">Delay máximo (s)</Label>
+              <Input type="number" value={maxDelay} onChange={e => setMaxDelay(Number(e.target.value))} className="h-10 rounded-xl border-border/50 bg-muted/10" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">Máx. por conta</Label>
+              <Input type="number" value={maxPerAccount} onChange={e => setMaxPerAccount(Number(e.target.value))} className="h-10 rounded-xl border-border/50 bg-muted/10" />
             </div>
           </div>
         </CardContent>
