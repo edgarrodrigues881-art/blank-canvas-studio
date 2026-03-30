@@ -380,7 +380,8 @@ function BetaGate({ onAccept }: { onAccept: () => void }) {
           <CheckCircle2 className="w-4 h-4" /> Entendi, continuar
         </Button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
