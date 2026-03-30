@@ -421,207 +421,245 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
   activeCampaignIds.add(campaignId);
   log.info(`Processing campaign ${campaignId.slice(0, 8)}: group=${campaign.group_id}, contacts=${campaign.total_items || "?"}`);
 
-  // Mark as processing
-  if (campaign.status === "queued") {
-    await sb.from("mass_inject_campaigns").update({ status: "processing", updated_at: nowIso() }).eq("id", campaignId);
-    await emitEvent(sb, campaignId, "campaign_started", "info");
-  }
-
-  const failedDeviceIds = new Set<string>();
-  let consecutiveFailures = 0;
-
-  while (isRunningRef.value) {
-    // 1. Check campaign status (was it paused/cancelled externally?)
-    const { data: freshCampaign } = await sb.from("mass_inject_campaigns").select("status, min_delay, max_delay, pause_after, pause_duration, device_ids, group_id, success_count, fail_count, already_count, rate_limit_count").eq("id", campaignId).single();
-    if (!freshCampaign || !["queued", "processing"].includes(freshCampaign.status)) {
-      log.info(`Campaign ${campaignId.slice(0, 8)} status=${freshCampaign?.status} — stopping`);
-      break;
+  try {
+    // Mark as processing
+    if (campaign.status === "queued") {
+      await sb.from("mass_inject_campaigns").update({ status: "processing", updated_at: nowIso() }).eq("id", campaignId);
+      await emitEvent(sb, campaignId, "campaign_started", "info");
     }
 
-    // 2. Pick a device
-    const deviceId = pickDeviceId(freshCampaign, failedDeviceIds);
-    if (!deviceId) {
-      log.warn(`Campaign ${campaignId.slice(0, 8)}: no devices available — pausing`);
-      await sb.from("mass_inject_campaigns").update({
-        status: "paused", updated_at: nowIso(), next_run_at: null,
-        pause_reason: "Nenhuma instância conectada e válida disponível. Conecte outra conta e retome.",
-      }).eq("id", campaignId);
-      await emitEvent(sb, campaignId, "campaign_failed_no_devices", "warning", "Nenhuma instância disponível.");
-      break;
-    }
+    const failedDeviceIds = new Set<string>();
+    let consecutiveFailures = 0;
 
-    // 3. Get device credentials
-    const { data: device } = await sb.from("devices")
-      .select("id, name, number, status, uazapi_base_url, uazapi_token")
-      .eq("id", deviceId).single();
+    while (isRunningRef.value) {
+      // 1. Check campaign status (was it paused/cancelled externally?)
+      const { data: freshCampaign } = await sb.from("mass_inject_campaigns").select("status, min_delay, max_delay, pause_after, pause_duration, device_ids, group_id, success_count, fail_count, already_count, rate_limit_count").eq("id", campaignId).single();
+      if (!freshCampaign || !["queued", "processing"].includes(freshCampaign.status)) {
+        log.info(`Campaign ${campaignId.slice(0, 8)} status=${freshCampaign?.status} — stopping`);
+        break;
+      }
 
-    if (!device?.uazapi_base_url || !device?.uazapi_token) {
-      failedDeviceIds.add(deviceId);
-      continue;
-    }
+      // 2. Pick a device
+      const deviceId = pickDeviceId(freshCampaign, failedDeviceIds);
+      if (!deviceId) {
+        log.warn(`Campaign ${campaignId.slice(0, 8)}: no devices available — pausing`);
+        await sb.from("mass_inject_campaigns").update({
+          status: "paused", updated_at: nowIso(), next_run_at: null,
+          pause_reason: "Nenhuma instância conectada e válida disponível. Conecte outra conta e retome.",
+        }).eq("id", campaignId);
+        await emitEvent(sb, campaignId, "campaign_failed_no_devices", "warning", "Nenhuma instância disponível.");
+        break;
+      }
 
-    const isOperational = !!device.number && ["connected", "ready", "active", "authenticated", "open", "online"].includes(String(device.status).toLowerCase());
-    if (!isOperational) {
-      failedDeviceIds.add(deviceId);
-      continue;
-    }
+      // 3. Get device credentials
+      const { data: device } = await sb.from("devices")
+        .select("id, name, number, status, uazapi_base_url, uazapi_token")
+        .eq("id", deviceId).single();
 
-    const baseUrl = String(device.uazapi_base_url).replace(/\/+$/, "");
-
-    // 4. Connection check (only every 10 contacts or at start)
-    const processed = Number(freshCampaign.success_count || 0) + Number(freshCampaign.fail_count || 0) + Number(freshCampaign.already_count || 0);
-    if (processed === 0 || processed % 10 === 0) {
-      const connected = await isDeviceConnected(baseUrl, device.uazapi_token);
-      if (connected === false) {
-        log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} disconnected`);
+      if (!device?.uazapi_base_url || !device?.uazapi_token) {
         failedDeviceIds.add(deviceId);
+        continue;
+      }
 
-        // Check if ALL devices are down
-        const allIds = parseDeviceIds(freshCampaign.device_ids);
-        if (allIds.every(id => failedDeviceIds.has(id))) {
-          await sb.from("mass_inject_campaigns").update({
-            status: "paused", updated_at: nowIso(), next_run_at: null,
-            pause_reason: "Todas as instâncias desconectadas. Reconecte e retome.",
-          }).eq("id", campaignId);
-          await emitEvent(sb, campaignId, "all_sessions_dropped", "warning", "Todas as instâncias desconectadas.");
-          break;
+      const isOperational = !!device.number && ["connected", "ready", "active", "authenticated", "open", "online"].includes(String(device.status).toLowerCase());
+      if (!isOperational) {
+        failedDeviceIds.add(deviceId);
+        continue;
+      }
+
+      const baseUrl = String(device.uazapi_base_url).replace(/\/+$/, "");
+
+      // 4. Connection check (only every 10 contacts or at start)
+      const processed = Number(freshCampaign.success_count || 0) + Number(freshCampaign.fail_count || 0) + Number(freshCampaign.already_count || 0);
+      if (processed === 0 || processed % 10 === 0) {
+        const connected = await isDeviceConnected(baseUrl, device.uazapi_token);
+        if (connected === false) {
+          log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} disconnected`);
+          failedDeviceIds.add(deviceId);
+
+          // Check if ALL devices are down
+          const allIds = parseDeviceIds(freshCampaign.device_ids);
+          if (allIds.every(id => failedDeviceIds.has(id))) {
+            await sb.from("mass_inject_campaigns").update({
+              status: "paused", updated_at: nowIso(), next_run_at: null,
+              pause_reason: "Todas as instâncias desconectadas. Reconecte e retome.",
+            }).eq("id", campaignId);
+            await emitEvent(sb, campaignId, "all_sessions_dropped", "warning", "Todas as instâncias desconectadas.");
+            break;
+          }
+          continue;
+        }
+      }
+
+      // 5. Claim next contact
+      const { data: contact } = await sb.rpc("claim_next_mass_inject_contact", {
+        p_campaign_id: campaignId,
+        p_device_used: device.name || device.id,
+        p_processing_message: "Processando...",
+      });
+
+      if (!contact?.id) {
+        // No more contacts — finalize
+        await finalizeCampaign(sb, campaignId);
+        break;
+      }
+
+      await sb.from("mass_inject_contacts").update({ processed_at: nowIso(), device_used: device.name || device.id }).eq("id", contact.id);
+
+      // 6. Skip own number (admin's device number — can't add yourself)
+      const groupId = contact.target_group_id || freshCampaign.group_id;
+      const phone = String(contact.phone).replace(/@.*/, "");
+      const deviceNumber = String(device.number || "").replace(/\D/g, "");
+      if (deviceNumber && buildPhoneFingerprints(phone).some(fp => buildPhoneFingerprints(deviceNumber).some(dfp => dfp === fp))) {
+        await sb.from("mass_inject_contacts").update({
+          status: "already_exists", error_message: "Próprio número da instância (admin) — ignorado.", processed_at: nowIso(),
+        }).eq("id", contact.id);
+        await updateCounters(sb, campaignId, "already_exists");
+        consecutiveFailures = 0;
+        log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} is the device's own number — skipped`);
+        // Still apply configured delay even for skipped contacts
+        {
+          const minD = Number(freshCampaign.min_delay || 0);
+          const maxD = Math.max(Number(freshCampaign.max_delay || 0), minD);
+          const skipDelay = minD === maxD ? minD * 1000 : randomBetween(minD * 1000, maxD * 1000);
+          if (skipDelay > 0) await sleep(skipDelay);
+          else await sleep(500);
         }
         continue;
       }
-    }
 
-    // 5. Claim next contact
-    const { data: contact } = await sb.rpc("claim_next_mass_inject_contact", {
-      p_campaign_id: campaignId,
-      p_device_used: device.name || device.id,
-      p_processing_message: "Processando...",
+      // 7. Pre-check: is the contact already in the group?
+      const participants = await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId);
+
+      if (participants.size > 0 && participantSetHasPhone(participants, phone)) {
+        await sb.from("mass_inject_contacts").update({
+          status: "already_exists", error_message: "Contato já participava do grupo.", processed_at: nowIso(),
+        }).eq("id", contact.id);
+        await updateCounters(sb, campaignId, "already_exists");
+        consecutiveFailures = 0;
+        log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} already in group`);
+        // Apply configured delay even for already-existing contacts
+        {
+          const minD = Number(freshCampaign.min_delay || 0);
+          const maxD = Math.max(Number(freshCampaign.max_delay || 0), minD);
+          const skipDelay = minD === maxD ? minD * 1000 : randomBetween(minD * 1000, maxD * 1000);
+          if (skipDelay > 0) await sleep(skipDelay);
+          else await sleep(1000);
+        }
+        continue;
+      }
+
+      // 8. Add to group
+      const result = await addToGroup(baseUrl, device.uazapi_token, groupId, phone);
+
+      if (result.ok) {
+        await sb.from("mass_inject_contacts").update({
+          status: "completed", error_message: result.detail, processed_at: nowIso(),
+        }).eq("id", contact.id);
+        await updateCounters(sb, campaignId, "completed");
+        consecutiveFailures = 0;
+        // Invalidate participant cache so next check is fresh
+        invalidateParticipantCache(baseUrl, groupId);
+        log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} added successfully`);
+      } else if (result.alreadyExists) {
+        await sb.from("mass_inject_contacts").update({
+          status: "already_exists", error_message: result.detail, processed_at: nowIso(),
+        }).eq("id", contact.id);
+        await updateCounters(sb, campaignId, "already_exists");
+        consecutiveFailures = 0;
+      } else {
+        // Failure — single attempt, mark as failed immediately (no retries)
+        await sb.from("mass_inject_contacts").update({
+          status: "failed", error_message: result.detail, processed_at: nowIso(),
+        }).eq("id", contact.id);
+        await updateCounters(sb, campaignId, "failed");
+
+        consecutiveFailures++;
+        log.warn(`Campaign ${campaignId.slice(0, 8)}: ${phone} failed — ${result.detail} (consecutive: ${consecutiveFailures})`);
+
+        if (result.pauseCampaign) {
+          await sb.from("mass_inject_campaigns").update({
+            status: "paused", updated_at: nowIso(), next_run_at: null,
+            pause_reason: result.detail,
+          }).eq("id", campaignId);
+          await emitEvent(sb, campaignId, "campaign_paused", "warning", result.detail);
+          break;
+        }
+
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          const reason = `Pausada por ${MAX_CONSECUTIVE_FAILURES} falhas consecutivas.`;
+          await sb.from("mass_inject_campaigns").update({
+            status: "paused", updated_at: nowIso(), next_run_at: null, pause_reason: reason,
+          }).eq("id", campaignId);
+          await emitEvent(sb, campaignId, "campaign_paused", "warning", reason);
+          break;
+        }
+      }
+
+      // 9. Apply delay — use EXACTLY what the user configured (no forced minimums)
+      const minDelay = Number(freshCampaign.min_delay ?? 0);
+      const maxDelay = Math.max(Number(freshCampaign.max_delay ?? 0), minDelay);
+      let delayMs = minDelay === maxDelay ? minDelay * 1000 : randomBetween(minDelay * 1000, maxDelay * 1000);
+      log.info(`Campaign ${campaignId.slice(0, 8)}: delay ${Math.round(delayMs / 1000)}s (range ${minDelay}-${maxDelay}s)`);
+
+      // Block pause check
+      const pauseAfter = Number(freshCampaign.pause_after || 0);
+      const pauseDuration = Number(freshCampaign.pause_duration || 0);
+      const totalProcessed = processed + 1;
+      if (pauseAfter > 0 && totalProcessed > 0 && totalProcessed % pauseAfter === 0) {
+        delayMs = Math.max(delayMs, pauseDuration * 1000);
+        log.info(`Campaign ${campaignId.slice(0, 8)}: block pause ${pauseDuration}s after ${totalProcessed} contacts`);
+      }
+
+      // Update next_run_at for frontend countdown
+      try {
+        await sb.from("mass_inject_campaigns").update({
+          next_run_at: new Date(Date.now() + delayMs).toISOString(),
+          updated_at: nowIso(),
+        }).eq("id", campaignId);
+      } catch { /* non-critical */ }
+
+      await sleep(delayMs);
+    }
+  } catch (err: any) {
+    const errMessage = String(err?.message || err || "Erro interno desconhecido");
+    log.error(`Campaign ${campaignId.slice(0, 8)} crashed`, {
+      error: errMessage,
+      stack: err?.stack,
     });
 
-    if (!contact?.id) {
-      // No more contacts — finalize
-      await finalizeCampaign(sb, campaignId);
-      break;
-    }
-
-    await sb.from("mass_inject_contacts").update({ processed_at: nowIso(), device_used: device.name || device.id }).eq("id", contact.id);
-
-    // 6. Skip own number (admin's device number — can't add yourself)
-    const groupId = contact.target_group_id || freshCampaign.group_id;
-    const phone = String(contact.phone).replace(/@.*/, "");
-    const deviceNumber = String(device.number || "").replace(/\D/g, "");
-    if (deviceNumber && buildPhoneFingerprints(phone).some(fp => buildPhoneFingerprints(deviceNumber).some(dfp => dfp === fp))) {
-      await sb.from("mass_inject_contacts").update({
-        status: "already_exists", error_message: "Próprio número da instância (admin) — ignorado.", processed_at: nowIso(),
-      }).eq("id", contact.id);
-      await updateCounters(sb, campaignId, "already_exists");
-      consecutiveFailures = 0;
-      log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} is the device's own number — skipped`);
-      // Still apply configured delay even for skipped contacts
-      {
-        const minD = Number(freshCampaign.min_delay || 0);
-        const maxD = Math.max(Number(freshCampaign.max_delay || 0), minD);
-        const skipDelay = minD === maxD ? minD * 1000 : randomBetween(minD * 1000, maxD * 1000);
-        if (skipDelay > 0) await sleep(skipDelay);
-        else await sleep(500);
-      }
-      continue;
-    }
-
-    // 7. Pre-check: is the contact already in the group?
-    const participants = await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId);
-
-    if (participants.size > 0 && participantSetHasPhone(participants, phone)) {
-      await sb.from("mass_inject_contacts").update({
-        status: "already_exists", error_message: "Contato já participava do grupo.", processed_at: nowIso(),
-      }).eq("id", contact.id);
-      await updateCounters(sb, campaignId, "already_exists");
-      consecutiveFailures = 0;
-      log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} already in group`);
-      // Apply configured delay even for already-existing contacts
-      {
-        const minD = Number(freshCampaign.min_delay || 0);
-        const maxD = Math.max(Number(freshCampaign.max_delay || 0), minD);
-        const skipDelay = minD === maxD ? minD * 1000 : randomBetween(minD * 1000, maxD * 1000);
-        if (skipDelay > 0) await sleep(skipDelay);
-        else await sleep(1000);
-      }
-      continue;
-    }
-
-    // 8. Add to group
-    const result = await addToGroup(baseUrl, device.uazapi_token, groupId, phone);
-
-    if (result.ok) {
-      await sb.from("mass_inject_contacts").update({
-        status: "completed", error_message: result.detail, processed_at: nowIso(),
-      }).eq("id", contact.id);
-      await updateCounters(sb, campaignId, "completed");
-      consecutiveFailures = 0;
-      // Invalidate participant cache so next check is fresh
-      invalidateParticipantCache(baseUrl, groupId);
-      log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} added successfully`);
-    } else if (result.alreadyExists) {
-      await sb.from("mass_inject_contacts").update({
-        status: "already_exists", error_message: result.detail, processed_at: nowIso(),
-      }).eq("id", contact.id);
-      await updateCounters(sb, campaignId, "already_exists");
-      consecutiveFailures = 0;
-    } else {
-      // Failure — single attempt, mark as failed immediately (no retries)
-      await sb.from("mass_inject_contacts").update({
-        status: "failed", error_message: result.detail, processed_at: nowIso(),
-      }).eq("id", contact.id);
-      await updateCounters(sb, campaignId, "failed");
-
-      consecutiveFailures++;
-      log.warn(`Campaign ${campaignId.slice(0, 8)}: ${phone} failed — ${result.detail} (consecutive: ${consecutiveFailures})`);
-
-      if (result.pauseCampaign) {
-        await sb.from("mass_inject_campaigns").update({
-          status: "paused", updated_at: nowIso(), next_run_at: null,
-          pause_reason: result.detail,
-        }).eq("id", campaignId);
-        await emitEvent(sb, campaignId, "campaign_paused", "warning", result.detail);
-        break;
-      }
-
-      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-        const reason = `Pausada por ${MAX_CONSECUTIVE_FAILURES} falhas consecutivas.`;
-        await sb.from("mass_inject_campaigns").update({
-          status: "paused", updated_at: nowIso(), next_run_at: null, pause_reason: reason,
-        }).eq("id", campaignId);
-        await emitEvent(sb, campaignId, "campaign_paused", "warning", reason);
-        break;
-      }
-    }
-
-    // 9. Apply delay — use EXACTLY what the user configured (no forced minimums)
-    const minDelay = Number(freshCampaign.min_delay ?? 0);
-    const maxDelay = Math.max(Number(freshCampaign.max_delay ?? 0), minDelay);
-    let delayMs = minDelay === maxDelay ? minDelay * 1000 : randomBetween(minDelay * 1000, maxDelay * 1000);
-    log.info(`Campaign ${campaignId.slice(0, 8)}: delay ${Math.round(delayMs / 1000)}s (range ${minDelay}-${maxDelay}s)`);
-
-    // Block pause check
-    const pauseAfter = Number(freshCampaign.pause_after || 0);
-    const pauseDuration = Number(freshCampaign.pause_duration || 0);
-    const totalProcessed = processed + 1;
-    if (pauseAfter > 0 && totalProcessed > 0 && totalProcessed % pauseAfter === 0) {
-      delayMs = Math.max(delayMs, pauseDuration * 1000);
-      log.info(`Campaign ${campaignId.slice(0, 8)}: block pause ${pauseDuration}s after ${totalProcessed} contacts`);
-    }
-
-    // Update next_run_at for frontend countdown
     try {
+      await sb.from("mass_inject_contacts")
+        .update({
+          status: "pending",
+          error_message: "Reprocessando após falha interna do worker.",
+          device_used: null,
+        } as any)
+        .eq("campaign_id", campaignId)
+        .eq("status", "processing");
+
       await sb.from("mass_inject_campaigns").update({
-        next_run_at: new Date(Date.now() + delayMs).toISOString(),
+        status: "paused",
         updated_at: nowIso(),
-      }).eq("id", campaignId);
-    } catch { /* non-critical */ }
+        next_run_at: null,
+        pause_reason: `Erro interno no motor VPS: ${errMessage.substring(0, 180)}`,
+      }).eq("id", campaignId).in("status", ["queued", "processing"]);
 
-    await sleep(delayMs);
+      await emitEvent(
+        sb,
+        campaignId,
+        "campaign_worker_crash",
+        "error",
+        `Erro interno no motor VPS: ${errMessage.substring(0, 220)}`,
+      );
+    } catch (recoveryErr: any) {
+      log.error(`Campaign ${campaignId.slice(0, 8)} crash recovery failed`, {
+        error: String(recoveryErr?.message || recoveryErr || "Erro na recuperação"),
+      });
+    }
+  } finally {
+    activeCampaignIds.delete(campaignId);
   }
-
-  activeCampaignIds.delete(campaignId);
 }
 
 // ══════════════════════════════════════════════════════════
