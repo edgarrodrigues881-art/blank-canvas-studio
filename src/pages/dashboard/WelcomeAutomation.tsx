@@ -285,13 +285,18 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
 
   const handleCreate = async () => {
     if (!name.trim()) { toast.error("Digite um nome para a automação"); return; }
-    await create.mutateAsync({
-      name: name.trim(),
-      monitoring_device_id: "",
-      message_content: "Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉",
-      group_ids: [],
-      sender_device_ids: [],
-    });
+    // Insert directly with null monitoring_device_id to avoid UUID validation error
+    const { data: automation, error } = await supabase
+      .from("welcome_automations")
+      .insert({
+        user_id: (await supabase.auth.getUser()).data.user?.id,
+        name: name.trim(),
+        monitoring_device_id: null,
+        message_content: "Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉",
+      } as any)
+      .select()
+      .single();
+    if (error) { toast.error(error.message); return; }
     onOpenChange(false);
     setName("");
   };
