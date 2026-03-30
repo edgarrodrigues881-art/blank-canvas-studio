@@ -773,25 +773,8 @@ async function campaignTick() {
     }
   }
 
-  // 4. Group interaction ticks
-  const { data: dueInteractions } = await db.from("group_interactions")
-    .select("id, next_action_at")
-    .eq("status", "running")
-    .not("next_action_at", "is", null)
-    .lte("next_action_at", new Date().toISOString())
-    .limit(100);
-
-  for (const interaction of dueInteractions || []) {
-    try {
-      await fetch(`${config.supabaseUrl}/functions/v1/group-interaction`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: config.supabaseAnonKey, Authorization: `Bearer ${config.supabaseAnonKey}` },
-        body: JSON.stringify({ action: "tick", interactionId: interaction.id, scheduled_for: interaction.next_action_at }),
-      });
-    } catch (err: any) {
-      log.error(`Failed to trigger group interaction ${interaction.id}: ${err.message}`);
-    }
-  }
+  // 4. Group interaction ticks — now handled by dedicated groupInteractionTick worker
+  // (removed Edge Function proxy — runs inline in VPS)
 }
 
 // ══════════════════════════════════════════════════════════
