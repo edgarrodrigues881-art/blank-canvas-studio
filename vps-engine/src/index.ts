@@ -11,6 +11,10 @@ import { createLogger } from "./lib/logger";
 import { Semaphore } from "./lib/concurrency";
 import { isWithinOperatingWindow, getBrtTodayAt } from "./lib/brt";
 import { massInjectTick, getMassInjectStatus, lastMassInjectTickAt } from "./mass-inject-worker";
+import { campaignWorkerTick, getCampaignWorkerStatus, lastCampaignWorkerTickAt } from "./campaign-worker";
+import { groupInteractionTick, getGroupInteractionStatus, lastGroupInteractionTickAt } from "./group-interaction-worker";
+import { chipConversationTick, getChipConvStatus, lastChipConvTickAt } from "./chip-conversation-worker";
+import { groupJoinTick, getGroupJoinStatus, lastGroupJoinTickAt } from "./group-join-worker";
 import { backoffMinutes } from "./lib/retry";
 import { validateUazapiCredentials } from "./lib/uazapi";
 
@@ -28,13 +32,22 @@ const massInjectRunningRef = { value: true };
 
 app.get("/health", (_req: Request, res: Response) => {
   const massInjectStatus = getMassInjectStatus();
+  const campaignWorkerStatus = getCampaignWorkerStatus();
+  const groupInteractionStatus = getGroupInteractionStatus();
+  const chipConvStatus = getChipConvStatus();
+  const groupJoinStatus = getGroupJoinStatus();
   res.json({
     status: "ok",
     uptime: Math.round((Date.now() - startedAt.getTime()) / 1000),
     lastTick: lastTickAt?.toISOString() || null,
     lastCampaignTick: lastCampaignTickAt?.toISOString() || null,
     lastMassInjectTick: lastMassInjectTickAt?.toISOString() || null,
+    lastCampaignWorkerTick: lastCampaignWorkerTickAt?.toISOString() || null,
+    lastGroupInteractionTick: lastGroupInteractionTickAt?.toISOString() || null,
+    lastChipConvTick: lastChipConvTickAt?.toISOString() || null,
+    lastGroupJoinTick: lastGroupJoinTickAt?.toISOString() || null,
     activeMassInjectCampaign: massInjectStatus.activeCampaign,
+    activeCampaignWorker: campaignWorkerStatus.activeCampaign,
     tickCount,
     tickErrors,
     concurrency: { active: sem.active, waiting: sem.waiting, max: config.maxConcurrentDevices },
