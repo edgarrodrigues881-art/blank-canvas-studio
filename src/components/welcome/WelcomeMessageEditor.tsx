@@ -172,13 +172,15 @@ export function WelcomeMessageEditor({ value, onChange }: {
             </PopoverContent>
           </Popover>
         </div>
-        <Textarea
-          ref={textareaRef}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder="Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉"
-          className="min-h-[300px] text-sm font-mono rounded-xl border-border/50 bg-muted/10 resize-none focus:ring-primary/30"
-        />
+        <div className="max-h-[340px] overflow-y-auto rounded-xl border border-border/50 bg-muted/10">
+          <Textarea
+            ref={textareaRef}
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            placeholder="Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉"
+            className="min-h-[300px] text-sm font-mono border-0 bg-transparent resize-none focus:ring-primary/30 focus-visible:ring-0"
+          />
+        </div>
         <div className="flex flex-wrap gap-1.5">
           {VARIABLES.map(v => (
             <button
