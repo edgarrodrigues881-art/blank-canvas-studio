@@ -24,34 +24,46 @@ const FORMAT_BUTTONS = [
 ];
 
 function WhatsAppPreview({ content }: { content: string }) {
+  const isDark = document.documentElement.classList.contains("dark");
+
+  const varClass = isDark ? "text-emerald-400" : "text-emerald-600";
   const rendered = content
     .replace(/\*(.*?)\*/g, "<b>$1</b>")
     .replace(/_(.*?)_/g, "<i>$1</i>")
     .replace(/~(.*?)~/g, "<s>$1</s>")
     .replace(/\n/g, "<br/>")
-    .replace(/\{nome\}/g, '<span class="text-emerald-400">João Silva</span>')
-    .replace(/\{numero\}/g, '<span class="text-emerald-400">5511999999999</span>')
-    .replace(/\{grupo\}/g, '<span class="text-emerald-400">Grupo VIP</span>')
-    .replace(/\{data\}/g, '<span class="text-emerald-400">30/03/2026</span>')
-    .replace(/\{hora\}/g, '<span class="text-emerald-400">14:30</span>');
+    .replace(/\{nome\}/g, `<span class="${varClass}">João Silva</span>`)
+    .replace(/\{numero\}/g, `<span class="${varClass}">5511999999999</span>`)
+    .replace(/\{grupo\}/g, `<span class="${varClass}">Grupo VIP</span>`)
+    .replace(/\{data\}/g, `<span class="${varClass}">30/03/2026</span>`)
+    .replace(/\{hora\}/g, `<span class="${varClass}">14:30</span>`);
 
   return (
-    <div className="rounded-2xl bg-[#0b141a] border border-border/30 flex flex-col h-[420px] overflow-hidden">
+    <div
+      className="rounded-2xl border border-border/30 flex flex-col h-[420px] overflow-hidden"
+      style={{ backgroundColor: isDark ? "#0b141a" : "#ECE5DD" }}
+    >
       <div className="flex items-center gap-2 px-4 pt-4 pb-2 border-b border-border/20 shrink-0">
         <div className="w-2 h-2 rounded-full bg-emerald-400" />
-        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Preview WhatsApp</span>
+        <span className={`text-[10px] font-medium uppercase tracking-wider ${isDark ? "text-muted-foreground" : "text-gray-500"}`}>Preview WhatsApp</span>
       </div>
       <div className="flex-1 overflow-y-auto p-4">
         <div className="flex justify-end">
-          <div className="bg-[#005c4b] rounded-xl rounded-tr-sm px-3 py-2 max-w-[85%] text-sm text-white leading-relaxed shadow-lg">
+          <div
+            className="rounded-xl rounded-tr-sm px-3 py-2 max-w-[85%] text-sm leading-relaxed shadow-lg"
+            style={{
+              backgroundColor: isDark ? "#005c4b" : "#DCF8C6",
+              color: isDark ? "#ffffff" : "#111b21",
+            }}
+          >
             {content ? (
               <span dangerouslySetInnerHTML={{ __html: rendered }} />
             ) : (
-              <span className="text-white/40 italic">Digite uma mensagem...</span>
+              <span className={isDark ? "text-white/40 italic" : "text-gray-400 italic"}>Digite uma mensagem...</span>
             )}
             <div className="flex items-center justify-end gap-1 mt-1">
-              <span className="text-[9px] text-white/50">14:30</span>
-              <svg viewBox="0 0 16 11" className="w-4 h-3 text-blue-300" fill="currentColor">
+              <span className={`text-[9px] ${isDark ? "text-white/50" : "text-gray-500"}`}>14:30</span>
+              <svg viewBox="0 0 16 11" className={`w-4 h-3 ${isDark ? "text-blue-300" : "text-blue-500"}`} fill="currentColor">
                 <path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 00-.336-.146.47.47 0 00-.343.146l-.311.31a.445.445 0 00-.14.337c0 .136.047.25.14.343l2.996 2.996a.724.724 0 00.501.203.697.697 0 00.534-.229L11.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
                 <path d="M15.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-1.2-1.134-.311.311a.39.39 0 00-.14.337c0 .136.047.25.14.343l1.791 1.791a.724.724 0 00.501.203.697.697 0 00.534-.229L15.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
               </svg>
