@@ -1650,8 +1650,8 @@ Deno.serve(async (req) => {
     const { action } = body;
 
     if (action === "run-campaign") {
-      // VPS Engine now handles campaign processing via continuous polling.
-      // This endpoint just ensures the campaign is in "queued" or "processing" status.
+      // Hybrid mode: keeps VPS as primary, but guarantees campaign progression
+      // via Edge fallback when VPS is down/stale.
       const { data: existingCampaign } = await sb
         .from("mass_inject_campaigns")
         .select("id, status")
@@ -1662,7 +1662,6 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "Campanha não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // If paused, set back to queued so VPS picks it up
       if (existingCampaign.status === "paused") {
         await sb.from("mass_inject_campaigns").update({
           status: "queued",
@@ -1672,7 +1671,16 @@ Deno.serve(async (req) => {
         }).eq("id", body.campaignId);
       }
 
-      return new Response(JSON.stringify({ success: true, engine: "vps" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const initialDelayMs = Math.max(0, Math.round(Number(body.initialDelayMs) || 0));
+      const workerTask = runCampaignWorker(sb, body.campaignId, initialDelayMs)
+        .catch((error) => console.error(`[mass-inject] run-campaign fallback error campaign=${body.campaignId}`, error));
+
+      const edgeRuntime = (globalThis as any).EdgeRuntime;
+      if (edgeRuntime?.waitUntil) {
+        edgeRuntime.waitUntil(workerTask);
+      }
+
+      return new Response(JSON.stringify({ success: true, engine: "hybrid" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ── RECOVER STALLED: cron-triggered action to resume interrupted campaigns ──
