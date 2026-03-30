@@ -573,7 +573,7 @@ async function processPhase() {
         message_text: finalMessage,
         result: result.ok ? "sent" : "failed",
         external_response: { detail: result.detail },
-      }).catch(() => {});
+      }).then(() => {}, () => {});
 
       // Log event
       await db.from("welcome_events").insert({
