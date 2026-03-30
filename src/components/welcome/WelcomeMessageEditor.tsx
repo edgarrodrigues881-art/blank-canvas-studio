@@ -130,8 +130,17 @@ function WhatsAppPreview({ content, buttons, carouselCards }: {
   );
 }
 
-export function WelcomeMessageEditor({ value, onChange, buttons, carouselCards }: {
-  value: string; onChange: (v: string) => void; buttons?: { text: string; action?: string }[]; carouselCards?: CarouselCard[];
+export function WelcomeMessageEditor({ value, onChange, buttons, carouselCards, onImportTemplate }: {
+  value: string;
+  onChange: (v: string) => void;
+  buttons?: { text: string; action?: string }[];
+  carouselCards?: CarouselCard[];
+  onImportTemplate?: (payload: {
+    type: "text" | "buttons" | "carousel";
+    content: string;
+    buttons?: { text: string; url?: string; action?: string }[];
+    carouselCards?: CarouselCard[];
+  }) => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { data: templates } = useTemplates();
@@ -157,7 +166,38 @@ export function WelcomeMessageEditor({ value, onChange, buttons, carouselCards }
     setTimeout(() => { ta.selectionStart = start + before.length; ta.selectionEnd = start + before.length + selected.length; ta.focus(); }, 0);
   };
 
-  const importTemplate = (content: string) => { onChange(content); setShowTemplates(false); toast.success("Template importado!"); };
+  const importStructuredTemplate = (payload: {
+    type: "text" | "buttons" | "carousel";
+    content: string;
+    buttons?: { text: string; url?: string; action?: string }[];
+    carouselCards?: CarouselCard[];
+  }) => {
+    if (onImportTemplate) {
+      onImportTemplate(payload);
+    } else {
+      onChange(payload.content || "");
+    }
+    setShowTemplates(false);
+    toast.success("Template importado!");
+  };
+
+  const normalizeButtons = (rawButtons: any) => {
+    if (!Array.isArray(rawButtons)) return [] as { text: string; url?: string; action?: string }[];
+    return rawButtons
+      .map((btn: any, i: number) => ({
+        text: btn?.text || btn?.label || btn?.title || `Botão ${i + 1}`,
+        url: btn?.url || btn?.value || "",
+        action: btn?.action || btn?.type || "link",
+      }))
+      .slice(0, 3);
+  };
+
+  const inferTemplateType = (template: any): "text" | "buttons" => {
+    const type = String(template?.type || "").toLowerCase();
+    const hasButtons = normalizeButtons(template?.buttons).length > 0;
+    if (type.includes("button") || hasButtons) return "buttons";
+    return "text";
+  };
 
   return (
     <div className="grid lg:grid-cols-[3fr_2fr] gap-5">
@@ -201,21 +241,59 @@ export function WelcomeMessageEditor({ value, onChange, buttons, carouselCards }
                 {templates && templates.length > 0 && (
                   <div className="p-1.5">
                     <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Texto</p>
-                    {templates.map(t => (
-                      <button key={t.id} className="w-full text-left px-3 py-2.5 text-xs rounded-lg hover:bg-muted transition-colors" onClick={() => importTemplate(t.content)}>
-                        <span className="font-medium">{t.name}</span>
-                        <span className="block text-[10px] text-muted-foreground truncate mt-0.5">{t.content.slice(0, 60)}...</span>
-                      </button>
-                    ))}
+                    {templates.map(t => {
+                      const inferredType = inferTemplateType(t);
+                      const normalizedButtons = normalizeButtons((t as any)?.buttons);
+
+                      return (
+                        <button
+                          key={t.id}
+                          className="w-full text-left px-3 py-2.5 text-xs rounded-lg hover:bg-muted transition-colors"
+                          onClick={() =>
+                            importStructuredTemplate({
+                              type: inferredType,
+                              content: t.content || "",
+                              buttons: inferredType === "buttons" ? normalizedButtons : [],
+                            })
+                          }
+                        >
+                          <span className="font-medium">{t.name}</span>
+                          <span className="block text-[10px] text-muted-foreground truncate mt-0.5">{(t.content || "").slice(0, 60)}...</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
                 {carouselTemplates && carouselTemplates.length > 0 && (
                   <div className="p-1.5">
                     <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Carrossel</p>
                     {carouselTemplates.map(t => (
-                      <button key={t.id} className="w-full text-left px-3 py-2.5 text-xs rounded-lg hover:bg-muted transition-colors" onClick={() => importTemplate(t.message.split("|||")[0])}>
+                      <button
+                        key={t.id}
+                        className="w-full text-left px-3 py-2.5 text-xs rounded-lg hover:bg-muted transition-colors"
+                        onClick={() =>
+                          importStructuredTemplate({
+                            type: "carousel",
+                            content: (t.message || "").split("|||")[0] || "",
+                            carouselCards: Array.isArray(t.cards)
+                              ? t.cards.map((c: any) => ({
+                                  title: c?.title || "",
+                                  description: c?.description || c?.text || "",
+                                  image_url: c?.image_url || c?.image || c?.media_url || "",
+                                  buttons: Array.isArray(c?.buttons)
+                                    ? c.buttons.slice(0, 2).map((b: any, i: number) => ({
+                                        text: b?.text || b?.label || `Botão ${i + 1}`,
+                                        url: b?.url || b?.value || "",
+                                        action: b?.action || b?.type || "link",
+                                      }))
+                                    : [],
+                                }))
+                              : [],
+                          })
+                        }
+                      >
                         <span className="font-medium">{t.name}</span>
-                        <span className="block text-[10px] text-muted-foreground truncate mt-0.5">{t.message.split("|||")[0].slice(0, 60)}...</span>
+                        <span className="block text-[10px] text-muted-foreground truncate mt-0.5">{(t.message || "").split("|||")[0].slice(0, 60)}...</span>
                       </button>
                     ))}
                   </div>
