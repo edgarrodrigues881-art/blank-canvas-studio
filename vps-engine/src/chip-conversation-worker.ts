@@ -122,7 +122,7 @@ async function processOneConversation(sb: any, conv: any) {
     message_content: messageText, message_category: "general",
     status: result.ok ? "sent" : "failed", error_message: result.ok ? null : result.error,
     sent_at: new Date().toISOString(),
-  }).catch(() => {});
+  }).then(() => {}, () => {});
 
   await sb.from("chip_conversations").update({ total_messages_sent: newTotal, last_error: result.ok ? null : result.error, status: "active" }).eq("id", conversationId);
 
