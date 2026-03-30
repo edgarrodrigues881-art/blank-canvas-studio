@@ -525,11 +525,18 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-semibold">Grupos Monitorados</Label>
-                <Button size="sm" variant="outline" onClick={() => loadGroups()} disabled={groupsLoading} className="h-8 text-[11px] gap-1.5 rounded-lg">
-                  {groupsLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Carregar Grupos
-                </Button>
+                <div className="flex items-center gap-2">
+                  {availableGroups.length > 0 && (
+                    <Button size="sm" variant="ghost" onClick={() => setGroupsExpanded(prev => !prev)} className="h-8 text-[11px] gap-1 rounded-lg">
+                      {groupsExpanded ? "Fechar lista" : `Ver grupos (${availableGroups.length})`}
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => loadGroups()} disabled={groupsLoading} className="h-8 text-[11px] gap-1.5 rounded-lg">
+                    {groupsLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Carregar Grupos
+                  </Button>
+                </div>
               </div>
-              {availableGroups.length > 0 && (
+              {groupsExpanded && availableGroups.length > 0 && (
                 <ScrollArea className="h-[180px] border border-border/40 rounded-xl p-2">
                   <div className="space-y-0.5">
                     {availableGroups.map(g => (
