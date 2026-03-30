@@ -646,18 +646,31 @@ Deno.serve(async (req) => {
       let connectRes: any = null;
 
       // CRITICAL FIX: Pre-disconnect to clear stale sessions that block QR generation
-      // If the instance is in a half-state (not connected, not fully disconnected),
-      // Uazapi won't generate a new QR code. Force disconnect first.
-      // Also force disconnect when device has NO number in DB (fresh/recreated device)
-      // but UAZAPI reports "connected" — this means a stale session from a deleted instance.
+      // Force disconnect + logout in these scenarios:
+      // 1. Device has no number in DB but UAZAPI reports "connected" (stale session from deleted instance)
+      // 2. Device is in a half-state (not connected, not fully disconnected)
+      // 3. Device DB status is "Disconnected" but UAZAPI still reports "connected" (user disconnected in UI)
+      // 4. User explicitly requests forceReconnect
       const preCheck = await uazapi(instanceUrl, "/instance/status", currentToken, "GET", undefined, { timeoutMs: 5000, retries: 0 });
       const preStatus = (preCheck.data?.instance?.status || preCheck.data?.status || "").toLowerCase();
       const deviceHasNoNumber = !device?.number || device.number.trim() === "";
       const isStaleConnected = preStatus === "connected" && deviceHasNoNumber;
-      if (preCheck.ok && (isStaleConnected || (preStatus !== "disconnected" && preStatus !== "connected"))) {
-        console.log(`[evolution-connect] pre-disconnect: status="${preStatus}" deviceHasNumber=${!deviceHasNoNumber} stale=${isStaleConnected} — forcing disconnect before connect`);
+      const dbStatusDisconnected = (device?.status || "").toLowerCase() !== "ready" && (device?.status || "").toLowerCase() !== "connected";
+      const uazapiReportsConnected = preStatus === "connected";
+      const needsForceDisconnect = isStaleConnected 
+        || (preStatus !== "disconnected" && preStatus !== "connected")
+        || (dbStatusDisconnected && uazapiReportsConnected)
+        || body.forceReconnect;
+      
+      if (preCheck.ok && needsForceDisconnect) {
+        console.log(`[evolution-connect] pre-disconnect: status="${preStatus}" dbStatus="${device?.status}" deviceHasNumber=${!deviceHasNoNumber} stale=${isStaleConnected} dbDisconnected=${dbStatusDisconnected} forceReconnect=${!!body.forceReconnect} — forcing logout+disconnect`);
+        // Use logout first to fully clear session, then disconnect as fallback
+        await uazapi(instanceUrl, "/instance/logout", currentToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
+        await new Promise(r => setTimeout(r, 800));
         await uazapi(instanceUrl, "/instance/disconnect", currentToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
         await new Promise(r => setTimeout(r, 1500));
+        // Clear number from DB since we're forcing a fresh connection
+        await svc.from("devices").update({ number: null, status: "Disconnected", profile_name: null }).eq("id", deviceId);
       }
 
       while (tokenAttempt < MAX_TOKEN_RETRIES) {
