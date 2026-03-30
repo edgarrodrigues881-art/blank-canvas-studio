@@ -90,6 +90,7 @@ Deno.serve(async (req) => {
 
     if (action === "list_chats") {
       const forceRefresh = url.searchParams.get("refresh") === "true";
+      const quickMode = url.searchParams.get("quick") === "true"; // Skip heavy fallbacks
       const allGroups: any[] = [];
       const seenJids = new Set<string>();
       let primaryFetchSucceeded = false;
