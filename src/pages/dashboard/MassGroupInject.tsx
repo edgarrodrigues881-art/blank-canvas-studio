@@ -2130,14 +2130,6 @@ export default function MassGroupInject() {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [prefillContacts, setPrefillContacts] = useState<string[] | undefined>();
   const [prefillName, setPrefillName] = useState<string | undefined>();
-  const [betaAccepted, setBetaAccepted] = useState(() => {
-    try { return sessionStorage.getItem("mass-inject-beta") === "1"; } catch { return false; }
-  });
-
-  const handleAcceptBeta = useCallback(() => {
-    setBetaAccepted(true);
-    try { sessionStorage.setItem("mass-inject-beta", "1"); } catch {}
-  }, []);
 
   const handleNewCampaignFromFailed = useCallback((phones: string[], sourceName: string) => {
     setPrefillContacts(phones);
