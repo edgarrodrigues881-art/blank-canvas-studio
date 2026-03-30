@@ -279,7 +279,8 @@ Deno.serve(async (req) => {
       await fetchGroupListPaginated("S1");
 
       // UaZapi pode oscilar entre 4 e 9 grupos no mesmo minuto; faz retries e mantém união por JID
-      if (allGroups.length < 20) {
+      // Skip retries in quick mode if we already found groups
+      if (!quickMode && allGroups.length < 20) {
         for (let attempt = 1; attempt <= 2 && allGroups.length < 20; attempt++) {
           await new Promise((r) => setTimeout(r, 1200));
           await fetchGroupListPaginated(`S1R${attempt}`);
