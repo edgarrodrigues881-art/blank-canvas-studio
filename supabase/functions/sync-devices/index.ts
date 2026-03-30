@@ -486,12 +486,10 @@ Deno.serve(async (req) => {
           opLogs.push({ user_id: userId, device_id: device.id, event: "sync_404_strike", details: `"${device.name}" 404 (${strikes}/5)`, meta: { strike: strikes } });
 
           if (strikes >= 5) {
-            // Only after 5 consecutive 404s in 30 min, actually release
-            dbUpdates.push({ id: device.id, patch: { status: "Disconnected", uazapi_token: null, uazapi_base_url: null, proxy_id: null, updated_at: new Date().toISOString() } });
-            svc.from("user_api_tokens").update({ status: "available", device_id: null, assigned_at: null, healthy: false }).eq("device_id", device.id).then(() => {});
-            if (device.proxy_id) svc.from("proxies").update({ status: "USADA" }).eq("id", device.proxy_id).then(() => {});
+            // Only after 5 consecutive 404s in 30 min — mark disconnected but KEEP token
+            dbUpdates.push({ id: device.id, patch: { status: "Disconnected", updated_at: new Date().toISOString() } });
             warmupPauses.push(device.id);
-            opLogs.push({ user_id: userId, device_id: device.id, event: "instance_not_found", details: `"${device.name}" confirmado ausente após 5 strikes — token liberado` });
+            opLogs.push({ user_id: userId, device_id: device.id, event: "instance_not_found", details: `"${device.name}" confirmado ausente após 5 strikes — mantendo token` });
           }
           // Don't change status on early strikes — keep current status
           synced++;
