@@ -673,6 +673,9 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
       // Process events
       const ref = eventGroupRef.current;
       for (const ev of unseenEvents) {
+        // Silenced events: consume but don't show toast
+        if (SILENCED_EVENTS.has(ev.event_type)) continue;
+
         const label = EVENT_LABELS[ev.event_type];
         if (!label) continue;
 
