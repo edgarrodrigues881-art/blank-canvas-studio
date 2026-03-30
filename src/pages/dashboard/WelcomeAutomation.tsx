@@ -676,7 +676,7 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
             ))}
           </div>
 
-          <WelcomeMessageEditor value={messageContent} onChange={setMessageContent} buttons={messageType === "buttons" ? buttons : undefined} carouselCards={messageType === "carousel" ? carouselCards : undefined} />
+          <WelcomeMessageEditor value={messageContent} onChange={setMessageContent} buttons={messageType === "buttons" ? buttons : undefined} carouselCards={messageType === "carousel" ? carouselCards : undefined} onImportTemplate={handleImportTemplate} />
 
           {/* Buttons editor */}
           {messageType === "buttons" && (
