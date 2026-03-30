@@ -388,6 +388,7 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
   const [selectedGroups, setSelectedGroups] = useState<{ group_id: string; group_name: string }[]>([]);
   const [availableGroups, setAvailableGroups] = useState<{ id: string; name: string }[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
+  const [groupsExpanded, setGroupsExpanded] = useState(false);
 
   useEffect(() => {
     if (savedSenders) setSelectedSenders(savedSenders.map((s: any) => s.device_id));
