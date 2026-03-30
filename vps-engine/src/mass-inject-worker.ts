@@ -670,12 +670,12 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 export async function massInjectTick(isRunningRef: { value: boolean }) {
   const db = getDb();
 
-  // 1. Reset stale processing contacts
+  // 1. Reset stale processing contacts (including rows without processed_at)
   const staleThreshold = new Date(Date.now() - 3 * 60_000).toISOString();
   await db.from("mass_inject_contacts")
     .update({ status: "pending", error_message: "Reprocessando (timeout VPS).", device_used: null } as any)
     .eq("status", "processing")
-    .lt("processed_at", staleThreshold);
+    .or(`processed_at.lt.${staleThreshold},processed_at.is.null`);
 
   // 2. Find active campaigns (skip ones already being processed)
   const { data: campaigns } = await db.from("mass_inject_campaigns")
