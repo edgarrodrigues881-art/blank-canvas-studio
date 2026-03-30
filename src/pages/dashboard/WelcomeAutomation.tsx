@@ -443,7 +443,7 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
     }
 
     if (payload.type === "carousel") {
-      const importedCards = (payload.carouselCards || []).slice(0, 5).map((card, i) => ({
+      const importedCards = (payload.carouselCards || []).slice(0, 10).map((card, i) => ({
         title: card?.title || `Card ${i + 1}`,
         description: card?.description || "",
         image_url: card?.image_url || "",
