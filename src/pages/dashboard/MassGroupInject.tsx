@@ -512,67 +512,88 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
           )}
         </div>
       ) : (
-        <div className="w-full">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border/20 hover:bg-transparent">
-                <TableHead className="text-xs font-semibold w-[35%]">Campanha</TableHead>
-                <TableHead className="text-xs font-semibold">Status</TableHead>
-                <TableHead className="text-xs font-semibold text-center">Total</TableHead>
-                <TableHead className="text-xs font-semibold text-center">Sucesso</TableHead>
-                <TableHead className="text-xs font-semibold text-center">Falhas</TableHead>
-                <TableHead className="text-xs font-semibold text-right">Data</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCampaigns.map((c: any) => {
-                const sc = c.success_count || 0;
-                const fc = c.fail_count || 0;
-                const pct = c.total_contacts > 0 ? Math.round((sc / c.total_contacts) * 100) : 0;
-                return (
-                  <TableRow
-                    key={c.id}
-                    onClick={() => onViewCampaign(c.id)}
-                    className={`cursor-pointer border-border/20 hover:bg-primary/10 transition-colors group ${filteredCampaigns.indexOf(c) % 2 === 0 ? "bg-background" : "bg-muted/40"}`}
-                  >
-                    <TableCell className="py-3.5">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">{c.name}</p>
-                        <p className="text-[11px] text-muted-foreground/60 flex items-center gap-1 mt-0.5 truncate">
-                          <Globe className="w-3 h-3 shrink-0" />
-                          {c.group_name || c.group_id?.substring(0, 24)}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-3.5">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className={`text-[10px] font-semibold ${statusBadge(c.status)}`}>
-                          {statusLabel(c.status)}
-                        </Badge>
-                        {c.status === "processing" && (
-                          <div className="w-16 h-1.5 rounded-full bg-muted/40 overflow-hidden">
-                            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center py-3.5">
-                      <span className="text-sm font-medium text-foreground tabular-nums">{c.total_contacts}</span>
-                    </TableCell>
-                    <TableCell className="text-center py-3.5">
-                      <span className="text-sm font-medium text-emerald-500 tabular-nums">{sc}</span>
-                    </TableCell>
-                    <TableCell className="text-center py-3.5">
-                      <span className={`text-sm font-medium tabular-nums ${fc > 0 ? "text-destructive" : "text-muted-foreground/40"}`}>{fc}</span>
-                    </TableCell>
-                    <TableCell className="text-right py-3.5">
-                      <span className="text-xs text-muted-foreground/60">{new Date(c.created_at).toLocaleDateString("pt-BR")}</span>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+        <div className="w-full space-y-3">
+          {filteredCampaigns.map((c: any, idx: number) => {
+            const sc = c.success_count || 0;
+            const ac = c.already_count || 0;
+            const fc = c.fail_count || 0;
+            const total = c.total_contacts || 0;
+            const processed = sc + ac + fc;
+            const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
+            const isActive = c.status === "processing" || c.status === "queued";
+
+            return (
+              <div
+                key={c.id}
+                className="group relative rounded-xl border border-border/40 bg-card/80 hover:border-primary/30 hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden"
+                onClick={() => onViewCampaign(c.id)}
+              >
+                {/* Subtle gradient accent on left */}
+                <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${
+                  c.status === "done" || c.status === "completed_with_failures" ? "bg-emerald-500" :
+                  isActive ? "bg-primary" :
+                  c.status === "paused" ? "bg-amber-500" :
+                  c.status === "cancelled" ? "bg-destructive/60" :
+                  "bg-muted-foreground/20"
+                }`} />
+
+                <div className="flex items-center gap-4 px-5 py-4">
+                  {/* Campaign info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2.5">
+                      <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">{c.name}</p>
+                      <Badge variant="outline" className={`text-[10px] font-semibold shrink-0 ${statusBadge(c.status)}`}>
+                        {statusLabel(c.status)}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground/60 flex items-center gap-1 mt-1 truncate">
+                      <Globe className="w-3 h-3 shrink-0" />
+                      {c.group_name || c.group_id?.substring(0, 24)}
+                    </p>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="hidden sm:flex items-center gap-6 shrink-0">
+                    <div className="text-center">
+                      <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">Total</p>
+                      <p className="text-sm font-bold text-foreground tabular-nums">{total}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">Sucesso</p>
+                      <p className="text-sm font-bold text-emerald-500 tabular-nums">{sc}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">Falhas</p>
+                      <p className={`text-sm font-bold tabular-nums ${fc > 0 ? "text-destructive" : "text-muted-foreground/30"}`}>{fc}</p>
+                    </div>
+                  </div>
+
+                  {/* Date + delete */}
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-[11px] text-muted-foreground/50 hidden sm:block">{new Date(c.created_at).toLocaleDateString("pt-BR")}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      onClick={e => { e.stopPropagation(); setDeleteId(c.id); }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-primary/50 transition-colors" />
+                  </div>
+                </div>
+
+                {/* Progress bar for active campaigns */}
+                {isActive && total > 0 && (
+                  <div className="px-5 pb-3">
+                    <div className="h-1.5 w-full rounded-full bg-muted/30 overflow-hidden">
+                      <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-primary transition-all duration-500" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -1031,15 +1052,29 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
         );
       })()}
 
-      {/* Done actions */}
+      {/* Done actions — styled as cards */}
       {isDone && retryableContacts.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={handleExportNotAdded} className="gap-1.5 text-xs h-8">
-            <Download className="w-3.5 h-3.5" /> Exportar não adicionados ({retryableContacts.length})
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportNotAdded}
+            className="gap-2 text-xs h-9 rounded-lg border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all"
+          >
+            <Download className="w-4 h-4 text-muted-foreground" />
+            <span>Exportar não adicionados</span>
+            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 bg-muted/50 font-bold">{retryableContacts.length}</Badge>
           </Button>
           {onNewCampaignFromFailed && (
-            <Button variant="outline" size="sm" onClick={handleNewCampaignFromFailed} className="gap-1.5 text-xs h-8 border-primary/30 text-primary hover:bg-primary/10">
-              <RotateCcw className="w-3.5 h-3.5" /> Nova campanha com falhos
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNewCampaignFromFailed}
+              className="gap-2 text-xs h-9 rounded-lg border-primary/30 text-primary hover:bg-primary/10 transition-all"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Retentar com nova campanha</span>
+              <Badge variant="secondary" className="text-[10px] h-5 px-1.5 bg-primary/10 text-primary font-bold">{retryableContacts.length}</Badge>
             </Button>
           )}
         </div>
