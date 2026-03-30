@@ -90,6 +90,7 @@ Deno.serve(async (req) => {
 
     if (action === "list_chats") {
       const forceRefresh = url.searchParams.get("refresh") === "true";
+      const quickMode = url.searchParams.get("quick") === "true"; // Skip heavy fallbacks
       const allGroups: any[] = [];
       const seenJids = new Set<string>();
       let primaryFetchSucceeded = false;
@@ -189,8 +190,8 @@ Deno.serve(async (req) => {
         return normalizedCandidates.some((value) => matchesDeviceNumber(value));
       };
 
-      // ─── S-1: Wake up session before listing (always) ───
-      {
+      // ─── S-1: Wake up session before listing (skip in quick mode) ───
+      if (!quickMode) {
         const statusRes = await fetchSafe(`${apiBaseUrl}/instance/status`, 1);
         const st = statusRes?.instance?.status || statusRes?.status || "";
         console.log(`[S-1] Instance status: ${st}`);
@@ -212,8 +213,8 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ─── S0: Restart/resync instance to force WA group refresh (only on forceRefresh) ───
-      if (forceRefresh) {
+      // ─── S0: Restart/resync instance to force WA group refresh (only on forceRefresh, never in quick) ───
+      if (forceRefresh && !quickMode) {
         console.log("[S0] Forcing instance resync...");
         const restartAttempts = [
           { ep: "/instance/restart", method: "GET" },
@@ -278,7 +279,8 @@ Deno.serve(async (req) => {
       await fetchGroupListPaginated("S1");
 
       // UaZapi pode oscilar entre 4 e 9 grupos no mesmo minuto; faz retries e mantém união por JID
-      if (allGroups.length < 20) {
+      // Skip retries in quick mode if we already found groups
+      if (!quickMode && allGroups.length < 20) {
         for (let attempt = 1; attempt <= 2 && allGroups.length < 20; attempt++) {
           await new Promise((r) => setTimeout(r, 1200));
           await fetchGroupListPaginated(`S1R${attempt}`);
@@ -287,9 +289,11 @@ Deno.serve(async (req) => {
 
       // Run fallback strategies when we have fewer groups than expected (< 50)
       // or when the primary endpoint failed entirely
-      const needsFallback = !primaryFetchSucceeded || allGroups.length < 50;
+      // In quick mode, skip fallbacks if we already have at least 1 group
+      const needsFallback = !quickMode && (!primaryFetchSucceeded || allGroups.length < 50);
+      const quickHasEnough = quickMode && allGroups.length > 0;
 
-      if (needsFallback) {
+      if (needsFallback && !quickHasEnough) {
         // ─── S1b: /group/list with count ───
         const dataS1b = await fetchSafe(`${apiBaseUrl}/group/list?GetParticipants=true&count=500`, 1);
         if (dataS1b) {
