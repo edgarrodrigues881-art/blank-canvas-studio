@@ -660,7 +660,7 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
       const noTimerTooLong = nextRunAtMs === null && nowMs - updatedAtMs >= WATCHDOG_STALE_AFTER_MS;
 
       if (timerPastDue || noTimerTooLong) {
-        setLiveRuntimeNote("Aguardando processamento pela VPS...");
+        setLiveRuntimeNote("Aguardando processamento...");
       } else {
         setLiveRuntimeNote("");
       }
