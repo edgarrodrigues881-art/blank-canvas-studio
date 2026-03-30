@@ -282,24 +282,33 @@ export default function WelcomeAutomationPage() {
 function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
-  const qc = (await import("@tanstack/react-query")).useQueryClient();
+  const qc = useQueryClient();
 
   const handleCreate = async () => {
     if (!name.trim()) { toast.error("Digite um nome para a automação"); return; }
-    // Insert directly with null monitoring_device_id to avoid UUID validation error
-    const { data: automation, error } = await supabase
-      .from("welcome_automations")
-      .insert({
-        user_id: (await supabase.auth.getUser()).data.user?.id,
-        name: name.trim(),
-        monitoring_device_id: null,
-        message_content: "Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉",
-      } as any)
-      .select()
-      .single();
-    if (error) { toast.error(error.message); return; }
-    onOpenChange(false);
-    setName("");
+    setCreating(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("welcome_automations")
+        .insert({
+          user_id: userData.user?.id,
+          name: name.trim(),
+          monitoring_device_id: null,
+          message_content: "Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉",
+        } as any)
+        .select()
+        .single();
+      if (error) { toast.error(error.message); return; }
+      qc.invalidateQueries({ queryKey: ["welcome-automations"] });
+      toast.success("Automação criada com sucesso!");
+      onOpenChange(false);
+      setName("");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao criar automação");
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -326,8 +335,8 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleCreate} disabled={create.isPending || !name.trim()} className="gap-2">
-            {create.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+          <Button onClick={handleCreate} disabled={creating || !name.trim()} className="gap-2">
+            {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             Criar Automação
           </Button>
         </DialogFooter>
