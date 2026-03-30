@@ -41,6 +41,7 @@ const GroupJoinCampaignList = lazyWithPreload(() => import("@/pages/dashboard/Gr
 const GroupJoinCampaignNew = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinCampaignNew"));
 const GroupJoinCampaignDetail = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinCampaignDetail"));
 const MassGroupInject = lazyWithPreload(() => import("@/pages/dashboard/MassGroupInject"));
+const WelcomeAutomation = lazyWithPreload(() => import("@/pages/dashboard/WelcomeAutomation"));
 const GroupJoinComingSoon = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinComingSoon"));
 const ChipConversation = lazyWithPreload(() => import("@/pages/dashboard/ChipConversation"));
 const ChipConversationComingSoon = lazyWithPreload(() => import("@/pages/dashboard/ChipConversationComingSoon"));
