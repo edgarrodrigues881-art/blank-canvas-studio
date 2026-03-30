@@ -403,7 +403,7 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
     if (!target) return;
     setGroupsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke(`whapi-chats?device_id=${target}&action=list_chats`, { method: "GET" });
+      const { data, error } = await supabase.functions.invoke(`whapi-chats?device_id=${target}&action=list_chats&quick=true`, { method: "GET" });
       if (error) throw error;
       const groups = (data?.chats || data?.groups || []).filter((g: any) => g.id?.includes("@g.us")).map((g: any) => ({ id: g.id, name: g.name || g.subject || g.id }));
       if (groups.length === 0) toast.info("Nenhum grupo encontrado nesta conta");
