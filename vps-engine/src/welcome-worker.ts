@@ -459,7 +459,7 @@ async function processPhase() {
     .update({ status: "pending", locked_at: null } as any)
     .eq("status", "processing")
     .lt("locked_at", staleThreshold)
-    .catch(() => {});
+    .then(() => {}, () => {});
 
   // Get active automations with pending queue items
   const { data: automations } = await db
