@@ -21,10 +21,10 @@ const PARTICIPANT_CACHE_TTL_MS = 5 * 60_000; // 5 min
 
 // ── Tracking ──
 export let lastMassInjectTickAt: Date | null = null;
-let activeCampaignId: string | null = null;
+const activeCampaignIds = new Set<string>();
 
 export function getMassInjectStatus() {
-  return { lastTick: lastMassInjectTickAt, activeCampaign: activeCampaignId };
+  return { lastTick: lastMassInjectTickAt, activeCampaigns: Array.from(activeCampaignIds) };
 }
 
 // ── Utilities ──
@@ -418,7 +418,7 @@ async function finalizeCampaign(sb: any, campaignId: string): Promise<boolean> {
 // ══════════════════════════════════════════════════════════
 async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value: boolean }) {
   const campaignId = campaign.id;
-  activeCampaignId = campaignId;
+  activeCampaignIds.add(campaignId);
   log.info(`Processing campaign ${campaignId.slice(0, 8)}: group=${campaign.group_id}, contacts=${campaign.total_items || "?"}`);
 
   // Mark as processing
@@ -621,7 +621,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     await sleep(delayMs);
   }
 
-  activeCampaignId = null;
+  activeCampaignIds.delete(campaignId);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -637,18 +637,22 @@ export async function massInjectTick(isRunningRef: { value: boolean }) {
     .eq("status", "processing")
     .lt("processed_at", staleThreshold);
 
-  // 2. Find active campaigns
+  // 2. Find active campaigns (skip ones already being processed)
   const { data: campaigns } = await db.from("mass_inject_campaigns")
     .select("*")
     .in("status", ["queued", "processing"])
     .order("created_at", { ascending: true })
-    .limit(5);
+    .limit(10);
 
   if (!campaigns?.length) return;
 
-  // Process one at a time (sequential, not parallel)
-  for (const campaign of campaigns) {
-    if (!isRunningRef.value) break;
+  // Filter out campaigns already running in parallel
+  const newCampaigns = campaigns.filter(c => !activeCampaignIds.has(c.id));
+  if (!newCampaigns.length) return;
+
+  // Process ALL campaigns in parallel (not sequential)
+  await Promise.all(newCampaigns.map(async (campaign) => {
+    if (!isRunningRef.value) return;
 
     // Check if there are pending contacts
     const { count } = await db.from("mass_inject_contacts")
@@ -658,7 +662,7 @@ export async function massInjectTick(isRunningRef: { value: boolean }) {
 
     if (Number(count || 0) === 0) {
       await finalizeCampaign(db, campaign.id);
-      continue;
+      return;
     }
 
     try {
@@ -666,7 +670,7 @@ export async function massInjectTick(isRunningRef: { value: boolean }) {
     } catch (err: any) {
       log.error(`Campaign ${campaign.id.slice(0, 8)} error: ${err.message}`);
     }
-  }
+  }));
 
   lastMassInjectTickAt = new Date();
 }
