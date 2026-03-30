@@ -418,7 +418,7 @@ async function finalizeCampaign(sb: any, campaignId: string): Promise<boolean> {
 // ══════════════════════════════════════════════════════════
 async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value: boolean }) {
   const campaignId = campaign.id;
-  activeCampaignId = campaignId;
+  activeCampaignIds.add(campaignId);
   log.info(`Processing campaign ${campaignId.slice(0, 8)}: group=${campaign.group_id}, contacts=${campaign.total_items || "?"}`);
 
   // Mark as processing
