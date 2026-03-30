@@ -11,6 +11,8 @@ export interface WelcomeAutomation {
   monitoring_device_id: string | null;
   message_type: string;
   message_content: string | null;
+  buttons: any[];
+  carousel_cards: any[];
   message_templates: any[];
   min_delay_seconds: number;
   max_delay_seconds: number;
