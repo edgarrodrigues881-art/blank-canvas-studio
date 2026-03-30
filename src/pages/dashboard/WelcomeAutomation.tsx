@@ -711,18 +711,17 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
     if (!targetDevice) return;
     setGroupsLoading(true);
     try {
-      const { data: deviceFull } = await supabase.from("devices").select("uazapi_token, uazapi_base_url").eq("id", targetDevice).single();
-      if (!deviceFull?.uazapi_token || !deviceFull?.uazapi_base_url) {
-        toast.error("Dispositivo sem credenciais configuradas");
-        return;
-      }
-      const { data, error } = await supabase.functions.invoke("whapi-chats", {
-        body: { deviceId: targetDevice, type: "groups" },
-      });
+      const { data, error } = await supabase.functions.invoke(
+        `whapi-chats?device_id=${targetDevice}&action=list_chats`,
+        { method: "GET" }
+      );
       if (error) throw error;
       const groups = (data?.chats || data?.groups || [])
         .filter((g: any) => g.id?.includes("@g.us"))
         .map((g: any) => ({ id: g.id, name: g.name || g.subject || g.id }));
+      if (groups.length === 0) {
+        toast.info("Nenhum grupo encontrado nesta conta");
+      }
       setAvailableGroups(groups);
     } catch (err: any) {
       toast.error("Erro ao carregar grupos: " + (err.message || "desconhecido"));
