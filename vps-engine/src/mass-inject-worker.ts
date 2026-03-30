@@ -11,8 +11,8 @@ const log = createLogger("mass-inject");
 
 const API_TIMEOUT_MS = 25_000;
 const MAX_CONSECUTIVE_FAILURES = 15;
-const MAX_RETRIES = 5;
-const RETRYABLE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped", "permission_unconfirmed", "unknown_failure", "timeout"];
+const MAX_RETRIES = 1; // Try once — if it fails, mark as failed and move on
+const RETRYABLE_STATUSES = ["pending"];
 
 // ── In-memory caches (persist across contacts within same campaign run) ──
 const participantCache = new Map<string, { participants: Set<string>; fetchedAt: number }>();
@@ -495,10 +495,23 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
     await sb.from("mass_inject_contacts").update({ processed_at: nowIso(), device_used: device.name || device.id }).eq("id", contact.id);
 
-    // 6. Pre-check: is the contact already in the group?
+    // 6. Skip own number (admin's device number — can't add yourself)
     const groupId = contact.target_group_id || freshCampaign.group_id;
-    const participants = await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId);
     const phone = String(contact.phone).replace(/@.*/, "");
+    const deviceNumber = String(device.number || "").replace(/\D/g, "");
+    if (deviceNumber && buildPhoneFingerprints(phone).some(fp => buildPhoneFingerprints(deviceNumber).some(dfp => dfp === fp))) {
+      await sb.from("mass_inject_contacts").update({
+        status: "already_exists", error_message: "Próprio número da instância (admin) — ignorado.", processed_at: nowIso(),
+      }).eq("id", contact.id);
+      await updateCounters(sb, campaignId, "already_exists");
+      consecutiveFailures = 0;
+      log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} is the device's own number — skipped`);
+      await sleep(500);
+      continue;
+    }
+
+    // 7. Pre-check: is the contact already in the group?
+    const participants = await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId);
 
     if (participants.size > 0 && participantSetHasPhone(participants, phone)) {
       await sb.from("mass_inject_contacts").update({
@@ -507,12 +520,11 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       await updateCounters(sb, campaignId, "already_exists");
       consecutiveFailures = 0;
       log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} already in group`);
-      // Short delay for already-exists (no API call needed)
       await sleep(randomBetween(1000, 3000));
       continue;
     }
 
-    // 7. Add to group
+    // 8. Add to group
     const result = await addToGroup(baseUrl, device.uazapi_token, groupId, phone);
 
     if (result.ok) {
@@ -531,18 +543,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       await updateCounters(sb, campaignId, "already_exists");
       consecutiveFailures = 0;
     } else {
-      // Failure
-      const retryCount = Number(String(contact.error_message || "").match(/\[retry:(\d+)\]/)?.[1] || 0);
-      const newRetry = retryCount + 1;
-      const isFinal = !result.retryable || newRetry >= MAX_RETRIES;
-
-      const status = isFinal ? "failed" : (result.detail.includes("Rate limit") ? "rate_limited" : "pending");
-      const errorMsg = isFinal
-        ? result.detail
-        : `[retry:${newRetry}] ${result.detail}`;
-
+      // Failure — single attempt, mark as failed immediately (no retries)
       await sb.from("mass_inject_contacts").update({
-        status, error_message: errorMsg, processed_at: nowIso(),
+        status: "failed", error_message: result.detail, processed_at: nowIso(),
       }).eq("id", contact.id);
       await updateCounters(sb, campaignId, "failed");
 
@@ -566,19 +569,12 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         await emitEvent(sb, campaignId, "campaign_paused", "warning", reason);
         break;
       }
-
-      // Extra cooldown for errors
-      if (result.cooldownMs > 0) {
-        log.info(`Campaign ${campaignId.slice(0, 8)}: cooldown ${result.cooldownMs}ms`);
-        await sleep(result.cooldownMs);
-        continue; // Skip normal delay
-      }
     }
 
-    // 8. Apply delay between contacts
-    const minDelay = Math.max(Number(freshCampaign.min_delay || 10), 3);
-    const maxDelay = Math.max(Number(freshCampaign.max_delay || 30), minDelay);
-    let delayMs = randomBetween(minDelay * 1000, maxDelay * 1000);
+    // 9. Apply delay — use EXACTLY what the user configured (no forced minimums)
+    const minDelay = Number(freshCampaign.min_delay || 0);
+    const maxDelay = Math.max(Number(freshCampaign.max_delay || 0), minDelay);
+    let delayMs = minDelay === maxDelay ? minDelay * 1000 : randomBetween(minDelay * 1000, maxDelay * 1000);
 
     // Block pause check
     const pauseAfter = Number(freshCampaign.pause_after || 0);
