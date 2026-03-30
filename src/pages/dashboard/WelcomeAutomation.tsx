@@ -759,7 +759,7 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-2xl w-[95vw] max-h-[92dvh] min-h-0 overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Heart className="w-5 h-5 text-primary" />
@@ -767,7 +767,7 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-3">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-3">
           <div className="space-y-5 pb-2">
             {/* Name */}
             <div className="space-y-1.5">
@@ -852,7 +852,7 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
               <MessageEditor value={messageContent} onChange={setMessageContent} />
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="border-t pt-3 mt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
