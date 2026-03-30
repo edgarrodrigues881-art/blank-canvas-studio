@@ -730,7 +730,20 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
                     </div>
                     <Input placeholder="Título" value={card.title} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, title: e.target.value } : c))} className="h-9 text-xs rounded-lg" />
                     <Input placeholder="Descrição" value={card.description} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, description: e.target.value } : c))} className="h-9 text-xs rounded-lg" />
-                    <Input placeholder="URL da imagem (opcional)" value={card.image_url} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, image_url: e.target.value } : c))} className="h-9 text-xs rounded-lg" />
+                    {/* Image field - compact with thumbnail */}
+                    <div className="flex items-center gap-2">
+                      {card.image_url ? (
+                        <div className="relative group shrink-0">
+                          <img src={card.image_url} alt="" className="w-12 h-12 rounded-lg object-cover border border-border/30" onError={e => (e.currentTarget.src = "")} />
+                          <button type="button" className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[8px] opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, image_url: "" } : c))}>✕</button>
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg border border-dashed border-border/50 bg-muted/20 flex items-center justify-center shrink-0">
+                          <Eye className="w-4 h-4 text-muted-foreground/40" />
+                        </div>
+                      )}
+                      <Input placeholder="Cole a URL da imagem" value={card.image_url || ""} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, image_url: e.target.value } : c))} className="h-9 text-xs rounded-lg flex-1" />
+                    </div>
                     {/* Card buttons */}
                     <div className="pt-1 space-y-1.5">
                       <div className="flex items-center justify-between">
