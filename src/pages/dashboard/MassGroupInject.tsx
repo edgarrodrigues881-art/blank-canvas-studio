@@ -350,8 +350,8 @@ function NextActionCountdown({ contacts, campaign }: { contacts: any[]; campaign
 // ═══════════════════════════════════════════════════════════════
 function BetaGate({ onAccept }: { onAccept: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <div className="w-full max-w-md mx-4 rounded-2xl border border-border/50 bg-card shadow-2xl p-8 space-y-6 text-center">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/90 backdrop-blur-md p-4">
+      <div className="w-full max-w-lg rounded-2xl border border-border/50 bg-card shadow-2xl p-8 space-y-6 text-center">
         <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto">
           <AlertTriangle className="w-8 h-8 text-amber-500" />
         </div>
@@ -531,7 +531,7 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
                   <TableRow
                     key={c.id}
                     onClick={() => onViewCampaign(c.id)}
-                    className="cursor-pointer border-border/15 hover:bg-muted/30 transition-colors group"
+                    className={`cursor-pointer border-border/15 hover:bg-muted/30 transition-colors group ${filteredCampaigns.indexOf(c) % 2 === 0 ? "bg-muted/10" : "bg-muted/25"}`}
                   >
                     <TableCell className="py-3.5">
                       <div className="min-w-0">
