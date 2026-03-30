@@ -1,6 +1,7 @@
 // ══════════════════════════════════════════════════════════
 // VPS Engine — Welcome Message Worker
 // Monitors groups for new participants and sends welcome messages
+// Supports: text, buttons, carousel
 // ══════════════════════════════════════════════════════════
 
 import { getDb } from "./db";
@@ -21,10 +22,10 @@ export function getWelcomeStatus() {
 
 // ── In-memory cache for group participants ──
 const participantSnapshots = new Map<string, { participants: Set<string>; fetchedAt: number }>();
-const SNAPSHOT_TTL_MS = 60_000; // 1 min — check frequently for new members
+const SNAPSHOT_TTL_MS = 60_000;
 
 // ── Known participants per automation (to detect NEW members only) ──
-const knownParticipants = new Map<string, Set<string>>(); // key: `${automationId}::${groupId}`
+const knownParticipants = new Map<string, Set<string>>();
 
 const API_TIMEOUT_MS = 20_000;
 
@@ -42,7 +43,7 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
 }
 
 function buildHeaders(token: string): Record<string, string> {
-  return { token, Accept: "application/json", "Cache-Control": "no-cache" };
+  return { token, Accept: "application/json", "Content-Type": "application/json", "Cache-Control": "no-cache" };
 }
 
 function extractParticipantPhones(data: any): Set<string> {
@@ -83,7 +84,7 @@ async function fetchGroupParticipants(baseUrl: string, token: string, groupId: s
     try {
       const res = await fetchWithTimeout(`${baseUrl}/group/info`, {
         method: "POST",
-        headers: { ...buildHeaders(token), "Content-Type": "application/json" },
+        headers: buildHeaders(token),
         body: JSON.stringify({ groupJid: groupId }),
       });
       if (res.ok) {
@@ -100,13 +101,177 @@ async function fetchGroupParticipants(baseUrl: string, token: string, groupId: s
   return participants;
 }
 
-// ── Send message via UAZAPI ──
-async function sendMessage(baseUrl: string, token: string, phone: string, message: string): Promise<{ ok: boolean; detail: string }> {
+// ══════════════════════════════════════════════════════════
+// UAZAPI Communication (reused patterns from campaign-worker)
+// ══════════════════════════════════════════════════════════
+
+async function uazapiRequest(baseUrl: string, token: string, endpoint: string, payload: any, method: "POST" | "GET" = "POST") {
+  let url = `${baseUrl}${endpoint}`;
+  const headers: Record<string, string> = { token, Accept: "application/json" };
+  let fetchOptions: RequestInit;
+
+  if (method === "GET") {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(payload)) {
+      if (value !== undefined && value !== null) params.append(key, String(value));
+    }
+    url += `?${params.toString()}`;
+    fetchOptions = { method: "GET", headers };
+  } else {
+    headers["Content-Type"] = "application/json";
+    fetchOptions = { method: "POST", headers, body: JSON.stringify(payload) };
+  }
+
+  const res = await fetchWithTimeout(url, fetchOptions);
+  const text = await res.text();
+
+  if (res.status === 405 && method === "POST") {
+    return uazapiRequest(baseUrl, token, endpoint, payload, "GET");
+  }
+  if (!res.ok) {
+    let errorMsg = `API error ${res.status}`;
+    try { const data = JSON.parse(text); errorMsg = data?.message || data?.error || text; } catch { errorMsg = text; }
+    throw new Error(errorMsg);
+  }
+  const parsed = JSON.parse(text);
+  if (parsed?.error && typeof parsed.error === "string") throw new Error(parsed.error);
+  return parsed;
+}
+
+// ── Button message sending ──
+function buildMenuChoice(button: any, index: number): string | null {
+  const text = (button.text || "").trim();
+  if (!text) return null;
+  const action = (button.action || button.type || "link").toLowerCase();
+  const url = (button.url || button.value || "").trim();
+  if (action === "link" || action === "url") {
+    const normalizedUrl = url ? (url.startsWith("http") ? url : `https://${url}`) : "";
+    return normalizedUrl ? `${text}|url:${normalizedUrl}` : text;
+  }
+  if (action === "phone" || action === "call" || action === "whatsapp") {
+    return url ? `${text}|call:${url}` : text;
+  }
+  // reply / quick_reply
+  return `${text}|${url || `btn_${index}`}`;
+}
+
+async function sendButtonMessage(baseUrl: string, token: string, phone: string, text: string, buttons: any[]): Promise<void> {
+  const choices = buttons.map((b, i) => buildMenuChoice(b, i)).filter(Boolean) as string[];
+  if (choices.length === 0) {
+    // Fallback to text if no valid buttons
+    await uazapiRequest(baseUrl, token, "/send/text", { number: phone, text });
+    return;
+  }
+  await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
+}
+
+// ── Carousel message sending ──
+function normalizeCarouselUrl(rawValue: string): string | null {
+  const trimmed = rawValue.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+function buildCarouselButton(button: any, index: number) {
+  const text = (button.text || "").trim();
+  if (!text) return null;
+  const action = (button.action || button.type || "link").toLowerCase();
+  const rawValue = (button.url || button.value || "").trim();
+  if (action === "url" || action === "link") {
+    const url = normalizeCarouselUrl(rawValue);
+    return url ? { id: url, label: text, text, url, type: "URL" } : null;
+  }
+  if (action === "phone" || action === "call" || action === "whatsapp") {
+    return rawValue ? { id: rawValue, label: text, text, phone: rawValue, type: "CALL" } : null;
+  }
+  return { id: rawValue || `card_btn_${index + 1}`, label: text, text, type: "REPLY" };
+}
+
+function buildCarouselChoice(button: any): string | null {
+  const text = (button.text || "").trim();
+  if (!text) return null;
+  const action = (button.action || button.type || "link").toLowerCase();
+  const rawValue = (button.url || button.value || "").trim();
+  if (action === "url" || action === "link") return rawValue ? `${text}|url:${rawValue}` : null;
+  if (action === "phone" || action === "call" || action === "whatsapp") return rawValue ? `${text}|call:${rawValue}` : null;
+  return rawValue ? `${text}|${rawValue}` : text;
+}
+
+async function sendCarouselMessage(baseUrl: string, token: string, phone: string, body: string, cards: any[]): Promise<void> {
+  if (cards.length === 0) {
+    await uazapiRequest(baseUrl, token, "/send/text", { number: phone, text: body || "Olá!" });
+    return;
+  }
+
+  const primaryText = body?.trim() || null;
+
+  const payload = {
+    number: phone,
+    ...(primaryText ? { text: primaryText } : {}),
+    carousel: cards.map(c => ({
+      text: (c.title || c.description || "").trim(),
+      ...(c.image_url?.trim() ? { image: c.image_url.trim() } : {}),
+      buttons: (c.buttons || []).map((b: any, i: number) => buildCarouselButton(b, i)).filter(Boolean),
+    })),
+  };
+
+  const menuChoices = cards.flatMap((card, i) => {
+    const title = card.title?.trim() || `Card ${i + 1}`;
+    const lines = [`[${title}]`];
+    if (card.image_url?.trim()) lines.push(`{${card.image_url.trim()}}`);
+    lines.push(...(card.buttons || []).map((b: any) => buildCarouselChoice(b)).filter(Boolean) as string[]);
+    return lines;
+  });
+
+  try {
+    await uazapiRequest(baseUrl, token, "/send/carousel", payload);
+  } catch {
+    const hasUrlButtons = cards.some((c: any) => (c.buttons || []).some((b: any) => {
+      const action = (b.action || b.type || "").toLowerCase();
+      return action === "url" || action === "link";
+    }));
+    await uazapiRequest(baseUrl, token, "/send/menu", {
+      number: phone,
+      type: hasUrlButtons ? "list" : "carousel",
+      ...(primaryText ? { text: primaryText } : {}),
+      choices: menuChoices,
+    });
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// Send message — dispatches by type (text, buttons, carousel)
+// ══════════════════════════════════════════════════════════
+
+async function sendWelcomeMessage(
+  baseUrl: string,
+  token: string,
+  phone: string,
+  message: string,
+  messageType: string,
+  buttons: any[],
+  carouselCards: any[],
+): Promise<{ ok: boolean; detail: string }> {
   try {
     const recipient = phone.includes("@") ? phone : `${phone}@s.whatsapp.net`;
+    const cleanPhone = phone.replace(/\D/g, "");
+    const type = (messageType || "text").toLowerCase();
+
+    if (type === "carousel" && carouselCards.length > 0) {
+      await sendCarouselMessage(baseUrl, token, cleanPhone, message, carouselCards);
+      return { ok: true, detail: "Carrossel enviado com sucesso" };
+    }
+
+    if ((type === "buttons" || type === "button") && buttons.length > 0) {
+      await sendButtonMessage(baseUrl, token, cleanPhone, message, buttons);
+      return { ok: true, detail: "Mensagem com botões enviada com sucesso" };
+    }
+
+    // Default: text
     const res = await fetchWithTimeout(`${baseUrl}/chat/send/text`, {
       method: "POST",
-      headers: { ...buildHeaders(token), "Content-Type": "application/json" },
+      headers: buildHeaders(token),
       body: JSON.stringify({ chatId: recipient, message }),
     });
     const body = await res.json().catch(() => ({}));
@@ -119,15 +284,35 @@ async function sendMessage(baseUrl: string, token: string, phone: string, messag
   }
 }
 
-// ── Build personalized message ──
+// ── Build personalized message (supports both {var} and {{var}} formats) ──
 function buildMessage(template: string, vars: { nome?: string; numero?: string; grupo?: string }): string {
   const now = new Date();
+  const nome = vars.nome || "participante";
+  const numero = vars.numero || "";
+  const grupo = vars.grupo || "";
+  const data = now.toLocaleDateString("pt-BR");
+  const hora = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
   return template
-    .replace(/\{nome\}/gi, vars.nome || "participante")
-    .replace(/\{numero\}/gi, vars.numero || "")
-    .replace(/\{grupo\}/gi, vars.grupo || "")
-    .replace(/\{data\}/gi, now.toLocaleDateString("pt-BR"))
-    .replace(/\{hora\}/gi, now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+    // Support both {var} and {{var}} formats
+    .replace(/\{\{?nome\}?\}/gi, nome)
+    .replace(/\{\{?numero\}?\}/gi, numero)
+    .replace(/\{\{?grupo\}?\}/gi, grupo)
+    .replace(/\{\{?data\}?\}/gi, data)
+    .replace(/\{\{?hora\}?\}/gi, hora);
+}
+
+// ── Apply variables to carousel cards ──
+function buildCarouselCardsWithVars(cards: any[], vars: { nome?: string; numero?: string; grupo?: string }): any[] {
+  return cards.map(card => ({
+    ...card,
+    title: card.title ? buildMessage(card.title, vars) : card.title,
+    description: card.description ? buildMessage(card.description, vars) : card.description,
+    buttons: (card.buttons || []).map((b: any) => ({
+      ...b,
+      text: b.text ? buildMessage(b.text, vars) : b.text,
+    })),
+  }));
 }
 
 // ── Deduplication hash ──
@@ -239,7 +424,6 @@ async function monitorPhase() {
           });
 
           if (insertErr) {
-            // Unique constraint violation = duplicate, skip silently
             if (String(insertErr.message).includes("unique") || String(insertErr.code) === "23505") {
               log.info(`Dedupe blocked: ${phone}`);
             } else {
@@ -248,7 +432,6 @@ async function monitorPhase() {
           } else {
             log.info(`Enqueued: ${phone} → group ${group.group_name || group.group_id.slice(0, 12)}`);
 
-            // Log event
             await db.from("welcome_events").insert({
               automation_id: automation.id,
               user_id: automation.user_id,
@@ -316,6 +499,11 @@ async function processPhase() {
     );
     if (!activeSenders.length) continue;
 
+    // Read message type, buttons, carousel from automation
+    const messageType = (automation.message_type || "text").toLowerCase();
+    const automationButtons = Array.isArray(automation.buttons) ? automation.buttons : [];
+    const automationCarousel = Array.isArray(automation.carousel_cards) ? automation.carousel_cards : [];
+
     let senderIdx = 0;
     let sentThisCycle = 0;
 
@@ -325,20 +513,26 @@ async function processPhase() {
         .from("welcome_queue")
         .update({ status: "processing", locked_at: nowIso() } as any)
         .eq("id", item.id)
-        .eq("status", "pending"); // Optimistic lock
+        .eq("status", "pending");
       if (lockErr) continue;
 
-      // Pick sender (round-robin)
+      // Pick sender (round-robin) — each person gets ONE message from ONE sender
       const sender = activeSenders[senderIdx % activeSenders.length];
       senderIdx++;
 
-      // Build message
+      // Build message with variables
       const messageTemplate = automation.message_content || "Olá! Seja bem-vindo(a)!";
-      const finalMessage = buildMessage(messageTemplate, {
+      const vars = {
         nome: item.participant_name || undefined,
         numero: item.participant_phone,
         grupo: item.group_name || undefined,
-      });
+      };
+      const finalMessage = buildMessage(messageTemplate, vars);
+
+      // Apply variables to carousel cards too
+      const finalCarousel = automationCarousel.length > 0
+        ? buildCarouselCardsWithVars(automationCarousel, vars)
+        : [];
 
       // Check max retries
       if (item.attempts >= automation.max_retries) {
@@ -350,8 +544,16 @@ async function processPhase() {
         continue;
       }
 
-      // Send
-      const result = await sendMessage(sender.uazapi_base_url!, sender.uazapi_token!, item.participant_phone, finalMessage);
+      // Send using the correct type
+      const result = await sendWelcomeMessage(
+        sender.uazapi_base_url!,
+        sender.uazapi_token!,
+        item.participant_phone,
+        finalMessage,
+        messageType,
+        automationButtons,
+        finalCarousel,
+      );
 
       // Update queue item
       await db.from("welcome_queue").update({
@@ -380,13 +582,13 @@ async function processPhase() {
         event_type: result.ok ? "message_sent" : "message_failed",
         level: result.ok ? "info" : "error",
         message: result.ok
-          ? `Mensagem enviada para ${item.participant_phone} via ${sender.name}`
+          ? `Mensagem (${messageType}) enviada para ${item.participant_phone} via ${sender.name}`
           : `Falha ao enviar para ${item.participant_phone}: ${result.detail}`,
         reference_id: item.id,
-        payload_json: { phone: item.participant_phone, sender: sender.id, result: result.detail },
+        payload_json: { phone: item.participant_phone, sender: sender.id, messageType, result: result.detail },
       }).catch(() => {});
 
-      log.info(`${result.ok ? "✓" : "✗"} ${item.participant_phone} via ${sender.name}: ${result.detail}`);
+      log.info(`${result.ok ? "✓" : "✗"} [${messageType}] ${item.participant_phone} via ${sender.name}: ${result.detail}`);
 
       sentThisCycle++;
 
