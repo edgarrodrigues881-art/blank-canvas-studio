@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,35 +26,15 @@ import {
   useUpdateWelcomeAutomation,
   useDeleteWelcomeAutomation,
   useUpdateQueueItem,
+  useWelcomeGroups,
+  useWelcomeSenders,
   WelcomeAutomation,
 } from "@/hooks/useWelcomeAutomation";
 import {
-  Heart,
-  Plus,
-  Play,
-  Pause,
-  Square,
-  Trash2,
-  RefreshCw,
-  Download,
-  RotateCcw,
-  XCircle,
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
-  Users,
-  Send,
-  Shield,
-  Search,
-  FileText,
-  Smile,
-  Variable,
-  Import,
-  Type,
-  Bold,
-  Italic,
-  Strikethrough,
-  Code,
+  Heart, Plus, Play, Pause, Square, Trash2, RefreshCw, Download,
+  RotateCcw, XCircle, CheckCircle2, Clock, AlertTriangle, Users,
+  Send, Shield, Search, Variable, Import, Bold, Italic, Strikethrough, Code,
+  ArrowLeft, Settings, ListChecks,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -126,16 +106,8 @@ const FORMAT_BUTTONS = [
   { icon: Code, wrap: ["```", "```"], label: "Código" },
 ];
 
-function MessageEditor({
-  value,
-  onChange,
-  placeholder,
-  className,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  className?: string;
+function MessageEditor({ value, onChange, placeholder, className }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; className?: string;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { data: templates } = useTemplates();
@@ -147,12 +119,8 @@ function MessageEditor({
     if (!ta) { onChange(value + text); return; }
     const start = ta.selectionStart;
     const end = ta.selectionEnd;
-    const newVal = value.slice(0, start) + text + value.slice(end);
-    onChange(newVal);
-    setTimeout(() => {
-      ta.selectionStart = ta.selectionEnd = start + text.length;
-      ta.focus();
-    }, 0);
+    onChange(value.slice(0, start) + text + value.slice(end));
+    setTimeout(() => { ta.selectionStart = ta.selectionEnd = start + text.length; ta.focus(); }, 0);
   };
 
   const wrapSelection = (before: string, after: string) => {
@@ -161,88 +129,46 @@ function MessageEditor({
     const start = ta.selectionStart;
     const end = ta.selectionEnd;
     const selected = value.slice(start, end);
-    const newVal = value.slice(0, start) + before + selected + after + value.slice(end);
-    onChange(newVal);
-    setTimeout(() => {
-      ta.selectionStart = start + before.length;
-      ta.selectionEnd = start + before.length + selected.length;
-      ta.focus();
-    }, 0);
+    onChange(value.slice(0, start) + before + selected + after + value.slice(end));
+    setTimeout(() => { ta.selectionStart = start + before.length; ta.selectionEnd = start + before.length + selected.length; ta.focus(); }, 0);
   };
 
-  const importTemplate = (content: string) => {
-    onChange(content);
-    setShowTemplates(false);
-    toast.success("Template importado!");
-  };
+  const importTemplate = (content: string) => { onChange(content); setShowTemplates(false); toast.success("Template importado!"); };
 
   return (
     <div className="space-y-2">
-      {/* Toolbar */}
       <div className="flex items-center gap-1 flex-wrap rounded-lg border border-border bg-muted/30 p-1.5">
-        {/* Format buttons */}
         {FORMAT_BUTTONS.map(fb => (
-          <Button
-            key={fb.label}
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
-            title={fb.label}
-            onClick={() => wrapSelection(fb.wrap[0], fb.wrap[1])}
-          >
+          <Button key={fb.label} type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title={fb.label} onClick={() => wrapSelection(fb.wrap[0], fb.wrap[1])}>
             <fb.icon className="w-3.5 h-3.5" />
           </Button>
         ))}
-
         <div className="w-px h-5 bg-border mx-0.5" />
-
-        {/* Variables */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button type="button" variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px]">
-              <Variable className="w-3.5 h-3.5" />
-              Variáveis
-            </Button>
+            <Button type="button" variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px]"><Variable className="w-3.5 h-3.5" />Variáveis</Button>
           </PopoverTrigger>
           <PopoverContent className="w-48 p-1" align="start">
             {VARIABLES.map(v => (
-              <button
-                key={v.key}
-                className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-muted transition-colors"
-                onClick={() => insertAtCursor(v.key)}
-              >
-                <span className="font-mono text-primary">{v.key}</span>
-                <span className="text-muted-foreground ml-2">— {v.label}</span>
+              <button key={v.key} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-muted transition-colors" onClick={() => insertAtCursor(v.key)}>
+                <span className="font-mono text-primary">{v.key}</span><span className="text-muted-foreground ml-2">— {v.label}</span>
               </button>
             ))}
           </PopoverContent>
         </Popover>
-
         <div className="w-px h-5 bg-border mx-0.5" />
-
-        {/* Import from template */}
         <Popover open={showTemplates} onOpenChange={setShowTemplates}>
           <PopoverTrigger asChild>
-            <Button type="button" variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px]">
-              <Import className="w-3.5 h-3.5" />
-              Importar Template
-            </Button>
+            <Button type="button" variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px]"><Import className="w-3.5 h-3.5" />Importar Template</Button>
           </PopoverTrigger>
           <PopoverContent className="w-72 p-0" align="start">
-            <div className="p-2 border-b">
-              <p className="text-xs font-medium text-muted-foreground">Selecione um template</p>
-            </div>
+            <div className="p-2 border-b"><p className="text-xs font-medium text-muted-foreground">Selecione um template</p></div>
             <ScrollArea className="max-h-[250px]">
               {templates && templates.length > 0 && (
                 <div className="p-1">
                   <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wider">Templates Normais</p>
                   {templates.map(t => (
-                    <button
-                      key={t.id}
-                      className="w-full text-left px-2.5 py-2 text-xs rounded hover:bg-muted transition-colors"
-                      onClick={() => importTemplate(t.content)}
-                    >
+                    <button key={t.id} className="w-full text-left px-2.5 py-2 text-xs rounded hover:bg-muted transition-colors" onClick={() => importTemplate(t.content)}>
                       <span className="font-medium">{t.name}</span>
                       <span className="block text-[10px] text-muted-foreground truncate mt-0.5">{t.content.slice(0, 60)}...</span>
                     </button>
@@ -253,11 +179,7 @@ function MessageEditor({
                 <div className="p-1">
                   <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wider">Templates Carrossel</p>
                   {carouselTemplates.map(t => (
-                    <button
-                      key={t.id}
-                      className="w-full text-left px-2.5 py-2 text-xs rounded hover:bg-muted transition-colors"
-                      onClick={() => importTemplate(t.message.split("|||")[0])}
-                    >
+                    <button key={t.id} className="w-full text-left px-2.5 py-2 text-xs rounded hover:bg-muted transition-colors" onClick={() => importTemplate(t.message.split("|||")[0])}>
                       <span className="font-medium">{t.name}</span>
                       <span className="block text-[10px] text-muted-foreground truncate mt-0.5">{t.message.split("|||")[0].slice(0, 60)}...</span>
                     </button>
@@ -271,17 +193,9 @@ function MessageEditor({
           </PopoverContent>
         </Popover>
       </div>
-
-      {/* Textarea */}
-      <Textarea
-        ref={textareaRef}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder || "Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉"}
-        className={`min-h-[120px] text-sm font-mono ${className || ""}`}
-      />
+      <Textarea ref={textareaRef} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder || "Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉"} className={`min-h-[120px] text-sm font-mono ${className || ""}`} />
       <p className="text-[10px] text-muted-foreground">
-        Variáveis disponíveis: <span className="font-mono text-primary">{"{nome}"}</span>, <span className="font-mono text-primary">{"{numero}"}</span>, <span className="font-mono text-primary">{"{grupo}"}</span>, <span className="font-mono text-primary">{"{data}"}</span>, <span className="font-mono text-primary">{"{hora}"}</span>
+        Variáveis: <span className="font-mono text-primary">{"{nome}"}</span>, <span className="font-mono text-primary">{"{numero}"}</span>, <span className="font-mono text-primary">{"{grupo}"}</span>, <span className="font-mono text-primary">{"{data}"}</span>, <span className="font-mono text-primary">{"{hora}"}</span>
       </p>
     </div>
   );
@@ -289,80 +203,11 @@ function MessageEditor({
 
 /* ───────── MAIN PAGE ───────── */
 export default function WelcomeAutomationPage() {
-  const { user } = useAuth();
   const { data: automations, isLoading } = useWelcomeAutomations();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [tab, setTab] = useState("config");
-  const [queueFilter, setQueueFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
 
   const selected = automations?.find(a => a.id === selectedId);
-  const { data: queue } = useWelcomeQueue(selectedId || undefined);
-  const stats = useWelcomeQueueStats(selectedId || undefined);
-  const updateAutomation = useUpdateWelcomeAutomation();
-  const deleteAutomation = useDeleteWelcomeAutomation();
-  const updateQueueItem = useUpdateQueueItem();
-
-  const filteredQueue = useMemo(() => {
-    if (!queue) return [];
-    return queue.filter(item => {
-      if (statusFilter !== "all" && item.status !== statusFilter) return false;
-      if (queueFilter) {
-        const search = queueFilter.toLowerCase();
-        return (
-          item.participant_phone?.toLowerCase().includes(search) ||
-          item.participant_name?.toLowerCase().includes(search) ||
-          item.group_name?.toLowerCase().includes(search)
-        );
-      }
-      return true;
-    });
-  }, [queue, queueFilter, statusFilter]);
-
-  const handleToggleStatus = async () => {
-    if (!selected) return;
-    const newStatus = selected.status === "active" ? "paused" : "active";
-    await updateAutomation.mutateAsync({ id: selected.id, status: newStatus } as any);
-    toast.success(newStatus === "active" ? "Automação iniciada!" : "Automação pausada!");
-  };
-
-  const handleFinalize = async () => {
-    if (!selected) return;
-    await updateAutomation.mutateAsync({ id: selected.id, status: "completed" } as any);
-    toast.success("Automação finalizada!");
-  };
-
-  const handleDelete = async () => {
-    if (!selected) return;
-    await deleteAutomation.mutateAsync(selected.id);
-    setSelectedId(null);
-  };
-
-  const handleRequeue = async (itemId: string) => {
-    await updateQueueItem.mutateAsync({ id: itemId, status: "pending" });
-    toast.success("Reenfileirado!");
-  };
-
-  const handleIgnore = async (itemId: string) => {
-    await updateQueueItem.mutateAsync({ id: itemId, status: "ignored" });
-    toast.success("Ignorado!");
-  };
-
-  const exportCSV = () => {
-    if (!filteredQueue.length) return;
-    const headers = ["Participante", "Nome", "Grupo", "Status", "Detectado", "Processado", "Tentativas", "Erro"];
-    const rows = filteredQueue.map(q => [
-      q.participant_phone, q.participant_name || "", q.group_name || q.group_id,
-      q.status, q.detected_at, q.processed_at || "", String(q.attempts), q.error_reason || "",
-    ]);
-    const csv = [headers.join(","), ...rows.map(r => r.map(c => `"${c}"`).join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `boas-vindas-fila-${Date.now()}.csv`; a.click();
-    URL.revokeObjectURL(url);
-  };
 
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-6 max-w-[1400px] mx-auto w-full">
@@ -377,14 +222,15 @@ export default function WelcomeAutomationPage() {
             <p className="text-xs text-muted-foreground">Mensagens automáticas para novos participantes</p>
           </div>
         </div>
-        <Button onClick={() => setShowCreate(true)} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Nova Automação
-        </Button>
+        {!selectedId && (
+          <Button onClick={() => setShowCreate(true)} className="gap-2">
+            <Plus className="w-4 h-4" /> Nova Automação
+          </Button>
+        )}
       </div>
 
-      {/* Automations List */}
-      {(!selectedId || !selected) && (
+      {/* LIST VIEW */}
+      {!selectedId && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {isLoading && <p className="text-muted-foreground text-sm col-span-full">Carregando...</p>}
           {automations?.length === 0 && !isLoading && (
@@ -401,11 +247,7 @@ export default function WelcomeAutomationPage() {
           {automations?.map(a => {
             const st = AUTOMATION_STATUS[a.status] || AUTOMATION_STATUS.paused;
             return (
-              <Card
-                key={a.id}
-                className="cursor-pointer hover:border-primary/40 transition-all hover:shadow-md"
-                onClick={() => { setSelectedId(a.id); setTab("config"); }}
-              >
+              <Card key={a.id} className="cursor-pointer hover:border-primary/40 transition-all hover:shadow-md" onClick={() => setSelectedId(a.id)}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm">{a.name}</CardTitle>
@@ -427,156 +269,269 @@ export default function WelcomeAutomationPage() {
         </div>
       )}
 
-      {/* Detail View */}
-      {selected && (
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setSelectedId(null)}>← Voltar</Button>
-            <div className="flex gap-2 flex-wrap">
-              {selected.status !== "completed" && (
-                <Button size="sm" variant={selected.status === "active" ? "outline" : "default"} onClick={handleToggleStatus} className="gap-1.5">
-                  {selected.status === "active" ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                  {selected.status === "active" ? "Pausar" : "Iniciar"}
-                </Button>
-              )}
-              {selected.status !== "completed" && (
-                <Button size="sm" variant="outline" onClick={handleFinalize} className="gap-1.5">
-                  <Square className="w-3.5 h-3.5" /> Finalizar
-                </Button>
-              )}
-              <Button size="sm" variant="destructive" onClick={handleDelete} className="gap-1.5">
-                <Trash2 className="w-3.5 h-3.5" /> Excluir
-              </Button>
-            </div>
-          </div>
+      {/* DETAIL VIEW */}
+      {selected && <AutomationDetailView automation={selected} onBack={() => setSelectedId(null)} />}
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-            {[
-              { label: "Total", value: stats.total, color: "text-foreground" },
-              { label: "Pendentes", value: stats.pending, color: "text-yellow-400" },
-              { label: "Processando", value: stats.processing, color: "text-blue-400" },
-              { label: "Enviados", value: stats.sent, color: "text-emerald-400" },
-              { label: "Falhas", value: stats.failed, color: "text-red-400" },
-              { label: "Ignorados", value: stats.ignored, color: "text-gray-400" },
-              { label: "Duplicados", value: stats.duplicate_blocked, color: "text-orange-400" },
-            ].map(s => (
-              <Card key={s.label}>
-                <CardContent className="py-3 px-3 text-center">
-                  <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
-                  <p className="text-[10px] text-muted-foreground">{s.label}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Tabs */}
-          <Tabs value={tab} onValueChange={setTab}>
-            <TabsList>
-              <TabsTrigger value="config">Configuração</TabsTrigger>
-              <TabsTrigger value="queue">Fila ({stats.total})</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="config">
-              <AutomationConfig automation={selected} />
-            </TabsContent>
-
-            <TabsContent value="queue">
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <CardTitle className="text-sm">Fila de Envio</CardTitle>
-                    <div className="flex gap-2 flex-wrap">
-                      <div className="relative">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                        <Input placeholder="Buscar..." value={queueFilter} onChange={e => setQueueFilter(e.target.value)} className="pl-8 h-8 w-40 text-xs" />
-                      </div>
-                      <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          {Object.entries(STATUS_MAP).map(([k, v]) => (
-                            <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button size="sm" variant="outline" onClick={exportCSV} className="h-8 gap-1.5 text-xs">
-                        <Download className="w-3.5 h-3.5" /> CSV
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <ScrollArea className="max-h-[500px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-xs">Participante</TableHead>
-                          <TableHead className="text-xs">Grupo</TableHead>
-                          <TableHead className="text-xs">Status</TableHead>
-                          <TableHead className="text-xs">Detectado</TableHead>
-                          <TableHead className="text-xs">Processado</TableHead>
-                          <TableHead className="text-xs">Tent.</TableHead>
-                          <TableHead className="text-xs">Erro</TableHead>
-                          <TableHead className="text-xs">Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredQueue.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={8} className="text-center text-muted-foreground text-xs py-8">
-                              Nenhum item na fila
-                            </TableCell>
-                          </TableRow>
-                        )}
-                        {filteredQueue.map(item => (
-                          <TableRow key={item.id}>
-                            <TableCell className="text-xs font-mono">
-                              <div>
-                                <span>{item.participant_phone}</span>
-                                {item.participant_name && <span className="block text-muted-foreground text-[10px]">{item.participant_name}</span>}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-xs max-w-[120px] truncate">{item.group_name || item.group_id.slice(0, 12)}</TableCell>
-                            <TableCell><StatusBadge status={item.status} /></TableCell>
-                            <TableCell className="text-[11px] text-muted-foreground">{format(new Date(item.detected_at), "dd/MM HH:mm")}</TableCell>
-                            <TableCell className="text-[11px] text-muted-foreground">{item.processed_at ? format(new Date(item.processed_at), "dd/MM HH:mm") : "—"}</TableCell>
-                            <TableCell className="text-xs text-center">{item.attempts}</TableCell>
-                            <TableCell className="text-[11px] text-red-400 max-w-[120px] truncate">{item.error_reason || "—"}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                {(item.status === "failed" || item.status === "ignored") && (
-                                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0" title="Reenfileirar" onClick={() => handleRequeue(item.id)}>
-                                    <RotateCcw className="w-3 h-3" />
-                                  </Button>
-                                )}
-                                {item.status === "pending" && (
-                                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0" title="Ignorar" onClick={() => handleIgnore(item.id)}>
-                                    <XCircle className="w-3 h-3" />
-                                  </Button>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
-      )}
-
+      {/* Simple create dialog — only name */}
       <CreateAutomationDialog open={showCreate} onOpenChange={setShowCreate} />
     </div>
   );
 }
 
-/* ───────── Automation Config ───────── */
+/* ───────── Simple Create Dialog (name only) ───────── */
+function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const create = useCreateWelcomeAutomation();
+  const [name, setName] = useState("");
+
+  const handleCreate = async () => {
+    if (!name.trim()) { toast.error("Digite um nome para a automação"); return; }
+    await create.mutateAsync({
+      name: name.trim(),
+      monitoring_device_id: "",
+      message_content: "Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉",
+      group_ids: [],
+      sender_device_ids: [],
+    });
+    onOpenChange(false);
+    setName("");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Heart className="w-5 h-5 text-primary" />
+            Nova Automação
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Nome da automação *</Label>
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Ex: Boas-vindas Grupo VIP"
+              className="h-10"
+              autoFocus
+              onKeyDown={e => e.key === "Enter" && handleCreate()}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={handleCreate} disabled={create.isPending || !name.trim()} className="gap-2">
+            {create.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            Criar Automação
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ───────── Detail View (all settings here) ───────── */
+function AutomationDetailView({ automation, onBack }: { automation: WelcomeAutomation; onBack: () => void }) {
+  const [tab, setTab] = useState("config");
+  const [queueFilter, setQueueFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const { data: queue } = useWelcomeQueue(automation.id);
+  const stats = useWelcomeQueueStats(automation.id);
+  const updateAutomation = useUpdateWelcomeAutomation();
+  const deleteAutomation = useDeleteWelcomeAutomation();
+  const updateQueueItem = useUpdateQueueItem();
+
+  const filteredQueue = useMemo(() => {
+    if (!queue) return [];
+    return queue.filter(item => {
+      if (statusFilter !== "all" && item.status !== statusFilter) return false;
+      if (queueFilter) {
+        const s = queueFilter.toLowerCase();
+        return item.participant_phone?.toLowerCase().includes(s) || item.participant_name?.toLowerCase().includes(s) || item.group_name?.toLowerCase().includes(s);
+      }
+      return true;
+    });
+  }, [queue, queueFilter, statusFilter]);
+
+  const handleToggleStatus = async () => {
+    const newStatus = automation.status === "active" ? "paused" : "active";
+    await updateAutomation.mutateAsync({ id: automation.id, status: newStatus } as any);
+    toast.success(newStatus === "active" ? "Automação iniciada!" : "Automação pausada!");
+  };
+
+  const handleFinalize = async () => {
+    await updateAutomation.mutateAsync({ id: automation.id, status: "completed" } as any);
+    toast.success("Automação finalizada!");
+  };
+
+  const handleDelete = async () => {
+    await deleteAutomation.mutateAsync(automation.id);
+    onBack();
+  };
+
+  const exportCSV = () => {
+    if (!filteredQueue.length) return;
+    const headers = ["Participante", "Nome", "Grupo", "Status", "Detectado", "Processado", "Tentativas", "Erro"];
+    const rows = filteredQueue.map(q => [q.participant_phone, q.participant_name || "", q.group_name || q.group_id, q.status, q.detected_at, q.processed_at || "", String(q.attempts), q.error_reason || ""]);
+    const csv = [headers.join(","), ...rows.map(r => r.map(c => `"${c}"`).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `boas-vindas-fila-${Date.now()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const st = AUTOMATION_STATUS[automation.status] || AUTOMATION_STATUS.paused;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Top bar */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
+            <ArrowLeft className="w-4 h-4" /> Voltar
+          </Button>
+          <h2 className="text-lg font-bold text-foreground">{automation.name}</h2>
+          <Badge variant="outline" className={`${st.color} text-[10px] border`}>{st.label}</Badge>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {automation.status !== "completed" && (
+            <Button size="sm" variant={automation.status === "active" ? "outline" : "default"} onClick={handleToggleStatus} className="gap-1.5">
+              {automation.status === "active" ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+              {automation.status === "active" ? "Pausar" : "Iniciar"}
+            </Button>
+          )}
+          {automation.status !== "completed" && (
+            <Button size="sm" variant="outline" onClick={handleFinalize} className="gap-1.5">
+              <Square className="w-3.5 h-3.5" /> Finalizar
+            </Button>
+          )}
+          <Button size="sm" variant="destructive" onClick={handleDelete} className="gap-1.5">
+            <Trash2 className="w-3.5 h-3.5" /> Excluir
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+        {[
+          { label: "Total", value: stats.total, color: "text-foreground" },
+          { label: "Pendentes", value: stats.pending, color: "text-yellow-400" },
+          { label: "Processando", value: stats.processing, color: "text-blue-400" },
+          { label: "Enviados", value: stats.sent, color: "text-emerald-400" },
+          { label: "Falhas", value: stats.failed, color: "text-red-400" },
+          { label: "Ignorados", value: stats.ignored, color: "text-gray-400" },
+          { label: "Duplicados", value: stats.duplicate_blocked, color: "text-orange-400" },
+        ].map(s => (
+          <Card key={s.label}>
+            <CardContent className="py-3 px-3 text-center">
+              <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
+              <p className="text-[10px] text-muted-foreground">{s.label}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Tabs: Config + Queue */}
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="config" className="gap-1.5"><Settings className="w-3.5 h-3.5" /> Configuração</TabsTrigger>
+          <TabsTrigger value="queue" className="gap-1.5"><ListChecks className="w-3.5 h-3.5" /> Fila ({stats.total})</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="config">
+          <AutomationConfig automation={automation} />
+        </TabsContent>
+
+        <TabsContent value="queue">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <CardTitle className="text-sm">Fila de Envio</CardTitle>
+                <div className="flex gap-2 flex-wrap">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <Input placeholder="Buscar..." value={queueFilter} onChange={e => setQueueFilter(e.target.value)} className="pl-8 h-8 w-40 text-xs" />
+                  </div>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {Object.entries(STATUS_MAP).map(([k, v]) => (<SelectItem key={k} value={k}>{v.label}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" variant="outline" onClick={exportCSV} className="h-8 gap-1.5 text-xs"><Download className="w-3.5 h-3.5" /> CSV</Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <ScrollArea className="max-h-[500px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Participante</TableHead>
+                      <TableHead className="text-xs">Grupo</TableHead>
+                      <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs">Detectado</TableHead>
+                      <TableHead className="text-xs">Processado</TableHead>
+                      <TableHead className="text-xs">Tent.</TableHead>
+                      <TableHead className="text-xs">Erro</TableHead>
+                      <TableHead className="text-xs">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredQueue.length === 0 && (
+                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground text-xs py-8">Nenhum item na fila</TableCell></TableRow>
+                    )}
+                    {filteredQueue.map(item => (
+                      <TableRow key={item.id}>
+                        <TableCell className="text-xs font-mono">
+                          <div>
+                            <span>{item.participant_phone}</span>
+                            {item.participant_name && <span className="block text-muted-foreground text-[10px]">{item.participant_name}</span>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs max-w-[120px] truncate">{item.group_name || item.group_id.slice(0, 12)}</TableCell>
+                        <TableCell><StatusBadge status={item.status} /></TableCell>
+                        <TableCell className="text-[11px] text-muted-foreground">{format(new Date(item.detected_at), "dd/MM HH:mm")}</TableCell>
+                        <TableCell className="text-[11px] text-muted-foreground">{item.processed_at ? format(new Date(item.processed_at), "dd/MM HH:mm") : "—"}</TableCell>
+                        <TableCell className="text-xs text-center">{item.attempts}</TableCell>
+                        <TableCell className="text-[11px] text-red-400 max-w-[120px] truncate">{item.error_reason || "—"}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {(item.status === "failed" || item.status === "ignored") && (
+                              <Button size="sm" variant="ghost" className="h-6 w-6 p-0" title="Reenfileirar" onClick={() => updateQueueItem.mutateAsync({ id: item.id, status: "pending" }).then(() => toast.success("Reenfileirado!"))}>
+                                <RotateCcw className="w-3 h-3" />
+                              </Button>
+                            )}
+                            {item.status === "pending" && (
+                              <Button size="sm" variant="ghost" className="h-6 w-6 p-0" title="Ignorar" onClick={() => updateQueueItem.mutateAsync({ id: item.id, status: "ignored" }).then(() => toast.success("Ignorado!"))}>
+                                <XCircle className="w-3 h-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+/* ───────── Automation Config (full settings inside detail) ───────── */
 function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
   const update = useUpdateWelcomeAutomation();
+  const { data: devices } = useConnectedDevices();
+  const { data: savedGroups } = useWelcomeGroups(automation.id);
+  const { data: savedSenders } = useWelcomeSenders(automation.id);
+
+  const [monitoringDevice, setMonitoringDevice] = useState(automation.monitoring_device_id || "");
   const [minDelay, setMinDelay] = useState(automation.min_delay_seconds);
   const [maxDelay, setMaxDelay] = useState(automation.max_delay_seconds);
   const [maxPerAccount, setMaxPerAccount] = useState(automation.max_per_account);
@@ -587,9 +542,51 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
   const [endHour, setEndHour] = useState(automation.send_end_hour);
   const [messageContent, setMessageContent] = useState(automation.message_content || "");
 
+  // Senders state
+  const [selectedSenders, setSelectedSenders] = useState<string[]>([]);
+  useEffect(() => {
+    if (savedSenders) setSelectedSenders(savedSenders.map((s: any) => s.device_id));
+  }, [savedSenders]);
+
+  // Groups state
+  const [selectedGroups, setSelectedGroups] = useState<{ group_id: string; group_name: string }[]>([]);
+  const [availableGroups, setAvailableGroups] = useState<{ id: string; name: string }[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+
+  useEffect(() => {
+    if (savedGroups) setSelectedGroups(savedGroups.map((g: any) => ({ group_id: g.group_id, group_name: g.group_name })));
+  }, [savedGroups]);
+
+  const loadGroups = async (deviceId?: string) => {
+    const target = deviceId || monitoringDevice;
+    if (!target) return;
+    setGroupsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(`whapi-chats?device_id=${target}&action=list_chats`, { method: "GET" });
+      if (error) throw error;
+      const groups = (data?.chats || data?.groups || []).filter((g: any) => g.id?.includes("@g.us")).map((g: any) => ({ id: g.id, name: g.name || g.subject || g.id }));
+      if (groups.length === 0) toast.info("Nenhum grupo encontrado nesta conta");
+      setAvailableGroups(groups);
+    } catch (err: any) {
+      toast.error("Erro ao carregar grupos: " + (err.message || "desconhecido"));
+    } finally {
+      setGroupsLoading(false);
+    }
+  };
+
+  const toggleGroup = (g: { id: string; name: string }) => {
+    setSelectedGroups(prev => prev.some(sg => sg.group_id === g.id) ? prev.filter(sg => sg.group_id !== g.id) : [...prev, { group_id: g.id, group_name: g.name }]);
+  };
+
+  const toggleSender = (id: string) => {
+    setSelectedSenders(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
+  };
+
   const save = async () => {
+    // Update automation fields
     await update.mutateAsync({
       id: automation.id,
+      monitoring_device_id: monitoringDevice || null,
       min_delay_seconds: minDelay,
       max_delay_seconds: Math.max(maxDelay, minDelay),
       max_per_account: maxPerAccount,
@@ -600,18 +597,103 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
       send_end_hour: endHour,
       message_content: messageContent,
     } as any);
+
+    // Sync groups: delete old, insert new
+    await supabase.from("welcome_automation_groups").delete().eq("automation_id", automation.id);
+    if (selectedGroups.length > 0) {
+      await supabase.from("welcome_automation_groups").insert(
+        selectedGroups.map(g => ({ automation_id: automation.id, group_id: g.group_id, group_name: g.group_name })) as any
+      );
+    }
+
+    // Sync senders: delete old, insert new
+    await supabase.from("welcome_automation_senders").delete().eq("automation_id", automation.id);
+    if (selectedSenders.length > 0) {
+      await supabase.from("welcome_automation_senders").insert(
+        selectedSenders.map((did, i) => ({ automation_id: automation.id, device_id: did, priority_order: i })) as any
+      );
+    }
+
     toast.success("Configuração salva!");
   };
 
   return (
     <div className="space-y-4">
+      {/* Monitoring account */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2"><Users className="w-4 h-4 text-primary" /> Conta de Monitoramento</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Conta que monitora os grupos</Label>
+            <Select value={monitoringDevice} onValueChange={v => { setMonitoringDevice(v); setAvailableGroups([]); loadGroups(v); }}>
+              <SelectTrigger className="h-9"><SelectValue placeholder="Selecione uma conta conectada..." /></SelectTrigger>
+              <SelectContent>
+                {devices?.map(d => (<SelectItem key={d.id} value={d.id}>{d.name} ({d.number})</SelectItem>))}
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground">Somente contas conectadas e com número são exibidas</p>
+          </div>
+
+          {/* Groups */}
+          {monitoringDevice && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-medium">Grupos monitorados</Label>
+                <Button size="sm" variant="outline" onClick={() => loadGroups()} disabled={groupsLoading} className="h-7 text-[11px] gap-1">
+                  {groupsLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Carregar Grupos
+                </Button>
+              </div>
+              {availableGroups.length > 0 && (
+                <ScrollArea className="h-[160px] border rounded-lg p-2">
+                  <div className="space-y-0.5">
+                    {availableGroups.map(g => (
+                      <label key={g.id} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/40 rounded cursor-pointer text-xs">
+                        <Checkbox checked={selectedGroups.some(sg => sg.group_id === g.id)} onCheckedChange={() => toggleGroup(g)} />
+                        <span className="truncate">{g.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+              {selectedGroups.length > 0 && (
+                <p className="text-[10px] text-emerald-400">{selectedGroups.length} grupo(s) selecionado(s)</p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Sender accounts */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2"><Send className="w-4 h-4 text-primary" /> Contas Remetentes</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <ScrollArea className="h-[160px] border rounded-lg p-2">
+            <div className="space-y-0.5">
+              {devices?.map(d => (
+                <label key={d.id} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/40 rounded cursor-pointer text-xs">
+                  <Checkbox checked={selectedSenders.includes(d.id)} onCheckedChange={() => toggleSender(d.id)} />
+                  <span className="truncate">{d.name} ({d.number})</span>
+                </label>
+              ))}
+              {(!devices || devices.length === 0) && (
+                <p className="text-xs text-muted-foreground p-2">Nenhuma conta conectada encontrada</p>
+              )}
+            </div>
+          </ScrollArea>
+          {selectedSenders.length > 0 && (
+            <p className="text-[10px] text-emerald-400 mt-1">{selectedSenders.length} conta(s) selecionada(s)</p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Delay & Limits */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Clock className="w-4 h-4 text-primary" />
-            Delays e Limites
-          </CardTitle>
+          <CardTitle className="text-sm flex items-center gap-2"><Clock className="w-4 h-4 text-primary" /> Delays e Limites</CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -638,10 +720,7 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
       {/* Schedule & Anti-dupe */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Shield className="w-4 h-4 text-primary" />
-            Horário e Anti-duplicidade
-          </CardTitle>
+          <CardTitle className="text-sm flex items-center gap-2"><Shield className="w-4 h-4 text-primary" /> Horário e Anti-duplicidade</CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -674,10 +753,7 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
       {/* Message */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Send className="w-4 h-4 text-primary" />
-            Mensagem de Boas-vindas
-          </CardTitle>
+          <CardTitle className="text-sm flex items-center gap-2"><Send className="w-4 h-4 text-primary" /> Mensagem de Boas-vindas</CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
           <MessageEditor value={messageContent} onChange={setMessageContent} />
@@ -689,179 +765,5 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
         Salvar Configuração
       </Button>
     </div>
-  );
-}
-
-/* ───────── Create Dialog ───────── */
-function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const { user } = useAuth();
-  const create = useCreateWelcomeAutomation();
-  const [name, setName] = useState("");
-  const [monitoringDevice, setMonitoringDevice] = useState("");
-  const [messageContent, setMessageContent] = useState("Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉");
-  const [selectedSenders, setSelectedSenders] = useState<string[]>([]);
-  const [selectedGroups, setSelectedGroups] = useState<{ group_id: string; group_name: string }[]>([]);
-  const [groupsLoading, setGroupsLoading] = useState(false);
-  const [availableGroups, setAvailableGroups] = useState<{ id: string; name: string }[]>([]);
-
-  const { data: devices } = useConnectedDevices(open);
-
-  const loadGroups = async (deviceId?: string) => {
-    const targetDevice = deviceId || monitoringDevice;
-    if (!targetDevice) return;
-    setGroupsLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        `whapi-chats?device_id=${targetDevice}&action=list_chats`,
-        { method: "GET" }
-      );
-      if (error) throw error;
-      const groups = (data?.chats || data?.groups || [])
-        .filter((g: any) => g.id?.includes("@g.us"))
-        .map((g: any) => ({ id: g.id, name: g.name || g.subject || g.id }));
-      if (groups.length === 0) {
-        toast.info("Nenhum grupo encontrado nesta conta");
-      }
-      setAvailableGroups(groups);
-    } catch (err: any) {
-      toast.error("Erro ao carregar grupos: " + (err.message || "desconhecido"));
-    } finally {
-      setGroupsLoading(false);
-    }
-  };
-
-  const handleCreate = async () => {
-    if (!name || !monitoringDevice || !messageContent || selectedSenders.length === 0) {
-      toast.error("Preencha todos os campos obrigatórios");
-      return;
-    }
-    await create.mutateAsync({
-      name,
-      monitoring_device_id: monitoringDevice,
-      message_content: messageContent,
-      group_ids: selectedGroups,
-      sender_device_ids: selectedSenders,
-    });
-    onOpenChange(false);
-    setName(""); setMonitoringDevice(""); setMessageContent("Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉");
-    setSelectedSenders([]); setSelectedGroups([]); setAvailableGroups([]);
-  };
-
-  const toggleGroup = (g: { id: string; name: string }) => {
-    setSelectedGroups(prev =>
-      prev.some(sg => sg.group_id === g.id) ? prev.filter(sg => sg.group_id !== g.id) : [...prev, { group_id: g.id, group_name: g.name }]
-    );
-  };
-
-  const toggleSender = (id: string) => {
-    setSelectedSenders(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl w-[95vw] max-h-[92dvh] min-h-0 overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Heart className="w-5 h-5 text-primary" />
-            Nova Automação de Boas-vindas
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="flex-1 min-h-0 overflow-y-auto pr-3">
-          <div className="space-y-5 pb-2">
-            {/* Name */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Nome da automação *</Label>
-              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Boas-vindas Grupo VIP" className="h-9" />
-            </div>
-
-            {/* Monitoring account */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Conta de monitoramento *</Label>
-              <Select value={monitoringDevice} onValueChange={(v) => { setMonitoringDevice(v); setAvailableGroups([]); setSelectedGroups([]); loadGroups(v); }}>
-                <SelectTrigger className="h-9"><SelectValue placeholder="Selecione uma conta conectada..." /></SelectTrigger>
-                <SelectContent>
-                  {devices?.map(d => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name} ({d.number})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[10px] text-muted-foreground">Somente contas conectadas e com número são exibidas</p>
-            </div>
-
-            {/* Groups */}
-            {monitoringDevice && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium">Grupos monitorados</Label>
-                  <Button size="sm" variant="outline" onClick={() => loadGroups()} disabled={groupsLoading} className="h-7 text-[11px] gap-1">
-                    {groupsLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                    Carregar Grupos
-                  </Button>
-                </div>
-                {availableGroups.length > 0 && (
-                  <ScrollArea className="h-[140px] border rounded-lg p-2">
-                    <div className="space-y-0.5">
-                      {availableGroups.map(g => (
-                        <label key={g.id} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/40 rounded cursor-pointer text-xs">
-                          <Checkbox
-                            checked={selectedGroups.some(sg => sg.group_id === g.id)}
-                            onCheckedChange={() => toggleGroup(g)}
-                          />
-                          <span className="truncate">{g.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                )}
-                {selectedGroups.length > 0 && (
-                  <p className="text-[10px] text-emerald-400">{selectedGroups.length} grupo(s) selecionado(s)</p>
-                )}
-              </div>
-            )}
-
-            {/* Sender accounts */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Contas remetentes *</Label>
-              <ScrollArea className="h-[160px] border rounded-lg p-2">
-                <div className="space-y-0.5">
-                  {devices?.map(d => (
-                    <label key={d.id} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/40 rounded cursor-pointer text-xs">
-                      <Checkbox
-                        checked={selectedSenders.includes(d.id)}
-                        onCheckedChange={() => toggleSender(d.id)}
-                      />
-                      <span className="truncate">{d.name} ({d.number})</span>
-                    </label>
-                  ))}
-                  {(!devices || devices.length === 0) && (
-                    <p className="text-xs text-muted-foreground p-2">Nenhuma conta conectada encontrada</p>
-                  )}
-                </div>
-              </ScrollArea>
-              {selectedSenders.length > 0 && (
-                <p className="text-[10px] text-emerald-400">{selectedSenders.length} conta(s) selecionada(s)</p>
-              )}
-            </div>
-
-            {/* Message */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Mensagem de Boas-vindas *</Label>
-              <MessageEditor value={messageContent} onChange={setMessageContent} />
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter className="border-t pt-3 mt-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleCreate} disabled={create.isPending} className="gap-2">
-            {create.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            Criar Automação
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
