@@ -288,9 +288,11 @@ Deno.serve(async (req) => {
 
       // Run fallback strategies when we have fewer groups than expected (< 50)
       // or when the primary endpoint failed entirely
-      const needsFallback = !primaryFetchSucceeded || allGroups.length < 50;
+      // In quick mode, skip fallbacks if we already have at least 1 group
+      const needsFallback = !quickMode && (!primaryFetchSucceeded || allGroups.length < 50);
+      const quickHasEnough = quickMode && allGroups.length > 0;
 
-      if (needsFallback) {
+      if (needsFallback && !quickHasEnough) {
         // ─── S1b: /group/list with count ───
         const dataS1b = await fetchSafe(`${apiBaseUrl}/group/list?GetParticipants=true&count=500`, 1);
         if (dataS1b) {
