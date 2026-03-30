@@ -351,7 +351,7 @@ function NextActionCountdown({ contacts, campaign }: { contacts: any[]; campaign
 // ═══════════════════════════════════════════════════════════════
 function BetaGate({ onAccept }: { onAccept: () => void }) {
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/95 backdrop-blur-md p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-[2px] p-4">
       <div className="w-full max-w-lg rounded-2xl border border-border/50 bg-card shadow-2xl p-8 space-y-6 text-center">
         <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto">
           <AlertTriangle className="w-8 h-8 text-amber-500" />
@@ -2262,30 +2262,33 @@ export default function MassGroupInject() {
     setView("create");
   }, []);
 
-  if (!betaAccepted) {
-    return <BetaGate onAccept={handleAcceptBeta} />;
-  }
+  const mainContent = (() => {
+    if (view === "create") {
+      return (
+        <CreateCampaign
+          onBack={() => { setView("list"); setPrefillContacts(undefined); setPrefillName(undefined); }}
+          onCampaignCreated={(id) => { setSelectedCampaignId(id); setView("detail"); setPrefillContacts(undefined); setPrefillName(undefined); }}
+          prefillContacts={prefillContacts}
+          prefillName={prefillName}
+        />
+      );
+    }
+    if (view === "detail" && selectedCampaignId) {
+      return (
+        <CampaignDetail
+          campaignId={selectedCampaignId}
+          onBack={() => { setSelectedCampaignId(null); setView("list"); }}
+          onNewCampaignFromFailed={handleNewCampaignFromFailed}
+        />
+      );
+    }
+    return <CampaignList onCreateNew={() => { localStorage.removeItem("mass-inject-draft"); setView("create"); }} onViewCampaign={(id) => { setSelectedCampaignId(id); setView("detail"); }} />;
+  })();
 
-  if (view === "create") {
-    return (
-      <CreateCampaign
-        onBack={() => { setView("list"); setPrefillContacts(undefined); setPrefillName(undefined); }}
-        onCampaignCreated={(id) => { setSelectedCampaignId(id); setView("detail"); setPrefillContacts(undefined); setPrefillName(undefined); }}
-        prefillContacts={prefillContacts}
-        prefillName={prefillName}
-      />
-    );
-  }
-
-  if (view === "detail" && selectedCampaignId) {
-    return (
-      <CampaignDetail
-        campaignId={selectedCampaignId}
-        onBack={() => { setSelectedCampaignId(null); setView("list"); }}
-        onNewCampaignFromFailed={handleNewCampaignFromFailed}
-      />
-    );
-  }
-
-  return <CampaignList onCreateNew={() => { localStorage.removeItem("mass-inject-draft"); setView("create"); }} onViewCampaign={(id) => { setSelectedCampaignId(id); setView("detail"); }} />;
+  return (
+    <>
+      {!betaAccepted && <BetaGate onAccept={handleAcceptBeta} />}
+      {mainContent}
+    </>
+  );
 }
