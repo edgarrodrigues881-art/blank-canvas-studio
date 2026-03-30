@@ -660,7 +660,7 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
       const noTimerTooLong = nextRunAtMs === null && nowMs - updatedAtMs >= WATCHDOG_STALE_AFTER_MS;
 
       if (timerPastDue || noTimerTooLong) {
-        setLiveRuntimeNote("Aguardando processamento pela VPS...");
+        setLiveRuntimeNote("Aguardando processamento...");
       } else {
         setLiveRuntimeNote("");
       }
@@ -969,14 +969,6 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
         </div>
       </div>
 
-      {/* Runtime note */}
-      {(isActionPending || liveRuntimeNote) && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-primary/5 border border-primary/10 rounded-lg px-4 py-2.5">
-          <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
-          <span>{liveRuntimeNote || "Processando..."}</span>
-        </div>
-      )}
-
       {/* Pause reason */}
       {campaign.status === "paused" && campaign.pause_reason && (
         <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-500/5 border border-amber-500/15 rounded-lg px-4 py-2.5">
@@ -1002,26 +994,40 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
       </div>
 
       {/* Progress bar for active campaigns */}
-      {isRunning && campaign.total_contacts > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
-              <span className="font-medium text-foreground">Em andamento</span>
-              <span>• {lastDeviceUsed !== "—" ? lastDeviceUsed : "Aguardando"}</span>
-              <span>• {rotationSummary}</span>
+      {isRunning && campaign.total_contacts > 0 && (() => {
+        const processed = successCount + alreadyCount + failedCount;
+        const pct = Math.round((processed / campaign.total_contacts) * 100);
+        const hasStarted = processed > 0;
+
+        if (!hasStarted) {
+          return (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-primary/5 border border-primary/10 rounded-lg px-4 py-2.5">
+              <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
+              <span>Aguardando processamento...</span>
             </div>
-            <span className="font-mono tabular-nums">{Math.round(((successCount + alreadyCount + failedCount) / campaign.total_contacts) * 100)}%</span>
+          );
+        }
+
+        return (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
+                <span className="font-medium text-foreground">Em andamento</span>
+                {lastDeviceUsed !== "—" && <span>• {lastDeviceUsed}</span>}
+              </div>
+              <span className="font-mono tabular-nums">{pct}%</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-muted/40 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-primary transition-all duration-500"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <NextActionCountdown contacts={contacts} campaign={campaign} />
           </div>
-          <div className="h-2 w-full rounded-full bg-muted/40 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-primary transition-all duration-500"
-              style={{ width: `${Math.round(((successCount + alreadyCount + failedCount) / campaign.total_contacts) * 100)}%` }}
-            />
-          </div>
-          <NextActionCountdown contacts={contacts} campaign={campaign} />
-        </div>
-      )}
+        );
+      })()}
 
       {/* Done actions */}
       {isDone && retryableContacts.length > 0 && (
