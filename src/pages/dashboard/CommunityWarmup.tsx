@@ -336,7 +336,7 @@ export default function CommunityWarmup() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto px-4 py-6">
+    <div className="space-y-6 w-full px-4 py-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
         <div className="flex items-start gap-3 flex-1">
