@@ -23,7 +23,7 @@ const FORMAT_BUTTONS = [
   { icon: Code, wrap: ["```", "```"], label: "Código" },
 ];
 
-function WhatsAppPreview({ content }: { content: string }) {
+function WhatsAppPreview({ content, buttons }: { content: string; buttons?: { text: string; action?: string }[] }) {
   const isDark = document.documentElement.classList.contains("dark");
 
   const varClass = isDark ? "text-emerald-400" : "text-emerald-600";
@@ -49,25 +49,44 @@ function WhatsAppPreview({ content }: { content: string }) {
       </div>
       <div className="flex-1 overflow-y-auto p-4">
         <div className="flex justify-end">
-          <div
-            className="rounded-xl rounded-tr-sm px-3 py-2 max-w-[85%] text-sm leading-relaxed shadow-lg"
-            style={{
-              backgroundColor: isDark ? "#005c4b" : "#DCF8C6",
-              color: isDark ? "#ffffff" : "#111b21",
-            }}
-          >
-            {content ? (
-              <span dangerouslySetInnerHTML={{ __html: rendered }} />
-            ) : (
-              <span className={isDark ? "text-white/40 italic" : "text-gray-400 italic"}>Digite uma mensagem...</span>
-            )}
-            <div className="flex items-center justify-end gap-1 mt-1">
-              <span className={`text-[9px] ${isDark ? "text-white/50" : "text-gray-500"}`}>14:30</span>
-              <svg viewBox="0 0 16 11" className={`w-4 h-3 ${isDark ? "text-blue-300" : "text-blue-500"}`} fill="currentColor">
-                <path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 00-.336-.146.47.47 0 00-.343.146l-.311.31a.445.445 0 00-.14.337c0 .136.047.25.14.343l2.996 2.996a.724.724 0 00.501.203.697.697 0 00.534-.229L11.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
-                <path d="M15.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-1.2-1.134-.311.311a.39.39 0 00-.14.337c0 .136.047.25.14.343l1.791 1.791a.724.724 0 00.501.203.697.697 0 00.534-.229L15.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
-              </svg>
+          <div className="max-w-[85%] space-y-1">
+            <div
+              className="rounded-xl rounded-tr-sm px-3 py-2 text-sm leading-relaxed shadow-lg"
+              style={{
+                backgroundColor: isDark ? "#005c4b" : "#DCF8C6",
+                color: isDark ? "#ffffff" : "#111b21",
+              }}
+            >
+              {content ? (
+                <span dangerouslySetInnerHTML={{ __html: rendered }} />
+              ) : (
+                <span className={isDark ? "text-white/40 italic" : "text-gray-400 italic"}>Digite uma mensagem...</span>
+              )}
+              <div className="flex items-center justify-end gap-1 mt-1">
+                <span className={`text-[9px] ${isDark ? "text-white/50" : "text-gray-500"}`}>14:30</span>
+                <svg viewBox="0 0 16 11" className={`w-4 h-3 ${isDark ? "text-blue-300" : "text-blue-500"}`} fill="currentColor">
+                  <path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 00-.336-.146.47.47 0 00-.343.146l-.311.31a.445.445 0 00-.14.337c0 .136.047.25.14.343l2.996 2.996a.724.724 0 00.501.203.697.697 0 00.534-.229L11.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
+                  <path d="M15.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-1.2-1.134-.311.311a.39.39 0 00-.14.337c0 .136.047.25.14.343l1.791 1.791a.724.724 0 00.501.203.697.697 0 00.534-.229L15.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
+                </svg>
+              </div>
             </div>
+            {/* Buttons preview */}
+            {buttons && buttons.length > 0 && (
+              <div className="space-y-1">
+                {buttons.map((btn, i) => (
+                  <div
+                    key={i}
+                    className="rounded-xl px-3 py-2 text-center text-sm font-medium shadow-sm"
+                    style={{
+                      backgroundColor: isDark ? "#1f2c33" : "#ffffff",
+                      color: isDark ? "#53bdeb" : "#027eb5",
+                    }}
+                  >
+                    {btn.text || `Botão ${i + 1}`}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
