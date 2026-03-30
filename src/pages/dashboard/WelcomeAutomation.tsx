@@ -370,7 +370,7 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
         ? c.map((card: any) => ({
             title: card?.title || "",
             description: card?.description || card?.text || "",
-            image_url: card?.image_url || card?.image || card?.media_url || "",
+            image_url: card?.image_url || card?.image || card?.media_url || card?.mediaUrl || "",
             buttons: Array.isArray(card?.buttons)
               ? card.buttons.map((btn: any) => ({
                   text: btn?.text || btn?.label || "",

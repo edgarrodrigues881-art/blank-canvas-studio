@@ -275,11 +275,11 @@ export function WelcomeMessageEditor({ value, onChange, buttons, carouselCards, 
                           importStructuredTemplate({
                             type: "carousel",
                             content: (t.message || "").split("|||")[0] || "",
-                            carouselCards: Array.isArray(t.cards)
+                          carouselCards: Array.isArray(t.cards)
                               ? t.cards.map((c: any) => ({
                                   title: c?.title || "",
                                   description: c?.description || c?.text || "",
-                                  image_url: c?.image_url || c?.image || c?.media_url || "",
+                                  image_url: c?.image_url || c?.image || c?.media_url || c?.mediaUrl || "",
                                   buttons: Array.isArray(c?.buttons)
                                     ? c.buttons.slice(0, 2).map((b: any, i: number) => ({
                                         text: b?.text || b?.label || `Botão ${i + 1}`,
