@@ -1,0 +1,649 @@
+// ══════════════════════════════════════════════════════════
+// VPS Engine — Mass Group Inject Worker
+// Continuous loop processor — replaces Edge Function self-invocation
+// ══════════════════════════════════════════════════════════
+
+import { getDb } from "./db";
+import { createLogger } from "./lib/logger";
+import { config } from "./config";
+
+const log = createLogger("mass-inject");
+
+const API_TIMEOUT_MS = 25_000;
+const MAX_CONSECUTIVE_FAILURES = 15;
+const MAX_RETRIES = 5;
+const RETRYABLE_STATUSES = ["pending", "rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped", "permission_unconfirmed", "unknown_failure", "timeout"];
+
+// ── In-memory caches (persist across contacts within same campaign run) ──
+const participantCache = new Map<string, { participants: Set<string>; fetchedAt: number }>();
+const endpointCache = new Map<string, number>();
+const PARTICIPANT_CACHE_TTL_MS = 5 * 60_000; // 5 min
+
+// ── Tracking ──
+export let lastMassInjectTickAt: Date | null = null;
+let activeCampaignId: string | null = null;
+
+export function getMassInjectStatus() {
+  return { lastTick: lastMassInjectTickAt, activeCampaign: activeCampaignId };
+}
+
+// ── Utilities ──
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+const randomBetween = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+const nowIso = () => new Date().toISOString();
+
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = API_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error: any) {
+    if (error.name === "AbortError") throw new Error(`Timeout: API não respondeu em ${Math.round(timeoutMs / 1000)}s`);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function buildHeaders(token: string, json = false): Record<string, string> {
+  const h: Record<string, string> = { token, Accept: "application/json", "Cache-Control": "no-cache" };
+  if (json) h["Content-Type"] = "application/json";
+  return h;
+}
+
+function normalizePhone(raw: string): string | null {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (digits.length < 10 || digits.length > 15) return null;
+  const phone = digits.startsWith("55") ? digits : `55${digits}`;
+  if (phone.length < 12 || phone.length > 13) return null;
+  return phone;
+}
+
+function buildPhoneFingerprints(raw: string): string[] {
+  const digits = String(raw || "").replace(/\D/g, "").replace(/@.*/, "");
+  if (!digits) return [];
+  const set = new Set<string>();
+  const local = digits.startsWith("55") ? digits.slice(2) : digits;
+  const add = (v: string) => { const c = v.replace(/\D/g, ""); if (c.length >= 10) set.add(c); };
+  add(digits); add(local);
+  add(local.startsWith("55") ? local.slice(2) : local);
+  add(local.length >= 10 && !local.startsWith("55") ? `55${local}` : local);
+  if (local.length === 11 && local[2] === "9") { add(local.slice(0, 2) + local.slice(3)); add(`55${local.slice(0, 2) + local.slice(3)}`); }
+  if (local.length === 10) { add(local.slice(0, 2) + "9" + local.slice(2)); add(`55${local.slice(0, 2) + "9" + local.slice(2)}`); }
+  return Array.from(set);
+}
+
+function participantSetHasPhone(participants: Set<string>, phone: string) {
+  return buildPhoneFingerprints(phone).some(fp => participants.has(fp));
+}
+
+// ── Participant fetching (with in-memory cache) ──
+function collectParticipants(value: any, participants: Set<string>) {
+  if (!value) return;
+  if (Array.isArray(value)) { value.forEach(v => collectParticipants(v, participants)); return; }
+  if (typeof value !== "object") return;
+
+  const nested = value?.Participants || value?.participants || value?.members;
+  if (Array.isArray(nested)) { nested.forEach((v: any) => collectParticipants(v, participants)); return; }
+
+  const id = String(value?.id || value?.jid || value?.JID || value?.participant || "");
+  if (id.includes("@lid") || id.includes("@newsletter")) {
+    const phone = extractPhone(value);
+    if (phone) buildPhoneFingerprints(phone).forEach(fp => participants.add(fp));
+    return;
+  }
+
+  const candidates = [value?.PhoneNumber, value?.phoneNumber, value?.phone, value?.number, value?.wid, value?.wa_id, value?.participant, id];
+  for (const c of candidates) {
+    if (c) buildPhoneFingerprints(String(c)).forEach(fp => participants.add(fp));
+  }
+}
+
+function extractPhone(value: any): string | null {
+  const candidates = [value?.PhoneNumber, value?.phoneNumber, value?.phone, value?.number, value?.wid, value?.wa_id, value?.pn, value?.user];
+  for (const c of candidates) {
+    if (!c) continue;
+    const digits = String(c).replace(/@.*$/, "").replace(/[^0-9]/g, "");
+    if (digits.length >= 8 && digits.length <= 15) return digits;
+  }
+  return null;
+}
+
+async function fetchGroupParticipants(baseUrl: string, token: string, groupId: string): Promise<Set<string>> {
+  // Check cache first
+  const cacheKey = `${baseUrl}::${groupId}`;
+  const cached = participantCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < PARTICIPANT_CACHE_TTL_MS) {
+    return cached.participants;
+  }
+
+  const participants = new Set<string>();
+
+  // Strategy 1: /group/list with participants
+  try {
+    const res = await fetchWithTimeout(`${baseUrl}/group/list?GetParticipants=true&count=500`, { headers: buildHeaders(token) });
+    if (res.ok) {
+      const body = await res.json();
+      const groups = Array.isArray(body) ? body : body?.groups || body?.data || [];
+      const target = groups.find((g: any) => (g?.JID || g?.jid || g?.id || "") === groupId);
+      if (target) {
+        collectParticipants(target?.Participants || target?.participants || target?.members || [], participants);
+        if (participants.size > 0) {
+          participantCache.set(cacheKey, { participants, fetchedAt: Date.now() });
+          return participants;
+        }
+      }
+    }
+  } catch (e) { /* fallback */ }
+
+  // Strategy 2: /group/fetchAllGroups
+  try {
+    const res = await fetchWithTimeout(`${baseUrl}/group/fetchAllGroups`, { headers: buildHeaders(token) });
+    if (res.ok) {
+      const body = await res.json();
+      const groups = Array.isArray(body) ? body : body?.groups || body?.data || [];
+      const target = groups.find((g: any) => (g?.JID || g?.jid || g?.id || "") === groupId);
+      if (target) {
+        collectParticipants(target?.Participants || target?.participants || target?.members || [], participants);
+        if (participants.size > 0) {
+          participantCache.set(cacheKey, { participants, fetchedAt: Date.now() });
+          return participants;
+        }
+      }
+    }
+  } catch (e) { /* fallback */ }
+
+  // Strategy 3-5: individual endpoints
+  const fallbacks = [
+    { method: "POST" as const, url: `${baseUrl}/group/info`, body: { groupJid: groupId } },
+    { method: "GET" as const, url: `${baseUrl}/group/info?groupJid=${encodeURIComponent(groupId)}` },
+    { method: "POST" as const, url: `${baseUrl}/chat/info`, body: { chatId: groupId } },
+  ];
+  for (const fb of fallbacks) {
+    try {
+      const res = await fetchWithTimeout(fb.url, {
+        method: fb.method,
+        headers: fb.body ? buildHeaders(token, true) : buildHeaders(token),
+        ...(fb.body ? { body: JSON.stringify(fb.body) } : {}),
+      });
+      if (!res.ok) continue;
+      const body = await res.json();
+      const gp = body?.group || body?.data?.group || body?.data || body;
+      collectParticipants(gp?.Participants || gp?.participants || gp?.members || [], participants);
+      if (participants.size > 0) {
+        participantCache.set(cacheKey, { participants, fetchedAt: Date.now() });
+        return participants;
+      }
+    } catch { /* continue */ }
+  }
+
+  return participants;
+}
+
+function invalidateParticipantCache(baseUrl: string, groupId: string) {
+  participantCache.delete(`${baseUrl}::${groupId}`);
+}
+
+// ── Connection check (single, fast) ──
+async function isDeviceConnected(baseUrl: string, token: string): Promise<boolean | null> {
+  try {
+    const res = await fetchWithTimeout(`${baseUrl}/instance/status?t=${Date.now()}`, { headers: buildHeaders(token) }, 8000);
+    const body = await res.json().catch(() => ({}));
+    const statusObj = body?.status;
+    if (statusObj && typeof statusObj === "object") {
+      if (statusObj.connected === true) return true;
+      if (statusObj.connected === false) return false;
+    }
+    const raw = JSON.stringify(body).toLowerCase();
+    if (["connected", "authenticated", "open", "ready"].some(s => raw.includes(s))) return true;
+    if (["disconnected", "closed", "close", "offline"].some(s => raw.includes(s))) return false;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ── Add to group (with endpoint caching) ──
+interface AddResult {
+  ok: boolean;
+  alreadyExists: boolean;
+  detail: string;
+  retryable: boolean;
+  pauseCampaign: boolean;
+  cooldownMs: number;
+  strategyIndex?: number;
+}
+
+function buildAddStrategies(baseUrl: string, groupId: string, phone: string) {
+  const p = phone.replace(/@.*/, "");
+  return [
+    { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupJid: groupId, action: "add", participants: [p] } },
+    { method: "PUT" as const, url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`, body: { action: "add", participants: [p] } },
+    { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupJid: groupId, action: "add", participants: [`${p}@s.whatsapp.net`] } },
+    { method: "PUT" as const, url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`, body: { action: "add", participants: [`${p}@s.whatsapp.net`] } },
+    { method: "POST" as const, url: `${baseUrl}/group/addParticipant`, body: { groupJid: groupId, participant: p } },
+  ];
+}
+
+function hasExplicitFailure(msg: string) {
+  const n = msg.toLowerCase();
+  return ["failed", "bad-request", "not admin", "not found", "invalid group", "invalid participant", "unauthorized", "blocked", "forbidden", "denied", "unable to add"].some(t => n.includes(t));
+}
+
+async function addToGroup(baseUrl: string, token: string, groupId: string, phone: string): Promise<AddResult> {
+  const cacheKey = `${baseUrl}::${groupId}`;
+  const cachedIdx = endpointCache.get(cacheKey);
+  const strategies = buildAddStrategies(baseUrl, groupId, phone);
+  const headers = buildHeaders(token, true);
+
+  const tryStrategy = async (idx: number) => {
+    const s = strategies[idx];
+    const res = await fetchWithTimeout(s.url, { method: s.method, headers, body: JSON.stringify(s.body) });
+    const raw = await res.text();
+    let body: any;
+    try { body = JSON.parse(raw); } catch { body = { raw }; }
+    return { res, raw, body, idx };
+  };
+
+  const processResult = (res: Response, raw: string, body: any, idx: number): AddResult => {
+    const rawLower = raw.toLowerCase();
+    const msg = body?.error || body?.message || body?.msg || body?.details || body?.data?.error || body?.data?.message || "";
+    const msgStr = String(msg).toLowerCase();
+    const fullText = `${rawLower} ${msgStr}`;
+
+    // groupUpdated array
+    const gu = body?.groupUpdated || body?.data?.groupUpdated;
+    if (Array.isArray(gu) && gu.length > 0) {
+      const errCode = Number(gu[0]?.Error ?? gu[0]?.error ?? -1);
+      if (errCode === 0 || errCode === 200 || errCode === 201) {
+        endpointCache.set(cacheKey, idx);
+        return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx };
+      }
+      if (errCode === 409) {
+        endpointCache.set(cacheKey, idx);
+        return { ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx };
+      }
+      if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(fullText)) {
+        endpointCache.set(cacheKey, idx);
+        return { ok: true, alreadyExists: false, detail: `Adicionado (code: ${errCode}).`, retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx };
+      }
+    }
+
+    // Already exists
+    if (fullText.includes("already") || fullText.includes("já") || fullText.includes("memberaddmode") || res.status === 409) {
+      endpointCache.set(cacheKey, idx);
+      return { ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx };
+    }
+
+    // Success
+    if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(fullText)) {
+      endpointCache.set(cacheKey, idx);
+      return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx };
+    }
+
+    // Classify failure
+    endpointCache.set(cacheKey, idx);
+    return classifyFailure(fullText, res.status, idx);
+  };
+
+  // Try cached endpoint first
+  if (cachedIdx !== undefined && cachedIdx >= 0 && cachedIdx < strategies.length) {
+    try {
+      const { res, raw, body, idx } = await tryStrategy(cachedIdx);
+      return processResult(res, raw, body, idx);
+    } catch (e: any) {
+      return { ok: false, alreadyExists: false, detail: e.message, retryable: true, pauseCampaign: false, cooldownMs: 15000 };
+    }
+  }
+
+  // Discovery mode
+  for (let i = 0; i < strategies.length; i++) {
+    try {
+      const { res, raw, body, idx } = await tryStrategy(i);
+      if (res.status === 405) continue;
+      return processResult(res, raw, body, idx);
+    } catch (e: any) {
+      return { ok: false, alreadyExists: false, detail: e.message, retryable: true, pauseCampaign: false, cooldownMs: 15000 };
+    }
+  }
+
+  return { ok: false, alreadyExists: false, detail: "Nenhum endpoint encontrado (405).", retryable: false, pauseCampaign: true, cooldownMs: 0 };
+}
+
+function classifyFailure(msg: string, status: number, strategyIndex: number): AddResult {
+  const base = { ok: false as const, alreadyExists: false, strategyIndex };
+  if (msg.includes("rate-overlimit") || msg.includes("429") || msg.includes("too many") || status === 429)
+    return { ...base, detail: "Rate limit.", retryable: true, pauseCampaign: false, cooldownMs: 30000 };
+  if (msg.includes("not admin") || msg.includes("not an admin"))
+    return { ...base, detail: "Sem permissão de admin.", retryable: false, pauseCampaign: true, cooldownMs: 0 };
+  if (msg.includes("not found") && (msg.includes("group") || msg.includes("invalid group")))
+    return { ...base, detail: "Grupo inválido.", retryable: false, pauseCampaign: true, cooldownMs: 0 };
+  if (msg.includes("blocked") || msg.includes("ban"))
+    return { ...base, detail: "Contato bloqueado.", retryable: false, pauseCampaign: false, cooldownMs: 0 };
+  if (msg.includes("not found") && (msg.includes("number") || msg.includes("participant") || msg.includes("contact")))
+    return { ...base, detail: "Número não encontrado no WhatsApp.", retryable: false, pauseCampaign: false, cooldownMs: 0 };
+  if (status === 401 || msg.includes("unauthorized") || msg.includes("invalid token"))
+    return { ...base, detail: "Token inválido.", retryable: false, pauseCampaign: true, cooldownMs: 0 };
+  if (status === 503 || msg.includes("disconnected") || msg.includes("socket"))
+    return { ...base, detail: "Instância desconectada.", retryable: true, pauseCampaign: false, cooldownMs: 20000 };
+  if (msg.includes("timeout") || status === 408 || status === 504)
+    return { ...base, detail: "Timeout.", retryable: true, pauseCampaign: false, cooldownMs: 15000 };
+  if (status >= 500)
+    return { ...base, detail: `Erro servidor (${status}).`, retryable: true, pauseCampaign: false, cooldownMs: 15000 };
+  return { ...base, detail: msg.substring(0, 140) || `HTTP ${status}`, retryable: true, pauseCampaign: false, cooldownMs: 10000 };
+}
+
+// ── Device selection ──
+function parseDeviceIds(raw: any): string[] {
+  if (Array.isArray(raw)) return raw.filter(Boolean).map(String);
+  if (typeof raw === "string") { try { return JSON.parse(raw); } catch { return []; } }
+  return [];
+}
+
+function pickDeviceId(campaign: any, blacklist: Set<string>): string | null {
+  const ids = parseDeviceIds(campaign.device_ids);
+  const available = ids.filter(id => !blacklist.has(id));
+  if (available.length === 0) return null;
+  if (available.length === 1) return available[0];
+  // Round-robin based on processed count
+  const processed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0) + Number(campaign.already_count || 0);
+  return available[processed % available.length];
+}
+
+// ── Emit event ──
+async function emitEvent(sb: any, campaignId: string, eventType: string, level: string, message?: string) {
+  try {
+    await sb.from("mass_inject_events").insert({
+      campaign_id: campaignId,
+      event_type: eventType,
+      level,
+      message: message || eventType,
+    });
+  } catch { /* non-critical */ }
+}
+
+// ── Update campaign counters ──
+async function updateCounters(sb: any, campaignId: string, status: string) {
+  const updates: Record<string, any> = { updated_at: nowIso() };
+  if (status === "completed") updates.success_count = (await getCount(sb, campaignId, "completed"));
+  else if (status === "already_exists") updates.already_count = (await getCount(sb, campaignId, "already_exists"));
+  else updates.fail_count = (await getCount(sb, campaignId, ["failed", "rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped", "permission_unconfirmed", "confirmed_no_admin", "invalid_group", "contact_not_found", "unauthorized", "blocked", "unknown_failure", "timeout"]));
+  await sb.from("mass_inject_campaigns").update(updates).eq("id", campaignId);
+}
+
+async function getCount(sb: any, campaignId: string, status: string | string[]) {
+  const query = sb.from("mass_inject_contacts").select("id", { count: "exact", head: true }).eq("campaign_id", campaignId);
+  if (Array.isArray(status)) query.in("status", status);
+  else query.eq("status", status);
+  const { count } = await query;
+  return Number(count || 0);
+}
+
+async function finalizeCampaign(sb: any, campaignId: string): Promise<boolean> {
+  const { count: pendingCount } = await sb.from("mass_inject_contacts")
+    .select("id", { count: "exact", head: true })
+    .eq("campaign_id", campaignId)
+    .in("status", RETRYABLE_STATUSES);
+  if (Number(pendingCount || 0) > 0) return false;
+
+  const { count: failCount } = await sb.from("mass_inject_contacts")
+    .select("id", { count: "exact", head: true })
+    .eq("campaign_id", campaignId)
+    .in("status", ["failed", "rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped", "permission_unconfirmed", "confirmed_no_admin", "invalid_group", "contact_not_found", "unauthorized", "blocked", "unknown_failure", "timeout"]);
+
+  const finalStatus = Number(failCount || 0) > 0 ? "completed_with_failures" : "done";
+  await sb.from("mass_inject_campaigns").update({
+    status: finalStatus,
+    completed_at: nowIso(),
+    updated_at: nowIso(),
+    next_run_at: null,
+  }).eq("id", campaignId);
+  await emitEvent(sb, campaignId, "campaign_completed", "info", `Campanha finalizada: ${finalStatus}`);
+  log.info(`Campaign ${campaignId.slice(0, 8)} finalized as ${finalStatus}`);
+  return true;
+}
+
+// ══════════════════════════════════════════════════════════
+// MAIN WORKER: processes ONE campaign at a time, all contacts in sequence
+// ══════════════════════════════════════════════════════════
+async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value: boolean }) {
+  const campaignId = campaign.id;
+  activeCampaignId = campaignId;
+  log.info(`Processing campaign ${campaignId.slice(0, 8)}: group=${campaign.group_id}, contacts=${campaign.total_items || "?"}`);
+
+  // Mark as processing
+  if (campaign.status === "queued") {
+    await sb.from("mass_inject_campaigns").update({ status: "processing", updated_at: nowIso() }).eq("id", campaignId);
+    await emitEvent(sb, campaignId, "campaign_started", "info");
+  }
+
+  const failedDeviceIds = new Set<string>();
+  let consecutiveFailures = 0;
+
+  while (isRunningRef.value) {
+    // 1. Check campaign status (was it paused/cancelled externally?)
+    const { data: freshCampaign } = await sb.from("mass_inject_campaigns").select("status, min_delay, max_delay, pause_after, pause_duration, device_ids, group_id, success_count, fail_count, already_count, rate_limit_count").eq("id", campaignId).single();
+    if (!freshCampaign || !["queued", "processing"].includes(freshCampaign.status)) {
+      log.info(`Campaign ${campaignId.slice(0, 8)} status=${freshCampaign?.status} — stopping`);
+      break;
+    }
+
+    // 2. Pick a device
+    const deviceId = pickDeviceId(freshCampaign, failedDeviceIds);
+    if (!deviceId) {
+      log.warn(`Campaign ${campaignId.slice(0, 8)}: no devices available — pausing`);
+      await sb.from("mass_inject_campaigns").update({
+        status: "paused", updated_at: nowIso(), next_run_at: null,
+        pause_reason: "Nenhuma instância conectada e válida disponível. Conecte outra conta e retome.",
+      }).eq("id", campaignId);
+      await emitEvent(sb, campaignId, "campaign_failed_no_devices", "warning", "Nenhuma instância disponível.");
+      break;
+    }
+
+    // 3. Get device credentials
+    const { data: device } = await sb.from("devices")
+      .select("id, name, number, status, uazapi_base_url, uazapi_token")
+      .eq("id", deviceId).single();
+
+    if (!device?.uazapi_base_url || !device?.uazapi_token) {
+      failedDeviceIds.add(deviceId);
+      continue;
+    }
+
+    const isOperational = !!device.number && ["connected", "ready", "active", "authenticated", "open", "online"].includes(String(device.status).toLowerCase());
+    if (!isOperational) {
+      failedDeviceIds.add(deviceId);
+      continue;
+    }
+
+    const baseUrl = String(device.uazapi_base_url).replace(/\/+$/, "");
+
+    // 4. Connection check (only every 10 contacts or at start)
+    const processed = Number(freshCampaign.success_count || 0) + Number(freshCampaign.fail_count || 0) + Number(freshCampaign.already_count || 0);
+    if (processed === 0 || processed % 10 === 0) {
+      const connected = await isDeviceConnected(baseUrl, device.uazapi_token);
+      if (connected === false) {
+        log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} disconnected`);
+        failedDeviceIds.add(deviceId);
+
+        // Check if ALL devices are down
+        const allIds = parseDeviceIds(freshCampaign.device_ids);
+        if (allIds.every(id => failedDeviceIds.has(id))) {
+          await sb.from("mass_inject_campaigns").update({
+            status: "paused", updated_at: nowIso(), next_run_at: null,
+            pause_reason: "Todas as instâncias desconectadas. Reconecte e retome.",
+          }).eq("id", campaignId);
+          await emitEvent(sb, campaignId, "all_sessions_dropped", "warning", "Todas as instâncias desconectadas.");
+          break;
+        }
+        continue;
+      }
+    }
+
+    // 5. Claim next contact
+    const { data: contact } = await sb.rpc("claim_next_mass_inject_contact", {
+      p_campaign_id: campaignId,
+      p_device_used: device.name || device.id,
+      p_processing_message: "Processando...",
+    });
+
+    if (!contact?.id) {
+      // No more contacts — finalize
+      await finalizeCampaign(sb, campaignId);
+      break;
+    }
+
+    await sb.from("mass_inject_contacts").update({ processed_at: nowIso(), device_used: device.name || device.id }).eq("id", contact.id);
+
+    // 6. Pre-check: is the contact already in the group?
+    const groupId = contact.target_group_id || freshCampaign.group_id;
+    const participants = await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId);
+    const phone = String(contact.phone).replace(/@.*/, "");
+
+    if (participants.size > 0 && participantSetHasPhone(participants, phone)) {
+      await sb.from("mass_inject_contacts").update({
+        status: "already_exists", error_message: "Contato já participava do grupo.", processed_at: nowIso(),
+      }).eq("id", contact.id);
+      await updateCounters(sb, campaignId, "already_exists");
+      consecutiveFailures = 0;
+      log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} already in group`);
+      // Short delay for already-exists (no API call needed)
+      await sleep(randomBetween(1000, 3000));
+      continue;
+    }
+
+    // 7. Add to group
+    const result = await addToGroup(baseUrl, device.uazapi_token, groupId, phone);
+
+    if (result.ok) {
+      await sb.from("mass_inject_contacts").update({
+        status: "completed", error_message: result.detail, processed_at: nowIso(),
+      }).eq("id", contact.id);
+      await updateCounters(sb, campaignId, "completed");
+      consecutiveFailures = 0;
+      // Invalidate participant cache so next check is fresh
+      invalidateParticipantCache(baseUrl, groupId);
+      log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} added successfully`);
+    } else if (result.alreadyExists) {
+      await sb.from("mass_inject_contacts").update({
+        status: "already_exists", error_message: result.detail, processed_at: nowIso(),
+      }).eq("id", contact.id);
+      await updateCounters(sb, campaignId, "already_exists");
+      consecutiveFailures = 0;
+    } else {
+      // Failure
+      const retryCount = Number(String(contact.error_message || "").match(/\[retry:(\d+)\]/)?.[1] || 0);
+      const newRetry = retryCount + 1;
+      const isFinal = !result.retryable || newRetry >= MAX_RETRIES;
+
+      const status = isFinal ? "failed" : (result.detail.includes("Rate limit") ? "rate_limited" : "pending");
+      const errorMsg = isFinal
+        ? result.detail
+        : `[retry:${newRetry}] ${result.detail}`;
+
+      await sb.from("mass_inject_contacts").update({
+        status, error_message: errorMsg, processed_at: nowIso(),
+      }).eq("id", contact.id);
+      await updateCounters(sb, campaignId, "failed");
+
+      consecutiveFailures++;
+      log.warn(`Campaign ${campaignId.slice(0, 8)}: ${phone} failed — ${result.detail} (consecutive: ${consecutiveFailures})`);
+
+      if (result.pauseCampaign) {
+        await sb.from("mass_inject_campaigns").update({
+          status: "paused", updated_at: nowIso(), next_run_at: null,
+          pause_reason: result.detail,
+        }).eq("id", campaignId);
+        await emitEvent(sb, campaignId, "campaign_paused", "warning", result.detail);
+        break;
+      }
+
+      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        const reason = `Pausada por ${MAX_CONSECUTIVE_FAILURES} falhas consecutivas.`;
+        await sb.from("mass_inject_campaigns").update({
+          status: "paused", updated_at: nowIso(), next_run_at: null, pause_reason: reason,
+        }).eq("id", campaignId);
+        await emitEvent(sb, campaignId, "campaign_paused", "warning", reason);
+        break;
+      }
+
+      // Extra cooldown for errors
+      if (result.cooldownMs > 0) {
+        log.info(`Campaign ${campaignId.slice(0, 8)}: cooldown ${result.cooldownMs}ms`);
+        await sleep(result.cooldownMs);
+        continue; // Skip normal delay
+      }
+    }
+
+    // 8. Apply delay between contacts
+    const minDelay = Math.max(Number(freshCampaign.min_delay || 10), 3);
+    const maxDelay = Math.max(Number(freshCampaign.max_delay || 30), minDelay);
+    let delayMs = randomBetween(minDelay * 1000, maxDelay * 1000);
+
+    // Block pause check
+    const pauseAfter = Number(freshCampaign.pause_after || 0);
+    const pauseDuration = Number(freshCampaign.pause_duration || 0);
+    const totalProcessed = processed + 1;
+    if (pauseAfter > 0 && totalProcessed > 0 && totalProcessed % pauseAfter === 0) {
+      delayMs = Math.max(delayMs, pauseDuration * 1000);
+      log.info(`Campaign ${campaignId.slice(0, 8)}: block pause ${pauseDuration}s after ${totalProcessed} contacts`);
+    }
+
+    // Update next_run_at for frontend countdown
+    await sb.from("mass_inject_campaigns").update({
+      next_run_at: new Date(Date.now() + delayMs).toISOString(),
+      updated_at: nowIso(),
+    }).eq("id", campaignId).catch(() => {});
+
+    await sleep(delayMs);
+  }
+
+  activeCampaignId = null;
+}
+
+// ══════════════════════════════════════════════════════════
+// TICK: finds active campaigns and processes them
+// ══════════════════════════════════════════════════════════
+export async function massInjectTick(isRunningRef: { value: boolean }) {
+  const db = getDb();
+
+  // 1. Reset stale processing contacts
+  const staleThreshold = new Date(Date.now() - 3 * 60_000).toISOString();
+  await db.from("mass_inject_contacts")
+    .update({ status: "pending", error_message: "Reprocessando (timeout VPS).", device_used: null } as any)
+    .eq("status", "processing")
+    .lt("processed_at", staleThreshold);
+
+  // 2. Find active campaigns
+  const { data: campaigns } = await db.from("mass_inject_campaigns")
+    .select("*")
+    .in("status", ["queued", "processing"])
+    .order("created_at", { ascending: true })
+    .limit(5);
+
+  if (!campaigns?.length) return;
+
+  // Process one at a time (sequential, not parallel)
+  for (const campaign of campaigns) {
+    if (!isRunningRef.value) break;
+
+    // Check if there are pending contacts
+    const { count } = await db.from("mass_inject_contacts")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id", campaign.id)
+      .in("status", RETRYABLE_STATUSES);
+
+    if (Number(count || 0) === 0) {
+      await finalizeCampaign(db, campaign.id);
+      continue;
+    }
+
+    try {
+      await processOneCampaign(db, campaign, isRunningRef);
+    } catch (err: any) {
+      log.error(`Campaign ${campaign.id.slice(0, 8)} error: ${err.message}`);
+    }
+  }
+
+  lastMassInjectTickAt = new Date();
+}
