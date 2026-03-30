@@ -533,7 +533,7 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
                   <TableRow
                     key={c.id}
                     onClick={() => onViewCampaign(c.id)}
-                    className={`cursor-pointer border-border/15 hover:bg-muted/30 transition-colors group ${filteredCampaigns.indexOf(c) % 2 === 0 ? "bg-muted/10" : "bg-muted/25"}`}
+                    className={`cursor-pointer border-border/20 hover:bg-primary/10 transition-colors group ${filteredCampaigns.indexOf(c) % 2 === 0 ? "bg-background" : "bg-muted/40"}`}
                   >
                     <TableCell className="py-3.5">
                       <div className="min-w-0">
