@@ -625,7 +625,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 }
 
 // ══════════════════════════════════════════════════════════
-// TICK: finds active campaigns and processes them
+// TICK: finds active campaigns and launches them (fire-and-forget)
+// Each campaign runs independently — tick returns immediately
+// so new campaigns are detected on the next interval.
 // ══════════════════════════════════════════════════════════
 export async function massInjectTick(isRunningRef: { value: boolean }) {
   const db = getDb();
@@ -650,9 +652,9 @@ export async function massInjectTick(isRunningRef: { value: boolean }) {
   const newCampaigns = campaigns.filter(c => !activeCampaignIds.has(c.id));
   if (!newCampaigns.length) return;
 
-  // Process ALL campaigns in parallel (not sequential)
-  await Promise.all(newCampaigns.map(async (campaign) => {
-    if (!isRunningRef.value) return;
+  // Launch each new campaign as fire-and-forget (don't await)
+  for (const campaign of newCampaigns) {
+    if (!isRunningRef.value) break;
 
     // Check if there are pending contacts
     const { count } = await db.from("mass_inject_contacts")
@@ -662,15 +664,15 @@ export async function massInjectTick(isRunningRef: { value: boolean }) {
 
     if (Number(count || 0) === 0) {
       await finalizeCampaign(db, campaign.id);
-      return;
+      continue;
     }
 
-    try {
-      await processOneCampaign(db, campaign, isRunningRef);
-    } catch (err: any) {
+    // Fire-and-forget: launch campaign processing without awaiting
+    log.info(`Launching campaign ${campaign.id.slice(0, 8)} "${campaign.name}" in parallel`);
+    processOneCampaign(db, campaign, isRunningRef).catch((err: any) => {
       log.error(`Campaign ${campaign.id.slice(0, 8)} error: ${err.message}`);
-    }
-  }));
+    });
+  }
 
   lastMassInjectTickAt = new Date();
 }
