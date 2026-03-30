@@ -210,7 +210,7 @@ export default function AutoReplyList() {
   const activeCount = models.filter((m) => m.is_active).length;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 animate-fade-in">
+    <div className="w-full px-4 sm:px-6 py-8 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
