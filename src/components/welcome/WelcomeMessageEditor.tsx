@@ -168,6 +168,21 @@ export function WelcomeMessageEditor({ value, onChange, buttons, carouselCards, 
 
   const importTemplate = (content: string) => { onChange(content); setShowTemplates(false); toast.success("Template importado!"); };
 
+  const importStructuredTemplate = (payload: {
+    type: "text" | "buttons" | "carousel";
+    content: string;
+    buttons?: { text: string; url?: string; action?: string }[];
+    carouselCards?: CarouselCard[];
+  }) => {
+    if (onImportTemplate) {
+      onImportTemplate(payload);
+    } else {
+      onChange(payload.content || "");
+    }
+    setShowTemplates(false);
+    toast.success("Template importado!");
+  };
+
   return (
     <div className="grid lg:grid-cols-[3fr_2fr] gap-5">
       {/* Editor */}
