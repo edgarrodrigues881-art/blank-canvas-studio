@@ -41,6 +41,7 @@ const GroupJoinCampaignList = lazyWithPreload(() => import("@/pages/dashboard/Gr
 const GroupJoinCampaignNew = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinCampaignNew"));
 const GroupJoinCampaignDetail = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinCampaignDetail"));
 const MassGroupInject = lazyWithPreload(() => import("@/pages/dashboard/MassGroupInject"));
+const WelcomeAutomation = lazyWithPreload(() => import("@/pages/dashboard/WelcomeAutomation"));
 const GroupJoinComingSoon = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinComingSoon"));
 const ChipConversation = lazyWithPreload(() => import("@/pages/dashboard/ChipConversation"));
 const ChipConversationComingSoon = lazyWithPreload(() => import("@/pages/dashboard/ChipConversationComingSoon"));
@@ -86,6 +87,7 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/my-plan": () => { (MyPlan as any).__preload?.(); },
   "/dashboard/settings": () => { (Settings as any).__preload?.(); },
   "/dashboard/group-join": () => { (GroupJoinCampaignList as any).__preload?.(); },
+  "/dashboard/welcome": () => { (WelcomeAutomation as any).__preload?.(); },
   "/dashboard/notifications": () => { (Notifications as any).__preload?.(); },
 };
 
@@ -212,6 +214,7 @@ const App = () => (
                 <Route path="/dashboard/group-join/:id" element={<ProtectedRoute><DashboardLayout><GroupJoinCampaignDetail /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-join-soon" element={<ProtectedRoute><DashboardLayout><GroupJoinCampaignList /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/mass-inject" element={<ProtectedRoute><DashboardLayout><MassGroupInject /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/welcome" element={<ProtectedRoute><DashboardLayout><WelcomeAutomation /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/chip-conversation" element={<ProtectedRoute><DashboardLayout><ChipConversation /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/auto-reply" element={<ProtectedRoute><DashboardLayout><AutoReplyComingSoon /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/auto-reply/:id" element={<ProtectedRoute><DashboardLayout><AutoReplyComingSoon /></DashboardLayout></ProtectedRoute>} />

@@ -3797,6 +3797,339 @@ export type Database = {
           },
         ]
       }
+      welcome_automation_groups: {
+        Row: {
+          automation_id: string
+          created_at: string
+          group_id: string
+          group_name: string | null
+          id: string
+        }
+        Insert: {
+          automation_id: string
+          created_at?: string
+          group_id: string
+          group_name?: string | null
+          id?: string
+        }
+        Update: {
+          automation_id?: string
+          created_at?: string
+          group_id?: string
+          group_name?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welcome_automation_groups_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "welcome_automations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welcome_automation_senders: {
+        Row: {
+          automation_id: string
+          created_at: string
+          device_id: string
+          id: string
+          is_active: boolean
+          priority_order: number
+        }
+        Insert: {
+          automation_id: string
+          created_at?: string
+          device_id: string
+          id?: string
+          is_active?: boolean
+          priority_order?: number
+        }
+        Update: {
+          automation_id?: string
+          created_at?: string
+          device_id?: string
+          id?: string
+          is_active?: boolean
+          priority_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welcome_automation_senders_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "welcome_automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welcome_automation_senders_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welcome_automations: {
+        Row: {
+          active_days: Json
+          created_at: string
+          dedupe_rule: string
+          dedupe_window_days: number
+          delay_between_accounts_seconds: number
+          id: string
+          max_delay_seconds: number
+          max_per_account: number
+          max_retries: number
+          message_content: string | null
+          message_templates: Json | null
+          message_type: string
+          min_delay_seconds: number
+          monitoring_device_id: string | null
+          name: string
+          pause_duration_max: number
+          pause_duration_min: number
+          pause_every_max: number
+          pause_every_min: number
+          send_end_hour: string
+          send_start_hour: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active_days?: Json
+          created_at?: string
+          dedupe_rule?: string
+          dedupe_window_days?: number
+          delay_between_accounts_seconds?: number
+          id?: string
+          max_delay_seconds?: number
+          max_per_account?: number
+          max_retries?: number
+          message_content?: string | null
+          message_templates?: Json | null
+          message_type?: string
+          min_delay_seconds?: number
+          monitoring_device_id?: string | null
+          name: string
+          pause_duration_max?: number
+          pause_duration_min?: number
+          pause_every_max?: number
+          pause_every_min?: number
+          send_end_hour?: string
+          send_start_hour?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active_days?: Json
+          created_at?: string
+          dedupe_rule?: string
+          dedupe_window_days?: number
+          delay_between_accounts_seconds?: number
+          id?: string
+          max_delay_seconds?: number
+          max_per_account?: number
+          max_retries?: number
+          message_content?: string | null
+          message_templates?: Json | null
+          message_type?: string
+          min_delay_seconds?: number
+          monitoring_device_id?: string | null
+          name?: string
+          pause_duration_max?: number
+          pause_duration_min?: number
+          pause_every_max?: number
+          pause_every_min?: number
+          send_end_hour?: string
+          send_start_hour?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welcome_automations_monitoring_device_id_fkey"
+            columns: ["monitoring_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welcome_events: {
+        Row: {
+          automation_id: string
+          created_at: string
+          event_type: string
+          id: string
+          level: string
+          message: string
+          payload_json: Json | null
+          reference_id: string | null
+          user_id: string
+        }
+        Insert: {
+          automation_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          level?: string
+          message?: string
+          payload_json?: Json | null
+          reference_id?: string | null
+          user_id: string
+        }
+        Update: {
+          automation_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          level?: string
+          message?: string
+          payload_json?: Json | null
+          reference_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welcome_events_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "welcome_automations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welcome_message_logs: {
+        Row: {
+          created_at: string
+          external_response: Json | null
+          id: string
+          message_text: string
+          queue_id: string
+          result: string
+          sender_device_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          external_response?: Json | null
+          id?: string
+          message_text: string
+          queue_id: string
+          result?: string
+          sender_device_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          external_response?: Json | null
+          id?: string
+          message_text?: string
+          queue_id?: string
+          result?: string
+          sender_device_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welcome_message_logs_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "welcome_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welcome_message_logs_sender_device_id_fkey"
+            columns: ["sender_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welcome_queue: {
+        Row: {
+          attempts: number
+          automation_id: string
+          created_at: string
+          dedupe_hash: string
+          detected_at: string
+          error_reason: string | null
+          group_id: string
+          group_name: string | null
+          id: string
+          locked_at: string | null
+          message_used: string | null
+          participant_name: string | null
+          participant_phone: string
+          processed_at: string | null
+          queued_at: string
+          sender_device_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          automation_id: string
+          created_at?: string
+          dedupe_hash: string
+          detected_at?: string
+          error_reason?: string | null
+          group_id: string
+          group_name?: string | null
+          id?: string
+          locked_at?: string | null
+          message_used?: string | null
+          participant_name?: string | null
+          participant_phone: string
+          processed_at?: string | null
+          queued_at?: string
+          sender_device_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          automation_id?: string
+          created_at?: string
+          dedupe_hash?: string
+          detected_at?: string
+          error_reason?: string | null
+          group_id?: string
+          group_name?: string | null
+          id?: string
+          locked_at?: string | null
+          message_used?: string | null
+          participant_name?: string | null
+          participant_phone?: string
+          processed_at?: string | null
+          queued_at?: string
+          sender_device_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welcome_queue_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "welcome_automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welcome_queue_sender_device_id_fkey"
+            columns: ["sender_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

@@ -443,6 +443,7 @@ export function AppSidebar() {
               {renderNavItem({ title: "Extrator de Grupos", url: "/dashboard/group-extractor", icon: Users })}
               {renderNavItem({ title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn })}
               {renderNavItem({ title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus })}
+              {renderNavItem({ title: "Boas-vindas", url: "/dashboard/welcome", icon: Heart })}
               {renderNavItem({ title: "Grupos", url: "/dashboard/groups", icon: UsersRound })}
               {renderNavItem({ title: "Auto Save", url: "/dashboard/autosave", icon: SaveAll })}
               {renderNavItem({ title: "Relatório Via WhatsApp", url: "/dashboard/reports/whatsapp", icon: ScrollText })}

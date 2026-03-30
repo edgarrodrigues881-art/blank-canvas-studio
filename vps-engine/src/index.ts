@@ -15,6 +15,7 @@ import { campaignWorkerTick, getCampaignWorkerStatus, lastCampaignWorkerTickAt }
 import { groupInteractionTick, getGroupInteractionStatus, lastGroupInteractionTickAt } from "./group-interaction-worker";
 import { chipConversationTick, getChipConvStatus, lastChipConvTickAt } from "./chip-conversation-worker";
 import { groupJoinTick, getGroupJoinStatus, lastGroupJoinTickAt } from "./group-join-worker";
+import { welcomeTick, getWelcomeStatus, lastWelcomeTickAt } from "./welcome-worker";
 import { backoffMinutes } from "./lib/retry";
 import { validateUazapiCredentials } from "./lib/uazapi";
 
@@ -36,6 +37,8 @@ app.get("/health", (_req: Request, res: Response) => {
   const groupInteractionStatus = getGroupInteractionStatus();
   const chipConvStatus = getChipConvStatus();
   const groupJoinStatus = getGroupJoinStatus();
+  const welcomeStatus = getWelcomeStatus();
+  const groupJoinStatus = getGroupJoinStatus();
   res.json({
     status: "ok",
     uptime: Math.round((Date.now() - startedAt.getTime()) / 1000),
@@ -46,6 +49,7 @@ app.get("/health", (_req: Request, res: Response) => {
     lastGroupInteractionTick: lastGroupInteractionTickAt?.toISOString() || null,
     lastChipConvTick: lastChipConvTickAt?.toISOString() || null,
     lastGroupJoinTick: lastGroupJoinTickAt?.toISOString() || null,
+    lastWelcomeTick: lastWelcomeTickAt?.toISOString() || null,
     activeMassInjectCampaign: massInjectStatus.activeCampaign,
     activeCampaignWorker: campaignWorkerStatus.activeCampaign,
     tickCount,
@@ -992,6 +996,18 @@ async function mainLoop() {
     }
   };
 
+  // Welcome worker loop
+  const runWelcomeWorker = async () => {
+    while (isRunning) {
+      try {
+        await welcomeTick();
+      } catch (err: any) {
+        log.error("Welcome worker tick error", serializeUnknownError(err));
+      }
+      await new Promise(r => setTimeout(r, 30_000)); // 30s interval
+    }
+  };
+
   // Run all loops concurrently
   await Promise.all([
     runWarmupTick(),
@@ -1001,6 +1017,7 @@ async function mainLoop() {
     runGroupInteractionWorker(),
     runChipConvWorker(),
     runGroupJoinWorker(),
+    runWelcomeWorker(),
   ]);
 }
 
