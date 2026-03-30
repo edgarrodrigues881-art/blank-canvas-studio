@@ -1907,11 +1907,11 @@ Deno.serve(async (req) => {
         success_count: 0,
         already_count: 0,
         fail_count: 0,
-        min_delay: Math.max(Number(body.minDelay || 30), 8),
-        max_delay: Math.max(Number(body.maxDelay || 60), Number(body.minDelay || 30), 8),
-        pause_after: Math.max(Number(body.pauseAfter || 0), 0),
-        pause_duration: Math.max(Number(body.pauseDuration || 30), 0),
-        rotate_after: Math.max(Number(body.rotateAfter || 0), 0),
+        min_delay: Math.max(Number(body.minDelay ?? 10), 0),
+        max_delay: Math.max(Number(body.maxDelay ?? 30), Number(body.minDelay ?? 10), 0),
+        pause_after: Math.max(Number(body.pauseAfter ?? 0), 0),
+        pause_duration: Math.max(Number(body.pauseDuration ?? 0), 0),
+        rotate_after: Math.max(Number(body.rotateAfter ?? 0), 0),
         started_at: nowIso(),
       } as any).select().single();
       if (error || !campaign) throw error || new Error("Erro ao criar campanha.");
