@@ -237,9 +237,32 @@ export function WelcomeMessageEditor({ value, onChange, buttons, carouselCards, 
                   <div className="p-1.5">
                     <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Carrossel</p>
                     {carouselTemplates.map(t => (
-                      <button key={t.id} className="w-full text-left px-3 py-2.5 text-xs rounded-lg hover:bg-muted transition-colors" onClick={() => importTemplate(t.message.split("|||")[0])}>
+                      <button
+                        key={t.id}
+                        className="w-full text-left px-3 py-2.5 text-xs rounded-lg hover:bg-muted transition-colors"
+                        onClick={() =>
+                          importStructuredTemplate({
+                            type: "carousel",
+                            content: (t.message || "").split("|||")[0] || "",
+                            carouselCards: Array.isArray(t.cards)
+                              ? t.cards.map((c: any) => ({
+                                  title: c?.title || "",
+                                  description: c?.description || c?.text || "",
+                                  image_url: c?.image_url || c?.image || c?.media_url || "",
+                                  buttons: Array.isArray(c?.buttons)
+                                    ? c.buttons.slice(0, 2).map((b: any, i: number) => ({
+                                        text: b?.text || b?.label || `Botão ${i + 1}`,
+                                        url: b?.url || b?.value || "",
+                                        action: b?.action || b?.type || "link",
+                                      }))
+                                    : [],
+                                }))
+                              : [],
+                          })
+                        }
+                      >
                         <span className="font-medium">{t.name}</span>
-                        <span className="block text-[10px] text-muted-foreground truncate mt-0.5">{t.message.split("|||")[0].slice(0, 60)}...</span>
+                        <span className="block text-[10px] text-muted-foreground truncate mt-0.5">{(t.message || "").split("|||")[0].slice(0, 60)}...</span>
                       </button>
                     ))}
                   </div>
