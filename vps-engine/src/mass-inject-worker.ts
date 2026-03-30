@@ -179,7 +179,7 @@ async function fetchGroupParticipants(baseUrl: string, token: string, groupId: s
         ...(fb.body ? { body: JSON.stringify(fb.body) } : {}),
       });
       if (!res.ok) continue;
-      const body = await res.json();
+      const body: any = await res.json();
       const gp = body?.group || body?.data?.group || body?.data || body;
       collectParticipants(gp?.Participants || gp?.participants || gp?.members || [], participants);
       if (participants.size > 0) {
