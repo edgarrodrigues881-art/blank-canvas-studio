@@ -23,11 +23,11 @@ const FORMAT_BUTTONS = [
   { icon: Code, wrap: ["```", "```"], label: "Código" },
 ];
 
-function WhatsAppPreview({ content, buttons }: { content: string; buttons?: { text: string; action?: string }[] }) {
-  const isDark = document.documentElement.classList.contains("dark");
+interface CardButton { text: string; url?: string; action?: string }
+interface CarouselCard { title: string; description: string; image_url?: string; buttons?: CardButton[] }
 
-  const varClass = isDark ? "text-emerald-400" : "text-emerald-600";
-  const rendered = content
+function renderVars(text: string, varClass: string) {
+  return text
     .replace(/\*(.*?)\*/g, "<b>$1</b>")
     .replace(/_(.*?)_/g, "<i>$1</i>")
     .replace(/~(.*?)~/g, "<s>$1</s>")
@@ -37,6 +37,20 @@ function WhatsAppPreview({ content, buttons }: { content: string; buttons?: { te
     .replace(/\{grupo\}/g, `<span class="${varClass}">Grupo VIP</span>`)
     .replace(/\{data\}/g, `<span class="${varClass}">30/03/2026</span>`)
     .replace(/\{hora\}/g, `<span class="${varClass}">14:30</span>`);
+}
+
+function WhatsAppPreview({ content, buttons, carouselCards }: {
+  content: string;
+  buttons?: { text: string; action?: string }[];
+  carouselCards?: CarouselCard[];
+}) {
+  const isDark = document.documentElement.classList.contains("dark");
+  const varClass = isDark ? "text-emerald-400" : "text-emerald-600";
+  const rendered = renderVars(content, varClass);
+  const bubbleBg = isDark ? "#005c4b" : "#DCF8C6";
+  const bubbleColor = isDark ? "#ffffff" : "#111b21";
+  const cardBg = isDark ? "#1f2c33" : "#ffffff";
+  const btnColor = isDark ? "#53bdeb" : "#027eb5";
 
   return (
     <div
@@ -50,13 +64,8 @@ function WhatsAppPreview({ content, buttons }: { content: string; buttons?: { te
       <div className="flex-1 overflow-y-auto p-4">
         <div className="flex justify-end">
           <div className="max-w-[85%] space-y-1">
-            <div
-              className="rounded-xl rounded-tr-sm px-3 py-2 text-sm leading-relaxed shadow-lg"
-              style={{
-                backgroundColor: isDark ? "#005c4b" : "#DCF8C6",
-                color: isDark ? "#ffffff" : "#111b21",
-              }}
-            >
+            {/* Main message bubble */}
+            <div className="rounded-xl rounded-tr-sm px-3 py-2 text-sm leading-relaxed shadow-lg" style={{ backgroundColor: bubbleBg, color: bubbleColor }}>
               {content ? (
                 <span dangerouslySetInnerHTML={{ __html: rendered }} />
               ) : (
@@ -70,19 +79,46 @@ function WhatsAppPreview({ content, buttons }: { content: string; buttons?: { te
                 </svg>
               </div>
             </div>
+
             {/* Buttons preview */}
             {buttons && buttons.length > 0 && (
               <div className="space-y-1">
                 {buttons.map((btn, i) => (
-                  <div
-                    key={i}
-                    className="rounded-xl px-3 py-2 text-center text-sm font-medium shadow-sm"
-                    style={{
-                      backgroundColor: isDark ? "#1f2c33" : "#ffffff",
-                      color: isDark ? "#53bdeb" : "#027eb5",
-                    }}
-                  >
+                  <div key={i} className="rounded-xl px-3 py-2 text-center text-sm font-medium shadow-sm" style={{ backgroundColor: cardBg, color: btnColor }}>
                     {btn.text || `Botão ${i + 1}`}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Carousel preview */}
+            {carouselCards && carouselCards.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-2 pt-1 -mx-1 px-1" style={{ scrollSnapType: "x mandatory" }}>
+                {carouselCards.map((card, i) => (
+                  <div key={i} className="rounded-xl overflow-hidden shadow-sm shrink-0 w-[180px] flex flex-col" style={{ backgroundColor: cardBg, scrollSnapAlign: "start" }}>
+                    {card.image_url && (
+                      <div className="h-[90px] bg-muted/30 flex items-center justify-center overflow-hidden">
+                        <img src={card.image_url} alt="" className="w-full h-full object-cover" onError={e => (e.currentTarget.style.display = "none")} />
+                      </div>
+                    )}
+                    {!card.image_url && (
+                      <div className="h-[60px] flex items-center justify-center" style={{ backgroundColor: isDark ? "#2a3942" : "#e8e8e8" }}>
+                        <span className="text-[10px] text-muted-foreground">Sem imagem</span>
+                      </div>
+                    )}
+                    <div className="p-2 flex-1">
+                      <p className="text-xs font-semibold truncate" style={{ color: bubbleColor }}>{card.title || `Card ${i + 1}`}</p>
+                      {card.description && <p className="text-[10px] mt-0.5 line-clamp-2" style={{ color: isDark ? "#aebac1" : "#667781" }}>{card.description}</p>}
+                    </div>
+                    {(card.buttons || []).length > 0 && (
+                      <div className="border-t" style={{ borderColor: isDark ? "#2a3942" : "#e8e8e8" }}>
+                        {(card.buttons || []).map((btn: CardButton, bi: number) => (
+                          <div key={bi} className="px-2 py-1.5 text-center text-[10px] font-medium border-b last:border-b-0" style={{ color: btnColor, borderColor: isDark ? "#2a3942" : "#e8e8e8" }}>
+                            {btn.text || `Botão ${bi + 1}`}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -94,8 +130,8 @@ function WhatsAppPreview({ content, buttons }: { content: string; buttons?: { te
   );
 }
 
-export function WelcomeMessageEditor({ value, onChange, buttons }: {
-  value: string; onChange: (v: string) => void; buttons?: { text: string; action?: string }[];
+export function WelcomeMessageEditor({ value, onChange, buttons, carouselCards }: {
+  value: string; onChange: (v: string) => void; buttons?: { text: string; action?: string }[]; carouselCards?: CarouselCard[];
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { data: templates } = useTemplates();
@@ -215,7 +251,7 @@ export function WelcomeMessageEditor({ value, onChange, buttons }: {
 
       {/* Preview – fixed height, internal scroll */}
       <div className="min-w-0">
-        <WhatsAppPreview content={value} buttons={buttons} />
+        <WhatsAppPreview content={value} buttons={buttons} carouselCards={carouselCards} />
       </div>
     </div>
   );

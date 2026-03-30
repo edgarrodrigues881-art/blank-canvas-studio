@@ -602,7 +602,7 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
             ))}
           </div>
 
-          <WelcomeMessageEditor value={messageContent} onChange={setMessageContent} buttons={messageType === "buttons" ? buttons : undefined} />
+          <WelcomeMessageEditor value={messageContent} onChange={setMessageContent} buttons={messageType === "buttons" ? buttons : undefined} carouselCards={messageType === "carousel" ? carouselCards : undefined} />
 
           {/* Buttons editor */}
           {messageType === "buttons" && (
@@ -640,8 +640,8 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
           {messageType === "carousel" && (
             <div className="space-y-3 border-t border-border/20 pt-4">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cards do Carrossel</Label>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs rounded-lg" onClick={() => setCarouselCards(prev => [...prev, { title: "", description: "", image_url: "", buttons: [] }])} disabled={carouselCards.length >= 4}>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cards do Carrossel (máx. 5)</Label>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs rounded-lg" onClick={() => setCarouselCards(prev => [...prev, { title: "", description: "", image_url: "", buttons: [] }])} disabled={carouselCards.length >= 5}>
                   <Plus className="w-3 h-3 mr-1" /> Adicionar Card
                 </Button>
               </div>
@@ -657,6 +657,24 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
                     <Input placeholder="Título" value={card.title} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, title: e.target.value } : c))} className="h-9 text-xs rounded-lg" />
                     <Input placeholder="Descrição" value={card.description} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, description: e.target.value } : c))} className="h-9 text-xs rounded-lg" />
                     <Input placeholder="URL da imagem (opcional)" value={card.image_url} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, image_url: e.target.value } : c))} className="h-9 text-xs rounded-lg" />
+                    {/* Card buttons */}
+                    <div className="pt-1 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Botões do card</span>
+                        <Button type="button" variant="ghost" size="sm" className="h-6 text-[10px] px-2 rounded" disabled={(card.buttons || []).length >= 2} onClick={() => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, buttons: [...(c.buttons || []), { text: "", url: "", action: "link" }] } : c))}>
+                          <Plus className="w-2.5 h-2.5 mr-0.5" /> Botão
+                        </Button>
+                      </div>
+                      {(card.buttons || []).map((btn: any, bi: number) => (
+                        <div key={bi} className="flex items-center gap-1.5">
+                          <Input placeholder="Texto" value={btn.text} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, buttons: (c.buttons || []).map((b: any, bj: number) => bj === bi ? { ...b, text: e.target.value } : b) } : c))} className="h-7 text-[10px] rounded flex-1" />
+                          <Input placeholder="URL" value={btn.url} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, buttons: (c.buttons || []).map((b: any, bj: number) => bj === bi ? { ...b, url: e.target.value } : b) } : c))} className="h-7 text-[10px] rounded flex-1" />
+                          <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive shrink-0" onClick={() => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, buttons: (c.buttons || []).filter((_: any, bj: number) => bj !== bi) } : c))}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               ))}
