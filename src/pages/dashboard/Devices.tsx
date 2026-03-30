@@ -1590,7 +1590,7 @@ const Devices = () => {
           setConnectStep("done");
           queryClient.invalidateQueries({ queryKey: ["devices"] });
           queryClient.invalidateQueries({ queryKey: ["proxies"] });
-          toast({ title: "Conectado!", description: "Instância conectada com sucesso!" });
+          // Toast removido — o trigger do banco já gera a notificação automática
           // Sync in background (non-blocking)
           try {
             if (session?.access_token || (await supabase.auth.getSession()).data.session?.access_token) {
@@ -1699,7 +1699,7 @@ const Devices = () => {
         queryClient.invalidateQueries({ queryKey: ["devices"] });
         setConnectStep("done");
         const phoneMsg = connectResult.phone ? ` Número: ${connectResult.phone}` : "";
-        toast({ title: "Já conectado!", description: `Esta instância já está autenticada.${phoneMsg}` });
+        // Toast removido — trigger do banco já notifica
         setConnectOpen(false); resumeKeepAlive();
         return;
       }
@@ -1714,7 +1714,7 @@ const Devices = () => {
           if (statusResult?.alreadyConnected || statusResult?.status === "authenticated" || statusResult?.status === "connected") {
             queryClient.invalidateQueries({ queryKey: ["devices"] });
             setConnectStep("done");
-            toast({ title: "Já conectado!", description: "Instância autenticada." });
+            // Toast removido — trigger do banco já notifica
             setConnectOpen(false); resumeKeepAlive();
             return;
           }
@@ -2490,7 +2490,7 @@ const Devices = () => {
                         stopPolling();
                         setConnectStep("done");
                         queryClient.invalidateQueries({ queryKey: ["devices"] });
-                        toast({ title: "Conectado!" });
+                        // Toast removido — trigger do banco já notifica
                         try {
                           if (session?.access_token || (await supabase.auth.getSession()).data.session?.access_token) {
                             await callSyncDevices();
