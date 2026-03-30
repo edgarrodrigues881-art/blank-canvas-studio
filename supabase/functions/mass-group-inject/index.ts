@@ -1654,91 +1654,18 @@ Deno.serve(async (req) => {
     const { action } = body;
 
     if (action === "run-campaign") {
-      // Hybrid mode: keeps VPS as primary, but guarantees campaign progression
-      // via Edge fallback when VPS is down/stale.
-      const { data: existingCampaign } = await sb
-        .from("mass_inject_campaigns")
-        .select("id, status")
-        .eq("id", body.campaignId)
-        .maybeSingle();
-
-      if (!existingCampaign) {
-        return new Response(JSON.stringify({ error: "Campanha não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-
-      if (existingCampaign.status === "paused") {
-        await sb.from("mass_inject_campaigns").update({
-          status: "queued",
-          updated_at: nowIso(),
-          pause_reason: null,
-          next_run_at: null,
-        }).eq("id", body.campaignId);
-      }
-
-      const initialDelayMs = Math.max(0, Math.round(Number(body.initialDelayMs) || 0));
-      const edgeRuntime = (globalThis as any).EdgeRuntime;
-      const supportsWaitUntil = !!edgeRuntime?.waitUntil;
-
-      // In runtimes without waitUntil, avoid long sleeps here to prevent timeout.
-      const effectiveInitialDelayMs = supportsWaitUntil ? initialDelayMs : 0;
-
-      const workerTask = runCampaignWorker(sb, body.campaignId, effectiveInitialDelayMs)
-        .catch((error) => console.error(`[mass-inject] run-campaign fallback error campaign=${body.campaignId}`, error));
-
-      if (supportsWaitUntil) {
-        edgeRuntime.waitUntil(workerTask);
-      } else {
-        await workerTask;
-      }
-
-      return new Response(JSON.stringify({ success: true, engine: "hybrid" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      // VPS-only mode: Edge Function no longer processes campaigns.
+      // The VPS mass-inject worker polls every 10s and picks up queued/processing campaigns.
+      // This action is now a no-op — campaigns are picked up automatically.
+      console.log(`[mass-inject] run-campaign action received for ${body.campaignId} — VPS will handle (no-op)`);
+      return new Response(JSON.stringify({ success: true, engine: "vps" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ── RECOVER STALLED: cron-triggered action to resume interrupted campaigns ──
     if (action === "recover-stalled") {
-      const STALE_PROCESSING_MINUTES = 5;
-      const recovered: string[] = [];
-
-      // 1. Reset contacts stuck in "processing" for too long back to "pending"
-      await sb.from("mass_inject_contacts")
-        .update({ status: "pending", error_message: "Reprocessando (recuperação automática)." } as any)
-        .eq("status", "processing")
-        .lt("processed_at", new Date(Date.now() - STALE_PROCESSING_MINUTES * 60_000).toISOString());
-
-      // 2. Find campaigns that should be running but have no active worker
-      const { data: stalledCampaigns } = await sb
-        .from("mass_inject_campaigns")
-        .select("id, status, updated_at")
-        .in("status", ["queued", "processing"])
-        .lt("updated_at", new Date(Date.now() - STALE_PROCESSING_MINUTES * 60_000).toISOString());
-
-      for (const campaign of stalledCampaigns || []) {
-        // Check if there are still pending contacts
-        const { count } = await sb
-          .from("mass_inject_contacts")
-          .select("id", { count: "exact", head: true })
-          .eq("campaign_id", campaign.id)
-        .in("status", [...RETRYABLE_QUEUE_STATUSES]);
-
-        if (Number(count || 0) > 0) {
-          // Try to acquire lock — if it succeeds, the old worker is truly dead
-          const { data: lockOk } = await sb.rpc("try_acquire_mass_inject_run_lock", { p_campaign_id: campaign.id });
-          if (lockOk) {
-            // Release immediately — queueCampaignRun will re-acquire
-            await sb.rpc("release_mass_inject_run_lock", { p_campaign_id: campaign.id });
-            console.log(`[mass-inject-recovery] Resuming stalled campaign=${campaign.id}`);
-            await queueCampaignRun(campaign.id, randomBetween(2000, 5000));
-            recovered.push(campaign.id);
-          }
-          // If lock NOT acquired, a worker is still running — do nothing
-        } else {
-          // No pending contacts left — finalize
-          await finalizeCampaignIfNeeded(sb, campaign.id);
-        }
-      }
-
-      console.log(`[mass-inject-recovery] Recovered ${recovered.length} campaigns: ${recovered.join(", ") || "none"}`);
-      return new Response(JSON.stringify({ success: true, recovered }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      // VPS-only mode: recovery is handled by VPS mass-inject tick (resets stale contacts every 10s)
+      console.log(`[mass-inject] recover-stalled — VPS handles recovery automatically`);
+      return new Response(JSON.stringify({ success: true, recovered: [], engine: "vps" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (!user && !internalRun) {
@@ -1994,7 +1921,7 @@ Deno.serve(async (req) => {
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      await queueCampaignRun(campaign.id, 0);
+      // VPS will pick up the queued campaign automatically within 10s
       return new Response(JSON.stringify({
         success: true,
         campaignId: campaign.id,
@@ -2024,9 +1951,8 @@ Deno.serve(async (req) => {
       // resume — start with a recovery delay (30-60s) to avoid immediate burst after reconnect
       await sb.from("mass_inject_contacts").update({ status: "pending", error_message: null } as any).eq("campaign_id", campaign.id).eq("status", "processing");
       await sb.from("mass_inject_campaigns").update({ status: "queued", updated_at: nowIso(), completed_at: null, next_run_at: null, pause_reason: null, consecutive_failures: 0 }).eq("id", campaign.id);
-      await emitCampaignEvent(sb, campaign.id, "campaign_resumed", "info");
-      const resumeDelay = randomBetween(30_000, 60_000); // slow ramp-up after resume
-      await queueCampaignRun(campaign.id, resumeDelay);
+      await emitCampaignEvent(sb, campaign.id, "campaign_resumed", "info"); 
+      // VPS will pick up the queued campaign automatically within 10s
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
