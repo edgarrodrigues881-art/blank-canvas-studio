@@ -717,7 +717,7 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
         return;
       }
       const { data, error } = await supabase.functions.invoke("whapi-chats", {
-        body: { deviceId: monitoringDevice, type: "groups" },
+        body: { deviceId: targetDevice, type: "groups" },
       });
       if (error) throw error;
       const groups = (data?.chats || data?.groups || [])
