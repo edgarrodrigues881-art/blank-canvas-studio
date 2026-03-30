@@ -747,19 +747,34 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
                     </div>
                     <Input placeholder="Título" value={card.title} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, title: e.target.value } : c))} className="h-9 text-xs rounded-lg" />
                     <Input placeholder="Descrição" value={card.description} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, description: e.target.value } : c))} className="h-9 text-xs rounded-lg" />
-                    {/* Image field - compact with thumbnail */}
+                    {/* Image field - upload or URL with thumbnail */}
                     <div className="flex items-center gap-2">
                       {card.image_url ? (
                         <div className="relative group shrink-0">
-                          <img src={card.image_url} alt="" className="w-12 h-12 rounded-lg object-cover border border-border/30" onError={e => (e.currentTarget.src = "")} />
-                          <button type="button" className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[8px] opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, image_url: "" } : c))}>✕</button>
+                          <img src={card.image_url} alt="" className="w-14 h-14 rounded-lg object-cover border border-border/30" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                          <button type="button" className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[9px] opacity-0 group-hover:opacity-100 transition-opacity shadow-sm" onClick={() => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, image_url: "" } : c))}>✕</button>
                         </div>
                       ) : (
-                        <div className="w-12 h-12 rounded-lg border border-dashed border-border/50 bg-muted/20 flex items-center justify-center shrink-0">
-                          <Eye className="w-4 h-4 text-muted-foreground/40" />
-                        </div>
+                        <label className="w-14 h-14 rounded-lg border-2 border-dashed border-border/50 bg-muted/10 flex flex-col items-center justify-center shrink-0 cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors">
+                          <Upload className="w-4 h-4 text-muted-foreground/50" />
+                          <span className="text-[8px] text-muted-foreground/50 mt-0.5">Upload</span>
+                          <input type="file" accept="image/*" className="hidden" onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = ev => {
+                              const dataUrl = ev.target?.result as string;
+                              setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, image_url: dataUrl } : c));
+                            };
+                            reader.readAsDataURL(file);
+                            e.target.value = "";
+                          }} />
+                        </label>
                       )}
-                      <Input placeholder="Cole a URL da imagem" value={card.image_url || ""} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, image_url: e.target.value } : c))} className="h-9 text-xs rounded-lg flex-1" />
+                      <div className="flex-1 min-w-0">
+                        <Input placeholder="Ou cole a URL da imagem" value={card.image_url?.startsWith("data:") ? "" : (card.image_url || "")} onChange={e => setCarouselCards(prev => prev.map((c, j) => j === i ? { ...c, image_url: e.target.value } : c))} className="h-9 text-xs rounded-lg" />
+                        <p className="text-[9px] text-muted-foreground mt-0.5 ml-1">Arraste ou clique no quadrado para enviar imagem</p>
+                      </div>
                     </div>
                     {/* Card buttons */}
                     <div className="pt-1 space-y-1.5">
