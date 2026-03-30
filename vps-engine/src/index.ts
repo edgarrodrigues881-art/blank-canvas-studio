@@ -996,6 +996,18 @@ async function mainLoop() {
     }
   };
 
+  // Welcome worker loop
+  const runWelcomeWorker = async () => {
+    while (isRunning) {
+      try {
+        await welcomeTick();
+      } catch (err: any) {
+        log.error("Welcome worker tick error", serializeUnknownError(err));
+      }
+      await new Promise(r => setTimeout(r, 30_000)); // 30s interval
+    }
+  };
+
   // Run all loops concurrently
   await Promise.all([
     runWarmupTick(),
@@ -1005,6 +1017,7 @@ async function mainLoop() {
     runGroupInteractionWorker(),
     runChipConvWorker(),
     runGroupJoinWorker(),
+    runWelcomeWorker(),
   ]);
 }
 
