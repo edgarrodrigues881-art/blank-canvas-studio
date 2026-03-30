@@ -1712,55 +1712,47 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                         <span className="text-sm text-muted-foreground">Carregando grupos da instância...</span>
                       </div>
                     ) : groups.length > 0 ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Input value={groupSearch} onChange={e => setGroupSearch(e.target.value)} placeholder="Buscar grupo..." className="h-9 text-sm flex-1" />
-                          {selectedGroups.length > 0 && (
-                            <Badge variant="outline" className="ml-2 text-xs shrink-0">{selectedGroups.length} selecionado(s)</Badge>
-                          )}
+                      selectedGroups.length > 0 ? (
+                        /* Show only selected group(s) with option to change */
+                        <div className="space-y-2">
+                          <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 px-3 py-2.5 flex items-center gap-3">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold truncate">{selectedGroups[0].name}</p>
+                              <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{selectedGroups[0].jid}</p>
+                            </div>
+                            <button onClick={() => { setSelectedGroups([]); setGroupId(""); setGroupName(""); }} className="text-[11px] text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                              Trocar
+                            </button>
+                          </div>
                         </div>
-                        <div className="max-h-[200px] overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/20">
-                          {filteredGroups.map(g => {
-                            const isSelected = selectedGroups.some(sg => sg.jid === g.jid);
-                            return (
+                      ) : (
+                        /* Show group list for selection */
+                        <div className="space-y-2">
+                          <Input value={groupSearch} onChange={e => setGroupSearch(e.target.value)} placeholder="Buscar grupo..." className="h-8 text-sm" />
+                          <div className="max-h-[180px] overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/20">
+                            {filteredGroups.map(g => (
                               <button key={g.jid} onClick={() => {
-                                if (isSelected) {
-                                  const updated = selectedGroups.filter(sg => sg.jid !== g.jid);
-                                  setSelectedGroups(updated);
-                                  if (groupId === g.jid) {
-                                    setGroupId(updated[0]?.jid || "");
-                                    setGroupName(updated[0]?.name || "");
-                                  }
-                                } else {
-                                  const updated = [...selectedGroups, { jid: g.jid, name: g.name }];
-                                  setSelectedGroups(updated);
-                                  if (!groupId) { setGroupId(g.jid); setGroupName(g.name); }
-                                }
+                                setSelectedGroups([{ jid: g.jid, name: g.name }]);
+                                setGroupId(g.jid);
+                                setGroupName(g.name);
                               }}
-                                className={`w-full text-left px-3.5 py-2.5 transition-colors hover:bg-muted/50 flex items-center gap-3 ${isSelected ? "bg-primary/10 border-l-2 border-l-primary" : ""}`}>
-                                <Checkbox checked={isSelected} className="shrink-0 pointer-events-none" />
+                                className="w-full text-left px-3 py-2 transition-colors hover:bg-muted/50 flex items-center gap-2">
                                 <div className="min-w-0 flex-1">
                                   <p className="text-sm font-medium truncate">{g.name}</p>
                                   <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{g.jid}</p>
                                 </div>
                               </button>
-                            );
-                          })}
-                          {filteredGroups.length === 0 && groupSearch && (
-                            <p className="text-xs text-muted-foreground text-center py-3">Nenhum grupo com esse nome</p>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleLoadGroups(primaryDeviceId)} className="flex-1 gap-2 text-xs h-8">
+                            ))}
+                            {filteredGroups.length === 0 && groupSearch && (
+                              <p className="text-xs text-muted-foreground text-center py-3">Nenhum grupo com esse nome</p>
+                            )}
+                          </div>
+                          <button onClick={() => handleLoadGroups(primaryDeviceId)} className="text-[11px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
                             <RefreshCw className="w-3 h-3" /> Recarregar
-                          </Button>
-                          {selectedGroups.length > 0 && (
-                            <Button variant="ghost" size="sm" onClick={() => { setSelectedGroups([]); setGroupId(""); setGroupName(""); }} className="text-xs h-8 text-destructive hover:text-destructive">
-                              Limpar seleção
-                            </Button>
-                          )}
+                          </button>
                         </div>
-                      </div>
+                      )
                     ) : (
                       <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 px-4 py-4 space-y-2">
                         <div className="flex items-start gap-2">
