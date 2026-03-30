@@ -446,7 +446,7 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
       const importedCards = (payload.carouselCards || []).slice(0, 10).map((card, i) => ({
         title: card?.title || `Card ${i + 1}`,
         description: card?.description || "",
-        image_url: card?.image_url || "",
+        image_url: card?.image_url || card?.image || card?.media_url || card?.mediaUrl || "",
         buttons: (card?.buttons || []).slice(0, 2).map((btn, j) => ({
           text: btn?.text || `Botão ${j + 1}`,
           url: btn?.url || "",
