@@ -568,70 +568,34 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     return () => clearInterval(id);
   }, [campaign?.status, isFetchingCampaign, isFetchingContacts, refetchCampaign, refetchContacts]);
 
+  // Watchdog removed — VPS engine handles campaign processing now.
+  // We only show a visual note if the campaign seems stalled.
   useEffect(() => {
     if (!campaignId || !campaign || !isActiveStatus(campaign.status)) return;
 
-    let cancelled = false;
-
-    const runWatchdog = async () => {
-      if (cancelled || isActionPending || watchdogKickInFlightRef.current) return;
-
+    const checkStalled = () => {
       const nowMs = Date.now();
       const hasQueuedContacts = contacts.some((contact: any) => ACTIVE_QUEUE_STATUSES.has(contact.status));
-      if (!hasQueuedContacts) return;
+      if (!hasQueuedContacts) { setLiveRuntimeNote(""); return; }
 
       const nextRunAtMs = campaign.next_run_at ? new Date(campaign.next_run_at).getTime() : null;
-      const updatedAtMs = campaign.updated_at
-        ? new Date(campaign.updated_at).getTime()
-        : campaign.started_at
-          ? new Date(campaign.started_at).getTime()
-          : nowMs;
-
-      const hasStaleProcessing = contacts.some((contact: any) => {
-        if (contact.status !== "processing") return false;
-        if (!contact.processed_at) return true;
-        return nowMs - new Date(contact.processed_at).getTime() >= STALE_PROCESSING_MS;
-      });
+      const updatedAtMs = campaign.updated_at ? new Date(campaign.updated_at).getTime() : nowMs;
 
       const timerPastDue = nextRunAtMs !== null && nowMs >= nextRunAtMs + WATCHDOG_GRACE_MS;
       const noTimerTooLong = nextRunAtMs === null && nowMs - updatedAtMs >= WATCHDOG_STALE_AFTER_MS;
 
-      if (!timerPastDue && !noTimerTooLong && !hasStaleProcessing) return;
-      if (nowMs - lastWatchdogKickAtRef.current < WATCHDOG_INTERVAL_MS) return;
-
-      watchdogKickInFlightRef.current = true;
-      lastWatchdogKickAtRef.current = nowMs;
-      setLiveRuntimeNote(WATCHDOG_RUNTIME_NOTE);
-
-      try {
-        const { error } = await supabase.functions.invoke("mass-group-inject", {
-          body: { action: "run-campaign", campaignId },
-        });
-        if (error) throw error;
-        if (!cancelled) {
-          await Promise.all([refetchCampaign(), refetchContacts()]);
-        }
-      } catch (error) {
-        console.error("[mass-inject-watchdog] failed to requeue campaign", error);
-      } finally {
-        watchdogKickInFlightRef.current = false;
-        if (!cancelled) {
-          setLiveRuntimeNote((current) => current === WATCHDOG_RUNTIME_NOTE ? "" : current);
-        }
+      if (timerPastDue || noTimerTooLong) {
+        setLiveRuntimeNote("Aguardando processamento pela VPS...");
+      } else {
+        setLiveRuntimeNote("");
       }
     };
 
-    const id = setInterval(() => {
-      void runWatchdog();
-    }, WATCHDOG_INTERVAL_MS);
+    const id = setInterval(checkStalled, WATCHDOG_INTERVAL_MS);
+    checkStalled();
 
-    void runWatchdog();
-
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [campaignId, campaign, contacts, isActionPending, refetchCampaign, refetchContacts]);
+    return () => clearInterval(id);
+  }, [campaignId, campaign, contacts]);
 
   // ── Toast notifications from events table (reliable, no event loss) ──
   const eventGroupRef = useRef<{ counts: Record<string, { count: number; level: string }>; timer: ReturnType<typeof setTimeout> | null }>({ counts: {}, timer: null });
