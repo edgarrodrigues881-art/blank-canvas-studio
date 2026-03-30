@@ -1079,18 +1079,6 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
 
 
 
-        {canResume && (
-            <Button onClick={handleResume} disabled={isActionPending} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-              {isActionPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-              {isActionPending ? "Preparando..." : "Retomar Campanha"}
-          </Button>
-        )}
-        {canPause && (
-          <Button onClick={handlePause} variant="outline" className="gap-2 border-amber-500/30 text-amber-600 hover:bg-amber-500/10">
-            <Pause className="w-4 h-4" /> Pausar
-          </Button>
-        )}
-        {canCancel && (
           <Button onClick={handleCancel} variant="outline" className="gap-2 border-destructive/30 text-destructive hover:bg-destructive/10">
             <StopCircle className="w-4 h-4" /> Cancelar
           </Button>
