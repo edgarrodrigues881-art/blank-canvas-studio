@@ -105,9 +105,9 @@ export function WelcomeMessageEditor({ value, onChange }: {
   const importTemplate = (content: string) => { onChange(content); setShowTemplates(false); toast.success("Template importado!"); };
 
   return (
-    <div className="grid lg:grid-cols-2 gap-4">
+    <div className="grid lg:grid-cols-[3fr_2fr] gap-5">
       {/* Editor */}
-      <div className="space-y-3">
+      <div className="space-y-3 min-w-0">
         <div className="flex items-center gap-1 flex-wrap rounded-xl border border-border/50 bg-muted/20 p-2">
           {FORMAT_BUTTONS.map(fb => (
             <Button key={fb.label} type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg hover:bg-primary/10" title={fb.label} onClick={() => wrapSelection(fb.wrap[0], fb.wrap[1])}>
@@ -177,7 +177,7 @@ export function WelcomeMessageEditor({ value, onChange }: {
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder="Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉"
-          className="min-h-[200px] text-sm font-mono rounded-xl border-border/50 bg-muted/10 resize-none focus:ring-primary/30"
+          className="min-h-[300px] text-sm font-mono rounded-xl border-border/50 bg-muted/10 resize-none focus:ring-primary/30"
         />
         <div className="flex flex-wrap gap-1.5">
           {VARIABLES.map(v => (
@@ -192,8 +192,8 @@ export function WelcomeMessageEditor({ value, onChange }: {
         </div>
       </div>
 
-      {/* Preview */}
-      <div>
+      {/* Preview – fixed height, internal scroll */}
+      <div className="min-w-0">
         <WhatsAppPreview content={value} />
       </div>
     </div>
