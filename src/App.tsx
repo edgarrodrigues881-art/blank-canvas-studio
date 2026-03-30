@@ -213,6 +213,7 @@ const App = () => (
                 <Route path="/dashboard/group-join/:id" element={<ProtectedRoute><DashboardLayout><GroupJoinCampaignDetail /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-join-soon" element={<ProtectedRoute><DashboardLayout><GroupJoinCampaignList /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/mass-inject" element={<ProtectedRoute><DashboardLayout><MassGroupInject /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/welcome" element={<ProtectedRoute><DashboardLayout><WelcomeAutomation /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/chip-conversation" element={<ProtectedRoute><DashboardLayout><ChipConversation /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/auto-reply" element={<ProtectedRoute><DashboardLayout><AutoReplyComingSoon /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/auto-reply/:id" element={<ProtectedRoute><DashboardLayout><AutoReplyComingSoon /></DashboardLayout></ProtectedRoute>} />
