@@ -1077,15 +1077,8 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
   );
 }
 
-          <p className="text-xs text-muted-foreground">Grupo: {campaign.group_name || campaign.group_id}</p>
-        </div>
-        <Badge variant="outline" className={`text-xs font-semibold ${statusBadge(campaign.status)}`}>
-          {statusLabel(campaign.status)}
-        </Badge>
-      </div>
 
-      {/* Action buttons */}
-      <div className="flex items-center gap-3 flex-wrap">
+
         {canResume && (
             <Button onClick={handleResume} disabled={isActionPending} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
               {isActionPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
