@@ -1,40 +1,33 @@
-import { useState, useMemo, useRef, useEffect } from "react";
-import { useAuth } from "@/lib/auth";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useTemplates } from "@/hooks/useTemplates";
-import { useCarouselTemplates } from "@/hooks/useCarouselTemplates";
 import { toast } from "sonner";
 import {
   useWelcomeAutomations,
-  useWelcomeQueue,
   useWelcomeQueueStats,
-  useCreateWelcomeAutomation,
   useUpdateWelcomeAutomation,
   useDeleteWelcomeAutomation,
-  useUpdateQueueItem,
   useWelcomeGroups,
   useWelcomeSenders,
   WelcomeAutomation,
 } from "@/hooks/useWelcomeAutomation";
+import { WelcomeStatsCards } from "@/components/welcome/WelcomeStatsCards";
+import { WelcomeQueueTable } from "@/components/welcome/WelcomeQueueTable";
+import { WelcomeMessageEditor } from "@/components/welcome/WelcomeMessageEditor";
+import { AutomationStatusBadge } from "@/components/welcome/WelcomeStatusBadge";
 import {
-  Heart, Plus, Play, Pause, Square, Trash2, RefreshCw, Download,
-  RotateCcw, XCircle, CheckCircle2, Clock, AlertTriangle, Users,
-  Send, Shield, Search, Variable, Import, Bold, Italic, Strikethrough, Code,
-  ArrowLeft, Settings, ListChecks,
+  Heart, Plus, Play, Pause, Square, Trash2, RefreshCw,
+  CheckCircle2, Clock, Users, Send, Shield, Search,
+  ArrowLeft, Settings, ListChecks, Radio, Zap, Eye,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -62,145 +55,6 @@ function useConnectedDevices(enabled = true) {
   });
 }
 
-const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = {
-  pending: { label: "Pendente", color: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30", icon: Clock },
-  processing: { label: "Processando", color: "bg-blue-500/15 text-blue-400 border-blue-500/30", icon: RefreshCw },
-  sent: { label: "Enviado", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30", icon: CheckCircle2 },
-  failed: { label: "Falhou", color: "bg-red-500/15 text-red-400 border-red-500/30", icon: AlertTriangle },
-  ignored: { label: "Ignorado", color: "bg-gray-500/15 text-gray-400 border-gray-500/30", icon: XCircle },
-  duplicate_blocked: { label: "Duplicado", color: "bg-orange-500/15 text-orange-400 border-orange-500/30", icon: Shield },
-  aguardando_pausa: { label: "Aguardando Pausa", color: "bg-purple-500/15 text-purple-400 border-purple-500/30", icon: Pause },
-  aguardando_janela: { label: "Fora do Horário", color: "bg-indigo-500/15 text-indigo-400 border-indigo-500/30", icon: Clock },
-};
-
-const AUTOMATION_STATUS: Record<string, { label: string; color: string }> = {
-  paused: { label: "Pausada", color: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" },
-  active: { label: "Ativa", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  completed: { label: "Finalizada", color: "bg-gray-500/15 text-gray-400 border-gray-500/30" },
-};
-
-function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_MAP[status] || { label: status, color: "bg-muted text-muted-foreground", icon: Clock };
-  const Icon = cfg.icon;
-  return (
-    <Badge variant="outline" className={`${cfg.color} gap-1 text-[11px] font-medium border`}>
-      <Icon className="w-3 h-3" />
-      {cfg.label}
-    </Badge>
-  );
-}
-
-/* ───────── Variables Toolbar ───────── */
-const VARIABLES = [
-  { key: "{nome}", label: "Nome" },
-  { key: "{numero}", label: "Número" },
-  { key: "{grupo}", label: "Grupo" },
-  { key: "{data}", label: "Data" },
-  { key: "{hora}", label: "Hora" },
-];
-
-const FORMAT_BUTTONS = [
-  { icon: Bold, wrap: ["*", "*"], label: "Negrito" },
-  { icon: Italic, wrap: ["_", "_"], label: "Itálico" },
-  { icon: Strikethrough, wrap: ["~", "~"], label: "Tachado" },
-  { icon: Code, wrap: ["```", "```"], label: "Código" },
-];
-
-function MessageEditor({ value, onChange, placeholder, className }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; className?: string;
-}) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { data: templates } = useTemplates();
-  const { data: carouselTemplates } = useCarouselTemplates();
-  const [showTemplates, setShowTemplates] = useState(false);
-
-  const insertAtCursor = (text: string) => {
-    const ta = textareaRef.current;
-    if (!ta) { onChange(value + text); return; }
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    onChange(value.slice(0, start) + text + value.slice(end));
-    setTimeout(() => { ta.selectionStart = ta.selectionEnd = start + text.length; ta.focus(); }, 0);
-  };
-
-  const wrapSelection = (before: string, after: string) => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    const selected = value.slice(start, end);
-    onChange(value.slice(0, start) + before + selected + after + value.slice(end));
-    setTimeout(() => { ta.selectionStart = start + before.length; ta.selectionEnd = start + before.length + selected.length; ta.focus(); }, 0);
-  };
-
-  const importTemplate = (content: string) => { onChange(content); setShowTemplates(false); toast.success("Template importado!"); };
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-1 flex-wrap rounded-lg border border-border bg-muted/30 p-1.5">
-        {FORMAT_BUTTONS.map(fb => (
-          <Button key={fb.label} type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title={fb.label} onClick={() => wrapSelection(fb.wrap[0], fb.wrap[1])}>
-            <fb.icon className="w-3.5 h-3.5" />
-          </Button>
-        ))}
-        <div className="w-px h-5 bg-border mx-0.5" />
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button type="button" variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px]"><Variable className="w-3.5 h-3.5" />Variáveis</Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-48 p-1" align="start">
-            {VARIABLES.map(v => (
-              <button key={v.key} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-muted transition-colors" onClick={() => insertAtCursor(v.key)}>
-                <span className="font-mono text-primary">{v.key}</span><span className="text-muted-foreground ml-2">— {v.label}</span>
-              </button>
-            ))}
-          </PopoverContent>
-        </Popover>
-        <div className="w-px h-5 bg-border mx-0.5" />
-        <Popover open={showTemplates} onOpenChange={setShowTemplates}>
-          <PopoverTrigger asChild>
-            <Button type="button" variant="ghost" size="sm" className="h-7 px-2 gap-1 text-[11px]"><Import className="w-3.5 h-3.5" />Importar Template</Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72 p-0" align="start">
-            <div className="p-2 border-b"><p className="text-xs font-medium text-muted-foreground">Selecione um template</p></div>
-            <ScrollArea className="max-h-[250px]">
-              {templates && templates.length > 0 && (
-                <div className="p-1">
-                  <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wider">Templates Normais</p>
-                  {templates.map(t => (
-                    <button key={t.id} className="w-full text-left px-2.5 py-2 text-xs rounded hover:bg-muted transition-colors" onClick={() => importTemplate(t.content)}>
-                      <span className="font-medium">{t.name}</span>
-                      <span className="block text-[10px] text-muted-foreground truncate mt-0.5">{t.content.slice(0, 60)}...</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {carouselTemplates && carouselTemplates.length > 0 && (
-                <div className="p-1">
-                  <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wider">Templates Carrossel</p>
-                  {carouselTemplates.map(t => (
-                    <button key={t.id} className="w-full text-left px-2.5 py-2 text-xs rounded hover:bg-muted transition-colors" onClick={() => importTemplate(t.message.split("|||")[0])}>
-                      <span className="font-medium">{t.name}</span>
-                      <span className="block text-[10px] text-muted-foreground truncate mt-0.5">{t.message.split("|||")[0].slice(0, 60)}...</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {(!templates?.length && !carouselTemplates?.length) && (
-                <p className="text-xs text-muted-foreground p-4 text-center">Nenhum template disponível</p>
-              )}
-            </ScrollArea>
-          </PopoverContent>
-        </Popover>
-      </div>
-      <Textarea ref={textareaRef} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder || "Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉"} className={`min-h-[120px] text-sm font-mono ${className || ""}`} />
-      <p className="text-[10px] text-muted-foreground">
-        Variáveis: <span className="font-mono text-primary">{"{nome}"}</span>, <span className="font-mono text-primary">{"{numero}"}</span>, <span className="font-mono text-primary">{"{grupo}"}</span>, <span className="font-mono text-primary">{"{data}"}</span>, <span className="font-mono text-primary">{"{hora}"}</span>
-      </p>
-    </div>
-  );
-}
-
 /* ───────── MAIN PAGE ───────── */
 export default function WelcomeAutomationPage() {
   const { data: automations, isLoading } = useWelcomeAutomations();
@@ -210,75 +64,103 @@ export default function WelcomeAutomationPage() {
   const selected = automations?.find(a => a.id === selectedId);
 
   return (
-    <div className="flex flex-col gap-4 p-4 sm:p-6 max-w-[1400px] mx-auto w-full">
+    <div className="flex flex-col gap-5 p-4 sm:p-6 w-full">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Heart className="w-5 h-5 text-primary" />
+      {!selectedId && (
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border border-primary/20">
+              <Heart className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Boas-vindas</h1>
+              <p className="text-sm text-muted-foreground">Envio automático para novos participantes</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Boas-vindas</h1>
-            <p className="text-xs text-muted-foreground">Mensagens automáticas para novos participantes</p>
-          </div>
-        </div>
-        {!selectedId && (
-          <Button onClick={() => setShowCreate(true)} className="gap-2">
+          <Button onClick={() => setShowCreate(true)} className="gap-2 h-11 px-5 rounded-xl text-sm font-semibold">
             <Plus className="w-4 h-4" /> Nova Automação
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* LIST VIEW */}
       {!selectedId && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {isLoading && <p className="text-muted-foreground text-sm col-span-full">Carregando...</p>}
           {automations?.length === 0 && !isLoading && (
-            <Card className="col-span-full border-dashed">
-              <CardContent className="py-12 text-center">
-                <Heart className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground">Nenhuma automação criada</p>
-                <Button onClick={() => setShowCreate(true)} className="mt-4 gap-2" size="sm">
-                  <Plus className="w-4 h-4" /> Criar primeira automação
+            <Card className="col-span-full border-dashed border-2 border-border/30">
+              <CardContent className="py-16 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-muted/30 flex items-center justify-center mx-auto mb-4">
+                  <Heart className="w-8 h-8 text-muted-foreground/30" />
+                </div>
+                <p className="text-lg font-semibold text-foreground mb-1">Nenhuma automação</p>
+                <p className="text-sm text-muted-foreground mb-5">Crie sua primeira automação de boas-vindas</p>
+                <Button onClick={() => setShowCreate(true)} className="gap-2 rounded-xl" size="lg">
+                  <Plus className="w-4 h-4" /> Criar Automação
                 </Button>
               </CardContent>
             </Card>
           )}
-          {automations?.map(a => {
-            const st = AUTOMATION_STATUS[a.status] || AUTOMATION_STATUS.paused;
-            return (
-              <Card key={a.id} className="cursor-pointer hover:border-primary/40 transition-all hover:shadow-md" onClick={() => setSelectedId(a.id)}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm">{a.name}</CardTitle>
-                    <Badge variant="outline" className={`${st.color} text-[10px] border`}>{st.label}</Badge>
-                  </div>
-                  <CardDescription className="text-[11px]">
-                    Criada {format(new Date(a.created_at), "dd/MM/yyyy HH:mm")}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex gap-4 text-[11px] text-muted-foreground">
-                    <span>Delay: {a.min_delay_seconds}–{a.max_delay_seconds}s</span>
-                    <span>Max/conta: {a.max_per_account}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {automations?.map(a => (
+            <AutomationCard key={a.id} automation={a} onClick={() => setSelectedId(a.id)} />
+          ))}
         </div>
       )}
 
       {/* DETAIL VIEW */}
       {selected && <AutomationDetailView automation={selected} onBack={() => setSelectedId(null)} />}
 
-      {/* Simple create dialog — only name */}
       <CreateAutomationDialog open={showCreate} onOpenChange={setShowCreate} />
     </div>
   );
 }
 
-/* ───────── Simple Create Dialog (name only) ───────── */
+/* ───────── Automation Card (list item) ───────── */
+function AutomationCard({ automation, onClick }: { automation: WelcomeAutomation; onClick: () => void }) {
+  const stats = useWelcomeQueueStats(automation.id);
+
+  return (
+    <Card
+      className="cursor-pointer hover:border-primary/40 transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 group relative overflow-hidden"
+      onClick={onClick}
+    >
+      {automation.status === "active" && (
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-500 via-primary to-emerald-500 animate-pulse" />
+      )}
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base font-semibold truncate">{automation.name}</CardTitle>
+          <AutomationStatusBadge status={automation.status} />
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Criada em {format(new Date(automation.created_at), "dd/MM/yyyy 'às' HH:mm")}
+        </p>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-muted/30 rounded-xl p-2.5 text-center">
+            <p className="text-lg font-bold text-emerald-400">{stats.sent}</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Enviados</p>
+          </div>
+          <div className="bg-muted/30 rounded-xl p-2.5 text-center">
+            <p className="text-lg font-bold text-yellow-400">{stats.pending}</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Pendentes</p>
+          </div>
+          <div className="bg-muted/30 rounded-xl p-2.5 text-center">
+            <p className="text-lg font-bold text-red-400">{stats.failed}</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Falhas</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border/20 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {automation.min_delay_seconds}–{automation.max_delay_seconds}s</span>
+          <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Max {automation.max_per_account}/conta</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ───────── Create Dialog ───────── */
 function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -315,27 +197,27 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Heart className="w-5 h-5 text-primary" />
+          <DialogTitle className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Heart className="w-5 h-5 text-primary" />
+            </div>
             Nova Automação
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Nome da automação *</Label>
-            <Input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Ex: Boas-vindas Grupo VIP"
-              className="h-10"
-              autoFocus
-              onKeyDown={e => e.key === "Enter" && handleCreate()}
-            />
-          </div>
+          <Label className="text-xs font-medium">Nome da automação</Label>
+          <Input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Ex: Boas-vindas Grupo VIP"
+            className="h-11 rounded-xl"
+            autoFocus
+            onKeyDown={e => e.key === "Enter" && handleCreate()}
+          />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleCreate} disabled={creating || !name.trim()} className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">Cancelar</Button>
+          <Button onClick={handleCreate} disabled={creating || !name.trim()} className="gap-2 rounded-xl">
             {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             Criar Automação
           </Button>
@@ -345,29 +227,12 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
   );
 }
 
-/* ───────── Detail View (all settings here) ───────── */
+/* ───────── Detail View ───────── */
 function AutomationDetailView({ automation, onBack }: { automation: WelcomeAutomation; onBack: () => void }) {
   const [tab, setTab] = useState("config");
-  const [queueFilter, setQueueFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-
-  const { data: queue } = useWelcomeQueue(automation.id);
   const stats = useWelcomeQueueStats(automation.id);
   const updateAutomation = useUpdateWelcomeAutomation();
   const deleteAutomation = useDeleteWelcomeAutomation();
-  const updateQueueItem = useUpdateQueueItem();
-
-  const filteredQueue = useMemo(() => {
-    if (!queue) return [];
-    return queue.filter(item => {
-      if (statusFilter !== "all" && item.status !== statusFilter) return false;
-      if (queueFilter) {
-        const s = queueFilter.toLowerCase();
-        return item.participant_phone?.toLowerCase().includes(s) || item.participant_name?.toLowerCase().includes(s) || item.group_name?.toLowerCase().includes(s);
-      }
-      return true;
-    });
-  }, [queue, queueFilter, statusFilter]);
 
   const handleToggleStatus = async () => {
     const newStatus = automation.status === "active" ? "paused" : "active";
@@ -385,161 +250,88 @@ function AutomationDetailView({ automation, onBack }: { automation: WelcomeAutom
     onBack();
   };
 
-  const exportCSV = () => {
-    if (!filteredQueue.length) return;
-    const headers = ["Participante", "Nome", "Grupo", "Status", "Detectado", "Processado", "Tentativas", "Erro"];
-    const rows = filteredQueue.map(q => [q.participant_phone, q.participant_name || "", q.group_name || q.group_id, q.status, q.detected_at, q.processed_at || "", String(q.attempts), q.error_reason || ""]);
-    const csv = [headers.join(","), ...rows.map(r => r.map(c => `"${c}"`).join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `boas-vindas-fila-${Date.now()}.csv`; a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const st = AUTOMATION_STATUS[automation.status] || AUTOMATION_STATUS.paused;
-
   return (
-    <div className="flex flex-col gap-4">
-      {/* Top bar */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
+    <div className="flex flex-col gap-5">
+      {/* Top Bar */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
+          <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5 rounded-xl h-9">
             <ArrowLeft className="w-4 h-4" /> Voltar
           </Button>
-          <h2 className="text-lg font-bold text-foreground">{automation.name}</h2>
-          <Badge variant="outline" className={`${st.color} text-[10px] border`}>{st.label}</Badge>
+          <div className="w-px h-6 bg-border/50" />
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-foreground">{automation.name}</h2>
+            <AutomationStatusBadge status={automation.status} />
+          </div>
         </div>
         <div className="flex gap-2 flex-wrap">
           {automation.status !== "completed" && (
-            <Button size="sm" variant={automation.status === "active" ? "outline" : "default"} onClick={handleToggleStatus} className="gap-1.5">
-              {automation.status === "active" ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            <Button
+              size="sm"
+              variant={automation.status === "active" ? "outline" : "default"}
+              onClick={handleToggleStatus}
+              className="gap-2 rounded-xl h-9 px-4"
+            >
+              {automation.status === "active" ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
               {automation.status === "active" ? "Pausar" : "Iniciar"}
             </Button>
           )}
           {automation.status !== "completed" && (
-            <Button size="sm" variant="outline" onClick={handleFinalize} className="gap-1.5">
-              <Square className="w-3.5 h-3.5" /> Finalizar
+            <Button size="sm" variant="outline" onClick={handleFinalize} className="gap-2 rounded-xl h-9 px-4">
+              <Square className="w-4 h-4" /> Finalizar
             </Button>
           )}
-          <Button size="sm" variant="destructive" onClick={handleDelete} className="gap-1.5">
-            <Trash2 className="w-3.5 h-3.5" /> Excluir
+          <Button size="sm" variant="destructive" onClick={handleDelete} className="gap-2 rounded-xl h-9 px-4">
+            <Trash2 className="w-4 h-4" /> Excluir
           </Button>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-        {[
-          { label: "Total", value: stats.total, color: "text-foreground" },
-          { label: "Pendentes", value: stats.pending, color: "text-yellow-400" },
-          { label: "Processando", value: stats.processing, color: "text-blue-400" },
-          { label: "Enviados", value: stats.sent, color: "text-emerald-400" },
-          { label: "Falhas", value: stats.failed, color: "text-red-400" },
-          { label: "Ignorados", value: stats.ignored, color: "text-gray-400" },
-          { label: "Duplicados", value: stats.duplicate_blocked, color: "text-orange-400" },
-        ].map(s => (
-          <Card key={s.label}>
-            <CardContent className="py-3 px-3 text-center">
-              <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
-              <p className="text-[10px] text-muted-foreground">{s.label}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Active Indicator */}
+      {automation.status === "active" && (
+        <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl px-5 py-3">
+          <div className="relative">
+            <Radio className="w-5 h-5 text-emerald-400" />
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-ping" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-emerald-400">Automação ativa</p>
+            <p className="text-[11px] text-emerald-400/70">Monitorando grupos e enviando mensagens automaticamente</p>
+          </div>
+          <div className="ml-auto flex items-center gap-4 text-sm">
+            <span className="text-emerald-400 font-bold">{stats.sent} enviados</span>
+            <span className="text-yellow-400 font-bold">{stats.pending} na fila</span>
+          </div>
+        </div>
+      )}
 
-      {/* Tabs: Config + Queue */}
+      {/* Stats */}
+      <WelcomeStatsCards stats={stats} />
+
+      {/* Tabs */}
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="config" className="gap-1.5"><Settings className="w-3.5 h-3.5" /> Configuração</TabsTrigger>
-          <TabsTrigger value="queue" className="gap-1.5"><ListChecks className="w-3.5 h-3.5" /> Fila ({stats.total})</TabsTrigger>
+        <TabsList className="rounded-xl bg-muted/30 p-1 h-auto">
+          <TabsTrigger value="config" className="gap-2 rounded-lg px-4 py-2.5 text-sm data-[state=active]:shadow-md">
+            <Settings className="w-4 h-4" /> Configuração
+          </TabsTrigger>
+          <TabsTrigger value="queue" className="gap-2 rounded-lg px-4 py-2.5 text-sm data-[state=active]:shadow-md">
+            <ListChecks className="w-4 h-4" /> Fila <span className="text-[10px] bg-muted rounded-full px-1.5 py-0.5 ml-1">{stats.total}</span>
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="config">
+        <TabsContent value="config" className="mt-4">
           <AutomationConfig automation={automation} />
         </TabsContent>
 
-        <TabsContent value="queue">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <CardTitle className="text-sm">Fila de Envio</CardTitle>
-                <div className="flex gap-2 flex-wrap">
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                    <Input placeholder="Buscar..." value={queueFilter} onChange={e => setQueueFilter(e.target.value)} className="pl-8 h-8 w-40 text-xs" />
-                  </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      {Object.entries(STATUS_MAP).map(([k, v]) => (<SelectItem key={k} value={k}>{v.label}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
-                  <Button size="sm" variant="outline" onClick={exportCSV} className="h-8 gap-1.5 text-xs"><Download className="w-3.5 h-3.5" /> CSV</Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <ScrollArea className="max-h-[500px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Participante</TableHead>
-                      <TableHead className="text-xs">Grupo</TableHead>
-                      <TableHead className="text-xs">Status</TableHead>
-                      <TableHead className="text-xs">Detectado</TableHead>
-                      <TableHead className="text-xs">Processado</TableHead>
-                      <TableHead className="text-xs">Tent.</TableHead>
-                      <TableHead className="text-xs">Erro</TableHead>
-                      <TableHead className="text-xs">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredQueue.length === 0 && (
-                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground text-xs py-8">Nenhum item na fila</TableCell></TableRow>
-                    )}
-                    {filteredQueue.map(item => (
-                      <TableRow key={item.id}>
-                        <TableCell className="text-xs font-mono">
-                          <div>
-                            <span>{item.participant_phone}</span>
-                            {item.participant_name && <span className="block text-muted-foreground text-[10px]">{item.participant_name}</span>}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs max-w-[120px] truncate">{item.group_name || item.group_id.slice(0, 12)}</TableCell>
-                        <TableCell><StatusBadge status={item.status} /></TableCell>
-                        <TableCell className="text-[11px] text-muted-foreground">{format(new Date(item.detected_at), "dd/MM HH:mm")}</TableCell>
-                        <TableCell className="text-[11px] text-muted-foreground">{item.processed_at ? format(new Date(item.processed_at), "dd/MM HH:mm") : "—"}</TableCell>
-                        <TableCell className="text-xs text-center">{item.attempts}</TableCell>
-                        <TableCell className="text-[11px] text-red-400 max-w-[120px] truncate">{item.error_reason || "—"}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            {(item.status === "failed" || item.status === "ignored") && (
-                              <Button size="sm" variant="ghost" className="h-6 w-6 p-0" title="Reenfileirar" onClick={() => updateQueueItem.mutateAsync({ id: item.id, status: "pending" }).then(() => toast.success("Reenfileirado!"))}>
-                                <RotateCcw className="w-3 h-3" />
-                              </Button>
-                            )}
-                            {item.status === "pending" && (
-                              <Button size="sm" variant="ghost" className="h-6 w-6 p-0" title="Ignorar" onClick={() => updateQueueItem.mutateAsync({ id: item.id, status: "ignored" }).then(() => toast.success("Ignorado!"))}>
-                                <XCircle className="w-3 h-3" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+        <TabsContent value="queue" className="mt-4">
+          <WelcomeQueueTable automationId={automation.id} />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-/* ───────── Automation Config (full settings inside detail) ───────── */
+/* ───────── Automation Config ───────── */
 function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
   const update = useUpdateWelcomeAutomation();
   const { data: devices } = useConnectedDevices();
@@ -556,17 +348,14 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
   const [startHour, setStartHour] = useState(automation.send_start_hour);
   const [endHour, setEndHour] = useState(automation.send_end_hour);
   const [messageContent, setMessageContent] = useState(automation.message_content || "");
-
-  // Senders state
   const [selectedSenders, setSelectedSenders] = useState<string[]>([]);
-  useEffect(() => {
-    if (savedSenders) setSelectedSenders(savedSenders.map((s: any) => s.device_id));
-  }, [savedSenders]);
-
-  // Groups state
   const [selectedGroups, setSelectedGroups] = useState<{ group_id: string; group_name: string }[]>([]);
   const [availableGroups, setAvailableGroups] = useState<{ id: string; name: string }[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
+
+  useEffect(() => {
+    if (savedSenders) setSelectedSenders(savedSenders.map((s: any) => s.device_id));
+  }, [savedSenders]);
 
   useEffect(() => {
     if (savedGroups) setSelectedGroups(savedGroups.map((g: any) => ({ group_id: g.group_id, group_name: g.group_name })));
@@ -598,7 +387,6 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
   };
 
   const save = async () => {
-    // Update automation fields
     await update.mutateAsync({
       id: automation.id,
       monitoring_device_id: monitoringDevice || null,
@@ -613,7 +401,6 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
       message_content: messageContent,
     } as any);
 
-    // Sync groups: delete old, insert new
     await supabase.from("welcome_automation_groups").delete().eq("automation_id", automation.id);
     if (selectedGroups.length > 0) {
       await supabase.from("welcome_automation_groups").insert(
@@ -621,7 +408,6 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
       );
     }
 
-    // Sync senders: delete old, insert new
     await supabase.from("welcome_automation_senders").delete().eq("automation_id", automation.id);
     if (selectedSenders.length > 0) {
       await supabase.from("welcome_automation_senders").insert(
@@ -633,38 +419,45 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Monitoring account */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2"><Users className="w-4 h-4 text-primary" /> Conta de Monitoramento</CardTitle>
+    <div className="space-y-5">
+      {/* ── STEP 1: MONITORING ── */}
+      <Card className="border-border/40 overflow-hidden">
+        <CardHeader className="pb-4 bg-gradient-to-r from-blue-500/5 to-transparent">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center">
+              <Eye className="w-5 h-5 text-blue-400" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Monitoramento</CardTitle>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Conta e grupos que serão monitorados</p>
+            </div>
+            <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-full">Etapa 1</span>
+          </div>
         </CardHeader>
-        <CardContent className="pt-0 space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Conta que monitora os grupos</Label>
+        <CardContent className="space-y-4 pt-2">
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold">Conta de Monitoramento</Label>
             <Select value={monitoringDevice} onValueChange={v => { setMonitoringDevice(v); setAvailableGroups([]); loadGroups(v); }}>
-              <SelectTrigger className="h-9"><SelectValue placeholder="Selecione uma conta conectada..." /></SelectTrigger>
+              <SelectTrigger className="h-11 rounded-xl border-border/50"><SelectValue placeholder="Selecione uma conta conectada..." /></SelectTrigger>
               <SelectContent>
                 {devices?.map(d => (<SelectItem key={d.id} value={d.id}>{d.name} ({d.number})</SelectItem>))}
               </SelectContent>
             </Select>
-            <p className="text-[10px] text-muted-foreground">Somente contas conectadas e com número são exibidas</p>
           </div>
 
-          {/* Groups */}
           {monitoringDevice && (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-medium">Grupos monitorados</Label>
-                <Button size="sm" variant="outline" onClick={() => loadGroups()} disabled={groupsLoading} className="h-7 text-[11px] gap-1">
-                  {groupsLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Carregar Grupos
+                <Label className="text-xs font-semibold">Grupos Monitorados</Label>
+                <Button size="sm" variant="outline" onClick={() => loadGroups()} disabled={groupsLoading} className="h-8 text-[11px] gap-1.5 rounded-lg">
+                  {groupsLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Carregar Grupos
                 </Button>
               </div>
               {availableGroups.length > 0 && (
-                <ScrollArea className="h-[160px] border rounded-lg p-2">
+                <ScrollArea className="h-[180px] border border-border/40 rounded-xl p-2">
                   <div className="space-y-0.5">
                     {availableGroups.map(g => (
-                      <label key={g.id} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/40 rounded cursor-pointer text-xs">
+                      <label key={g.id} className="flex items-center gap-2.5 py-2 px-3 hover:bg-muted/40 rounded-lg cursor-pointer text-xs transition-colors">
                         <Checkbox checked={selectedGroups.some(sg => sg.group_id === g.id)} onCheckedChange={() => toggleGroup(g)} />
                         <span className="truncate">{g.name}</span>
                       </label>
@@ -673,109 +466,165 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
                 </ScrollArea>
               )}
               {selectedGroups.length > 0 && (
-                <p className="text-[10px] text-emerald-400">{selectedGroups.length} grupo(s) selecionado(s)</p>
+                <p className="text-xs text-emerald-400 font-medium">{selectedGroups.length} grupo(s) selecionado(s)</p>
               )}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Sender accounts */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2"><Send className="w-4 h-4 text-primary" /> Contas Remetentes</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <ScrollArea className="h-[160px] border rounded-lg p-2">
-            <div className="space-y-0.5">
-              {devices?.map(d => (
-                <label key={d.id} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/40 rounded cursor-pointer text-xs">
-                  <Checkbox checked={selectedSenders.includes(d.id)} onCheckedChange={() => toggleSender(d.id)} />
-                  <span className="truncate">{d.name} ({d.number})</span>
-                </label>
-              ))}
-              {(!devices || devices.length === 0) && (
-                <p className="text-xs text-muted-foreground p-2">Nenhuma conta conectada encontrada</p>
-              )}
+      {/* ── STEP 2: SENDER ACCOUNTS ── */}
+      <Card className="border-border/40 overflow-hidden">
+        <CardHeader className="pb-4 bg-gradient-to-r from-emerald-500/5 to-transparent">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+              <Send className="w-5 h-5 text-emerald-400" />
             </div>
-          </ScrollArea>
+            <div>
+              <CardTitle className="text-base">Contas Remetentes</CardTitle>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Contas que enviarão as mensagens de boas-vindas</p>
+            </div>
+            <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full">Etapa 2</span>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-2">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {devices?.map(d => {
+              const isSelected = selectedSenders.includes(d.id);
+              return (
+                <div
+                  key={d.id}
+                  onClick={() => toggleSender(d.id)}
+                  className={`
+                    relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200
+                    ${isSelected
+                      ? "border-primary bg-primary/5 shadow-md shadow-primary/10"
+                      : "border-border/30 hover:border-border/60 hover:bg-muted/20"
+                    }
+                  `}
+                >
+                  {isSelected && (
+                    <div className="absolute top-2.5 right-2.5">
+                      <CheckCircle2 className="w-5 h-5 text-primary" />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold ${isSelected ? "bg-primary/15 text-primary" : "bg-muted/50 text-muted-foreground"}`}>
+                      {d.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold truncate">{d.name}</p>
+                      <p className="text-[11px] text-muted-foreground font-mono">{d.number}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-3 pt-2 border-t border-border/20">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    <span className="text-[10px] text-muted-foreground">Online</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {(!devices || devices.length === 0) && (
+            <p className="text-sm text-muted-foreground text-center py-8">Nenhuma conta conectada encontrada</p>
+          )}
           {selectedSenders.length > 0 && (
-            <p className="text-[10px] text-emerald-400 mt-1">{selectedSenders.length} conta(s) selecionada(s)</p>
+            <p className="text-xs text-emerald-400 font-medium mt-3">{selectedSenders.length} conta(s) selecionada(s) para envio</p>
           )}
         </CardContent>
       </Card>
 
-      {/* Delay & Limits */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2"><Clock className="w-4 h-4 text-primary" /> Delays e Limites</CardTitle>
+      {/* ── STEP 3: RULES ── */}
+      <Card className="border-border/40 overflow-hidden">
+        <CardHeader className="pb-4 bg-gradient-to-r from-orange-500/5 to-transparent">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-orange-500/10 flex items-center justify-center">
+              <Zap className="w-5 h-5 text-orange-400" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Regras de Envio</CardTitle>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Delays, limites, horários e anti-duplicidade</p>
+            </div>
+            <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider text-orange-400 bg-orange-500/10 px-2.5 py-1 rounded-full">Etapa 3</span>
+          </div>
         </CardHeader>
-        <CardContent className="pt-0">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Delay mínimo (s)</Label>
-              <Input type="number" value={minDelay} onChange={e => setMinDelay(Number(e.target.value))} className="h-9" />
+        <CardContent className="pt-2 space-y-5">
+          {/* Delays */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5" /> Delays e Limites
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { label: "Delay mínimo (s)", value: minDelay, set: setMinDelay },
+                { label: "Delay máximo (s)", value: maxDelay, set: setMaxDelay },
+                { label: "Máx. por conta", value: maxPerAccount, set: setMaxPerAccount },
+                { label: "Tentativas máx.", value: maxRetries, set: setMaxRetries },
+              ].map(f => (
+                <div key={f.label} className="space-y-1.5">
+                  <Label className="text-[11px] text-muted-foreground">{f.label}</Label>
+                  <Input type="number" value={f.value} onChange={e => f.set(Number(e.target.value))} className="h-10 rounded-xl border-border/50 bg-muted/10" />
+                </div>
+              ))}
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Delay máximo (s)</Label>
-              <Input type="number" value={maxDelay} onChange={e => setMaxDelay(Number(e.target.value))} className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Máximo por conta</Label>
-              <Input type="number" value={maxPerAccount} onChange={e => setMaxPerAccount(Number(e.target.value))} className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Tentativas máximas</Label>
-              <Input type="number" value={maxRetries} onChange={e => setMaxRetries(Number(e.target.value))} className="h-9" />
+          </div>
+
+          <div className="border-t border-border/20" />
+
+          {/* Schedule & Anti-dupe */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
+              <Shield className="w-3.5 h-3.5" /> Horário e Anti-duplicidade
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] text-muted-foreground">Horário início</Label>
+                <Input type="time" value={startHour} onChange={e => setStartHour(e.target.value)} className="h-10 rounded-xl border-border/50 bg-muted/10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] text-muted-foreground">Horário fim</Label>
+                <Input type="time" value={endHour} onChange={e => setEndHour(e.target.value)} className="h-10 rounded-xl border-border/50 bg-muted/10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] text-muted-foreground">Regra anti-duplicidade</Label>
+                <Select value={dedupeRule} onValueChange={setDedupeRule}>
+                  <SelectTrigger className="h-10 rounded-xl border-border/50"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="same_group">Mesmo nº no mesmo grupo</SelectItem>
+                    <SelectItem value="any_group">Mesmo nº em qualquer grupo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] text-muted-foreground">Janela anti-dup (dias)</Label>
+                <Input type="number" value={dedupeDays} onChange={e => setDedupeDays(Number(e.target.value))} className="h-10 rounded-xl border-border/50 bg-muted/10" />
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Schedule & Anti-dupe */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2"><Shield className="w-4 h-4 text-primary" /> Horário e Anti-duplicidade</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Horário início</Label>
-              <Input type="time" value={startHour} onChange={e => setStartHour(e.target.value)} className="h-9" />
+      {/* ── STEP 4: MESSAGE ── */}
+      <Card className="border-border/40 overflow-hidden">
+        <CardHeader className="pb-4 bg-gradient-to-r from-purple-500/5 to-transparent">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-purple-500/10 flex items-center justify-center">
+              <Send className="w-5 h-5 text-purple-400" />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Horário fim</Label>
-              <Input type="time" value={endHour} onChange={e => setEndHour(e.target.value)} className="h-9" />
+            <div>
+              <CardTitle className="text-base">Mensagem de Boas-vindas</CardTitle>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Conteúdo com variáveis dinâmicas e preview</p>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Regra anti-duplicidade</Label>
-              <Select value={dedupeRule} onValueChange={setDedupeRule}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="same_group">Mesmo nº no mesmo grupo</SelectItem>
-                  <SelectItem value="any_group">Mesmo nº em qualquer grupo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Janela anti-dup (dias)</Label>
-              <Input type="number" value={dedupeDays} onChange={e => setDedupeDays(Number(e.target.value))} className="h-9" />
-            </div>
+            <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-full">Etapa 4</span>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Message */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2"><Send className="w-4 h-4 text-primary" /> Mensagem de Boas-vindas</CardTitle>
         </CardHeader>
-        <CardContent className="pt-0">
-          <MessageEditor value={messageContent} onChange={setMessageContent} />
+        <CardContent className="pt-2">
+          <WelcomeMessageEditor value={messageContent} onChange={setMessageContent} />
         </CardContent>
       </Card>
 
-      <Button onClick={save} disabled={update.isPending} className="gap-2 w-full sm:w-auto">
+      {/* Save button */}
+      <Button onClick={save} disabled={update.isPending} className="gap-2 h-12 rounded-xl text-sm font-semibold w-full sm:w-auto px-8">
         {update.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
         Salvar Configuração
       </Button>
