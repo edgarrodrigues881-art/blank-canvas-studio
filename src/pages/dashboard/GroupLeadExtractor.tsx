@@ -221,7 +221,7 @@ export default function GroupLeadExtractor() {
   const hasResults = leads.length > 0 || lidLeads.length > 0;
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 w-full">
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Users className="w-6 h-6 text-primary" />

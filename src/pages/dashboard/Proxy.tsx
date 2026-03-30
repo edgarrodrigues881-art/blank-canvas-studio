@@ -365,7 +365,7 @@ const Proxy = () => {
   };
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <div className="space-y-5 w-full">
       {/* Disclaimer */}
       <Dialog open={disclaimerOpen} onOpenChange={(open) => { if (!open) navigate("/dashboard"); }}>
         <DialogContent className="sm:max-w-[380px] p-0 bg-card/95 backdrop-blur-2xl border-border/10 overflow-hidden rounded-2xl shadow-2xl">

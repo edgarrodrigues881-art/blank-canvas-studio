@@ -300,7 +300,7 @@ export default function GroupInteractionPage() {
   );
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 w-full">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         {(showConfig || showBulkCreate) ? (
