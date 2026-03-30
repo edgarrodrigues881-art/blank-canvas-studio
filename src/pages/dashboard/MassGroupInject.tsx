@@ -1909,147 +1909,90 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
           {/* Import contacts - full width below */}
           <div className="lg:col-span-2">
             <Card className="border-border/40 bg-card/80 backdrop-blur-sm shadow-sm h-full">
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2.5"><Upload className="w-4 h-4 text-primary" />Importar Contatos</CardTitle>
-                  {hasImported && (
-                    <Button variant="outline" size="sm" onClick={() => setReimportMode("ask")} className="gap-1.5 text-xs">
-                      <RotateCcw className="w-3.5 h-3.5" /> Reimportar
-                    </Button>
-                  )}
-                </div>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2"><Upload className="w-3.5 h-3.5 text-primary" />Contatos</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-5">
+              <CardContent className="space-y-4">
                 {hasImported ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {/* Stats row */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-4 gap-2">
                       {[
                         { label: "Total", value: importStats.total, color: "text-foreground" },
                         { label: "Válidos", value: importStats.valid, color: "text-emerald-500" },
                         { label: "Duplicados", value: importStats.duplicate, color: "text-amber-500" },
                         { label: "Inválidos", value: importStats.invalid + importStats.empty, color: "text-destructive" },
                       ].map(s => (
-                        <div key={s.label} className="rounded-lg bg-muted/30 border border-border/30 px-3 py-2 text-center">
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{s.label}</span>
-                          <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
+                        <div key={s.label} className="rounded-lg bg-muted/30 border border-border/30 px-2 py-1.5 text-center">
+                          <span className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">{s.label}</span>
+                          <p className={`text-base font-bold ${s.color}`}>{s.value}</p>
                         </div>
                       ))}
                     </div>
 
-                    {/* Filter tabs */}
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div className="flex gap-1.5 flex-wrap">
-                        {([
-                          { key: "all" as const, label: `Todos (${importStats.total})` },
-                          { key: "valid" as const, label: `Válidos (${importStats.valid})` },
-                          { key: "duplicate" as const, label: `Duplicados (${importStats.duplicate})` },
-                          { key: "invalid" as const, label: `Inválidos (${importStats.invalid + importStats.empty})` },
-                        ] as const).map(f => (
-                          <Button key={f.key} variant={importFilter === f.key ? "default" : "outline"} size="sm" onClick={() => setImportFilter(f.key)} className="text-[10px] h-7 rounded-lg px-2.5">
-                            {f.label}
-                          </Button>
-                        ))}
-                      </div>
-                      <div className="flex gap-1.5">
-                        {(importStats.invalid + importStats.empty) > 0 && (
-                          <Button variant="outline" size="sm" className="text-[10px] h-7 rounded-lg px-2.5 border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => {
-                            const cleaned = importedContacts.filter(c => c.classification !== "invalid" && c.classification !== "empty");
-                            setImportedContacts(cleaned);
-                            setRawInput(cleaned.map(c => c.raw).join("\n"));
-                            setImportFilter("all");
-                            toast.success(`${importStats.invalid + importStats.empty} inválido(s) removido(s)`);
-                          }}>
-                            Limpar Inválidos
-                          </Button>
-                        )}
-                        <Button variant="outline" size="sm" className="text-[10px] h-7 rounded-lg px-2.5 border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => {
-                          setImportedContacts([]);
-                          setRawInput("");
-                          setHasImported(false);
-                          setValidationResult(null);
-                          setImportFilter("all");
-                          toast.success("Todos os contatos removidos");
-                        }}>
-                          Limpar Tudo
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Contact table */}
-                    <div className="max-h-[340px] overflow-y-auto rounded-xl border border-border/30">
+                    {/* Contact table — clean, no filters */}
+                    <div className="max-h-[240px] overflow-y-auto rounded-xl border border-border/30">
                       <Table>
                         <TableHeader>
                           <TableRow className="border-border/30 bg-muted/30">
                             <TableHead className="text-[10px] w-10">#</TableHead>
                             <TableHead className="text-[10px]">Número</TableHead>
                             <TableHead className="text-[10px]">Status</TableHead>
-                            <TableHead className="text-[10px] w-10"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredImportedContacts.slice(0, 200).map((c, i) => {
-                            const globalIdx = importedContacts.indexOf(c);
-                            return (
-                              <TableRow key={i} className="border-border/15">
-                                <TableCell className="text-[10px] font-mono text-muted-foreground py-1.5">{globalIdx + 1}</TableCell>
-                                <TableCell className="text-xs font-mono font-medium py-1.5">{c.raw || "(vazio)"}</TableCell>
-                                <TableCell className="py-1.5">
-                                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
-                                    c.classification === "valid" ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5" :
-                                    c.classification === "duplicate" ? "border-amber-500/30 text-amber-500 bg-amber-500/5" :
-                                    "border-destructive/30 text-destructive bg-destructive/5"
-                                  }`}>
-                                    {c.classification === "valid" ? "Válido" :
-                                     c.classification === "duplicate" ? "Duplicado" :
-                                     c.classification === "invalid" ? "Inválido" : "Vazio"}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="py-1.5">
-                                  <button onClick={() => {
-                                    const updated = importedContacts.filter((_, idx) => idx !== globalIdx);
-                                    const reclassified = classifyContacts(updated.map(u => u.raw));
-                                    setImportedContacts(reclassified);
-                                    setRawInput(reclassified.map(u => u.raw).join("\n"));
-                                    if (reclassified.length === 0) setHasImported(false);
-                                  }} className="text-muted-foreground/40 hover:text-destructive transition-colors p-0.5 rounded">
-                                    <XCircle className="w-3.5 h-3.5" />
-                                  </button>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                          {filteredImportedContacts.length > 200 && (
+                          {importedContacts.slice(0, 200).map((c, i) => (
+                            <TableRow key={i} className="border-border/15">
+                              <TableCell className="text-[10px] font-mono text-muted-foreground py-1">{i + 1}</TableCell>
+                              <TableCell className="text-xs font-mono font-medium py-1">{c.raw || "(vazio)"}</TableCell>
+                              <TableCell className="py-1">
+                                <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${
+                                  c.classification === "valid" ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5" :
+                                  c.classification === "duplicate" ? "border-amber-500/30 text-amber-500 bg-amber-500/5" :
+                                  "border-destructive/30 text-destructive bg-destructive/5"
+                                }`}>
+                                  {c.classification === "valid" ? "Válido" : c.classification === "duplicate" ? "Duplicado" : "Inválido"}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {importedContacts.length > 200 && (
                             <TableRow>
-                              <TableCell colSpan={4} className="text-center text-[10px] text-muted-foreground py-2">
-                                ...e mais {filteredImportedContacts.length - 200} linhas
+                              <TableCell colSpan={3} className="text-center text-[10px] text-muted-foreground py-2">
+                                ...e mais {importedContacts.length - 200} linhas
                               </TableCell>
                             </TableRow>
                           )}
                         </TableBody>
                       </Table>
                     </div>
+                    <button onClick={() => {
+                      setImportedContacts([]);
+                      setRawInput("");
+                      setHasImported(false);
+                      setValidationResult(null);
+                    }} className="text-[11px] text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1">
+                      <RotateCcw className="w-3 h-3" /> Reimportar
+                    </button>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {/* Paste area */}
+                  <div className="space-y-3">
                     <Textarea value={rawInput} onChange={e => setRawInput(e.target.value)}
                       placeholder={"Um número por linha\n5562999999999\n5521988888888"}
-                      className="min-h-[180px] font-mono text-xs resize-none bg-muted/20 border-border/40" />
-                    
-                    <div className="flex gap-3">
+                      className="min-h-[140px] font-mono text-xs resize-none bg-muted/20 border-border/40" />
+                    <div className="flex gap-2">
                       {rawInput.trim() && (
                         <Button onClick={() => {
                           const lines = rawInput.split(/[\n,;]+/).map(c => c.trim());
                           handleImportContacts(lines);
-                        }} disabled={isImporting} className="flex-1 gap-2 h-10 bg-emerald-600 hover:bg-emerald-700 text-white">
-                          {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                          Importar {rawInput.split(/[\n,;]+/).filter(c => c.trim()).length} contatos
+                        }} disabled={isImporting} className="flex-1 gap-2 h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                          {isImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                          Importar {rawInput.split(/[\n,;]+/).filter(c => c.trim()).length}
                         </Button>
                       )}
-                      <label className={`flex items-center gap-2 px-4 h-10 rounded-md border border-border/40 text-xs font-medium text-muted-foreground hover:bg-muted/30 transition-colors ${isImporting ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
+                      <label className={`flex items-center gap-1.5 px-3 h-9 rounded-md border border-border/40 text-xs font-medium text-muted-foreground hover:bg-muted/30 transition-colors ${isImporting ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
                         <Upload className="w-3.5 h-3.5" />
-                        Importar Arquivo
+                        Arquivo
                         <input type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" disabled={isImporting} onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
@@ -2082,9 +2025,9 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
                   </div>
                 )}
 
-                <Button onClick={handleValidate} disabled={isValidating || isImporting || importStats.valid === 0 || !groupId.trim() || selectedDeviceIds.length === 0 || !campaignName.trim()} className="w-full h-11 gap-2 text-sm font-semibold rounded-xl" size="lg">
+                <Button onClick={handleValidate} disabled={isValidating || isImporting || importStats.valid === 0 || !groupId.trim() || selectedDeviceIds.length === 0 || !campaignName.trim()} className="w-full h-10 gap-2 text-sm font-semibold rounded-xl" size="lg">
                   {isValidating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                  {isValidating ? "Validando contatos..." : `Validar e Revisar (${importStats.valid} válidos)`}
+                  {isValidating ? "Validando..." : `Validar e Revisar (${importStats.valid})`}
                 </Button>
               </CardContent>
             </Card>
