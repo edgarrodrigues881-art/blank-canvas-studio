@@ -350,8 +350,8 @@ function NextActionCountdown({ contacts, campaign }: { contacts: any[]; campaign
 // BETA GATE — shown once per session before accessing the tool
 // ═══════════════════════════════════════════════════════════════
 function BetaGate({ onAccept }: { onAccept: () => void }) {
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/90 backdrop-blur-md p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/95 backdrop-blur-md p-4">
       <div className="w-full max-w-lg rounded-2xl border border-border/50 bg-card shadow-2xl p-8 space-y-6 text-center">
         <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto">
           <AlertTriangle className="w-8 h-8 text-amber-500" />
