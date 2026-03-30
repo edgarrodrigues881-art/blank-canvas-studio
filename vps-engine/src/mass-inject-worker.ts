@@ -15,9 +15,16 @@ const MAX_RETRIES = 1; // Try once — if it fails, mark as failed and move on
 const RETRYABLE_STATUSES = ["pending"];
 
 // ── In-memory caches (persist across contacts within same campaign run) ──
-const participantCache = new Map<string, { participants: Set<string>; fetchedAt: number }>();
+type ParticipantCacheEntry = {
+  participants: Set<string>;
+  fetchedAt: number;
+  confirmed: boolean;
+};
+
+const participantCache = new Map<string, ParticipantCacheEntry>();
 const endpointCache = new Map<string, number>();
 const PARTICIPANT_CACHE_TTL_MS = 5 * 60_000; // 5 min
+const PARTICIPANT_FAILURE_CACHE_TTL_MS = 60_000; // 1 min
 
 // ── Tracking ──
 export let lastMassInjectTickAt: Date | null = null;
@@ -109,12 +116,15 @@ function extractPhone(value: any): string | null {
   return null;
 }
 
-async function fetchGroupParticipants(baseUrl: string, token: string, groupId: string): Promise<Set<string>> {
+async function fetchGroupParticipants(baseUrl: string, token: string, groupId: string): Promise<ParticipantCacheEntry> {
   // Check cache first
   const cacheKey = `${baseUrl}::${groupId}`;
   const cached = participantCache.get(cacheKey);
-  if (cached && Date.now() - cached.fetchedAt < PARTICIPANT_CACHE_TTL_MS) {
-    return cached.participants;
+  if (cached) {
+    const ttlMs = cached.confirmed ? PARTICIPANT_CACHE_TTL_MS : PARTICIPANT_FAILURE_CACHE_TTL_MS;
+    if (Date.now() - cached.fetchedAt < ttlMs) {
+      return cached;
+    }
   }
 
   const participants = new Set<string>();
@@ -129,8 +139,9 @@ async function fetchGroupParticipants(baseUrl: string, token: string, groupId: s
       if (target) {
         collectParticipants(target?.Participants || target?.participants || target?.members || [], participants);
         if (participants.size > 0) {
-          participantCache.set(cacheKey, { participants, fetchedAt: Date.now() });
-          return participants;
+            const entry = { participants, fetchedAt: Date.now(), confirmed: true };
+            participantCache.set(cacheKey, entry);
+            return entry;
         }
       }
     }
@@ -171,17 +182,29 @@ async function fetchGroupParticipants(baseUrl: string, token: string, groupId: s
       const gp = body?.group || body?.data?.group || body?.data || body;
       collectParticipants(gp?.Participants || gp?.participants || gp?.members || [], participants);
       if (participants.size > 0) {
-        participantCache.set(cacheKey, { participants, fetchedAt: Date.now() });
-        return participants;
+        const entry = { participants, fetchedAt: Date.now(), confirmed: true };
+        participantCache.set(cacheKey, entry);
+        return entry;
       }
     } catch { /* continue */ }
   }
 
-  return participants;
+  const fallbackEntry = { participants, fetchedAt: Date.now(), confirmed: false };
+  participantCache.set(cacheKey, fallbackEntry);
+  return fallbackEntry;
 }
 
-function invalidateParticipantCache(baseUrl: string, groupId: string) {
-  participantCache.delete(`${baseUrl}::${groupId}`);
+function rememberParticipantInCache(baseUrl: string, groupId: string, phone: string) {
+  const cacheKey = `${baseUrl}::${groupId}`;
+  const cached = participantCache.get(cacheKey);
+  if (!cached?.confirmed) return;
+
+  for (const fp of buildPhoneFingerprints(phone)) {
+    cached.participants.add(fp);
+  }
+
+  cached.fetchedAt = Date.now();
+  participantCache.set(cacheKey, cached);
 }
 
 // ── Connection check (single, fast) ──
@@ -366,27 +389,32 @@ async function emitEvent(sb: any, campaignId: string, eventType: string, level: 
     await sb.from("mass_inject_events").insert({
       campaign_id: campaignId,
       event_type: eventType,
-      level,
+      event_level: level,
       message: message || eventType,
     });
   } catch { /* non-critical */ }
 }
 
 // ── Update campaign counters ──
-async function updateCounters(sb: any, campaignId: string, status: string) {
+async function updateCounters(
+  sb: any,
+  campaignId: string,
+  counterState: { success_count: number; already_count: number; fail_count: number },
+  status: string,
+) {
   const updates: Record<string, any> = { updated_at: nowIso() };
-  if (status === "completed") updates.success_count = (await getCount(sb, campaignId, "completed"));
-  else if (status === "already_exists") updates.already_count = (await getCount(sb, campaignId, "already_exists"));
-  else updates.fail_count = (await getCount(sb, campaignId, ["failed", "rate_limited", "api_temporary", "connection_unconfirmed", "session_dropped", "permission_unconfirmed", "confirmed_no_admin", "invalid_group", "contact_not_found", "unauthorized", "blocked", "unknown_failure", "timeout"]));
-  await sb.from("mass_inject_campaigns").update(updates).eq("id", campaignId);
-}
+  if (status === "completed") {
+    counterState.success_count += 1;
+    updates.success_count = counterState.success_count;
+  } else if (status === "already_exists") {
+    counterState.already_count += 1;
+    updates.already_count = counterState.already_count;
+  } else {
+    counterState.fail_count += 1;
+    updates.fail_count = counterState.fail_count;
+  }
 
-async function getCount(sb: any, campaignId: string, status: string | string[]) {
-  const query = sb.from("mass_inject_contacts").select("id", { count: "exact", head: true }).eq("campaign_id", campaignId);
-  if (Array.isArray(status)) query.in("status", status);
-  else query.eq("status", status);
-  const { count } = await query;
-  return Number(count || 0);
+  await sb.from("mass_inject_campaigns").update(updates).eq("id", campaignId);
 }
 
 async function finalizeCampaign(sb: any, campaignId: string): Promise<boolean> {
@@ -418,6 +446,12 @@ async function finalizeCampaign(sb: any, campaignId: string): Promise<boolean> {
 // ══════════════════════════════════════════════════════════
 async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value: boolean }) {
   const campaignId = campaign.id;
+  const counterState = {
+    success_count: Number(campaign.success_count || 0),
+    already_count: Number(campaign.already_count || 0),
+    fail_count: Number(campaign.fail_count || 0),
+  };
+
   activeCampaignIds.add(campaignId);
   log.info(`Processing campaign ${campaignId.slice(0, 8)}: group=${campaign.group_id}, contacts=${campaign.total_items || "?"}`);
 
@@ -438,6 +472,10 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         log.info(`Campaign ${campaignId.slice(0, 8)} status=${freshCampaign?.status} — stopping`);
         break;
       }
+
+      counterState.success_count = Number(freshCampaign.success_count || 0);
+      counterState.already_count = Number(freshCampaign.already_count || 0);
+      counterState.fail_count = Number(freshCampaign.fail_count || 0);
 
       // 2. Pick a device
       const deviceId = pickDeviceId(freshCampaign, failedDeviceIds);
@@ -470,7 +508,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       const baseUrl = String(device.uazapi_base_url).replace(/\/+$/, "");
 
       // 4. Connection check (only every 10 contacts or at start)
-      const processed = Number(freshCampaign.success_count || 0) + Number(freshCampaign.fail_count || 0) + Number(freshCampaign.already_count || 0);
+      const processed = counterState.success_count + counterState.fail_count + counterState.already_count;
       if (processed === 0 || processed % 10 === 0) {
         const connected = await isDeviceConnected(baseUrl, device.uazapi_token);
         if (connected === false) {
@@ -514,7 +552,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: "Próprio número da instância (admin) — ignorado.", processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCounters(sb, campaignId, "already_exists");
+        await updateCounters(sb, campaignId, counterState, "already_exists");
         consecutiveFailures = 0;
         log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} is the device's own number — skipped`);
         // Still apply configured delay even for skipped contacts
@@ -529,13 +567,13 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       }
 
       // 7. Pre-check: is the contact already in the group?
-      const participants = await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId);
+      const participantSnapshot = await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId);
 
-      if (participants.size > 0 && participantSetHasPhone(participants, phone)) {
+      if (participantSnapshot.confirmed && participantSetHasPhone(participantSnapshot.participants, phone)) {
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: "Contato já participava do grupo.", processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCounters(sb, campaignId, "already_exists");
+        await updateCounters(sb, campaignId, counterState, "already_exists");
         consecutiveFailures = 0;
         log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} already in group`);
         // Apply configured delay even for already-existing contacts
@@ -556,23 +594,23 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         await sb.from("mass_inject_contacts").update({
           status: "completed", error_message: result.detail, processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCounters(sb, campaignId, "completed");
+        await updateCounters(sb, campaignId, counterState, "completed");
         consecutiveFailures = 0;
-        // Invalidate participant cache so next check is fresh
-        invalidateParticipantCache(baseUrl, groupId);
+        rememberParticipantInCache(baseUrl, groupId, phone);
         log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} added successfully`);
       } else if (result.alreadyExists) {
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: result.detail, processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCounters(sb, campaignId, "already_exists");
+        await updateCounters(sb, campaignId, counterState, "already_exists");
+        rememberParticipantInCache(baseUrl, groupId, phone);
         consecutiveFailures = 0;
       } else {
         // Failure — single attempt, mark as failed immediately (no retries)
         await sb.from("mass_inject_contacts").update({
           status: "failed", error_message: result.detail, processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCounters(sb, campaignId, "failed");
+        await updateCounters(sb, campaignId, counterState, "failed");
 
         consecutiveFailures++;
         log.warn(`Campaign ${campaignId.slice(0, 8)}: ${phone} failed — ${result.detail} (consecutive: ${consecutiveFailures})`);
