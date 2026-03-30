@@ -133,7 +133,7 @@ async function fetchGroupParticipants(baseUrl: string, token: string, groupId: s
   try {
     const res = await fetchWithTimeout(`${baseUrl}/group/list?GetParticipants=true&count=500`, { headers: buildHeaders(token) });
     if (res.ok) {
-      const body = await res.json();
+      const body: any = await res.json();
       const groups = Array.isArray(body) ? body : body?.groups || body?.data || [];
       const target = groups.find((g: any) => (g?.JID || g?.jid || g?.id || "") === groupId);
       if (target) {
@@ -151,7 +151,7 @@ async function fetchGroupParticipants(baseUrl: string, token: string, groupId: s
   try {
     const res = await fetchWithTimeout(`${baseUrl}/group/fetchAllGroups`, { headers: buildHeaders(token) });
     if (res.ok) {
-      const body = await res.json();
+      const body: any = await res.json();
       const groups = Array.isArray(body) ? body : body?.groups || body?.data || [];
       const target = groups.find((g: any) => (g?.JID || g?.jid || g?.id || "") === groupId);
       if (target) {
@@ -179,7 +179,7 @@ async function fetchGroupParticipants(baseUrl: string, token: string, groupId: s
         ...(fb.body ? { body: JSON.stringify(fb.body) } : {}),
       });
       if (!res.ok) continue;
-      const body = await res.json();
+      const body: any = await res.json();
       const gp = body?.group || body?.data?.group || body?.data || body;
       collectParticipants(gp?.Participants || gp?.participants || gp?.members || [], participants);
       if (participants.size > 0) {
@@ -212,7 +212,7 @@ function rememberParticipantInCache(baseUrl: string, groupId: string, phone: str
 async function isDeviceConnected(baseUrl: string, token: string): Promise<boolean | null> {
   try {
     const res = await fetchWithTimeout(`${baseUrl}/instance/status?t=${Date.now()}`, { headers: buildHeaders(token) }, 8000);
-    const body = await res.json().catch(() => ({}));
+    const body: any = await res.json().catch(() => ({}));
     const statusObj = body?.status;
     if (statusObj && typeof statusObj === "object") {
       if (statusObj.connected === true) return true;

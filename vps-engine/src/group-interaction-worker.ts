@@ -114,7 +114,7 @@ async function fetchDeviceGroupJids(baseUrl: string, token: string): Promise<Map
     try {
       const res = await fetch(url, { method: "GET", headers: { token, Accept: "application/json" } });
       if (!res.ok) continue;
-      const body = await res.json();
+      const body: any = await res.json();
       const rows = Array.isArray(body) ? body : body?.groups || body?.data || [];
       for (const row of rows) {
         const jid = row?.JID || row?.jid || row?.id || "";

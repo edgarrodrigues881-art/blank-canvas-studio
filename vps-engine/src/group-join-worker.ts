@@ -110,7 +110,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
     const deviceIds = [...new Set(pendingItems.map((i: any) => i.device_id))];
     const { data: devices } = await sb.from("devices").select("id, name, number, status, uazapi_token, uazapi_base_url").in("id", deviceIds);
-    const deviceMap = new Map((devices || []).map((d: any) => [d.id, d]));
+    const deviceMap = new Map<string, any>((devices || []).map((d: any) => [d.id, d]));
 
     let processed = 0;
 

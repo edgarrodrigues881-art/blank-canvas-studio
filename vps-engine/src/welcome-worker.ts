@@ -69,7 +69,7 @@ async function fetchGroupParticipants(baseUrl: string, token: string, groupId: s
   try {
     const res = await fetchWithTimeout(`${baseUrl}/group/list?GetParticipants=true&count=500`, { headers: buildHeaders(token) });
     if (res.ok) {
-      const body = await res.json();
+      const body: any = await res.json();
       const groups = Array.isArray(body) ? body : body?.groups || body?.data || [];
       const target = groups.find((g: any) => (g?.JID || g?.jid || g?.id || "") === groupId);
       if (target) {
@@ -88,7 +88,7 @@ async function fetchGroupParticipants(baseUrl: string, token: string, groupId: s
         body: JSON.stringify({ groupJid: groupId }),
       });
       if (res.ok) {
-        const body = await res.json();
+        const body: any = await res.json();
         const extracted = extractParticipantPhones(body?.group || body?.data || body);
         extracted.forEach(p => participants.add(p));
       }
@@ -274,7 +274,7 @@ async function sendWelcomeMessage(
       headers: buildHeaders(token),
       body: JSON.stringify({ chatId: recipient, message }),
     });
-    const body = await res.json().catch(() => ({}));
+    const body: any = await res.json().catch(() => ({}));
     if (res.ok && !String(body?.error || "").toLowerCase().includes("fail")) {
       return { ok: true, detail: "Enviado com sucesso" };
     }
