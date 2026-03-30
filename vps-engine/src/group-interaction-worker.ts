@@ -261,7 +261,7 @@ async function processOneInteraction(sb: any, interaction: any) {
     message_content: messageText, message_category: `${contentType}:${category}`,
     device_id: device.id, status: sentOk ? "sent" : "failed", error_message: sendError,
     pause_applied_seconds: 0, sent_at: new Date().toISOString(),
-  }).catch(() => {});
+  }).then(() => {}, () => {});
 
   if (sentOk) {
     await sb.from("group_interactions").update({
