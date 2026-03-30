@@ -495,10 +495,23 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
     await sb.from("mass_inject_contacts").update({ processed_at: nowIso(), device_used: device.name || device.id }).eq("id", contact.id);
 
-    // 6. Pre-check: is the contact already in the group?
+    // 6. Skip own number (admin's device number — can't add yourself)
     const groupId = contact.target_group_id || freshCampaign.group_id;
-    const participants = await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId);
     const phone = String(contact.phone).replace(/@.*/, "");
+    const deviceNumber = String(device.number || "").replace(/\D/g, "");
+    if (deviceNumber && buildPhoneFingerprints(phone).some(fp => buildPhoneFingerprints(deviceNumber).some(dfp => dfp === fp))) {
+      await sb.from("mass_inject_contacts").update({
+        status: "already_exists", error_message: "Próprio número da instância (admin) — ignorado.", processed_at: nowIso(),
+      }).eq("id", contact.id);
+      await updateCounters(sb, campaignId, "already_exists");
+      consecutiveFailures = 0;
+      log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} is the device's own number — skipped`);
+      await sleep(500);
+      continue;
+    }
+
+    // 7. Pre-check: is the contact already in the group?
+    const participants = await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId);
 
     if (participants.size > 0 && participantSetHasPhone(participants, phone)) {
       await sb.from("mass_inject_contacts").update({
@@ -507,7 +520,6 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       await updateCounters(sb, campaignId, "already_exists");
       consecutiveFailures = 0;
       log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} already in group`);
-      // Short delay for already-exists (no API call needed)
       await sleep(randomBetween(1000, 3000));
       continue;
     }
