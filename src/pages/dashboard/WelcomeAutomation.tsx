@@ -682,8 +682,8 @@ function AutomationConfig({ automation }: { automation: WelcomeAutomation }) {
           {messageType === "buttons" && (
             <div className="space-y-3 border-t border-border/20 pt-4">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Botões (máx. 3)</Label>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs rounded-lg" onClick={() => setButtons(prev => [...prev, { text: "", url: "", action: "link" }])} disabled={buttons.length >= 3}>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Botões (máx. 10)</Label>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs rounded-lg" onClick={() => setButtons(prev => [...prev, { text: "", url: "", action: "link" }])} disabled={buttons.length >= 10}>
                   <Plus className="w-3 h-3 mr-1" /> Adicionar
                 </Button>
               </div>
