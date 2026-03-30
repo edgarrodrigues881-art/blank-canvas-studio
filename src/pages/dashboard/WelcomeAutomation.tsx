@@ -706,17 +706,18 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
 
   const { data: devices } = useConnectedDevices(open);
 
-  const loadGroups = async () => {
-    if (!monitoringDevice) return;
+  const loadGroups = async (deviceId?: string) => {
+    const targetDevice = deviceId || monitoringDevice;
+    if (!targetDevice) return;
     setGroupsLoading(true);
     try {
-      const { data: deviceFull } = await supabase.from("devices").select("uazapi_token, uazapi_base_url").eq("id", monitoringDevice).single();
+      const { data: deviceFull } = await supabase.from("devices").select("uazapi_token, uazapi_base_url").eq("id", targetDevice).single();
       if (!deviceFull?.uazapi_token || !deviceFull?.uazapi_base_url) {
         toast.error("Dispositivo sem credenciais configuradas");
         return;
       }
       const { data, error } = await supabase.functions.invoke("whapi-chats", {
-        body: { deviceId: monitoringDevice, type: "groups" },
+        body: { deviceId: targetDevice, type: "groups" },
       });
       if (error) throw error;
       const groups = (data?.chats || data?.groups || [])
@@ -778,7 +779,7 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
             {/* Monitoring account */}
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Conta de monitoramento *</Label>
-              <Select value={monitoringDevice} onValueChange={(v) => { setMonitoringDevice(v); setAvailableGroups([]); setSelectedGroups([]); }}>
+              <Select value={monitoringDevice} onValueChange={(v) => { setMonitoringDevice(v); setAvailableGroups([]); setSelectedGroups([]); loadGroups(v); }}>
                 <SelectTrigger className="h-9"><SelectValue placeholder="Selecione uma conta conectada..." /></SelectTrigger>
                 <SelectContent>
                   {devices?.map(d => (
@@ -796,7 +797,7 @@ function CreateAutomationDialog({ open, onOpenChange }: { open: boolean; onOpenC
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-medium">Grupos monitorados</Label>
-                  <Button size="sm" variant="outline" onClick={loadGroups} disabled={groupsLoading} className="h-7 text-[11px] gap-1">
+                  <Button size="sm" variant="outline" onClick={() => loadGroups()} disabled={groupsLoading} className="h-7 text-[11px] gap-1">
                     {groupsLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                     Carregar Grupos
                   </Button>
