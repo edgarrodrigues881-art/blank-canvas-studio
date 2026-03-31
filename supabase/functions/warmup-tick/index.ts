@@ -350,11 +350,20 @@ async function scheduleDayJobs(
   }
 
   if (dayIndex > 1) {
-    await db.from("warmup_jobs")
-      .update({ status: "cancelled", last_error: "Cancelado automaticamente: entrada em grupo só no dia 1" })
+    // Only cancel join_group jobs if ALL groups are already joined
+    const { data: pendingGroupsCheck } = await db.from("warmup_instance_groups")
+      .select("id")
       .eq("cycle_id", cycleId)
-      .eq("job_type", "join_group")
-      .in("status", ["pending", "running"]);
+      .eq("device_id", deviceId)
+      .eq("join_status", "pending")
+      .limit(1);
+    
+    if (!pendingGroupsCheck?.length) {
+      await db.from("warmup_jobs")
+        .update({ status: "cancelled", last_error: "Cancelado automaticamente: todos os grupos já foram entrados" })
+        .eq("cycle_id", cycleId)
+        .eq("job_type", "join_group")
+        .in("status", ["pending", "running"]);
   } else {
     const { data: pendingJoinJobs } = await db.from("warmup_jobs")
       .select("run_at")
