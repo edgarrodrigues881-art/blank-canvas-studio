@@ -3965,13 +3965,14 @@ async function handleTick(
 
         const resetAt = new Date().toISOString();
 
-        // Update day and phase
+        // Update day and phase — IMPORTANT: reset budget_target to 0 so it gets recalculated fresh
         await db.from("warmup_cycles").update({
           day_index: newDay,
           phase: newPhase,
           last_daily_reset_at: resetAt,
           daily_interaction_budget_used: 0,
           daily_unique_recipients_used: 0,
+          daily_interaction_budget_target: 0,
         }).eq("id", cycle.id);
 
         cycle.day_index = newDay;
