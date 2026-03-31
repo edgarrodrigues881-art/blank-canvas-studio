@@ -309,8 +309,10 @@ function generateUniqueRand3(usedSet: Set<string>): string {
 }
 
 function replaceVariables(template: string, contact: any, rand4: string, rand3: string): string {
+  // Fallback: se name estiver vazio/null, usa o phone para {{nome}}
+  const contactName = (contact.name && contact.name.trim()) ? contact.name.trim() : (contact.phone || "");
   return template
-    .replace(/\{\{nome\}\}/gi, contact.name || "")
+    .replace(/\{\{nome\}\}/gi, contactName)
     .replace(/\{\{numero\}\}/gi, contact.phone || "")
     .replace(/\{\{telefone\}\}/gi, contact.phone || "")
     .replace(/\{\{rand4\}\}/gi, rand4)
