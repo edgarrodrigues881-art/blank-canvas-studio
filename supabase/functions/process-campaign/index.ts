@@ -1057,7 +1057,7 @@ Deno.serve(async (req) => {
       }
 
       // PRE-FLIGHT: Check device connectivity
-      const connectedStatuses = ["Ready", "Connected", "authenticated"];
+      const connectedStatuses = ["Ready", "Connected", "authenticated", "open", "active", "online", "ready", "connected"];
       const disconnectedDevices = allDevices.filter(d => !connectedStatuses.includes(d.status));
       if (disconnectedDevices.length === allDevices.length) {
         console.log(`⚠️ All devices disconnected for campaign ${campaignId}, pausing`);
