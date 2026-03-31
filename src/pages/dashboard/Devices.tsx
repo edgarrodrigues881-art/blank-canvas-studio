@@ -604,6 +604,7 @@ const Devices = () => {
     },
     onMutate: async (id: string) => {
       muteAutoSync(60000);
+      trackDeletedDevice(id, 90000);
       await queryClient.cancelQueries({ queryKey: ["devices"] });
       const previous = queryClient.getQueryData<Device[]>(["devices"]);
       const deletedDevice = previous?.find(d => d.id === id);
@@ -613,7 +614,7 @@ const Devices = () => {
       return { previous, deletedDevice };
     },
     onSuccess: ({ id }, _vars, context) => {
-      trackDeletedDevice(id, 60000);
+      trackDeletedDevice(id, 90000);
       const deviceLabel = context?.deletedDevice?.name || "Instância";
       const deviceNumber = context?.deletedDevice?.number ? ` (${formatPhone(context.deletedDevice.number)})` : "";
       toast({ title: `✅ ${deviceLabel} removida`, description: deviceNumber || undefined });
@@ -754,8 +755,10 @@ const Devices = () => {
   };
 
   const executeDelete = async (ids: string[]) => {
+    await queryClient.cancelQueries({ queryKey: ["devices"] });
     const previous = queryClient.getQueryData<Device[]>(["devices"]);
     const idsSet = new Set(ids);
+    ids.forEach(id => trackDeletedDevice(id, 90000));
     queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
       old ? old.filter(d => !idsSet.has(d.id)) : old
     );
@@ -768,7 +771,7 @@ const Devices = () => {
         : ids;
       const failedIds = ids.filter(id => !successIds.includes(id));
 
-      successIds.forEach((id: string) => trackDeletedDevice(id, 60000));
+      successIds.forEach((id: string) => trackDeletedDevice(id, 90000));
       failedIds.forEach((id: string) => untrackDeletedDevice(id));
 
       queryClient.invalidateQueries({ queryKey: ["devices"] });

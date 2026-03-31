@@ -13,6 +13,7 @@ let keepAlivePausedUntil = 0;
 let queuedSync = false;
 // Track recently deleted device IDs to filter from query results
 const recentlyDeletedIds = new Set<string>();
+const recentlyDeletedTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
 export function muteAutoSync(ms = 3000) {
   mutedUntil = Date.now() + ms;
@@ -20,11 +21,24 @@ export function muteAutoSync(ms = 3000) {
 
 export function trackDeletedDevice(id: string, ttlMs = 60000) {
   recentlyDeletedIds.add(id);
-  setTimeout(() => recentlyDeletedIds.delete(id), ttlMs);
+  const existingTimeout = recentlyDeletedTimeouts.get(id);
+  if (existingTimeout) clearTimeout(existingTimeout);
+
+  const timeout = setTimeout(() => {
+    recentlyDeletedIds.delete(id);
+    recentlyDeletedTimeouts.delete(id);
+  }, ttlMs);
+
+  recentlyDeletedTimeouts.set(id, timeout);
 }
 
 export function untrackDeletedDevice(id: string) {
   recentlyDeletedIds.delete(id);
+  const existingTimeout = recentlyDeletedTimeouts.get(id);
+  if (existingTimeout) {
+    clearTimeout(existingTimeout);
+    recentlyDeletedTimeouts.delete(id);
+  }
 }
 
 export function getRecentlyDeletedIds(): Set<string> {
