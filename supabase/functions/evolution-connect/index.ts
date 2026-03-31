@@ -264,16 +264,6 @@ function normalizeProviderConnectionState(payload: any): {
   profilePicUrl: string;
 } {
   const inst = payload?.instance || payload?.data || payload || {};
-  const rawStatus = [
-    inst?.connectionStatus,
-    inst?.status,
-    payload?.connectionStatus,
-    payload?.state,
-    payload?.status,
-  ].find((value) => typeof value === "string" && value.trim())?.toLowerCase().trim() || "";
-
-  const owner = [inst?.owner, inst?.phone, payload?.phone, payload?.owner]
-    .find((value) => typeof value === "string" && value.trim())?.trim() || "";
 
   const qrcode = [inst?.qrcode, payload?.qrcode]
     .find((value) => typeof value === "string" && value.trim())?.trim() || null;
@@ -283,6 +273,26 @@ function normalizeProviderConnectionState(payload: any): {
 
   const profilePicUrl = [inst?.profilePicUrl, inst?.profilePicture, payload?.profilePicUrl, payload?.profilePicture]
     .find((value) => typeof value === "string" && value.trim())?.trim() || "";
+
+  const statusObj = payload?.status;
+  const owner = [inst?.owner, inst?.phone, payload?.phone, payload?.owner]
+    .find((value) => typeof value === "string" && value.trim())?.trim() || "";
+
+  if (statusObj && typeof statusObj === "object" && statusObj.connected === true) {
+    return { state: "connected", rawStatus: "connected", owner, qrcode, profileName, profilePicUrl };
+  }
+
+  if (statusObj && typeof statusObj === "object" && statusObj.connected === false) {
+    return { state: "disconnected", rawStatus: "disconnected", owner: "", qrcode, profileName, profilePicUrl };
+  }
+
+  const rawStatus = [
+    inst?.connectionStatus,
+    inst?.status,
+    payload?.connectionStatus,
+    payload?.state,
+    payload?.status,
+  ].find((value) => typeof value === "string" && value.trim())?.toLowerCase().trim() || "";
 
   const textBlob = [
     payload?.message,
@@ -306,7 +316,6 @@ function normalizeProviderConnectionState(payload: any): {
   if (hasSignal(connectedSignals)) return { state: "connected", rawStatus, owner, qrcode, profileName, profilePicUrl };
   if (hasSignal(disconnectedSignals)) return { state: "disconnected", rawStatus, owner, qrcode, profileName, profilePicUrl };
   if (qrcode || hasSignal(transitionalSignals)) return { state: "transitional", rawStatus, owner, qrcode, profileName, profilePicUrl };
-  if (owner) return { state: "connected", rawStatus, owner, qrcode, profileName, profilePicUrl };
   return { state: "unknown", rawStatus, owner, qrcode, profileName, profilePicUrl };
 }
 
@@ -652,18 +661,23 @@ Deno.serve(async (req) => {
       // 3. Device DB status is "Disconnected" but UAZAPI still reports "connected" (user disconnected in UI)
       // 4. User explicitly requests forceReconnect
       const preCheck = await uazapi(instanceUrl, "/instance/status", currentToken, "GET", undefined, { timeoutMs: 5000, retries: 0 });
-      const preStatus = (preCheck.data?.instance?.status || preCheck.data?.status || "").toLowerCase();
+      const preState = preCheck.ok
+        ? normalizeProviderConnectionState(preCheck.data)
+        : { state: "unknown" as const, rawStatus: "", owner: "", qrcode: null, profileName: "", profilePicUrl: "" };
+      const preStatus = preState.state;
+      const preStatusLabel = preState.rawStatus || preStatus;
       const deviceHasNoNumber = !device?.number || device.number.trim() === "";
       const isStaleConnected = preStatus === "connected" && deviceHasNoNumber;
       const dbStatusDisconnected = (device?.status || "").toLowerCase() !== "ready" && (device?.status || "").toLowerCase() !== "connected";
       const uazapiReportsConnected = preStatus === "connected";
       const needsForceDisconnect = isStaleConnected 
-        || (preStatus !== "disconnected" && preStatus !== "connected")
+        || preStatus === "transitional"
+        || preStatus === "unknown"
         || (dbStatusDisconnected && uazapiReportsConnected)
         || body.forceReconnect;
       
       if (preCheck.ok && needsForceDisconnect) {
-        console.log(`[evolution-connect] pre-disconnect: status="${preStatus}" dbStatus="${device?.status}" deviceHasNumber=${!deviceHasNoNumber} stale=${isStaleConnected} dbDisconnected=${dbStatusDisconnected} forceReconnect=${!!body.forceReconnect} — forcing logout+disconnect`);
+        console.log(`[evolution-connect] pre-disconnect: status="${preStatusLabel}" normalized="${preStatus}" dbStatus="${device?.status}" deviceHasNumber=${!deviceHasNoNumber} stale=${isStaleConnected} dbDisconnected=${dbStatusDisconnected} forceReconnect=${!!body.forceReconnect} — forcing logout+disconnect`);
         // Use logout first to fully clear session, then disconnect as fallback
         await uazapi(instanceUrl, "/instance/logout", currentToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
         await new Promise(r => setTimeout(r, 800));
@@ -780,7 +794,7 @@ Deno.serve(async (req) => {
       const connState = normalizeProviderConnectionState(connectRes.data);
 
       // Already connected?
-      if (connState.state === "connected") {
+      if (connState.state === "connected" && (connState.owner || connInst.owner || connInst.phone)) {
         const phone = connState.owner || connInst.owner || connInst.phone || "";
         const pName = connState.profileName || connInst.profileName || connInst.pushname || "";
         const resp = await handleAlreadyConnected(svc, user.id, deviceId, deviceName, phone, pName, device?.login_type || "", instanceUrl, instanceToken);
@@ -799,7 +813,7 @@ Deno.serve(async (req) => {
           const pollState = normalizeProviderConnectionState(poll.data);
           qr = pollState.qrcode || pi.qrcode || poll.data?.qrcode;
           console.log(`[evolution-connect] QR poll attempt=${attempt + 1} status="${pollState.rawStatus || pollState.state}" normalized="${pollState.state}" hasQR=${!!qr}`);
-          if (pollState.state === "connected") {
+          if (pollState.state === "connected" && (pollState.owner || pi.owner || pi.phone)) {
             const phone = pollState.owner || pi.owner || pi.phone || "";
             const pName = pollState.profileName || pi.profileName || pi.pushname || "";
             const resp = await handleAlreadyConnected(svc, user.id, deviceId, deviceName, phone, pName, device?.login_type || "", instanceUrl, instanceToken);
@@ -839,7 +853,7 @@ Deno.serve(async (req) => {
       }
 
       // Already connected?
-      if (currentCheck.status === "connected") {
+      if (currentCheck.status === "connected" && currentCheck.owner) {
         const fmt = currentCheck.owner ? formatBrPhone(currentCheck.owner) : "";
         await svc.from("devices").update({ status: "Ready", number: fmt, updated_at: new Date().toISOString() }).eq("id", deviceId);
         return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
@@ -877,8 +891,8 @@ Deno.serve(async (req) => {
           pairingCode = extractCode(poll.data);
           if (pairingCode) break;
           const pollState = normalizeProviderConnectionState(poll.data);
-          if (pollState.state === "connected") {
-            const phone = pollState.owner || poll.data?.instance?.owner || poll.data?.instance?.phone || "";
+          const phone = pollState.owner || poll.data?.instance?.owner || poll.data?.instance?.phone || "";
+          if (pollState.state === "connected" && phone) {
             const fmt = phone ? formatBrPhone(phone) : "";
             await svc.from("devices").update({ status: "Ready", number: fmt, updated_at: new Date().toISOString() }).eq("id", deviceId);
             return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
@@ -903,7 +917,7 @@ Deno.serve(async (req) => {
     if (action === "refreshQr") {
       const statusCheck = await checkStatus(5000);
 
-      if (statusCheck.status === "connected") {
+      if (statusCheck.status === "connected" && statusCheck.owner) {
         const phone = statusCheck.owner || "";
         const fmt = phone ? formatBrPhone(phone) : "";
         const dup = await checkDuplicatePhone(svc, user.id, deviceId, phone);
@@ -915,7 +929,7 @@ Deno.serve(async (req) => {
       }
 
       if (!statusCheck.valid) return json({ error: "Token expirado.", code: "TOKEN_INVALID" }, 401);
-      if (statusCheck.status === "connecting" && statusCheck.qrcode) {
+      if ((statusCheck.status === "transitional" || statusCheck.rawStatus === "connecting") && statusCheck.qrcode) {
         return json({ success: true, base64: statusCheck.qrcode, qr: statusCheck.qrcode, status: "connecting" });
       }
 
@@ -931,8 +945,9 @@ Deno.serve(async (req) => {
         const pi = poll.data?.instance || poll.data || {};
         const pollState = normalizeProviderConnectionState(poll.data);
         qr = pollState.qrcode || pi.qrcode || poll.data?.qrcode;
-        if (pollState.state === "connected") {
-          return json({ success: true, alreadyConnected: true, status: "authenticated" });
+        const phone = pollState.owner || pi.owner || pi.phone || "";
+        if (pollState.state === "connected" && phone) {
+          return json({ success: true, alreadyConnected: true, phone: formatBrPhone(phone), status: "authenticated" });
         }
       }
 

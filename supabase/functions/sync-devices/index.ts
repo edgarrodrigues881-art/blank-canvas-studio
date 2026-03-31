@@ -82,7 +82,6 @@ function normalizeProviderConnectionState(payload: any): { state: "connected" | 
   if (hasSignal(connectedSignals)) return { state: "connected", rawStatus, owner };
   if (hasSignal(disconnectedSignals)) return { state: "disconnected", rawStatus, owner };
   if (hasSignal(transitionalSignals)) return { state: "transitional", rawStatus, owner };
-  if (owner) return { state: "connected", rawStatus, owner };
   return { state: "unknown", rawStatus, owner };
 }
 
