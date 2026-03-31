@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Wifi, WifiOff, Flame, Pause, Globe, Loader2 } from "lucide-react";
@@ -21,11 +20,6 @@ function getChipStatus(chip: ChipInfo): string {
   return "connected";
 }
 
-function extractNumber(name: string): number {
-  const m = name.match(/(\d+)/);
-  return m ? parseInt(m[1], 10) : 0;
-}
-
 interface Props {
   chips: ChipInfo[];
   isLoading: boolean;
@@ -33,10 +27,6 @@ interface Props {
 
 export function DeviceInstanceCards({ chips, isLoading }: Props) {
   const navigate = useNavigate();
-
-  const sortedChips = useMemo(() => 
-    [...chips].sort((a, b) => extractNumber(a.name) - extractNumber(b.name)),
-  [chips]);
 
   if (isLoading) {
     return (
@@ -66,7 +56,7 @@ export function DeviceInstanceCards({ chips, isLoading }: Props) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-      {sortedChips.map((chip) => {
+      {chips.map((chip) => {
         const st = statusConfig[getChipStatus(chip)] || statusConfig.disconnected;
         const StatusIcon = st.icon;
 

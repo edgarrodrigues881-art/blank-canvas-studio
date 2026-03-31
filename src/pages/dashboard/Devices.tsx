@@ -398,11 +398,7 @@ const Devices = () => {
 
   // Filtered devices
   const filteredDevices = useMemo(() => {
-    let list = [...devices].sort((a, b) => {
-      const numA = parseInt((a.name.match(/(\d+)/) || ["0", "0"])[1], 10);
-      const numB = parseInt((b.name.match(/(\d+)/) || ["0", "0"])[1], 10);
-      return numA - numB;
-    });
+    let list = [...devices];
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(d =>
