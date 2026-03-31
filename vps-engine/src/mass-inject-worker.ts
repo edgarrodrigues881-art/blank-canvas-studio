@@ -37,7 +37,7 @@ async function withDeviceMutex<T>(deviceId: string, fn: () => Promise<T>): Promi
   while (deviceMutexes.has(deviceId)) {
     await deviceMutexes.get(deviceId);
   }
-  let resolve!: () => void;
+  let resolve: () => void = () => {};
   const promise = new Promise<void>(r => { resolve = r; });
   deviceMutexes.set(deviceId, promise);
   try {
