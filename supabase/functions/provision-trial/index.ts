@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
 
     } finally {
       // Always release the advisory lock
-      await adminClient.rpc("release_provision_lock", { _user_id: user.id }).catch(() => {});
+      try { await adminClient.rpc("release_provision_lock", { _user_id: user.id }); } catch { /* ignore */ }
     }
   } catch (e: any) {
     console.error("[provision-trial] Error:", e);
