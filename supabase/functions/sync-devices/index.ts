@@ -413,15 +413,19 @@ Deno.serve(async (req) => {
     }
 
     const successfulResults = results.filter((r) => r.httpStatus === 200 && r.apiData);
-    const disconnectCandidates = !circuitOpen
+    const disconnectCandidateResults = !circuitOpen
       ? successfulResults.filter((r) => {
           const state = normalizeProviderConnectionState(r.apiData);
           return state.state === "disconnected" && String(r.device.status || "").toLowerCase().trim() === "ready";
-        }).length
-      : 0;
+        })
+      : [];
+    const disconnectCandidates = disconnectCandidateResults.length;
     const disconnectWaveOpen = !circuitOpen
       && successfulResults.length >= 4
       && disconnectCandidates >= Math.max(3, Math.ceil(successfulResults.length * 0.35));
+    const disconnectWaveRequiredStrikes = 3;
+    const disconnectWaveWindowMs = 15 * 60 * 1000;
+    const disconnectWaveStrikeMap = new Map<string, number>();
 
     if (disconnectWaveOpen) {
       opLogs.push({
@@ -431,6 +435,26 @@ Deno.serve(async (req) => {
         details: `Onda de falso offline detectada: ${disconnectCandidates}/${successfulResults.length} instâncias reportaram desconectadas na mesma rodada`,
         meta: { disconnect_candidates: disconnectCandidates, successful_results: successfulResults.length },
       });
+
+      const candidateIds = Array.from(new Set(disconnectCandidateResults
+        .map((row) => row.device?.id)
+        .filter((id): id is string => typeof id === "string" && !!id)));
+
+      if (candidateIds.length > 0) {
+        const { data: recentWaveStrikes } = await svc
+          .from("operation_logs")
+          .select("device_id")
+          .eq("user_id", userId)
+          .eq("event", "sync_disconnect_wave_strike")
+          .in("device_id", candidateIds)
+          .gte("created_at", new Date(Date.now() - disconnectWaveWindowMs).toISOString());
+
+        for (const row of (recentWaveStrikes || [])) {
+          const key = String(row.device_id || "");
+          if (!key) continue;
+          disconnectWaveStrikeMap.set(key, (disconnectWaveStrikeMap.get(key) || 0) + 1);
+        }
+      }
     }
 
     // ── Pre-fetch notification config once ──
@@ -508,31 +532,43 @@ Deno.serve(async (req) => {
         const wasDisconnected = previousStatus === "disconnected";
 
         if (normalizedState.state === "disconnected" && !wasDisconnected) {
-          if (disconnectWaveOpen && wasReady) {
-            effectiveState = { ...normalizedState, state: "unknown" };
-            opLogs.push({
-              user_id: userId,
-              device_id: device.id,
-              event: "sync_disconnect_ignored",
-              details: `Desconexão ignorada para "${device.name}" por onda coletiva do provedor`,
-              meta: { reason: "disconnect_wave", raw_status: normalizedState.rawStatus },
-            });
-          } else if (device.uazapi_base_url && device.uazapi_token) {
-            const confirmedState = await confirmProviderConnectionState(
+          let confirmedState: Awaited<ReturnType<typeof confirmProviderConnectionState>> = null;
+          if (device.uazapi_base_url && device.uazapi_token) {
+            confirmedState = await confirmProviderConnectionState(
               String(device.uazapi_base_url).replace(/\/+$/, ""),
               String(device.uazapi_token),
             );
+          }
 
-            if (!confirmedState) {
-              effectiveState = { ...normalizedState, state: "unknown" };
+          if (disconnectWaveOpen && wasReady) {
+            const strikes = (disconnectWaveStrikeMap.get(device.id) || 0) + 1;
+            disconnectWaveStrikeMap.set(device.id, strikes);
+
+            opLogs.push({
+              user_id: userId,
+              device_id: device.id,
+              event: "sync_disconnect_wave_strike",
+              details: `Desconexão em onda para "${device.name}" (${strikes}/${disconnectWaveRequiredStrikes})`,
+              meta: {
+                raw_status: normalizedState.rawStatus,
+                required_strikes: disconnectWaveRequiredStrikes,
+              },
+            });
+
+            if (confirmedState?.state === "disconnected" && strikes >= disconnectWaveRequiredStrikes) {
+              effectiveState = confirmedState;
               opLogs.push({
                 user_id: userId,
                 device_id: device.id,
-                event: "sync_disconnect_ignored",
-                details: `Desconexão ignorada para "${device.name}" porque a confirmação falhou`,
-                meta: { reason: "confirm_failed", raw_status: normalizedState.rawStatus },
+                event: "sync_disconnect_wave_confirmed",
+                details: `Desconexão confirmada para "${device.name}" após ${strikes} confirmações`,
+                meta: {
+                  first_raw_status: normalizedState.rawStatus,
+                  confirm_raw_status: confirmedState.rawStatus,
+                  strikes,
+                },
               });
-            } else if (confirmedState.state !== "disconnected") {
+            } else if (confirmedState && confirmedState.state !== "disconnected") {
               effectiveState = confirmedState;
               opLogs.push({
                 user_id: userId,
@@ -546,7 +582,47 @@ Deno.serve(async (req) => {
                   confirm_state: confirmedState.state,
                 },
               });
+            } else {
+              effectiveState = { ...normalizedState, state: "unknown" };
+              opLogs.push({
+                user_id: userId,
+                device_id: device.id,
+                event: "sync_disconnect_ignored",
+                details: `Desconexão protegida para "${device.name}" enquanto valida consistência`,
+                meta: {
+                  reason: "disconnect_wave_guard",
+                  raw_status: normalizedState.rawStatus,
+                  strikes,
+                  required_strikes: disconnectWaveRequiredStrikes,
+                  confirm_state: confirmedState?.state || null,
+                },
+              });
             }
+          } else if (!confirmedState) {
+            effectiveState = { ...normalizedState, state: "unknown" };
+            opLogs.push({
+              user_id: userId,
+              device_id: device.id,
+              event: "sync_disconnect_ignored",
+              details: `Desconexão ignorada para "${device.name}" porque a confirmação falhou`,
+              meta: { reason: "confirm_failed", raw_status: normalizedState.rawStatus },
+            });
+          } else if (confirmedState.state !== "disconnected") {
+            effectiveState = confirmedState;
+            opLogs.push({
+              user_id: userId,
+              device_id: device.id,
+              event: "sync_disconnect_ignored",
+              details: `Falso offline ignorado para "${device.name}" após rechecagem`,
+              meta: {
+                reason: "transient_false_disconnect",
+                first_raw_status: normalizedState.rawStatus,
+                confirm_raw_status: confirmedState.rawStatus,
+                confirm_state: confirmedState.state,
+              },
+            });
+          } else {
+            effectiveState = confirmedState;
           }
         }
 
