@@ -11,14 +11,30 @@ const log = createLogger("mass-inject");
 
 const API_TIMEOUT_MS = 25_000;
 const MAX_CONSECUTIVE_FAILURES = 15;
-const MAX_RETRIES = 1; // Try once — if it fails, mark as failed and move on
-const RETRYABLE_STATUSES = ["pending"];
+const RETRYABLE_STATUSES = [
+  "pending",
+  "rate_limited",
+  "api_temporary",
+  "connection_unconfirmed",
+  "session_dropped",
+  "permission_unconfirmed",
+  "unknown_failure",
+  "timeout",
+] as const;
+const DISCONNECT_RECHECK_COUNT = 3;
+const DISCONNECT_RECHECK_INTERVAL_MS = 8_000;
+const CONNECTED_DEVICE_STATUSES = new Set(["connected", "ready", "active", "authenticated", "open", "online"]);
 
 // ── In-memory caches (persist across contacts within same campaign run) ──
 type ParticipantCacheEntry = {
   participants: Set<string>;
   fetchedAt: number;
   confirmed: boolean;
+};
+
+type ConnectionCheckResult = {
+  connected: boolean | null;
+  detail: string;
 };
 
 const participantCache = new Map<string, ParticipantCacheEntry>();
@@ -74,6 +90,62 @@ function buildHeaders(token: string, json = false): Record<string, string> {
   const h: Record<string, string> = { token, Accept: "application/json", "Cache-Control": "no-cache" };
   if (json) h["Content-Type"] = "application/json";
   return h;
+}
+
+async function readApiResponse(res: Response) {
+  const raw = await res.text();
+  let body: any = null;
+  try { body = raw ? JSON.parse(raw) : null; } catch { body = { raw }; }
+  return { raw, body };
+}
+
+function extractProviderMessage(body: any, raw: string): string {
+  const candidates = [
+    typeof body?.error === "string" ? body.error : "",
+    typeof body?.message === "string" ? body.message : "",
+    typeof body?.msg === "string" ? body.msg : "",
+    typeof body?.details === "string" ? body.details : "",
+    typeof body?.data?.error === "string" ? body.data.error : "",
+    typeof body?.data?.message === "string" ? body.data.message : "",
+    raw,
+  ];
+  return candidates.find((v) => typeof v === "string" && v.trim().length > 0)?.trim() || "";
+}
+
+function normalizeProviderConnectionState(payload: any): "connected" | "disconnected" | "unknown" {
+  const inst = payload?.instance || payload?.data || payload || {};
+  const statusObj = payload?.status;
+
+  if (statusObj && typeof statusObj === "object") {
+    if (statusObj.connected === true) return "connected";
+    if (statusObj.connected === false) return "disconnected";
+  }
+
+  const rawStatus = [
+    inst?.connectionStatus,
+    inst?.status,
+    payload?.connectionStatus,
+    payload?.state,
+  ].find((value) => typeof value === "string" && value.trim())?.toLowerCase().trim() || "";
+
+  const textBlob = [
+    payload?.message,
+    payload?.error,
+    payload?.msg,
+    payload?.details,
+    payload?.data?.message,
+    payload?.data?.error,
+    inst?.message,
+    inst?.error,
+  ]
+    .filter((value) => typeof value === "string" && value.trim())
+    .join(" ")
+    .toLowerCase();
+
+  const hasSignal = (signals: string[]) => signals.some((signal) => rawStatus.includes(signal) || textBlob.includes(signal));
+  if (hasSignal(["connected", "authenticated", "open", "ready", "active", "online"])) return "connected";
+  if (hasSignal(["disconnected", "closed", "close", "offline", "logout", "logged_out", "loggedout", "not_connected"])) return "disconnected";
+  return "unknown";
 }
 
 function normalizePhone(raw: string): string | null {
@@ -227,22 +299,47 @@ function rememberParticipantInCache(baseUrl: string, groupId: string, phone: str
 }
 
 // ── Connection check (single, fast) ──
-async function isDeviceConnected(baseUrl: string, token: string): Promise<boolean | null> {
-  try {
-    const res = await fetchWithTimeout(`${baseUrl}/instance/status?t=${Date.now()}`, { headers: buildHeaders(token) }, 8000);
-    const body: any = await res.json().catch(() => ({}));
-    const statusObj = body?.status;
-    if (statusObj && typeof statusObj === "object") {
-      if (statusObj.connected === true) return true;
-      if (statusObj.connected === false) return false;
+async function isDeviceConnected(baseUrl: string, token: string, checks = 1): Promise<ConnectionCheckResult> {
+  const results: ConnectionCheckResult[] = [];
+
+  for (let i = 0; i < Math.max(1, checks); i++) {
+    if (i > 0) await sleep(DISCONNECT_RECHECK_INTERVAL_MS);
+
+    try {
+      const res = await fetchWithTimeout(`${baseUrl}/instance/status?t=${Date.now()}`, { headers: buildHeaders(token) }, 8000);
+      const { raw, body } = await readApiResponse(res);
+      const normalized = normalizeProviderConnectionState(body);
+
+      if (normalized === "connected") {
+        return { connected: true, detail: "Conexão confirmada em tempo real." };
+      }
+
+      if (normalized === "disconnected") {
+        results.push({ connected: false, detail: "Instância reportou desconexão." });
+        continue;
+      }
+
+      if (res.status === 401) {
+        results.push({ connected: false, detail: "Falha de autenticação da instância." });
+        continue;
+      }
+
+      if (!res.ok) {
+        results.push({ connected: null, detail: extractProviderMessage(body, raw) || `HTTP ${res.status}` });
+        continue;
+      }
+
+      results.push({ connected: null, detail: "Status da instância não pôde ser confirmado." });
+    } catch (error: any) {
+      results.push({ connected: null, detail: error?.message || "Falha ao validar conexão." });
     }
-    const raw = JSON.stringify(body).toLowerCase();
-    if (["connected", "authenticated", "open", "ready"].some(s => raw.includes(s))) return true;
-    if (["disconnected", "closed", "close", "offline"].some(s => raw.includes(s))) return false;
-    return null;
-  } catch {
-    return null;
   }
+
+  if (results.length > 0 && results.every((entry) => entry.connected === false)) {
+    return { connected: false, detail: `Desconexão confirmada após ${Math.max(1, checks)} verificações.` };
+  }
+
+  return results[results.length - 1] || { connected: null, detail: "Não foi possível validar a conexão da instância." };
 }
 
 // ── Add to group (with endpoint caching) ──
@@ -518,19 +615,20 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         continue;
       }
 
-      const isOperational = !!device.number && ["connected", "ready", "active", "authenticated", "open", "online"].includes(String(device.status).toLowerCase());
-      if (!isOperational) {
-        failedDeviceIds.add(deviceId);
-        continue;
-      }
-
       const baseUrl = String(device.uazapi_base_url).replace(/\/+$/, "");
-
-      // 4. Connection check (only every 10 contacts or at start)
+      const statusHint = String(device.status || "").toLowerCase();
       const processed = counterState.success_count + counterState.fail_count + counterState.already_count;
-      if (processed === 0 || processed % 10 === 0) {
-        const connected = await isDeviceConnected(baseUrl, device.uazapi_token);
-        if (connected === false) {
+      const shouldCheckConnection = processed === 0 || processed % 10 === 0 || !CONNECTED_DEVICE_STATUSES.has(statusHint);
+
+      // 4. Connection check (always when DB status is stale/disconnected, plus every 10 contacts)
+      if (shouldCheckConnection) {
+        const liveConnection = await isDeviceConnected(
+          baseUrl,
+          device.uazapi_token,
+          CONNECTED_DEVICE_STATUSES.has(statusHint) ? 1 : DISCONNECT_RECHECK_COUNT,
+        );
+
+        if (liveConnection.connected === false) {
           log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} disconnected`);
           failedDeviceIds.add(deviceId);
 
@@ -546,6 +644,18 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
           }
           continue;
         }
+
+        if (!CONNECTED_DEVICE_STATUSES.has(statusHint) && liveConnection.connected === true) {
+          log.info(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} recovered by live check despite DB status=${device.status}`);
+        }
+
+        if (!CONNECTED_DEVICE_STATUSES.has(statusHint) && liveConnection.connected === null) {
+          log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} has stale DB status=${device.status}; proceeding with cautious fallback (${liveConnection.detail})`);
+        }
+      }
+
+      if (!String(device.number || "").trim()) {
+        log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} has no number synced in DB — proceeding without own-number guard`);
       }
 
       // 5. Claim next contact
