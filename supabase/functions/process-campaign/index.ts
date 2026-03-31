@@ -566,27 +566,83 @@ const MAX_RETRIES = 2;
 const RETRY_DELAY_MIN_MS = 20_000;
 const RETRY_DELAY_MAX_MS = 60_000;
 
+function buildPhoneSendCandidates(to: string): string[] {
+  const raw = String(to || "").trim();
+  if (!raw) return [];
+  if (raw.includes("@lid")) return [raw];
+
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return [];
+
+  const candidates = new Set<string>();
+  const add = (value: string) => {
+    const normalized = value.replace(/\D/g, "");
+    if (normalized.length >= 10) candidates.add(normalized);
+  };
+
+  add(normalizeBrazilianPhone(digits));
+
+  const no55 = digits.startsWith("55") ? digits.slice(2) : digits;
+
+  // BR fallback: try both with and without 9th digit after DDD.
+  if (no55.length === 10) {
+    const ddd = no55.slice(0, 2);
+    const number8 = no55.slice(2);
+    add(`55${ddd}${number8}`);
+    add(`55${ddd}9${number8}`);
+  }
+
+  if (no55.length === 11 && no55[2] === "9") {
+    const ddd = no55.slice(0, 2);
+    const number8 = no55.slice(3);
+    add(`55${ddd}9${number8}`);
+    add(`55${ddd}${number8}`);
+  }
+
+  return Array.from(candidates);
+}
+
 async function sendWithRetry(
   baseUrl: string, token: string, to: string, body: string,
   mediaUrl?: string | null, buttons?: CampaignButton[], messageType?: string, carouselCards?: CarouselCard[]
 ): Promise<{ success: boolean; attempts: number; error?: string }> {
+  const candidateTargets = buildPhoneSendCandidates(to);
+  const targets = candidateTargets.length > 0 ? candidateTargets : [to];
+
   let lastError = "";
-  for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-    try {
-      await sendUazapiMessage(baseUrl, token, to, body, mediaUrl, buttons, messageType, carouselCards);
-      if (attempt > 1) console.log(`✅ Retry ${attempt - 1} succeeded for ${to}`);
-      return { success: true, attempts: attempt };
-    } catch (err) {
-      lastError = err.message || "Erro";
-      if (!isTemporaryError(lastError) || attempt > MAX_RETRIES) {
-        return { success: false, attempts: attempt, error: lastError };
+  let totalAttempts = 0;
+
+  for (let targetIndex = 0; targetIndex < targets.length; targetIndex++) {
+    const currentTarget = targets[targetIndex];
+
+    for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+      totalAttempts++;
+      try {
+        await sendUazapiMessage(baseUrl, token, currentTarget, body, mediaUrl, buttons, messageType, carouselCards);
+        if (targetIndex > 0) console.log(`✅ Sent with alternate format ${currentTarget} (original ${to})`);
+        if (attempt > 1) console.log(`✅ Retry ${attempt - 1} succeeded for ${currentTarget}`);
+        return { success: true, attempts: totalAttempts };
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : String(err);
+        const hasNextTarget = targetIndex < targets.length - 1;
+
+        if (isNotFoundError(lastError) && hasNextTarget) {
+          console.log(`🔁 ${currentTarget} returned \"${lastError}\". Trying alternate number format...`);
+          break;
+        }
+
+        if (!isTemporaryError(lastError) || attempt > MAX_RETRIES) {
+          return { success: false, attempts: totalAttempts, error: lastError };
+        }
+
+        const retryDelay = RETRY_DELAY_MIN_MS + secureRandom() * (RETRY_DELAY_MAX_MS - RETRY_DELAY_MIN_MS);
+        console.log(`⚠️ Attempt ${attempt} failed for ${currentTarget}: ${lastError} | retrying in ${Math.round(retryDelay / 1000)}s`);
+        await new Promise(r => setTimeout(r, retryDelay));
       }
-      const retryDelay = RETRY_DELAY_MIN_MS + secureRandom() * (RETRY_DELAY_MAX_MS - RETRY_DELAY_MIN_MS);
-      console.log(`⚠️ Attempt ${attempt} failed for ${to}: ${lastError} | retrying in ${Math.round(retryDelay / 1000)}s`);
-      await new Promise(r => setTimeout(r, retryDelay));
     }
   }
-  return { success: false, attempts: MAX_RETRIES + 1, error: lastError };
+
+  return { success: false, attempts: totalAttempts || MAX_RETRIES + 1, error: lastError };
 }
 
 async function checkNumberExists(baseUrl: string, token: string, phone: string): Promise<{ exists: boolean; error?: string }> {
