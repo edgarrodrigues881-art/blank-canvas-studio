@@ -30,6 +30,24 @@ const PARTICIPANT_FAILURE_CACHE_TTL_MS = 60_000; // 1 min
 export let lastMassInjectTickAt: Date | null = null;
 const activeCampaignIds = new Set<string>();
 
+// ── Device-level mutex: prevents two campaigns from hitting the same device simultaneously ──
+const deviceMutexes = new Map<string, Promise<void>>();
+
+async function withDeviceMutex<T>(deviceId: string, fn: () => Promise<T>): Promise<T> {
+  while (deviceMutexes.has(deviceId)) {
+    await deviceMutexes.get(deviceId);
+  }
+  let resolve: () => void = () => {};
+  const promise = new Promise<void>(r => { resolve = r; });
+  deviceMutexes.set(deviceId, promise);
+  try {
+    return await fn();
+  } finally {
+    deviceMutexes.delete(deviceId);
+    resolve();
+  }
+}
+
 export function getMassInjectStatus() {
   return { lastTick: lastMassInjectTickAt, activeCampaigns: Array.from(activeCampaignIds) };
 }
@@ -589,7 +607,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       }
 
       // 8. Add to group
-      const result = await addToGroup(baseUrl, device.uazapi_token, groupId, phone);
+      const result = await withDeviceMutex(deviceId, () =>
+        addToGroup(baseUrl, device.uazapi_token, groupId, phone)
+      );
 
       if (result.ok) {
         await sb.from("mass_inject_contacts").update({
@@ -607,9 +627,17 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         rememberParticipantInCache(baseUrl, groupId, phone);
         consecutiveFailures = 0;
       } else {
-        // Failure — single attempt, mark as failed immediately (no retries)
+        // Classify retryable vs permanent failure
+        const isRateLimit = result.detail.toLowerCase().includes("rate limit") || result.cooldownMs >= 30000;
+        const isTimeout = result.detail.toLowerCase().includes("timeout");
+        const isConnectionIssue = result.detail.toLowerCase().includes("desconectada") || result.detail.toLowerCase().includes("socket");
+        
+        const failStatus = result.retryable
+          ? (isRateLimit ? "rate_limited" : isTimeout ? "timeout" : isConnectionIssue ? "connection_unconfirmed" : "api_temporary")
+          : "failed";
+        
         await sb.from("mass_inject_contacts").update({
-          status: "failed", error_message: result.detail, processed_at: nowIso(),
+          status: failStatus, error_message: result.detail, processed_at: nowIso(),
         }).eq("id", contact.id);
         await updateCounters(sb, campaignId, counterState, "failed");
 
@@ -632,6 +660,12 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
           }).eq("id", campaignId);
           await emitEvent(sb, campaignId, "campaign_paused", "warning", reason);
           break;
+        }
+
+        // Extra cooldown for rate limits
+        if (isRateLimit && result.cooldownMs > 0) {
+          log.info(`Campaign ${campaignId.slice(0, 8)}: rate limit cooldown ${Math.round(result.cooldownMs / 1000)}s`);
+          await sleep(result.cooldownMs);
         }
       }
 
