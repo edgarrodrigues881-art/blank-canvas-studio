@@ -146,7 +146,11 @@ export function useAutoSyncDevices(intervalMs = 15_000) {
 
       if (response.status === 401) {
         queuedSync = false;
-        await supabase.auth.signOut({ scope: "local" });
+        // Try to refresh the session before forcing logout
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (!refreshed?.session) {
+          await supabase.auth.signOut({ scope: "local" });
+        }
         return;
       }
 
