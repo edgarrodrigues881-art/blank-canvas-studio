@@ -4170,6 +4170,7 @@ async function handleDailyReset(db: any) {
       day_index: newDay, phase: newPhase,
       last_daily_reset_at: resetAt,
       daily_interaction_budget_used: 0, daily_unique_recipients_used: 0,
+      daily_interaction_budget_target: 0,
     }).eq("id", cycle.id);
 
     // [BUG A FIX] Activate community membership on phase transition (mirrors job-based daily_reset)
