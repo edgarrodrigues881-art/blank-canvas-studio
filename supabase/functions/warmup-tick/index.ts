@@ -364,6 +364,22 @@ async function scheduleDayJobs(
         .eq("cycle_id", cycleId)
         .eq("job_type", "join_group")
         .in("status", ["pending", "running"]);
+    } else {
+      // Groups still pending — let join_group jobs run, but adjust window start
+      const { data: pendingJoinJobs } = await db.from("warmup_jobs")
+        .select("run_at")
+        .eq("cycle_id", cycleId)
+        .eq("job_type", "join_group")
+        .in("status", ["pending", "running"]);
+
+      if (pendingJoinJobs?.length) {
+        const latestJoinMs = pendingJoinJobs
+          .map((job: any) => new Date(job.run_at).getTime())
+          .filter((value: number) => Number.isFinite(value))
+          .reduce((max: number, value: number) => Math.max(max, value), effectiveStart);
+        effectiveStart = Math.max(effectiveStart, latestJoinMs + 2 * 60 * 1000);
+      }
+    }
   } else {
     const { data: pendingJoinJobs } = await db.from("warmup_jobs")
       .select("run_at")
