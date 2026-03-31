@@ -850,11 +850,18 @@ Deno.serve(async (req) => {
           if (now < new Date(c.first_24h_ends_at)) phase = "pre_24h";
           if (["error", "paused"].includes(phase)) phase = "groups_only";
 
-          // On reconnection, ALWAYS defer to tomorrow's daily_reset — never schedule jobs immediately.
-          // This prevents re-warming a chip that was already warmed today or creating duplicate jobs.
+          // On reconnection, schedule jobs for TODAY if within operating window
+          // This prevents lost warmup days when chips reconnect mid-day
+          const nowCheck = new Date();
+          const brt7 = new Date(); brt7.setUTCHours(10, 0, 0, 0); // 07:00 BRT ≈ 10:00 UTC
+          const brt19 = new Date(); brt19.setUTCHours(22, 0, 0, 0); // 19:00 BRT ≈ 22:00 UTC
+          const withinWindow = nowCheck >= brt7 && nowCheck < brt19;
+
           await svc.from("warmup_cycles").update({
             is_running: true, phase, previous_phase: null, last_error: null,
-            next_run_at: null, // No immediate scheduling
+            next_run_at: null,
+            // Reset budget target to 0 so it gets recalculated for today's remaining window
+            daily_interaction_budget_target: 0,
           }).eq("id", c.id);
 
           // Ensure a daily_reset job exists so the cycle advances to the next day
@@ -875,7 +882,7 @@ Deno.serve(async (req) => {
             });
           }
 
-          console.log(`[sync-devices] Cycle ${c.id} resumed to phase=${phase} — deferred to tomorrow's daily_reset`);
+          console.log(`[sync-devices] Cycle ${c.id} resumed to phase=${phase} — withinWindow=${withinWindow}, will be picked up by warmup-tick auto-resume`);
         }
       }
     }
