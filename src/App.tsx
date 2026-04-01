@@ -50,6 +50,7 @@ const AutoReply = lazyWithPreload(() => import("@/pages/dashboard/AutoReply"));
 const AutoReplyComingSoon = lazyWithPreload(() => import("@/pages/dashboard/AutoReplyComingSoon"));
 const Contacts = lazyWithPreload(() => import("@/pages/dashboard/Contacts"));
 const GroupLeadExtractor = lazyWithPreload(() => import("@/pages/dashboard/GroupLeadExtractor"));
+const WhatsAppVerifier = lazyWithPreload(() => import("@/pages/dashboard/WhatsAppVerifier"));
 const Templates = lazyWithPreload(() => import("@/pages/dashboard/Templates"));
 const CarouselTemplates = lazyWithPreload(() => import("@/pages/dashboard/CarouselTemplates"));
 const AutoSave = lazyWithPreload(() => import("@/pages/dashboard/AutoSave"));
@@ -76,6 +77,7 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/campaign-list": () => { (CampaignList as any).__preload?.(); },
   "/dashboard/contacts": () => { (Contacts as any).__preload?.(); },
   "/dashboard/group-extractor": () => { (GroupLeadExtractor as any).__preload?.(); },
+  "/dashboard/whatsapp-verifier": () => { (WhatsAppVerifier as any).__preload?.(); },
   "/dashboard/templates": () => { (Templates as any).__preload?.(); },
   "/dashboard/carousel-templates": () => { (CarouselTemplates as any).__preload?.(); },
   "/dashboard/autosave": () => { (AutoSave as any).__preload?.(); },
@@ -223,6 +225,7 @@ const App = () => (
                 <Route path="/dashboard/autoreply-soon" element={<ProtectedRoute><DashboardLayout><AutoReplyComingSoon /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/contacts" element={<ProtectedRoute><DashboardLayout><Contacts /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-extractor" element={<ProtectedRoute><DashboardLayout><GroupLeadExtractor /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/whatsapp-verifier" element={<ProtectedRoute><DashboardLayout><WhatsAppVerifier /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/templates" element={<ProtectedRoute><DashboardLayout><Templates /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/carousel-templates" element={<ProtectedRoute><DashboardLayout><CarouselTemplates /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/autosave" element={<ProtectedRoute><DashboardLayout><AutoSave /></DashboardLayout></ProtectedRoute>} />
