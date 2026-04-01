@@ -394,7 +394,8 @@ const CampaignDetail = () => {
   const progress = campaign ? Math.round(((campaign.sent_count || 0) + (campaign.failed_count || 0)) / Math.max(campaign.total_contacts || 1, 1) * 100) : 0;
 
   const handleAction = async (action: "pause" | "resume" | "cancel" | "start") => {
-    if (!id) return;
+    if (!id || actionLoading) return;
+    setActionLoading(action);
     try {
       const { data, error } = await supabase.functions.invoke("process-campaign", { body: { action, campaignId: id } });
       if (error) throw error;
@@ -409,6 +410,8 @@ const CampaignDetail = () => {
       toast(labels[action]);
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setActionLoading(null);
     }
   };
 
