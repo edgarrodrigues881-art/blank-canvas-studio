@@ -147,9 +147,7 @@ export default function GroupLeadExtractor() {
   const filteredLeads = useMemo(() => {
     if (!searchLeads) return currentLeads;
     const q = searchLeads.toLowerCase();
-    return currentLeads.filter(l =>
-      l.phone.includes(q) || l.name.toLowerCase().includes(q) || l.group_name.toLowerCase().includes(q)
-    );
+    return currentLeads.filter(l => l.phone.includes(q));
   }, [currentLeads, searchLeads]);
 
   const toggleGroup = (jid: string) => {
