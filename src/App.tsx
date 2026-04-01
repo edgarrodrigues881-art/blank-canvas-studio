@@ -50,6 +50,7 @@ const AutoReply = lazyWithPreload(() => import("@/pages/dashboard/AutoReply"));
 const AutoReplyComingSoon = lazyWithPreload(() => import("@/pages/dashboard/AutoReplyComingSoon"));
 const Contacts = lazyWithPreload(() => import("@/pages/dashboard/Contacts"));
 const GroupLeadExtractor = lazyWithPreload(() => import("@/pages/dashboard/GroupLeadExtractor"));
+const WhatsAppVerifier = lazyWithPreload(() => import("@/pages/dashboard/WhatsAppVerifier"));
 const Templates = lazyWithPreload(() => import("@/pages/dashboard/Templates"));
 const CarouselTemplates = lazyWithPreload(() => import("@/pages/dashboard/CarouselTemplates"));
 const AutoSave = lazyWithPreload(() => import("@/pages/dashboard/AutoSave"));
