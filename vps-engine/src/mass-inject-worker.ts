@@ -644,12 +644,41 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
           // Check if ALL devices are down
           const allIds = parseDeviceIds(freshCampaign.device_ids);
           if (allIds.every(id => failedDeviceIds.has(id))) {
+            // Wait 60s and clear all failures to give devices a chance to reconnect
+            log.warn(`Campaign ${campaignId.slice(0, 8)}: all devices disconnected — waiting 60s before retrying`);
+            await emitEvent(sb, campaignId, "all_sessions_dropped", "warning", "Todas as instâncias desconectadas. Aguardando reconexão automática...");
             await sb.from("mass_inject_campaigns").update({
-              status: "paused", updated_at: nowIso(), next_run_at: null,
-              pause_reason: "Todas as instâncias desconectadas. Reconecte e retome.",
+              updated_at: nowIso(),
+              next_run_at: new Date(Date.now() + DEVICE_RETRY_INTERVAL_MS).toISOString(),
+              pause_reason: "Aguardando reconexão das instâncias...",
             }).eq("id", campaignId);
-            await emitEvent(sb, campaignId, "all_sessions_dropped", "warning", "Todas as instâncias desconectadas.");
-            break;
+            await sleep(DEVICE_RETRY_INTERVAL_MS);
+            
+            // Clear all failures and retry
+            failedDeviceIds.clear();
+            
+            // Re-check: if still all disconnected after wait, THEN pause
+            let anyConnected = false;
+            for (const did of allIds) {
+              const { data: dev } = await sb.from("devices").select("uazapi_base_url, uazapi_token, status").eq("id", did).single();
+              if (!dev?.uazapi_base_url || !dev?.uazapi_token) continue;
+              const check = await isDeviceConnected(String(dev.uazapi_base_url).replace(/\/+$/, ""), dev.uazapi_token, 2);
+              if (check.connected !== false) { anyConnected = true; break; }
+            }
+            
+            if (!anyConnected) {
+              await sb.from("mass_inject_campaigns").update({
+                status: "paused", updated_at: nowIso(), next_run_at: null,
+                pause_reason: "Todas as instâncias desconectadas. Reconecte e retome.",
+              }).eq("id", campaignId);
+              await emitEvent(sb, campaignId, "all_sessions_dropped_final", "warning", "Todas as instâncias desconectadas após tentativa de reconexão.");
+              break;
+            }
+            
+            log.info(`Campaign ${campaignId.slice(0, 8)}: device(s) reconnected — resuming`);
+            await sb.from("mass_inject_campaigns").update({
+              updated_at: nowIso(), next_run_at: null, pause_reason: null,
+            }).eq("id", campaignId);
           }
           continue;
         }
