@@ -42,9 +42,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export const ActivityChart = React.memo(function ActivityChart({ data }: Props) {
-  const totalVolume = data.reduce((sum, d) => sum + (d.volume || 0), 0);
   const totalEntregas = data.reduce((sum, d) => sum + (d.entregas || 0), 0);
-  const taxaSucesso = totalVolume > 0 ? Math.round((totalEntregas / totalVolume) * 100) : 0;
 
   return (
     <Card className="border-border/50 bg-card w-full col-span-full overflow-hidden">
@@ -52,36 +50,16 @@ export const ActivityChart = React.memo(function ActivityChart({ data }: Props) 
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-primary" />
-            Evolução do Aquecimento — 7 dias
+            Mensagens Entregues — 7 dias
           </CardTitle>
-          <div className="flex items-center gap-4 text-[11px]">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-primary" />
-              <span className="text-muted-foreground">Mensagens Enviadas</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full" style={{ background: "hsl(152, 69%, 53%)" }} />
-              <span className="text-muted-foreground">Entregas Confirmadas</span>
-            </div>
+          <div className="flex items-center gap-1.5 text-[11px]">
+            <span className="w-2 h-2 rounded-full" style={{ background: "hsl(152, 69%, 53%)" }} />
+            <span className="text-muted-foreground">Entregas confirmadas</span>
           </div>
         </div>
-        <div className="flex items-center gap-6 mt-1">
-          <div>
-            <span className="text-2xl font-bold text-foreground">{totalVolume.toLocaleString("pt-BR")}</span>
-            <span className="text-xs text-muted-foreground ml-1.5">enviadas</span>
-          </div>
-          <div className="h-6 w-px bg-border" />
-          <div>
-            <span className="text-2xl font-bold text-foreground">{totalEntregas.toLocaleString("pt-BR")}</span>
-            <span className="text-xs text-muted-foreground ml-1.5">entregues</span>
-          </div>
-          <div className="h-6 w-px bg-border" />
-          <div className="flex items-center gap-1">
-            <span className="text-sm font-semibold" style={{ color: taxaSucesso >= 70 ? "hsl(152, 69%, 53%)" : "hsl(38, 92%, 50%)" }}>
-              {taxaSucesso}%
-            </span>
-            <span className="text-xs text-muted-foreground">taxa de sucesso</span>
-          </div>
+        <div className="mt-1">
+          <span className="text-2xl font-bold text-foreground">{totalEntregas.toLocaleString("pt-BR")}</span>
+          <span className="text-xs text-muted-foreground ml-1.5">mensagens entregues</span>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
@@ -89,10 +67,6 @@ export const ActivityChart = React.memo(function ActivityChart({ data }: Props) 
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
               <defs>
-                <linearGradient id="gradVolume" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.02} />
-                </linearGradient>
                 <linearGradient id="gradEntregas" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="hsl(152, 69%, 53%)" stopOpacity={0.25} />
                   <stop offset="100%" stopColor="hsl(152, 69%, 53%)" stopOpacity={0.02} />
@@ -114,21 +88,11 @@ export const ActivityChart = React.memo(function ActivityChart({ data }: Props) 
               <Tooltip content={<CustomTooltip />} />
               <Area
                 type="monotone"
-                dataKey="volume"
-                stroke="hsl(var(--primary))"
-                strokeWidth={2.5}
-                fill="url(#gradVolume)"
-                name="Mensagens Enviadas"
-                dot={{ r: 3, fill: "hsl(var(--primary))", strokeWidth: 0 }}
-                activeDot={{ r: 5, fill: "hsl(var(--primary))", stroke: "hsl(var(--background))", strokeWidth: 2 }}
-              />
-              <Area
-                type="monotone"
                 dataKey="entregas"
                 stroke="hsl(152, 69%, 53%)"
                 strokeWidth={2.5}
                 fill="url(#gradEntregas)"
-                name="Entregas Confirmadas"
+                name="Entregas"
                 dot={{ r: 3, fill: "hsl(152, 69%, 53%)", strokeWidth: 0 }}
                 activeDot={{ r: 5, fill: "hsl(152, 69%, 53%)", stroke: "hsl(var(--background))", strokeWidth: 2 }}
               />
