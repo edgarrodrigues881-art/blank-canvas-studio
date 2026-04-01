@@ -899,11 +899,14 @@ export async function massInjectTick(isRunningRef: { value: boolean }) {
     .or(`processed_at.lt.${staleThreshold},processed_at.is.null`);
 
   // 2. Find active campaigns (skip ones already being processed)
+  const MAX_GLOBAL_CONCURRENT = 10;
+  const MAX_PER_USER_CONCURRENT = 5;
+
   const { data: campaigns } = await db.from("mass_inject_campaigns")
     .select("*")
     .in("status", ["queued", "processing"])
     .order("created_at", { ascending: true })
-    .limit(10);
+    .limit(20); // fetch more to allow per-user filtering
 
   if (!campaigns?.length) return;
 
@@ -911,9 +914,29 @@ export async function massInjectTick(isRunningRef: { value: boolean }) {
   const newCampaigns = campaigns.filter(c => !activeCampaignIds.has(c.id));
   if (!newCampaigns.length) return;
 
-  // Launch each new campaign as fire-and-forget (don't await)
+  // Count active campaigns per user
+  const activePerUser = new Map<string, number>();
+  for (const id of activeCampaignIds) {
+    const running = campaigns.find(c => c.id === id) ||
+      (await db.from("mass_inject_campaigns").select("user_id").eq("id", id).single()).data;
+    if (running?.user_id) {
+      activePerUser.set(running.user_id, (activePerUser.get(running.user_id) || 0) + 1);
+    }
+  }
+
+  // Launch each new campaign respecting per-user and global limits
   for (const campaign of newCampaigns) {
     if (!isRunningRef.value) break;
+    if (activeCampaignIds.size >= MAX_GLOBAL_CONCURRENT) {
+      log.info(`Global limit reached (${MAX_GLOBAL_CONCURRENT}), skipping remaining`);
+      break;
+    }
+
+    const userActive = activePerUser.get(campaign.user_id) || 0;
+    if (userActive >= MAX_PER_USER_CONCURRENT) {
+      log.info(`User ${campaign.user_id.slice(0, 8)} at per-user limit (${MAX_PER_USER_CONCURRENT}), skipping campaign ${campaign.id.slice(0, 8)}`);
+      continue;
+    }
 
     // Check if there are pending contacts
     const { count } = await db.from("mass_inject_contacts")
