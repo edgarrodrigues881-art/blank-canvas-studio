@@ -468,6 +468,9 @@ const CampaignDetail = () => {
   };
 
   const handleExportConfirm = async () => {
+    if (exportLoading) return;
+    setExportLoading(true);
+    try {
     const XLSX = await import("xlsx");
 
     // Fetch ALL contacts for this campaign (not just current page)
