@@ -578,10 +578,19 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       await emitEvent(sb, campaignId, "campaign_started", "info");
     }
 
-    const failedDeviceIds = new Set<string>();
+    const failedDeviceIds = new Map<string, number>(); // deviceId -> timestamp when marked failed
+    const DEVICE_RETRY_INTERVAL_MS = 60_000; // Retry failed devices after 60s
     let consecutiveFailures = 0;
 
     while (isRunningRef.value) {
+      // Clear stale device failures — give devices a chance to reconnect
+      const now = Date.now();
+      for (const [did, ts] of failedDeviceIds) {
+        if (now - ts > DEVICE_RETRY_INTERVAL_MS) {
+          failedDeviceIds.delete(did);
+          log.info(`Campaign ${campaignId.slice(0, 8)}: clearing failed flag for device ${did.slice(0, 8)} — retrying`);
+        }
+      }
       // 1. Check campaign status (was it paused/cancelled externally?)
       const { data: freshCampaign } = await sb.from("mass_inject_campaigns").select("status, min_delay, max_delay, pause_after, pause_duration, device_ids, group_id, success_count, fail_count, already_count, rate_limit_count").eq("id", campaignId).single();
       if (!freshCampaign || !["queued", "processing"].includes(freshCampaign.status)) {
