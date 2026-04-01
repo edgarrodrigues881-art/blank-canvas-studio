@@ -251,44 +251,47 @@ const CampaignList = () => {
             {filtered.map((c) => {
               const cfg = statusConfig[c.status] || statusConfig.pending;
               const progress = getProgress(c);
+              const sent = c.sent_count || 0;
+              const total = c.total_contacts || 0;
+              const failed = c.failed_count || 0;
               return (
                 <div
                   key={c.id}
-                  className="group flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors duration-100 hover:bg-muted/20"
+                  className="group grid items-center gap-4 px-4 py-3 cursor-pointer transition-colors duration-100 hover:bg-muted/20"
+                  style={{ gridTemplateColumns: "1fr 90px 100px 60px" }}
                   onClick={() => navigate(`/dashboard/campaign/${c.id}`)}
                 >
-                  {/* Name + Status */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="text-[13px] font-medium text-foreground truncate">{c.name}</p>
-                      <Badge variant="outline" className={`text-[9px] font-semibold shrink-0 gap-0.5 px-1.5 py-0 h-4 ${cfg.color}`}>
-                        {cfg.icon}
-                        {cfg.label}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1.5 flex-1 max-w-[160px]">
-                        <Progress value={progress} className="h-1 flex-1" />
-                        <span className="text-[10px] text-muted-foreground tabular-nums w-7 text-right">{progress}%</span>
-                      </div>
-                      <span className="text-[10px] text-muted-foreground tabular-nums">
-                        {c.sent_count || 0}/{c.total_contacts || 0}
+                  {/* Col 1: Name + progress */}
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-medium text-foreground truncate mb-1.5">{c.name}</p>
+                    <div className="flex items-center gap-2">
+                      <Progress value={progress} className="h-1.5 flex-1 max-w-[200px]" />
+                      <span className="text-[10px] text-muted-foreground tabular-nums whitespace-nowrap">
+                        {progress}% · {sent}/{total}
                       </span>
-                      {(c.failed_count || 0) > 0 && (
-                        <span className="text-[10px] text-destructive tabular-nums">
-                          {c.failed_count} falhas
+                      {failed > 0 && (
+                        <span className="text-[10px] text-destructive tabular-nums whitespace-nowrap">
+                          {failed} falhas
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Date */}
-                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 hidden sm:block">
+                  {/* Col 2: Status badge */}
+                  <div className="flex justify-center">
+                    <Badge variant="outline" className={`text-[10px] font-semibold shrink-0 gap-1 px-2 py-0.5 h-5 ${cfg.color}`}>
+                      {cfg.icon}
+                      {cfg.label}
+                    </Badge>
+                  </div>
+
+                  {/* Col 3: Date */}
+                  <span className="text-[10px] text-muted-foreground tabular-nums text-right">
                     {format(new Date(c.created_at), "dd/MM/yy HH:mm")}
                   </span>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                  {/* Col 4: Actions */}
+                  <div className="flex items-center gap-0.5 justify-end" onClick={(e) => e.stopPropagation()}>
                     {canSaveAsTemplate(c.status) && c.message_content && (
                       <Button
                         variant="ghost"
