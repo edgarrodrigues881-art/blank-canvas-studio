@@ -181,11 +181,10 @@ export default function GroupLeadExtractor() {
   const exportXLSX = useCallback(async () => {
     const XLSX = await import("xlsx");
     const data = currentLeads.map((l, i) => ({
-      "#": i + 1, "Número": l.phone, "Nome": l.name || "", "Grupo": l.group_name,
-      "Tipo": l.is_admin ? "Admin" : "Membro",
+      "#": i + 1, "Número": l.phone,
     }));
     const ws = XLSX.utils.json_to_sheet(data);
-    ws["!cols"] = [{ wch: 5 }, { wch: 18 }, { wch: 25 }, { wch: 30 }, { wch: 10 }];
+    ws["!cols"] = [{ wch: 5 }, { wch: 20 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Leads");
     XLSX.writeFile(wb, `leads_${activeTab}_${new Date().toISOString().slice(0, 10)}.xlsx`);
