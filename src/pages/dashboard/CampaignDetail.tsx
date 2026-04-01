@@ -127,6 +127,8 @@ const CampaignDetail = () => {
   const [exportPending, setExportPending] = useState(true);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [saveTemplateName, setSaveTemplateName] = useState("");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [exportLoading, setExportLoading] = useState(false);
   const createTemplate = useCreateTemplate();
   const createCarouselTemplate = useCreateCarouselTemplate();
   const updateCarouselTemplate = useUpdateCarouselTemplate();
@@ -392,7 +394,8 @@ const CampaignDetail = () => {
   const progress = campaign ? Math.round(((campaign.sent_count || 0) + (campaign.failed_count || 0)) / Math.max(campaign.total_contacts || 1, 1) * 100) : 0;
 
   const handleAction = async (action: "pause" | "resume" | "cancel" | "start") => {
-    if (!id) return;
+    if (!id || actionLoading) return;
+    setActionLoading(action);
     try {
       const { data, error } = await supabase.functions.invoke("process-campaign", { body: { action, campaignId: id } });
       if (error) throw error;
@@ -407,6 +410,8 @@ const CampaignDetail = () => {
       toast(labels[action]);
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -463,6 +468,9 @@ const CampaignDetail = () => {
   };
 
   const handleExportConfirm = async () => {
+    if (exportLoading) return;
+    setExportLoading(true);
+    try {
     const XLSX = await import("xlsx");
 
     // Fetch ALL contacts for this campaign (not just current page)
@@ -550,6 +558,11 @@ const CampaignDetail = () => {
     setExportOpen(false);
     console.log(`[Export] Exported: ${total} contacts in ${wb.SheetNames.length} sheet(s)`);
     toast({ title: `✅ ${total} contatos exportados em ${wb.SheetNames.length} planilha(s)` });
+    } catch (err: any) {
+      toast({ title: "Erro ao exportar", description: err.message, variant: "destructive" });
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   const successRate = stats.total > 0 ? Math.round((stats.sent / stats.total) * 100) : 0;
@@ -611,31 +624,31 @@ const CampaignDetail = () => {
           <div className="flex items-center gap-2">
             {isScheduled && (
               <>
-                <Button size="sm" className="gap-1.5 h-8 text-xs rounded-lg" onClick={() => handleAction("start")}>
-                  <Play className="w-3.5 h-3.5" /> Iniciar agora
+                <Button size="sm" className="gap-1.5 h-8 text-xs rounded-lg" disabled={!!actionLoading} onClick={() => handleAction("start")}>
+                  {actionLoading === "start" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} Iniciar agora
                 </Button>
-                <Button size="sm" variant="ghost" className="gap-1.5 h-8 text-xs rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleAction("cancel")}>
-                  <XCircle className="w-3.5 h-3.5" /> Cancelar
+                <Button size="sm" variant="ghost" className="gap-1.5 h-8 text-xs rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10" disabled={!!actionLoading} onClick={() => handleAction("cancel")}>
+                  {actionLoading === "cancel" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />} Cancelar
                 </Button>
               </>
             )}
             {isActive && (
               <>
-                <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-lg border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10" onClick={() => handleAction("pause")}>
-                  <Pause className="w-3.5 h-3.5" /> Pausar
+                <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-lg border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10" disabled={!!actionLoading} onClick={() => handleAction("pause")}>
+                  {actionLoading === "pause" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pause className="w-3.5 h-3.5" />} Pausar
                 </Button>
-                <Button size="sm" variant="ghost" className="gap-1.5 h-8 text-xs rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleAction("cancel")}>
-                  <XCircle className="w-3.5 h-3.5" /> Cancelar
+                <Button size="sm" variant="ghost" className="gap-1.5 h-8 text-xs rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10" disabled={!!actionLoading} onClick={() => handleAction("cancel")}>
+                  {actionLoading === "cancel" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />} Cancelar
                 </Button>
               </>
             )}
             {isPaused && (
               <>
-                <Button size="sm" className="gap-1.5 h-8 text-xs rounded-lg" onClick={() => handleAction("resume")}>
-                  <Play className="w-3.5 h-3.5" /> Retomar
+                <Button size="sm" className="gap-1.5 h-8 text-xs rounded-lg" disabled={!!actionLoading} onClick={() => handleAction("resume")}>
+                  {actionLoading === "resume" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} Retomar
                 </Button>
-                <Button size="sm" variant="ghost" className="gap-1.5 h-8 text-xs rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleAction("cancel")}>
-                  <XCircle className="w-3.5 h-3.5" /> Cancelar
+                <Button size="sm" variant="ghost" className="gap-1.5 h-8 text-xs rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10" disabled={!!actionLoading} onClick={() => handleAction("cancel")}>
+                  {actionLoading === "cancel" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />} Cancelar
                 </Button>
               </>
             )}
@@ -645,8 +658,8 @@ const CampaignDetail = () => {
               </Button>
             )}
             {isFinished && stats.total > 0 && (
-              <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-lg" onClick={() => { setExportSent(true); setExportFailed(true); setExportPending(true); setExportOpen(true); }}>
-                <Download className="w-3.5 h-3.5" /> Exportar
+              <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-lg" disabled={exportLoading} onClick={() => { setExportSent(true); setExportFailed(true); setExportPending(true); setExportOpen(true); }}>
+                {exportLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} Exportar
               </Button>
             )}
             {(isPaused || campaign?.status === "completed") && campaign?.message_content && (
