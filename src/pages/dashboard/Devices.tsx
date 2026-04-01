@@ -1710,7 +1710,7 @@ const Devices = () => {
         for (let retry = 0; retry < 4 && !b64; retry++) {
           await new Promise(r => setTimeout(r, 1200));
           const statusResult = await callApi({ action: "status", deviceId: connectingDevice.id });
-          if (statusResult?.alreadyConnected || statusResult?.status === "authenticated" || statusResult?.status === "connected") {
+          if (statusResult?.alreadyConnected || statusResult?.status === "authenticated") {
             queryClient.invalidateQueries({ queryKey: ["devices"] });
             setConnectStep("done");
             // Toast removido — trigger do banco já notifica

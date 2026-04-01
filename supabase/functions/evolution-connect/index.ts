@@ -974,11 +974,13 @@ Deno.serve(async (req) => {
       const check = await checkStatus(5000);
       if (!check.valid) return json({ success: true, status: "token_invalid", tokenInvalid: true });
 
-      const isConnected = check.status === "connected";
+      const ownerDigits = String(check.owner || "").replace(/\D/g, "");
+      const hasConfirmedOwner = ownerDigits.length >= 10;
+      const isConnected = check.status === "connected" && hasConfirmedOwner;
       const isDisconnected = check.status === "disconnected";
 
-      if (isConnected && check.owner) {
-        const fmt = formatBrPhone(check.owner);
+      if (isConnected) {
+        const fmt = formatBrPhone(check.owner || "");
 
         // Check if status actually changed
         const wasDisconnected = device?.status !== "Ready" && device?.status !== "Connected";
@@ -996,10 +998,14 @@ Deno.serve(async (req) => {
         await svc.from("devices").update({ status: "Disconnected", updated_at: new Date().toISOString() }).eq("id", deviceId);
       }
 
+      const responseStatus = isConnected
+        ? "authenticated"
+        : (check.qrcode ? "connecting" : (check.rawStatus || check.status || "waiting"));
+
       return json({
         success: true,
-        status: isConnected ? "authenticated" : (check.rawStatus || check.status),
-        phone: check.owner || "",
+        status: responseStatus,
+        phone: isConnected ? (check.owner || "") : "",
         base64: check.qrcode || null,
         qr: check.qrcode || null,
         profileName: check.profileName || "",
