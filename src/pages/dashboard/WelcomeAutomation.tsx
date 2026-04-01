@@ -57,14 +57,10 @@ function useConnectedDevices(enabled = true) {
 
 /* ───────── MAIN PAGE ───────── */
 export default function WelcomeAutomationPage() {
-  const { data: automations, isLoading } = useWelcomeAutomations();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
-
-  const selected = automations?.find(a => a.id === selectedId);
+  const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col gap-5 p-4 sm:p-6 w-full">
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-4 text-center">
       {/* Header */}
       {!selectedId && (
         <div className="flex items-center justify-between flex-wrap gap-4">
