@@ -639,7 +639,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
         if (liveConnection.connected === false) {
           log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} disconnected`);
-          failedDeviceIds.add(deviceId);
+          failedDeviceIds.set(deviceId, Date.now());
 
           // Check if ALL devices are down
           const allIds = parseDeviceIds(freshCampaign.device_ids);
