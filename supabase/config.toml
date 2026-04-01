@@ -1,1 +1,4 @@
 project_id = "amizwispkprvyrnwypws"
+
+[functions.verify-whatsapp-numbers]
+verify_jwt = false

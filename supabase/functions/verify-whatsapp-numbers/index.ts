@@ -25,196 +25,65 @@ interface VerifyResult {
   checked_at: string;
 }
 
-type EndpointAttempt = {
-  path: string;
-  method: "POST" | "GET";
-  body?: Record<string, unknown>;
-  query?: Record<string, string>;
-};
-
-function parseJsonSafe(text: string): any | null {
-  if (!text) return null;
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
-function normalizeCandidateItems(parsed: any): any[] {
-  const out: any[] = [];
-  const add = (value: any) => {
-    if (value == null) return;
-    if (Array.isArray(value)) {
-      for (const item of value) out.push(item);
-      return;
-    }
-    out.push(value);
-  };
-
-  add(parsed);
-  add(parsed?.data);
-  add(parsed?.result);
-  add(parsed?.results);
-  add(parsed?.response);
-  add(parsed?.numbers);
-  add(parsed?.phones);
-  add(parsed?.contacts);
-
-  return out;
-}
-
-function inferWhatsAppStatus(parsed: any, rawText: string): "exists" | "not_exists" | "unknown" {
-  if (parsed === true) return "exists";
-  if (parsed === false) return "not_exists";
-
-  const items = normalizeCandidateItems(parsed);
-  for (const item of items) {
-    if (!item || typeof item !== "object") continue;
-
-    const status = String(item?.status || item?.state || "").toLowerCase();
-    const jid = String(item?.jid || item?.JID || "");
-    const errorMsg = String(item?.error || item?.message || "").toLowerCase();
-
-    const exists =
-      item?.Exists === true ||
-      item?.exists === true ||
-      item?.IsOnWhatsApp === true ||
-      item?.isOnWhatsApp === true ||
-      item?.onWhatsApp === true ||
-      item?.numberExists === true ||
-      item?.registered === true ||
-      item?.valid === true ||
-      item?.result === true ||
-      item?.whatsapp === true ||
-      status === "valid" ||
-      status === "exists" ||
-      status === "success" ||
-      status === "on_whatsapp" ||
-      jid.includes("@s.whatsapp.net");
-
-    if (exists) return "exists";
-
-    const notExists =
-      item?.Exists === false ||
-      item?.exists === false ||
-      item?.IsOnWhatsApp === false ||
-      item?.isOnWhatsApp === false ||
-      item?.onWhatsApp === false ||
-      item?.numberExists === false ||
-      item?.registered === false ||
-      item?.valid === false ||
-      item?.result === false ||
-      item?.whatsapp === false ||
-      ["invalid", "not_exists", "not-found", "not_found", "not_registered", "no_whatsapp", "unavailable"].includes(status) ||
-      /not on whatsapp|not registered|not exists|not found|n[aã]o.*whatsapp/.test(errorMsg);
-
-    if (notExists) return "not_exists";
-  }
-
-  const lowerRaw = (rawText || "").toLowerCase();
-  if (lowerRaw.includes("@s.whatsapp.net")) return "exists";
-  if (/not on whatsapp|not registered|not exists|not found|n[aã]o.*whatsapp/.test(lowerRaw)) return "not_exists";
-
-  return "unknown";
-}
-
-function buildAttemptUrl(baseUrl: string, attempt: EndpointAttempt): string {
-  if (attempt.method !== "GET" || !attempt.query) return `${baseUrl}${attempt.path}`;
-  const params = new URLSearchParams(attempt.query);
-  return `${baseUrl}${attempt.path}?${params.toString()}`;
-}
-
+// ═══════════════════════════════════════════════════════════
+// UAZAPI v2 — POST /chat/check { numbers: [phone] }
+// Response: [{ query, isInWhatsapp: bool, jid, lid, verifiedName }]
+// ═══════════════════════════════════════════════════════════
 async function checkSingleNumber(
   baseUrl: string,
   token: string,
   phone: string,
 ): Promise<VerifyResult> {
   const now = new Date().toISOString();
-  const headers: Record<string, string> = {
-    token,
-    admintoken: token,
-    Authorization: `Bearer ${token}`,
-    Accept: "application/json",
-    "Content-Type": "application/json",
-  };
+  const url = `${baseUrl}/chat/check`;
+  try {
+    const res = await fetchWithTimeout(url, {
+      method: "POST",
+      headers: {
+        token,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ numbers: [phone] }),
+    });
 
-  // Try known UAZAPI variants used by other stable flows in this project
-  const endpoints: EndpointAttempt[] = [
-    { path: "/check/exist", method: "POST", body: { number: phone } },
-    { path: "/check/exist", method: "GET", query: { number: phone } },
-    { path: "/misc/checkPhones", method: "POST", body: { phones: [phone] } },
-    { path: "/misc/checkPhones", method: "GET", query: { phones: phone } },
-    { path: "/chat/check", method: "POST", body: { phone } },
-    { path: "/chat/check", method: "GET", query: { phone } },
-    { path: "/misc/isOnWhatsapp", method: "POST", body: { phone } },
-    { path: "/misc/isOnWhatsapp", method: "GET", query: { phone } },
-    { path: "/chat/checkPhone", method: "POST", body: { Phone: phone } },
-    { path: "/chat/checkPhone", method: "GET", query: { Phone: phone } },
-    { path: "/contact/checkNumber", method: "POST", body: { phoneNumber: phone } },
-    { path: "/contact/checkNumber", method: "GET", query: { phoneNumber: phone } },
-  ];
+    const text = await res.text();
+    console.log(`[verify] POST /chat/check ${phone} => ${res.status} | ${text.substring(0, 300)}`);
 
-  let authDeniedCount = 0;
-  let lastDetail = "Nenhum endpoint disponível";
-
-  for (const ep of endpoints) {
-    const endpointLabel = `${ep.method} ${ep.path}`;
-    const url = buildAttemptUrl(baseUrl, ep);
-    try {
-      const res = await fetchWithTimeout(url, {
-        method: ep.method,
-        headers,
-        body: ep.method === "POST" ? JSON.stringify(ep.body ?? {}) : undefined,
-      });
-
-      const text = await res.text();
-      const parsed = parseJsonSafe(text);
-
-      if (res.status === 401 || res.status === 403) {
-        authDeniedCount++;
-        lastDetail = `${endpointLabel}: autenticação rejeitada`;
-        continue;
-      }
-
-      if (res.status === 404 || res.status === 405) {
-        lastDetail = `${endpointLabel}: endpoint indisponível`;
-        continue;
-      }
-
-      if (!res.ok) {
-        const statusFromError = inferWhatsAppStatus(parsed, text);
-        if (statusFromError === "not_exists") {
-          return { phone, status: "no_whatsapp", detail: "Sem WhatsApp", checked_at: now };
-        }
-        lastDetail = `${endpointLabel}: HTTP ${res.status}`;
-        continue;
-      }
-
-      const inferred = inferWhatsAppStatus(parsed, text);
-      if (inferred === "exists") {
-        return { phone, status: "success", detail: "Tem WhatsApp", checked_at: now };
-      }
-      if (inferred === "not_exists") {
-        return { phone, status: "no_whatsapp", detail: "Sem WhatsApp", checked_at: now };
-      }
-
-      lastDetail = `${endpointLabel}: resposta ambígua`;
-    } catch (err: any) {
-      if (err?.name === "AbortError") {
-        lastDetail = `${endpointLabel}: timeout`;
-        continue;
-      }
-      lastDetail = `${endpointLabel}: erro de rede`;
-      continue;
+    if (res.status === 401 || res.status === 403) {
+      return { phone, status: "error", detail: "Token da instância inválido", checked_at: now };
     }
-  }
 
-  if (authDeniedCount === endpoints.length) {
-    return { phone, status: "error", detail: "Token da instância inválido ou sem permissão", checked_at: now };
-  }
+    if (!res.ok) {
+      return { phone, status: "error", detail: `API retornou HTTP ${res.status}`, checked_at: now };
+    }
 
-  return { phone, status: "error", detail: lastDetail, checked_at: now };
+    let parsed: any = null;
+    try { parsed = JSON.parse(text); } catch { /* ignore */ }
+
+    // Response format: [{ query, isInWhatsapp: bool, jid, lid, verifiedName }]
+    const item = Array.isArray(parsed) ? parsed[0] : parsed;
+
+    if (item?.isInWhatsapp === true) {
+      return { phone, status: "success", detail: "Tem WhatsApp", checked_at: now };
+    }
+    if (item?.isInWhatsapp === false) {
+      return { phone, status: "no_whatsapp", detail: "Sem WhatsApp", checked_at: now };
+    }
+
+    // Fallback: check for jid presence
+    if (item?.jid && String(item.jid).includes("@s.whatsapp.net")) {
+      return { phone, status: "success", detail: "Tem WhatsApp", checked_at: now };
+    }
+
+    return { phone, status: "error", detail: "Resposta inesperada da API", checked_at: now };
+  } catch (err: any) {
+    console.error(`[verify] ${phone} error: ${err?.message || err}`);
+    if (err?.name === "AbortError") {
+      return { phone, status: "error", detail: "Timeout na consulta", checked_at: now };
+    }
+    return { phone, status: "error", detail: "Erro de conexão com a API", checked_at: now };
+  }
 }
 
 Deno.serve(async (req) => {
