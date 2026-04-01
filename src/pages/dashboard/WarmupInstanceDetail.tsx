@@ -1706,12 +1706,6 @@ const WarmupInstanceDetail = () => {
                         })()}
                       </div>
 
-                      {failedToday > 0 && (
-                        <div className="mt-3 flex items-center gap-1.5 text-[10px] text-destructive font-medium">
-                          <span className="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse" />
-                          {failedToday} tarefa(s) com falha
-                        </div>
-                      )}
                     </>
                   )}
                 </div>
