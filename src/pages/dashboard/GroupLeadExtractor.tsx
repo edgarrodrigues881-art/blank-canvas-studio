@@ -381,11 +381,8 @@ export default function GroupLeadExtractor() {
 
             {/* Header */}
             <div className="flex items-center px-3 py-2 bg-muted/50 rounded-t-md border border-border/30 border-b-0 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-              <div className="w-[50px] shrink-0">#</div>
-              <div className="w-[160px] shrink-0">Número</div>
-              <div className="w-[200px] shrink-0">Nome</div>
-              <div className="flex-1 min-w-0">Grupo</div>
-              <div className="w-[80px] shrink-0 text-right">Tipo</div>
+              <div className="w-[60px] shrink-0">#</div>
+              <div className="flex-1">Número</div>
             </div>
 
             {/* Virtualized list */}
