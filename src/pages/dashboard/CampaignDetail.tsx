@@ -624,31 +624,31 @@ const CampaignDetail = () => {
           <div className="flex items-center gap-2">
             {isScheduled && (
               <>
-                <Button size="sm" className="gap-1.5 h-8 text-xs rounded-lg" onClick={() => handleAction("start")}>
-                  <Play className="w-3.5 h-3.5" /> Iniciar agora
+                <Button size="sm" className="gap-1.5 h-8 text-xs rounded-lg" disabled={!!actionLoading} onClick={() => handleAction("start")}>
+                  {actionLoading === "start" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} Iniciar agora
                 </Button>
-                <Button size="sm" variant="ghost" className="gap-1.5 h-8 text-xs rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleAction("cancel")}>
-                  <XCircle className="w-3.5 h-3.5" /> Cancelar
+                <Button size="sm" variant="ghost" className="gap-1.5 h-8 text-xs rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10" disabled={!!actionLoading} onClick={() => handleAction("cancel")}>
+                  {actionLoading === "cancel" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />} Cancelar
                 </Button>
               </>
             )}
             {isActive && (
               <>
-                <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-lg border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10" onClick={() => handleAction("pause")}>
-                  <Pause className="w-3.5 h-3.5" /> Pausar
+                <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-lg border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10" disabled={!!actionLoading} onClick={() => handleAction("pause")}>
+                  {actionLoading === "pause" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pause className="w-3.5 h-3.5" />} Pausar
                 </Button>
-                <Button size="sm" variant="ghost" className="gap-1.5 h-8 text-xs rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleAction("cancel")}>
-                  <XCircle className="w-3.5 h-3.5" /> Cancelar
+                <Button size="sm" variant="ghost" className="gap-1.5 h-8 text-xs rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10" disabled={!!actionLoading} onClick={() => handleAction("cancel")}>
+                  {actionLoading === "cancel" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />} Cancelar
                 </Button>
               </>
             )}
             {isPaused && (
               <>
-                <Button size="sm" className="gap-1.5 h-8 text-xs rounded-lg" onClick={() => handleAction("resume")}>
-                  <Play className="w-3.5 h-3.5" /> Retomar
+                <Button size="sm" className="gap-1.5 h-8 text-xs rounded-lg" disabled={!!actionLoading} onClick={() => handleAction("resume")}>
+                  {actionLoading === "resume" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} Retomar
                 </Button>
-                <Button size="sm" variant="ghost" className="gap-1.5 h-8 text-xs rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleAction("cancel")}>
-                  <XCircle className="w-3.5 h-3.5" /> Cancelar
+                <Button size="sm" variant="ghost" className="gap-1.5 h-8 text-xs rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10" disabled={!!actionLoading} onClick={() => handleAction("cancel")}>
+                  {actionLoading === "cancel" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />} Cancelar
                 </Button>
               </>
             )}
@@ -658,8 +658,8 @@ const CampaignDetail = () => {
               </Button>
             )}
             {isFinished && stats.total > 0 && (
-              <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-lg" onClick={() => { setExportSent(true); setExportFailed(true); setExportPending(true); setExportOpen(true); }}>
-                <Download className="w-3.5 h-3.5" /> Exportar
+              <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-lg" disabled={exportLoading} onClick={() => { setExportSent(true); setExportFailed(true); setExportPending(true); setExportOpen(true); }}>
+                {exportLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} Exportar
               </Button>
             )}
             {(isPaused || campaign?.status === "completed") && campaign?.message_content && (
