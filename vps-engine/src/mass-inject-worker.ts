@@ -620,7 +620,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         .eq("id", deviceId).single();
 
       if (!device?.uazapi_base_url || !device?.uazapi_token) {
-        failedDeviceIds.add(deviceId);
+        failedDeviceIds.set(deviceId, Date.now());
         continue;
       }
 
