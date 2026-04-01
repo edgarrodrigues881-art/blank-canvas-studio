@@ -1,7 +1,15 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { XAxis, YAxis, Tooltip, ResponsiveContainer, Bar, BarChart } from "recharts";
-import { BarChart3 } from "lucide-react";
+import {
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
+  CartesianGrid,
+} from "recharts";
+import { TrendingUp } from "lucide-react";
 
 interface WarmupPoint {
   label: string;
@@ -14,62 +22,118 @@ interface Props {
   data: WarmupPoint[];
 }
 
-export const ActivityChart = React.memo(function ActivityChart({ data }: Props) {
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
   return (
-    <Card className="border-border/50 bg-card w-full col-span-full">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-muted-foreground" />
-          Evolução do Aquecimento — 7 dias
-        </CardTitle>
+    <div className="bg-popover border border-border/60 rounded-xl px-4 py-3 shadow-xl backdrop-blur-sm">
+      <p className="text-xs font-semibold text-foreground mb-1.5">{label}</p>
+      {payload.map((entry: any, i: number) => (
+        <div key={i} className="flex items-center gap-2 text-xs">
+          <span
+            className="w-2.5 h-2.5 rounded-full"
+            style={{ background: entry.color }}
+          />
+          <span className="text-muted-foreground">{entry.name}:</span>
+          <span className="font-semibold text-foreground">{entry.value?.toLocaleString("pt-BR")}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export const ActivityChart = React.memo(function ActivityChart({ data }: Props) {
+  const totalVolume = data.reduce((sum, d) => sum + (d.volume || 0), 0);
+  const totalEntregas = data.reduce((sum, d) => sum + (d.entregas || 0), 0);
+  const taxaSucesso = totalVolume > 0 ? Math.round((totalEntregas / totalVolume) * 100) : 0;
+
+  return (
+    <Card className="border-border/50 bg-card w-full col-span-full overflow-hidden">
+      <CardHeader className="pb-1">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-primary" />
+            Evolução do Aquecimento — 7 dias
+          </CardTitle>
+          <div className="flex items-center gap-4 text-[11px]">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-primary" />
+              <span className="text-muted-foreground">Mensagens Enviadas</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full" style={{ background: "hsl(152, 69%, 53%)" }} />
+              <span className="text-muted-foreground">Entregas Confirmadas</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-6 mt-1">
+          <div>
+            <span className="text-2xl font-bold text-foreground">{totalVolume.toLocaleString("pt-BR")}</span>
+            <span className="text-xs text-muted-foreground ml-1.5">enviadas</span>
+          </div>
+          <div className="h-6 w-px bg-border" />
+          <div>
+            <span className="text-2xl font-bold text-foreground">{totalEntregas.toLocaleString("pt-BR")}</span>
+            <span className="text-xs text-muted-foreground ml-1.5">entregues</span>
+          </div>
+          <div className="h-6 w-px bg-border" />
+          <div className="flex items-center gap-1">
+            <span className="text-sm font-semibold" style={{ color: taxaSucesso >= 70 ? "hsl(152, 69%, 53%)" : "hsl(38, 92%, 50%)" }}>
+              {taxaSucesso}%
+            </span>
+            <span className="text-xs text-muted-foreground">taxa de sucesso</span>
+          </div>
+        </div>
       </CardHeader>
-      <CardContent>
-        <div className="h-52">
+      <CardContent className="pt-0">
+        <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+            <AreaChart data={data} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gradVolume" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.02} />
+                </linearGradient>
+                <linearGradient id="gradEntregas" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="hsl(152, 69%, 53%)" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="hsl(152, 69%, 53%)" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} vertical={false} />
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                 axisLine={false}
                 tickLine={false}
+                dy={8}
               />
               <YAxis
                 tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                 axisLine={false}
                 tickLine={false}
               />
-              <Tooltip
-                cursor={{ fill: "hsl(var(--muted) / 0.2)" }}
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                }}
-                labelStyle={{ color: "hsl(var(--foreground))" }}
-              />
-              <Bar
+              <Tooltip content={<CustomTooltip />} />
+              <Area
+                type="monotone"
                 dataKey="volume"
-                fill="hsl(217, 91%, 60%)"
-                opacity={0.7}
-                barSize={14}
-                radius={[3, 3, 0, 0]}
-                name="Volume"
+                stroke="hsl(var(--primary))"
+                strokeWidth={2.5}
+                fill="url(#gradVolume)"
+                name="Mensagens Enviadas"
+                dot={{ r: 3, fill: "hsl(var(--primary))", strokeWidth: 0 }}
+                activeDot={{ r: 5, fill: "hsl(var(--primary))", stroke: "hsl(var(--background))", strokeWidth: 2 }}
               />
-              <Bar
+              <Area
+                type="monotone"
                 dataKey="entregas"
-                fill="hsl(152, 69%, 53%)"
-                opacity={0.8}
-                barSize={14}
-                radius={[3, 3, 0, 0]}
-                name="Entregas"
+                stroke="hsl(152, 69%, 53%)"
+                strokeWidth={2.5}
+                fill="url(#gradEntregas)"
+                name="Entregas Confirmadas"
+                dot={{ r: 3, fill: "hsl(152, 69%, 53%)", strokeWidth: 0 }}
+                activeDot={{ r: 5, fill: "hsl(152, 69%, 53%)", stroke: "hsl(var(--background))", strokeWidth: 2 }}
               />
-            </BarChart>
+            </AreaChart>
           </ResponsiveContainer>
-        </div>
-        <div className="flex items-center gap-4 mt-2 text-[10px] text-muted-foreground">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: "hsl(217, 91%, 60%)" }} /> Volume</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: "hsl(152, 69%, 53%)" }} /> Entregas</span>
         </div>
       </CardContent>
     </Card>
