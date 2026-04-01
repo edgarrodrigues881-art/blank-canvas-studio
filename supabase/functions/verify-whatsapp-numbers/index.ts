@@ -133,6 +133,7 @@ async function checkSingleNumber(
   const now = new Date().toISOString();
   const headers: Record<string, string> = {
     token,
+    admintoken: token,
     Authorization: `Bearer ${token}`,
     Accept: "application/json",
     "Content-Type": "application/json",
@@ -141,12 +142,17 @@ async function checkSingleNumber(
   // Try known UAZAPI variants used by other stable flows in this project
   const endpoints: EndpointAttempt[] = [
     { path: "/check/exist", method: "POST", body: { number: phone } },
-    { path: "/misc/checkPhones", method: "POST", body: { phones: [phone] } },
-    { path: "/chat/check", method: "POST", body: { phone } },
-    { path: "/misc/isOnWhatsapp", method: "POST", body: { phone } },
     { path: "/check/exist", method: "GET", query: { number: phone } },
+    { path: "/misc/checkPhones", method: "POST", body: { phones: [phone] } },
+    { path: "/misc/checkPhones", method: "GET", query: { phones: phone } },
+    { path: "/chat/check", method: "POST", body: { phone } },
+    { path: "/chat/check", method: "GET", query: { phone } },
+    { path: "/misc/isOnWhatsapp", method: "POST", body: { phone } },
+    { path: "/misc/isOnWhatsapp", method: "GET", query: { phone } },
     { path: "/chat/checkPhone", method: "POST", body: { Phone: phone } },
+    { path: "/chat/checkPhone", method: "GET", query: { Phone: phone } },
     { path: "/contact/checkNumber", method: "POST", body: { phoneNumber: phone } },
+    { path: "/contact/checkNumber", method: "GET", query: { phoneNumber: phone } },
   ];
 
   let authDeniedCount = 0;
