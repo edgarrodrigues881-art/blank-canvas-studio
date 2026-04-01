@@ -414,6 +414,14 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {/* Instability warning */}
+      <Alert className="border-amber-500/40 bg-amber-500/10">
+        <AlertTriangle className="h-4 w-4 text-amber-500" />
+        <AlertTitle className="text-amber-500 font-semibold">Instabilidade temporária</AlertTitle>
+        <AlertDescription className="text-muted-foreground text-sm">
+          A função de Adição em Massa está passando por instabilidades. Estamos trabalhando para resolver o problema o mais rápido possível. Caso encontre erros, aguarde alguns minutos e tente novamente.
+        </AlertDescription>
+      </Alert>
       {/* Top bar — search + create */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-1 min-w-0">
