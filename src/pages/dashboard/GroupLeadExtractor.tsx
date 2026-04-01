@@ -147,9 +147,7 @@ export default function GroupLeadExtractor() {
   const filteredLeads = useMemo(() => {
     if (!searchLeads) return currentLeads;
     const q = searchLeads.toLowerCase();
-    return currentLeads.filter(l =>
-      l.phone.includes(q) || l.name.toLowerCase().includes(q) || l.group_name.toLowerCase().includes(q)
-    );
+    return currentLeads.filter(l => l.phone.includes(q));
   }, [currentLeads, searchLeads]);
 
   const toggleGroup = (jid: string) => {
@@ -168,10 +166,8 @@ export default function GroupLeadExtractor() {
   }, [currentLeads]);
 
   const exportCSV = useCallback(() => {
-    const header = "Número,Nome,Grupo,Tipo\n";
-    const rows = currentLeads.map(l =>
-      `${l.phone},"${l.name.replace(/"/g, '""')}","${l.group_name.replace(/"/g, '""')}",${l.is_admin ? "Admin" : "Membro"}`
-    ).join("\n");
+    const header = "Número\n";
+    const rows = currentLeads.map(l => l.phone).join("\n");
     const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url;
@@ -183,11 +179,10 @@ export default function GroupLeadExtractor() {
   const exportXLSX = useCallback(async () => {
     const XLSX = await import("xlsx");
     const data = currentLeads.map((l, i) => ({
-      "#": i + 1, "Número": l.phone, "Nome": l.name || "", "Grupo": l.group_name,
-      "Tipo": l.is_admin ? "Admin" : "Membro",
+      "#": i + 1, "Número": l.phone,
     }));
     const ws = XLSX.utils.json_to_sheet(data);
-    ws["!cols"] = [{ wch: 5 }, { wch: 18 }, { wch: 25 }, { wch: 30 }, { wch: 10 }];
+    ws["!cols"] = [{ wch: 5 }, { wch: 20 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Leads");
     XLSX.writeFile(wb, `leads_${activeTab}_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -201,19 +196,8 @@ export default function GroupLeadExtractor() {
     if (!lead) return null;
     return (
       <div style={style} className="flex items-center px-3 border-b border-border/20 text-sm hover:bg-muted/30">
-        <div className="w-[50px] text-muted-foreground text-[11px] shrink-0">{index + 1}</div>
-        <div className="w-[160px] font-mono shrink-0 truncate">{lead.phone}</div>
-        <div className="w-[200px] shrink-0 truncate">{lead.name || <span className="text-muted-foreground/40">—</span>}</div>
-        <div className="flex-1 text-muted-foreground truncate min-w-0">{lead.group_name}</div>
-        <div className="w-[80px] shrink-0 text-right">
-          {lead.is_admin ? (
-            <Badge variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/20">
-              <ShieldCheck className="w-3 h-3 mr-0.5" /> Admin
-            </Badge>
-          ) : (
-            <Badge variant="secondary" className="text-[10px]">Membro</Badge>
-          )}
-        </div>
+        <div className="w-[60px] text-muted-foreground text-[11px] shrink-0">{index + 1}</div>
+        <div className="flex-1 font-mono truncate">{lead.phone}</div>
       </div>
     );
   };
@@ -386,7 +370,7 @@ export default function GroupLeadExtractor() {
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por número, nome ou grupo..."
+                placeholder="Buscar por número..."
                 value={searchLeads}
                 onChange={e => setSearchLeads(e.target.value)}
                 className="pl-9"
@@ -395,11 +379,8 @@ export default function GroupLeadExtractor() {
 
             {/* Header */}
             <div className="flex items-center px-3 py-2 bg-muted/50 rounded-t-md border border-border/30 border-b-0 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-              <div className="w-[50px] shrink-0">#</div>
-              <div className="w-[160px] shrink-0">Número</div>
-              <div className="w-[200px] shrink-0">Nome</div>
-              <div className="flex-1 min-w-0">Grupo</div>
-              <div className="w-[80px] shrink-0 text-right">Tipo</div>
+              <div className="w-[60px] shrink-0">#</div>
+              <div className="flex-1">Número</div>
             </div>
 
             {/* Virtualized list */}
