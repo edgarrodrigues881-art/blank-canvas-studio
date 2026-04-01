@@ -165,14 +165,29 @@ export default function GroupLeadExtractor() {
     toast.success(`${currentLeads.length} números copiados!`);
   }, [currentLeads]);
 
+  const triggerDownload = (blob: Blob, filename: string) => {
+    if ((navigator as any).msSaveBlob) {
+      (navigator as any).msSaveBlob(blob, filename);
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+  };
+
   const exportCSV = useCallback(() => {
     const header = "Número\n";
     const rows = currentLeads.map(l => l.phone).join("\n");
     const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url;
-    a.download = `leads_${activeTab}_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click(); URL.revokeObjectURL(url);
+    triggerDownload(blob, `leads_${activeTab}_${new Date().toISOString().slice(0, 10)}.csv`);
     toast.success("CSV exportado!");
   }, [currentLeads, activeTab]);
 
@@ -185,7 +200,9 @@ export default function GroupLeadExtractor() {
     ws["!cols"] = [{ wch: 5 }, { wch: 20 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Leads");
-    XLSX.writeFile(wb, `leads_${activeTab}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    triggerDownload(blob, `leads_${activeTab}_${new Date().toISOString().slice(0, 10)}.xlsx`);
     toast.success("XLSX exportado!");
   }, [currentLeads, activeTab]);
 
