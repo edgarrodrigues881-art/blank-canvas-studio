@@ -1,5 +1,4 @@
-import { lazy, Suspense, useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { lazy, Suspense, useState, useEffect, memo } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
@@ -8,7 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
 import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import DashboardLayout from "@/components/DashboardLayout";
+
+// Lazy load DashboardLayout to avoid eagerly pulling in heavy deps (notifications, sidebar, icons)
+const DashboardLayout = lazy(() => import("@/components/DashboardLayout"));
 
 // Lazy pages with preload support
 const lazyWithPreload = (factory: () => Promise<any>) => {
