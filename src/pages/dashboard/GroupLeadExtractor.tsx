@@ -198,19 +198,8 @@ export default function GroupLeadExtractor() {
     if (!lead) return null;
     return (
       <div style={style} className="flex items-center px-3 border-b border-border/20 text-sm hover:bg-muted/30">
-        <div className="w-[50px] text-muted-foreground text-[11px] shrink-0">{index + 1}</div>
-        <div className="w-[160px] font-mono shrink-0 truncate">{lead.phone}</div>
-        <div className="w-[200px] shrink-0 truncate">{lead.name || <span className="text-muted-foreground/40">—</span>}</div>
-        <div className="flex-1 text-muted-foreground truncate min-w-0">{lead.group_name}</div>
-        <div className="w-[80px] shrink-0 text-right">
-          {lead.is_admin ? (
-            <Badge variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/20">
-              <ShieldCheck className="w-3 h-3 mr-0.5" /> Admin
-            </Badge>
-          ) : (
-            <Badge variant="secondary" className="text-[10px]">Membro</Badge>
-          )}
-        </div>
+        <div className="w-[60px] text-muted-foreground text-[11px] shrink-0">{index + 1}</div>
+        <div className="flex-1 font-mono truncate">{lead.phone}</div>
       </div>
     );
   };
