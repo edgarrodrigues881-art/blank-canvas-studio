@@ -171,6 +171,8 @@ async function checkSingleNumber(
       const text = await res.text();
       const parsed = parseJsonSafe(text);
 
+      console.log(`[verify] ${endpointLabel} => ${res.status} | body: ${text.substring(0, 300)}`);
+
       if (res.status === 401 || res.status === 403) {
         authDeniedCount++;
         lastDetail = `${endpointLabel}: autenticação rejeitada`;
@@ -192,6 +194,7 @@ async function checkSingleNumber(
       }
 
       const inferred = inferWhatsAppStatus(parsed, text);
+      console.log(`[verify] ${endpointLabel} inferred=${inferred}`);
       if (inferred === "exists") {
         return { phone, status: "success", detail: "Tem WhatsApp", checked_at: now };
       }
@@ -201,6 +204,7 @@ async function checkSingleNumber(
 
       lastDetail = `${endpointLabel}: resposta ambígua`;
     } catch (err: any) {
+      console.log(`[verify] ${endpointLabel} => CATCH: ${err?.name || ""} ${err?.message || String(err)}`);
       if (err?.name === "AbortError") {
         lastDetail = `${endpointLabel}: timeout`;
         continue;
