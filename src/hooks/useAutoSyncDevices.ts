@@ -121,18 +121,18 @@ export function useAutoSyncDevices(intervalMs = 15_000) {
       return;
     }
 
-    // Guard: skip if no valid session
+    // Guard: skip if no valid session (single call, reuse token below)
+    let token: string | undefined;
     try {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
-      if (!currentSession?.access_token) return;
+      token = currentSession?.access_token;
+      if (!token) return;
     } catch {
       return; // Auth not ready
     }
 
     _isSyncing = true;
     try {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      if (!token) return;
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-devices`, {
         method: "POST",

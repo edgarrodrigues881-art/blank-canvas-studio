@@ -90,7 +90,7 @@ export function useDashboardStats() {
           .order("id", { ascending: true }),
         supabase.from("warmup_cycles").select("id, device_id, is_running, phase, day_index, days_total, daily_interaction_budget_used, daily_interaction_budget_target, updated_at").eq("user_id", user!.id),
         supabase.from("warmup_daily_stats").select("device_id, stat_date, messages_sent, messages_failed, messages_total").eq("user_id", user!.id).gte("stat_date", mondayStr),
-        supabase.from("proxies").select("id, host"),
+        supabase.from("proxies").select("id, host").eq("user_id", user!.id),
       ]);
 
       const devices = devicesRes.data || [];

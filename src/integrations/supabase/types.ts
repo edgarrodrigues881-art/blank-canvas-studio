@@ -4246,6 +4246,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_sidebar_stats: { Args: { p_user_id: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
