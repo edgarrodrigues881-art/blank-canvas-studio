@@ -168,10 +168,8 @@ export default function GroupLeadExtractor() {
   }, [currentLeads]);
 
   const exportCSV = useCallback(() => {
-    const header = "Número,Nome,Grupo,Tipo\n";
-    const rows = currentLeads.map(l =>
-      `${l.phone},"${l.name.replace(/"/g, '""')}","${l.group_name.replace(/"/g, '""')}",${l.is_admin ? "Admin" : "Membro"}`
-    ).join("\n");
+    const header = "Número\n";
+    const rows = currentLeads.map(l => l.phone).join("\n");
     const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url;
