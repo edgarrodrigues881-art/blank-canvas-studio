@@ -37,10 +37,10 @@ async function checkSingleNumber(
     "Content-Type": "application/json",
   };
 
-  // Try multiple UAZAPI endpoints for number checking
+  // Try UAZAPI endpoints — /check/exist is the confirmed working endpoint
   const endpoints = [
+    { url: `${baseUrl}/check/exist`, body: { number: phone } },
     { url: `${baseUrl}/chat/checkPhone`, body: { Phone: phone } },
-    { url: `${baseUrl}/misc/isOnWhatsApp`, body: { Phone: phone } },
     { url: `${baseUrl}/contact/checkNumber`, body: { phoneNumber: phone } },
   ];
 
