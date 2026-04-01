@@ -127,6 +127,8 @@ const CampaignDetail = () => {
   const [exportPending, setExportPending] = useState(true);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [saveTemplateName, setSaveTemplateName] = useState("");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [exportLoading, setExportLoading] = useState(false);
   const createTemplate = useCreateTemplate();
   const createCarouselTemplate = useCreateCarouselTemplate();
   const updateCarouselTemplate = useUpdateCarouselTemplate();
