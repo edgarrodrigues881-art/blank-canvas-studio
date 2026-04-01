@@ -489,7 +489,7 @@ function parseDeviceIds(raw: any): string[] {
   return [];
 }
 
-function pickDeviceId(campaign: any, blacklist: Set<string>): string | null {
+function pickDeviceId(campaign: any, blacklist: Map<string, number>): string | null {
   const ids = parseDeviceIds(campaign.device_ids);
   const available = ids.filter(id => !blacklist.has(id));
   if (available.length === 0) return null;
