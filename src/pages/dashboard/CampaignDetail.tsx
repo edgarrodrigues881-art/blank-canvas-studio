@@ -558,6 +558,11 @@ const CampaignDetail = () => {
     setExportOpen(false);
     console.log(`[Export] Exported: ${total} contacts in ${wb.SheetNames.length} sheet(s)`);
     toast({ title: `✅ ${total} contatos exportados em ${wb.SheetNames.length} planilha(s)` });
+    } catch (err: any) {
+      toast({ title: "Erro ao exportar", description: err.message, variant: "destructive" });
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   const successRate = stats.total > 0 ? Math.round((stats.sent / stats.total) * 100) : 0;
