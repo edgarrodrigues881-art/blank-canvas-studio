@@ -370,7 +370,7 @@ export default function GroupLeadExtractor() {
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por número, nome ou grupo..."
+                placeholder="Buscar por número..."
                 value={searchLeads}
                 onChange={e => setSearchLeads(e.target.value)}
                 className="pl-9"
