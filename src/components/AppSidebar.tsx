@@ -554,3 +554,5 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+
+export default AppSidebar;
