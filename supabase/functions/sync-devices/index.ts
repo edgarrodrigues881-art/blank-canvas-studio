@@ -598,31 +598,78 @@ Deno.serve(async (req) => {
                 },
               });
             }
-          } else if (!confirmedState) {
-            effectiveState = { ...normalizedState, state: "unknown" };
+          } else {
+            // ── Individual device disconnect: strike system (3 strikes in 5 min) ──
+            const INDIVIDUAL_REQUIRED_STRIKES = 3;
+            const INDIVIDUAL_STRIKE_WINDOW_MS = 5 * 60 * 1000;
+
+            const { data: recentStrikes } = await svc
+              .from("operation_logs")
+              .select("id")
+              .eq("device_id", device.id)
+              .eq("event", "sync_individual_disconnect_strike")
+              .gte("created_at", new Date(Date.now() - INDIVIDUAL_STRIKE_WINDOW_MS).toISOString());
+
+            const strikes = (recentStrikes?.length || 0) + 1;
+
             opLogs.push({
               user_id: userId,
               device_id: device.id,
-              event: "sync_disconnect_ignored",
-              details: `Desconexão ignorada para "${device.name}" porque a confirmação falhou`,
-              meta: { reason: "confirm_failed", raw_status: normalizedState.rawStatus },
-            });
-          } else if (confirmedState.state !== "disconnected") {
-            effectiveState = confirmedState;
-            opLogs.push({
-              user_id: userId,
-              device_id: device.id,
-              event: "sync_disconnect_ignored",
-              details: `Falso offline ignorado para "${device.name}" após rechecagem`,
+              event: "sync_individual_disconnect_strike",
+              details: `Desconexão detectada para "${device.name}" (${strikes}/${INDIVIDUAL_REQUIRED_STRIKES})`,
               meta: {
-                reason: "transient_false_disconnect",
-                first_raw_status: normalizedState.rawStatus,
-                confirm_raw_status: confirmedState.rawStatus,
-                confirm_state: confirmedState.state,
+                raw_status: normalizedState.rawStatus,
+                confirm_state: confirmedState?.state || null,
+                required_strikes: INDIVIDUAL_REQUIRED_STRIKES,
               },
             });
-          } else {
-            effectiveState = confirmedState;
+
+            if (confirmedState?.state === "disconnected" && strikes >= INDIVIDUAL_REQUIRED_STRIKES) {
+              // Confirmed after multiple strikes — allow disconnect
+              effectiveState = confirmedState;
+              opLogs.push({
+                user_id: userId,
+                device_id: device.id,
+                event: "sync_individual_disconnect_confirmed",
+                details: `Desconexão confirmada para "${device.name}" após ${strikes} verificações consecutivas`,
+                meta: {
+                  first_raw_status: normalizedState.rawStatus,
+                  confirm_raw_status: confirmedState.rawStatus,
+                  strikes,
+                },
+              });
+            } else if (confirmedState && confirmedState.state !== "disconnected") {
+              // Re-check says connected — false alarm
+              effectiveState = confirmedState;
+              opLogs.push({
+                user_id: userId,
+                device_id: device.id,
+                event: "sync_disconnect_ignored",
+                details: `Falso offline ignorado para "${device.name}" após rechecagem`,
+                meta: {
+                  reason: "transient_false_disconnect",
+                  first_raw_status: normalizedState.rawStatus,
+                  confirm_raw_status: confirmedState.rawStatus,
+                  confirm_state: confirmedState.state,
+                },
+              });
+            } else {
+              // Not enough strikes or confirm failed — hold status
+              effectiveState = { ...normalizedState, state: "unknown" };
+              opLogs.push({
+                user_id: userId,
+                device_id: device.id,
+                event: "sync_disconnect_ignored",
+                details: `Desconexão protegida para "${device.name}" — aguardando ${INDIVIDUAL_REQUIRED_STRIKES - strikes + 1} confirmação(ões)`,
+                meta: {
+                  reason: "individual_strike_guard",
+                  raw_status: normalizedState.rawStatus,
+                  strikes,
+                  required_strikes: INDIVIDUAL_REQUIRED_STRIKES,
+                  confirm_state: confirmedState?.state || null,
+                },
+              });
+            }
           }
         }
 
