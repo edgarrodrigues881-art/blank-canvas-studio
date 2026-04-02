@@ -670,12 +670,12 @@ Deno.serve(async (req) => {
       const isStaleConnected = preStatus === "connected" && deviceHasNoNumber;
       const dbStatusDisconnected = (device?.status || "").toLowerCase() !== "ready" && (device?.status || "").toLowerCase() !== "connected";
       const uazapiReportsConnected = preStatus === "connected";
-      const needsForceDisconnect = isStaleConnected 
+      const needsForceDisconnect = isStaleConnected
         || preStatus === "transitional"
         || preStatus === "unknown"
         || (dbStatusDisconnected && uazapiReportsConnected)
         || body.forceReconnect;
-      
+
       if (preCheck.ok && needsForceDisconnect) {
         console.log(`[evolution-connect] pre-disconnect: status="${preStatusLabel}" normalized="${preStatus}" dbStatus="${device?.status}" deviceHasNumber=${!deviceHasNoNumber} stale=${isStaleConnected} dbDisconnected=${dbStatusDisconnected} forceReconnect=${!!body.forceReconnect} — forcing logout+disconnect`);
         // Use logout first to fully clear session, then disconnect as fallback
@@ -683,14 +683,19 @@ Deno.serve(async (req) => {
         await new Promise(r => setTimeout(r, 800));
         await uazapi(instanceUrl, "/instance/disconnect", currentToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
         await new Promise(r => setTimeout(r, 1500));
-        // Clear number from DB since we're forcing a fresh connection
-        await svc.from("devices").update({ number: null, status: "Disconnected", profile_name: null }).eq("id", deviceId);
+        // During manual reconnect keep device in Loading to avoid false "disconnected" alerts
+        await svc.from("devices").update({
+          number: null,
+          status: "Loading",
+          profile_name: null,
+          updated_at: new Date().toISOString(),
+        }).eq("id", deviceId);
       }
 
       while (tokenAttempt < MAX_TOKEN_RETRIES) {
         tokenAttempt++;
         connectRes = await uazapi(instanceUrl, "/instance/connect", currentToken, "POST", {}, { timeoutMs: 10000, retries: 1 });
-        
+
         if (connectRes.status !== 401) break; // Success or non-token error — exit loop
 
         // ── ROLLBACK: mark token as invalid and release from device ──
@@ -961,7 +966,9 @@ Deno.serve(async (req) => {
       const check = await checkStatus(5000);
       if (check.status === "connected") return json({ success: true, status: "authenticated", alive: true });
 
-      if (check.status === "disconnected") {
+      if (check.qrcode) {
+        await svc.from("devices").update({ status: "Loading", updated_at: new Date().toISOString() }).eq("id", deviceId);
+      } else if (check.status === "disconnected") {
         await svc.from("devices").update({ status: "Disconnected", updated_at: new Date().toISOString() }).eq("id", deviceId);
       }
       return json({ success: true, status: check.rawStatus || check.status, alive: false });
@@ -976,8 +983,9 @@ Deno.serve(async (req) => {
 
       const ownerDigits = String(check.owner || "").replace(/\D/g, "");
       const hasConfirmedOwner = ownerDigits.length >= 10;
+      const hasQrCode = Boolean(check.qrcode);
       const isConnected = check.status === "connected" && hasConfirmedOwner;
-      const isDisconnected = check.status === "disconnected";
+      const isDisconnected = check.status === "disconnected" && !hasQrCode;
 
       if (isConnected) {
         const fmt = formatBrPhone(check.owner || "");
@@ -994,13 +1002,18 @@ Deno.serve(async (req) => {
         if (wasDisconnected && device?.login_type !== "report_wa") {
           notifyConnectionChange(svc, user.id, deviceName, fmt, check.profileName || "", true).catch(() => {});
         }
+      } else if (hasQrCode) {
+        await svc.from("devices").update({
+          status: "Loading",
+          updated_at: new Date().toISOString(),
+        }).eq("id", deviceId);
       } else if (isDisconnected) {
         await svc.from("devices").update({ status: "Disconnected", updated_at: new Date().toISOString() }).eq("id", deviceId);
       }
 
       const responseStatus = isConnected
         ? "authenticated"
-        : (check.qrcode ? "connecting" : (check.rawStatus || check.status || "waiting"));
+        : (hasQrCode ? "connecting" : (check.rawStatus || check.status || "waiting"));
 
       return json({
         success: true,
