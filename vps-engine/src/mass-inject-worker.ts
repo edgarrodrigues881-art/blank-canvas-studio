@@ -705,7 +705,6 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     }
 
     const failedDeviceIds = new Map<string, number>(); // deviceId -> timestamp when marked failed
-    const DEVICE_RETRY_INTERVAL_MS = 60_000; // Retry failed devices after 60s
     let consecutiveFailures = Number(campaign.consecutive_failures || 0);
 
     while (isRunningRef.value) {
@@ -769,14 +768,15 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       const baseUrl = String(device.uazapi_base_url).replace(/\/+$/, "");
       const statusHint = String(device.status || "").toLowerCase();
       const processed = counterState.success_count + counterState.fail_count + counterState.already_count;
-      const shouldCheckConnection = processed === 0 || processed % 25 === 0 || !CONNECTED_DEVICE_STATUSES.has(statusHint);
+      // Check connection less often: first contact, then every 50, or if DB says disconnected
+      const shouldCheckConnection = processed === 0 || processed % 50 === 0 || (!CONNECTED_DEVICE_STATUSES.has(statusHint) && processed % 10 === 0);
 
-      // 4. Connection check (always when DB status is stale/disconnected, plus every 10 contacts)
+      // 4. Connection check — single fast check, no multi-retry
       if (shouldCheckConnection) {
         const liveConnection = await isDeviceConnected(
           baseUrl,
           device.uazapi_token,
-          CONNECTED_DEVICE_STATUSES.has(statusHint) ? 1 : DISCONNECT_RECHECK_COUNT,
+          1, // Always single check — less delay, less paranoia
         );
 
         if (liveConnection.connected === false) {
@@ -786,8 +786,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
           // Check if ALL devices are down
           const allIds = parseDeviceIds(freshCampaign.device_ids);
           if (allIds.every(id => failedDeviceIds.has(id))) {
-            // Wait 60s and clear all failures to give devices a chance to reconnect
-            log.warn(`Campaign ${campaignId.slice(0, 8)}: all devices disconnected — waiting 60s before retrying`);
+            // Wait 30s and clear all failures to give devices a chance to reconnect
+            log.warn(`Campaign ${campaignId.slice(0, 8)}: all devices disconnected — waiting 30s before retrying`);
             await emitEvent(sb, campaignId, "all_sessions_dropped", "warning", "Todas as instâncias desconectadas. Aguardando reconexão automática...");
             await sb.from("mass_inject_campaigns").update({
               updated_at: nowIso(),
@@ -799,38 +799,17 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
             // Clear all failures and retry
             failedDeviceIds.clear();
             
-            // Re-check: if still all disconnected after wait, THEN pause
-            let anyConnected = false;
-            for (const did of allIds) {
-              const { data: dev } = await sb.from("devices").select("uazapi_base_url, uazapi_token, status").eq("id", did).single();
-              if (!dev?.uazapi_base_url || !dev?.uazapi_token) continue;
-              const check = await isDeviceConnected(String(dev.uazapi_base_url).replace(/\/+$/, ""), dev.uazapi_token, 2);
-              if (check.connected !== false) { anyConnected = true; break; }
-            }
-            
-            if (!anyConnected) {
-              await sb.from("mass_inject_campaigns").update({
-                status: "paused", updated_at: nowIso(), next_run_at: null,
-                pause_reason: "Todas as instâncias desconectadas. Reconecte e retome.",
-              }).eq("id", campaignId);
-              await emitEvent(sb, campaignId, "all_sessions_dropped_final", "warning", "Todas as instâncias desconectadas após tentativa de reconexão.");
-              break;
-            }
-            
-            log.info(`Campaign ${campaignId.slice(0, 8)}: device(s) reconnected — resuming`);
-            await sb.from("mass_inject_campaigns").update({
-              updated_at: nowIso(), next_run_at: null, pause_reason: null,
-            }).eq("id", campaignId);
+            // Don't pause immediately — just continue the loop and retry
+            // The loop will re-check on next iteration
+            log.info(`Campaign ${campaignId.slice(0, 8)}: retrying after cooldown — not pausing yet`);
+            continue;
           }
           continue;
         }
 
-        if (!CONNECTED_DEVICE_STATUSES.has(statusHint) && liveConnection.connected === true) {
-          log.info(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} recovered by live check despite DB status=${device.status}`);
-        }
-
-        if (!CONNECTED_DEVICE_STATUSES.has(statusHint) && liveConnection.connected === null) {
-          log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} has stale DB status=${device.status}; proceeding with cautious fallback (${liveConnection.detail})`);
+        // If connection is unknown/null, just proceed — don't block
+        if (liveConnection.connected === null && !CONNECTED_DEVICE_STATUSES.has(statusHint)) {
+          log.info(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} status uncertain — proceeding anyway`);
         }
       }
 
@@ -891,8 +870,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       const cacheKey = `${baseUrl}::${groupId}`;
       const cachedParticipants = participantCache.get(cacheKey);
       const useCachedCheck = cachedParticipants && cachedParticipants.confirmed && (Date.now() - cachedParticipants.fetchedAt < PARTICIPANT_CACHE_TTL_MS);
-      // Only fetch fresh participants every 20 contacts or on first contact
-      const shouldFetchFresh = !useCachedCheck && (processed === 0 || processed % 20 === 0);
+      // Only fetch fresh participants on first contact or every 50 — rely on cache more
+      const shouldFetchFresh = !useCachedCheck && (processed === 0 || processed % 50 === 0);
       const participantSnapshot = shouldFetchFresh
         ? await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId)
         : (useCachedCheck ? cachedParticipants! : null);
