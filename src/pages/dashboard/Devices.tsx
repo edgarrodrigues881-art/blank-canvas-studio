@@ -378,16 +378,23 @@ const Devices = () => {
     retry: 1,
   });
 
-  const availableProxies = dbProxies.map((p, index) => ({
-    id: p.id,
-    label: `#${index + 1} - ${p.host}:${p.port}`,
-    host: p.host,
-    port: p.port,
-    username: p.username,
-    password: p.password,
-    type: p.type,
-    status: p.status || "NOVA",
-  }));
+  const statusOrder: Record<string, number> = { NOVA: 0, USANDO: 1, USADA: 2, INVALID: 3 };
+  const availableProxies = [...dbProxies]
+    .sort((a: any, b: any) => {
+      const aOrder = statusOrder[a.status || "NOVA"] ?? 4;
+      const bOrder = statusOrder[b.status || "NOVA"] ?? 4;
+      return aOrder - bOrder;
+    })
+    .map((p, index) => ({
+      id: p.id,
+      label: `#${index + 1} - ${p.host}:${p.port}`,
+      host: p.host,
+      port: p.port,
+      username: p.username,
+      password: p.password,
+      type: p.type,
+      status: p.status || "NOVA",
+    }));
 
   // Helper to get proxy status for a device
   const getProxyStatus = (d: Device) => {

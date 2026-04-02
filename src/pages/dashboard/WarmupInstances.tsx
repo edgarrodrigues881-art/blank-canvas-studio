@@ -902,16 +902,23 @@ const WarmupInstances = () => {
     enabled: !!user,
   });
 
-  const availableProxies = dbProxies.map((p, index) => ({
-    id: p.id,
-    label: `#${index + 1} - ${p.host}:${p.port}`,
-    host: p.host,
-    port: p.port,
-    username: p.username,
-    password: p.password,
-    type: p.type,
-    status: p.status || "NOVA",
-  }));
+  const statusOrder: Record<string, number> = { NOVA: 0, USANDO: 1, USADA: 2, INVALID: 3 };
+  const availableProxies = [...dbProxies]
+    .sort((a: any, b: any) => {
+      const aOrder = statusOrder[a.status || "NOVA"] ?? 4;
+      const bOrder = statusOrder[b.status || "NOVA"] ?? 4;
+      return aOrder - bOrder;
+    })
+    .map((p, index) => ({
+      id: p.id,
+      label: `#${index + 1} - ${p.host}:${p.port}`,
+      host: p.host,
+      port: p.port,
+      username: p.username,
+      password: p.password,
+      type: p.type,
+      status: p.status || "NOVA",
+    }));
 
   const filteredDevices = useMemo(
     () => devices.filter((d) => d.login_type !== "report_wa"),
