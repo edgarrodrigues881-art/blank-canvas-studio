@@ -767,7 +767,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       const baseUrl = String(device.uazapi_base_url).replace(/\/+$/, "");
       const statusHint = String(device.status || "").toLowerCase();
       const processed = counterState.success_count + counterState.fail_count + counterState.already_count;
-      const shouldCheckConnection = processed === 0 || processed % 10 === 0 || !CONNECTED_DEVICE_STATUSES.has(statusHint);
+      const shouldCheckConnection = processed === 0 || processed % 25 === 0 || !CONNECTED_DEVICE_STATUSES.has(statusHint);
 
       // 4. Connection check (always when DB status is stale/disconnected, plus every 10 contacts)
       if (shouldCheckConnection) {
