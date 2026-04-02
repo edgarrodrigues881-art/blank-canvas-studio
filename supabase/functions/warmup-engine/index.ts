@@ -1196,15 +1196,20 @@ async function handleScheduleDay(db: any, userId: string | null, body: any) {
   let joinScheduled = 0;
 
   if (resolvedDayIndex > 1) {
-    await db.from("warmup_jobs")
-      .update({ status: "cancelled", last_error: "Cancelado automaticamente: entrada em grupo só no dia 1" })
-      .eq("cycle_id", cycle_id)
-      .eq("job_type", "join_group")
-      .in("status", ["pending", "running"]);
+    // Only cancel if all groups already joined
+    const { data: pendingGroupsCheck } = await db.from("warmup_instance_groups")
+      .select("id").eq("cycle_id", cycle_id).eq("join_status", "pending").limit(1);
+    if (!pendingGroupsCheck?.length) {
+      await db.from("warmup_jobs")
+        .update({ status: "cancelled", last_error: "Cancelado: todos os grupos já foram entrados" })
+        .eq("cycle_id", cycle_id)
+        .eq("job_type", "join_group")
+        .in("status", ["pending", "running"]);
+    }
   }
 
-  // Sempre garante entradas pendentes antes de reagendar interações, mas só no dia 1
-  if (resolvedDayIndex <= 1 && !["completed", "paused", "error"].includes(resolvedPhase)) {
+  // Garante entradas pendentes antes de reagendar interações (qualquer dia)
+  if (!["completed", "paused", "error"].includes(resolvedPhase)) {
     joinScheduled = await ensureJoinGroupJobs(db, cycle_id, userId, device_id);
   }
 
