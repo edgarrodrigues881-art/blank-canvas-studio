@@ -76,8 +76,8 @@ const MAX_RATE_LIMIT_RETRIES = 15;
 const MAX_SESSION_DROP_RETRIES = 8; // session drops get more retries since they're transient
 const STALE_PROCESSING_TIMEOUT_MS = 3 * 60 * 1000;
 const API_TIMEOUT_MS = 25_000;
-const DISCONNECT_RECHECK_COUNT = 3; // Number of checks before confirming disconnect
-const DISCONNECT_RECHECK_INTERVAL_MS = 8_000; // Interval between recheck attempts
+const DISCONNECT_RECHECK_COUNT = 1; // Single check — less delay, less paranoia
+const DISCONNECT_RECHECK_INTERVAL_MS = 3_000; // Short interval if ever used
 
 // ── Endpoint cache: avoid trying all 5 strategies every time ──
 const endpointCache = new Map<string, number>();
