@@ -352,6 +352,7 @@ interface AddResult {
   pauseCampaign: boolean;
   cooldownMs: number;
   strategyIndex?: number;
+  canTryOtherStrategy?: boolean;
 }
 
 function buildAddStrategies(baseUrl: string, groupId: string, phone: string) {
@@ -396,91 +397,106 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
     if (Array.isArray(gu) && gu.length > 0) {
       const errCode = Number(gu[0]?.Error ?? gu[0]?.error ?? -1);
       if (errCode === 0 || errCode === 200 || errCode === 201) {
-        endpointCache.set(cacheKey, idx);
-        return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx };
+        return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
       }
       if (errCode === 409) {
-        endpointCache.set(cacheKey, idx);
-        return { ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx };
+        return { ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
       }
       // 403 = privacy restriction — contact only allows being added by saved contacts
       if (errCode === 403) {
-        endpointCache.set(cacheKey, idx);
-        return { ok: false, alreadyExists: false, detail: "Privacidade: só aceita convite de contatos salvos.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx };
+        return { ok: false, alreadyExists: false, detail: "Privacidade: só aceita convite de contatos salvos.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
       }
       // Other known error codes — classify as failure
       if (errCode >= 400) {
-        endpointCache.set(cacheKey, idx);
         return classifyFailure(fullText, errCode, idx);
       }
       if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(fullText)) {
-        endpointCache.set(cacheKey, idx);
-        return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx };
+        return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
       }
     }
 
     // Already exists
     if (fullText.includes("already") || fullText.includes("já") || fullText.includes("memberaddmode") || res.status === 409) {
-      endpointCache.set(cacheKey, idx);
-      return { ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx };
+      return { ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
     }
 
     // Success
     if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(fullText)) {
-      endpointCache.set(cacheKey, idx);
-      return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx };
+      return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
     }
 
     // Classify failure
-    endpointCache.set(cacheKey, idx);
     return classifyFailure(fullText, res.status, idx);
   };
 
-  // Try cached endpoint first
-  if (cachedIdx !== undefined && cachedIdx >= 0 && cachedIdx < strategies.length) {
-    try {
-      const { res, raw, body, idx } = await tryStrategy(cachedIdx);
-      return processResult(res, raw, body, idx);
-    } catch (e: any) {
-      return { ok: false, alreadyExists: false, detail: e.message, retryable: true, pauseCampaign: false, cooldownMs: 15000 };
-    }
-  }
+  const orderedStrategyIndexes = cachedIdx !== undefined && cachedIdx >= 0 && cachedIdx < strategies.length
+    ? [cachedIdx, ...Array.from({ length: strategies.length }, (_, i) => i).filter((i) => i !== cachedIdx)]
+    : Array.from({ length: strategies.length }, (_, i) => i);
 
-  // Discovery mode
-  for (let i = 0; i < strategies.length; i++) {
+  let lastTransientResult: AddResult | null = null;
+
+  for (const i of orderedStrategyIndexes) {
     try {
       const { res, raw, body, idx } = await tryStrategy(i);
       if (res.status === 405) continue;
-      return processResult(res, raw, body, idx);
+      const result = processResult(res, raw, body, idx);
+
+      if (result.canTryOtherStrategy) {
+        if (cachedIdx === idx) {
+          endpointCache.delete(cacheKey);
+          log.warn(`Mass inject fallback: cached add strategy ${idx} failed temporarily for group ${groupId}`, {
+            detail: result.detail,
+          });
+        }
+        lastTransientResult = result;
+        continue;
+      }
+
+      endpointCache.set(cacheKey, idx);
+      return result;
     } catch (e: any) {
-      return { ok: false, alreadyExists: false, detail: e.message, retryable: true, pauseCampaign: false, cooldownMs: 15000 };
+      if (cachedIdx === i) {
+        endpointCache.delete(cacheKey);
+      }
+      lastTransientResult = {
+        ok: false,
+        alreadyExists: false,
+        detail: e.message,
+        retryable: true,
+        pauseCampaign: false,
+        cooldownMs: 15000,
+        strategyIndex: i,
+        canTryOtherStrategy: true,
+      };
     }
   }
 
-  return { ok: false, alreadyExists: false, detail: "Nenhum endpoint encontrado (405).", retryable: false, pauseCampaign: true, cooldownMs: 0 };
+  if (lastTransientResult) return lastTransientResult;
+
+  return { ok: false, alreadyExists: false, detail: "Nenhum endpoint encontrado (405).", retryable: false, pauseCampaign: true, cooldownMs: 0, canTryOtherStrategy: false };
 }
 
 function classifyFailure(msg: string, status: number, strategyIndex: number): AddResult {
   const base = { ok: false as const, alreadyExists: false, strategyIndex };
   if (msg.includes("rate-overlimit") || msg.includes("429") || msg.includes("too many") || status === 429)
-    return { ...base, detail: "Rate limit.", retryable: true, pauseCampaign: false, cooldownMs: 30000 };
+    return { ...base, detail: "Rate limit.", retryable: true, pauseCampaign: false, cooldownMs: 30000, canTryOtherStrategy: false };
   if (msg.includes("not admin") || msg.includes("not an admin"))
-    return { ...base, detail: "Sem permissão de admin.", retryable: false, pauseCampaign: true, cooldownMs: 0 };
+    return { ...base, detail: "Sem permissão de admin.", retryable: false, pauseCampaign: true, cooldownMs: 0, canTryOtherStrategy: false };
   if (msg.includes("not found") && (msg.includes("group") || msg.includes("invalid group")))
-    return { ...base, detail: "Grupo inválido.", retryable: false, pauseCampaign: true, cooldownMs: 0 };
+    return { ...base, detail: "Grupo inválido.", retryable: false, pauseCampaign: true, cooldownMs: 0, canTryOtherStrategy: false };
   if (msg.includes("blocked") || msg.includes("ban"))
-    return { ...base, detail: "Contato bloqueado.", retryable: false, pauseCampaign: false, cooldownMs: 0 };
+    return { ...base, detail: "Contato bloqueado.", retryable: false, pauseCampaign: false, cooldownMs: 0, canTryOtherStrategy: false };
   if (msg.includes("not found") && (msg.includes("number") || msg.includes("participant") || msg.includes("contact")))
-    return { ...base, detail: "Número não encontrado no WhatsApp.", retryable: false, pauseCampaign: false, cooldownMs: 0 };
+    return { ...base, detail: "Número não encontrado no WhatsApp.", retryable: false, pauseCampaign: false, cooldownMs: 0, canTryOtherStrategy: false };
   if (status === 401 || msg.includes("unauthorized") || msg.includes("invalid token"))
-    return { ...base, detail: "Token inválido.", retryable: false, pauseCampaign: true, cooldownMs: 0 };
+    return { ...base, detail: "Token inválido.", retryable: false, pauseCampaign: true, cooldownMs: 0, canTryOtherStrategy: false };
   if (status === 503 || msg.includes("disconnected") || msg.includes("socket"))
-    return { ...base, detail: "Instância desconectada.", retryable: true, pauseCampaign: false, cooldownMs: 20000 };
+    return { ...base, detail: "Instância desconectada.", retryable: true, pauseCampaign: false, cooldownMs: 20000, canTryOtherStrategy: true };
   if (msg.includes("timeout") || status === 408 || status === 504)
-    return { ...base, detail: "Timeout.", retryable: true, pauseCampaign: false, cooldownMs: 15000 };
+    return { ...base, detail: "Timeout.", retryable: true, pauseCampaign: false, cooldownMs: 15000, canTryOtherStrategy: true };
   if (status >= 500)
-    return { ...base, detail: `Erro servidor (${status}).`, retryable: true, pauseCampaign: false, cooldownMs: 15000 };
-  return { ...base, detail: msg.substring(0, 140) || `HTTP ${status}`, retryable: true, pauseCampaign: false, cooldownMs: 10000 };
+    return { ...base, detail: `Erro servidor (${status}).`, retryable: true, pauseCampaign: false, cooldownMs: 15000, canTryOtherStrategy: true };
+  return { ...base, detail: msg.substring(0, 140) || `HTTP ${status}`, retryable: true, pauseCampaign: false, cooldownMs: 10000, canTryOtherStrategy: false };
 }
 
 // ── Device selection ──
