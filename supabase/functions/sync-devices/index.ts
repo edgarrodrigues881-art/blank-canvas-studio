@@ -74,13 +74,39 @@ function normalizeProviderConnectionState(payload: any): { state: "connected" | 
     .join(" ")
     .toLowerCase();
 
-  const hasSignal = (signals: string[]) => signals.some((signal) => rawStatus.includes(signal) || textBlob.includes(signal));
+  const canonicalizeStatus = (value: string) => value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const rawStatusCanonical = canonicalizeStatus(rawStatus);
+
+  const matchesSignal = (signal: string) => {
+    const canonicalSignal = canonicalizeStatus(signal);
+    if (!canonicalSignal) return false;
+
+    const rawMatch = rawStatusCanonical === canonicalSignal
+      || rawStatusCanonical.startsWith(`${canonicalSignal}_`)
+      || rawStatusCanonical.endsWith(`_${canonicalSignal}`)
+      || rawStatusCanonical.includes(`_${canonicalSignal}_`);
+
+    if (rawMatch) return true;
+
+    const textSignal = signal.toLowerCase().replace(/[_-]+/g, " ").trim();
+    if (!textSignal) return false;
+
+    const textPattern = new RegExp(`(?:^|\\W)${escapeRegex(textSignal)}(?:$|\\W)`, "i");
+    return textPattern.test(textBlob);
+  };
+
+  const hasSignal = (signals: string[]) => signals.some(matchesSignal);
   const connectedSignals = ["connected", "authenticated", "open", "ready", "active", "online"];
   const disconnectedSignals = ["disconnected", "closed", "close", "offline", "logout", "logged_out", "loggedout", "not_connected"];
   const transitionalSignals = ["connecting", "pairing", "waiting", "initializing", "starting", "syncing", "qr", "qrcode", "pending"];
 
-  if (hasSignal(connectedSignals)) return { state: "connected", rawStatus, owner };
   if (hasSignal(disconnectedSignals)) return { state: "disconnected", rawStatus, owner };
+  if (hasSignal(connectedSignals)) return { state: "connected", rawStatus, owner };
   if (hasSignal(transitionalSignals)) return { state: "transitional", rawStatus, owner };
   return { state: "unknown", rawStatus, owner };
 }
