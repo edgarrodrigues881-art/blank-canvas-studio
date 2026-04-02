@@ -1402,7 +1402,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         const unknownPhones = [...batchResults.entries()].filter(([_, r]) => r.status === "unknown_failure").map(([p]) => p);
         if (unknownPhones.length > 0) {
           try {
-            const verificationDelays = [2500, 5000];
+            const verificationDelays = [1500];
             for (const delayMs of verificationDelays) {
               await sleep(delayMs);
               const finalCheck = await getGroupParticipantsDetailed(device.uazapi_base_url, device.uazapi_token, contactGroupId);
