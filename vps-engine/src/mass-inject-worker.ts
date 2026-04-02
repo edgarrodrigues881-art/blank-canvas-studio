@@ -885,8 +885,15 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         continue;
       }
 
-      // 7. Pre-check: is the contact already in the group?
-      const participantSnapshot = await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId);
+      // 7. Pre-check: is the contact already in the group? (use cache only — don't fetch if not cached)
+      const cacheKey = `${baseUrl}::${groupId}`;
+      const cachedParticipants = participantCache.get(cacheKey);
+      const useCachedCheck = cachedParticipants && cachedParticipants.confirmed && (Date.now() - cachedParticipants.fetchedAt < PARTICIPANT_CACHE_TTL_MS);
+      // Only fetch fresh participants every 20 contacts or on first contact
+      const shouldFetchFresh = !useCachedCheck && (processed === 0 || processed % 20 === 0);
+      const participantSnapshot = shouldFetchFresh
+        ? await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId)
+        : (useCachedCheck ? cachedParticipants! : null);
 
       if (participantSnapshot.confirmed && participantSetHasPhone(participantSnapshot.participants, phone)) {
         await sb.from("mass_inject_contacts").update({
