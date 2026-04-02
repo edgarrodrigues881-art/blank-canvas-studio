@@ -76,8 +76,8 @@ const MAX_RATE_LIMIT_RETRIES = 15;
 const MAX_SESSION_DROP_RETRIES = 8; // session drops get more retries since they're transient
 const STALE_PROCESSING_TIMEOUT_MS = 3 * 60 * 1000;
 const API_TIMEOUT_MS = 25_000;
-const DISCONNECT_RECHECK_COUNT = 3; // Number of checks before confirming disconnect
-const DISCONNECT_RECHECK_INTERVAL_MS = 8_000; // Interval between recheck attempts
+const DISCONNECT_RECHECK_COUNT = 1; // Single check — less delay, less paranoia
+const DISCONNECT_RECHECK_INTERVAL_MS = 3_000; // Short interval if ever used
 
 // ── Endpoint cache: avoid trying all 5 strategies every time ──
 const endpointCache = new Map<string, number>();
@@ -1153,61 +1153,44 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
     }
 
     const processed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0) + Number(campaign.already_count || 0);
-    const shouldCheckConnection = processed === 0 || processed % 10 === 0;
+    // Check connection less often: first contact, then every 50
+    const shouldCheckConnection = processed === 0 || processed % 50 === 0;
 
     if (shouldCheckConnection) {
-      // Use multi-check revalidation instead of single check
-      const { finalResult: connCheck, confirmedDisconnect } = await checkInstanceConnectionWithRetries(
-        device.uazapi_base_url, device.uazapi_token, `preflight:${device.name}`
-      );
-      
-      if (confirmedDisconnect) {
-        console.log(`[mass-inject] campaign=${campaignId} device=${device.name} SESSION DROPPED (confirmed by ${DISCONNECT_RECHECK_COUNT} checks)`);
+      // Single fast check — don't block the flow
+      const connCheck = await checkInstanceConnection(device.uazapi_base_url, device.uazapi_token);
+
+      if (connCheck.connected === false) {
+        console.log(`[mass-inject] campaign=${campaignId} device=${device.name} disconnected — trying alternatives`);
         failedDeviceIds.add(device.id);
 
         let anyConnected = false;
         for (const did of parseDeviceIds(campaign.device_ids)) {
           if (failedDeviceIds.has(did)) continue;
           const altDevice = await getDeviceCredentials(sb, did, campaign.user_id, true);
-          if (!altDevice || !isDeviceOperational(altDevice)) {
-            failedDeviceIds.add(did);
-            continue;
-          }
+          if (!altDevice || !isDeviceOperational(altDevice)) { failedDeviceIds.add(did); continue; }
           const altConn = await checkInstanceConnection(altDevice.uazapi_base_url, altDevice.uazapi_token);
-          if (altConn.connected === true) {
-            anyConnected = true;
-            break;
-          }
+          if (altConn.connected !== false) { anyConnected = true; break; }
           failedDeviceIds.add(did);
         }
 
         if (!anyConnected) {
-          console.log(`[mass-inject] campaign=${campaignId} ALL devices sessions dropped — pausing (NOT failing)`);
-          await sb.from("mass_inject_campaigns").update({
-            status: "paused",
-            updated_at: nowIso(),
-            pause_reason: "Sessão da API desconectada em todas as instâncias. Reconecte e retome.",
-            next_run_at: null,
-          }).eq("id", campaignId);
-          await emitCampaignEvent(sb, campaignId, "all_sessions_dropped", "warning", 
-            "Todas as instâncias com sessão desconectada. Reconecte as instâncias e retome a campanha.");
+          // Don't pause immediately — schedule a retry in 30s
+          console.log(`[mass-inject] campaign=${campaignId} all devices down — retrying in 30s (not pausing)`);
+          await emitCampaignEvent(sb, campaignId, "all_sessions_dropped", "warning", "Instâncias oscilando. Retentando em 30s.");
+          await scheduleCampaignRun(sb, campaignId, 30_000);
+          nextRunScheduled = true;
           return;
         }
 
-        const retryDelay = randomBetween(300_000, 600_000);
-        await emitCampaignEvent(sb, campaignId, "session_dropped", "warning", 
-          `Sessão da instância ${device.name} desconectada. Recuperação em ${Math.round(retryDelay/1000/60)} min com outra instância.`);
+        // One device down but others available — quick retry with alternative
+        const retryDelay = randomBetween(5_000, 15_000);
         await scheduleCampaignRun(sb, campaignId, retryDelay);
         nextRunScheduled = true;
         return;
       } else if (connCheck.connected === null) {
-        const retryDelay = randomBetween(20_000, 40_000);
-        console.log(`[mass-inject] campaign=${campaignId} device=${device.name} connection unstable, retrying in ${retryDelay}ms`);
-        await emitCampaignEvent(sb, campaignId, "connection_unstable", "warning",
-          `Conexão da instância ${device.name} instável. Revalidando em ${Math.round(retryDelay/1000)}s.`);
-        await scheduleCampaignRun(sb, campaignId, retryDelay);
-        nextRunScheduled = true;
-        return;
+        // Unknown status — just proceed, don't block
+        console.log(`[mass-inject] campaign=${campaignId} device=${device.name} status unknown — proceeding`);
       }
     }
 
@@ -1419,7 +1402,7 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         const unknownPhones = [...batchResults.entries()].filter(([_, r]) => r.status === "unknown_failure").map(([p]) => p);
         if (unknownPhones.length > 0) {
           try {
-            const verificationDelays = [2500, 5000];
+            const verificationDelays = [1500];
             for (const delayMs of verificationDelays) {
               await sleep(delayMs);
               const finalCheck = await getGroupParticipantsDetailed(device.uazapi_base_url, device.uazapi_token, contactGroupId);
@@ -1494,13 +1477,10 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         : result.status === "session_dropped" ? MAX_SESSION_DROP_RETRIES : MAX_QUEUE_RETRIES;
 
       if (isTransient && retryCount < maxRetries) {
-        let cooldownDelay = randomBetween(20_000, 40_000);
+        // Simplified retry — no heavy exponential backoff
+        let cooldownDelay = randomBetween(5_000, 15_000);
         if (result.status === "rate_limited") {
-          const baseBackoff = 30_000;
-          const expBackoff = baseBackoff * Math.pow(2, retryCount);
-          cooldownDelay = Math.min(expBackoff + randomBetween(5_000, 15_000), 600_000);
-        } else if (result.status === "session_dropped") {
-          cooldownDelay = Math.round(cooldownDelay * (1 + retryCount * 0.5));
+          cooldownDelay = randomBetween(15_000, 45_000);
         }
         await sb.from("mass_inject_contacts").update({
           status: result.status,
