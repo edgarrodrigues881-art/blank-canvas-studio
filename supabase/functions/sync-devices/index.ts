@@ -43,7 +43,9 @@ function normalizeProviderConnectionState(payload: any): { state: "connected" | 
   // DIRECT BOOLEAN CHECK: Uazapi returns { status: { connected: true, loggedIn: true } }
   const statusObj = payload?.status;
   if (statusObj && typeof statusObj === "object" && statusObj.connected === true) {
-    const owner = inst?.owner || statusObj?.jid?.split(":")[0] || "";
+    const owner = [inst?.owner, inst?.phone, inst?.number, inst?.jid, inst?.wid, statusObj?.jid]
+      .map((v) => typeof v === "string" ? v.replace(/@.*$/, "").split(":")[0].trim() : "")
+      .find((v) => v.replace(/\D/g, "").length >= 10) || "";
     return { state: "connected", rawStatus: "connected", owner };
   }
   if (statusObj && typeof statusObj === "object" && statusObj.connected === false) {
@@ -57,8 +59,9 @@ function normalizeProviderConnectionState(payload: any): { state: "connected" | 
     payload?.state,
   ].find((value) => typeof value === "string" && value.trim())?.toLowerCase().trim() || "";
 
-  const owner = [inst?.owner, inst?.phone, payload?.phone, payload?.owner]
-    .find((value) => typeof value === "string" && value.trim())?.trim() || "";
+  const owner = [inst?.owner, inst?.phone, inst?.number, inst?.jid, inst?.wid, payload?.phone, payload?.owner, payload?.number, payload?.jid, payload?.wid]
+    .map((v) => typeof v === "string" ? v.replace(/@.*$/, "").trim() : "")
+    .find((v) => v.replace(/\D/g, "").length >= 10) || "";
 
   const textBlob = [
     payload?.message,

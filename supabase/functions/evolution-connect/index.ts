@@ -275,8 +275,9 @@ function normalizeProviderConnectionState(payload: any): {
     .find((value) => typeof value === "string" && value.trim())?.trim() || "";
 
   const statusObj = payload?.status;
-  const owner = [inst?.owner, inst?.phone, payload?.phone, payload?.owner]
-    .find((value) => typeof value === "string" && value.trim())?.trim() || "";
+  const owner = [inst?.owner, inst?.phone, inst?.number, inst?.jid, inst?.wid, payload?.phone, payload?.owner, payload?.number, payload?.jid, payload?.wid]
+    .map((v) => typeof v === "string" ? v.replace(/@.*$/, "").trim() : "")
+    .find((v) => v.length >= 10) || "";
 
   if (statusObj && typeof statusObj === "object" && statusObj.connected === true) {
     return { state: "connected", rawStatus: "connected", owner, qrcode, profileName, profilePicUrl };
@@ -990,7 +991,26 @@ Deno.serve(async (req) => {
     // ════════════════════════════════════════════════════════════════════
     if (action === "keepAlive") {
       const check = await checkStatus(5000);
-      if (check.status === "connected") return json({ success: true, status: "authenticated", alive: true });
+      if (check.status === "connected") {
+        // CRITICAL: also update DB to Ready when connected
+        const ownerDigits = String(check.owner || "").replace(/\D/g, "");
+        const hasOwner = ownerDigits.length >= 10;
+        if (hasOwner) {
+          const fmt = formatBrPhone(check.owner || "");
+          const wasDisconnected = device?.status !== "Ready" && device?.status !== "Connected";
+          await svc.from("devices").update({
+            status: "Ready", number: fmt,
+            profile_name: check.profileName || device?.profile_name || "",
+            updated_at: new Date().toISOString(),
+          }).eq("id", deviceId);
+          if (wasDisconnected && device?.login_type !== "report_wa") {
+            notifyConnectionChange(svc, user.id, deviceName, fmt, check.profileName || "", true).catch(() => {});
+          }
+        } else {
+          await svc.from("devices").update({ status: "Ready", updated_at: new Date().toISOString() }).eq("id", deviceId);
+        }
+        return json({ success: true, status: "authenticated", alive: true });
+      }
 
       if (check.qrcode) {
         await svc.from("devices").update({ status: "Loading", updated_at: new Date().toISOString() }).eq("id", deviceId);
