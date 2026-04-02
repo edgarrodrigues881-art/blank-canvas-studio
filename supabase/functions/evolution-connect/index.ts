@@ -683,301 +683,36 @@ Deno.serve(async (req) => {
         await new Promise(r => setTimeout(r, 800));
         await uazapi(instanceUrl, "/instance/disconnect", currentToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
         await new Promise(r => setTimeout(r, 1500));
-        // Clear number from DB since we're forcing a fresh connection
-        await svc.from("devices").update({ number: null, status: "Disconnected", profile_name: null }).eq("id", deviceId);
+        // During manual reconnect keep device in Loading to avoid false "disconnected" alerts
+        await svc.from("devices").update({
+          number: null,
+          status: "Loading",
+          profile_name: null,
+          updated_at: new Date().toISOString(),
+        }).eq("id", deviceId);
       }
-
-      while (tokenAttempt < MAX_TOKEN_RETRIES) {
-        tokenAttempt++;
-        connectRes = await uazapi(instanceUrl, "/instance/connect", currentToken, "POST", {}, { timeoutMs: 10000, retries: 1 });
-        
-        if (connectRes.status !== 401) break; // Success or non-token error — exit loop
-
-        // ── ROLLBACK: mark token as invalid and release from device ──
-        console.log(`[evolution-connect] 401 rollback for device=${deviceId.substring(0, 8)} token=${currentToken.substring(0, 8)} attempt=${tokenAttempt}`);
-        await Promise.all([
-          svc.from("user_api_tokens").update({
-            status: "invalid", healthy: false, device_id: null,
-            last_checked_at: new Date().toISOString(),
-          }).eq("token", currentToken),
-          svc.from("devices").update({
-            uazapi_token: null, uazapi_base_url: null,
-          }).eq("id", deviceId),
-        ]);
-        await oplog(svc, user.id, "token_invalid_rollback", `Token inválido revertido para "${deviceName}" (tentativa ${tokenAttempt})`, deviceId);
-
-        // ── Find next available token ──
-        let nextToken: any = null;
-        for (const st of ["available", "blocked"]) {
-          const { data } = await svc.from("user_api_tokens")
-            .select("id, token")
-            .eq("user_id", user.id).eq("status", st).is("device_id", null)
-            .limit(1).maybeSingle();
-          if (data) { nextToken = data; break; }
-        }
-
-        if (!nextToken) {
-          // ── report_wa fallback: auto-create new instance on provider ──
-          if (isReportDevice && BASE_URL && ADMIN_TOKEN) {
-            console.log(`[evolution-connect] report_wa 401 fallback: creating new instance on provider`);
-            const { data: prof } = await svc.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
-            const clientLabel = (prof?.full_name || user.email || "cliente").replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 20);
-            const instName = `${clientLabel}_report_wa_${Date.now() % 10000}`;
-            const createResult = await adminCreateInstance(BASE_URL, ADMIN_TOKEN, instName);
-            if (createResult.ok && createResult.token) {
-              // Update profile and device with new token
-              await Promise.all([
-                svc.from("profiles").update({ whatsapp_monitor_token: createResult.token }).eq("id", user.id),
-                svc.from("devices").update({ uazapi_token: createResult.token, uazapi_base_url: BASE_URL }).eq("id", deviceId),
-              ]);
-              currentToken = createResult.token;
-              instanceToken = createResult.token;
-              instanceUrl = BASE_URL;
-              console.log(`[evolution-connect] report_wa new token created: ${instName}`);
-              await oplog(svc, user.id, "monitor_token_regenerated", `Token monitor regenerado: ${instName}`, deviceId);
-              continue; // retry connect with new token
-            }
-            console.log(`[evolution-connect] report_wa on-demand failed: ${createResult.error}`);
-          }
-          // ── Regular devices: try on-demand creation ──
-          if (!isReportDevice && BASE_URL && ADMIN_TOKEN) {
-            console.log(`[evolution-connect] 401 fallback: creating new instance on provider`);
-            const { data: prof } = await svc.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
-            const clientLabel = (prof?.full_name || user.email || "cliente").replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 20);
-            const { count: tokenCount } = await svc.from("user_api_tokens").select("id", { count: "exact", head: true }).eq("user_id", user.id);
-            const instName = `${clientLabel}_${(tokenCount ?? 0) + 1}`;
-            const createResult = await adminCreateInstance(BASE_URL, ADMIN_TOKEN, instName);
-            if (createResult.ok && createResult.token) {
-              const { data: ins } = await svc.from("user_api_tokens").insert({
-                user_id: user.id, token: createResult.token, admin_id: user.id,
-                device_id: deviceId, status: "in_use", healthy: true,
-                label: instName, assigned_at: new Date().toISOString(),
-                last_checked_at: new Date().toISOString(),
-              }).select("id").single();
-              await svc.from("devices").update({ uazapi_token: createResult.token, uazapi_base_url: BASE_URL }).eq("id", deviceId);
-              currentToken = createResult.token;
-              currentTokenId = ins?.id || null;
-              instanceToken = createResult.token;
-              instanceUrl = BASE_URL;
-              console.log(`[evolution-connect] on-demand token created in retry: ${instName}`);
-              await oplog(svc, user.id, "token_on_demand_retry", `Token gerado sob demanda (retry): ${instName}`, deviceId);
-              continue; // retry connect with new token
-            }
-            console.log(`[evolution-connect] on-demand retry failed: ${createResult.error}`);
-          }
-          return json({ error: "Todos os tokens inválidos. Solicite novos tokens ao administrador.", code: "TOKEN_INVALID" }, 401);
-        }
-
-        // Assign next token
-        await Promise.all([
-          svc.from("user_api_tokens").update({
-            device_id: deviceId, status: "in_use", assigned_at: new Date().toISOString(),
-          }).eq("id", nextToken.id),
-          svc.from("devices").update({
-            uazapi_token: nextToken.token, uazapi_base_url: BASE_URL,
-          }).eq("id", deviceId),
-        ]);
-        console.log(`[evolution-connect] retry with token=${nextToken.token.substring(0, 8)} attempt=${tokenAttempt + 1}`);
-
-        currentToken = nextToken.token;
-        currentTokenId = nextToken.id;
-        instanceToken = currentToken;
-        instanceUrl = BASE_URL;
-      }
-
-      // If we exhausted all retries and last was still 401
-      if (connectRes?.status === 401) {
-        return json({ error: "Todos os tokens testados são inválidos. Solicite novos tokens ao administrador.", code: "TOKEN_INVALID" }, 401);
-      }
-
-      const connInst = connectRes.data?.instance || connectRes.data || {};
-      const connState = normalizeProviderConnectionState(connectRes.data);
-
-      // Already connected?
-      if (connState.state === "connected" && (connState.owner || connInst.owner || connInst.phone)) {
-        const phone = connState.owner || connInst.owner || connInst.phone || "";
-        const pName = connState.profileName || connInst.profileName || connInst.pushname || "";
-        const resp = await handleAlreadyConnected(svc, user.id, deviceId, deviceName, phone, pName, device?.login_type || "", instanceUrl, instanceToken);
-        if (resp) return resp;
-      }
-
-      let qr = connState.qrcode || connInst.qrcode || connectRes.data?.qrcode;
-
-      // CRITICAL FIX: Poll for QR with more attempts and longer delays
-      // Uazapi sometimes takes 5-8 seconds to generate QR after connect
-      if (!qr) {
-        for (let attempt = 0; attempt < 6 && !qr; attempt++) {
-          await new Promise(r => setTimeout(r, 1200));
-          const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 5000, retries: 0 });
-          const pi = poll.data?.instance || poll.data || {};
-          const pollState = normalizeProviderConnectionState(poll.data);
-          qr = pollState.qrcode || pi.qrcode || poll.data?.qrcode;
-          console.log(`[evolution-connect] QR poll attempt=${attempt + 1} status="${pollState.rawStatus || pollState.state}" normalized="${pollState.state}" hasQR=${!!qr}`);
-          if (pollState.state === "connected" && (pollState.owner || pi.owner || pi.phone)) {
-            const phone = pollState.owner || pi.owner || pi.phone || "";
-            const pName = pollState.profileName || pi.profileName || pi.pushname || "";
-            const resp = await handleAlreadyConnected(svc, user.id, deviceId, deviceName, phone, pName, device?.login_type || "", instanceUrl, instanceToken);
-            if (resp) return resp;
-            break;
-          }
-          if (qr) break;
-        }
-      }
-
-      return json({
-        success: true,
-        base64: qr || null,
-        qr: qr || null,
-        status: qr ? "connecting" : "waiting",
-        instanceToken,
-      });
-    }
-
-    // ════════════════════════════════════════════════════════════════════
-    // ── requestPairingCode ──
-    // ════════════════════════════════════════════════════════════════════
-    if (action === "requestPairingCode") {
-      const phoneNumber = body.phoneNumber?.replace(/\D/g, "");
-      if (!phoneNumber || phoneNumber.length < 10) return json({ error: "Número inválido." }, 400);
-
-      const currentCheck = await checkStatus(5000);
-      if (!currentCheck.valid) return json({ error: "Token inválido.", code: "TOKEN_INVALID" }, 401);
-
-      // Set proxy if needed
-      if (body.proxyConfig?.host) {
-        const proxyResult = await setProxy(instanceUrl, instanceToken, body.proxyConfig);
-        if (!proxyResult.ok) {
-          if (body.proxyId) await svc.from("proxies").update({ status: "INVALID" }).eq("id", body.proxyId);
-          return json({ error: proxyResult.error || "Proxy inválida.", code: "PROXY_FAILED" }, 400);
-        }
-      }
-
-      // Already connected?
-      if (currentCheck.status === "connected" && currentCheck.owner) {
-        const fmt = currentCheck.owner ? formatBrPhone(currentCheck.owner) : "";
-        await svc.from("devices").update({ status: "Ready", number: fmt, updated_at: new Date().toISOString() }).eq("id", deviceId);
-        return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
-      }
-
-      // Disconnect if needed
-      if (currentCheck.status === "transitional" || currentCheck.status === "unknown") {
-        await uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
-        await new Promise(r => setTimeout(r, 1000));
-      } else if (currentCheck.status !== "disconnected" && currentCheck.status) {
-        await uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
-        await new Promise(r => setTimeout(r, 1000));
-      }
-
-      // Request pairing code
-      const connectRes = await uazapi(instanceUrl, "/instance/connect", instanceToken, "POST", { phone: phoneNumber }, { timeoutMs: 10000, retries: 1 });
-
-      const extractCode = (obj: any): string | null => {
-        if (!obj || typeof obj !== "object") return null;
-        for (const key of ["pairingCode", "pairing_code", "paircode", "code"]) {
-          const val = obj[key];
-          if (val && typeof val === "string" && val.length >= 4 && val.length <= 20) return val;
-        }
-        if (obj.instance) return extractCode(obj.instance);
-        return null;
-      };
-
-      let pairingCode = extractCode(connectRes.data);
-
-      // Poll 3 times max (reduced from 5)
-      if (!pairingCode) {
-        for (let i = 0; i < 3; i++) {
-          await new Promise(r => setTimeout(r, 800));
-          const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 4000, retries: 0 });
-          pairingCode = extractCode(poll.data);
-          if (pairingCode) break;
-          const pollState = normalizeProviderConnectionState(poll.data);
-          const phone = pollState.owner || poll.data?.instance?.owner || poll.data?.instance?.phone || "";
-          if (pollState.state === "connected" && phone) {
-            const fmt = phone ? formatBrPhone(phone) : "";
-            await svc.from("devices").update({ status: "Ready", number: fmt, updated_at: new Date().toISOString() }).eq("id", deviceId);
-            return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
-          }
-        }
-      }
-
-      if (pairingCode) return json({ success: true, pairingCode, status: "connecting" });
-
-      // Fallback: suggest QR
-      const fallback = await checkStatus(4000);
-      if (fallback.qrcode) {
-        return json({ success: false, error: "Servidor não suporta código de pareamento. Use QR Code.", suggestQr: true, qrCode: fallback.qrcode }, 200);
-      }
-
-      return json({ error: "Não foi possível gerar código. Use QR Code.", suggestQr: true }, 200);
-    }
-
-    // ════════════════════════════════════════════════════════════════════
-    // ── refreshQr ──
-    // ════════════════════════════════════════════════════════════════════
-    if (action === "refreshQr") {
-      const statusCheck = await checkStatus(5000);
-
-      if (statusCheck.status === "connected" && statusCheck.owner) {
-        const phone = statusCheck.owner || "";
-        const fmt = phone ? formatBrPhone(phone) : "";
-        const dup = await checkDuplicatePhone(svc, user.id, deviceId, phone);
-        if (dup.isDuplicate) {
-          await uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
-          return json({ success: false, error: `Número já conectado em "${dup.existingDeviceName}".`, code: "DUPLICATE_PHONE" });
-        }
-        return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
-      }
-
-      if (!statusCheck.valid) return json({ error: "Token expirado.", code: "TOKEN_INVALID" }, 401);
-      if ((statusCheck.status === "transitional" || statusCheck.rawStatus === "connecting") && statusCheck.qrcode) {
-        return json({ success: true, base64: statusCheck.qrcode, qr: statusCheck.qrcode, status: "connecting" });
-      }
-
-      // Request new QR with retry
-      const connectRes = await uazapi(instanceUrl, "/instance/connect", instanceToken, "POST", {}, { timeoutMs: 8000, retries: 1 });
-      const connInst = connectRes.data?.instance || connectRes.data || {};
-      let qr = connInst.qrcode || connectRes.data?.qrcode;
-
-      // Single poll if no QR
-      if (!qr) {
-        await new Promise(r => setTimeout(r, 600));
-        const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 4000, retries: 0 });
-        const pi = poll.data?.instance || poll.data || {};
-        const pollState = normalizeProviderConnectionState(poll.data);
-        qr = pollState.qrcode || pi.qrcode || poll.data?.qrcode;
-        const phone = pollState.owner || pi.owner || pi.phone || "";
-        if (pollState.state === "connected" && phone) {
-          return json({ success: true, alreadyConnected: true, phone: formatBrPhone(phone), status: "authenticated" });
-        }
-      }
-
-      return json({ success: true, base64: qr || null, qr: qr || null, status: qr ? "connecting" : "waiting" });
-    }
-
-    // ════════════════════════════════════════════════════════════════════
-    // ── keepAlive — lightweight, no reconnect ──
-    // ════════════════════════════════════════════════════════════════════
+...
     if (action === "keepAlive") {
       const check = await checkStatus(5000);
       if (check.status === "connected") return json({ success: true, status: "authenticated", alive: true });
 
-      if (check.status === "disconnected") {
+      if (check.qrcode) {
+        await svc.from("devices").update({ status: "Loading", updated_at: new Date().toISOString() }).eq("id", deviceId);
+      } else if (check.status === "disconnected") {
         await svc.from("devices").update({ status: "Disconnected", updated_at: new Date().toISOString() }).eq("id", deviceId);
       }
       return json({ success: true, status: check.rawStatus || check.status, alive: false });
     }
-
-    // ════════════════════════════════════════════════════════════════════
-    // ── status — lightweight polling during QR scan ──
-    // ════════════════════════════════════════════════════════════════════
+...
     if (action === "status") {
       const check = await checkStatus(5000);
       if (!check.valid) return json({ success: true, status: "token_invalid", tokenInvalid: true });
 
       const ownerDigits = String(check.owner || "").replace(/\D/g, "");
       const hasConfirmedOwner = ownerDigits.length >= 10;
+      const hasQrCode = Boolean(check.qrcode);
       const isConnected = check.status === "connected" && hasConfirmedOwner;
-      const isDisconnected = check.status === "disconnected";
+      const isDisconnected = check.status === "disconnected" && !hasQrCode;
 
       if (isConnected) {
         const fmt = formatBrPhone(check.owner || "");
@@ -994,13 +729,18 @@ Deno.serve(async (req) => {
         if (wasDisconnected && device?.login_type !== "report_wa") {
           notifyConnectionChange(svc, user.id, deviceName, fmt, check.profileName || "", true).catch(() => {});
         }
+      } else if (hasQrCode) {
+        await svc.from("devices").update({
+          status: "Loading",
+          updated_at: new Date().toISOString(),
+        }).eq("id", deviceId);
       } else if (isDisconnected) {
         await svc.from("devices").update({ status: "Disconnected", updated_at: new Date().toISOString() }).eq("id", deviceId);
       }
 
       const responseStatus = isConnected
         ? "authenticated"
-        : (check.qrcode ? "connecting" : (check.rawStatus || check.status || "waiting"));
+        : (hasQrCode ? "connecting" : (check.rawStatus || check.status || "waiting"));
 
       return json({
         success: true,
