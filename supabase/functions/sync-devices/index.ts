@@ -59,8 +59,9 @@ function normalizeProviderConnectionState(payload: any): { state: "connected" | 
     payload?.state,
   ].find((value) => typeof value === "string" && value.trim())?.toLowerCase().trim() || "";
 
-  const owner = [inst?.owner, inst?.phone, payload?.phone, payload?.owner]
-    .find((value) => typeof value === "string" && value.trim())?.trim() || "";
+  const owner = [inst?.owner, inst?.phone, inst?.number, inst?.jid, inst?.wid, payload?.phone, payload?.owner, payload?.number, payload?.jid, payload?.wid]
+    .map((v) => typeof v === "string" ? v.replace(/@.*$/, "").trim() : "")
+    .find((v) => v.replace(/\D/g, "").length >= 10) || "";
 
   const textBlob = [
     payload?.message,
