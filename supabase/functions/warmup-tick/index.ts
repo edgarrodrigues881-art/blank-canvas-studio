@@ -2030,13 +2030,22 @@ async function handleTick(
         // Skip pre_24h for orphan recovery below
         if (cycle.phase === "pre_24h") continue;
 
-        // Cancel stale join_group jobs for cycles past day 1
+        // Cancel stale join_group jobs ONLY if all groups are already joined
         if ((cycle.day_index || 1) > 1) {
-          await db.from("warmup_jobs")
-            .update({ status: "cancelled", last_error: "Cancelado: join_group só no dia 1" })
+          const { data: pendingGroups } = await db.from("warmup_instance_groups")
+            .select("id")
             .eq("cycle_id", cycle.id)
-            .eq("job_type", "join_group")
-            .in("status", ["pending", "running"]);
+            .eq("device_id", cycle.device_id)
+            .eq("join_status", "pending")
+            .limit(1);
+          
+          if (!pendingGroups?.length) {
+            await db.from("warmup_jobs")
+              .update({ status: "cancelled", last_error: "Cancelado: todos os grupos já foram entrados" })
+              .eq("cycle_id", cycle.id)
+              .eq("job_type", "join_group")
+              .in("status", ["pending", "running"]);
+          }
         }
 
         // ── Original orphan recovery: running with 0 pending jobs ──
