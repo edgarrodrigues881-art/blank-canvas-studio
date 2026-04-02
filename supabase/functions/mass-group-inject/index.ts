@@ -1477,13 +1477,10 @@ async function runCampaignWorker(sb: any, campaignId: string, initialDelayMs = 0
         : result.status === "session_dropped" ? MAX_SESSION_DROP_RETRIES : MAX_QUEUE_RETRIES;
 
       if (isTransient && retryCount < maxRetries) {
-        let cooldownDelay = randomBetween(20_000, 40_000);
+        // Simplified retry — no heavy exponential backoff
+        let cooldownDelay = randomBetween(5_000, 15_000);
         if (result.status === "rate_limited") {
-          const baseBackoff = 30_000;
-          const expBackoff = baseBackoff * Math.pow(2, retryCount);
-          cooldownDelay = Math.min(expBackoff + randomBetween(5_000, 15_000), 600_000);
-        } else if (result.status === "session_dropped") {
-          cooldownDelay = Math.round(cooldownDelay * (1 + retryCount * 0.5));
+          cooldownDelay = randomBetween(15_000, 45_000);
         }
         await sb.from("mass_inject_contacts").update({
           status: result.status,
