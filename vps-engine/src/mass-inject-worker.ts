@@ -400,8 +400,9 @@ function buildAddStrategies(baseUrl: string, groupId: string, phone: string) {
   ];
 }
 
-function hasExplicitFailure(msg: string) {
-  const n = msg.toLowerCase();
+function hasExplicitFailure(errorFields: string) {
+  // ONLY check error/message fields — NOT the full response body which may contain group/participant data
+  const n = errorFields.toLowerCase();
   return ["failed", "bad-request", "not admin", "not found", "invalid group", "invalid participant", "unauthorized", "blocked", "forbidden", "denied", "unable to add"].some(t => n.includes(t));
 }
 
