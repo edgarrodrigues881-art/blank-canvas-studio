@@ -1439,7 +1439,7 @@ const WarmupInstances = () => {
                           </div>
                         </SelectItem>
                         {availableProxies.map(p => {
-                          const cls = p.status === "USANDO" ? "text-amber-500 border-amber-500/20 bg-amber-500/10" : p.status === "USADA" ? "text-red-400 border-red-500/20 bg-red-500/10" : "text-emerald-500 border-emerald-500/20 bg-emerald-500/10";
+                          const cls = p.status === "NOVA" ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/10" : p.status === "USANDO" ? "text-amber-500 border-amber-500/20 bg-amber-500/10" : p.status === "USADA" ? "text-red-400 border-red-500/20 bg-red-500/10" : "text-muted-foreground border-muted bg-muted/30";
                           return (
                             <SelectItem key={p.id} value={p.id}>
                               <div className="flex items-center gap-2">
