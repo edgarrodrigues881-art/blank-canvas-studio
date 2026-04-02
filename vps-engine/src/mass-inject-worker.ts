@@ -25,6 +25,24 @@ const RETRYABLE_STATUSES = [
 const DISCONNECT_RECHECK_COUNT = 3;
 const DISCONNECT_RECHECK_INTERVAL_MS = 8_000;
 const CONNECTED_DEVICE_STATUSES = new Set(["connected", "ready", "active", "authenticated", "open", "online"]);
+const FINAL_FAILURE_STATUSES = new Set([
+  "failed",
+  "confirmed_no_admin",
+  "invalid_group",
+  "contact_not_found",
+  "unauthorized",
+  "blocked",
+]);
+const AUTO_PAUSE_FAILURE_STATUSES = new Set(["confirmed_no_admin", "invalid_group", "unauthorized"]);
+const TRANSIENT_FAILURE_STATUSES = new Set([
+  "rate_limited",
+  "api_temporary",
+  "connection_unconfirmed",
+  "session_dropped",
+  "permission_unconfirmed",
+  "unknown_failure",
+  "timeout",
+]);
 
 // ── In-memory caches (persist across contacts within same campaign run) ──
 type ParticipantCacheEntry = {
@@ -353,14 +371,30 @@ interface AddResult {
   cooldownMs: number;
   strategyIndex?: number;
   canTryOtherStrategy?: boolean;
+  failureStatus?:
+    | "rate_limited"
+    | "api_temporary"
+    | "connection_unconfirmed"
+    | "session_dropped"
+    | "permission_unconfirmed"
+    | "confirmed_no_admin"
+    | "invalid_group"
+    | "contact_not_found"
+    | "unauthorized"
+    | "blocked"
+    | "timeout"
+    | "unknown_failure"
+    | "failed";
 }
 
 function buildAddStrategies(baseUrl: string, groupId: string, phone: string) {
   const p = phone.replace(/@.*/, "");
   return [
     { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupJid: groupId, action: "add", participants: [p] } },
+    { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupjid: groupId, action: "add", participants: [p] } },
     { method: "PUT" as const, url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`, body: { action: "add", participants: [p] } },
     { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupJid: groupId, action: "add", participants: [`${p}@s.whatsapp.net`] } },
+    { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupjid: groupId, action: "add", participants: [`${p}@s.whatsapp.net`] } },
     { method: "PUT" as const, url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`, body: { action: "add", participants: [`${p}@s.whatsapp.net`] } },
     { method: "POST" as const, url: `${baseUrl}/group/addParticipant`, body: { groupJid: groupId, participant: p } },
   ];
@@ -404,7 +438,7 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
       }
       // 403 = privacy restriction — contact only allows being added by saved contacts
       if (errCode === 403) {
-        return { ok: false, alreadyExists: false, detail: "Privacidade: só aceita convite de contatos salvos.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
+        return { ok: false, alreadyExists: false, detail: "Privacidade: só aceita convite de contatos salvos.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false, failureStatus: "failed" };
       }
       // Other known error codes — classify as failure
       if (errCode >= 400) {
@@ -467,36 +501,41 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
         cooldownMs: 15000,
         strategyIndex: i,
         canTryOtherStrategy: true,
+        failureStatus: "api_temporary",
       };
     }
   }
 
   if (lastTransientResult) return lastTransientResult;
 
-  return { ok: false, alreadyExists: false, detail: "Nenhum endpoint encontrado (405).", retryable: false, pauseCampaign: true, cooldownMs: 0, canTryOtherStrategy: false };
+  return { ok: false, alreadyExists: false, detail: "Nenhum endpoint encontrado (405).", retryable: false, pauseCampaign: true, cooldownMs: 0, canTryOtherStrategy: false, failureStatus: "failed" };
 }
 
 function classifyFailure(msg: string, status: number, strategyIndex: number): AddResult {
-  const base = { ok: false as const, alreadyExists: false, strategyIndex };
+  const base = { ok: false as const, alreadyExists: false, strategyIndex, canTryOtherStrategy: false };
   if (msg.includes("rate-overlimit") || msg.includes("429") || msg.includes("too many") || status === 429)
-    return { ...base, detail: "Rate limit.", retryable: true, pauseCampaign: false, cooldownMs: 30000, canTryOtherStrategy: false };
+    return { ...base, detail: "Rate limit.", retryable: true, pauseCampaign: false, cooldownMs: 30000, failureStatus: "rate_limited" };
+  if (msg.includes("websocket disconnected before info query") || msg.includes("connection reset") || msg.includes("socket hang up"))
+    return { ...base, detail: "A integração interrompeu a consulta antes de concluir.", retryable: true, pauseCampaign: false, cooldownMs: 15000, canTryOtherStrategy: true, failureStatus: "api_temporary" };
+  if (msg.includes("privacidade") || msg.includes("saved contacts") || msg.includes("contatos salvos") || msg.includes("only allows") || msg.includes("invite de contatos"))
+    return { ...base, detail: "Privacidade: só aceita convite de contatos salvos.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "failed" };
   if (msg.includes("not admin") || msg.includes("not an admin"))
-    return { ...base, detail: "Sem permissão de admin.", retryable: false, pauseCampaign: true, cooldownMs: 0, canTryOtherStrategy: false };
-  if (msg.includes("not found") && (msg.includes("group") || msg.includes("invalid group")))
-    return { ...base, detail: "Grupo inválido.", retryable: false, pauseCampaign: true, cooldownMs: 0, canTryOtherStrategy: false };
+    return { ...base, detail: "Sem permissão de admin.", retryable: false, pauseCampaign: true, cooldownMs: 0, failureStatus: "confirmed_no_admin" };
+  if ((msg.includes("not found") && (msg.includes("group") || msg.includes("invalid group"))) || msg.includes("full") || msg.includes("limit reached"))
+    return { ...base, detail: msg.includes("full") || msg.includes("limit reached") ? "Grupo atingiu limite de participantes." : "Grupo inválido.", retryable: false, pauseCampaign: true, cooldownMs: 0, failureStatus: "invalid_group" };
   if (msg.includes("blocked") || msg.includes("ban"))
-    return { ...base, detail: "Contato bloqueado.", retryable: false, pauseCampaign: false, cooldownMs: 0, canTryOtherStrategy: false };
+    return { ...base, detail: "Contato bloqueado.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "blocked" };
   if (msg.includes("not found") && (msg.includes("number") || msg.includes("participant") || msg.includes("contact")))
-    return { ...base, detail: "Número não encontrado no WhatsApp.", retryable: false, pauseCampaign: false, cooldownMs: 0, canTryOtherStrategy: false };
+    return { ...base, detail: "Número não encontrado no WhatsApp.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "contact_not_found" };
   if (status === 401 || msg.includes("unauthorized") || msg.includes("invalid token"))
-    return { ...base, detail: "Token inválido.", retryable: false, pauseCampaign: true, cooldownMs: 0, canTryOtherStrategy: false };
-  if (status === 503 || msg.includes("disconnected") || msg.includes("socket"))
-    return { ...base, detail: "Instância desconectada.", retryable: true, pauseCampaign: false, cooldownMs: 20000, canTryOtherStrategy: true };
+    return { ...base, detail: "Token inválido.", retryable: false, pauseCampaign: true, cooldownMs: 0, failureStatus: "unauthorized" };
+  if (status === 503 || msg.includes("disconnected") || msg.includes("session disconnected") || msg.includes("socket closed"))
+    return { ...base, detail: "Instância desconectada.", retryable: true, pauseCampaign: false, cooldownMs: 20000, canTryOtherStrategy: true, failureStatus: "connection_unconfirmed" };
   if (msg.includes("timeout") || status === 408 || status === 504)
-    return { ...base, detail: "Timeout.", retryable: true, pauseCampaign: false, cooldownMs: 15000, canTryOtherStrategy: true };
+    return { ...base, detail: "Timeout.", retryable: true, pauseCampaign: false, cooldownMs: 15000, canTryOtherStrategy: true, failureStatus: "timeout" };
   if (status >= 500)
-    return { ...base, detail: `Erro servidor (${status}).`, retryable: true, pauseCampaign: false, cooldownMs: 15000, canTryOtherStrategy: true };
-  return { ...base, detail: msg.substring(0, 140) || `HTTP ${status}`, retryable: true, pauseCampaign: false, cooldownMs: 10000, canTryOtherStrategy: false };
+    return { ...base, detail: `Erro servidor (${status}).`, retryable: true, pauseCampaign: false, cooldownMs: 15000, canTryOtherStrategy: true, failureStatus: "api_temporary" };
+  return { ...base, detail: msg.substring(0, 140) || `HTTP ${status}`, retryable: true, pauseCampaign: false, cooldownMs: 10000, failureStatus: "unknown_failure" };
 }
 
 // ── Device selection ──
@@ -561,19 +600,46 @@ async function emitEvent(sb: any, campaignId: string, eventType: string, level: 
 async function updateCounters(
   sb: any,
   campaignId: string,
-  counterState: { success_count: number; already_count: number; fail_count: number },
+  counterState: {
+    success_count: number;
+    already_count: number;
+    fail_count: number;
+    rate_limit_count: number;
+    timeout_count: number;
+    consecutive_failures: number;
+  },
   status: string,
 ) {
   const updates: Record<string, any> = { updated_at: nowIso() };
   if (status === "completed") {
     counterState.success_count += 1;
     updates.success_count = counterState.success_count;
+    counterState.consecutive_failures = 0;
+    updates.consecutive_failures = 0;
   } else if (status === "already_exists") {
     counterState.already_count += 1;
     updates.already_count = counterState.already_count;
+    counterState.consecutive_failures = 0;
+    updates.consecutive_failures = 0;
+  } else if (status === "rate_limited") {
+    counterState.rate_limit_count += 1;
+    updates.rate_limit_count = counterState.rate_limit_count;
+  } else if (status === "timeout") {
+    counterState.timeout_count += 1;
+    updates.timeout_count = counterState.timeout_count;
+  } else if (TRANSIENT_FAILURE_STATUSES.has(status)) {
+    // Retryable statuses remain in queue; they should not count as final failures.
   } else {
     counterState.fail_count += 1;
     updates.fail_count = counterState.fail_count;
+
+    if (AUTO_PAUSE_FAILURE_STATUSES.has(status)) {
+      counterState.consecutive_failures += 1;
+      updates.consecutive_failures = counterState.consecutive_failures;
+    } else {
+      counterState.consecutive_failures = 0;
+      updates.consecutive_failures = 0;
+    }
   }
 
   await sb.from("mass_inject_campaigns").update(updates).eq("id", campaignId);
@@ -612,6 +678,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     success_count: Number(campaign.success_count || 0),
     already_count: Number(campaign.already_count || 0),
     fail_count: Number(campaign.fail_count || 0),
+    rate_limit_count: Number(campaign.rate_limit_count || 0),
+    timeout_count: Number(campaign.timeout_count || 0),
+    consecutive_failures: Number(campaign.consecutive_failures || 0),
   };
 
   activeCampaignIds.add(campaignId);
@@ -626,7 +695,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
     const failedDeviceIds = new Map<string, number>(); // deviceId -> timestamp when marked failed
     const DEVICE_RETRY_INTERVAL_MS = 60_000; // Retry failed devices after 60s
-    let consecutiveFailures = 0;
+    let consecutiveFailures = Number(campaign.consecutive_failures || 0);
 
     while (isRunningRef.value) {
       // Clear stale device failures — give devices a chance to reconnect
@@ -638,7 +707,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         }
       }
       // 1. Check campaign status (was it paused/cancelled externally?)
-      const { data: freshCampaign } = await sb.from("mass_inject_campaigns").select("status, min_delay, max_delay, pause_after, pause_duration, rotate_after, device_ids, group_id, success_count, fail_count, already_count, rate_limit_count").eq("id", campaignId).single();
+      const { data: freshCampaign } = await sb.from("mass_inject_campaigns").select("status, min_delay, max_delay, pause_after, pause_duration, rotate_after, device_ids, group_id, success_count, fail_count, already_count, rate_limit_count, timeout_count, consecutive_failures").eq("id", campaignId).single();
       if (!freshCampaign || !["queued", "processing"].includes(freshCampaign.status)) {
         log.info(`Campaign ${campaignId.slice(0, 8)} status=${freshCampaign?.status} — stopping`);
         break;
@@ -647,6 +716,10 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       counterState.success_count = Number(freshCampaign.success_count || 0);
       counterState.already_count = Number(freshCampaign.already_count || 0);
       counterState.fail_count = Number(freshCampaign.fail_count || 0);
+      counterState.rate_limit_count = Number(freshCampaign.rate_limit_count || 0);
+      counterState.timeout_count = Number(freshCampaign.timeout_count || 0);
+      counterState.consecutive_failures = Number(freshCampaign.consecutive_failures || 0);
+      consecutiveFailures = counterState.consecutive_failures;
 
       // 2. Pick a device
       const deviceId = pickDeviceId(freshCampaign, failedDeviceIds);
@@ -850,9 +923,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         const isTimeout = result.detail.toLowerCase().includes("timeout");
         const isConnectionIssue = result.detail.toLowerCase().includes("desconectada") || result.detail.toLowerCase().includes("socket");
         let failureDetail = result.detail;
-        let failStatus = result.retryable
+        let failStatus = result.failureStatus || (result.retryable
           ? (isRateLimit ? "rate_limited" : isTimeout ? "timeout" : isConnectionIssue ? "connection_unconfirmed" : "api_temporary")
-          : "failed";
+          : "failed");
 
         if (isConnectionIssue) {
           const liveConnection = await isDeviceConnected(baseUrl, device.uazapi_token, DISCONNECT_RECHECK_COUNT);
@@ -873,10 +946,12 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         await sb.from("mass_inject_contacts").update({
           status: failStatus, error_message: failureDetail, processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCounters(sb, campaignId, counterState, "failed");
+        await updateCounters(sb, campaignId, counterState, failStatus);
 
-        consecutiveFailures++;
-        log.warn(`Campaign ${campaignId.slice(0, 8)}: ${phone} failed — ${failureDetail} (consecutive: ${consecutiveFailures})`);
+        consecutiveFailures = AUTO_PAUSE_FAILURE_STATUSES.has(failStatus)
+          ? counterState.consecutive_failures
+          : 0;
+        log.warn(`Campaign ${campaignId.slice(0, 8)}: ${phone} ${FINAL_FAILURE_STATUSES.has(failStatus) ? "failed" : "retryable"} — ${failureDetail}${consecutiveFailures > 0 ? ` (consecutive: ${consecutiveFailures})` : ""}`);
 
         if (result.pauseCampaign) {
           await sb.from("mass_inject_campaigns").update({
