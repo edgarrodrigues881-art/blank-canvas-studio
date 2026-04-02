@@ -925,19 +925,11 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
           : "failed");
 
         if (isConnectionIssue) {
-          const liveConnection = await isDeviceConnected(baseUrl, device.uazapi_token, DISCONNECT_RECHECK_COUNT);
-
-          if (liveConnection.connected === false) {
-            failStatus = "session_dropped";
-            failureDetail = liveConnection.detail || "Sessão da API desconectada.";
-            failedDeviceIds.set(deviceId, Date.now());
-            log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} confirmed offline after add failure — cooling down device`);
-          } else if (liveConnection.connected === true) {
-            failStatus = "connection_unconfirmed";
-            failureDetail = `Oscilação temporária da instância. ${result.detail}`.trim();
-          } else if (liveConnection.detail && !failureDetail.includes(liveConnection.detail)) {
-            failureDetail = `${result.detail} ${liveConnection.detail}`.trim();
-          }
+          // Don't do extra connection checks after add failure — just mark as retryable
+          // and let the normal flow retry. This avoids the cascade of "all disconnected" pauses.
+          failStatus = "api_temporary";
+          failureDetail = `Oscilação temporária: ${result.detail}`.trim();
+          log.info(`Campaign ${campaignId.slice(0, 8)}: connection issue on add — treating as temporary, will retry`);
         }
         
         await sb.from("mass_inject_contacts").update({
@@ -969,9 +961,15 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         }
 
         // Extra cooldown for rate limits
-        if ((isRateLimit || isConnectionIssue || isTimeout) && result.cooldownMs > 0) {
-          log.info(`Campaign ${campaignId.slice(0, 8)}: transient cooldown ${Math.round(result.cooldownMs / 1000)}s after ${failStatus}`);
-          await sleep(result.cooldownMs);
+        if (isRateLimit && result.cooldownMs > 0) {
+          // Only cooldown for actual rate limits — not connection hiccups
+          const cooldown = Math.min(result.cooldownMs, 15000); // Cap at 15s
+          log.info(`Campaign ${campaignId.slice(0, 8)}: rate limit cooldown ${Math.round(cooldown / 1000)}s`);
+          await sleep(cooldown);
+        } else if ((isConnectionIssue || isTimeout) && result.cooldownMs > 0) {
+          // Short cooldown for connection issues — don't block long
+          const cooldown = Math.min(result.cooldownMs, 5000); // Cap at 5s
+          await sleep(cooldown);
         }
       }
 
