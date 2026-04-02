@@ -422,12 +422,14 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
   };
 
   const processResult = (res: Response, raw: string, body: any, idx: number): AddResult => {
+    // Extract ONLY error/message fields for failure detection — NOT the entire response
+    const errorMsg = [body?.error, body?.message, body?.msg, body?.details, body?.data?.error, body?.data?.message]
+      .filter(v => typeof v === "string" && v.trim())
+      .join(" ");
+    const errorMsgLower = errorMsg.toLowerCase();
     const rawLower = raw.toLowerCase();
-    const msg = body?.error || body?.message || body?.msg || body?.details || body?.data?.error || body?.data?.message || "";
-    const msgStr = String(msg).toLowerCase();
-    const fullText = `${rawLower} ${msgStr}`;
 
-    // groupUpdated array
+    // groupUpdated array — most reliable success indicator from UAZAPI
     const gu = body?.groupUpdated || body?.data?.groupUpdated;
     if (Array.isArray(gu) && gu.length > 0) {
       const errCode = Number(gu[0]?.Error ?? gu[0]?.error ?? -1);
@@ -437,31 +439,37 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
       if (errCode === 409) {
         return { ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
       }
-      // 403 = privacy restriction — contact only allows being added by saved contacts
       if (errCode === 403) {
         return { ok: false, alreadyExists: false, detail: "Privacidade: só aceita convite de contatos salvos.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false, failureStatus: "failed" };
       }
-      // Other known error codes — classify as failure
       if (errCode >= 400) {
-        return classifyFailure(fullText, errCode, idx);
+        return classifyFailure(errorMsgLower || rawLower, errCode, idx);
       }
-      if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(fullText)) {
+      // groupUpdated exists with no error code or code < 400 — success
+      return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
+    }
+
+    // SUCCESS PATTERN: API returns the updated group object { group: { JID: ... } }
+    // This is the standard updateParticipants response when addition succeeds
+    const groupObj = body?.group || body?.data?.group;
+    if (groupObj && typeof groupObj === "object" && (groupObj.JID || groupObj.jid || groupObj.id)) {
+      if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(errorMsgLower)) {
         return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
       }
     }
 
-    // Already exists
-    if (fullText.includes("already") || fullText.includes("já") || fullText.includes("memberaddmode") || res.status === 409) {
+    // Already exists — check error fields and status code only
+    if (errorMsgLower.includes("already") || errorMsgLower.includes("já") || errorMsgLower.includes("memberaddmode") || res.status === 409) {
       return { ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
     }
 
-    // Success
-    if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(fullText)) {
+    // Generic success for 200/201 with no error fields
+    if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(errorMsgLower)) {
       return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
     }
 
-    // Classify failure
-    return classifyFailure(fullText, res.status, idx);
+    // Classify failure using error message fields only
+    return classifyFailure(errorMsgLower || rawLower, res.status, idx);
   };
 
   const orderedStrategyIndexes = cachedIdx !== undefined && cachedIdx >= 0 && cachedIdx < strategies.length
