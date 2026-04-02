@@ -446,11 +446,13 @@ const GroupCapture = () => {
                   <Flame className={`w-4.5 h-4.5 transition-colors ${useCustomGroups ? "text-primary" : "text-muted-foreground/40"}`} />
                 </div>
                 <div>
-                  <p className="text-[13px] font-semibold text-foreground">Usar meus grupos no aquecimento</p>
+                  <p className="text-[13px] font-semibold text-foreground">
+                    {useCustomGroups ? "Usando meus grupos" : "Usando grupos do sistema"}
+                  </p>
                   <p className="text-[11px] text-muted-foreground/50 mt-0.5">
                     {useCustomGroups
-                      ? "O aquecimento automático usará seus grupos próprios"
-                      : "O aquecimento automático usará os grupos do sistema"}
+                      ? "Seus grupos próprios serão usados no aquecimento"
+                      : "Ative para usar seus próprios grupos no aquecimento"}
                   </p>
                 </div>
               </div>
@@ -460,7 +462,7 @@ const GroupCapture = () => {
                 className="h-8 text-[11px] rounded-xl gap-1.5 px-4"
                 onClick={toggleWarmupGroupSource}
               >
-                {useCustomGroups ? "Ativado" : "Desativado"}
+                {useCustomGroups ? "Meus grupos" : "Grupos do sistema"}
               </Button>
             </div>
           </div>
