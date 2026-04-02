@@ -275,8 +275,9 @@ function normalizeProviderConnectionState(payload: any): {
     .find((value) => typeof value === "string" && value.trim())?.trim() || "";
 
   const statusObj = payload?.status;
-  const owner = [inst?.owner, inst?.phone, payload?.phone, payload?.owner]
-    .find((value) => typeof value === "string" && value.trim())?.trim() || "";
+  const owner = [inst?.owner, inst?.phone, inst?.number, inst?.jid, inst?.wid, payload?.phone, payload?.owner, payload?.number, payload?.jid, payload?.wid]
+    .map((v) => typeof v === "string" ? v.replace(/@.*$/, "").trim() : "")
+    .find((v) => v.length >= 10) || "";
 
   if (statusObj && typeof statusObj === "object" && statusObj.connected === true) {
     return { state: "connected", rawStatus: "connected", owner, qrcode, profileName, profilePicUrl };
