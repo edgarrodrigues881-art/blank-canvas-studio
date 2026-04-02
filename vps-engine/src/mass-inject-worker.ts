@@ -895,7 +895,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         ? await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId)
         : (useCachedCheck ? cachedParticipants! : null);
 
-      if (participantSnapshot.confirmed && participantSetHasPhone(participantSnapshot.participants, phone)) {
+      if (participantSnapshot?.confirmed && participantSetHasPhone(participantSnapshot.participants, phone)) {
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: "Contato já participava do grupo.", processed_at: nowIso(),
         }).eq("id", contact.id);
