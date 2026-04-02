@@ -129,7 +129,7 @@ const Proxy = () => {
   // Mutations
   const addMutation = useMutation({
     mutationFn: async (proxies: { host: string; port: string; username: string; password: string }[]) => {
-      const insertData = proxies.map((p) => ({ ...p, type: "HTTP", user_id: session?.user.id }));
+      const insertData = proxies.map((p) => ({ ...p, type: "HTTP", status: "NOVA", user_id: session?.user.id }));
       const { error } = await supabase.from("proxies").insert(insertData as any);
       if (error) throw error;
     },
