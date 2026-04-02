@@ -1094,8 +1094,8 @@ async function handleResume(db: any, userId: string | null, body: any) {
     await scheduleDayJobs(db, cycle.id, userId, device_id, cycle.day_index, resumePhase, cycle.chip_state || "new", true);
   }
 
-  // Re-schedule join_group jobs ONLY if still on day 1
-  if (cycle.day_index <= 1) {
+  // Re-schedule join_group jobs if there are still pending groups (any day)
+  {
     const { data: pendingGroups } = await db
       .from("warmup_instance_groups")
       .select("group_id, group_name, invite_link")
@@ -1106,7 +1106,7 @@ async function handleResume(db: any, userId: string | null, body: any) {
     if (pendingGroups?.length > 0) {
       const shuffled = shuffleArray(pendingGroups);
       const joinJobs: any[] = [];
-      let cumulativeMs = randInt(5, 15) * 60 * 1000;
+      let cumulativeMs = randInt(2, 5) * 60 * 1000;
 
       for (let i = 0; i < shuffled.length; i++) {
         const g = shuffled[i];
@@ -1119,7 +1119,7 @@ async function handleResume(db: any, userId: string | null, body: any) {
           run_at: new Date(now.getTime() + cumulativeMs).toISOString(),
           status: "pending",
         });
-        cumulativeMs += randInt(5, 30) * 60 * 1000;
+        cumulativeMs += randInt(3, 10) * 60 * 1000;
       }
 
       if (joinJobs.length > 0) {
