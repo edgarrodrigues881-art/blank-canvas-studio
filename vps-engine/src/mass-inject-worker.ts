@@ -400,8 +400,9 @@ function buildAddStrategies(baseUrl: string, groupId: string, phone: string) {
   ];
 }
 
-function hasExplicitFailure(msg: string) {
-  const n = msg.toLowerCase();
+function hasExplicitFailure(errorFields: string) {
+  // ONLY check error/message fields — NOT the full response body which may contain group/participant data
+  const n = errorFields.toLowerCase();
   return ["failed", "bad-request", "not admin", "not found", "invalid group", "invalid participant", "unauthorized", "blocked", "forbidden", "denied", "unable to add"].some(t => n.includes(t));
 }
 
@@ -421,12 +422,14 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
   };
 
   const processResult = (res: Response, raw: string, body: any, idx: number): AddResult => {
+    // Extract ONLY error/message fields for failure detection — NOT the entire response
+    const errorMsg = [body?.error, body?.message, body?.msg, body?.details, body?.data?.error, body?.data?.message]
+      .filter(v => typeof v === "string" && v.trim())
+      .join(" ");
+    const errorMsgLower = errorMsg.toLowerCase();
     const rawLower = raw.toLowerCase();
-    const msg = body?.error || body?.message || body?.msg || body?.details || body?.data?.error || body?.data?.message || "";
-    const msgStr = String(msg).toLowerCase();
-    const fullText = `${rawLower} ${msgStr}`;
 
-    // groupUpdated array
+    // groupUpdated array — most reliable success indicator from UAZAPI
     const gu = body?.groupUpdated || body?.data?.groupUpdated;
     if (Array.isArray(gu) && gu.length > 0) {
       const errCode = Number(gu[0]?.Error ?? gu[0]?.error ?? -1);
@@ -436,31 +439,37 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
       if (errCode === 409) {
         return { ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
       }
-      // 403 = privacy restriction — contact only allows being added by saved contacts
       if (errCode === 403) {
         return { ok: false, alreadyExists: false, detail: "Privacidade: só aceita convite de contatos salvos.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false, failureStatus: "failed" };
       }
-      // Other known error codes — classify as failure
       if (errCode >= 400) {
-        return classifyFailure(fullText, errCode, idx);
+        return classifyFailure(errorMsgLower || rawLower, errCode, idx);
       }
-      if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(fullText)) {
+      // groupUpdated exists with no error code or code < 400 — success
+      return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
+    }
+
+    // SUCCESS PATTERN: API returns the updated group object { group: { JID: ... } }
+    // This is the standard updateParticipants response when addition succeeds
+    const groupObj = body?.group || body?.data?.group;
+    if (groupObj && typeof groupObj === "object" && (groupObj.JID || groupObj.jid || groupObj.id)) {
+      if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(errorMsgLower)) {
         return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
       }
     }
 
-    // Already exists
-    if (fullText.includes("already") || fullText.includes("já") || fullText.includes("memberaddmode") || res.status === 409) {
+    // Already exists — check error fields and status code only
+    if (errorMsgLower.includes("already") || errorMsgLower.includes("já") || errorMsgLower.includes("memberaddmode") || res.status === 409) {
       return { ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
     }
 
-    // Success
-    if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(fullText)) {
+    // Generic success for 200/201 with no error fields
+    if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(errorMsgLower)) {
       return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
     }
 
-    // Classify failure
-    return classifyFailure(fullText, res.status, idx);
+    // Classify failure using error message fields only
+    return classifyFailure(errorMsgLower || rawLower, res.status, idx);
   };
 
   const orderedStrategyIndexes = cachedIdx !== undefined && cachedIdx >= 0 && cachedIdx < strategies.length
@@ -758,7 +767,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       const baseUrl = String(device.uazapi_base_url).replace(/\/+$/, "");
       const statusHint = String(device.status || "").toLowerCase();
       const processed = counterState.success_count + counterState.fail_count + counterState.already_count;
-      const shouldCheckConnection = processed === 0 || processed % 10 === 0 || !CONNECTED_DEVICE_STATUSES.has(statusHint);
+      const shouldCheckConnection = processed === 0 || processed % 25 === 0 || !CONNECTED_DEVICE_STATUSES.has(statusHint);
 
       // 4. Connection check (always when DB status is stale/disconnected, plus every 10 contacts)
       if (shouldCheckConnection) {
@@ -876,10 +885,17 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         continue;
       }
 
-      // 7. Pre-check: is the contact already in the group?
-      const participantSnapshot = await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId);
+      // 7. Pre-check: is the contact already in the group? (use cache only — don't fetch if not cached)
+      const cacheKey = `${baseUrl}::${groupId}`;
+      const cachedParticipants = participantCache.get(cacheKey);
+      const useCachedCheck = cachedParticipants && cachedParticipants.confirmed && (Date.now() - cachedParticipants.fetchedAt < PARTICIPANT_CACHE_TTL_MS);
+      // Only fetch fresh participants every 20 contacts or on first contact
+      const shouldFetchFresh = !useCachedCheck && (processed === 0 || processed % 20 === 0);
+      const participantSnapshot = shouldFetchFresh
+        ? await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId)
+        : (useCachedCheck ? cachedParticipants! : null);
 
-      if (participantSnapshot.confirmed && participantSetHasPhone(participantSnapshot.participants, phone)) {
+      if (participantSnapshot?.confirmed && participantSetHasPhone(participantSnapshot.participants, phone)) {
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: "Contato já participava do grupo.", processed_at: nowIso(),
         }).eq("id", contact.id);
