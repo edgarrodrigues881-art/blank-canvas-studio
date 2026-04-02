@@ -11,6 +11,7 @@ const log = createLogger("mass-inject");
 
 const API_TIMEOUT_MS = 25_000;
 const MAX_CONSECUTIVE_FAILURES = 15;
+const MIN_DEVICE_SEND_INTERVAL_MS = 3_000;
 const RETRYABLE_STATUSES = [
   "pending",
   "rate_limited",
@@ -494,9 +495,38 @@ function pickDeviceId(campaign: any, blacklist: Map<string, number>): string | n
   const available = ids.filter(id => !blacklist.has(id));
   if (available.length === 0) return null;
   if (available.length === 1) return available[0];
-  // Round-robin based on processed count
+
+  const rotateAfterRaw = Number(campaign.rotate_after || 0);
+  if (rotateAfterRaw <= 0) return available[0];
+
+  // Round-robin based on total processed contacts, honoring rotate_after
   const processed = Number(campaign.success_count || 0) + Number(campaign.fail_count || 0) + Number(campaign.already_count || 0);
-  return available[processed % available.length];
+  const rotateAfter = Math.max(rotateAfterRaw, 1);
+  return available[Math.floor(processed / rotateAfter) % available.length];
+}
+
+async function claimDeviceSendSlot(sb: any, deviceId: string, minDelaySeconds: number): Promise<number> {
+  try {
+    const minIntervalMs = Math.max(Math.round(Number(minDelaySeconds || 0) * 1000), MIN_DEVICE_SEND_INTERVAL_MS);
+    const { data, error } = await sb.rpc("claim_device_send_slot", {
+      p_device_id: deviceId,
+      p_min_interval_ms: minIntervalMs,
+    });
+
+    if (error) {
+      log.warn(`Device slot claim failed for ${deviceId.slice(0, 8)} — proceeding without DB throttle`, {
+        error: error?.message || String(error),
+      });
+      return 0;
+    }
+
+    return Math.max(Number(data || 0), 0);
+  } catch (error: any) {
+    log.warn(`Device slot claim crashed for ${deviceId.slice(0, 8)} — proceeding without DB throttle`, {
+      error: error?.message || String(error),
+    });
+    return 0;
+  }
 }
 
 // ── Emit event ──
@@ -592,7 +622,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         }
       }
       // 1. Check campaign status (was it paused/cancelled externally?)
-      const { data: freshCampaign } = await sb.from("mass_inject_campaigns").select("status, min_delay, max_delay, pause_after, pause_duration, device_ids, group_id, success_count, fail_count, already_count, rate_limit_count").eq("id", campaignId).single();
+      const { data: freshCampaign } = await sb.from("mass_inject_campaigns").select("status, min_delay, max_delay, pause_after, pause_duration, rotate_after, device_ids, group_id, success_count, fail_count, already_count, rate_limit_count").eq("id", campaignId).single();
       if (!freshCampaign || !["queued", "processing"].includes(freshCampaign.status)) {
         log.info(`Campaign ${campaignId.slice(0, 8)} status=${freshCampaign?.status} — stopping`);
         break;
@@ -605,6 +635,18 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       // 2. Pick a device
       const deviceId = pickDeviceId(freshCampaign, failedDeviceIds);
       if (!deviceId) {
+        if (failedDeviceIds.size > 0) {
+          log.warn(`Campaign ${campaignId.slice(0, 8)}: all devices are cooling down after connection issues — waiting 60s before retry`);
+          await sb.from("mass_inject_campaigns").update({
+            updated_at: nowIso(),
+            next_run_at: new Date(Date.now() + DEVICE_RETRY_INTERVAL_MS).toISOString(),
+            pause_reason: "Aguardando reconexão das instâncias...",
+          }).eq("id", campaignId);
+          await sleep(DEVICE_RETRY_INTERVAL_MS);
+          failedDeviceIds.clear();
+          continue;
+        }
+
         log.warn(`Campaign ${campaignId.slice(0, 8)}: no devices available — pausing`);
         await sb.from("mass_inject_campaigns").update({
           status: "paused", updated_at: nowIso(), next_run_at: null,
@@ -696,6 +738,18 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} has no number synced in DB — proceeding without own-number guard`);
       }
 
+      const slotWaitMs = await claimDeviceSendSlot(sb, deviceId, Number(freshCampaign.min_delay || 0));
+      if (slotWaitMs > 0) {
+        log.info(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} is cooling down for ${Math.round(slotWaitMs / 1000)}s before next add`);
+        await sb.from("mass_inject_campaigns").update({
+          updated_at: nowIso(),
+          next_run_at: new Date(Date.now() + slotWaitMs).toISOString(),
+          pause_reason: null,
+        }).eq("id", campaignId);
+        await sleep(slotWaitMs);
+        continue;
+      }
+
       // 5. Claim next contact
       const { data: contact } = await sb.rpc("claim_next_mass_inject_contact", {
         p_campaign_id: campaignId,
@@ -779,18 +833,34 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         const isRateLimit = result.detail.toLowerCase().includes("rate limit") || result.cooldownMs >= 30000;
         const isTimeout = result.detail.toLowerCase().includes("timeout");
         const isConnectionIssue = result.detail.toLowerCase().includes("desconectada") || result.detail.toLowerCase().includes("socket");
-        
-        const failStatus = result.retryable
+        let failureDetail = result.detail;
+        let failStatus = result.retryable
           ? (isRateLimit ? "rate_limited" : isTimeout ? "timeout" : isConnectionIssue ? "connection_unconfirmed" : "api_temporary")
           : "failed";
+
+        if (isConnectionIssue) {
+          const liveConnection = await isDeviceConnected(baseUrl, device.uazapi_token, DISCONNECT_RECHECK_COUNT);
+
+          if (liveConnection.connected === false) {
+            failStatus = "session_dropped";
+            failureDetail = liveConnection.detail || "Sessão da API desconectada.";
+            failedDeviceIds.set(deviceId, Date.now());
+            log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} confirmed offline after add failure — cooling down device`);
+          } else if (liveConnection.connected === true) {
+            failStatus = "connection_unconfirmed";
+            failureDetail = `Oscilação temporária da instância. ${result.detail}`.trim();
+          } else if (liveConnection.detail && !failureDetail.includes(liveConnection.detail)) {
+            failureDetail = `${result.detail} ${liveConnection.detail}`.trim();
+          }
+        }
         
         await sb.from("mass_inject_contacts").update({
-          status: failStatus, error_message: result.detail, processed_at: nowIso(),
+          status: failStatus, error_message: failureDetail, processed_at: nowIso(),
         }).eq("id", contact.id);
         await updateCounters(sb, campaignId, counterState, "failed");
 
         consecutiveFailures++;
-        log.warn(`Campaign ${campaignId.slice(0, 8)}: ${phone} failed — ${result.detail} (consecutive: ${consecutiveFailures})`);
+        log.warn(`Campaign ${campaignId.slice(0, 8)}: ${phone} failed — ${failureDetail} (consecutive: ${consecutiveFailures})`);
 
         if (result.pauseCampaign) {
           await sb.from("mass_inject_campaigns").update({
@@ -811,8 +881,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         }
 
         // Extra cooldown for rate limits
-        if (isRateLimit && result.cooldownMs > 0) {
-          log.info(`Campaign ${campaignId.slice(0, 8)}: rate limit cooldown ${Math.round(result.cooldownMs / 1000)}s`);
+        if ((isRateLimit || isConnectionIssue || isTimeout) && result.cooldownMs > 0) {
+          log.info(`Campaign ${campaignId.slice(0, 8)}: transient cooldown ${Math.round(result.cooldownMs / 1000)}s after ${failStatus}`);
           await sleep(result.cooldownMs);
         }
       }
