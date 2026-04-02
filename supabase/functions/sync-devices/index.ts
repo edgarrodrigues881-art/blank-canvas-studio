@@ -43,7 +43,9 @@ function normalizeProviderConnectionState(payload: any): { state: "connected" | 
   // DIRECT BOOLEAN CHECK: Uazapi returns { status: { connected: true, loggedIn: true } }
   const statusObj = payload?.status;
   if (statusObj && typeof statusObj === "object" && statusObj.connected === true) {
-    const owner = inst?.owner || statusObj?.jid?.split(":")[0] || "";
+    const owner = [inst?.owner, inst?.phone, inst?.number, inst?.jid, inst?.wid, statusObj?.jid]
+      .map((v) => typeof v === "string" ? v.replace(/@.*$/, "").split(":")[0].trim() : "")
+      .find((v) => v.replace(/\D/g, "").length >= 10) || "";
     return { state: "connected", rawStatus: "connected", owner };
   }
   if (statusObj && typeof statusObj === "object" && statusObj.connected === false) {
