@@ -10,7 +10,7 @@ import { config } from "./config";
 const log = createLogger("mass-inject");
 
 const API_TIMEOUT_MS = 25_000;
-const MAX_CONSECUTIVE_FAILURES = 15;
+const MAX_CONSECUTIVE_FAILURES = 25;
 const MIN_DEVICE_SEND_INTERVAL_MS = 3_000;
 const RETRYABLE_STATUSES = [
   "pending",
@@ -22,8 +22,8 @@ const RETRYABLE_STATUSES = [
   "unknown_failure",
   "timeout",
 ] as const;
-const DISCONNECT_RECHECK_COUNT = 3;
-const DISCONNECT_RECHECK_INTERVAL_MS = 8_000;
+const DISCONNECT_RECHECK_COUNT = 1;
+const DISCONNECT_RECHECK_INTERVAL_MS = 3_000;
 const CONNECTED_DEVICE_STATUSES = new Set(["connected", "ready", "active", "authenticated", "open", "online"]);
 const FINAL_FAILURE_STATUSES = new Set([
   "failed",
@@ -44,6 +44,8 @@ const TRANSIENT_FAILURE_STATUSES = new Set([
   "timeout",
 ]);
 
+const DEVICE_RETRY_INTERVAL_MS = 30_000;
+
 // ── In-memory caches (persist across contacts within same campaign run) ──
 type ParticipantCacheEntry = {
   participants: Set<string>;
@@ -58,8 +60,8 @@ type ConnectionCheckResult = {
 
 const participantCache = new Map<string, ParticipantCacheEntry>();
 const endpointCache = new Map<string, number>();
-const PARTICIPANT_CACHE_TTL_MS = 5 * 60_000; // 5 min
-const PARTICIPANT_FAILURE_CACHE_TTL_MS = 60_000; // 1 min
+const PARTICIPANT_CACHE_TTL_MS = 10 * 60_000; // 10 min — less refetching
+const PARTICIPANT_FAILURE_CACHE_TTL_MS = 3 * 60_000; // 3 min
 
 // ── Tracking ──
 export let lastMassInjectTickAt: Date | null = null;
