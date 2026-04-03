@@ -1415,7 +1415,10 @@ Deno.serve(async (req) => {
             batchSent++;
             instanceMsgCount++;
             msgsSincePause++;
-            await serviceClient.from("campaigns").update({ sent_count: sentCount, delivered_count: sentCount, failed_count: failedCount, updated_at: new Date().toISOString() }).eq("id", campaignId);
+            // Update counters every 5 messages instead of every message (reduces DB load)
+            if (batchSent % 5 === 0 || contacts.indexOf(contact) === contacts.length - 1) {
+              await serviceClient.from("campaigns").update({ sent_count: sentCount, delivered_count: sentCount, failed_count: failedCount, updated_at: new Date().toISOString() }).eq("id", campaignId);
+            }
 
             const isLastContact = contacts.indexOf(contact) === contacts.length - 1;
             if (!isLastContact) {
