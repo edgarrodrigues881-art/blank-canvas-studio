@@ -607,10 +607,10 @@ const GroupCapture = () => {
             <section className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                  Grupos <span className="normal-case font-normal">({selectedGroups.length}/{allGroups.length})</span>
+                  Grupos <span className="normal-case font-normal">({selectedGroups.length}/{visibleGroups.length})</span>
                 </span>
                 <button className="text-[11px] text-primary hover:text-primary/80 font-medium transition-colors" onClick={selectAllGroups}>
-                  {selectedGroups.length === allGroups.length ? "Desmarcar" : "Todos"}
+                  {selectedGroups.length === visibleGroups.length ? "Desmarcar" : "Todos"}
                 </button>
               </div>
               <div className="max-h-36 overflow-y-auto rounded-xl border border-border/15 bg-muted/5 p-1.5 space-y-0.5">
