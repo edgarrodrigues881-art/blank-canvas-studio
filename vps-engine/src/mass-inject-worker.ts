@@ -678,8 +678,10 @@ async function finalizeCampaign(sb: any, campaignId: string): Promise<boolean> {
 }
 
 // ══════════════════════════════════════════════════════════
-// MAIN WORKER: processes ONE campaign at a time, all contacts in sequence
+// MAIN WORKER: processes ONE campaign in batches of BATCH_SIZE contacts
+// After each batch, yields execution so the next tick can rebalance.
 // ══════════════════════════════════════════════════════════
+const BATCH_SIZE = 10; // contacts per batch — keeps execution short
 async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value: boolean }) {
   const campaignId = campaign.id;
   const counterState = {
