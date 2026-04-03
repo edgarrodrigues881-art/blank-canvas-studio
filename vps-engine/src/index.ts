@@ -8,8 +8,8 @@ import { inspect } from "node:util";
 import { config } from "./config";
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
-import { Semaphore } from "./lib/concurrency";
 import { DeviceLockManager } from "./lib/device-lock-manager";
+import { acquireGlobalSlot, releaseGlobalSlot, getGlobalConcurrencyStats } from "./lib/global-semaphore";
 import { isWithinOperatingWindow, getBrtTodayAt } from "./lib/brt";
 import { massInjectTick, getMassInjectStatus, lastMassInjectTickAt } from "./mass-inject-worker";
 import { campaignWorkerTick, getCampaignWorkerStatus, lastCampaignWorkerTickAt } from "./campaign-worker";
@@ -21,7 +21,7 @@ import { backoffMinutes } from "./lib/retry";
 import { validateUazapiCredentials } from "./lib/uazapi";
 
 const log = createLogger("main");
-const sem = new Semaphore(config.maxConcurrentDevices);
+// Global semaphore is now in lib/global-semaphore.ts (shared across all workers)
 
 // ── Health check & status ──
 const app = express();
@@ -54,7 +54,7 @@ app.get("/health", (_req: Request, res: Response) => {
     activeCampaignWorker: campaignWorkerStatus.activeCampaigns,
     tickCount,
     tickErrors,
-    concurrency: { active: sem.active, waiting: sem.waiting, max: config.maxConcurrentDevices },
+    concurrency: getGlobalConcurrencyStats(),
     deviceLocks: {
       active: DeviceLockManager.getActiveLocks().length,
       byWorker: DeviceLockManager.getLocksByWorker(),
@@ -566,7 +566,8 @@ async function warmupTick() {
   const deviceIds = Object.keys(jobsByDevice);
   await Promise.allSettled(
     deviceIds.map(async (deviceId) => {
-      await sem.acquire();
+      const slotLabel = `warmup:${deviceId.slice(0, 8)}`;
+      await acquireGlobalSlot(slotLabel);
       
       // Acquire global device lock for warmup
       const warmupTaskId = `warmup_${deviceId}`;
@@ -578,7 +579,7 @@ async function warmupTick() {
           const retryAt = new Date(Date.now() + 30_000).toISOString();
           await db.from("warmup_jobs").update({ status: "pending", run_at: retryAt, last_error: `Aguardando: ${blockReason}` }).eq("id", job.id);
         }
-        sem.release();
+        releaseGlobalSlot(slotLabel);
         return;
       }
       
@@ -691,7 +692,7 @@ async function warmupTick() {
         }
       } finally {
         DeviceLockManager.release(deviceId, warmupTaskId);
-        sem.release();
+        releaseGlobalSlot(slotLabel);
       }
     }),
   );

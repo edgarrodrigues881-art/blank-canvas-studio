@@ -7,6 +7,7 @@ import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
 import { config } from "./config";
 import { DeviceLockManager } from "./lib/device-lock-manager";
+import { acquireGlobalSlot, releaseGlobalSlot } from "./lib/global-semaphore";
 
 const log = createLogger("mass-inject");
 
@@ -695,6 +696,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     consecutive_failures: Number(campaign.consecutive_failures || 0),
   };
 
+  const slotLabel = `mass-inject:${campaignId.slice(0, 8)}`;
+  await acquireGlobalSlot(slotLabel);
   activeCampaignIds.add(campaignId);
   log.info(`Processing campaign ${campaignId.slice(0, 8)}: group=${campaign.group_id}, contacts=${campaign.total_items || "?"}`);
 
@@ -1056,6 +1059,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       DeviceLockManager.release(did, campaignId);
     }
     activeCampaignIds.delete(campaignId);
+    releaseGlobalSlot(slotLabel);
   }
 }
 

@@ -7,6 +7,7 @@
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
 import { DeviceLockManager } from "./lib/device-lock-manager";
+import { acquireGlobalSlot, releaseGlobalSlot } from "./lib/global-semaphore";
 
 const log = createLogger("group-join");
 
@@ -93,6 +94,8 @@ async function updateCampaignCounters(sb: any, campaignId: string, markDone = fa
 
 async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value: boolean }) {
   const globalLockedDevices = new Set<string>();
+  const slotLabel = `group-join:${campaign.id.slice(0, 8)}`;
+  await acquireGlobalSlot(slotLabel);
   log.info(`Processing group-join campaign ${campaign.id.slice(0, 8)}: "${campaign.name}"`);
 
   try {
@@ -201,6 +204,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     for (const did of globalLockedDevices) {
       DeviceLockManager.release(did, campaign.id);
     }
+    releaseGlobalSlot(slotLabel);
   }
 }
 

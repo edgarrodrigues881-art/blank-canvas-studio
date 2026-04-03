@@ -8,6 +8,7 @@ import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
 import { config } from "./config";
 import { DeviceLockManager } from "./lib/device-lock-manager";
+import { acquireGlobalSlot, releaseGlobalSlot } from "./lib/global-semaphore";
 
 const log = createLogger("campaign");
 
@@ -393,6 +394,8 @@ class RandomPicker {
 // ══════════════════════════════════════════════════════════
 async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value: boolean }) {
   const campaignId = campaign.id;
+  const slotLabel = `campaign:${campaignId.slice(0, 8)}`;
+  await acquireGlobalSlot(slotLabel);
   activeCampaigns.add(campaignId);
   log.info(`▶ Campaign STARTED ${campaignId.slice(0, 8)}: "${campaign.name}"`);
 
@@ -401,6 +404,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     log.warn(`Campaign ${campaignId.slice(0, 8)}: no devices`);
     await sb.from("campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
     activeCampaigns.delete(campaignId);
+    releaseGlobalSlot(slotLabel);
     return;
   }
 
@@ -419,6 +423,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
   if (lockedDeviceIds.length === 0) {
     log.warn(`Campaign ${campaignId.slice(0, 8)}: all devices locked by other workers — retrying later`);
     activeCampaigns.delete(campaignId);
+    releaseGlobalSlot(slotLabel);
     return;
   }
 
@@ -431,6 +436,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       for (const id of lockedDeviceIds) DeviceLockManager.release(id, campaignId);
       await sb.from("campaigns").update({ status: "paused" }).eq("id", campaignId);
       activeCampaigns.delete(campaignId);
+      releaseGlobalSlot(slotLabel);
       return;
     }
   }
@@ -646,6 +652,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
   // Release global device locks
   for (const did of lockedDeviceIds) DeviceLockManager.release(did, campaignId);
   activeCampaigns.delete(campaignId);
+  releaseGlobalSlot(`campaign:${campaignId.slice(0, 8)}`);
   log.info(`■ Campaign FINISHED ${campaignId.slice(0, 8)}: "${campaign.name}"`);
 }
 
