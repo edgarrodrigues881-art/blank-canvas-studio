@@ -459,6 +459,9 @@ async function monitorPhase() {
         log.error(`Monitor error for group ${group.group_id}: ${err.message}`);
       }
     }
+    } finally {
+      DeviceLockManager.release(monitorDeviceId, `monitor_${automation.id}`);
+    }
   }
 }
 
