@@ -97,6 +97,11 @@ export async function uazapiRequest(
   payload: any,
   method: "POST" | "GET" = "POST",
 ): Promise<any> {
+  // Circuit breaker check
+  const check = canRequest(baseUrl);
+  if (!check.allowed) {
+    throw new Error(`Circuit breaker OPEN for ${baseUrl.slice(0, 40)}… — ${check.reason} (retry in ${Math.round(check.retryInMs / 1000)}s)`);
+  }
   let url = `${baseUrl}${endpoint}`;
   const headers: Record<string, string> = { token, Accept: "application/json" };
 
