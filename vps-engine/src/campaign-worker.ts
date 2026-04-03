@@ -661,7 +661,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 // Up to MAX_PARALLEL campaigns concurrently, respecting device conflicts.
 // ══════════════════════════════════════════════════════════
 
-const MAX_PARALLEL_CAMPAIGNS = 5;
+// ── NO LIMIT: all campaigns run freely in parallel ──
+const MAX_PARALLEL_CAMPAIGNS = 999;
 
 export async function campaignWorkerTick(isRunningRef: { value: boolean }) {
   const db = getDb();
@@ -718,13 +719,8 @@ export async function campaignWorkerTick(isRunningRef: { value: boolean }) {
       break;
     }
 
+    // ── NO DEVICE CONFLICT CHECK: allow same device in multiple campaigns ──
     const deviceIds = getCampaignDeviceIds(campaign);
-    const hasConflict = deviceIds.some(did => devicesInUse.has(did));
-
-    if (hasConflict) {
-      log.info(`Campaign ${campaign.id.slice(0, 8)}: ⏳ waiting — device conflict with another campaign in this batch`);
-      continue;
-    }
 
     // Reserve devices for this batch
     deviceIds.forEach(did => devicesInUse.add(did));
