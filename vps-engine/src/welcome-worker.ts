@@ -522,7 +522,7 @@ async function processPhase() {
       if (lockAcquired) {
         lockedSenderIds.push(sender.id);
       } else {
-        const lockReason = DeviceLockManager.getLockReason(sender.id);
+        const lockReason = DeviceLockManager.getBlockingReason(sender.id, "welcome_send");
         log.info(`Welcome send: device ${sender.id.slice(0, 8)} locked by: ${lockReason} — skipping sender`);
       }
     }

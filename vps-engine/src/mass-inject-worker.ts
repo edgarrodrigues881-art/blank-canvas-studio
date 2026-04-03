@@ -763,7 +763,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       if (!globalLockedDevices.has(deviceId)) {
         const lockAcquired = DeviceLockManager.tryAcquire(deviceId, "mass_inject", campaignId);
         if (!lockAcquired) {
-          const lockReason = DeviceLockManager.getLockReason(deviceId);
+          const lockReason = DeviceLockManager.getBlockingReason(deviceId, "mass_inject");
           log.info(`Campaign ${campaignId.slice(0, 8)}: device ${deviceId.slice(0, 8)} locked by: ${lockReason} — skipping to next device`);
           failedDeviceIds.set(deviceId, Date.now());
           continue;
