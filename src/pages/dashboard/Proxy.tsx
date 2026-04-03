@@ -142,13 +142,18 @@ const Proxy = () => {
 
   const deleteMultipleMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { data: linkedDevices } = await supabase
-        .from("devices")
-        .select("proxy_id")
-        .in("proxy_id", ids.slice(0, 500));
+      // Check all linked proxies (handle >500 by batching)
+      const allLinkedIds = new Set<string>();
+      for (let i = 0; i < ids.length; i += 200) {
+        const batch = ids.slice(i, i + 200);
+        const { data: linkedDevices } = await supabase
+          .from("devices")
+          .select("proxy_id")
+          .in("proxy_id", batch);
+        (linkedDevices || []).forEach(d => { if (d.proxy_id) allLinkedIds.add(d.proxy_id); });
+      }
       
-      const linkedIds = new Set((linkedDevices || []).map(d => d.proxy_id).filter(Boolean));
-      const deletableIds = ids.filter(id => !linkedIds.has(id));
+      const deletableIds = ids.filter(id => !allLinkedIds.has(id));
       const blockedCount = ids.length - deletableIds.length;
 
       // Delete in batches of 200 to avoid URL length limits
@@ -332,23 +337,30 @@ const Proxy = () => {
 
   const handleSync = async () => {
     try {
-      const { data: allProxies } = await supabase.from("proxies").select("id, status");
-      const { data: allDevices } = await supabase.from("devices").select("proxy_id");
-      const linkedProxyIds = new Set((allDevices || []).map(d => d.proxy_id).filter(Boolean));
-      let updated = 0;
-      for (const proxy of (allProxies || [])) {
+      // Fetch all proxies and devices in parallel
+      const [proxiesRes, devicesRes] = await Promise.all([
+        supabase.from("proxies").select("id, status"),
+        supabase.from("devices").select("proxy_id").not("proxy_id", "is", null),
+      ]);
+      const allProxies = proxiesRes.data || [];
+      const linkedProxyIds = new Set((devicesRes.data || []).map(d => d.proxy_id).filter(Boolean));
+
+      // Batch updates by target status
+      const toUsando: string[] = [];
+      const toUsada: string[] = [];
+      for (const proxy of allProxies) {
         const isLinked = linkedProxyIds.has(proxy.id);
-        let correctStatus: string;
-        if (isLinked) correctStatus = "USANDO";
-        else if (proxy.status === "USANDO") correctStatus = "USADA";
-        else correctStatus = proxy.status;
-        if (proxy.status !== correctStatus) {
-          await supabase.from("proxies").update({ status: correctStatus } as any).eq("id", proxy.id);
-          updated++;
-        }
+        if (isLinked && proxy.status !== "USANDO") toUsando.push(proxy.id);
+        else if (!isLinked && proxy.status === "USANDO") toUsada.push(proxy.id);
       }
+
+      const ops: Array<PromiseLike<any>> = [];
+      if (toUsando.length > 0) ops.push(supabase.from("proxies").update({ status: "USANDO" } as any).in("id", toUsando));
+      if (toUsada.length > 0) ops.push(supabase.from("proxies").update({ status: "USADA" } as any).in("id", toUsada));
+      await Promise.all(ops);
+
       queryClient.invalidateQueries({ queryKey: ["proxies"] });
-      toast.success(`Sincronizado. ${updated} atualizada(s).`);
+      toast.success(`Sincronizado. ${toUsando.length + toUsada.length} atualizada(s).`);
     } catch {
       toast.error("Erro ao sincronizar");
     }

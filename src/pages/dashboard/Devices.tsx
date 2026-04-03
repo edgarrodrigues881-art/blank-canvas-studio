@@ -882,11 +882,20 @@ const Devices = () => {
     muteAutoSync(8_000);
 
     const newProxyId = editProxyValue === "none" ? null : editProxyValue;
+    const oldProxyId = editingDevice.proxy_id;
     const dbUpdates: Record<string, any> = {
       name: editName,
       proxy_id: newProxyId,
       updated_at: new Date().toISOString(),
     };
+
+    // Sync proxy statuses when proxy changes
+    if (oldProxyId !== newProxyId) {
+      const proxyOps: Array<PromiseLike<any>> = [];
+      if (oldProxyId) proxyOps.push(supabase.from("proxies").update({ status: "USADA" } as any).eq("id", oldProxyId));
+      if (newProxyId) proxyOps.push(supabase.from("proxies").update({ status: "USANDO" } as any).eq("id", newProxyId));
+      if (proxyOps.length > 0) Promise.all(proxyOps).then(() => queryClient.invalidateQueries({ queryKey: ["proxies"] }));
+    }
 
     try {
       console.log("[edit-save] deviceId:", editingDevice.id, "wpPhotoBase64 length:", wpPhotoBase64?.length, "wpRemovePhoto:", wpRemovePhoto, "wpName:", wpName);
@@ -975,13 +984,30 @@ const Devices = () => {
     setEditProxyOpen(true);
   };
 
-  const handleEditProxy = () => {
+  const handleEditProxy = async () => {
     if (!editProxyDevice) return;
-    const proxyId = editProxyValue === "none" ? null : editProxyValue;
+    const newProxyId = editProxyValue === "none" ? null : editProxyValue;
+    const oldProxyId = editProxyDevice.proxy_id;
+
+    // Update device proxy_id
     updateMutation.mutate({
       id: editProxyDevice.id,
-      updates: { proxy_id: proxyId },
+      updates: { proxy_id: newProxyId },
     });
+
+    // Sync proxy statuses: old → USADA, new → USANDO
+    const proxyOps: Array<PromiseLike<any>> = [];
+    if (oldProxyId && oldProxyId !== newProxyId) {
+      proxyOps.push(supabase.from("proxies").update({ status: "USADA" } as any).eq("id", oldProxyId));
+    }
+    if (newProxyId && newProxyId !== oldProxyId) {
+      proxyOps.push(supabase.from("proxies").update({ status: "USANDO" } as any).eq("id", newProxyId));
+    }
+    if (proxyOps.length > 0) {
+      await Promise.all(proxyOps);
+      queryClient.invalidateQueries({ queryKey: ["proxies"] });
+    }
+
     toast({ title: "Proxy atualizado" });
     setEditProxyOpen(false);
     setEditProxyDevice(null);
