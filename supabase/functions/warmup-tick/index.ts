@@ -4125,13 +4125,14 @@ async function handleTick(
         cycle.phase = newPhase;
         cycle.last_daily_reset_at = resetAt;
 
-        // [BUG 3 FIX] When transitioning to autosave_enabled or community_enabled,
-        // ensure community membership is activated (was only done by enable_autosave job before)
+        // [BUG 3+4 FIX] ALWAYS ensure community membership exists for community-eligible phases
+        // Previously only ran on phase transitions (newPhase !== oldPhase), causing devices
+        // that stayed in community_ramp_up across daily resets to lose their membership
         const isCommunityNewPhase = isCommunityPhase(newPhase);
         const communityStartDay = getCommunityStartDayForChip(chipState);
         const isFirstCommunityDay = newDay === communityStartDay && !isCommunityPhase(oldPhase);
 
-        if (newPhase !== oldPhase && ["autosave_enabled", "community_ramp_up", "community_stable"].includes(newPhase)) {
+        if (["autosave_enabled", "community_ramp_up", "community_stable"].includes(newPhase)) {
           const { data: membership } = await db.from("warmup_community_membership")
             .select("id, is_enabled, community_mode, community_day").eq("device_id", job.device_id).maybeSingle();
 
@@ -4143,6 +4144,7 @@ async function handleTick(
               community_day: isFirstCommunityDay ? 1 : 0,
               messages_today: 0, pairs_today: 0,
             });
+            bufferAudit({ user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id, level: "info", event_type: "community_membership_created", message: `Membership comunitário criado (dia ${newDay}, fase ${newPhase})` });
           } else {
             const updateData: any = { is_enabled: true, is_eligible: true, enabled_at: resetAt, cycle_id: cycle.id, community_mode: "warmup_managed" };
             if (isFirstCommunityDay && (membership.community_day || 0) < 1) {
