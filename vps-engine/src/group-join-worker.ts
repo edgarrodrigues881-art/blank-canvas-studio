@@ -204,6 +204,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     for (const did of globalLockedDevices) {
       DeviceLockManager.release(did, campaign.id);
     }
+    releaseGlobalSlot(slotLabel);
   }
 }
 
