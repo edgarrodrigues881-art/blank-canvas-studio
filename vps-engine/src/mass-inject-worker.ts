@@ -1094,13 +1094,20 @@ export async function massInjectTick(isRunningRef: { value: boolean }) {
   const newCampaigns = campaigns.filter(c => !activeCampaignIds.has(c.id));
   if (!newCampaigns.length) return;
 
-  // Count active campaigns per user
+  // Count active campaigns per user (batch query instead of N+1)
   const activePerUser = new Map<string, number>();
-  for (const id of activeCampaignIds) {
-    const running = campaigns.find(c => c.id === id) ||
-      (await db.from("mass_inject_campaigns").select("user_id").eq("id", id).single()).data;
-    if (running?.user_id) {
-      activePerUser.set(running.user_id, (activePerUser.get(running.user_id) || 0) + 1);
+  const missingIds = [...activeCampaignIds].filter(id => !campaigns.find(c => c.id === id));
+  if (missingIds.length > 0) {
+    const { data: missingCampaigns } = await db.from("mass_inject_campaigns")
+      .select("id, user_id")
+      .in("id", missingIds);
+    for (const mc of missingCampaigns || []) {
+      if (mc.user_id) activePerUser.set(mc.user_id, (activePerUser.get(mc.user_id) || 0) + 1);
+    }
+  }
+  for (const c of campaigns) {
+    if (activeCampaignIds.has(c.id) && c.user_id) {
+      activePerUser.set(c.user_id, (activePerUser.get(c.user_id) || 0) + 1);
     }
   }
 
