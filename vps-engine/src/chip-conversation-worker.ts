@@ -6,6 +6,7 @@
 
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
+import { DeviceLockManager } from "./lib/device-lock-manager";
 
 const log = createLogger("chip-conv");
 
@@ -148,17 +149,36 @@ export async function chipConversationTick() {
   if (!activeConvs?.length) return;
 
   for (const conv of activeConvs) {
+    // Lock ALL devices used in this conversation
+    const deviceIds = (conv.device_ids as string[]) || [];
+    const lockedIds: string[] = [];
+    let allLocked = true;
+    for (const did of deviceIds) {
+      if (DeviceLockManager.tryAcquire(did, "chip_conversation", conv.id)) {
+        lockedIds.push(did);
+      } else {
+        allLocked = false;
+        const lockReason = DeviceLockManager.getLockReason(did);
+        log.info(`Chip conv ${conv.id.slice(0, 8)}: device ${did.slice(0, 8)} locked by: ${lockReason} — skipping`);
+        break;
+      }
+    }
+
+    if (!allLocked) {
+      // Release any locks we acquired
+      for (const did of lockedIds) DeviceLockManager.release(did, conv.id);
+      continue;
+    }
+
     try {
       const nextDelay = await processOneConversation(db, conv);
-      if (nextDelay === -1) continue; // Paused
-
-      // Wait the delay before processing next message for this conversation
-      // But don't block the tick — schedule it via next_action_at pattern
-      // Actually, since we process in the VPS loop, we just need to track timing
+      if (nextDelay === -1) continue;
       log.info(`Chip conv ${conv.id.slice(0, 8)}: next in ${nextDelay}s`);
     } catch (err: any) {
       log.error(`Chip conv ${conv.id.slice(0, 8)} error: ${err.message}`);
       await db.from("chip_conversations").update({ last_error: err.message }).eq("id", conv.id).then(() => {}, () => {});
+    } finally {
+      for (const did of lockedIds) DeviceLockManager.release(did, conv.id);
     }
   }
 

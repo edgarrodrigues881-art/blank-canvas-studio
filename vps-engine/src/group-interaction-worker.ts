@@ -6,6 +6,7 @@
 
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
+import { DeviceLockManager } from "./lib/device-lock-manager";
 
 const log = createLogger("group-interaction");
 
@@ -300,6 +301,19 @@ export async function groupInteractionTick() {
   if (!dueInteractions?.length) return;
 
   for (const interaction of dueInteractions) {
+    const deviceId = interaction.device_id;
+    if (!deviceId) continue;
+
+    // Acquire global device lock (cross-worker coordination)
+    const lockAcquired = DeviceLockManager.tryAcquire(deviceId, "group_interaction", interaction.id);
+    if (!lockAcquired) {
+      const lockReason = DeviceLockManager.getLockReason(deviceId);
+      log.info(`Interaction ${interaction.id.slice(0, 8)}: device ${deviceId.slice(0, 8)} locked by: ${lockReason} — rescheduling`);
+      const retryAt = new Date(Date.now() + 30_000).toISOString();
+      await db.from("group_interactions").update({ next_action_at: retryAt }).eq("id", interaction.id).in("status", ["running", "active"]).then(() => {}, () => {});
+      continue;
+    }
+
     try {
       // Claim the tick (prevent duplicates)
       const { data: claimed } = await db.from("group_interactions")
@@ -312,9 +326,10 @@ export async function groupInteractionTick() {
     } catch (err: any) {
       log.error(`Interaction ${interaction.id.slice(0, 8)} error: ${err.message}`);
       await db.from("group_interactions").update({ last_error: err.message }).eq("id", interaction.id).then(() => {}, () => {});
-      // Reschedule in 2 min
       const retryAt = new Date(Date.now() + 120_000).toISOString();
       await db.from("group_interactions").update({ next_action_at: retryAt }).eq("id", interaction.id).in("status", ["running", "active"]).then(() => {}, () => {});
+    } finally {
+      DeviceLockManager.release(deviceId, interaction.id);
     }
   }
 

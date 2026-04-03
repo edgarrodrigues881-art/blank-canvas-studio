@@ -6,6 +6,7 @@
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
 import { config } from "./config";
+import { DeviceLockManager } from "./lib/device-lock-manager";
 
 const log = createLogger("mass-inject");
 
@@ -704,8 +705,10 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       await emitEvent(sb, campaignId, "campaign_started", "info");
     }
 
-    const failedDeviceIds = new Map<string, number>(); // deviceId -> timestamp when marked failed
+    const failedDeviceIds = new Map<string, number>();
     let consecutiveFailures = Number(campaign.consecutive_failures || 0);
+    // Track which devices we locked for this campaign
+    const globalLockedDevices = new Set<string>();
 
     while (isRunningRef.value) {
       // Clear stale device failures — give devices a chance to reconnect
@@ -753,6 +756,18 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         }).eq("id", campaignId);
         await emitEvent(sb, campaignId, "campaign_failed_no_devices", "warning", "Nenhuma instância disponível.");
         break;
+      }
+
+      // Acquire global device lock (cross-worker coordination)
+      if (!globalLockedDevices.has(deviceId)) {
+        const lockAcquired = DeviceLockManager.tryAcquire(deviceId, "mass_inject", campaignId);
+        if (!lockAcquired) {
+          const lockReason = DeviceLockManager.getLockReason(deviceId);
+          log.info(`Campaign ${campaignId.slice(0, 8)}: device ${deviceId.slice(0, 8)} locked by: ${lockReason} — skipping to next device`);
+          failedDeviceIds.set(deviceId, Date.now());
+          continue;
+        }
+        globalLockedDevices.add(deviceId);
       }
 
       // 3. Get device credentials
@@ -1035,6 +1050,10 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       });
     }
   } finally {
+    // Release all global device locks held by this campaign
+    for (const did of globalLockedDevices) {
+      DeviceLockManager.release(did, campaignId);
+    }
     activeCampaignIds.delete(campaignId);
   }
 }

@@ -7,6 +7,7 @@
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
 import { config } from "./config";
+import { DeviceLockManager } from "./lib/device-lock-manager";
 
 const log = createLogger("campaign");
 
@@ -403,11 +404,31 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     return;
   }
 
-  // Acquire locks
+  // Acquire global device locks (cross-worker coordination)
+  const lockedDeviceIds: string[] = [];
   for (const did of deviceIds) {
+    const acquired = DeviceLockManager.tryAcquire(did, "campaign", campaignId);
+    if (acquired) {
+      lockedDeviceIds.push(did);
+    } else {
+      const lockInfo = DeviceLockManager.getLockReason(did);
+      log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${did.slice(0, 8)} locked by: ${lockInfo}`);
+    }
+  }
+
+  if (lockedDeviceIds.length === 0) {
+    log.warn(`Campaign ${campaignId.slice(0, 8)}: all devices locked by other workers — retrying later`);
+    activeCampaignId = null;
+    return;
+  }
+
+  // Acquire DB locks
+  for (const did of lockedDeviceIds) {
     const locked = await acquireDeviceLock(sb, did, campaignId, campaign.user_id);
     if (!locked) {
-      log.warn(`Campaign ${campaignId.slice(0, 8)}: device lock failed for ${did}`);
+      log.warn(`Campaign ${campaignId.slice(0, 8)}: DB device lock failed for ${did}`);
+      // Release global locks
+      for (const id of lockedDeviceIds) DeviceLockManager.release(id, campaignId);
       await sb.from("campaigns").update({ status: "paused" }).eq("id", campaignId);
       activeCampaignId = null;
       return;
@@ -622,6 +643,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     await sleep(randomBetween(minDelayMs, maxDelayMs));
   }
 
+  // Release global device locks
+  for (const did of lockedDeviceIds) DeviceLockManager.release(did, campaignId);
   activeCampaignId = null;
 }
 

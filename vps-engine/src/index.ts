@@ -9,6 +9,7 @@ import { config } from "./config";
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
 import { Semaphore } from "./lib/concurrency";
+import { DeviceLockManager } from "./lib/device-lock-manager";
 import { isWithinOperatingWindow, getBrtTodayAt } from "./lib/brt";
 import { massInjectTick, getMassInjectStatus, lastMassInjectTickAt } from "./mass-inject-worker";
 import { campaignWorkerTick, getCampaignWorkerStatus, lastCampaignWorkerTickAt } from "./campaign-worker";
@@ -54,6 +55,16 @@ app.get("/health", (_req: Request, res: Response) => {
     tickCount,
     tickErrors,
     concurrency: { active: sem.active, waiting: sem.waiting, max: config.maxConcurrentDevices },
+    deviceLocks: {
+      active: DeviceLockManager.getActiveLocks().length,
+      byWorker: DeviceLockManager.getLocksByWorker(),
+      details: DeviceLockManager.getActiveLocks().map(l => ({
+        device: l.deviceId.slice(0, 8),
+        worker: l.workerType,
+        task: l.taskId.slice(0, 8),
+        heldSeconds: Math.round((Date.now() - l.acquiredAt) / 1000),
+      })),
+    },
     withinWindow: isWithinOperatingWindow(),
   });
 });
@@ -555,6 +566,21 @@ async function warmupTick() {
   await Promise.allSettled(
     deviceIds.map(async (deviceId) => {
       await sem.acquire();
+      
+      // Acquire global device lock for warmup
+      const warmupTaskId = `warmup_${deviceId}`;
+      const lockAcquired = DeviceLockManager.tryAcquire(deviceId, "warmup", warmupTaskId);
+      if (!lockAcquired) {
+        const lockReason = DeviceLockManager.getLockReason(deviceId);
+        log.info(`Warmup: device ${deviceId.slice(0, 8)} locked by: ${lockReason} — rescheduling ${jobsByDevice[deviceId].length} jobs`);
+        for (const job of jobsByDevice[deviceId]) {
+          const retryAt = new Date(Date.now() + 30_000).toISOString();
+          await db.from("warmup_jobs").update({ status: "pending", run_at: retryAt, last_error: `Aguardando: ${lockReason}` }).eq("id", job.id);
+        }
+        sem.release();
+        return;
+      }
+      
       try {
         const creds = deviceCredentials[deviceId];
 
@@ -663,6 +689,7 @@ async function warmupTick() {
           }
         }
       } finally {
+        DeviceLockManager.release(deviceId, warmupTaskId);
         sem.release();
       }
     }),
@@ -908,6 +935,9 @@ async function mainLoop() {
   const runWarmupTick = async () => {
     while (isRunning) {
       try {
+        // Cleanup stale device locks every tick (safety net)
+        DeviceLockManager.cleanupStaleLocks(30 * 60_000);
+        
         const result = await warmupTick();
         lastTickAt = new Date();
         tickCount++;

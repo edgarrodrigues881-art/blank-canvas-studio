@@ -6,6 +6,7 @@
 
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
+import { DeviceLockManager } from "./lib/device-lock-manager";
 
 const log = createLogger("group-join");
 
@@ -91,96 +92,116 @@ async function updateCampaignCounters(sb: any, campaignId: string, markDone = fa
 }
 
 async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value: boolean }) {
+  const globalLockedDevices = new Set<string>();
   log.info(`Processing group-join campaign ${campaign.id.slice(0, 8)}: "${campaign.name}"`);
 
-  while (isRunningRef.value) {
-    // Re-check status
-    const { data: fresh } = await sb.from("group_join_campaigns").select("status").eq("id", campaign.id).single();
-    if (fresh?.status !== "running") break;
+  try {
+    while (isRunningRef.value) {
+      // Re-check status
+      const { data: fresh } = await sb.from("group_join_campaigns").select("status").eq("id", campaign.id).single();
+      if (fresh?.status !== "running") break;
 
-    // Get pending items
-    const { data: pendingItems } = await sb.from("group_join_queue")
-      .select("*").eq("campaign_id", campaign.id).eq("status", "pending")
-      .order("created_at", { ascending: true }).limit(10);
+      // Get pending items
+      const { data: pendingItems } = await sb.from("group_join_queue")
+        .select("*").eq("campaign_id", campaign.id).eq("status", "pending")
+        .order("created_at", { ascending: true }).limit(10);
 
-    if (!pendingItems?.length) {
-      await updateCampaignCounters(sb, campaign.id, true);
-      break;
-    }
-
-    const deviceIds = [...new Set(pendingItems.map((i: any) => i.device_id))];
-    const { data: devices } = await sb.from("devices").select("id, name, number, status, uazapi_token, uazapi_base_url").in("id", deviceIds);
-    const deviceMap = new Map<string, any>((devices || []).map((d: any) => [d.id, d]));
-
-    let processed = 0;
-
-    for (const item of pendingItems) {
-      if (!isRunningRef.value) break;
-
-      // Re-check campaign status every 3 items
-      if (processed > 0 && processed % 3 === 0) {
-        const { data: check } = await sb.from("group_join_campaigns").select("status").eq("id", campaign.id).single();
-        if (check?.status !== "running") break;
+      if (!pendingItems?.length) {
+        await updateCampaignCounters(sb, campaign.id, true);
+        break;
       }
 
-      const device = deviceMap.get(item.device_id);
-      let status = "error";
-      let errorMsg: string | null = null;
-      let responseStatus: number | null = null;
+      const deviceIds = [...new Set(pendingItems.map((i: any) => i.device_id))];
+      const { data: devices } = await sb.from("devices").select("id, name, number, status, uazapi_token, uazapi_base_url").in("id", deviceIds);
+      const deviceMap = new Map<string, any>((devices || []).map((d: any) => [d.id, d]));
 
-      if (!device || !device.uazapi_token || !device.uazapi_base_url) {
-        errorMsg = device ? "Token/URL não configurado" : "Dispositivo não encontrado";
-      } else if (!["Connected", "authenticated", "Ready", "ready"].includes(device.status)) {
-        errorMsg = "Instância desconectada";
-      } else {
-        const normalizedLink = normalizeGroupLink(item.group_link);
-        const inviteCode = extractInviteCode(normalizedLink);
-        if (!inviteCode) {
-          errorMsg = "Link inválido";
-        } else {
-          const baseUrl = (device.uazapi_base_url || "").replace(/\/+$/, "");
+      let processed = 0;
 
-          for (let attempt = 1; attempt <= 2; attempt++) {
-            const joinRes = await tryJoin(baseUrl, device.uazapi_token, inviteCode, normalizedLink);
-            const interpreted = interpretResult(joinRes.status, joinRes.body);
-            status = interpreted.joinStatus;
-            errorMsg = interpreted.error || null;
-            responseStatus = joinRes.status;
+      for (const item of pendingItems) {
+        if (!isRunningRef.value) break;
 
-            if (["success", "already_member", "pending_approval"].includes(status) || joinRes.status === 404 || joinRes.status === 409) break;
-            if (attempt < 2 && (joinRes.status === 429 || joinRes.status >= 500)) await sleep(3000);
-          }
-
-          // Log
-          await sb.from("group_join_logs").insert({
-            user_id: campaign.user_id, device_id: item.device_id, device_name: device.name || item.device_name,
-            group_name: item.group_name, group_link: normalizedLink, invite_code: inviteCode,
-            endpoint_called: "group/join", response_status: responseStatus || 0,
-            result: status, error_message: errorMsg, attempt: 1, duration_ms: 0,
-          }).then(() => {}, () => {});
+        // Re-check campaign status every 3 items
+        if (processed > 0 && processed % 3 === 0) {
+          const { data: check } = await sb.from("group_join_campaigns").select("status").eq("id", campaign.id).single();
+          if (check?.status !== "running") break;
         }
+
+        // Acquire global device lock for this device
+        const did = item.device_id;
+        if (did && !globalLockedDevices.has(did)) {
+          const lockAcquired = DeviceLockManager.tryAcquire(did, "group_join", campaign.id);
+          if (!lockAcquired) {
+            const lockReason = DeviceLockManager.getLockReason(did);
+            log.info(`Group-join ${campaign.id.slice(0, 8)}: device ${did.slice(0, 8)} locked by: ${lockReason} — skipping item`);
+            continue;
+          }
+          globalLockedDevices.add(did);
+        }
+
+        const device = deviceMap.get(item.device_id);
+        let status = "error";
+        let errorMsg: string | null = null;
+        let responseStatus: number | null = null;
+
+        if (!device || !device.uazapi_token || !device.uazapi_base_url) {
+          errorMsg = device ? "Token/URL não configurado" : "Dispositivo não encontrado";
+        } else if (!["Connected", "authenticated", "Ready", "ready"].includes(device.status)) {
+          errorMsg = "Instância desconectada";
+        } else {
+          const normalizedLink = normalizeGroupLink(item.group_link);
+          const inviteCode = extractInviteCode(normalizedLink);
+          if (!inviteCode) {
+            errorMsg = "Link inválido";
+          } else {
+            const baseUrl = (device.uazapi_base_url || "").replace(/\/+$/, "");
+
+            for (let attempt = 1; attempt <= 2; attempt++) {
+              const joinRes = await tryJoin(baseUrl, device.uazapi_token, inviteCode, normalizedLink);
+              const interpreted = interpretResult(joinRes.status, joinRes.body);
+              status = interpreted.joinStatus;
+              errorMsg = interpreted.error || null;
+              responseStatus = joinRes.status;
+
+              if (["success", "already_member", "pending_approval"].includes(status) || joinRes.status === 404 || joinRes.status === 409) break;
+              if (attempt < 2 && (joinRes.status === 429 || joinRes.status >= 500)) await sleep(3000);
+            }
+
+            // Log
+            await sb.from("group_join_logs").insert({
+              user_id: campaign.user_id, device_id: item.device_id, device_name: device.name || item.device_name,
+              group_name: item.group_name, group_link: normalizedLink, invite_code: inviteCode,
+              endpoint_called: "group/join", response_status: responseStatus || 0,
+              result: status, error_message: errorMsg, attempt: 1, duration_ms: 0,
+            }).then(() => {}, () => {});
+          }
+        }
+
+        await sb.from("group_join_queue").update({
+          group_link: normalizeGroupLink(item.group_link),
+          status, error_message: errorMsg, response_status: responseStatus,
+          attempt: (item.attempt || 0) + 1, processed_at: new Date().toISOString(),
+        }).eq("id", item.id);
+
+        processed++;
+
+        // Update counters periodically
+        if (processed % 3 === 0) await updateCampaignCounters(sb, campaign.id);
+
+        // Delay
+        const delay = randomBetween(campaign.min_delay || 10, campaign.max_delay || 30);
+        await sleep(delay * 1000);
       }
 
-      await sb.from("group_join_queue").update({
-        group_link: normalizeGroupLink(item.group_link),
-        status, error_message: errorMsg, response_status: responseStatus,
-        attempt: (item.attempt || 0) + 1, processed_at: new Date().toISOString(),
-      }).eq("id", item.id);
-
-      processed++;
-
-      // Update counters periodically
-      if (processed % 3 === 0) await updateCampaignCounters(sb, campaign.id);
-
-      // Delay
-      const delay = randomBetween(campaign.min_delay || 10, campaign.max_delay || 30);
-      await sleep(delay * 1000);
+      await updateCampaignCounters(sb, campaign.id);
     }
 
-    await updateCampaignCounters(sb, campaign.id);
+    log.info(`Group-join campaign ${campaign.id.slice(0, 8)} finished`);
+  } finally {
+    // Release all global device locks
+    for (const did of globalLockedDevices) {
+      DeviceLockManager.release(did, campaign.id);
+    }
   }
-
-  log.info(`Group-join campaign ${campaign.id.slice(0, 8)} finished`);
 }
 
 // ══════════════════════════════════════════════════════════
