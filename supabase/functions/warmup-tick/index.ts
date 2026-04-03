@@ -1578,8 +1578,9 @@ async function reconcileCommunityPairs(
       };
 
       const sortedEligible = [...(eligible || [])].sort((a: any, b: any) => {
-        const sameUserA = a.user_id === params.userId ? 0 : 1;
-        const sameUserB = b.user_id === params.userId ? 0 : 1;
+        // Prefer cross-user pairing (more organic) — same user gets lower priority
+        const sameUserA = a.user_id === params.userId ? 1 : 0;
+        const sameUserB = b.user_id === params.userId ? 1 : 0;
         if (sameUserA !== sameUserB) return sameUserA - sameUserB;
 
         const cycleA = candidateCycleMap[a.device_id];
