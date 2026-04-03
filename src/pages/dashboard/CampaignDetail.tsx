@@ -431,40 +431,77 @@ const CampaignDetail = () => {
   const isScheduled = campaign && ["scheduled", "pending"].includes(campaign.status);
   const isFinished = campaign && ["completed", "canceled", "failed"].includes(campaign.status);
 
-  const handleResendConfirm = () => {
-    const selectedContacts = contacts.filter(c => {
-      if (resendFailed && (c.status === "failed" || c.status === "error")) {
-        if (isInvalidNumber(c.phone, c.error_message)) return false;
-        return true;
+  const [resendLoading, setResendLoading] = useState(false);
+
+  const handleResendConfirm = async () => {
+    if (!id) return;
+    setResendLoading(true);
+    try {
+      // Fetch ALL contacts from DB (not just current page)
+      const statuses: string[] = [];
+      if (resendFailed) statuses.push("failed", "error");
+      if (resendPending) statuses.push("pending");
+      if (statuses.length === 0) {
+        toast({ title: "Nenhum contato selecionado para reenviar", variant: "destructive" });
+        setResendLoading(false);
+        return;
       }
-      if (resendPending && c.status === "pending") return true;
-      return false;
-    });
-    if (selectedContacts.length === 0) {
-      toast({ title: "Nenhum contato selecionado para reenviar", variant: "destructive" });
-      return;
+
+      // Fetch in batches of 1000 to avoid Supabase row limits
+      let allContacts: { id: string; phone: string; name: string | null; status: string; error_message: string | null }[] = [];
+      let offset = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("campaign_contacts")
+          .select("id, phone, name, status, error_message")
+          .eq("campaign_id", id)
+          .in("status", statuses)
+          .range(offset, offset + batchSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allContacts = [...allContacts, ...data];
+        if (data.length < batchSize) break;
+        offset += batchSize;
+      }
+
+      // Filter out invalid numbers for failed contacts
+      const selectedContacts = allContacts.filter(c => {
+        if ((c.status === "failed" || c.status === "error") && isInvalidNumber(c.phone, c.error_message)) return false;
+        return true;
+      });
+
+      if (selectedContacts.length === 0) {
+        toast({ title: "Nenhum contato selecionado para reenviar", variant: "destructive" });
+        setResendLoading(false);
+        return;
+      }
+
+      const resendContactMode: "number" | "lid" = selectedContacts.some((c) => isLidPhone(c.phone)) ? "lid" : "number";
+      const resendData: Record<string, any> = {
+        contacts: selectedContacts.map((c, i) => ({
+          id: i + 1, nome: c.name || "", numero: c.phone,
+          var1: "", var2: "", var3: "", var4: "", var5: "",
+          var6: "", var7: "", var8: "", var9: "", var10: "",
+        })),
+        contactMode: resendContactMode,
+        message: campaign?.message_content || "",
+        mediaUrl: campaign?.media_url || "",
+        buttons: campaign?.buttons || [],
+        campaignName: `${campaign?.name} (Reenvio)`,
+        messageType: campaign?.message_type || "text",
+      };
+      if (campaign?.message_type === "carousel" && campaign?.carousel_cards) {
+        resendData.carouselCards = campaign.carousel_cards;
+      }
+      sessionStorage.setItem("resend_campaign_data", JSON.stringify(resendData));
+      setResendOpen(false);
+      navigate("/dashboard/campaigns");
+    } catch (err: any) {
+      toast({ title: "Erro ao buscar contatos", description: err.message, variant: "destructive" });
+    } finally {
+      setResendLoading(false);
     }
-    const resendContactMode: "number" | "lid" = selectedContacts.some((c) => isLidPhone(c.phone)) ? "lid" : "number";
-    const resendData: Record<string, any> = {
-      contacts: selectedContacts.map((c, i) => ({
-        id: i + 1, nome: c.name || "", numero: c.phone,
-        var1: "", var2: "", var3: "", var4: "", var5: "",
-        var6: "", var7: "", var8: "", var9: "", var10: "",
-      })),
-      contactMode: resendContactMode,
-      message: campaign?.message_content || "",
-      mediaUrl: campaign?.media_url || "",
-      buttons: campaign?.buttons || [],
-      campaignName: `${campaign?.name} (Reenvio)`,
-      messageType: campaign?.message_type || "text",
-    };
-    // Preserve carousel data for resend
-    if (campaign?.message_type === "carousel" && campaign?.carousel_cards) {
-      resendData.carouselCards = campaign.carousel_cards;
-    }
-    sessionStorage.setItem("resend_campaign_data", JSON.stringify(resendData));
-    setResendOpen(false);
-    navigate("/dashboard/campaigns");
   };
 
   const handleExportConfirm = async () => {
@@ -1051,7 +1088,7 @@ const CampaignDetail = () => {
           </div>
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={() => setResendOpen(false)} className="text-xs">Cancelar</Button>
-            <Button size="sm" onClick={handleResendConfirm} disabled={!resendFailed && !resendPending} className="gap-1.5 text-xs">
+            <Button size="sm" onClick={handleResendConfirm} disabled={(!resendFailed && !resendPending) || resendLoading} className="gap-1.5 text-xs">
               <RotateCcw className="w-3.5 h-3.5" />
               Reenviar ({(resendFailed ? stats.failedResendable : 0) + (resendPending ? stats.pending : 0)})
             </Button>
