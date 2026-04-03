@@ -714,6 +714,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     const failedDeviceIds = new Map<string, number>();
     let consecutiveFailures = Number(campaign.consecutive_failures || 0);
 
+    let contactsInLoop = 0;
+    let cachedFreshCampaign: any = null;
+
     while (isRunningRef.value) {
       // Clear stale device failures — give devices a chance to reconnect
       const now = Date.now();
@@ -723,20 +726,23 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
           log.info(`Campaign ${campaignId.slice(0, 8)}: clearing failed flag for device ${did.slice(0, 8)} — retrying`);
         }
       }
-      // 1. Check campaign status (was it paused/cancelled externally?)
-      const { data: freshCampaign } = await sb.from("mass_inject_campaigns").select("status, min_delay, max_delay, pause_after, pause_duration, rotate_after, device_ids, group_id, success_count, fail_count, already_count, rate_limit_count, timeout_count, consecutive_failures").eq("id", campaignId).single();
-      if (!freshCampaign || !["queued", "processing"].includes(freshCampaign.status)) {
-        log.info(`Campaign ${campaignId.slice(0, 8)} status=${freshCampaign?.status} — stopping`);
-        break;
+      // 1. Check campaign status — full refresh every 10 contacts or on first iteration
+      if (!cachedFreshCampaign || contactsInLoop % 10 === 0) {
+        const { data: freshCampaign } = await sb.from("mass_inject_campaigns").select("status, min_delay, max_delay, pause_after, pause_duration, rotate_after, device_ids, group_id, success_count, fail_count, already_count, rate_limit_count, timeout_count, consecutive_failures").eq("id", campaignId).single();
+        if (!freshCampaign || !["queued", "processing"].includes(freshCampaign.status)) {
+          log.info(`Campaign ${campaignId.slice(0, 8)} status=${freshCampaign?.status} — stopping`);
+          break;
+        }
+        cachedFreshCampaign = freshCampaign;
+        counterState.success_count = Number(freshCampaign.success_count || 0);
+        counterState.already_count = Number(freshCampaign.already_count || 0);
+        counterState.fail_count = Number(freshCampaign.fail_count || 0);
+        counterState.rate_limit_count = Number(freshCampaign.rate_limit_count || 0);
+        counterState.timeout_count = Number(freshCampaign.timeout_count || 0);
+        counterState.consecutive_failures = Number(freshCampaign.consecutive_failures || 0);
+        consecutiveFailures = counterState.consecutive_failures;
       }
-
-      counterState.success_count = Number(freshCampaign.success_count || 0);
-      counterState.already_count = Number(freshCampaign.already_count || 0);
-      counterState.fail_count = Number(freshCampaign.fail_count || 0);
-      counterState.rate_limit_count = Number(freshCampaign.rate_limit_count || 0);
-      counterState.timeout_count = Number(freshCampaign.timeout_count || 0);
-      counterState.consecutive_failures = Number(freshCampaign.consecutive_failures || 0);
-      consecutiveFailures = counterState.consecutive_failures;
+      const freshCampaign = cachedFreshCampaign;
 
       // 2. Pick a device
       const deviceId = pickDeviceId(freshCampaign, failedDeviceIds);
