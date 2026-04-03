@@ -464,14 +464,9 @@ export default function GroupJoinCampaignNew() {
 
               <div className="space-y-2.5 pt-1">
                 <label className="flex items-center gap-2.5 cursor-pointer">
-                  <Checkbox checked={shuffleLinks} onCheckedChange={(v) => setShuffleLinks(!!v)} />
-                  <Shuffle className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Embaralhar links</span>
-                </label>
-                <label className="flex items-center gap-2.5 cursor-pointer">
                   <Checkbox checked={skipFailFast} onCheckedChange={(v) => setSkipFailFast(!!v)} />
                   <Zap className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Pular falhas com delay curto</span>
+                  <span className="text-xs text-muted-foreground">Pular links que não funcionam</span>
                 </label>
               </div>
             </div>
