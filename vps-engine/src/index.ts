@@ -958,14 +958,25 @@ async function mainLoop() {
       while (isRunning) {
         if (tickRunning[name]) {
           log.warn(`⚠️ ${name} tick SKIPPED — previous still running`);
+          workerMetrics.recordSkip(name);
         } else {
           tickRunning[name] = true;
+          workerMetrics.setRunning(name, true);
+          const t0 = Date.now();
           try {
             await fn();
+            const elapsed = Date.now() - t0;
+            workerMetrics.recordTick(name, elapsed);
+            if (elapsed > 10_000) {
+              log.info(`🐢 ${name} tick slow: ${(elapsed / 1000).toFixed(1)}s`);
+            }
           } catch (err: any) {
+            workerMetrics.recordTick(name, Date.now() - t0);
+            workerMetrics.recordError(name);
             log.error(`${name} tick error`, serializeUnknownError(err));
           } finally {
             tickRunning[name] = false;
+            workerMetrics.setRunning(name, false);
           }
         }
         await new Promise((r) => setTimeout(r, intervalMs));
