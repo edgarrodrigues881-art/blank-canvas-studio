@@ -696,6 +696,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     consecutive_failures: Number(campaign.consecutive_failures || 0),
   };
 
+  const slotLabel = `mass-inject:${campaignId.slice(0, 8)}`;
+  await acquireGlobalSlot(slotLabel);
   activeCampaignIds.add(campaignId);
   log.info(`Processing campaign ${campaignId.slice(0, 8)}: group=${campaign.group_id}, contacts=${campaign.total_items || "?"}`);
 
