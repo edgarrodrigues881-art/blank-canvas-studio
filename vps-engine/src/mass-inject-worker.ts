@@ -678,8 +678,10 @@ async function finalizeCampaign(sb: any, campaignId: string): Promise<boolean> {
 }
 
 // ══════════════════════════════════════════════════════════
-// MAIN WORKER: processes ONE campaign at a time, all contacts in sequence
+// MAIN WORKER: processes ONE campaign in batches of BATCH_SIZE contacts
+// After each batch, yields execution so the next tick can rebalance.
 // ══════════════════════════════════════════════════════════
+const BATCH_SIZE = 10; // contacts per batch — keeps execution short
 async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value: boolean }) {
   const campaignId = campaign.id;
   const counterState = {
@@ -707,8 +709,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
     let contactsInLoop = 0;
     let cachedFreshCampaign: any = null;
+    let batchProcessed = 0; // contacts processed in this batch
 
-    while (isRunningRef.value) {
+    while (isRunningRef.value && batchProcessed < BATCH_SIZE) {
       // Clear stale device failures — give devices a chance to reconnect
       const now = Date.now();
       for (const [did, ts] of failedDeviceIds) {
@@ -1004,6 +1007,12 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       } catch { /* non-critical */ }
 
       await sleep(delayMs);
+      batchProcessed++;
+    }
+
+    // Batch complete — if campaign still has contacts, log and let next tick continue
+    if (batchProcessed >= BATCH_SIZE) {
+      log.info(`Campaign ${campaignId.slice(0, 8)}: batch of ${batchProcessed} done — yielding to next tick`);
     }
   } catch (err: any) {
     const errMessage = String(err?.message || err || "Erro interno desconhecido");
