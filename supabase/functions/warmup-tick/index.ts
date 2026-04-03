@@ -3011,42 +3011,63 @@ async function handleTick(
           }
         }
 
-        // Fallback: if no joined group has a resolvable JID, use any live group from device
+        // Fallback: if no joined group has a resolvable JID, try resolving via live groups
+        // CRITICAL: Only use groups that are REGISTERED in warmup_instance_groups — never random device groups
         if (!groupJid) {
           try {
             if (!liveGroupsCache.length) liveGroupsCache = await fetchLiveGroups();
           } catch { /* ignore */ }
 
-          const candidates = liveGroupsCache
-            .map((g: any) => ({
-              jid: g?.jid || g?.id || g?.JID || g?.groupJid || g?.chatId || null,
-              name: g?.subject || g?.name || g?.Name || g?.title || "Grupo detectado",
-            }))
-            .filter((g: any) => !!g.jid && String(g.jid).includes("@g.us"));
+          if (liveGroupsCache.length > 0 && allIGs.length > 0) {
+            // Build a set of registered group names and JIDs for matching
+            const registeredNames = new Set<string>();
+            const registeredJids = new Set<string>();
+            for (const ig of allIGs) {
+              const grpRef = groupsMap[ig.group_id];
+              const name = norm(grpRef?.name || ig.group_name || "");
+              if (name) registeredNames.add(name);
+              if (ig.group_jid) registeredJids.add(String(ig.group_jid).toLowerCase().trim());
+            }
 
-          if (candidates.length === 0) {
+            // Only consider live groups that match a registered warmup group
+            const candidates = liveGroupsCache
+              .filter((g: any) => {
+                const jid = String(g?.jid || g?.id || g?.JID || g?.groupJid || g?.chatId || "");
+                const name = norm(g?.subject || g?.name || g?.Name || g?.title || "");
+                if (!jid.includes("@g.us")) return false;
+                return registeredNames.has(name) || registeredJids.has(jid.toLowerCase().trim());
+              })
+              .map((g: any) => ({
+                jid: g?.jid || g?.id || g?.JID || g?.groupJid || g?.chatId || null,
+                name: g?.subject || g?.name || g?.Name || g?.title || "Grupo",
+              }));
+
+            if (candidates.length > 0) {
+              const fallbackGroup = pickRandom(candidates);
+              groupJid = fallbackGroup.jid;
+              groupName = fallbackGroup.name;
+
+              bufferAudit({
+                user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id,
+                level: "info", event_type: "group_fallback_registered",
+                message: `JID resolvido via live groups para grupo registrado: ${groupName}`,
+                meta: { group_jid: groupJid },
+              });
+            }
+          }
+
+          if (!groupJid) {
             bufferAudit({
               user_id: job.user_id,
               device_id: job.device_id,
               cycle_id: job.cycle_id,
               level: "error",
-              event_type: "group_live_discovery_empty",
-              message: "Nenhum grupo retornado pelos endpoints de descoberta",
-              meta: { fetched_count: liveGroupsCache.length, joined_count: joinedGroups.length },
+              event_type: "group_no_registered_jid",
+              message: "Nenhum grupo REGISTRADO com JID resolvido — aguardando entrada nos grupos cadastrados",
+              meta: { registered_count: allIGs.length, joined_count: joinedGroups.length, live_count: liveGroupsCache.length },
             });
-            throw new Error("Nenhum grupo com JID resolvido (aguardando entrada nos grupos)");
+            throw new Error("Nenhum grupo cadastrado com JID resolvido (aguardando entrada nos grupos)");
           }
-
-          const fallbackGroup = pickRandom(candidates);
-          groupJid = fallbackGroup.jid;
-          groupName = fallbackGroup.name;
-
-          bufferAudit({
-            user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id,
-            level: "warn", event_type: "group_fallback_live_jid",
-            message: `Sem JID no banco. Usando grupo real do dispositivo: ${groupName}`,
-            meta: { group_jid: groupJid },
-          });
         }
 
         if (!groupJid) {
