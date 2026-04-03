@@ -304,40 +304,60 @@ function rememberParticipantInCache(baseUrl: string, groupId: string, phone: str
   participantCache.set(cacheKey, cached);
 }
 
-// ── Connection check (single, fast) ──
-async function isDeviceConnected(baseUrl: string, token: string, checks = 1): Promise<ConnectionCheckResult> {
-  const results: ConnectionCheckResult[] = [];
+// ── Connection check with confirmation ──
+// Only marks as disconnected after DISCONNECT_CONFIRM_THRESHOLD consecutive negative results
+const deviceDisconnectStreak = new Map<string, number>(); // deviceId → consecutive disconnect count
 
-  for (let i = 0; i < Math.max(1, checks); i++) {
-    if (i > 0) await sleep(DISCONNECT_RECHECK_INTERVAL_MS);
+async function isDeviceConnected(baseUrl: string, token: string, _checks = 1): Promise<ConnectionCheckResult> {
+  try {
+    const res = await fetchWithTimeout(`${baseUrl}/instance/status?t=${Date.now()}`, { headers: buildHeaders(token) }, 8000);
+    const { raw, body } = await readApiResponse(res);
+    const normalized = normalizeProviderConnectionState(body);
 
-    try {
-      const res = await fetchWithTimeout(`${baseUrl}/instance/status?t=${Date.now()}`, { headers: buildHeaders(token) }, 8000);
-      const { raw, body } = await readApiResponse(res);
-      const normalized = normalizeProviderConnectionState(body);
+    if (normalized === "connected") {
+      // Reset streak on success
+      const key = baseUrl;
+      deviceDisconnectStreak.delete(key);
+      return { connected: true, detail: "Conexão confirmada." };
+    }
 
-      if (normalized === "connected") {
-        return { connected: true, detail: "Conexão confirmada em tempo real." };
+    if (res.status === 401) {
+      return { connected: false, detail: "Falha de autenticação da instância." };
+    }
+
+    if (normalized === "disconnected") {
+      // Increment streak — only confirm after threshold
+      const key = baseUrl;
+      const streak = (deviceDisconnectStreak.get(key) || 0) + 1;
+      deviceDisconnectStreak.set(key, streak);
+
+      if (streak >= DISCONNECT_CONFIRM_THRESHOLD) {
+        log.warn(`Device ${baseUrl.slice(0, 30)} confirmed disconnected after ${streak} consecutive checks`);
+        return { connected: false, detail: `Desconexão confirmada após ${streak} verificações.` };
       }
 
-      if (normalized === "disconnected") {
-        results.push({ connected: false, detail: "Instância reportou desconexão." });
-        continue;
-      }
+      // Not yet confirmed — treat as uncertain, retry on next cycle
+      log.info(`Device ${baseUrl.slice(0, 30)} reported disconnected (streak ${streak}/${DISCONNECT_CONFIRM_THRESHOLD}) — not blocking yet`);
+      return { connected: null, detail: `Status instável (${streak}/${DISCONNECT_CONFIRM_THRESHOLD} checks negativos).` };
+    }
 
-      if (res.status === 401) {
-        results.push({ connected: false, detail: "Falha de autenticação da instância." });
-        continue;
-      }
+    // "unknown" — don't block, just proceed
+    log.info(`Device ${baseUrl.slice(0, 30)} status unknown — proceeding normally`);
+    return { connected: null, detail: extractProviderMessage(body, raw) || "Status incerto — prosseguindo." };
+  } catch (error: any) {
+    // Network error / timeout — don't immediately mark as disconnected
+    const key = baseUrl;
+    const streak = (deviceDisconnectStreak.get(key) || 0) + 1;
+    deviceDisconnectStreak.set(key, streak);
 
-      if (!res.ok) {
-        results.push({ connected: null, detail: extractProviderMessage(body, raw) || `HTTP ${res.status}` });
-        continue;
-      }
+    if (streak >= DISCONNECT_CONFIRM_THRESHOLD) {
+      return { connected: false, detail: `Falha de rede confirmada após ${streak} tentativas: ${error?.message || "erro"}` };
+    }
 
-      results.push({ connected: null, detail: "Status da instância não pôde ser confirmado." });
-    } catch (error: any) {
-      results.push({ connected: null, detail: error?.message || "Falha ao validar conexão." });
+    log.info(`Device ${baseUrl.slice(0, 30)} check failed (streak ${streak}/${DISCONNECT_CONFIRM_THRESHOLD}): ${error?.message} — not blocking`);
+    return { connected: null, detail: error?.message || "Falha temporária na verificação." };
+  }
+}
     }
   }
 
