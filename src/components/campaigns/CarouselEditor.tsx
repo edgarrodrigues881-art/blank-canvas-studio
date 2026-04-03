@@ -126,7 +126,7 @@ export function CarouselEditor({ cards, onChange }: CarouselEditorProps) {
       toast({ title: "Máximo 3 botões por card", variant: "destructive" });
       return;
     }
-    const newBtn: CarouselCardButton = { id: Date.now() + Math.random(), type, text: "", value: "" };
+    const newBtn: CarouselCardButton = { id: Math.floor(Date.now() + Math.random() * 10000), type, text: "", value: "" };
     const updatedButtons = [...activeCard.buttons, newBtn];
     updateCard(activeCardIndex, { buttons: updatedButtons });
     toast({ title: `Botão ${type === "url" ? "URL" : "Resposta"} adicionado`, description: `Preencha o texto do botão abaixo.` });

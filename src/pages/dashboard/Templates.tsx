@@ -188,7 +188,9 @@ const Templates = () => {
         return;
       }
       const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
       img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
         const scale = Math.min(1, maxWidth / img.width);
         const w = Math.round(img.width * scale);
         const h = Math.round(img.height * scale);
@@ -209,8 +211,8 @@ const Templates = () => {
           quality
         );
       };
-      img.onerror = () => resolve(file);
-      img.src = URL.createObjectURL(file);
+      img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
+      img.src = objectUrl;
     });
   };
 
