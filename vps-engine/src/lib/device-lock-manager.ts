@@ -1,12 +1,23 @@
 // ══════════════════════════════════════════════════════════
-// VPS Engine — Global Device Lock Manager
-// Prevents concurrent heavy operations on the same device
-// across ALL workers (campaigns, mass-inject, warmup, etc.)
+// VPS Engine — Device Concurrency Manager (v2)
+// Category-based concurrency: allows safe parallelism,
+// blocks only conflicting heavy operations on the same device.
 // ══════════════════════════════════════════════════════════
 
 import { createLogger } from "./logger";
 
 const log = createLogger("device-lock");
+
+// ── Resource categories ──
+export type ResourceCategory =
+  | "messaging_heavy"   // campaigns, mass dispatch
+  | "group_heavy"       // mass-inject, group-join
+  | "group_interaction" // group interaction (lighter, per-group)
+  | "chip_conversation" // chip-to-chip messaging
+  | "warmup"            // warmup jobs
+  | "welcome"           // welcome automation
+  | "monitoring"        // heartbeats, status checks
+  | "sync_light";       // device sync, queue reads
 
 export type WorkerType =
   | "campaign"
@@ -19,178 +30,211 @@ export type WorkerType =
   | "welcome_monitor"
   | "welcome_send";
 
+// ── Worker → Category mapping ──
+const WORKER_CATEGORY: Record<WorkerType, ResourceCategory> = {
+  campaign: "messaging_heavy",
+  mass_inject: "group_heavy",
+  warmup: "warmup",
+  group_interaction: "group_interaction",
+  chip_conversation: "chip_conversation",
+  group_join: "group_heavy",
+  welcome: "welcome",
+  welcome_monitor: "monitoring",
+  welcome_send: "messaging_heavy",
+};
+
+// ── Conflict matrix ──
+// Only listed pairs are BLOCKED from running together on the same device.
+// Everything else is allowed in parallel.
+const CONFLICTS: Array<[ResourceCategory, ResourceCategory]> = [
+  // Two heavy messaging tasks conflict
+  ["messaging_heavy", "messaging_heavy"],
+  // Two heavy group tasks conflict
+  ["group_heavy", "group_heavy"],
+  // Heavy messaging + heavy group = too much API load
+  ["messaging_heavy", "group_heavy"],
+  // Campaign + chip conversation = both send messages aggressively
+  ["messaging_heavy", "chip_conversation"],
+  // Group heavy + group interaction = both hit group APIs
+  ["group_heavy", "group_interaction"],
+  // Group heavy + chip conversation
+  ["group_heavy", "chip_conversation"],
+];
+
+// Build a fast lookup set
+const conflictSet = new Set<string>();
+for (const [a, b] of CONFLICTS) {
+  conflictSet.add(`${a}::${b}`);
+  conflictSet.add(`${b}::${a}`);
+}
+
+function categoriesConflict(a: ResourceCategory, b: ResourceCategory): boolean {
+  if (a === b && conflictSet.has(`${a}::${b}`)) return true;
+  return conflictSet.has(`${a}::${b}`);
+}
+
+// ── Lock info ──
 export interface DeviceLockInfo {
   deviceId: string;
   workerType: WorkerType;
+  category: ResourceCategory;
   taskId: string;
   acquiredAt: number;
   label: string;
 }
 
+// ── Worker labels (PT-BR) ──
+const WORKER_LABELS: Record<WorkerType, string> = {
+  campaign: "Campanha de disparo",
+  mass_inject: "Adição em massa",
+  warmup: "Aquecimento",
+  group_interaction: "Interação de grupo",
+  chip_conversation: "Conversa entre chips",
+  group_join: "Entrada em grupos",
+  welcome: "Boas-vindas",
+  welcome_monitor: "Monitor de boas-vindas",
+  welcome_send: "Envio de boas-vindas",
+};
+
 /**
- * Global in-process lock manager.
- * Ensures only ONE heavy operation runs per device at any time.
- * Light operations (status checks, heartbeats) bypass this.
+ * Category-based device concurrency manager (Singleton).
+ * Multiple tasks CAN run on the same device if their categories don't conflict.
+ * Only truly incompatible operations are blocked.
  */
 class DeviceLockManagerImpl {
-  private locks = new Map<string, DeviceLockInfo>();
-  private waiters = new Map<string, Array<{ resolve: (acquired: boolean) => void; workerType: WorkerType; taskId: string }>>();
+  // deviceId → Map<taskId, LockInfo>
+  private locks = new Map<string, Map<string, DeviceLockInfo>>();
 
   /**
-   * Try to acquire a lock on a device. Non-blocking.
-   * Returns true if lock acquired, false if device is busy.
+   * Try to acquire a slot on a device. Non-blocking.
+   * Returns true if acquired (no conflicting category running).
    */
   tryAcquire(deviceId: string, workerType: WorkerType, taskId: string, label?: string): boolean {
-    const existing = this.locks.get(deviceId);
-    if (existing) {
-      // Same task re-acquiring (idempotent)
-      if (existing.taskId === taskId) return true;
-      return false;
+    const category = WORKER_CATEGORY[workerType];
+    const deviceLocks = this.locks.get(deviceId);
+
+    if (deviceLocks) {
+      // Idempotent: same task re-acquiring
+      if (deviceLocks.has(taskId)) return true;
+
+      // Check conflicts with existing locks
+      for (const existing of deviceLocks.values()) {
+        if (categoriesConflict(category, existing.category)) {
+          return false;
+        }
+      }
     }
 
-    this.locks.set(deviceId, {
+    // Acquire
+    if (!this.locks.has(deviceId)) this.locks.set(deviceId, new Map());
+    this.locks.get(deviceId)!.set(taskId, {
       deviceId,
       workerType,
+      category,
       taskId,
       acquiredAt: Date.now(),
       label: label || `${workerType}:${taskId.slice(0, 8)}`,
     });
 
-    log.info(`Lock acquired: device=${deviceId.slice(0, 8)} by ${workerType}:${taskId.slice(0, 8)}`);
+    log.info(`Lock acquired: device=${deviceId.slice(0, 8)} by ${workerType}:${taskId.slice(0, 8)} [${category}]`);
     return true;
   }
 
   /**
-   * Wait for a lock with timeout. Returns true if acquired.
-   */
-  async waitForLock(
-    deviceId: string,
-    workerType: WorkerType,
-    taskId: string,
-    timeoutMs: number = 60_000,
-    label?: string,
-  ): Promise<boolean> {
-    // Try immediately
-    if (this.tryAcquire(deviceId, workerType, taskId, label)) return true;
-
-    // Wait in queue
-    return new Promise<boolean>((resolve) => {
-      const timer = setTimeout(() => {
-        // Remove from waiters
-        const queue = this.waiters.get(deviceId);
-        if (queue) {
-          const idx = queue.findIndex((w) => w.taskId === taskId);
-          if (idx >= 0) queue.splice(idx, 1);
-          if (queue.length === 0) this.waiters.delete(deviceId);
-        }
-        resolve(false);
-      }, timeoutMs);
-
-      const waiter = {
-        resolve: (acquired: boolean) => {
-          clearTimeout(timer);
-          resolve(acquired);
-        },
-        workerType,
-        taskId,
-      };
-
-      if (!this.waiters.has(deviceId)) this.waiters.set(deviceId, []);
-      this.waiters.get(deviceId)!.push(waiter);
-    });
-  }
-
-  /**
-   * Release a lock on a device and notify the next waiter.
+   * Release a lock on a device.
    */
   release(deviceId: string, taskId: string): void {
-    const existing = this.locks.get(deviceId);
-    if (!existing) return;
-    if (existing.taskId !== taskId) {
-      log.warn(`Lock release mismatch: device=${deviceId.slice(0, 8)} held by ${existing.taskId.slice(0, 8)}, release from ${taskId.slice(0, 8)}`);
-      return;
-    }
+    const deviceLocks = this.locks.get(deviceId);
+    if (!deviceLocks) return;
 
-    this.locks.delete(deviceId);
+    const existing = deviceLocks.get(taskId);
+    if (!existing) return;
+
+    deviceLocks.delete(taskId);
+    if (deviceLocks.size === 0) this.locks.delete(deviceId);
+
     const elapsed = Math.round((Date.now() - existing.acquiredAt) / 1000);
     log.info(`Lock released: device=${deviceId.slice(0, 8)} by ${existing.workerType}:${taskId.slice(0, 8)} (held ${elapsed}s)`);
-
-    // Notify next waiter
-    const queue = this.waiters.get(deviceId);
-    if (queue && queue.length > 0) {
-      const next = queue.shift()!;
-      if (queue.length === 0) this.waiters.delete(deviceId);
-
-      // Try to acquire for the waiter
-      if (this.tryAcquire(deviceId, next.workerType, next.taskId)) {
-        next.resolve(true);
-      } else {
-        next.resolve(false);
-      }
-    }
   }
 
   /**
-   * Force-release a lock (for cleanup of stale locks).
+   * Force-release all locks for a device (stale cleanup).
    */
   forceRelease(deviceId: string): void {
-    const existing = this.locks.get(deviceId);
-    if (!existing) return;
-    log.warn(`Force-releasing stale lock: device=${deviceId.slice(0, 8)} held by ${existing.workerType}:${existing.taskId.slice(0, 8)} for ${Math.round((Date.now() - existing.acquiredAt) / 1000)}s`);
-    this.locks.delete(deviceId);
-
-    // Notify waiters
-    const queue = this.waiters.get(deviceId);
-    if (queue && queue.length > 0) {
-      const next = queue.shift()!;
-      if (queue.length === 0) this.waiters.delete(deviceId);
-      if (this.tryAcquire(deviceId, next.workerType, next.taskId)) {
-        next.resolve(true);
-      } else {
-        next.resolve(false);
-      }
+    const deviceLocks = this.locks.get(deviceId);
+    if (!deviceLocks) return;
+    for (const info of deviceLocks.values()) {
+      log.warn(`Force-releasing stale lock: device=${deviceId.slice(0, 8)} by ${info.workerType}:${info.taskId.slice(0, 8)} [${info.category}] held ${Math.round((Date.now() - info.acquiredAt) / 1000)}s`);
     }
+    this.locks.delete(deviceId);
   }
 
   /**
-   * Check if a device is locked and by whom.
+   * Check if a device is available for a specific worker type.
    */
-  getLockInfo(deviceId: string): DeviceLockInfo | null {
-    return this.locks.get(deviceId) || null;
+  isAvailableFor(deviceId: string, workerType: WorkerType): boolean {
+    const category = WORKER_CATEGORY[workerType];
+    const deviceLocks = this.locks.get(deviceId);
+    if (!deviceLocks || deviceLocks.size === 0) return true;
+    for (const existing of deviceLocks.values()) {
+      if (categoriesConflict(category, existing.category)) return false;
+    }
+    return true;
   }
 
   /**
-   * Check if device is available for a specific worker.
+   * Check if device has any locks at all.
    */
   isAvailable(deviceId: string): boolean {
-    return !this.locks.has(deviceId);
+    const deviceLocks = this.locks.get(deviceId);
+    return !deviceLocks || deviceLocks.size === 0;
   }
 
   /**
-   * Get lock reason string for UI/logs.
+   * Get blocking reason string for a specific worker type.
+   */
+  getBlockingReason(deviceId: string, workerType: WorkerType): string | null {
+    const category = WORKER_CATEGORY[workerType];
+    const deviceLocks = this.locks.get(deviceId);
+    if (!deviceLocks) return null;
+    for (const existing of deviceLocks.values()) {
+      if (categoriesConflict(category, existing.category)) {
+        return `${WORKER_LABELS[existing.workerType]} em execução [${existing.category}] (${existing.label})`;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get lock reason (any lock) — backward compat.
    */
   getLockReason(deviceId: string): string | null {
-    const info = this.locks.get(deviceId);
-    if (!info) return null;
-    const workerLabels: Record<WorkerType, string> = {
-      campaign: "Campanha de disparo",
-      mass_inject: "Adição em massa",
-      warmup: "Aquecimento",
-      group_interaction: "Interação de grupo",
-      chip_conversation: "Conversa entre chips",
-      group_join: "Entrada em grupos",
-      welcome: "Boas-vindas",
-      welcome_monitor: "Monitor de boas-vindas",
-      welcome_send: "Envio de boas-vindas",
-    };
-    return `${workerLabels[info.workerType]} em execução (${info.label})`;
+    const deviceLocks = this.locks.get(deviceId);
+    if (!deviceLocks || deviceLocks.size === 0) return null;
+    const items = Array.from(deviceLocks.values());
+    return items.map(i => `${WORKER_LABELS[i.workerType]} [${i.category}]`).join(", ");
+  }
+
+  /**
+   * Get all active lock infos for a device.
+   */
+  getLockInfo(deviceId: string): DeviceLockInfo[] {
+    const deviceLocks = this.locks.get(deviceId);
+    if (!deviceLocks) return [];
+    return Array.from(deviceLocks.values());
   }
 
   /**
    * Get all active locks (for health endpoint).
    */
   getActiveLocks(): DeviceLockInfo[] {
-    return Array.from(this.locks.values());
+    const all: DeviceLockInfo[] = [];
+    for (const deviceLocks of this.locks.values()) {
+      for (const info of deviceLocks.values()) {
+        all.push(info);
+      }
+    }
+    return all;
   }
 
   /**
@@ -198,8 +242,10 @@ class DeviceLockManagerImpl {
    */
   getLocksByWorker(): Record<string, number> {
     const counts: Record<string, number> = {};
-    for (const lock of this.locks.values()) {
-      counts[lock.workerType] = (counts[lock.workerType] || 0) + 1;
+    for (const deviceLocks of this.locks.values()) {
+      for (const lock of deviceLocks.values()) {
+        counts[lock.workerType] = (counts[lock.workerType] || 0) + 1;
+      }
     }
     return counts;
   }
@@ -210,11 +256,15 @@ class DeviceLockManagerImpl {
   cleanupStaleLocks(maxAgeMs: number = 30 * 60_000): number {
     const now = Date.now();
     let cleaned = 0;
-    for (const [deviceId, info] of this.locks) {
-      if (now - info.acquiredAt > maxAgeMs) {
-        this.forceRelease(deviceId);
-        cleaned++;
+    for (const [deviceId, deviceLocks] of this.locks) {
+      for (const [taskId, info] of deviceLocks) {
+        if (now - info.acquiredAt > maxAgeMs) {
+          log.warn(`Cleaning stale lock: device=${deviceId.slice(0, 8)} by ${info.workerType}:${taskId.slice(0, 8)} held ${Math.round((now - info.acquiredAt) / 1000)}s`);
+          deviceLocks.delete(taskId);
+          cleaned++;
+        }
       }
+      if (deviceLocks.size === 0) this.locks.delete(deviceId);
     }
     if (cleaned > 0) {
       log.warn(`Cleaned ${cleaned} stale device locks (maxAge=${Math.round(maxAgeMs / 60_000)}min)`);
@@ -223,5 +273,5 @@ class DeviceLockManagerImpl {
   }
 }
 
-// Singleton — shared across all workers in the same Node process
+// Singleton
 export const DeviceLockManager = new DeviceLockManagerImpl();
