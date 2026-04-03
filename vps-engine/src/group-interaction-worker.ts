@@ -6,6 +6,7 @@
 
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
+import { DeviceLockManager } from "./lib/device-lock-manager";
 
 const log = createLogger("group-interaction");
 

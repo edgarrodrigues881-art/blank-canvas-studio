@@ -7,6 +7,7 @@
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
 import { config } from "./config";
+import { DeviceLockManager } from "./lib/device-lock-manager";
 
 const log = createLogger("campaign");
 
