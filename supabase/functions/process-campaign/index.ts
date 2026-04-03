@@ -953,7 +953,7 @@ Deno.serve(async (req) => {
         .eq("campaign_id", campaignId)
         .eq("status", "processing");
       const pauseStats = await syncCampaignCounters(serviceClient, campaignId);
-      const pauseFilter = serviceClient.from("campaigns").update({
+      let pauseQuery = serviceClient.from("campaigns").update({
         status: "paused",
         sent_count: pauseStats.sent,
         delivered_count: pauseStats.delivered,
@@ -961,8 +961,8 @@ Deno.serve(async (req) => {
         total_contacts: pauseStats.total,
         updated_at: new Date().toISOString(),
       }).eq("id", campaignId);
-      if (!isAdmin) pauseFilter.eq("user_id", userId);
-      await pauseFilter;
+      if (!isAdmin) pauseQuery = pauseQuery.eq("user_id", userId);
+      await pauseQuery;
       if (campData) {
         const ids = getCampaignDeviceIds(campData);
         await releaseDeviceLocks(serviceClient, ids, campaignId);
