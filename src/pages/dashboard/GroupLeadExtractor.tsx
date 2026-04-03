@@ -20,6 +20,19 @@ import {
 interface GroupInfo { jid: string; name: string; participants_count: number }
 interface ExtractedLead { phone: string; name: string; group_jid: string; group_name: string; is_admin: boolean }
 
+const ROW_HEIGHT = 40;
+
+const VirtualRow = ({ index, style, data }: { index: number; style: CSSProperties; data: ExtractedLead[]; [key: string]: any }) => {
+  const lead = data[index];
+  if (!lead) return null;
+  return (
+    <div style={style} className="flex items-center px-3 border-b border-border/20 text-sm hover:bg-muted/30">
+      <div className="w-[60px] text-muted-foreground text-[11px] shrink-0">{index + 1}</div>
+      <div className="flex-1 font-mono truncate">{lead.phone}</div>
+    </div>
+  );
+};
+
 export default function GroupLeadExtractor() {
   const [selectedDevice, setSelectedDevice] = useState("");
   const [groups, setGroups] = useState<GroupInfo[]>([]);
@@ -118,7 +131,7 @@ export default function GroupLeadExtractor() {
 
       setLeads(validDedup);
       setLidLeads(lidDedup);
-      setTotalBeforeDedup(allValid.length + allLids.length);
+      setTotalBeforeDedup(allValid.length);
       setExtractProgress("");
 
       const totalRawAll = allValid.length + allLids.length;
@@ -205,19 +218,6 @@ export default function GroupLeadExtractor() {
     triggerDownload(blob, `leads_${activeTab}_${new Date().toISOString().slice(0, 10)}.xlsx`);
     toast.success("XLSX exportado!");
   }, [currentLeads, activeTab]);
-
-  // Virtualized row renderer
-  const ROW_HEIGHT = 40;
-  const VirtualRow = ({ index, style }: { index: number; style: CSSProperties; [key: string]: any }) => {
-    const lead = filteredLeads[index];
-    if (!lead) return null;
-    return (
-      <div style={style} className="flex items-center px-3 border-b border-border/20 text-sm hover:bg-muted/30">
-        <div className="w-[60px] text-muted-foreground text-[11px] shrink-0">{index + 1}</div>
-        <div className="flex-1 font-mono truncate">{lead.phone}</div>
-      </div>
-    );
-  };
 
   const hasResults = leads.length > 0 || lidLeads.length > 0;
 
@@ -408,7 +408,7 @@ export default function GroupLeadExtractor() {
                   rowComponent={VirtualRow as any}
                   rowCount={filteredLeads.length}
                   rowHeight={ROW_HEIGHT}
-                  rowProps={{}}
+                  rowProps={{ data: filteredLeads }}
                   overscanCount={20}
                 />
               ) : (

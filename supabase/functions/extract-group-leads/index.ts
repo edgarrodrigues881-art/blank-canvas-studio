@@ -180,19 +180,20 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("authorization") || "";
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: authErr } = await userClient.auth.getUser();
+    const adminClient = createClient(supabaseUrl, serviceKey);
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authErr } = await adminClient.auth.getUser(token);
     if (authErr || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const adminClient = createClient(supabaseUrl, serviceKey);
     const body = await req.json();
     const { action, device_id, group_jids, filters } = body;
+
+    if (!device_id || typeof device_id !== "string") {
+      return new Response(JSON.stringify({ error: "device_id is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const { data: device, error: devErr } = await adminClient
       .from("devices")
