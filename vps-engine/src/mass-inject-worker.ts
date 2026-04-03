@@ -959,15 +959,14 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
           break;
         }
 
-        // Extra cooldown for rate limits
+        // Cooldown only for rate limits — short and capped
         if (isRateLimit && result.cooldownMs > 0) {
-          // Only cooldown for actual rate limits — not connection hiccups
-          const cooldown = Math.min(result.cooldownMs, 15000); // Cap at 15s
+          const cooldown = Math.min(result.cooldownMs, 8000);
           log.info(`Campaign ${campaignId.slice(0, 8)}: rate limit cooldown ${Math.round(cooldown / 1000)}s`);
           await sleep(cooldown);
         } else if ((isConnectionIssue || isTimeout) && result.cooldownMs > 0) {
-          // Short cooldown for connection issues — don't block long
-          const cooldown = Math.min(result.cooldownMs, 5000); // Cap at 5s
+          const cooldown = Math.min(result.cooldownMs, 3000);
+          log.info(`Campaign ${campaignId.slice(0, 8)}: transient error cooldown ${Math.round(cooldown / 1000)}s`);
           await sleep(cooldown);
         }
       }
