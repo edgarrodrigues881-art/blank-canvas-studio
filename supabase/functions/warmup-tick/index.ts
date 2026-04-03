@@ -4305,12 +4305,12 @@ async function handleDailyReset(db: any) {
       daily_interaction_budget_target: 0,
     }).eq("id", cycle.id);
 
-    // [BUG A FIX] Activate community membership on phase transition (mirrors job-based daily_reset)
+    // [BUG A+B FIX] ALWAYS ensure community membership exists (not just on phase transitions)
     const isCommunityNewPhase = isCommunityPhase(newPhase);
     const communityStartDay = getCommunityStartDayForChip(chipState);
     const isFirstCommunityDay = newDay === communityStartDay && !isCommunityPhase(oldPhase);
 
-    if (newPhase !== oldPhase && ["autosave_enabled", "community_ramp_up", "community_stable"].includes(newPhase)) {
+    if (["autosave_enabled", "community_ramp_up", "community_stable"].includes(newPhase)) {
       const { data: membership } = await db.from("warmup_community_membership")
         .select("id, is_enabled, community_mode, community_day").eq("device_id", cycle.device_id).maybeSingle();
 
