@@ -693,7 +693,7 @@ async function warmupTick() {
         }
       } finally {
         DeviceLockManager.release(deviceId, warmupTaskId);
-        sem.release();
+        releaseGlobalSlot(slotLabel);
       }
     }),
   );
