@@ -56,6 +56,7 @@ app.get("/health", (_req: Request, res: Response) => {
     tickCount,
     tickErrors,
     concurrency: getGlobalConcurrencyStats(),
+    workers: workerMetrics.getAllStats(),
     deviceLocks: {
       active: DeviceLockManager.getActiveLocks().length,
       byWorker: DeviceLockManager.getLocksByWorker(),
