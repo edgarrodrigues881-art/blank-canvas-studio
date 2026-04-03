@@ -1578,8 +1578,9 @@ async function reconcileCommunityPairs(
       };
 
       const sortedEligible = [...(eligible || [])].sort((a: any, b: any) => {
-        const sameUserA = a.user_id === params.userId ? 0 : 1;
-        const sameUserB = b.user_id === params.userId ? 0 : 1;
+        // Prefer cross-user pairing (more organic) — same user gets lower priority
+        const sameUserA = a.user_id === params.userId ? 1 : 0;
+        const sameUserB = b.user_id === params.userId ? 1 : 0;
         if (sameUserA !== sameUserB) return sameUserA - sameUserB;
 
         const cycleA = candidateCycleMap[a.device_id];
@@ -3487,6 +3488,25 @@ async function handleTick(
       case "community_interaction": {
         if (!baseUrl || !token) throw new Error("Credenciais UAZAPI não configuradas");
 
+        // [FIX] Auto-create community membership if missing (safety net)
+        {
+          const { data: myMembership } = await db.from("warmup_community_membership")
+            .select("id, is_enabled").eq("device_id", job.device_id).maybeSingle();
+          if (!myMembership) {
+            await db.from("warmup_community_membership").insert({
+              user_id: job.user_id, device_id: job.device_id, cycle_id: cycle.id,
+              is_eligible: true, is_enabled: true, enabled_at: new Date().toISOString(),
+              community_mode: "warmup_managed", community_day: 1,
+              messages_today: 0, pairs_today: 0,
+            });
+            bufferAudit({ user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id, level: "warn", event_type: "community_membership_auto_created", message: "Membership criado automaticamente (faltava)" });
+          } else if (!myMembership.is_enabled) {
+            await db.from("warmup_community_membership")
+              .update({ is_enabled: true, is_eligible: true })
+              .eq("id", myMembership.id);
+          }
+        }
+
         const isReplyTurn = typeof job.payload?.pair_id === "string" && typeof job.payload?.conversation_id === "string";
 
         // ── Helper: processa um turno para um par específico ──
@@ -4125,13 +4145,14 @@ async function handleTick(
         cycle.phase = newPhase;
         cycle.last_daily_reset_at = resetAt;
 
-        // [BUG 3 FIX] When transitioning to autosave_enabled or community_enabled,
-        // ensure community membership is activated (was only done by enable_autosave job before)
+        // [BUG 3+4 FIX] ALWAYS ensure community membership exists for community-eligible phases
+        // Previously only ran on phase transitions (newPhase !== oldPhase), causing devices
+        // that stayed in community_ramp_up across daily resets to lose their membership
         const isCommunityNewPhase = isCommunityPhase(newPhase);
         const communityStartDay = getCommunityStartDayForChip(chipState);
         const isFirstCommunityDay = newDay === communityStartDay && !isCommunityPhase(oldPhase);
 
-        if (newPhase !== oldPhase && ["autosave_enabled", "community_ramp_up", "community_stable"].includes(newPhase)) {
+        if (["autosave_enabled", "community_ramp_up", "community_stable"].includes(newPhase)) {
           const { data: membership } = await db.from("warmup_community_membership")
             .select("id, is_enabled, community_mode, community_day").eq("device_id", job.device_id).maybeSingle();
 
@@ -4143,6 +4164,7 @@ async function handleTick(
               community_day: isFirstCommunityDay ? 1 : 0,
               messages_today: 0, pairs_today: 0,
             });
+            bufferAudit({ user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id, level: "info", event_type: "community_membership_created", message: `Membership comunitário criado (dia ${newDay}, fase ${newPhase})` });
           } else {
             const updateData: any = { is_enabled: true, is_eligible: true, enabled_at: resetAt, cycle_id: cycle.id, community_mode: "warmup_managed" };
             if (isFirstCommunityDay && (membership.community_day || 0) < 1) {
@@ -4303,12 +4325,12 @@ async function handleDailyReset(db: any) {
       daily_interaction_budget_target: 0,
     }).eq("id", cycle.id);
 
-    // [BUG A FIX] Activate community membership on phase transition (mirrors job-based daily_reset)
+    // [BUG A+B FIX] ALWAYS ensure community membership exists (not just on phase transitions)
     const isCommunityNewPhase = isCommunityPhase(newPhase);
     const communityStartDay = getCommunityStartDayForChip(chipState);
     const isFirstCommunityDay = newDay === communityStartDay && !isCommunityPhase(oldPhase);
 
-    if (newPhase !== oldPhase && ["autosave_enabled", "community_ramp_up", "community_stable"].includes(newPhase)) {
+    if (["autosave_enabled", "community_ramp_up", "community_stable"].includes(newPhase)) {
       const { data: membership } = await db.from("warmup_community_membership")
         .select("id, is_enabled, community_mode, community_day").eq("device_id", cycle.device_id).maybeSingle();
 
