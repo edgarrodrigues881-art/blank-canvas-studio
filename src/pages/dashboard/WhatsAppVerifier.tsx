@@ -130,27 +130,35 @@ export default function WhatsAppVerifier() {
     toast.success(`${validPhones.length} números copiados!`);
   }, [validPhones]);
 
+  const triggerDownload = useCallback((blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 150);
+  }, []);
+
   const exportCSV = useCallback(() => {
     const header = "Número,Status,Detalhe,Verificado em\n";
     const rows = results.map(r => `${r.phone},${r.status},${r.detail},${r.checked_at}`).join("\n");
     const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url;
-    a.download = `verificacao_whatsapp_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click(); URL.revokeObjectURL(url);
+    triggerDownload(blob, `verificacao_whatsapp_${new Date().toISOString().slice(0, 10)}.csv`);
     toast.success("CSV exportado!");
-  }, [results]);
+  }, [results, triggerDownload]);
 
   const exportValidOnly = useCallback(() => {
     const header = "Número\n";
     const rows = validPhones.map(r => r.phone).join("\n");
     const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url;
-    a.download = `numeros_validos_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click(); URL.revokeObjectURL(url);
+    triggerDownload(blob, `numeros_validos_${new Date().toISOString().slice(0, 10)}.csv`);
     toast.success("Números válidos exportados!");
-  }, [validPhones]);
+  }, [validPhones, triggerDownload]);
 
   const statusBadge = (status: VerifyResult["status"]) => {
     switch (status) {
@@ -258,7 +266,7 @@ export default function WhatsAppVerifier() {
                 {progress.processed} / {progress.total}
               </span>
             </div>
-            <Progress value={(progress.processed / progress.total) * 100} className="h-2" />
+            <Progress value={progress.total > 0 ? (progress.processed / progress.total) * 100 : 0} className="h-2" />
             <div className="flex gap-4 text-xs text-muted-foreground">
               <span className="text-emerald-400">✓ {stats.success} válidos</span>
               <span className="text-red-400">✗ {stats.no_whatsapp} sem WA</span>
@@ -340,7 +348,7 @@ export default function WhatsAppVerifier() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/30">
-                    {results.map((r, i) => (
+                    {results.slice(0, 500).map((r, i) => (
                       <tr key={i} className="hover:bg-muted/10 transition-colors">
                         <td className="px-4 py-2.5 font-mono text-foreground">{r.phone}</td>
                         <td className="px-4 py-2.5">{statusBadge(r.status)}</td>
@@ -350,6 +358,13 @@ export default function WhatsAppVerifier() {
                         </td>
                       </tr>
                     ))}
+                    {results.length > 500 && (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-3 text-center text-sm text-muted-foreground">
+                          Exibindo 500 de {results.length} resultados. Use "Exportar Tudo" para ver todos.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
