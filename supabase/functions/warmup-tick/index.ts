@@ -2594,7 +2594,7 @@ async function handleTick(
 
         const groupId = job.payload?.group_id;
         const groupName = job.payload?.group_name || groupId;
-        const existingIGs = instanceGroupsMap[job.device_id] || [];
+        const existingIGs = instanceGroupsMap[job.cycle_id] || [];
         const record = existingIGs.find((ig: any) => ig.group_id === groupId);
 
         // Skip if already joined or manually left
