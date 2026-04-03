@@ -455,10 +455,12 @@ export default function GroupJoinCampaignNew() {
               </div>
 
 
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Limite por instância (0 = sem limite)</label>
-                <Input type="number" min={0} value={limitPerInstance} onChange={e => setLimitPerInstance(Math.max(0, parseInt(e.target.value) || 0))} className="rounded-xl w-28 text-xs h-9" placeholder="0" />
-              </div>
+              {distributionMode === "distribute" && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Grupos por instância antes de trocar (0 = dividir igual)</label>
+                  <Input type="number" min={0} value={limitPerInstance || ""} onChange={e => setLimitPerInstance(Math.max(0, parseInt(e.target.value) || 0))} className="rounded-xl w-28 text-xs h-9" placeholder="0" />
+                </div>
+              )}
 
               <div className="space-y-2.5 pt-1">
                 <label className="flex items-center gap-2.5 cursor-pointer">
