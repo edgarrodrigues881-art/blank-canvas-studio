@@ -576,7 +576,7 @@ async function warmupTick() {
         log.info(`Warmup: device ${deviceId.slice(0, 8)} blocked by: ${blockReason} — rescheduling ${jobsByDevice[deviceId].length} jobs`);
         for (const job of jobsByDevice[deviceId]) {
           const retryAt = new Date(Date.now() + 30_000).toISOString();
-          await db.from("warmup_jobs").update({ status: "pending", run_at: retryAt, last_error: `Aguardando: ${lockReason}` }).eq("id", job.id);
+          await db.from("warmup_jobs").update({ status: "pending", run_at: retryAt, last_error: `Aguardando: ${blockReason}` }).eq("id", job.id);
         }
         sem.release();
         return;
