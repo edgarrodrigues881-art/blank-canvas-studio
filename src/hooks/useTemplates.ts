@@ -62,11 +62,14 @@ export function useUpdateTemplate() {
         .single();
       if (error) throw error;
 
-      // Sync all autoreply flows that reference this template
+      // Sync autoreply flows that reference this template (scoped to current user)
       try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) throw new Error("Not authenticated");
         const { data: flows } = await supabase
           .from("autoreply_flows")
-          .select("id, nodes");
+          .select("id, nodes")
+          .eq("user_id", currentUser.id);
 
         if (flows) {
           for (const flow of flows) {

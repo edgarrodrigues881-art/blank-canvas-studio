@@ -50,7 +50,17 @@ const compressImage = (file: File, maxWidth = 1200, quality = 0.8): Promise<File
       );
     };
     img.onerror = () => resolve(file);
-    img.src = URL.createObjectURL(file);
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = (() => {
+      const originalOnload = img.onload;
+      return function (this: GlobalEventHandlers, ev: Event) {
+        URL.revokeObjectURL(objectUrl);
+        // @ts-ignore
+        return originalOnload?.call(this, ev);
+      };
+    })();
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
+    img.src = objectUrl;
   });
 };
 
