@@ -2435,10 +2435,12 @@ async function handleTick(
   if (autosaveDisabledUsers.size > 0) {
     console.log(`[warmup-tick] Skipped autosave contacts for ${autosaveDisabledUsers.size} users with autosave disabled`);
   }
+  // CRITICAL: Index by cycle_id (not device_id) to prevent cross-cycle group leakage
   const instanceGroupsMap: Record<string, any[]> = {};
   instanceGroupsArr.forEach((ig: any) => {
-    if (!instanceGroupsMap[ig.device_id]) instanceGroupsMap[ig.device_id] = [];
-    instanceGroupsMap[ig.device_id].push(ig);
+    const key = ig.cycle_id || ig.device_id; // cycle_id is primary key for isolation
+    if (!instanceGroupsMap[key]) instanceGroupsMap[key] = [];
+    instanceGroupsMap[key].push(ig);
   });
   const groupsMap: Record<string, any> = {};
   groupsPoolArr.forEach((g: any) => { groupsMap[g.id] = { ...g, external_group_ref: g.link }; });
