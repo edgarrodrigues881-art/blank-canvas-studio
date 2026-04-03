@@ -504,8 +504,24 @@ async function scheduleDayJobs(
   const actualGroupCount = remainingBudget !== null ? Math.min(volumes.groupMsgs, reservedGroupBudget) : volumes.groupMsgs;
   const actualAutosaveCount = remainingBudget !== null ? Math.min(autosaveNeeded, reservedAutosaveBudget) : autosaveNeeded;
 
-  // Group interactions — spread evenly across the ENTIRE window
+  // [BUG FIX] Check if cycle has ANY usable groups before creating group_interaction jobs
+  // This prevents infinite orphan recovery → fail → recovery loops
+  let hasUsableGroups = true;
   if (actualGroupCount > 0) {
+    const { data: joinedGroups } = await db.from("warmup_instance_groups")
+      .select("id")
+      .eq("cycle_id", cycleId)
+      .eq("device_id", deviceId)
+      .eq("join_status", "joined")
+      .limit(1);
+    if (!joinedGroups?.length) {
+      hasUsableGroups = false;
+      console.log(`[scheduleDayJobs] No joined groups for cycle ${cycleId} — skipping group_interaction jobs`);
+    }
+  }
+
+  // Group interactions — spread evenly across the ENTIRE window
+  if (actualGroupCount > 0 && hasUsableGroups) {
     const firstJobOffset = randInt(60, 300) * 1000; // 1-5 min after window opens
     const remainingWindow = windowMs - firstJobOffset;
     const spacing = remainingWindow / Math.max(actualGroupCount, 1);
