@@ -292,10 +292,24 @@ Deno.serve(async (req) => {
       }
 
       // Build inserts WITHOUT tokens — tokens will be generated on-demand at connect/QR time
+      // CRITICAL: Filter out proxies already assigned to other devices to prevent duplication
+      const { data: usedProxyDevices } = await admin
+        .from("devices")
+        .select("proxy_id")
+        .eq("user_id", user.id)
+        .not("proxy_id", "is", null);
+      const usedProxyIds = new Set((usedProxyDevices || []).map((d: any) => d.proxy_id));
+
       const inserts: any[] = [];
       let idx = startIndex;
+      let skippedProxies = 0;
 
       for (const proxyId of (proxyIds || [])) {
+        if (usedProxyIds.has(proxyId)) {
+          console.log(`[bulk-create] skipping proxy ${proxyId} — already assigned to another device`);
+          skippedProxies++;
+          continue;
+        }
         inserts.push({
           name: `${prefix} ${idx}`,
           login_type: "qr",
@@ -303,6 +317,7 @@ Deno.serve(async (req) => {
           user_id: user.id,
           proxy_id: proxyId,
         });
+        usedProxyIds.add(proxyId); // prevent within-batch duplication
         idx++;
       }
 

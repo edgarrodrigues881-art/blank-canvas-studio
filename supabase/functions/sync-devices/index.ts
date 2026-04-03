@@ -353,7 +353,17 @@ Deno.serve(async (req) => {
       devices = devices.slice(start, start + chunkSize);
     }
 
-    const syncable = devices.filter(d => d.uazapi_token && d.uazapi_base_url);
+    // Skip devices in "Loading" status — they are actively connecting (QR/pairing)
+    // and should NOT have their status changed by sync
+    const syncable = devices.filter(d => {
+      if (!d.uazapi_token || !d.uazapi_base_url) return false;
+      const st = String(d.status || "").toLowerCase().trim();
+      if (st === "loading") {
+        console.log(`[sync-devices] skipping "${d.name}" — status=Loading (actively connecting)`);
+        return false;
+      }
+      return true;
+    });
     const skipped = devices.length - syncable.length;
 
     const deadline = Date.now() + 25_000;
