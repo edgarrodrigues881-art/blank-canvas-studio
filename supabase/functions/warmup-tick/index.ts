@@ -522,6 +522,19 @@ async function scheduleDayJobs(
   }
 
   // Autosave: spread contacts throughout the ENTIRE window with gaps between contacts
+  // Check autosave_enabled before scheduling autosave jobs
+  let autosaveDisabled = false;
+  if (volumes.autosaveContacts > 0) {
+    const { data: profileCheck } = await db.from("profiles")
+      .select("autosave_enabled").eq("id", userId).maybeSingle();
+    if (profileCheck && profileCheck.autosave_enabled === false) {
+      volumes.autosaveContacts = 0;
+      volumes.autosaveRounds = 0;
+      autosaveDisabled = true;
+      console.log(`[scheduleDayJobs] Auto Save disabled by user ${userId.slice(0, 8)} — skipping autosave jobs`);
+    }
+  }
+
   if (volumes.autosaveContacts > 0 && volumes.autosaveRounds > 0) {
     const contactsToProcess = remainingBudget !== null
       ? Math.min(volumes.autosaveContacts, Math.ceil(actualAutosaveCount / volumes.autosaveRounds))
