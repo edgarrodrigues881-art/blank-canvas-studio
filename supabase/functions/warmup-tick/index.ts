@@ -522,6 +522,19 @@ async function scheduleDayJobs(
   }
 
   // Autosave: spread contacts throughout the ENTIRE window with gaps between contacts
+  // Check autosave_enabled before scheduling autosave jobs
+  let autosaveDisabled = false;
+  if (volumes.autosaveContacts > 0) {
+    const { data: profileCheck } = await db.from("profiles")
+      .select("autosave_enabled").eq("id", userId).maybeSingle();
+    if (profileCheck && profileCheck.autosave_enabled === false) {
+      volumes.autosaveContacts = 0;
+      volumes.autosaveRounds = 0;
+      autosaveDisabled = true;
+      console.log(`[scheduleDayJobs] Auto Save disabled by user ${userId.slice(0, 8)} — skipping autosave jobs`);
+    }
+  }
+
   if (volumes.autosaveContacts > 0 && volumes.autosaveRounds > 0) {
     const contactsToProcess = remainingBudget !== null
       ? Math.min(volumes.autosaveContacts, Math.ceil(actualAutosaveCount / volumes.autosaveRounds))
@@ -2341,7 +2354,7 @@ async function handleTick(
   const [cyclesArr, subsArr, profilesArr, devicesArr, tokenRows, userMsgsArr, autosaveArr, instanceGroupsArr, groupsPoolArr, imagePool, audioPool] = await Promise.all([
     batchLoad<any>("warmup_cycles", "id, user_id, device_id, phase, is_running, day_index, days_total, chip_state, daily_interaction_budget_min, daily_interaction_budget_max, daily_interaction_budget_target, daily_interaction_budget_used, daily_unique_recipients_cap, daily_unique_recipients_used, first_24h_ends_at, last_daily_reset_at, next_run_at, plan_id, created_at, started_at", "id", uniqueCycleIds),
     batchLoad<any>("subscriptions", "user_id, expires_at, created_at", "user_id", uniqueUserIds, q => q.order("created_at", { ascending: false })),
-    batchLoad<any>("profiles", "id, status, instance_override", "id", uniqueUserIds),
+    batchLoad<any>("profiles", "id, status, instance_override, autosave_enabled", "id", uniqueUserIds),
     batchLoad<any>("devices", "id, status, uazapi_token, uazapi_base_url, number", "id", uniqueDeviceIds),
     batchLoad<any>("user_api_tokens", "device_id, token, status", "device_id", uniqueDeviceIds, q => q.eq("status", "in_use")),
     batchLoad<any>("warmup_messages", "content, user_id", "user_id", uniqueUserIds),
@@ -2391,7 +2404,13 @@ async function handleTick(
     userMsgsMap[m.user_id].push(m.content);
   });
   const autosaveMap: Record<string, any[]> = {};
+  // Filter out autosave contacts for users who disabled autosave
+  const autosaveDisabledUsers = new Set<string>();
+  profilesArr.forEach((p: any) => {
+    if (p.autosave_enabled === false) autosaveDisabledUsers.add(p.id);
+  });
   autosaveArr.forEach((c: any) => {
+    if (autosaveDisabledUsers.has(c.user_id)) return; // skip disabled users
     if (!autosaveMap[c.user_id]) autosaveMap[c.user_id] = [];
     autosaveMap[c.user_id].push(c);
   });
@@ -2413,6 +2432,9 @@ async function handleTick(
       return String(a.id || "").localeCompare(String(b.id || ""));
     });
   });
+  if (autosaveDisabledUsers.size > 0) {
+    console.log(`[warmup-tick] Skipped autosave contacts for ${autosaveDisabledUsers.size} users with autosave disabled`);
+  }
   const instanceGroupsMap: Record<string, any[]> = {};
   instanceGroupsArr.forEach((ig: any) => {
     if (!instanceGroupsMap[ig.device_id]) instanceGroupsMap[ig.device_id] = [];
@@ -3090,6 +3112,21 @@ async function handleTick(
 
       // ── AUTOSAVE INTERACTION ──
       case "autosave_interaction": {
+        // Check if user has autosave_enabled in profile
+        const userProfile = profilesMap[job.user_id];
+        if (userProfile && userProfile.autosave_enabled === false) {
+          bufferAudit({
+            user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id,
+            level: "info", event_type: "autosave_disabled_skip",
+            message: "Auto Save desativado pelo usuário — job cancelado",
+          });
+          await db.from("warmup_jobs")
+            .update({ status: "cancelled", last_error: "Auto Save desativado pelo usuário" })
+            .eq("cycle_id", job.cycle_id)
+            .eq("job_type", "autosave_interaction")
+            .in("status", ["pending", "running"]);
+          break;
+        }
         if (!baseUrl || !token) throw new Error("Credenciais UAZAPI não configuradas");
 
         const rIdx = Number(job.payload?.recipient_index ?? 0);

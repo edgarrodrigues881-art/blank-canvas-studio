@@ -221,15 +221,22 @@ const AutoSave = () => {
     );
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = useCallback((id: string) => {
     deleteContact.mutate(id, { onSuccess: () => toast({ title: "Contato excluído" }) });
-  };
+  }, [deleteContact, toast]);
+
+  const handleToggle = useCallback((c: WarmupAutosaveContact) => {
+    updateContact.mutate({ id: c.id, is_active: !c.is_active }, {
+      onSuccess: () => toast({ title: c.is_active ? "Contato desativado" : "Contato ativado" }),
+    });
+  }, [updateContact, toast]);
 
   const rowProps = useMemo(() => ({
     filtered,
     onEdit: handleEditContact,
+    onToggle: handleToggle,
     onDelete: handleDelete,
-  }), [filtered, handleEditContact]);
+  }), [filtered, handleEditContact, handleToggle, handleDelete]);
 
   const handleDeleteAll = async () => {
     if (!contacts.length || !user) return;
