@@ -975,13 +975,30 @@ const Devices = () => {
     setEditProxyOpen(true);
   };
 
-  const handleEditProxy = () => {
+  const handleEditProxy = async () => {
     if (!editProxyDevice) return;
-    const proxyId = editProxyValue === "none" ? null : editProxyValue;
+    const newProxyId = editProxyValue === "none" ? null : editProxyValue;
+    const oldProxyId = editProxyDevice.proxy_id;
+
+    // Update device proxy_id
     updateMutation.mutate({
       id: editProxyDevice.id,
-      updates: { proxy_id: proxyId },
+      updates: { proxy_id: newProxyId },
     });
+
+    // Sync proxy statuses: old → USADA, new → USANDO
+    const proxyOps: Promise<any>[] = [];
+    if (oldProxyId && oldProxyId !== newProxyId) {
+      proxyOps.push(supabase.from("proxies").update({ status: "USADA" } as any).eq("id", oldProxyId));
+    }
+    if (newProxyId && newProxyId !== oldProxyId) {
+      proxyOps.push(supabase.from("proxies").update({ status: "USANDO" } as any).eq("id", newProxyId));
+    }
+    if (proxyOps.length > 0) {
+      await Promise.allSettled(proxyOps);
+      queryClient.invalidateQueries({ queryKey: ["proxies"] });
+    }
+
     toast({ title: "Proxy atualizado" });
     setEditProxyOpen(false);
     setEditProxyDevice(null);
