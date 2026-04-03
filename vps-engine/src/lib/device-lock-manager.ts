@@ -15,7 +15,9 @@ export type WorkerType =
   | "group_interaction"
   | "chip_conversation"
   | "group_join"
-  | "welcome";
+  | "welcome"
+  | "welcome_monitor"
+  | "welcome_send";
 
 export interface DeviceLockInfo {
   deviceId: string;
