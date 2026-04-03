@@ -125,6 +125,7 @@ const Contacts = () => {
   const createContacts = useCreateContacts();
   const updateContact = useUpdateContact();
   const deleteContacts = useDeleteContacts();
+  const bulkUpdateContacts = useBulkUpdateContacts();
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
