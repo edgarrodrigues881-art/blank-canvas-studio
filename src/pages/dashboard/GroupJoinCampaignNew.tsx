@@ -86,7 +86,7 @@ export default function GroupJoinCampaignNew() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const description = "";
   const [linksRaw, setLinksRaw] = useState("");
   const [importTab, setImportTab] = useState("paste");
   const [distributionMode, setDistributionMode] = useState<"single" | "distribute">("distribute");
