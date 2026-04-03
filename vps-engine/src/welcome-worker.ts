@@ -551,7 +551,7 @@ async function processPhase() {
       if (lockErr) continue;
 
       // Pick sender (round-robin) — each person gets ONE message from ONE sender
-      const sender = activeSenders[senderIdx % activeSenders.length];
+      const sender = availableSenders[senderIdx % availableSenders.length];
       senderIdx++;
 
       // Build message with variables
