@@ -2825,8 +2825,9 @@ async function handleTick(
       case "group_interaction": {
         if (!baseUrl || !token) throw new Error("Credenciais UAZAPI não configuradas");
 
-        let allIGs = instanceGroupsMap[job.device_id] || [];
-        let joinedGroups = allIGs.filter((ig: any) => ig.join_status === "joined");
+        // CRITICAL: Use cycle_id (not device_id) to prevent cross-cycle group leakage
+        let allIGs = instanceGroupsMap[job.cycle_id] || [];
+        let joinedGroups = allIGs.filter((ig: any) => ig.join_status === "joined" && ig.device_id === job.device_id);
         let liveGroupsCache: any[] = [];
 
         const norm = (v: string) =>
