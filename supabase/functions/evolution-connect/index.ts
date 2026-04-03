@@ -748,16 +748,20 @@ Deno.serve(async (req) => {
       let tokenAttempt = 0;
       let connectRes: any = null;
 
-      const preCheck = await checkStatus(4000);
-      console.log(`[evolution-connect] qr-session-reset: status="${preCheck.rawStatus || preCheck.status}" owner=${getOwnerDigits(preCheck.owner).length >= 10} hasQr=${!!preCheck.qrcode} forceReconnect=${!!body.forceReconnect}`);
-      const clearedState = await clearProviderSessionForQr();
+      const preCheck = await checkStatus(3000);
+      const needsReset = isConfirmedConnected(preCheck) || !!preCheck.qrcode || body.forceReconnect;
+      console.log(`[evolution-connect] qr-pre: status="${preCheck.rawStatus || preCheck.status}" needsReset=${needsReset} forceReconnect=${!!body.forceReconnect}`);
+      
+      if (needsReset) {
+        const clearedState = await clearProviderSessionForQr(true);
+        console.log(`[evolution-connect] qr-after-reset: status="${clearedState.rawStatus || clearedState.status}"`);
+      }
       await svc.from("devices").update({
         number: null,
         status: "Loading",
         profile_name: null,
         updated_at: new Date().toISOString(),
       }).eq("id", deviceId);
-      console.log(`[evolution-connect] qr-session-after-reset: status="${clearedState.rawStatus || clearedState.status}" owner=${getOwnerDigits(clearedState.owner).length >= 10} hasQr=${!!clearedState.qrcode}`);
 
       while (tokenAttempt < MAX_TOKEN_RETRIES) {
         tokenAttempt++;
