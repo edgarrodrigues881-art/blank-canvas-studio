@@ -3053,14 +3053,25 @@ async function handleTick(
           }
 
           if (!groupJid) {
+            // Cancel ALL remaining group_interaction jobs for this cycle to stop error spam
+            const { count: cancelledCount } = await db.from("warmup_jobs")
+              .update({ status: "cancelled", last_error: "Sem grupos com JID resolvido — cancelado para evitar erros repetidos" })
+              .eq("cycle_id", job.cycle_id)
+              .eq("job_type", "group_interaction")
+              .eq("status", "pending")
+              .select("id", { count: "exact", head: true });
+
+            // Re-trigger join_group jobs to retry group entry
+            await ensureJoinGroupJobs(db, job.cycle_id, job.user_id, job.device_id);
+
             bufferAudit({
               user_id: job.user_id,
               device_id: job.device_id,
               cycle_id: job.cycle_id,
-              level: "error",
+              level: "warn",
               event_type: "group_no_registered_jid",
-              message: "Nenhum grupo REGISTRADO com JID resolvido — aguardando entrada nos grupos cadastrados",
-              meta: { registered_count: allIGs.length, joined_count: joinedGroups.length, live_count: liveGroupsCache.length },
+              message: `Nenhum grupo com JID resolvido — ${cancelledCount || 0} jobs cancelados, re-agendando entrada nos grupos`,
+              meta: { registered_count: allIGs.length, joined_count: joinedGroups.length, live_count: liveGroupsCache.length, cancelled_jobs: cancelledCount || 0 },
             });
             throw new Error("Nenhum grupo cadastrado com JID resolvido (aguardando entrada nos grupos)");
           }
