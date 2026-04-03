@@ -332,23 +332,30 @@ const Proxy = () => {
 
   const handleSync = async () => {
     try {
-      const { data: allProxies } = await supabase.from("proxies").select("id, status");
-      const { data: allDevices } = await supabase.from("devices").select("proxy_id");
-      const linkedProxyIds = new Set((allDevices || []).map(d => d.proxy_id).filter(Boolean));
-      let updated = 0;
-      for (const proxy of (allProxies || [])) {
+      // Fetch all proxies and devices in parallel
+      const [proxiesRes, devicesRes] = await Promise.all([
+        supabase.from("proxies").select("id, status"),
+        supabase.from("devices").select("proxy_id").not("proxy_id", "is", null),
+      ]);
+      const allProxies = proxiesRes.data || [];
+      const linkedProxyIds = new Set((devicesRes.data || []).map(d => d.proxy_id).filter(Boolean));
+
+      // Batch updates by target status
+      const toUsando: string[] = [];
+      const toUsada: string[] = [];
+      for (const proxy of allProxies) {
         const isLinked = linkedProxyIds.has(proxy.id);
-        let correctStatus: string;
-        if (isLinked) correctStatus = "USANDO";
-        else if (proxy.status === "USANDO") correctStatus = "USADA";
-        else correctStatus = proxy.status;
-        if (proxy.status !== correctStatus) {
-          await supabase.from("proxies").update({ status: correctStatus } as any).eq("id", proxy.id);
-          updated++;
-        }
+        if (isLinked && proxy.status !== "USANDO") toUsando.push(proxy.id);
+        else if (!isLinked && proxy.status === "USANDO") toUsada.push(proxy.id);
       }
+
+      const ops: Array<PromiseLike<any>> = [];
+      if (toUsando.length > 0) ops.push(supabase.from("proxies").update({ status: "USANDO" } as any).in("id", toUsando));
+      if (toUsada.length > 0) ops.push(supabase.from("proxies").update({ status: "USADA" } as any).in("id", toUsada));
+      await Promise.all(ops);
+
       queryClient.invalidateQueries({ queryKey: ["proxies"] });
-      toast.success(`Sincronizado. ${updated} atualizada(s).`);
+      toast.success(`Sincronizado. ${toUsando.length + toUsada.length} atualizada(s).`);
     } catch {
       toast.error("Erro ao sincronizar");
     }
