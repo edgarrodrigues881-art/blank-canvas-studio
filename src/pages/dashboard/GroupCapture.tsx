@@ -348,8 +348,9 @@ const GroupCapture = () => {
   const toggleDevice = useCallback((id: string) =>
     setSelectedDevices((prev) => prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]), []);
 
+  const visibleGroups = useMemo(() => [...customGroups, ...systemGroups], [customGroups, systemGroups]);
   const selectAllGroups = useCallback(() =>
-    setSelectedGroups((prev) => prev.length === allGroups.length ? [] : allGroups.map((g: any) => g.link)), [allGroups]);
+    setSelectedGroups((prev) => prev.length === visibleGroups.length ? [] : visibleGroups.map((g: any) => g.link)), [visibleGroups]);
   const onlineDevices = devices.filter((d) => ["Connected", "Ready", "authenticated"].includes(d.status));
   const selectAllDevices = useCallback(() =>
     setSelectedDevices((prev) => prev.length === onlineDevices.length ? [] : onlineDevices.map((d) => d.id)), [onlineDevices]);
