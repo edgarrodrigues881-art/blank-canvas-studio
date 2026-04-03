@@ -134,10 +134,22 @@ export default function GroupJoinCampaignNew() {
     if (distributionMode === "single") {
       return selectedDevices.map(id => ({ id, name: devices.find(d => d.id === id)?.name || id, count: parsedLinks.valid.length }));
     }
+    if (limitPerInstance > 0) {
+      // Each instance gets up to limitPerInstance links, then rotates
+      const counts = new Map<string, number>();
+      selectedDevices.forEach(id => counts.set(id, 0));
+      let idx = 0;
+      for (let i = 0; i < parsedLinks.valid.length; i++) {
+        const deviceId = selectedDevices[idx % selectedDevices.length];
+        counts.set(deviceId, (counts.get(deviceId) || 0) + 1);
+        if ((counts.get(deviceId) || 0) % limitPerInstance === 0) idx++;
+      }
+      return selectedDevices.map(id => ({ id, name: devices.find(d => d.id === id)?.name || id, count: counts.get(id) || 0 }));
+    }
     const perInstance = Math.floor(parsedLinks.valid.length / selectedDevices.length);
     const remainder = parsedLinks.valid.length % selectedDevices.length;
     return selectedDevices.map((id, i) => ({ id, name: devices.find(d => d.id === id)?.name || id, count: perInstance + (i < remainder ? 1 : 0) }));
-  }, [selectedDevices, parsedLinks.valid.length, distributionMode, devices]);
+  }, [selectedDevices, parsedLinks.valid.length, distributionMode, devices, limitPerInstance]);
 
   const totalQueueItems = useMemo(() => {
     if (distributionMode === "single") return selectedDevices.length * parsedLinks.valid.length;
