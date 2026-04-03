@@ -88,7 +88,7 @@ function hasWarmupAccess(subscription: { expires_at?: string | null } | null | u
 }
 
 // ══════════════════════════════════════════════════════════
-// VOLUME CONFIG — 120 to 200 messages/day total (progressive 30-day)
+// VOLUME CONFIG — 160 to 220 messages/day total (progressive 30-day)
 // Must match warmup-engine exactly
 // ══════════════════════════════════════════════════════════
 
@@ -104,24 +104,24 @@ function getProgressiveDailyBudget(dayIndex: number, chipState: string): number 
   const day = Math.max(1, Math.min(dayIndex, 30));
 
   if (chipState === "recovered") {
-    if (day <= 7)  return randInt(130, 150);
-    if (day <= 15) return randInt(150, 175);
-    if (day <= 23) return randInt(175, 195);
-    return randInt(190, 200);
+    if (day <= 7)  return randInt(165, 180);
+    if (day <= 15) return randInt(180, 200);
+    if (day <= 23) return randInt(200, 215);
+    return randInt(210, 220);
   }
 
   if (chipState === "unstable") {
-    if (day <= 7)  return randInt(120, 130);
-    if (day <= 15) return randInt(130, 155);
-    if (day <= 23) return randInt(155, 180);
-    return randInt(175, 195);
+    if (day <= 7)  return randInt(160, 170);
+    if (day <= 15) return randInt(170, 190);
+    if (day <= 23) return randInt(190, 210);
+    return randInt(205, 220);
   }
 
   // "new"
-  if (day <= 7)  return randInt(120, 135);
-  if (day <= 15) return randInt(135, 160);
-  if (day <= 23) return randInt(160, 185);
-  return randInt(185, 200);
+  if (day <= 7)  return randInt(160, 175);
+  if (day <= 15) return randInt(175, 195);
+  if (day <= 23) return randInt(195, 212);
+  return randInt(210, 220);
 }
 
 function getDailyBudget(dayIndex: number = 1, chipState: string = "new"): number {

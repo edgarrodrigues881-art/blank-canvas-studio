@@ -104,31 +104,31 @@ interface DayVolumes {
 }
 
 function getProgressiveDailyBudget(dayIndex: number, chipState: string): number {
-  // Returns total daily message budget (120-200 range)
+  // Returns total daily message budget (160-220 range)
   // Each phase has a min/max range with slight daily randomization
   const day = Math.max(1, Math.min(dayIndex, 30));
 
   if (chipState === "recovered") {
     // Faster acceleration — enters intermediate volume earlier
-    if (day <= 7)  return randInt(130, 150);
-    if (day <= 15) return randInt(150, 175);
-    if (day <= 23) return randInt(175, 195);
-    return randInt(190, 200);
+    if (day <= 7)  return randInt(165, 180);
+    if (day <= 15) return randInt(180, 200);
+    if (day <= 23) return randInt(200, 215);
+    return randInt(210, 220);
   }
 
   if (chipState === "unstable") {
     // Gradual reactivation — stability-focused
-    if (day <= 7)  return randInt(120, 130);
-    if (day <= 15) return randInt(130, 155);
-    if (day <= 23) return randInt(155, 180);
-    return randInt(175, 195);
+    if (day <= 7)  return randInt(160, 170);
+    if (day <= 15) return randInt(170, 190);
+    if (day <= 23) return randInt(190, 210);
+    return randInt(205, 220);
   }
 
   // "new" — cautious start, gentle growth
-  if (day <= 7)  return randInt(120, 135);
-  if (day <= 15) return randInt(135, 160);
-  if (day <= 23) return randInt(160, 185);
-  return randInt(185, 200);
+  if (day <= 7)  return randInt(160, 175);
+  if (day <= 15) return randInt(175, 195);
+  if (day <= 23) return randInt(195, 212);
+  return randInt(210, 220);
 }
 
 function getDailyBudget(dayIndex: number = 1, chipState: string = "new"): number {
