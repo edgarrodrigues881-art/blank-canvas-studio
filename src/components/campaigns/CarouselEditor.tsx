@@ -92,7 +92,7 @@ export function CarouselEditor({ cards, onChange }: CarouselEditorProps) {
       ...source,
       id: `card-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       position: cards.length,
-      buttons: source.buttons.map(b => ({ ...b, id: Date.now() + Math.random() })),
+      buttons: source.buttons.map(b => ({ ...b, id: Math.floor(Date.now() + Math.random() * 10000) })),
     };
     const newCards = [...cards];
     newCards.splice(index + 1, 0, newCard);
