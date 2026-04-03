@@ -72,6 +72,31 @@ async function uazapi(
   return { ok: false, status: 0, data: { error: lastErr?.message || "Request failed after retries" } };
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+type ProviderStatusCheck = {
+  valid: boolean;
+  status: string;
+  rawStatus: string;
+  qrcode?: string;
+  owner?: string;
+  profileName?: string;
+  profilePicUrl?: string;
+};
+
+function getOwnerDigits(owner: string | null | undefined): string {
+  return String(owner || "").replace(/\D/g, "");
+}
+
+function isConfirmedConnected(check: ProviderStatusCheck | null | undefined): boolean {
+  return Boolean(
+    check?.valid &&
+    check?.status === "connected" &&
+    !check?.qrcode &&
+    getOwnerDigits(check?.owner).length >= 10,
+  );
+}
+
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
   const chunkSize = 0x8000;
@@ -531,9 +556,9 @@ Deno.serve(async (req) => {
     }
 
     // ── Quick status check helper ──
-    const checkStatus = async (timeout = 6000): Promise<{ valid: boolean; status: string; rawStatus: string; qrcode?: string; owner?: string; profileName?: string; profilePicUrl?: string }> => {
+    const checkStatus = async (timeout = 6000): Promise<ProviderStatusCheck> => {
       if (!instanceToken) return { valid: false, status: "no_token", rawStatus: "no_token" };
-      const r = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: timeout, retries: 1 });
+      const r = await uazapi(instanceUrl, `/instance/status?t=${Date.now()}`, instanceToken, "GET", undefined, { timeoutMs: timeout, retries: 0 });
       if (r.status === 401) return { valid: false, status: "token_invalid", rawStatus: "token_invalid" };
       if (!r.ok) return { valid: false, status: "error", rawStatus: "error" };
       const normalized = normalizeProviderConnectionState(r.data);
@@ -546,6 +571,41 @@ Deno.serve(async (req) => {
         profileName: normalized.profileName || "",
         profilePicUrl: normalized.profilePicUrl || "",
       };
+    };
+
+    const confirmStableConnected = async (
+      initialCheck: ProviderStatusCheck,
+      confirmations = 2,
+    ): Promise<{ confirmed: boolean; latest: ProviderStatusCheck; sawQr: boolean }> => {
+      let latest = initialCheck;
+      let sawQr = Boolean(initialCheck.qrcode);
+      let consecutive = isConfirmedConnected(initialCheck) ? 1 : 0;
+
+      for (let attempt = 0; attempt < 3 && consecutive < confirmations; attempt++) {
+        await sleep(900);
+        latest = await checkStatus(4000);
+        sawQr = sawQr || Boolean(latest.qrcode);
+        if (isConfirmedConnected(latest)) {
+          consecutive += 1;
+          continue;
+        }
+        break;
+      }
+
+      return { confirmed: consecutive >= confirmations, latest, sawQr };
+    };
+
+    const clearProviderSessionForQr = async (): Promise<ProviderStatusCheck> => {
+      let latest: ProviderStatusCheck = { valid: false, status: "unknown", rawStatus: "unknown" };
+      for (let attempt = 0; attempt < 2; attempt++) {
+        await uazapi(instanceUrl, "/instance/logout", instanceToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
+        await sleep(800);
+        await uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
+        await sleep(1200);
+        latest = await checkStatus(4000);
+        if (!isConfirmedConnected(latest) && !latest.qrcode) break;
+      }
+      return latest;
     };
 
     // ════════════════════════════════════════════════════════════════════
@@ -681,43 +741,16 @@ Deno.serve(async (req) => {
       let tokenAttempt = 0;
       let connectRes: any = null;
 
-      // CRITICAL FIX: Pre-disconnect to clear stale sessions that block QR generation
-      // Force disconnect + logout in these scenarios:
-      // 1. Device has no number in DB but UAZAPI reports "connected" (stale session from deleted instance)
-      // 2. Device is in a half-state (not connected, not fully disconnected)
-      // 3. Device DB status is "Disconnected" but UAZAPI still reports "connected" (user disconnected in UI)
-      // 4. User explicitly requests forceReconnect
-      const preCheck = await uazapi(instanceUrl, "/instance/status", currentToken, "GET", undefined, { timeoutMs: 5000, retries: 0 });
-      const preState = preCheck.ok
-        ? normalizeProviderConnectionState(preCheck.data)
-        : { state: "unknown" as const, rawStatus: "", owner: "", qrcode: null, profileName: "", profilePicUrl: "" };
-      const preStatus = preState.state;
-      const preStatusLabel = preState.rawStatus || preStatus;
-      const deviceHasNoNumber = !device?.number || device.number.trim() === "";
-      const isStaleConnected = preStatus === "connected" && deviceHasNoNumber;
-      const dbStatusDisconnected = (device?.status || "").toLowerCase() !== "ready" && (device?.status || "").toLowerCase() !== "connected";
-      const uazapiReportsConnected = preStatus === "connected";
-      const needsForceDisconnect = isStaleConnected
-        || preStatus === "transitional"
-        || preStatus === "unknown"
-        || (dbStatusDisconnected && uazapiReportsConnected)
-        || body.forceReconnect;
-
-      if (preCheck.ok && needsForceDisconnect) {
-        console.log(`[evolution-connect] pre-disconnect: status="${preStatusLabel}" normalized="${preStatus}" dbStatus="${device?.status}" deviceHasNumber=${!deviceHasNoNumber} stale=${isStaleConnected} dbDisconnected=${dbStatusDisconnected} forceReconnect=${!!body.forceReconnect} — forcing logout+disconnect`);
-        // Use logout first to fully clear session, then disconnect as fallback
-        await uazapi(instanceUrl, "/instance/logout", currentToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
-        await new Promise(r => setTimeout(r, 800));
-        await uazapi(instanceUrl, "/instance/disconnect", currentToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
-        await new Promise(r => setTimeout(r, 1500));
-        // During manual reconnect keep device in Loading to avoid false "disconnected" alerts
-        await svc.from("devices").update({
-          number: null,
-          status: "Loading",
-          profile_name: null,
-          updated_at: new Date().toISOString(),
-        }).eq("id", deviceId);
-      }
+      const preCheck = await checkStatus(4000);
+      console.log(`[evolution-connect] qr-session-reset: status="${preCheck.rawStatus || preCheck.status}" owner=${getOwnerDigits(preCheck.owner).length >= 10} hasQr=${!!preCheck.qrcode} forceReconnect=${!!body.forceReconnect}`);
+      const clearedState = await clearProviderSessionForQr();
+      await svc.from("devices").update({
+        number: null,
+        status: "Loading",
+        profile_name: null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", deviceId);
+      console.log(`[evolution-connect] qr-session-after-reset: status="${clearedState.rawStatus || clearedState.status}" owner=${getOwnerDigits(clearedState.owner).length >= 10} hasQr=${!!clearedState.qrcode}`);
 
       while (tokenAttempt < MAX_TOKEN_RETRIES) {
         tokenAttempt++;
@@ -825,12 +858,23 @@ Deno.serve(async (req) => {
       const connInst = connectRes.data?.instance || connectRes.data || {};
       const connState = normalizeProviderConnectionState(connectRes.data);
 
-      // Already connected?
+      // Already connected? Only accept after a stable double-check with no QR present.
       if (connState.state === "connected" && (connState.owner || connInst.owner || connInst.phone)) {
-        const phone = connState.owner || connInst.owner || connInst.phone || "";
-        const pName = connState.profileName || connInst.profileName || connInst.pushname || "";
-        const resp = await handleAlreadyConnected(svc, user.id, deviceId, deviceName, phone, pName, device?.login_type || "", instanceUrl, instanceToken);
-        if (resp) return resp;
+        const stability = await confirmStableConnected({
+          valid: true,
+          status: connState.state,
+          rawStatus: connState.rawStatus || connState.state,
+          qrcode: connState.qrcode || connInst.qrcode || connectRes.data?.qrcode || undefined,
+          owner: connState.owner || connInst.owner || connInst.phone || "",
+          profileName: connState.profileName || connInst.profileName || connInst.pushname || "",
+          profilePicUrl: connState.profilePicUrl || "",
+        });
+        if (stability.confirmed) {
+          const phone = stability.latest.owner || connState.owner || connInst.owner || connInst.phone || "";
+          const pName = stability.latest.profileName || connState.profileName || connInst.profileName || connInst.pushname || "";
+          const resp = await handleAlreadyConnected(svc, user.id, deviceId, deviceName, phone, pName, device?.login_type || "", instanceUrl, instanceToken);
+          if (resp) return resp;
+        }
       }
 
       let qr = connState.qrcode || connInst.qrcode || connectRes.data?.qrcode;
@@ -846,11 +890,25 @@ Deno.serve(async (req) => {
           qr = pollState.qrcode || pi.qrcode || poll.data?.qrcode;
           console.log(`[evolution-connect] QR poll attempt=${attempt + 1} status="${pollState.rawStatus || pollState.state}" normalized="${pollState.state}" hasQR=${!!qr}`);
           if (pollState.state === "connected" && (pollState.owner || pi.owner || pi.phone)) {
-            const phone = pollState.owner || pi.owner || pi.phone || "";
-            const pName = pollState.profileName || pi.profileName || pi.pushname || "";
-            const resp = await handleAlreadyConnected(svc, user.id, deviceId, deviceName, phone, pName, device?.login_type || "", instanceUrl, instanceToken);
-            if (resp) return resp;
-            break;
+            const stability = await confirmStableConnected({
+              valid: true,
+              status: pollState.state,
+              rawStatus: pollState.rawStatus || pollState.state,
+              qrcode: qr || undefined,
+              owner: pollState.owner || pi.owner || pi.phone || "",
+              profileName: pollState.profileName || pi.profileName || pi.pushname || "",
+              profilePicUrl: pollState.profilePicUrl || "",
+            });
+            if (stability.confirmed) {
+              const phone = stability.latest.owner || pollState.owner || pi.owner || pi.phone || "";
+              const pName = stability.latest.profileName || pollState.profileName || pi.profileName || pi.pushname || "";
+              const resp = await handleAlreadyConnected(svc, user.id, deviceId, deviceName, phone, pName, device?.login_type || "", instanceUrl, instanceToken);
+              if (resp) return resp;
+              break;
+            }
+            if (stability.latest.qrcode) {
+              qr = stability.latest.qrcode;
+            }
           }
           if (qr) break;
         }
@@ -949,15 +1007,18 @@ Deno.serve(async (req) => {
     if (action === "refreshQr") {
       const statusCheck = await checkStatus(5000);
 
-      if (statusCheck.status === "connected" && statusCheck.owner) {
-        const phone = statusCheck.owner || "";
-        const fmt = phone ? formatBrPhone(phone) : "";
-        const dup = await checkDuplicatePhone(svc, user.id, deviceId, phone);
-        if (dup.isDuplicate) {
-          await uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
-          return json({ success: false, error: `Número já conectado em "${dup.existingDeviceName}".`, code: "DUPLICATE_PHONE" });
+      if (isConfirmedConnected(statusCheck)) {
+        const stability = await confirmStableConnected(statusCheck);
+        if (stability.confirmed) {
+          const phone = stability.latest.owner || "";
+          const fmt = phone ? formatBrPhone(phone) : "";
+          const dup = await checkDuplicatePhone(svc, user.id, deviceId, phone);
+          if (dup.isDuplicate) {
+            await uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
+            return json({ success: false, error: `Número já conectado em "${dup.existingDeviceName}".`, code: "DUPLICATE_PHONE" });
+          }
+          return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
         }
-        return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
       }
 
       if (!statusCheck.valid) return json({ error: "Token expirado.", code: "TOKEN_INVALID" }, 401);
@@ -979,7 +1040,18 @@ Deno.serve(async (req) => {
         qr = pollState.qrcode || pi.qrcode || poll.data?.qrcode;
         const phone = pollState.owner || pi.owner || pi.phone || "";
         if (pollState.state === "connected" && phone) {
-          return json({ success: true, alreadyConnected: true, phone: formatBrPhone(phone), status: "authenticated" });
+          const stability = await confirmStableConnected({
+            valid: true,
+            status: pollState.state,
+            rawStatus: pollState.rawStatus || pollState.state,
+            qrcode: qr || undefined,
+            owner: phone,
+            profileName: pollState.profileName || pi.profileName || pi.pushname || "",
+            profilePicUrl: pollState.profilePicUrl || "",
+          });
+          if (stability.confirmed) {
+            return json({ success: true, alreadyConnected: true, phone: formatBrPhone(stability.latest.owner || phone), status: "authenticated" });
+          }
         }
       }
 
@@ -1027,26 +1099,34 @@ Deno.serve(async (req) => {
       const check = await checkStatus(5000);
       if (!check.valid) return json({ success: true, status: "token_invalid", tokenInvalid: true });
 
-      const ownerDigits = String(check.owner || "").replace(/\D/g, "");
-      const hasConfirmedOwner = ownerDigits.length >= 10;
-      const hasQrCode = Boolean(check.qrcode);
-      const isConnected = check.status === "connected" && hasConfirmedOwner;
-      const isDisconnected = check.status === "disconnected" && !hasQrCode;
+      let effectiveCheck = check;
+      let sawQr = Boolean(check.qrcode);
+      let isConnected = false;
+
+      if (isConfirmedConnected(check)) {
+        const stability = await confirmStableConnected(check);
+        effectiveCheck = stability.latest;
+        sawQr = sawQr || stability.sawQr || Boolean(stability.latest.qrcode);
+        isConnected = stability.confirmed;
+      }
+
+      const hasQrCode = sawQr || Boolean(effectiveCheck.qrcode);
+      const isDisconnected = effectiveCheck.status === "disconnected" && !hasQrCode;
 
       if (isConnected) {
-        const fmt = formatBrPhone(check.owner || "");
+        const fmt = formatBrPhone(effectiveCheck.owner || "");
 
         // Check if status actually changed
         const wasDisconnected = device?.status !== "Ready" && device?.status !== "Connected";
 
         await svc.from("devices").update({
           status: "Ready", number: fmt,
-          profile_name: check.profileName || device?.profile_name || "",
+          profile_name: effectiveCheck.profileName || device?.profile_name || "",
           updated_at: new Date().toISOString(),
         }).eq("id", deviceId);
 
         if (wasDisconnected && device?.login_type !== "report_wa") {
-          notifyConnectionChange(svc, user.id, deviceName, fmt, check.profileName || "", true).catch(() => {});
+          notifyConnectionChange(svc, user.id, deviceName, fmt, effectiveCheck.profileName || "", true).catch(() => {});
         }
       } else if (hasQrCode) {
         await svc.from("devices").update({
@@ -1059,16 +1139,16 @@ Deno.serve(async (req) => {
 
       const responseStatus = isConnected
         ? "authenticated"
-        : (hasQrCode ? "connecting" : (check.rawStatus || check.status || "waiting"));
+        : (hasQrCode ? "connecting" : (effectiveCheck.rawStatus || effectiveCheck.status || "waiting"));
 
       return json({
         success: true,
         status: responseStatus,
-        phone: isConnected ? (check.owner || "") : "",
-        base64: check.qrcode || null,
-        qr: check.qrcode || null,
-        profileName: check.profileName || "",
-        profilePicUrl: check.profilePicUrl || "",
+        phone: isConnected ? (effectiveCheck.owner || "") : "",
+        base64: effectiveCheck.qrcode || check.qrcode || null,
+        qr: effectiveCheck.qrcode || check.qrcode || null,
+        profileName: effectiveCheck.profileName || check.profileName || "",
+        profilePicUrl: effectiveCheck.profilePicUrl || check.profilePicUrl || "",
       });
     }
 
