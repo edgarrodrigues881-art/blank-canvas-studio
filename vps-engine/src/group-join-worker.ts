@@ -131,8 +131,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         if (did && !globalLockedDevices.has(did)) {
           const lockAcquired = DeviceLockManager.tryAcquire(did, "group_join", campaign.id);
           if (!lockAcquired) {
-            const lockReason = DeviceLockManager.getLockReason(did);
-            log.info(`Group-join ${campaign.id.slice(0, 8)}: device ${did.slice(0, 8)} locked by: ${lockReason} — skipping item`);
+            const blockReason = DeviceLockManager.getBlockingReason(did, "group_join");
+            log.info(`Group-join ${campaign.id.slice(0, 8)}: device ${did.slice(0, 8)} blocked by: ${blockReason} — skipping item`);
             continue;
           }
           globalLockedDevices.add(did);

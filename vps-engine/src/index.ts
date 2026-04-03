@@ -61,6 +61,7 @@ app.get("/health", (_req: Request, res: Response) => {
       details: DeviceLockManager.getActiveLocks().map(l => ({
         device: l.deviceId.slice(0, 8),
         worker: l.workerType,
+        category: l.category,
         task: l.taskId.slice(0, 8),
         heldSeconds: Math.round((Date.now() - l.acquiredAt) / 1000),
       })),

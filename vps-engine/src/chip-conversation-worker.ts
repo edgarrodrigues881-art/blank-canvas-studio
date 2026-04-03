@@ -158,8 +158,8 @@ export async function chipConversationTick() {
         lockedIds.push(did);
       } else {
         allLocked = false;
-        const lockReason = DeviceLockManager.getLockReason(did);
-        log.info(`Chip conv ${conv.id.slice(0, 8)}: device ${did.slice(0, 8)} locked by: ${lockReason} — skipping`);
+        const blockReason = DeviceLockManager.getBlockingReason(did, "chip_conversation");
+        log.info(`Chip conv ${conv.id.slice(0, 8)}: device ${did.slice(0, 8)} blocked by: ${blockReason} — skipping`);
         break;
       }
     }
