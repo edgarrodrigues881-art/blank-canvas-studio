@@ -2724,7 +2724,7 @@ async function handleTick(
           });
 
           // ── AUTO-TRANSITION: Check if ALL groups are now joined ──
-          const allIGs = instanceGroupsMap[job.device_id] || [];
+          const allIGs = instanceGroupsMap[job.cycle_id] || [];
           // Update local cache
           const updatedRecord = allIGs.find((ig: any) => ig.group_id === groupId);
           if (updatedRecord) updatedRecord.join_status = "joined";
