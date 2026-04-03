@@ -394,6 +394,8 @@ class RandomPicker {
 // ══════════════════════════════════════════════════════════
 async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value: boolean }) {
   const campaignId = campaign.id;
+  const slotLabel = `campaign:${campaignId.slice(0, 8)}`;
+  await acquireGlobalSlot(slotLabel);
   activeCampaigns.add(campaignId);
   log.info(`▶ Campaign STARTED ${campaignId.slice(0, 8)}: "${campaign.name}"`);
 
