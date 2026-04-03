@@ -53,6 +53,13 @@ export type Database = {
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "admin_connection_purposes_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       admin_costs: {
@@ -370,6 +377,13 @@ export type Database = {
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "alerts_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       announcement_dismissals: {
@@ -542,6 +556,13 @@ export type Database = {
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "autoreply_flows_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       autoreply_sessions: {
@@ -587,6 +608,13 @@ export type Database = {
             columns: ["device_id"]
             isOneToOne: false
             referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoreply_sessions_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
             referencedColumns: ["id"]
           },
           {
@@ -685,6 +713,13 @@ export type Database = {
             columns: ["device_id"]
             isOneToOne: false
             referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_contacts_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -824,6 +859,13 @@ export type Database = {
             columns: ["device_id"]
             isOneToOne: false
             referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaigns_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
             referencedColumns: ["id"]
           },
           {
@@ -1092,6 +1134,13 @@ export type Database = {
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "community_audit_logs_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       community_daily_stats: {
@@ -1160,6 +1209,13 @@ export type Database = {
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "community_daily_stats_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       community_pairs: {
@@ -1221,10 +1277,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "community_pairs_instance_id_a_fkey"
+            columns: ["instance_id_a"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "community_pairs_instance_id_b_fkey"
             columns: ["instance_id_b"]
             isOneToOne: false
             referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_pairs_instance_id_b_fkey"
+            columns: ["instance_id_b"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -1376,10 +1446,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "community_sessions_device_a_fkey"
+            columns: ["device_a"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "community_sessions_device_b_fkey"
             columns: ["device_b"]
             isOneToOne: false
             referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_sessions_device_b_fkey"
+            columns: ["device_b"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
             referencedColumns: ["id"]
           },
           {
@@ -1496,6 +1580,13 @@ export type Database = {
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "community_warmup_configs_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       community_warmup_logs: {
@@ -1557,6 +1648,13 @@ export type Database = {
             columns: ["device_id"]
             isOneToOne: false
             referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_warmup_logs_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -2003,6 +2101,13 @@ export type Database = {
             columns: ["device_id"]
             isOneToOne: false
             referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_interactions_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -2730,6 +2835,13 @@ export type Database = {
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "report_wa_configs_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       report_wa_logs: {
@@ -2921,6 +3033,13 @@ export type Database = {
             columns: ["device_id"]
             isOneToOne: false
             referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_api_tokens_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -3189,6 +3308,13 @@ export type Database = {
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "warmup_community_membership_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       warmup_cycles: {
@@ -3279,6 +3405,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "warmup_cycles_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "warmup_cycles_plan_id_fkey"
             columns: ["plan_id"]
             isOneToOne: false
@@ -3354,6 +3487,13 @@ export type Database = {
             columns: ["device_id"]
             isOneToOne: true
             referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warmup_folder_devices_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: true
+            referencedRelation: "devices_safe"
             referencedColumns: ["id"]
           },
           {
@@ -3525,6 +3665,13 @@ export type Database = {
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "warmup_instance_groups_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       warmup_jobs: {
@@ -3586,6 +3733,13 @@ export type Database = {
             columns: ["device_id"]
             isOneToOne: false
             referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warmup_jobs_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -3760,6 +3914,13 @@ export type Database = {
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "warmup_sessions_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       warmup_unique_recipients: {
@@ -3869,6 +4030,13 @@ export type Database = {
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "welcome_automation_senders_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       welcome_automations: {
@@ -3964,6 +4132,13 @@ export type Database = {
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "welcome_automations_monitoring_device_id_fkey"
+            columns: ["monitoring_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       welcome_events: {
@@ -4053,6 +4228,13 @@ export type Database = {
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "welcome_message_logs_sender_device_id_fkey"
+            columns: ["sender_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       welcome_queue: {
@@ -4134,11 +4316,76 @@ export type Database = {
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "welcome_queue_sender_device_id_fkey"
+            columns: ["sender_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
     Views: {
-      [_ in never]: never
+      devices_safe: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          instance_type: string | null
+          last_api_call_at: string | null
+          login_type: string | null
+          name: string | null
+          number: string | null
+          profile_name: string | null
+          profile_picture: string | null
+          proxy_id: string | null
+          status: string | null
+          uazapi_base_url: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          instance_type?: string | null
+          last_api_call_at?: string | null
+          login_type?: string | null
+          name?: string | null
+          number?: string | null
+          profile_name?: string | null
+          profile_picture?: string | null
+          proxy_id?: string | null
+          status?: string | null
+          uazapi_base_url?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          instance_type?: string | null
+          last_api_call_at?: string | null
+          login_type?: string | null
+          name?: string | null
+          number?: string | null
+          profile_name?: string | null
+          profile_picture?: string | null
+          proxy_id?: string | null
+          status?: string | null
+          uazapi_base_url?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "devices_proxy_id_fkey"
+            columns: ["proxy_id"]
+            isOneToOne: false
+            referencedRelation: "proxies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       acquire_device_lock: {
