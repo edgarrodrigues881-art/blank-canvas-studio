@@ -733,16 +733,18 @@ export async function campaignWorkerTick(isRunningRef: { value: boolean }) {
 
   if (batch.length === 0) return;
 
-  log.info(`▶▶ Processing ${batch.length} campaigns in parallel (of ${toProcess.length} eligible)`);
+  log.info(`▶▶ Processing ${batch.length} campaigns in parallel (of ${toProcess.length} eligible, ${campaigns!.length - eligible.length} already active)`);
 
-  // Execute batch in parallel
+  // Execute batch in parallel with per-task timing
   const results = await Promise.allSettled(
     batch.map(async (campaign) => {
       if (!isRunningRef.value) return;
+      const t0 = Date.now();
       try {
         await processOneCampaign(db, campaign, isRunningRef);
+        log.info(`■ Campaign ${campaign.id.slice(0, 8)} completed in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
       } catch (err: any) {
-        log.error(`Campaign ${campaign.id.slice(0, 8)} error: ${err.message}`);
+        log.error(`Campaign ${campaign.id.slice(0, 8)} failed after ${((Date.now() - t0) / 1000).toFixed(1)}s: ${err.message}`);
       }
     })
   );
