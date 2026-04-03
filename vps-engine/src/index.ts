@@ -919,6 +919,9 @@ async function mainLoop() {
   const runWarmupTick = async () => {
     while (isRunning) {
       try {
+        // Cleanup stale device locks every tick (safety net)
+        DeviceLockManager.cleanupStaleLocks(30 * 60_000);
+        
         const result = await warmupTick();
         lastTickAt = new Date();
         tickCount++;
