@@ -180,6 +180,8 @@ class DeviceLockManagerImpl {
       chip_conversation: "Conversa entre chips",
       group_join: "Entrada em grupos",
       welcome: "Boas-vindas",
+      welcome_monitor: "Monitor de boas-vindas",
+      welcome_send: "Envio de boas-vindas",
     };
     return `${workerLabels[info.workerType]} em execução (${info.label})`;
   }
