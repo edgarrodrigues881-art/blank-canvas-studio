@@ -440,22 +440,6 @@ export default function GroupJoinCampaignNew() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-medium text-muted-foreground">Pausar a cada</label>
-                    <span className="text-xs font-bold text-foreground tabular-nums">{pauseEvery}</span>
-                  </div>
-                  <Slider value={[pauseEvery]} onValueChange={([v]) => setPauseEvery(v)} min={3} max={50} step={1} />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-medium text-muted-foreground">Duração pausa</label>
-                    <span className="text-xs font-bold text-foreground tabular-nums">{Math.floor(pauseDuration / 60)}min</span>
-                  </div>
-                  <Slider value={[pauseDuration]} onValueChange={([v]) => setPauseDuration(v)} min={60} max={1800} step={30} />
-                </div>
-              </div>
 
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Limite por instância (0 = sem limite)</label>
