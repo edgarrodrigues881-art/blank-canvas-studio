@@ -361,6 +361,18 @@ const GroupCapture = () => {
       return d && !["Connected", "Ready", "authenticated"].includes(d.status);
     }), [selectedDevices, devices]);
 
+  const filteredModalDevices = useMemo(() => {
+    const sorted = [...devices].sort((a, b) => {
+      const aOn = ["Connected", "Ready", "authenticated"].includes(a.status) ? 0 : 1;
+      const bOn = ["Connected", "Ready", "authenticated"].includes(b.status) ? 0 : 1;
+      if (aOn !== bOn) return aOn - bOn;
+      return a.name.localeCompare(b.name, undefined, { numeric: true });
+    });
+    if (!deviceSearch.trim()) return sorted;
+    const q = deviceSearch.toLowerCase();
+    return sorted.filter(d => d.name.toLowerCase().includes(q) || (d.number || "").includes(deviceSearch));
+  }, [devices, deviceSearch]);
+
   const totalOps = selectedGroups.length * selectedDevices.length;
   const canStart = totalOps > 0 && !hasOffline && !isStarting;
 
