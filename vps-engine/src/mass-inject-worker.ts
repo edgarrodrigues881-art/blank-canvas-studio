@@ -714,6 +714,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     const failedDeviceIds = new Map<string, number>();
     let consecutiveFailures = Number(campaign.consecutive_failures || 0);
 
+    let contactsInLoop = 0;
+    let cachedFreshCampaign: any = null;
+
     while (isRunningRef.value) {
       // Clear stale device failures — give devices a chance to reconnect
       const now = Date.now();
@@ -723,20 +726,23 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
           log.info(`Campaign ${campaignId.slice(0, 8)}: clearing failed flag for device ${did.slice(0, 8)} — retrying`);
         }
       }
-      // 1. Check campaign status (was it paused/cancelled externally?)
-      const { data: freshCampaign } = await sb.from("mass_inject_campaigns").select("status, min_delay, max_delay, pause_after, pause_duration, rotate_after, device_ids, group_id, success_count, fail_count, already_count, rate_limit_count, timeout_count, consecutive_failures").eq("id", campaignId).single();
-      if (!freshCampaign || !["queued", "processing"].includes(freshCampaign.status)) {
-        log.info(`Campaign ${campaignId.slice(0, 8)} status=${freshCampaign?.status} — stopping`);
-        break;
+      // 1. Check campaign status — full refresh every 10 contacts or on first iteration
+      if (!cachedFreshCampaign || contactsInLoop % 10 === 0) {
+        const { data: freshCampaign } = await sb.from("mass_inject_campaigns").select("status, min_delay, max_delay, pause_after, pause_duration, rotate_after, device_ids, group_id, success_count, fail_count, already_count, rate_limit_count, timeout_count, consecutive_failures").eq("id", campaignId).single();
+        if (!freshCampaign || !["queued", "processing"].includes(freshCampaign.status)) {
+          log.info(`Campaign ${campaignId.slice(0, 8)} status=${freshCampaign?.status} — stopping`);
+          break;
+        }
+        cachedFreshCampaign = freshCampaign;
+        counterState.success_count = Number(freshCampaign.success_count || 0);
+        counterState.already_count = Number(freshCampaign.already_count || 0);
+        counterState.fail_count = Number(freshCampaign.fail_count || 0);
+        counterState.rate_limit_count = Number(freshCampaign.rate_limit_count || 0);
+        counterState.timeout_count = Number(freshCampaign.timeout_count || 0);
+        counterState.consecutive_failures = Number(freshCampaign.consecutive_failures || 0);
+        consecutiveFailures = counterState.consecutive_failures;
       }
-
-      counterState.success_count = Number(freshCampaign.success_count || 0);
-      counterState.already_count = Number(freshCampaign.already_count || 0);
-      counterState.fail_count = Number(freshCampaign.fail_count || 0);
-      counterState.rate_limit_count = Number(freshCampaign.rate_limit_count || 0);
-      counterState.timeout_count = Number(freshCampaign.timeout_count || 0);
-      counterState.consecutive_failures = Number(freshCampaign.consecutive_failures || 0);
-      consecutiveFailures = counterState.consecutive_failures;
+      const freshCampaign = cachedFreshCampaign;
 
       // 2. Pick a device
       const deviceId = pickDeviceId(freshCampaign, failedDeviceIds);
@@ -993,6 +999,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       }
 
       // 9. Apply delay — use EXACTLY what the user configured (no forced minimums)
+      contactsInLoop++;
       const minDelay = Number(freshCampaign.min_delay ?? 0);
       const maxDelay = Math.max(Number(freshCampaign.max_delay ?? 0), minDelay);
       let delayMs = minDelay === maxDelay ? minDelay * 1000 : randomBetween(minDelay * 1000, maxDelay * 1000);
@@ -1094,13 +1101,20 @@ export async function massInjectTick(isRunningRef: { value: boolean }) {
   const newCampaigns = campaigns.filter(c => !activeCampaignIds.has(c.id));
   if (!newCampaigns.length) return;
 
-  // Count active campaigns per user
+  // Count active campaigns per user (batch query instead of N+1)
   const activePerUser = new Map<string, number>();
-  for (const id of activeCampaignIds) {
-    const running = campaigns.find(c => c.id === id) ||
-      (await db.from("mass_inject_campaigns").select("user_id").eq("id", id).single()).data;
-    if (running?.user_id) {
-      activePerUser.set(running.user_id, (activePerUser.get(running.user_id) || 0) + 1);
+  const missingIds = [...activeCampaignIds].filter(id => !campaigns.find(c => c.id === id));
+  if (missingIds.length > 0) {
+    const { data: missingCampaigns } = await db.from("mass_inject_campaigns")
+      .select("id, user_id")
+      .in("id", missingIds);
+    for (const mc of missingCampaigns || []) {
+      if (mc.user_id) activePerUser.set(mc.user_id, (activePerUser.get(mc.user_id) || 0) + 1);
+    }
+  }
+  for (const c of campaigns) {
+    if (activeCampaignIds.has(c.id) && c.user_id) {
+      activePerUser.set(c.user_id, (activePerUser.get(c.user_id) || 0) + 1);
     }
   }
 
