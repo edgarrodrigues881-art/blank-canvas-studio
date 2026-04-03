@@ -311,8 +311,8 @@ function generateUniqueRand3(usedSet: Set<string>): string {
 }
 
 function replaceVariables(template: string, contact: any, rand4: string, rand3: string): string {
-  // Fallback: se name estiver vazio/null, usa o phone para {{nome}}
-  const contactName = (contact.name && contact.name.trim()) ? contact.name.trim() : (contact.phone || "");
+  // Se name estiver vazio/null, {{nome}} fica vazio (consistente com Edge Function)
+  const contactName = (contact.name && contact.name.trim() && contact.name.trim() !== contact.phone) ? contact.name.trim() : "";
   return template
     .replace(/\{\{nome\}\}/gi, contactName)
     .replace(/\{\{numero\}\}/gi, contact.phone || "")
