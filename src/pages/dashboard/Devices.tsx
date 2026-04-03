@@ -1748,10 +1748,18 @@ const Devices = () => {
       }
 
       if (connectResult.alreadyConnected) {
+        // Optimistic cache: mark device as Ready immediately
+        queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
+          old ? old.map(d => d.id === connectingDevice.id ? {
+            ...d,
+            status: "Ready" as const,
+            number: connectResult.phone || d.number,
+          } : d) : old
+        );
         queryClient.invalidateQueries({ queryKey: ["devices"] });
+        queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
         setConnectStep("done");
         const phoneMsg = connectResult.phone ? ` Número: ${connectResult.phone}` : "";
-        // Toast removido — trigger do banco já notifica
         setConnectOpen(false); resumeKeepAlive();
         return;
       }
