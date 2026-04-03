@@ -448,7 +448,7 @@ const CampaignDetail = () => {
       }
 
       // Fetch in batches of 1000 to avoid Supabase row limits
-      let allContacts: typeof contacts = [];
+      let allContacts: { id: string; phone: string; name: string | null; status: string; error_message: string | null }[] = [];
       let offset = 0;
       const batchSize = 1000;
       while (true) {
@@ -460,7 +460,7 @@ const CampaignDetail = () => {
           .range(offset, offset + batchSize - 1);
         if (error) throw error;
         if (!data || data.length === 0) break;
-        allContacts = allContacts.concat(data);
+        allContacts = [...allContacts, ...data];
         if (data.length < batchSize) break;
         offset += batchSize;
       }
