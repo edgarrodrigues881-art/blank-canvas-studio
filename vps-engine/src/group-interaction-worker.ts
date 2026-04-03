@@ -315,6 +315,9 @@ export async function groupInteractionTick() {
       continue;
     }
 
+    const slotLabel = `group-interaction:${interaction.id.slice(0, 8)}`;
+    await acquireGlobalSlot(slotLabel);
+
     try {
       // Claim the tick (prevent duplicates)
       const { data: claimed } = await db.from("group_interactions")
@@ -331,6 +334,7 @@ export async function groupInteractionTick() {
       await db.from("group_interactions").update({ next_action_at: retryAt }).eq("id", interaction.id).in("status", ["running", "active"]).then(() => {}, () => {});
     } finally {
       DeviceLockManager.release(deviceId, interaction.id);
+      releaseGlobalSlot(slotLabel);
     }
   }
 
