@@ -15,7 +15,9 @@ export type WorkerType =
   | "group_interaction"
   | "chip_conversation"
   | "group_join"
-  | "welcome";
+  | "welcome"
+  | "welcome_monitor"
+  | "welcome_send";
 
 export interface DeviceLockInfo {
   deviceId: string;
@@ -178,6 +180,8 @@ class DeviceLockManagerImpl {
       chip_conversation: "Conversa entre chips",
       group_join: "Entrada em grupos",
       welcome: "Boas-vindas",
+      welcome_monitor: "Monitor de boas-vindas",
+      welcome_send: "Envio de boas-vindas",
     };
     return `${workerLabels[info.workerType]} em execução (${info.label})`;
   }

@@ -6,6 +6,7 @@
 
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
+import { DeviceLockManager } from "./lib/device-lock-manager";
 
 const log = createLogger("welcome");
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -349,11 +350,23 @@ async function monitorPhase() {
     const groups = automation.welcome_automation_groups || [];
     if (!groups.length) continue;
 
+    // Acquire device lock for monitoring device
+    const monitorDeviceId = automation.monitoring_device_id;
+    if (!monitorDeviceId) continue;
+
+    const monitorLockAcquired = DeviceLockManager.tryAcquire(monitorDeviceId, "welcome_monitor", `monitor_${automation.id}`);
+    if (!monitorLockAcquired) {
+      const lockReason = DeviceLockManager.getLockReason(monitorDeviceId);
+      log.info(`Welcome monitor: device ${monitorDeviceId.slice(0, 8)} locked by: ${lockReason} — skipping`);
+      continue;
+    }
+
+    try {
     // Get monitoring device credentials
     const { data: device } = await db
       .from("devices")
       .select("id, uazapi_token, uazapi_base_url, status, number")
-      .eq("id", automation.monitoring_device_id)
+      .eq("id", monitorDeviceId)
       .single();
 
     if (!device?.uazapi_token || !device?.uazapi_base_url) continue;
@@ -446,6 +459,9 @@ async function monitorPhase() {
         log.error(`Monitor error for group ${group.group_id}: ${err.message}`);
       }
     }
+    } finally {
+      DeviceLockManager.release(monitorDeviceId, `monitor_${automation.id}`);
+    }
   }
 }
 
@@ -499,6 +515,24 @@ async function processPhase() {
     );
     if (!activeSenders.length) continue;
 
+    // Acquire device locks for all sender devices
+    const lockedSenderIds: string[] = [];
+    for (const sender of activeSenders) {
+      const lockAcquired = DeviceLockManager.tryAcquire(sender.id, "welcome_send", `welcome_send_${automation.id}`);
+      if (lockAcquired) {
+        lockedSenderIds.push(sender.id);
+      } else {
+        const lockReason = DeviceLockManager.getLockReason(sender.id);
+        log.info(`Welcome send: device ${sender.id.slice(0, 8)} locked by: ${lockReason} — skipping sender`);
+      }
+    }
+    const availableSenders = activeSenders.filter(d => lockedSenderIds.includes(d.id));
+    if (!availableSenders.length) {
+      // Release any locks we might have acquired
+      for (const did of lockedSenderIds) DeviceLockManager.release(did, `welcome_send_${automation.id}`);
+      continue;
+    }
+
     // Read message type, buttons, carousel from automation
     const messageType = (automation.message_type || "text").toLowerCase();
     const automationButtons = Array.isArray(automation.buttons) ? automation.buttons : [];
@@ -517,7 +551,7 @@ async function processPhase() {
       if (lockErr) continue;
 
       // Pick sender (round-robin) — each person gets ONE message from ONE sender
-      const sender = activeSenders[senderIdx % activeSenders.length];
+      const sender = availableSenders[senderIdx % availableSenders.length];
       senderIdx++;
 
       // Build message with variables
@@ -613,6 +647,9 @@ async function processPhase() {
     if (sentThisCycle > 0) {
       log.info(`Processed ${sentThisCycle} welcome messages for automation ${automation.id.slice(0, 8)}`);
     }
+
+    // Release sender device locks
+    for (const did of lockedSenderIds) DeviceLockManager.release(did, `welcome_send_${automation.id}`);
   }
 }
 

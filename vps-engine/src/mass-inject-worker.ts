@@ -698,6 +698,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
   activeCampaignIds.add(campaignId);
   log.info(`Processing campaign ${campaignId.slice(0, 8)}: group=${campaign.group_id}, contacts=${campaign.total_items || "?"}`);
 
+  // Track which devices we locked for this campaign — declared before try/finally so it's accessible in finally
+  const globalLockedDevices = new Set<string>();
+
   try {
     // Mark as processing
     if (campaign.status === "queued") {
@@ -707,8 +710,6 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
     const failedDeviceIds = new Map<string, number>();
     let consecutiveFailures = Number(campaign.consecutive_failures || 0);
-    // Track which devices we locked for this campaign
-    const globalLockedDevices = new Set<string>();
 
     while (isRunningRef.value) {
       // Clear stale device failures — give devices a chance to reconnect
