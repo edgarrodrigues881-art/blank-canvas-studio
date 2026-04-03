@@ -2265,6 +2265,41 @@ async function handleTick(
     }
   } // end isPrimaryShard auto-resume
 
+  // ── ORPHAN CLEANUP: Cancel ALL pending/running jobs for non-running cycles (paused, completed, error) ──
+  if (!isTargetedRun && isPrimaryShard) {
+    const { data: orphanCandidates } = await db.from("warmup_jobs")
+      .select("id, cycle_id")
+      .in("status", ["pending", "running"])
+      .limit(5000);
+
+    if (orphanCandidates?.length) {
+      const uniqueOrphanCycleIds = [...new Set(orphanCandidates.map((j: any) => j.cycle_id).filter(Boolean))];
+      if (uniqueOrphanCycleIds.length > 0) {
+        const activeCycleIds = new Set<string>();
+        for (let i = 0; i < uniqueOrphanCycleIds.length; i += 200) {
+          const { data: active } = await db.from("warmup_cycles")
+            .select("id")
+            .in("id", uniqueOrphanCycleIds.slice(i, i + 200))
+            .eq("is_running", true);
+          (active || []).forEach((c: any) => activeCycleIds.add(c.id));
+        }
+
+        const orphanJobIds = orphanCandidates
+          .filter((j: any) => j.cycle_id && !activeCycleIds.has(j.cycle_id))
+          .map((j: any) => j.id);
+
+        if (orphanJobIds.length > 0) {
+          for (let i = 0; i < orphanJobIds.length; i += 200) {
+            await db.from("warmup_jobs")
+              .update({ status: "cancelled", last_error: "Ciclo inativo — job órfão cancelado" })
+              .in("id", orphanJobIds.slice(i, i + 200));
+          }
+          console.log(`[warmup-tick] ORPHAN CLEANUP: cancelled ${orphanJobIds.length} jobs for ${uniqueOrphanCycleIds.length - activeCycleIds.size} inactive cycles`);
+        }
+      }
+    }
+  }
+
   // Fetch pending jobs — increased limit for 10k+ scale
   // Each shard claims its own batch using FOR UPDATE SKIP LOCKED semantics (via order + limit)
   const jobLimit = options?.job_id ? 1 : (shardTotal > 1 ? 1000 : 2000);
