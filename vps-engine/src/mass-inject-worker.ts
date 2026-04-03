@@ -7,6 +7,7 @@ import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
 import { config } from "./config";
 import { DeviceLockManager } from "./lib/device-lock-manager";
+import { acquireGlobalSlot, releaseGlobalSlot } from "./lib/global-semaphore";
 
 const log = createLogger("mass-inject");
 
