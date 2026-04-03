@@ -643,6 +643,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     await sleep(randomBetween(minDelayMs, maxDelayMs));
   }
 
+  // Release global device locks
+  for (const did of lockedDeviceIds) DeviceLockManager.release(did, campaignId);
   activeCampaignId = null;
 }
 
