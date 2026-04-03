@@ -304,11 +304,11 @@ export async function groupInteractionTick() {
     const deviceId = interaction.device_id;
     if (!deviceId) continue;
 
-    // Acquire global device lock (cross-worker coordination)
+    // Check category-based device lock (allows non-conflicting parallel tasks)
     const lockAcquired = DeviceLockManager.tryAcquire(deviceId, "group_interaction", interaction.id);
     if (!lockAcquired) {
-      const lockReason = DeviceLockManager.getLockReason(deviceId);
-      log.info(`Interaction ${interaction.id.slice(0, 8)}: device ${deviceId.slice(0, 8)} locked by: ${lockReason} — rescheduling`);
+      const blockReason = DeviceLockManager.getBlockingReason(deviceId, "group_interaction");
+      log.info(`Interaction ${interaction.id.slice(0, 8)}: device ${deviceId.slice(0, 8)} blocked by: ${blockReason} — rescheduling`);
       const retryAt = new Date(Date.now() + 30_000).toISOString();
       await db.from("group_interactions").update({ next_action_at: retryAt }).eq("id", interaction.id).in("status", ["running", "active"]).then(() => {}, () => {});
       continue;

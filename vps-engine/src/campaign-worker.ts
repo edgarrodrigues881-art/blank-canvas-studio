@@ -411,8 +411,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     if (acquired) {
       lockedDeviceIds.push(did);
     } else {
-      const lockInfo = DeviceLockManager.getLockReason(did);
-      log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${did.slice(0, 8)} locked by: ${lockInfo}`);
+      const blockReason = DeviceLockManager.getBlockingReason(did, "campaign");
+      log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${did.slice(0, 8)} blocked by: ${blockReason}`);
     }
   }
 

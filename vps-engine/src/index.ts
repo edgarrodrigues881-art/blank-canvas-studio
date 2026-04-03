@@ -61,6 +61,7 @@ app.get("/health", (_req: Request, res: Response) => {
       details: DeviceLockManager.getActiveLocks().map(l => ({
         device: l.deviceId.slice(0, 8),
         worker: l.workerType,
+        category: l.category,
         task: l.taskId.slice(0, 8),
         heldSeconds: Math.round((Date.now() - l.acquiredAt) / 1000),
       })),
@@ -571,11 +572,11 @@ async function warmupTick() {
       const warmupTaskId = `warmup_${deviceId}`;
       const lockAcquired = DeviceLockManager.tryAcquire(deviceId, "warmup", warmupTaskId);
       if (!lockAcquired) {
-        const lockReason = DeviceLockManager.getLockReason(deviceId);
-        log.info(`Warmup: device ${deviceId.slice(0, 8)} locked by: ${lockReason} — rescheduling ${jobsByDevice[deviceId].length} jobs`);
+        const blockReason = DeviceLockManager.getBlockingReason(deviceId, "warmup");
+        log.info(`Warmup: device ${deviceId.slice(0, 8)} blocked by: ${blockReason} — rescheduling ${jobsByDevice[deviceId].length} jobs`);
         for (const job of jobsByDevice[deviceId]) {
           const retryAt = new Date(Date.now() + 30_000).toISOString();
-          await db.from("warmup_jobs").update({ status: "pending", run_at: retryAt, last_error: `Aguardando: ${lockReason}` }).eq("id", job.id);
+          await db.from("warmup_jobs").update({ status: "pending", run_at: retryAt, last_error: `Aguardando: ${blockReason}` }).eq("id", job.id);
         }
         sem.release();
         return;

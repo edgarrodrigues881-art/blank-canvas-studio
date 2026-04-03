@@ -356,7 +356,7 @@ async function monitorPhase() {
 
     const monitorLockAcquired = DeviceLockManager.tryAcquire(monitorDeviceId, "welcome_monitor", `monitor_${automation.id}`);
     if (!monitorLockAcquired) {
-      const lockReason = DeviceLockManager.getLockReason(monitorDeviceId);
+      const lockReason = DeviceLockManager.getBlockingReason(monitorDeviceId, "welcome_monitor");
       log.info(`Welcome monitor: device ${monitorDeviceId.slice(0, 8)} locked by: ${lockReason} — skipping`);
       continue;
     }
@@ -522,7 +522,7 @@ async function processPhase() {
       if (lockAcquired) {
         lockedSenderIds.push(sender.id);
       } else {
-        const lockReason = DeviceLockManager.getLockReason(sender.id);
+        const lockReason = DeviceLockManager.getBlockingReason(sender.id, "welcome_send");
         log.info(`Welcome send: device ${sender.id.slice(0, 8)} locked by: ${lockReason} — skipping sender`);
       }
     }
