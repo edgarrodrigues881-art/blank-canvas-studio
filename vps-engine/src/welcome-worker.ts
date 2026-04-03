@@ -356,7 +356,7 @@ async function monitorPhase() {
 
     const monitorLockAcquired = DeviceLockManager.tryAcquire(monitorDeviceId, "welcome_monitor", `monitor_${automation.id}`);
     if (!monitorLockAcquired) {
-      const lockReason = DeviceLockManager.getLockReason(monitorDeviceId);
+      const lockReason = DeviceLockManager.getBlockingReason(monitorDeviceId, "welcome_monitor");
       log.info(`Welcome monitor: device ${monitorDeviceId.slice(0, 8)} locked by: ${lockReason} — skipping`);
       continue;
     }
