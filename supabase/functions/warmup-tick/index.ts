@@ -3090,6 +3090,21 @@ async function handleTick(
 
       // ── AUTOSAVE INTERACTION ──
       case "autosave_interaction": {
+        // Check if user has autosave_enabled in profile
+        const userProfile = profilesMap[job.user_id];
+        if (userProfile && userProfile.autosave_enabled === false) {
+          bufferAudit({
+            user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id,
+            level: "info", event_type: "autosave_disabled_skip",
+            message: "Auto Save desativado pelo usuário — job cancelado",
+          });
+          await db.from("warmup_jobs")
+            .update({ status: "cancelled", last_error: "Auto Save desativado pelo usuário" })
+            .eq("cycle_id", job.cycle_id)
+            .eq("job_type", "autosave_interaction")
+            .in("status", ["pending", "running"]);
+          break;
+        }
         if (!baseUrl || !token) throw new Error("Credenciais UAZAPI não configuradas");
 
         const rIdx = Number(job.payload?.recipient_index ?? 0);
