@@ -999,6 +999,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       }
 
       // 9. Apply delay — use EXACTLY what the user configured (no forced minimums)
+      contactsInLoop++;
       const minDelay = Number(freshCampaign.min_delay ?? 0);
       const maxDelay = Math.max(Number(freshCampaign.max_delay ?? 0), minDelay);
       let delayMs = minDelay === maxDelay ? minDelay * 1000 : randomBetween(minDelay * 1000, maxDelay * 1000);
