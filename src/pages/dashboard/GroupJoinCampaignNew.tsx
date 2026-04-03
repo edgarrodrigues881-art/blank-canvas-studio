@@ -94,7 +94,7 @@ export default function GroupJoinCampaignNew() {
   const [maxDelay, setMaxDelay] = useState(90);
   const [pauseEvery, setPauseEvery] = useState(20);
   const [pauseDuration, setPauseDuration] = useState(900);
-  const [limitPerInstance, setLimitPerInstance] = useState(0);
+  const [limitPerInstance, setLimitPerInstance] = useState(1);
   const [skipFailFast, setSkipFailFast] = useState(true);
   const shuffleLinks = false;
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
@@ -457,8 +457,16 @@ export default function GroupJoinCampaignNew() {
 
               {distributionMode === "distribute" && (
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Troca de conta (0 = dividir igual)</label>
-                  <Input type="number" min={0} value={limitPerInstance || ""} onChange={e => setLimitPerInstance(Math.max(0, parseInt(e.target.value) || 0))} className="rounded-xl w-28 text-xs h-9" placeholder="0" />
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Troca de conta</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={limitPerInstance || ""}
+                    onChange={e => setLimitPerInstance(Math.max(0, parseInt(e.target.value) || 0))}
+                    onBlur={() => { if (limitPerInstance < 1) setLimitPerInstance(1); }}
+                    className="rounded-xl w-28 text-xs h-9"
+                    placeholder="1"
+                  />
                 </div>
               )}
 
