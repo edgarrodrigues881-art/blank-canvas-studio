@@ -816,7 +816,6 @@ async function handleStart(db: any, userId: string | null, body: any) {
   // 3. Register groups — based on group_source preference
   let userGroups: any[] = [];
   if (resolvedGroupSource === "system") {
-    // Use system groups (user_id IS NULL, is_custom = false)
     const { data } = await db
       .from("warmup_groups")
       .select("id, name, link")
@@ -831,6 +830,41 @@ async function handleStart(db: any, userId: string | null, body: any) {
       .eq("user_id", userId)
       .eq("is_custom", true);
     userGroups = data || [];
+  }
+
+  // FALLBACK: If user has no groups in their chosen source, try the other source
+  if (userGroups.length === 0) {
+    console.log(`[warmup-engine] No groups found for source="${resolvedGroupSource}", trying fallback...`);
+    if (resolvedGroupSource === "custom") {
+      // User chose custom but has none → fall back to system groups
+      const { data } = await db
+        .from("warmup_groups")
+        .select("id, name, link")
+        .is("user_id", null)
+        .eq("is_custom", false);
+      userGroups = data || [];
+      if (userGroups.length > 0) {
+        console.log(`[warmup-engine] Fallback: using ${userGroups.length} system groups`);
+        // Update cycle to reflect actual group source
+        await db.from("warmup_cycles").update({ group_source: "system" }).eq("id", cycle.id);
+      }
+    } else {
+      // User chose system but none exist → fall back to custom groups
+      const { data } = await db
+        .from("warmup_groups")
+        .select("id, name, link")
+        .eq("user_id", userId)
+        .eq("is_custom", true);
+      userGroups = data || [];
+      if (userGroups.length > 0) {
+        console.log(`[warmup-engine] Fallback: using ${userGroups.length} custom groups`);
+        await db.from("warmup_cycles").update({ group_source: "custom" }).eq("id", cycle.id);
+      }
+    }
+  }
+
+  if (userGroups.length === 0) {
+    console.warn(`[warmup-engine] WARNING: No groups available at all for device ${device_id.slice(0, 8)} — cycle will proceed without group interactions`);
   }
   
   const allGroups = shuffleArray((userGroups || []).map((g: any) => ({
