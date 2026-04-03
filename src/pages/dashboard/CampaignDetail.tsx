@@ -743,6 +743,135 @@ const CampaignDetail = () => {
       </div>
 
 
+      {/* ── Delay Config (collapsible) ───────────────────────────── */}
+      <div className="rounded-xl border border-border/30 bg-card/50 overflow-hidden">
+        <button
+          onClick={() => setConfigOpen(!configOpen)}
+          className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/20 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Zap className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-semibold text-foreground">Configuração de envio</span>
+            {delayDirty && <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />}
+          </div>
+          <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform", configOpen && "rotate-180")} />
+        </button>
+
+        <AnimatePresence>
+          {configOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="px-4 pb-4 space-y-3">
+                {delayDirty && (
+                  <div className="flex justify-end">
+                    <Button size="sm" onClick={saveDelayConfig} className="h-7 text-[10px] rounded-lg gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Salvar alterações
+                    </Button>
+                  </div>
+                )}
+
+                <div className={cn("grid grid-cols-1 md:grid-cols-3 gap-3 transition-opacity", isActive && "opacity-30 pointer-events-none select-none")}>
+                  {[
+                    {
+                      icon: Timer, title: "Intervalo", hint: "Tempo entre cada envio",
+                      fields: [
+                        { label: "MIN (S)", value: minDelay, set: setMinDelay, blur: () => { const v = minDelay || 1; setMinDelay(v); if (v > maxDelay) setMaxDelay(v); } },
+                        { label: "MAX (S)", value: maxDelay, set: setMaxDelay, blur: () => { const v = maxDelay || 1; setMaxDelay(v); if (v < minDelay) setMaxDelay(minDelay); } },
+                      ],
+                    },
+                    {
+                      icon: Hash, title: "Pausa a cada", hint: "Msgs antes de pausar",
+                      fields: [
+                        { label: "MIN", value: pauseEveryMin, set: setPauseEveryMin, blur: () => { const v = pauseEveryMin || 1; setPauseEveryMin(v); if (v > pauseEveryMax) setPauseEveryMax(v); } },
+                        { label: "MAX", value: pauseEveryMax, set: setPauseEveryMax, blur: () => { const v = pauseEveryMax || 1; setPauseEveryMax(v); if (v < pauseEveryMin) setPauseEveryMax(pauseEveryMin); } },
+                      ],
+                    },
+                    {
+                      icon: Zap, title: "Duração da pausa", hint: "Tempo de descanso",
+                      fields: [
+                        { label: "MIN (S)", value: pauseDurationMin, set: setPauseDurationMin, blur: () => { const v = pauseDurationMin || 1; setPauseDurationMin(v); if (v > pauseDurationMax) setPauseDurationMax(v); } },
+                        { label: "MAX (S)", value: pauseDurationMax, set: setPauseDurationMax, blur: () => { const v = pauseDurationMax || 1; setPauseDurationMax(v); if (v < pauseDurationMin) setPauseDurationMax(pauseDurationMin); } },
+                      ],
+                    },
+                  ].map((card) => (
+                    <div key={card.title} className="rounded-lg border border-border/20 bg-background/30 p-3 space-y-2.5">
+                      <div className="flex items-center gap-2">
+                        <card.icon className="w-3.5 h-3.5 text-primary/70" />
+                        <span className="text-[11px] font-medium text-foreground">{card.title}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        {card.fields.map(f => (
+                          <div key={f.label} className="flex-1 space-y-1">
+                            <label className="text-[9px] text-muted-foreground/60 uppercase tracking-widest font-medium">{f.label}</label>
+                            <Input
+                              type="number" min={1} value={f.value || ""} disabled={!!isActive}
+                              onChange={e => { f.set(Number(e.target.value)); setDelayDirty(true); }}
+                              onBlur={f.blur}
+                              className="h-8 text-sm font-medium bg-background/50"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[9px] text-muted-foreground/40">{card.hint}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {isActive && (
+                  <p className="text-[10px] text-muted-foreground/40 italic">Pause a campanha para editar.</p>
+                )}
+
+                {/* ── Rotation / Multi-instance ─────────────────── */}
+                {campaign.device_ids && Array.isArray(campaign.device_ids) && (campaign.device_ids as string[]).length >= 2 && (
+                  <div className="rounded-lg border border-border/20 bg-background/30 p-3 space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="w-3.5 h-3.5 text-primary/70" />
+                      <span className="text-[11px] font-medium text-foreground">Trocar de conta</span>
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-primary/20 text-primary">
+                        {(campaign.device_ids as string[]).length} instâncias
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-muted-foreground/70">Trocar de conta após quantas mensagens?</p>
+                      <div className={cn("flex items-center gap-2 transition-opacity", isActive && "opacity-30 pointer-events-none select-none")}>
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Trocar após</span>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          value={messagesPerInstanceInput}
+                          onFocus={() => setIsEditingMessagesPerInstance(true)}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/\D/g, "");
+                            setMessagesPerInstanceInput(raw);
+                          }}
+                          onBlur={async () => {
+                            setIsEditingMessagesPerInstance(false);
+                            const parsed = Number(messagesPerInstanceInput.replace(/\D/g, ""));
+                            const value = parsed > 0 ? Math.min(500, parsed) : 50;
+                            setMessagesPerInstanceInput(String(value));
+                            if (id) {
+                              await supabase.from("campaigns").update({ messages_per_instance: value }).eq("id", id);
+                              queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+                            }
+                          }}
+                          onKeyDown={async (e) => {
+                            if (e.key === "Enter") {
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          className="h-7 w-20 text-center text-[11px] bg-background/30 border-border/20"
+                        />
+                        <span className="text-[10px] text-muted-foreground">msgs</span>
+                      </div>
+                    </div>
+
+
                     <div className="flex flex-wrap gap-1.5">
                       {(campaign.device_ids as string[]).map((did, i) => {
                         const dev = devices.find(d => d.id === did);
