@@ -133,6 +133,10 @@ const CampaignDetail = () => {
   const [saveContactsFailed, setSaveContactsFailed] = useState(false);
   const [saveContactsPending, setSaveContactsPending] = useState(false);
   const [saveContactsLoading, setSaveContactsLoading] = useState(false);
+  const [saveContactsSent, setSaveContactsSent] = useState(true);
+  const [saveContactsFailed, setSaveContactsFailed] = useState(false);
+  const [saveContactsPending, setSaveContactsPending] = useState(false);
+  const [saveContactsLoading, setSaveContactsLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const createTemplate = useCreateTemplate();
   const createCarouselTemplate = useCreateCarouselTemplate();
