@@ -101,15 +101,16 @@ export function useNotifications() {
   useEffect(() => {
     const unlock = () => {
       if (audioUnlockedRef.current) return;
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      ctx.resume().then(() => ctx.close()).catch(() => {});
+      getAudioCtx();
       audioUnlockedRef.current = true;
     };
     window.addEventListener("click", unlock, { once: true });
     window.addEventListener("keydown", unlock, { once: true });
+    window.addEventListener("touchstart", unlock, { once: true });
     return () => {
       window.removeEventListener("click", unlock);
       window.removeEventListener("keydown", unlock);
+      window.removeEventListener("touchstart", unlock);
     };
   }, []);
 
