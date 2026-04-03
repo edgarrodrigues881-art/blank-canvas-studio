@@ -21,7 +21,10 @@ export async function acquireGlobalSlot(label: string): Promise<void> {
     log.info(`⏳ ${label} — waiting for global slot (${globalSem.active}/${config.maxConcurrentDevices} active, ${globalSem.waiting} queued)`);
   }
   await globalSem.acquire();
-  log.info(`✅ ${label} — global slot acquired (${globalSem.active}/${config.maxConcurrentDevices} active)`);
+  // Only log acquisition when slots are scarce (>70% used)
+  if (globalSem.active > config.maxConcurrentDevices * 0.7) {
+    log.info(`✅ ${label} — slot acquired (${globalSem.active}/${config.maxConcurrentDevices})`);
+  }
 }
 
 /**
@@ -29,7 +32,10 @@ export async function acquireGlobalSlot(label: string): Promise<void> {
  */
 export function releaseGlobalSlot(label: string): void {
   globalSem.release();
-  log.info(`🔓 ${label} — global slot released (${globalSem.active}/${config.maxConcurrentDevices} active)`);
+  // Only log releases when previously scarce
+  if (globalSem.active >= config.maxConcurrentDevices * 0.7) {
+    log.info(`🔓 ${label} — slot released (${globalSem.active}/${config.maxConcurrentDevices})`);
+  }
 }
 
 /**
