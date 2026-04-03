@@ -595,15 +595,22 @@ Deno.serve(async (req) => {
       return { confirmed: consecutive >= confirmations, latest, sawQr };
     };
 
-    const clearProviderSessionForQr = async (): Promise<ProviderStatusCheck> => {
-      let latest: ProviderStatusCheck = { valid: false, status: "unknown", rawStatus: "unknown" };
-      for (let attempt = 0; attempt < 2; attempt++) {
-        await uazapi(instanceUrl, "/instance/logout", instanceToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
-        await sleep(800);
-        await uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
-        await sleep(1200);
-        latest = await checkStatus(4000);
-        if (!isConfirmedConnected(latest) && !latest.qrcode) break;
+    const clearProviderSessionForQr = async (needsReset: boolean): Promise<ProviderStatusCheck> => {
+      if (!needsReset) {
+        return { valid: true, status: "disconnected", rawStatus: "disconnected" };
+      }
+      // Single pass: logout + disconnect in parallel, then one quick check
+      await Promise.all([
+        uazapi(instanceUrl, "/instance/logout", instanceToken, "POST", undefined, { timeoutMs: 4000, retries: 0 }),
+        uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 4000, retries: 0 }),
+      ]);
+      await sleep(600);
+      const latest = await checkStatus(3000);
+      // Only retry if still connected
+      if (isConfirmedConnected(latest)) {
+        await uazapi(instanceUrl, "/instance/logout", instanceToken, "POST", undefined, { timeoutMs: 4000, retries: 0 });
+        await sleep(500);
+        return await checkStatus(3000);
       }
       return latest;
     };
@@ -741,16 +748,20 @@ Deno.serve(async (req) => {
       let tokenAttempt = 0;
       let connectRes: any = null;
 
-      const preCheck = await checkStatus(4000);
-      console.log(`[evolution-connect] qr-session-reset: status="${preCheck.rawStatus || preCheck.status}" owner=${getOwnerDigits(preCheck.owner).length >= 10} hasQr=${!!preCheck.qrcode} forceReconnect=${!!body.forceReconnect}`);
-      const clearedState = await clearProviderSessionForQr();
+      const preCheck = await checkStatus(3000);
+      const needsReset = isConfirmedConnected(preCheck) || !!preCheck.qrcode || body.forceReconnect;
+      console.log(`[evolution-connect] qr-pre: status="${preCheck.rawStatus || preCheck.status}" needsReset=${needsReset} forceReconnect=${!!body.forceReconnect}`);
+      
+      if (needsReset) {
+        const clearedState = await clearProviderSessionForQr(true);
+        console.log(`[evolution-connect] qr-after-reset: status="${clearedState.rawStatus || clearedState.status}"`);
+      }
       await svc.from("devices").update({
         number: null,
         status: "Loading",
         profile_name: null,
         updated_at: new Date().toISOString(),
       }).eq("id", deviceId);
-      console.log(`[evolution-connect] qr-session-after-reset: status="${clearedState.rawStatus || clearedState.status}" owner=${getOwnerDigits(clearedState.owner).length >= 10} hasQr=${!!clearedState.qrcode}`);
 
       while (tokenAttempt < MAX_TOKEN_RETRIES) {
         tokenAttempt++;
@@ -882,8 +893,8 @@ Deno.serve(async (req) => {
       // CRITICAL FIX: Poll for QR with more attempts and longer delays
       // Uazapi sometimes takes 5-8 seconds to generate QR after connect
       if (!qr) {
-        for (let attempt = 0; attempt < 6 && !qr; attempt++) {
-          await new Promise(r => setTimeout(r, 1200));
+        for (let attempt = 0; attempt < 5 && !qr; attempt++) {
+          await new Promise(r => setTimeout(r, 800));
           const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 5000, retries: 0 });
           const pi = poll.data?.instance || poll.data || {};
           const pollState = normalizeProviderConnectionState(poll.data);
