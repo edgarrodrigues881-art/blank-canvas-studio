@@ -758,6 +758,18 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         break;
       }
 
+      // Acquire global device lock (cross-worker coordination)
+      if (!globalLockedDevices.has(deviceId)) {
+        const lockAcquired = DeviceLockManager.tryAcquire(deviceId, "mass_inject", campaignId);
+        if (!lockAcquired) {
+          const lockReason = DeviceLockManager.getLockReason(deviceId);
+          log.info(`Campaign ${campaignId.slice(0, 8)}: device ${deviceId.slice(0, 8)} locked by: ${lockReason} — skipping to next device`);
+          failedDeviceIds.set(deviceId, Date.now());
+          continue;
+        }
+        globalLockedDevices.add(deviceId);
+      }
+
       // 3. Get device credentials
       const { data: device } = await sb.from("devices")
         .select("id, name, number, status, uazapi_base_url, uazapi_token")
