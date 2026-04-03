@@ -488,7 +488,7 @@ const CampaignDetail = () => {
         message: campaign?.message_content || "",
         mediaUrl: campaign?.media_url || "",
         buttons: campaign?.buttons || [],
-        campaignName: `${campaign?.name} (Reenvio)`,
+        campaignName: `${(campaign?.name || "").replace(/\s*\(Reenvio\)$/i, "")} (Reenvio)`,
         messageType: campaign?.message_type || "text",
       };
       if (campaign?.message_type === "carousel" && campaign?.carousel_cards) {
