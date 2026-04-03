@@ -1,0 +1,1 @@
+ALTER TABLE public.group_interactions ADD COLUMN IF NOT EXISTS last_daily_reset_date text DEFAULT '';
