@@ -400,7 +400,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
   if (deviceIds.length === 0) {
     log.warn(`Campaign ${campaignId.slice(0, 8)}: no devices`);
     await sb.from("campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
-    activeCampaignId = null;
+    activeCampaigns.delete(campaignId);
     return;
   }
 
@@ -418,7 +418,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
   if (lockedDeviceIds.length === 0) {
     log.warn(`Campaign ${campaignId.slice(0, 8)}: all devices locked by other workers — retrying later`);
-    activeCampaignId = null;
+    activeCampaigns.delete(campaignId);
     return;
   }
 
@@ -430,7 +430,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       // Release global locks
       for (const id of lockedDeviceIds) DeviceLockManager.release(id, campaignId);
       await sb.from("campaigns").update({ status: "paused" }).eq("id", campaignId);
-      activeCampaignId = null;
+      activeCampaigns.delete(campaignId);
       return;
     }
   }
@@ -446,7 +446,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     await sb.from("campaign_contacts").update({ status: "pending" }).eq("campaign_id", campaignId).eq("status", "processing");
     await sb.from("campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
     await sb.from("campaign_device_locks").delete().eq("campaign_id", campaignId);
-    activeCampaignId = null;
+    activeCampaigns.delete(campaignId);
     return;
   }
 
