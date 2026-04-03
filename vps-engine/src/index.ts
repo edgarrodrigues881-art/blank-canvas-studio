@@ -567,7 +567,8 @@ async function warmupTick() {
   const deviceIds = Object.keys(jobsByDevice);
   await Promise.allSettled(
     deviceIds.map(async (deviceId) => {
-      await sem.acquire();
+      const slotLabel = `warmup:${deviceId.slice(0, 8)}`;
+      await acquireGlobalSlot(slotLabel);
       
       // Acquire global device lock for warmup
       const warmupTaskId = `warmup_${deviceId}`;
@@ -579,7 +580,7 @@ async function warmupTick() {
           const retryAt = new Date(Date.now() + 30_000).toISOString();
           await db.from("warmup_jobs").update({ status: "pending", run_at: retryAt, last_error: `Aguardando: ${blockReason}` }).eq("id", job.id);
         }
-        sem.release();
+        releaseGlobalSlot(slotLabel);
         return;
       }
       
