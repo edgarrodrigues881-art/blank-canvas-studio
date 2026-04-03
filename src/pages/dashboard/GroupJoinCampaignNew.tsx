@@ -86,7 +86,7 @@ export default function GroupJoinCampaignNew() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const description = "";
   const [linksRaw, setLinksRaw] = useState("");
   const [importTab, setImportTab] = useState("paste");
   const [distributionMode, setDistributionMode] = useState<"single" | "distribute">("distribute");
@@ -96,7 +96,7 @@ export default function GroupJoinCampaignNew() {
   const [pauseDuration, setPauseDuration] = useState(900);
   const [limitPerInstance, setLimitPerInstance] = useState(0);
   const [skipFailFast, setSkipFailFast] = useState(true);
-  const [shuffleLinks, setShuffleLinks] = useState(false);
+  const shuffleLinks = false;
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [deviceSearch, setDeviceSearch] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -257,10 +257,6 @@ export default function GroupJoinCampaignNew() {
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Nome da campanha *</label>
                 <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Grupos de vendas — Lote 1" className="rounded-xl h-10" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Descrição (opcional)</label>
-                <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="Observações internas" className="rounded-xl h-10" />
               </div>
             </div>
           </section>
@@ -468,14 +464,9 @@ export default function GroupJoinCampaignNew() {
 
               <div className="space-y-2.5 pt-1">
                 <label className="flex items-center gap-2.5 cursor-pointer">
-                  <Checkbox checked={shuffleLinks} onCheckedChange={(v) => setShuffleLinks(!!v)} />
-                  <Shuffle className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Embaralhar links</span>
-                </label>
-                <label className="flex items-center gap-2.5 cursor-pointer">
                   <Checkbox checked={skipFailFast} onCheckedChange={(v) => setSkipFailFast(!!v)} />
                   <Zap className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Pular falhas com delay curto</span>
+                  <span className="text-xs text-muted-foreground">Pular links que não funcionam</span>
                 </label>
               </div>
             </div>
