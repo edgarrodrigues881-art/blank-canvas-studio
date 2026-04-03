@@ -892,8 +892,15 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         continue;
       }
 
-      // 8. Add to group
-      const result = await addToGroup(baseUrl, device.uazapi_token, groupId, phone);
+      // 8. Add to group (lock only during the API call)
+      const actionLockId = `${campaignId}:${contact.id}`;
+      DeviceLockManager.tryAcquire(deviceId, "mass_inject", actionLockId);
+      let result: Awaited<ReturnType<typeof addToGroup>>;
+      try {
+        result = await addToGroup(baseUrl, device.uazapi_token, groupId, phone);
+      } finally {
+        DeviceLockManager.release(deviceId, actionLockId);
+      }
 
       if (result.ok) {
         await sb.from("mass_inject_contacts").update({
