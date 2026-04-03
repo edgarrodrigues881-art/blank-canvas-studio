@@ -426,11 +426,11 @@ export default function GroupJoinCampaignNew() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Delay mínimo (s)</label>
-                  <Input type="number" min={1} value={minDelay} onChange={e => { const v = Math.max(1, parseInt(e.target.value) || 1); setMinDelay(v); if (v > maxDelay) setMaxDelay(v); }} className="rounded-xl w-28 text-xs h-9" />
+                  <Input type="number" min={0} value={minDelay || ""} onChange={e => { const v = parseInt(e.target.value) || 0; setMinDelay(v); if (v > maxDelay) setMaxDelay(v); }} className="rounded-xl w-28 text-xs h-9" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Delay máximo (s)</label>
-                  <Input type="number" min={1} value={maxDelay} onChange={e => { const v = Math.max(1, parseInt(e.target.value) || 1); setMaxDelay(v); if (v < minDelay) setMinDelay(v); }} className="rounded-xl w-28 text-xs h-9" />
+                  <Input type="number" min={0} value={maxDelay || ""} onChange={e => { const v = parseInt(e.target.value) || 0; setMaxDelay(v); if (v < minDelay) setMinDelay(v); }} className="rounded-xl w-28 text-xs h-9" />
                 </div>
               </div>
 
