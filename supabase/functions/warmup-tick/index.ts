@@ -2928,32 +2928,10 @@ async function handleTick(
         let groupName = "Grupo";
         let targetGroupId: string | null = null;
 
-        // Helper: try to resolve JID for a specific group
+        // Helper: resolve JID — ONLY from stored group_jid, never by name match
         const resolveJidForGroup = async (target: any): Promise<string | null> => {
           if (target.group_jid) return target.group_jid;
-          
-          // Try live lookup by name
-          try {
-            if (!liveGroupsCache.length) liveGroupsCache = await fetchLiveGroups();
-            const grpRef = groupsMap[target.group_id];
-            const targetName = norm(grpRef?.name || target.group_name || "");
-            if (targetName) {
-              const match = liveGroupsCache.find((g: any) =>
-                norm(g.subject || g.name || g.Name || g.title || "") === targetName
-              );
-              if (match) {
-                const jid = match.jid || match.id || match.JID || match.groupJid || match.chatId;
-                if (jid) {
-                  await db.from("warmup_instance_groups")
-                    .update({ group_jid: jid })
-                    .eq("device_id", job.device_id)
-                    .eq("group_id", target.group_id);
-                  target.group_jid = jid;
-                  return jid;
-                }
-              }
-            }
-          } catch { /* ignore */ }
+          // No name-based resolution — this caused cross-group leakage
           return null;
         };
 
