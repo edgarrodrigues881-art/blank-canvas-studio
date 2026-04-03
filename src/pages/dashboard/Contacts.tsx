@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Upload, Download, Search, Plus, Trash2, Tag, Copy, Users, MoreVertical, X, Send, UserPlus, ChevronDown, Pencil, Variable, ArrowRight, Loader2, CheckSquare, FileSpreadsheet, Database, UserRoundPlus, AlertTriangle, Ban, Phone, CheckCircle2,
 } from "lucide-react";
-import { useContacts, useCreateContact, useCreateContacts, useUpdateContact, useDeleteContacts, type Contact } from "@/hooks/useContacts";
+import { useContacts, useCreateContact, useCreateContacts, useUpdateContact, useDeleteContacts, useBulkUpdateContacts, type Contact } from "@/hooks/useContacts";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_TAGS = ["cliente", "lead", "vip", "novo"];
