@@ -1050,6 +1050,10 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       });
     }
   } finally {
+    // Release all global device locks held by this campaign
+    for (const did of globalLockedDevices) {
+      DeviceLockManager.release(did, campaignId);
+    }
     activeCampaignIds.delete(campaignId);
   }
 }
