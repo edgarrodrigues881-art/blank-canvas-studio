@@ -130,27 +130,35 @@ export default function WhatsAppVerifier() {
     toast.success(`${validPhones.length} números copiados!`);
   }, [validPhones]);
 
+  const triggerDownload = useCallback((blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 150);
+  }, []);
+
   const exportCSV = useCallback(() => {
     const header = "Número,Status,Detalhe,Verificado em\n";
     const rows = results.map(r => `${r.phone},${r.status},${r.detail},${r.checked_at}`).join("\n");
     const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url;
-    a.download = `verificacao_whatsapp_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click(); URL.revokeObjectURL(url);
+    triggerDownload(blob, `verificacao_whatsapp_${new Date().toISOString().slice(0, 10)}.csv`);
     toast.success("CSV exportado!");
-  }, [results]);
+  }, [results, triggerDownload]);
 
   const exportValidOnly = useCallback(() => {
     const header = "Número\n";
     const rows = validPhones.map(r => r.phone).join("\n");
     const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url;
-    a.download = `numeros_validos_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click(); URL.revokeObjectURL(url);
+    triggerDownload(blob, `numeros_validos_${new Date().toISOString().slice(0, 10)}.csv`);
     toast.success("Números válidos exportados!");
-  }, [validPhones]);
+  }, [validPhones, triggerDownload]);
 
   const statusBadge = (status: VerifyResult["status"]) => {
     switch (status) {
