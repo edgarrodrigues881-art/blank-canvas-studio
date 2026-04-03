@@ -494,7 +494,7 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
         detail: e.message,
         retryable: true,
         pauseCampaign: false,
-        cooldownMs: 15000,
+        cooldownMs: 3000,
         strategyIndex: i,
         canTryOtherStrategy: true,
         failureStatus: "api_temporary",
