@@ -647,6 +647,9 @@ async function processPhase() {
     if (sentThisCycle > 0) {
       log.info(`Processed ${sentThisCycle} welcome messages for automation ${automation.id.slice(0, 8)}`);
     }
+
+    // Release sender device locks
+    for (const did of lockedSenderIds) DeviceLockManager.release(did, `welcome_send_${automation.id}`);
   }
 }
 
