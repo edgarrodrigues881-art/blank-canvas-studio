@@ -1059,6 +1059,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       DeviceLockManager.release(did, campaignId);
     }
     activeCampaignIds.delete(campaignId);
+    releaseGlobalSlot(slotLabel);
   }
 }
 
