@@ -136,32 +136,29 @@ function getDailyBudget(dayIndex: number = 1, chipState: string = "new"): number
 }
 
 function getAutosaveContactsForDay(dayIndex: number, chipState: string): number {
+  const autosaveStart = getGroupsEndDay(chipState) + 1;
+  const daysSince = dayIndex - autosaveStart;
+  if (daysSince < 0) return 0;
+
   if (chipState === "new") {
-    const autosaveStart = getGroupsEndDay("new") + 1;
-    const daysSince = dayIndex - autosaveStart;
-    if (daysSince < 0) return 0;
-    if (daysSince === 0) return 3;
-    if (daysSince === 1) return 4;
+    if (daysSince <= 1) return 1;
+    if (daysSince <= 3) return 2;
+    if (daysSince <= 5) return 3;
+    if (daysSince <= 10) return 4;
     return 5;
   }
   if (chipState === "recovered") {
-    const autosaveStart = getGroupsEndDay("recovered") + 1;
-    const daysSince = dayIndex - autosaveStart;
-    if (daysSince < 0) return 0;
-    if (daysSince === 0) return 2;
-    if (daysSince === 1) return 3;
-    if (daysSince === 2) return 4;
-    return 5;
-  }
-  if (chipState === "unstable") {
-    const autosaveStart = getGroupsEndDay("unstable") + 1; // day 7
-    const daysSince = dayIndex - autosaveStart;
-    if (daysSince < 0) return 0;
     if (daysSince === 0) return 1;
-    if (daysSince === 1) return 3;
-    if (daysSince === 2) return 4;
+    if (daysSince <= 2) return 2;
+    if (daysSince <= 4) return 3;
+    if (daysSince <= 9) return 4;
     return 5;
   }
+  // unstable
+  if (daysSince === 0) return 1;
+  if (daysSince === 1) return 2;
+  if (daysSince <= 3) return 3;
+  if (daysSince <= 8) return 4;
   return 5;
 }
 
