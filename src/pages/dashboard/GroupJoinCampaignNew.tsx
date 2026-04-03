@@ -258,10 +258,6 @@ export default function GroupJoinCampaignNew() {
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Nome da campanha *</label>
                 <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Grupos de vendas — Lote 1" className="rounded-xl h-10" />
               </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Descrição (opcional)</label>
-                <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="Observações internas" className="rounded-xl h-10" />
-              </div>
             </div>
           </section>
 
