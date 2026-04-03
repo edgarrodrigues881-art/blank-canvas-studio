@@ -566,6 +566,21 @@ async function warmupTick() {
   await Promise.allSettled(
     deviceIds.map(async (deviceId) => {
       await sem.acquire();
+      
+      // Acquire global device lock for warmup
+      const warmupTaskId = `warmup_${deviceId}`;
+      const lockAcquired = DeviceLockManager.tryAcquire(deviceId, "warmup", warmupTaskId);
+      if (!lockAcquired) {
+        const lockReason = DeviceLockManager.getLockReason(deviceId);
+        log.info(`Warmup: device ${deviceId.slice(0, 8)} locked by: ${lockReason} — rescheduling ${jobsByDevice[deviceId].length} jobs`);
+        for (const job of jobsByDevice[deviceId]) {
+          const retryAt = new Date(Date.now() + 30_000).toISOString();
+          await db.from("warmup_jobs").update({ status: "pending", run_at: retryAt, last_error: `Aguardando: ${lockReason}` }).eq("id", job.id);
+        }
+        sem.release();
+        return;
+      }
+      
       try {
         const creds = deviceCredentials[deviceId];
 
