@@ -638,9 +638,9 @@ Deno.serve(async (req) => {
               });
             }
           } else {
-            // ── Individual device disconnect: strike system (3 strikes in 5 min) ──
-            const INDIVIDUAL_REQUIRED_STRIKES = 3;
-            const INDIVIDUAL_STRIKE_WINDOW_MS = 5 * 60 * 1000;
+            // ── Individual device disconnect: strike system (2 strikes in 3 min) ──
+            const INDIVIDUAL_REQUIRED_STRIKES = 2;
+            const INDIVIDUAL_STRIKE_WINDOW_MS = 3 * 60 * 1000;
 
             const { data: recentStrikes } = await svc
               .from("operation_logs")
