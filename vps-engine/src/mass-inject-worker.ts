@@ -705,8 +705,10 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       await emitEvent(sb, campaignId, "campaign_started", "info");
     }
 
-    const failedDeviceIds = new Map<string, number>(); // deviceId -> timestamp when marked failed
+    const failedDeviceIds = new Map<string, number>();
     let consecutiveFailures = Number(campaign.consecutive_failures || 0);
+    // Track which devices we locked for this campaign
+    const globalLockedDevices = new Set<string>();
 
     while (isRunningRef.value) {
       // Clear stale device failures — give devices a chance to reconnect
