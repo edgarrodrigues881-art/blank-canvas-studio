@@ -462,6 +462,19 @@ export default function GroupJoinCampaignNew() {
                 </div>
               )}
 
+              {distributionMode === "single" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Pausar a cada (grupos)</label>
+                    <Input type="number" min={0} value={pauseEvery || ""} onChange={e => setPauseEvery(Math.max(0, parseInt(e.target.value) || 0))} className="rounded-xl w-28 text-xs h-9" placeholder="0" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Duração da pausa (s)</label>
+                    <Input type="number" min={0} value={pauseDuration || ""} onChange={e => setPauseDuration(Math.max(0, parseInt(e.target.value) || 0))} className="rounded-xl w-28 text-xs h-9" placeholder="0" />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2.5 pt-1">
                 <label className="flex items-center gap-2.5 cursor-pointer">
                   <Checkbox checked={skipFailFast} onCheckedChange={(v) => setSkipFailFast(!!v)} />
