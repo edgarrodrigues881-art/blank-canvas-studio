@@ -131,15 +131,21 @@ export function useDeleteContacts() {
 
   return useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase.from("contacts").delete().in("id", ids);
-      if (error) throw error;
+      // Delete in batches of 500 to avoid query size limits
+      const BATCH = 500;
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const chunk = ids.slice(i, i + BATCH);
+        const { error } = await supabase.from("contacts").delete().in("id", chunk);
+        if (error) throw error;
+      }
       return ids;
     },
     onMutate: async (ids: string[]) => {
       await queryClient.cancelQueries({ queryKey: ["contacts"] });
       const previous = queryClient.getQueryData(["contacts", user?.id]);
+      const idSet = new Set(ids);
       queryClient.setQueryData(["contacts", user?.id], (old: Contact[] | undefined) =>
-        old ? old.filter(c => !ids.includes(c.id)) : old
+        old ? old.filter(c => !idSet.has(c.id)) : old
       );
       return { previous };
     },
