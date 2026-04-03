@@ -22,7 +22,7 @@ import { backoffMinutes } from "./lib/retry";
 import { validateUazapiCredentials } from "./lib/uazapi";
 
 const log = createLogger("main");
-const sem = new Semaphore(config.maxConcurrentDevices);
+// Global semaphore is now in lib/global-semaphore.ts (shared across all workers)
 
 // ── Health check & status ──
 const app = express();
