@@ -1627,12 +1627,23 @@ const Devices = () => {
         if (apiStatus === "authenticated") {
           clearInterval(interval);
           setPollingInterval(null);
-          // Mark as done FIRST, then sync in background
+          // Optimistic cache update: immediately mark device as Ready so UI shows "Desconectar"
+          const phone = result?.phone || "";
+          const profileName = result?.profileName || "";
+          queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
+            old ? old.map(d => d.id === deviceId ? {
+              ...d,
+              status: "Ready" as const,
+              number: phone || d.number,
+              profile_name: profileName || d.profile_name,
+            } : d) : old
+          );
+          // Mark dialog as done
           setConnectStep("done");
           queryClient.invalidateQueries({ queryKey: ["devices"] });
           queryClient.invalidateQueries({ queryKey: ["proxies"] });
-          // Toast removido — o trigger do banco já gera a notificação automática
-          // Sync in background (non-blocking)
+          queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
+          // Sync in background for full data refresh
           try {
             if (session?.access_token || (await supabase.auth.getSession()).data.session?.access_token) {
               await callSyncDevices();
