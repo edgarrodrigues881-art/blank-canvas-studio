@@ -43,7 +43,7 @@ export default function GroupJoinCampaignList() {
     queryFn: async () => {
       const { data } = await supabase
         .from("group_join_campaigns" as any)
-        .select("id, name, status, total_links, joined_count, failed_count, started_at, completed_at, created_at, updated_at")
+        .select("id, name, status, total_items, success_count, error_count, started_at, completed_at, created_at, updated_at")
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
       return (data || []) as any[];

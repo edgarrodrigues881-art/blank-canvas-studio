@@ -205,7 +205,7 @@ export default function GroupJoinCampaignNew() {
       const status = startNow ? "running" : "draft";
       const { data: campData, error: campError } = await supabase
         .from("group_join_campaigns" as any)
-        .insert({ user_id: user.id, name: name.trim(), description: description.trim(), status, total_items: queueItems.length, device_ids: selectedDevices, group_links: links, min_delay: minDelay, max_delay: maxDelay, pause_every: pauseEvery, pause_duration: pauseDuration } as any)
+        .insert({ user_id: user.id, name: name.trim(), description: description.trim(), status, total_items: queueItems.length, device_ids: selectedDevices, group_links: links, min_delay: minDelay, max_delay: maxDelay, pause_every: pauseEvery, pause_duration: pauseDuration, limit_per_instance: limitPerInstance > 0 ? limitPerInstance : null } as any)
         .select("id").single();
       if (campError) throw campError;
       const campaignId = (campData as any)?.id;
