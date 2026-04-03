@@ -1999,6 +1999,7 @@ export type Database = {
           group_ids: Json
           id: string
           last_content_sent: string | null
+          last_daily_reset_date: string | null
           last_error: string | null
           last_group_used: string | null
           last_sent_at: string | null
@@ -2036,6 +2037,7 @@ export type Database = {
           group_ids?: Json
           id?: string
           last_content_sent?: string | null
+          last_daily_reset_date?: string | null
           last_error?: string | null
           last_group_used?: string | null
           last_sent_at?: string | null
@@ -2073,6 +2075,7 @@ export type Database = {
           group_ids?: Json
           id?: string
           last_content_sent?: string | null
+          last_daily_reset_date?: string | null
           last_error?: string | null
           last_group_used?: string | null
           last_sent_at?: string | null
