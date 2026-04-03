@@ -526,12 +526,12 @@ function classifyFailure(msg: string, status: number, strategyIndex: number): Ad
   if (status === 401 || msg.includes("unauthorized") || msg.includes("invalid token"))
     return { ...base, detail: "Token inválido.", retryable: false, pauseCampaign: true, cooldownMs: 0, failureStatus: "unauthorized" };
   if (status === 503 || msg.includes("disconnected") || msg.includes("session disconnected") || msg.includes("socket closed"))
-    return { ...base, detail: "Instância desconectada.", retryable: true, pauseCampaign: false, cooldownMs: 20000, canTryOtherStrategy: true, failureStatus: "connection_unconfirmed" };
+    return { ...base, detail: "Instância desconectada.", retryable: true, pauseCampaign: false, cooldownMs: 5000, canTryOtherStrategy: true, failureStatus: "connection_unconfirmed" };
   if (msg.includes("timeout") || status === 408 || status === 504)
-    return { ...base, detail: "Timeout.", retryable: true, pauseCampaign: false, cooldownMs: 15000, canTryOtherStrategy: true, failureStatus: "timeout" };
+    return { ...base, detail: "Timeout.", retryable: true, pauseCampaign: false, cooldownMs: 3000, canTryOtherStrategy: true, failureStatus: "timeout" };
   if (status >= 500)
-    return { ...base, detail: `Erro servidor (${status}).`, retryable: true, pauseCampaign: false, cooldownMs: 15000, canTryOtherStrategy: true, failureStatus: "api_temporary" };
-  return { ...base, detail: msg.substring(0, 140) || `HTTP ${status}`, retryable: true, pauseCampaign: false, cooldownMs: 10000, failureStatus: "unknown_failure" };
+    return { ...base, detail: `Erro servidor (${status}).`, retryable: true, pauseCampaign: false, cooldownMs: 3000, canTryOtherStrategy: true, failureStatus: "api_temporary" };
+  return { ...base, detail: msg.substring(0, 140) || `HTTP ${status}`, retryable: true, pauseCampaign: false, cooldownMs: 3000, failureStatus: "unknown_failure" };
 }
 
 // ── Device selection ──
