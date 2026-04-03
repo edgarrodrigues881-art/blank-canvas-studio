@@ -404,6 +404,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     log.warn(`Campaign ${campaignId.slice(0, 8)}: no devices`);
     await sb.from("campaigns").update({ status: "paused", updated_at: nowIso() }).eq("id", campaignId);
     activeCampaigns.delete(campaignId);
+    releaseGlobalSlot(slotLabel);
     return;
   }
 
