@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   ArrowLeft, Pause, Play, XCircle, CheckCircle2, Clock, AlertTriangle,
-  Search, Timer, Hash, Zap, RefreshCw, RotateCcw, Send, Ban, ChevronDown, Download, ShieldAlert, Save, Loader2,
+  Search, Timer, Hash, Zap, RefreshCw, RotateCcw, Send, Ban, ChevronDown, Download, ShieldAlert, Save, Loader2, Users,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -128,6 +128,11 @@ const CampaignDetail = () => {
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [saveTemplateName, setSaveTemplateName] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [saveContactsOpen, setSaveContactsOpen] = useState(false);
+  const [saveContactsSent, setSaveContactsSent] = useState(true);
+  const [saveContactsFailed, setSaveContactsFailed] = useState(false);
+  const [saveContactsPending, setSaveContactsPending] = useState(false);
+  const [saveContactsLoading, setSaveContactsLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const createTemplate = useCreateTemplate();
   const createCarouselTemplate = useCreateCarouselTemplate();
@@ -602,6 +607,85 @@ const CampaignDetail = () => {
     }
   };
 
+  const handleSaveContactsConfirm = async () => {
+    if (!id || !user || saveContactsLoading) return;
+    setSaveContactsLoading(true);
+    try {
+      const statuses: string[] = [];
+      if (saveContactsSent) statuses.push("sent", "delivered");
+      if (saveContactsFailed) statuses.push("failed", "error");
+      if (saveContactsPending) statuses.push("pending");
+      if (statuses.length === 0) {
+        toast({ title: "Selecione ao menos um filtro", variant: "destructive" });
+        setSaveContactsLoading(false);
+        return;
+      }
+      let allContacts: any[] = [];
+      let offset = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("campaign_contacts")
+          .select("phone, name, status, var1, var2, var3, var4, var5, var6, var7, var8, var9, var10")
+          .eq("campaign_id", id)
+          .in("status", statuses)
+          .range(offset, offset + batchSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allContacts = [...allContacts, ...data];
+        if (data.length < batchSize) break;
+        offset += batchSize;
+      }
+      if (allContacts.length === 0) {
+        toast({ title: "Nenhum contato encontrado", variant: "destructive" });
+        setSaveContactsLoading(false);
+        return;
+      }
+      const phones = allContacts.map((c: any) => c.phone);
+      const existingPhones = new Set<string>();
+      for (let i = 0; i < phones.length; i += 500) {
+        const chunk = phones.slice(i, i + 500);
+        const { data: existing } = await supabase
+          .from("contacts")
+          .select("phone")
+          .eq("user_id", user.id)
+          .in("phone", chunk);
+        if (existing) existing.forEach((e: any) => existingPhones.add(e.phone));
+      }
+      const newContacts = allContacts
+        .filter((c: any) => !existingPhones.has(c.phone))
+        .map((c: any) => ({
+          user_id: user.id, phone: c.phone, name: c.name || "", tags: [],
+          var1: c.var1 || "", var2: c.var2 || "", var3: c.var3 || "", var4: c.var4 || "", var5: c.var5 || "",
+          var6: c.var6 || "", var7: c.var7 || "", var8: c.var8 || "", var9: c.var9 || "", var10: c.var10 || "",
+        }));
+      if (newContacts.length === 0) {
+        toast({ title: "Todos os contatos já existem na sua base", description: `${allContacts.length} contatos já salvos.` });
+        setSaveContactsOpen(false);
+        setSaveContactsLoading(false);
+        return;
+      }
+      const BATCH = 500;
+      let inserted = 0;
+      for (let i = 0; i < newContacts.length; i += BATCH) {
+        const chunk = newContacts.slice(i, i + BATCH);
+        const { error } = await supabase.from("contacts").insert(chunk);
+        if (error) throw error;
+        inserted += chunk.length;
+      }
+      const skipped = allContacts.length - newContacts.length;
+      toast({
+        title: `✅ ${inserted} contatos salvos!`,
+        description: skipped > 0 ? `${skipped} já existiam e foram ignorados.` : undefined,
+      });
+      setSaveContactsOpen(false);
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar contatos", description: err.message, variant: "destructive" });
+    } finally {
+      setSaveContactsLoading(false);
+    }
+  };
+
   const successRate = stats.total > 0 ? Math.round((stats.sent / stats.total) * 100) : 0;
 
   if (campLoading) {
@@ -697,6 +781,11 @@ const CampaignDetail = () => {
             {isFinished && stats.total > 0 && (
               <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-lg" disabled={exportLoading} onClick={() => { setExportSent(true); setExportFailed(true); setExportPending(true); setExportOpen(true); }}>
                 {exportLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} Exportar
+              </Button>
+            )}
+            {stats.total > 0 && (
+              <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-lg" onClick={() => { setSaveContactsSent(true); setSaveContactsFailed(false); setSaveContactsPending(false); setSaveContactsOpen(true); }}>
+                <Users className="w-3.5 h-3.5" /> Salvar Contatos
               </Button>
             )}
             {(isPaused || campaign?.status === "completed") && campaign?.message_content && (
@@ -1174,6 +1263,53 @@ const CampaignDetail = () => {
             <Button size="sm" disabled={createTemplate.isPending || createCarouselTemplate.isPending || updateCarouselTemplate.isPending || !saveTemplateName.trim()} className="gap-1.5" onClick={handleSaveTemplate}>
               {(createTemplate.isPending || createCarouselTemplate.isPending || updateCarouselTemplate.isPending) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Save Contacts Dialog ──────────────────────────────── */}
+      <Dialog open={saveContactsOpen} onOpenChange={setSaveContactsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">Salvar contatos na base</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Selecione quais contatos deseja salvar. Variáveis serão preservadas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <label className="flex items-center gap-3 rounded-lg border border-border/30 p-3 cursor-pointer hover:bg-muted/20 transition-colors">
+              <Checkbox checked={saveContactsSent} onCheckedChange={(v) => setSaveContactsSent(!!v)} />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">Enviadas</p>
+                <p className="text-[10px] text-muted-foreground">Contatos enviados com sucesso ({stats.sent})</p>
+              </div>
+              <CheckCircle2 className="w-4 h-4 text-primary/60" />
+            </label>
+            <label className="flex items-center gap-3 rounded-lg border border-border/30 p-3 cursor-pointer hover:bg-muted/20 transition-colors">
+              <Checkbox checked={saveContactsFailed} onCheckedChange={(v) => setSaveContactsFailed(!!v)} />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">Falhas</p>
+                <p className="text-[10px] text-muted-foreground">Contatos que falharam ({stats.failed})</p>
+              </div>
+              <XCircle className="w-4 h-4 text-destructive/60" />
+            </label>
+            {stats.pending > 0 && (
+              <label className="flex items-center gap-3 rounded-lg border border-border/30 p-3 cursor-pointer hover:bg-muted/20 transition-colors">
+                <Checkbox checked={saveContactsPending} onCheckedChange={(v) => setSaveContactsPending(!!v)} />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">Pendentes</p>
+                  <p className="text-[10px] text-muted-foreground">Contatos não enviados ({stats.pending})</p>
+                </div>
+                <Clock className="w-4 h-4 text-yellow-400/60" />
+              </label>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setSaveContactsOpen(false)} className="text-xs">Cancelar</Button>
+            <Button size="sm" onClick={handleSaveContactsConfirm} disabled={(!saveContactsSent && !saveContactsFailed && !saveContactsPending) || saveContactsLoading} className="gap-1.5 text-xs">
+              {saveContactsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Users className="w-3.5 h-3.5" />}
+              Salvar ({(saveContactsSent ? stats.sent : 0) + (saveContactsFailed ? stats.failed : 0) + (saveContactsPending ? stats.pending : 0)})
             </Button>
           </DialogFooter>
         </DialogContent>
