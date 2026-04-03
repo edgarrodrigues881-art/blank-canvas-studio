@@ -1088,7 +1088,7 @@ const CampaignDetail = () => {
           </div>
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={() => setResendOpen(false)} className="text-xs">Cancelar</Button>
-            <Button size="sm" onClick={handleResendConfirm} disabled={!resendFailed && !resendPending} className="gap-1.5 text-xs">
+            <Button size="sm" onClick={handleResendConfirm} disabled={(!resendFailed && !resendPending) || resendLoading} className="gap-1.5 text-xs">
               <RotateCcw className="w-3.5 h-3.5" />
               Reenviar ({(resendFailed ? stats.failedResendable : 0) + (resendPending ? stats.pending : 0)})
             </Button>
