@@ -2341,7 +2341,7 @@ async function handleTick(
   const [cyclesArr, subsArr, profilesArr, devicesArr, tokenRows, userMsgsArr, autosaveArr, instanceGroupsArr, groupsPoolArr, imagePool, audioPool] = await Promise.all([
     batchLoad<any>("warmup_cycles", "id, user_id, device_id, phase, is_running, day_index, days_total, chip_state, daily_interaction_budget_min, daily_interaction_budget_max, daily_interaction_budget_target, daily_interaction_budget_used, daily_unique_recipients_cap, daily_unique_recipients_used, first_24h_ends_at, last_daily_reset_at, next_run_at, plan_id, created_at, started_at", "id", uniqueCycleIds),
     batchLoad<any>("subscriptions", "user_id, expires_at, created_at", "user_id", uniqueUserIds, q => q.order("created_at", { ascending: false })),
-    batchLoad<any>("profiles", "id, status, instance_override", "id", uniqueUserIds),
+    batchLoad<any>("profiles", "id, status, instance_override, autosave_enabled", "id", uniqueUserIds),
     batchLoad<any>("devices", "id, status, uazapi_token, uazapi_base_url, number", "id", uniqueDeviceIds),
     batchLoad<any>("user_api_tokens", "device_id, token, status", "device_id", uniqueDeviceIds, q => q.eq("status", "in_use")),
     batchLoad<any>("warmup_messages", "content, user_id", "user_id", uniqueUserIds),
