@@ -51,7 +51,7 @@ app.get("/health", (_req: Request, res: Response) => {
     lastGroupJoinTick: lastGroupJoinTickAt?.toISOString() || null,
     lastWelcomeTick: lastWelcomeTickAt?.toISOString() || null,
     activeMassInjectCampaigns: massInjectStatus.activeCampaigns,
-    activeCampaignWorker: campaignWorkerStatus.activeCampaign,
+    activeCampaignWorker: campaignWorkerStatus.activeCampaigns,
     tickCount,
     tickErrors,
     concurrency: { active: sem.active, waiting: sem.waiting, max: config.maxConcurrentDevices },
