@@ -903,9 +903,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       }
 
       // 8. Add to group
-      const result = await withDeviceMutex(deviceId, () =>
-        addToGroup(baseUrl, device.uazapi_token, groupId, phone)
-      );
+      const result = await addToGroup(baseUrl, device.uazapi_token, groupId, phone);
 
       if (result.ok) {
         await sb.from("mass_inject_contacts").update({
