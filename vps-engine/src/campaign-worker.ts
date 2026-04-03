@@ -18,10 +18,10 @@ const RETRY_DELAY_MAX_MS = 60_000;
 const CONNECTED_STATUSES = ["Ready", "Connected", "authenticated", "open", "active", "online"];
 
 export let lastCampaignWorkerTickAt: Date | null = null;
-let activeCampaignId: string | null = null;
+const activeCampaigns = new Set<string>();
 
 export function getCampaignWorkerStatus() {
-  return { lastTick: lastCampaignWorkerTickAt, activeCampaign: activeCampaignId };
+  return { lastTick: lastCampaignWorkerTickAt, activeCampaigns: Array.from(activeCampaigns) };
 }
 
 // ── Utilities ──
