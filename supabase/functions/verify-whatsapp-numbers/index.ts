@@ -26,16 +26,17 @@ interface VerifyResult {
 }
 
 // ═══════════════════════════════════════════════════════════
-// UAZAPI v2 — POST /chat/check { numbers: [phone] }
+// UAZAPI v2 — POST /chat/check { numbers: [phone1, phone2, ...] }
 // Response: [{ query, isInWhatsapp: bool, jid, lid, verifiedName }]
 // ═══════════════════════════════════════════════════════════
-async function checkSingleNumber(
+async function checkBatchNumbers(
   baseUrl: string,
   token: string,
-  phone: string,
-): Promise<VerifyResult> {
+  phones: string[],
+): Promise<VerifyResult[]> {
   const now = new Date().toISOString();
   const url = `${baseUrl}/chat/check`;
+  
   try {
     const res = await fetchWithTimeout(url, {
       method: "POST",
@@ -44,45 +45,62 @@ async function checkSingleNumber(
         Accept: "application/json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ numbers: [phone] }),
+      body: JSON.stringify({ numbers: phones }),
     });
 
     const text = await res.text();
-    console.log(`[verify] POST /chat/check ${phone} => ${res.status} | ${text.substring(0, 300)}`);
+    console.log(`[verify] POST /chat/check [${phones.length} numbers] => ${res.status} | ${text.substring(0, 400)}`);
 
     if (res.status === 401 || res.status === 403) {
-      return { phone, status: "error", detail: "Token da instância inválido", checked_at: now };
+      return phones.map(phone => ({ phone, status: "error", detail: "Token da instância inválido", checked_at: now }));
     }
 
     if (!res.ok) {
-      return { phone, status: "error", detail: `API retornou HTTP ${res.status}`, checked_at: now };
+      return phones.map(phone => ({ phone, status: "error", detail: `API retornou HTTP ${res.status}`, checked_at: now }));
     }
 
     let parsed: any = null;
     try { parsed = JSON.parse(text); } catch { /* ignore */ }
 
-    // Response format: [{ query, isInWhatsapp: bool, jid, lid, verifiedName }]
-    const item = Array.isArray(parsed) ? parsed[0] : parsed;
+    // Response can be an array of results or a single object
+    const items = Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
 
-    if (item?.isInWhatsapp === true) {
-      return { phone, status: "success", detail: "Tem WhatsApp", checked_at: now };
-    }
-    if (item?.isInWhatsapp === false) {
-      return { phone, status: "no_whatsapp", detail: "Sem WhatsApp", checked_at: now };
-    }
-
-    // Fallback: check for jid presence
-    if (item?.jid && String(item.jid).includes("@s.whatsapp.net")) {
-      return { phone, status: "success", detail: "Tem WhatsApp", checked_at: now };
+    // Build a map from query phone to result for fast lookup
+    const resultMap = new Map<string, any>();
+    for (const item of items) {
+      const query = String(item?.query || item?.phone || item?.number || "").replace(/\D/g, "");
+      if (query) resultMap.set(query, item);
     }
 
-    return { phone, status: "error", detail: "Resposta inesperada da API", checked_at: now };
+    // Map back to our input phones preserving order
+    return phones.map(phone => {
+      const item = resultMap.get(phone) || items.find((it: any) => {
+        const q = String(it?.query || it?.phone || it?.number || "").replace(/\D/g, "");
+        return q === phone;
+      });
+
+      if (!item) {
+        return { phone, status: "error" as const, detail: "Sem resposta da API para este número", checked_at: now };
+      }
+
+      if (item.isInWhatsapp === true) {
+        return { phone, status: "success" as const, detail: "Tem WhatsApp", checked_at: now };
+      }
+      if (item.isInWhatsapp === false) {
+        return { phone, status: "no_whatsapp" as const, detail: "Sem WhatsApp", checked_at: now };
+      }
+
+      // Fallback: check for jid presence
+      if (item.jid && String(item.jid).includes("@s.whatsapp.net")) {
+        return { phone, status: "success" as const, detail: "Tem WhatsApp", checked_at: now };
+      }
+
+      return { phone, status: "error" as const, detail: "Resposta inesperada da API", checked_at: now };
+    });
   } catch (err: any) {
-    console.error(`[verify] ${phone} error: ${err?.message || err}`);
-    if (err?.name === "AbortError") {
-      return { phone, status: "error", detail: "Timeout na consulta", checked_at: now };
-    }
-    return { phone, status: "error", detail: "Erro de conexão com a API", checked_at: now };
+    console.error(`[verify] batch error: ${err?.message || err}`);
+    const detail = err?.name === "AbortError" ? "Timeout na consulta" : "Erro de conexão com a API";
+    return phones.map(phone => ({ phone, status: "error" as const, detail, checked_at: now }));
   }
 }
 
@@ -95,12 +113,10 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("authorization") || "";
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: authErr } = await userClient.auth.getUser();
+    const adminClient = createClient(supabaseUrl, serviceKey);
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authErr } = await adminClient.auth.getUser(token);
     if (authErr || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -108,9 +124,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    const adminClient = createClient(supabaseUrl, serviceKey);
     const body = await req.json();
     const { device_id, phones: rawPhones } = body;
+
+    if (!device_id || typeof device_id !== "string") {
+      return new Response(JSON.stringify({ error: "device_id é obrigatório" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const phones = Array.isArray(rawPhones)
       ? Array.from(
           new Set(
@@ -121,8 +144,8 @@ Deno.serve(async (req) => {
         )
       : [];
 
-    if (!device_id || !Array.isArray(phones) || phones.length === 0) {
-      return new Response(JSON.stringify({ error: "device_id e phones são obrigatórios" }), {
+    if (phones.length === 0) {
+      return new Response(JSON.stringify({ error: "Lista de números vazia" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -163,21 +186,19 @@ Deno.serve(async (req) => {
     }
 
     const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
-    const token = device.uazapi_token;
+    const devToken = device.uazapi_token;
 
-    // Process in sequential batches to avoid overload
+    // Process in batches of 5 numbers sent together to the API
     const BATCH_SIZE = 5;
     const DELAY_BETWEEN_MS = 800;
     const results: VerifyResult[] = [];
 
     for (let i = 0; i < phones.length; i += BATCH_SIZE) {
       const batch = phones.slice(i, i + BATCH_SIZE);
-      // Process batch sequentially (one at a time per number)
-      for (const phone of batch) {
-        const result = await checkSingleNumber(baseUrl, token, phone);
-        results.push(result);
-      }
-      // Delay between batches
+      const batchResults = await checkBatchNumbers(baseUrl, devToken, batch);
+      results.push(...batchResults);
+
+      // Delay between batches to avoid rate limiting
       if (i + BATCH_SIZE < phones.length) {
         await new Promise((r) => setTimeout(r, DELAY_BETWEEN_MS));
       }

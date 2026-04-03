@@ -348,7 +348,7 @@ export default function WhatsAppVerifier() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/30">
-                    {results.map((r, i) => (
+                    {results.slice(0, 500).map((r, i) => (
                       <tr key={i} className="hover:bg-muted/10 transition-colors">
                         <td className="px-4 py-2.5 font-mono text-foreground">{r.phone}</td>
                         <td className="px-4 py-2.5">{statusBadge(r.status)}</td>
@@ -358,6 +358,13 @@ export default function WhatsAppVerifier() {
                         </td>
                       </tr>
                     ))}
+                    {results.length > 500 && (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-3 text-center text-sm text-muted-foreground">
+                          Exibindo 500 de {results.length} resultados. Use "Exportar Tudo" para ver todos.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
