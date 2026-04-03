@@ -207,10 +207,18 @@ export default function GroupJoinCampaignNew() {
           }
         }
       } else {
+        // Distribute with optional limit per instance
+        let idx = 0;
+        let countOnCurrent = 0;
         for (let i = 0; i < links.length; i++) {
-          const deviceId = selectedDevices[i % selectedDevices.length];
+          const deviceId = selectedDevices[idx % selectedDevices.length];
           const dev = devices.find(d => d.id === deviceId);
           queueItems.push({ device_id: deviceId, device_name: dev?.name || deviceId, group_link: links[i], group_name: extractInviteCode(links[i])?.substring(0, 12) || links[i] });
+          countOnCurrent++;
+          if (limitPerInstance > 0 && countOnCurrent >= limitPerInstance) {
+            idx++;
+            countOnCurrent = 0;
+          }
         }
       }
 
