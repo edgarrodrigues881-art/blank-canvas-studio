@@ -55,6 +55,16 @@ app.get("/health", (_req: Request, res: Response) => {
     tickCount,
     tickErrors,
     concurrency: { active: sem.active, waiting: sem.waiting, max: config.maxConcurrentDevices },
+    deviceLocks: {
+      active: DeviceLockManager.getActiveLocks().length,
+      byWorker: DeviceLockManager.getLocksByWorker(),
+      details: DeviceLockManager.getActiveLocks().map(l => ({
+        device: l.deviceId.slice(0, 8),
+        worker: l.workerType,
+        task: l.taskId.slice(0, 8),
+        heldSeconds: Math.round((Date.now() - l.acquiredAt) / 1000),
+      })),
+    },
     withinWindow: isWithinOperatingWindow(),
   });
 });
