@@ -933,122 +933,84 @@ async function mainLoop() {
     process.exit(1);
   }
 
-  // Warmup tick loop
-  const runWarmupTick = async () => {
-    while (isRunning) {
-      try {
-        // Cleanup stale device locks every tick (safety net)
-        DeviceLockManager.cleanupStaleLocks(30 * 60_000);
-        
-        const result = await warmupTick();
-        lastTickAt = new Date();
-        tickCount++;
-        if (result.processed > 0) {
-          log.info(`Warmup tick #${tickCount}: ${result.processed} jobs (${result.succeeded} ok, ${result.failed} fail, ${result.devices} devices)`);
+  // ── Reentrancy guards ──
+  // Although while/await already prevents overlap, these flags add
+  // explicit defence-in-depth and visible log traces.
+  const tickRunning = {
+    warmup: false,
+    campaign: false,
+    massInject: false,
+    campaignWorker: false,
+    groupInteraction: false,
+    chipConv: false,
+    groupJoin: false,
+    welcome: false,
+  };
+
+  function guardedLoop(
+    name: keyof typeof tickRunning,
+    fn: () => Promise<void>,
+    intervalMs: number,
+  ) {
+    return async () => {
+      while (isRunning) {
+        if (tickRunning[name]) {
+          log.warn(`⚠️ ${name} tick SKIPPED — previous still running`);
+        } else {
+          tickRunning[name] = true;
+          try {
+            await fn();
+          } catch (err: any) {
+            log.error(`${name} tick error`, serializeUnknownError(err));
+          } finally {
+            tickRunning[name] = false;
+          }
         }
-      } catch (err: any) {
-        tickErrors++;
-        log.error("Warmup tick error", serializeUnknownError(err));
+        await new Promise((r) => setTimeout(r, intervalMs));
       }
-      await new Promise((r) => setTimeout(r, config.tickIntervalMs));
-    }
-  };
+    };
+  }
 
-  // Campaign tick loop
-  const runCampaignTick = async () => {
-    while (isRunning) {
-      try {
-        await campaignTick();
-        lastCampaignTickAt = new Date();
-      } catch (err: any) {
-        log.error("Campaign tick error", serializeUnknownError(err));
-      }
-      await new Promise((r) => setTimeout(r, config.campaignTickMs));
-    }
-  };
-
-  // Mass inject worker loop
-  const runMassInjectTick = async () => {
-    while (isRunning) {
-      try {
-        await massInjectTick(massInjectRunningRef);
-      } catch (err: any) {
-        log.error("Mass inject tick error", serializeUnknownError(err));
-      }
-      await new Promise(r => setTimeout(r, 10_000));
-    }
-  };
-
-  // Campaign worker loop (inline processing — replaces Edge Function proxy)
-  const runCampaignWorker = async () => {
-    while (isRunning) {
-      try {
-        await campaignWorkerTick({ value: isRunning });
-      } catch (err: any) {
-        log.error("Campaign worker tick error", serializeUnknownError(err));
-      }
-      await new Promise(r => setTimeout(r, 15_000));
-    }
-  };
-
-  // Group interaction worker loop
-  const runGroupInteractionWorker = async () => {
-    while (isRunning) {
-      try {
-        await groupInteractionTick();
-      } catch (err: any) {
-        log.error("Group interaction worker tick error", serializeUnknownError(err));
-      }
-      await new Promise(r => setTimeout(r, 20_000));
-    }
-  };
-
-  // Chip conversation worker loop
-  const runChipConvWorker = async () => {
-    while (isRunning) {
-      try {
-        await chipConversationTick();
-      } catch (err: any) {
-        log.error("Chip conversation worker tick error", serializeUnknownError(err));
-      }
-      await new Promise(r => setTimeout(r, 30_000));
-    }
-  };
-
-  // Group join worker loop
-  const runGroupJoinWorker = async () => {
-    while (isRunning) {
-      try {
-        await groupJoinTick({ value: isRunning });
-      } catch (err: any) {
-        log.error("Group join worker tick error", serializeUnknownError(err));
-      }
-      await new Promise(r => setTimeout(r, 10_000));
-    }
-  };
-
-  // Welcome worker loop
-  const runWelcomeWorker = async () => {
-    while (isRunning) {
-      try {
-        await welcomeTick();
-      } catch (err: any) {
-        log.error("Welcome worker tick error", serializeUnknownError(err));
-      }
-      await new Promise(r => setTimeout(r, 30_000)); // 30s interval
-    }
-  };
-
-  // Run all loops concurrently
+  // Run all loops concurrently with reentrancy protection
   await Promise.all([
-    runWarmupTick(),
-    runCampaignTick(),
-    runMassInjectTick(),
-    runCampaignWorker(),
-    runGroupInteractionWorker(),
-    runChipConvWorker(),
-    runGroupJoinWorker(),
-    runWelcomeWorker(),
+    guardedLoop("warmup", async () => {
+      DeviceLockManager.cleanupStaleLocks(30 * 60_000);
+      const result = await warmupTick();
+      lastTickAt = new Date();
+      tickCount++;
+      if (result.processed > 0) {
+        log.info(`Warmup tick #${tickCount}: ${result.processed} jobs (${result.succeeded} ok, ${result.failed} fail, ${result.devices} devices)`);
+      }
+    }, config.tickIntervalMs)(),
+
+    guardedLoop("campaign", async () => {
+      await campaignTick();
+      lastCampaignTickAt = new Date();
+    }, config.campaignTickMs)(),
+
+    guardedLoop("massInject", async () => {
+      await massInjectTick(massInjectRunningRef);
+    }, 10_000)(),
+
+    guardedLoop("campaignWorker", async () => {
+      await campaignWorkerTick({ value: isRunning });
+    }, 15_000)(),
+
+    guardedLoop("groupInteraction", async () => {
+      await groupInteractionTick();
+    }, 20_000)(),
+
+    guardedLoop("chipConv", async () => {
+      await chipConversationTick();
+    }, 30_000)(),
+
+    guardedLoop("groupJoin", async () => {
+      await groupJoinTick({ value: isRunning });
+    }, 10_000)(),
+
+    guardedLoop("welcome", async () => {
+      await welcomeTick();
+    }, 30_000)(),
   ]);
 }
 
