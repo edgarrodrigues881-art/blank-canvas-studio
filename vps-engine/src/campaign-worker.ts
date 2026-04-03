@@ -650,8 +650,12 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 }
 
 // ══════════════════════════════════════════════════════════
-// TICK: finds active campaigns and processes them
+// TICK: finds active campaigns and processes them IN PARALLEL
+// Up to MAX_PARALLEL campaigns concurrently, respecting device conflicts.
 // ══════════════════════════════════════════════════════════
+
+const MAX_PARALLEL_CAMPAIGNS = 5;
+
 export async function campaignWorkerTick(isRunningRef: { value: boolean }) {
   const db = getDb();
 
@@ -667,14 +671,20 @@ export async function campaignWorkerTick(isRunningRef: { value: boolean }) {
     .select("*")
     .eq("status", "running")
     .order("started_at", { ascending: true })
-    .limit(5);
+    .limit(10);
 
   if (!campaigns?.length) return;
 
-  // Process one at a time
-  for (const campaign of campaigns) {
-    if (!isRunningRef.value) break;
+  // Filter: skip campaigns already being processed in a previous tick
+  const eligible = campaigns.filter(c => !activeCampaigns.has(c.id));
+  if (eligible.length === 0) {
+    log.info(`All ${campaigns.length} campaigns already active — waiting`);
+    return;
+  }
 
+  // Pre-check: complete campaigns with zero pending contacts quickly
+  const toProcess: typeof eligible = [];
+  for (const campaign of eligible) {
     const { count } = await db.from("campaign_contacts")
       .select("id", { count: "exact", head: true })
       .eq("campaign_id", campaign.id).eq("status", "pending");
@@ -683,15 +693,57 @@ export async function campaignWorkerTick(isRunningRef: { value: boolean }) {
       const stats = await getRealCampaignStats(db, campaign.id);
       await db.from("campaigns").update({ status: "completed", completed_at: nowIso(), sent_count: stats.sent, delivered_count: stats.delivered, failed_count: stats.failed, total_contacts: stats.total }).eq("id", campaign.id);
       await db.from("campaign_device_locks").delete().eq("campaign_id", campaign.id);
+      log.info(`Campaign ${campaign.id.slice(0, 8)} auto-completed (0 pending)`);
+      continue;
+    }
+    toProcess.push(campaign);
+  }
+
+  if (toProcess.length === 0) return;
+
+  // Determine which campaigns can run in parallel (device conflict check)
+  const devicesInUse = new Set<string>();
+  const batch: typeof toProcess = [];
+
+  for (const campaign of toProcess) {
+    if (batch.length >= MAX_PARALLEL_CAMPAIGNS) {
+      log.info(`Campaign ${campaign.id.slice(0, 8)}: ⏳ waiting slot (max ${MAX_PARALLEL_CAMPAIGNS} parallel)`);
+      break;
+    }
+
+    const deviceIds = getCampaignDeviceIds(campaign);
+    const hasConflict = deviceIds.some(did => devicesInUse.has(did));
+
+    if (hasConflict) {
+      log.info(`Campaign ${campaign.id.slice(0, 8)}: ⏳ waiting — device conflict with another campaign in this batch`);
       continue;
     }
 
-    try {
-      await processOneCampaign(db, campaign, isRunningRef);
-    } catch (err: any) {
-      log.error(`Campaign ${campaign.id.slice(0, 8)} error: ${err.message}`);
-    }
+    // Reserve devices for this batch
+    deviceIds.forEach(did => devicesInUse.add(did));
+    batch.push(campaign);
   }
+
+  if (batch.length === 0) return;
+
+  log.info(`▶▶ Processing ${batch.length} campaigns in parallel (of ${toProcess.length} eligible)`);
+
+  // Execute batch in parallel
+  const results = await Promise.allSettled(
+    batch.map(async (campaign) => {
+      if (!isRunningRef.value) return;
+      try {
+        await processOneCampaign(db, campaign, isRunningRef);
+      } catch (err: any) {
+        log.error(`Campaign ${campaign.id.slice(0, 8)} error: ${err.message}`);
+      }
+    })
+  );
+
+  // Log results
+  const fulfilled = results.filter(r => r.status === "fulfilled").length;
+  const rejected = results.filter(r => r.status === "rejected").length;
+  if (rejected > 0) log.warn(`Batch result: ${fulfilled} ok, ${rejected} failed`);
 
   lastCampaignWorkerTickAt = new Date();
 }
