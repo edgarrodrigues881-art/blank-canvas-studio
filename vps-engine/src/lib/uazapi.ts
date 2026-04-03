@@ -168,6 +168,12 @@ export async function uazapiSendText(
   text: string,
   isGroup = false,
 ): Promise<any> {
+  // Circuit breaker check
+  const check = canRequest(baseUrl);
+  if (!check.allowed) {
+    throw new Error(`Circuit breaker OPEN — ${check.reason} (retry in ${Math.round(check.retryInMs / 1000)}s)`);
+  }
+
   const safeText = String(text || "").trim();
   if (!safeText) throw new Error("Texto vazio");
 
@@ -201,8 +207,10 @@ export async function uazapiSendText(
             lastErr = `${at.path}: ${raw.substring(0, 240)}`;
             continue;
           }
+          recordSuccess(baseUrl);
           return parsed;
         } catch {
+          recordSuccess(baseUrl);
           return { ok: true, raw };
         }
       }
@@ -215,6 +223,7 @@ export async function uazapiSendText(
       lastErr = `${at.path}: ${e?.message || String(e)}`;
     }
   }
+  recordFailure(baseUrl, lastErr);
   throw new Error(`Text send failed: ${lastErr}`);
 }
 
