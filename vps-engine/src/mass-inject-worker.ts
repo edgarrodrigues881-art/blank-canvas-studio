@@ -46,7 +46,7 @@ const TRANSIENT_FAILURE_STATUSES = new Set([
   "timeout",
 ]);
 
-const DEVICE_RETRY_INTERVAL_MS = 30_000;
+const DEVICE_RETRY_INTERVAL_MS = 6_000; // 6s — fast retry, don't block
 
 // ── In-memory caches (persist across contacts within same campaign run) ──
 type ParticipantCacheEntry = {
