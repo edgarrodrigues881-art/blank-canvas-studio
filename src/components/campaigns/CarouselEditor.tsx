@@ -26,7 +26,9 @@ const compressImage = (file: File, maxWidth = 1200, quality = 0.8): Promise<File
       return;
     }
     const img = new window.Image();
+    const objectUrl = URL.createObjectURL(file);
     img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
       const scale = Math.min(1, maxWidth / img.width);
       const w = Math.round(img.width * scale);
       const h = Math.round(img.height * scale);
@@ -49,8 +51,8 @@ const compressImage = (file: File, maxWidth = 1200, quality = 0.8): Promise<File
         outputType === "image/jpeg" ? quality : undefined
       );
     };
-    img.onerror = () => resolve(file);
-    img.src = URL.createObjectURL(file);
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
+    img.src = objectUrl;
   });
 };
 
@@ -90,7 +92,7 @@ export function CarouselEditor({ cards, onChange }: CarouselEditorProps) {
       ...source,
       id: `card-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       position: cards.length,
-      buttons: source.buttons.map(b => ({ ...b, id: Date.now() + Math.random() })),
+      buttons: source.buttons.map(b => ({ ...b, id: Math.floor(Date.now() + Math.random() * 10000) })),
     };
     const newCards = [...cards];
     newCards.splice(index + 1, 0, newCard);
@@ -124,7 +126,7 @@ export function CarouselEditor({ cards, onChange }: CarouselEditorProps) {
       toast({ title: "Máximo 3 botões por card", variant: "destructive" });
       return;
     }
-    const newBtn: CarouselCardButton = { id: Date.now() + Math.random(), type, text: "", value: "" };
+    const newBtn: CarouselCardButton = { id: Math.floor(Date.now() + Math.random() * 10000), type, text: "", value: "" };
     const updatedButtons = [...activeCard.buttons, newBtn];
     updateCard(activeCardIndex, { buttons: updatedButtons });
     toast({ title: `Botão ${type === "url" ? "URL" : "Resposta"} adicionado`, description: `Preencha o texto do botão abaixo.` });
