@@ -645,7 +645,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
   // Release global device locks
   for (const did of lockedDeviceIds) DeviceLockManager.release(did, campaignId);
-  activeCampaignId = null;
+  activeCampaigns.delete(campaignId);
+  log.info(`■ Campaign FINISHED ${campaignId.slice(0, 8)}: "${campaign.name}"`);
 }
 
 // ══════════════════════════════════════════════════════════
