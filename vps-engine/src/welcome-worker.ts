@@ -515,6 +515,24 @@ async function processPhase() {
     );
     if (!activeSenders.length) continue;
 
+    // Acquire device locks for all sender devices
+    const lockedSenderIds: string[] = [];
+    for (const sender of activeSenders) {
+      const lockAcquired = DeviceLockManager.tryAcquire(sender.id, "welcome_send", `welcome_send_${automation.id}`);
+      if (lockAcquired) {
+        lockedSenderIds.push(sender.id);
+      } else {
+        const lockReason = DeviceLockManager.getLockReason(sender.id);
+        log.info(`Welcome send: device ${sender.id.slice(0, 8)} locked by: ${lockReason} — skipping sender`);
+      }
+    }
+    const availableSenders = activeSenders.filter(d => lockedSenderIds.includes(d.id));
+    if (!availableSenders.length) {
+      // Release any locks we might have acquired
+      for (const did of lockedSenderIds) DeviceLockManager.release(did, `welcome_send_${automation.id}`);
+      continue;
+    }
+
     // Read message type, buttons, carousel from automation
     const messageType = (automation.message_type || "text").toLowerCase();
     const automationButtons = Array.isArray(automation.buttons) ? automation.buttons : [];
