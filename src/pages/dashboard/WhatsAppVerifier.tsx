@@ -266,7 +266,7 @@ export default function WhatsAppVerifier() {
                 {progress.processed} / {progress.total}
               </span>
             </div>
-            <Progress value={(progress.processed / progress.total) * 100} className="h-2" />
+            <Progress value={progress.total > 0 ? (progress.processed / progress.total) * 100 : 0} className="h-2" />
             <div className="flex gap-4 text-xs text-muted-foreground">
               <span className="text-emerald-400">✓ {stats.success} válidos</span>
               <span className="text-red-400">✗ {stats.no_whatsapp} sem WA</span>
