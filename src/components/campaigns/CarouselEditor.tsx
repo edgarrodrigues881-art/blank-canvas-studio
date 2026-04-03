@@ -26,7 +26,9 @@ const compressImage = (file: File, maxWidth = 1200, quality = 0.8): Promise<File
       return;
     }
     const img = new window.Image();
+    const objectUrl = URL.createObjectURL(file);
     img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
       const scale = Math.min(1, maxWidth / img.width);
       const w = Math.round(img.width * scale);
       const h = Math.round(img.height * scale);
@@ -49,16 +51,6 @@ const compressImage = (file: File, maxWidth = 1200, quality = 0.8): Promise<File
         outputType === "image/jpeg" ? quality : undefined
       );
     };
-    img.onerror = () => resolve(file);
-    const objectUrl = URL.createObjectURL(file);
-    img.onload = (() => {
-      const originalOnload = img.onload;
-      return function (this: GlobalEventHandlers, ev: Event) {
-        URL.revokeObjectURL(objectUrl);
-        // @ts-ignore
-        return originalOnload?.call(this, ev);
-      };
-    })();
     img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
     img.src = objectUrl;
   });
