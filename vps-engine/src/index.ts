@@ -8,7 +8,6 @@ import { inspect } from "node:util";
 import { config } from "./config";
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
-import { Semaphore } from "./lib/concurrency";
 import { DeviceLockManager } from "./lib/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot, getGlobalConcurrencyStats } from "./lib/global-semaphore";
 import { isWithinOperatingWindow, getBrtTodayAt } from "./lib/brt";
