@@ -9,9 +9,28 @@ const globalToastedIds = new Set<string>();
 const globalRecentToastTimestamps = new Map<string, number>();
 
 // Clean notification chime using Web Audio API
+let _audioCtxReady = false;
+let _sharedCtx: AudioContext | null = null;
+
+const getAudioCtx = (): AudioContext | null => {
+  try {
+    if (!_sharedCtx || _sharedCtx.state === "closed") {
+      _sharedCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (_sharedCtx.state === "suspended") {
+      _sharedCtx.resume().catch(() => {});
+    }
+    _audioCtxReady = true;
+    return _sharedCtx;
+  } catch {
+    return null;
+  }
+};
+
 const playChime = () => {
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const ctx = getAudioCtx();
+    if (!ctx) return;
     const now = ctx.currentTime;
 
     // Two-tone chime: C6 → E6
@@ -22,11 +41,11 @@ const playChime = () => {
       osc.type = "sine";
       osc.frequency.value = freq;
       gain.gain.setValueAtTime(0, now + i * 0.12);
-      gain.gain.linearRampToValueAtTime(0.15, now + i * 0.12 + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.3);
+      gain.gain.linearRampToValueAtTime(0.18, now + i * 0.12 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.35);
       osc.connect(gain).connect(ctx.destination);
       osc.start(now + i * 0.12);
-      osc.stop(now + i * 0.12 + 0.3);
+      osc.stop(now + i * 0.12 + 0.35);
     });
   } catch {
     // Audio not available
@@ -82,15 +101,16 @@ export function useNotifications() {
   useEffect(() => {
     const unlock = () => {
       if (audioUnlockedRef.current) return;
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      ctx.resume().then(() => ctx.close()).catch(() => {});
+      getAudioCtx();
       audioUnlockedRef.current = true;
     };
     window.addEventListener("click", unlock, { once: true });
     window.addEventListener("keydown", unlock, { once: true });
+    window.addEventListener("touchstart", unlock, { once: true });
     return () => {
       window.removeEventListener("click", unlock);
       window.removeEventListener("keydown", unlock);
+      window.removeEventListener("touchstart", unlock);
     };
   }, []);
 
