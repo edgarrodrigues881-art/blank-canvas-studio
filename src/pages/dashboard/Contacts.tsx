@@ -402,24 +402,32 @@ const Contacts = () => {
   const addTagToSelected = () => {
     if (selectedTags.length === 0) return;
     const tags = selectedTags.map(t => t.trim().toLowerCase());
+    const updates: { id: string; tags: string[] }[] = [];
     const toUpdate = contacts.filter(c => selected.has(c.id));
     toUpdate.forEach(c => {
       const existing = c.tags || [];
       const newTags = [...new Set([...existing, ...tags])];
       if (newTags.length !== existing.length) {
-        updateContact.mutate({ id: c.id, tags: newTags });
+        updates.push({ id: c.id, tags: newTags });
       }
     });
-    toast({ title: "Tags adicionadas", description: `${tags.length} tag(s) adicionada(s) a ${selected.size} contatos.` });
+    if (updates.length > 0) {
+      bulkUpdateContacts.mutate(updates);
+    }
+    toast({ title: "Tags adicionadas", description: `${tags.length} tag(s) adicionada(s) a ${updates.length} contatos.` });
     setSelectedTags([]);
     setAddTagDialogOpen(false);
   };
 
   const removeTagFromSelected = () => {
+    const updates: { id: string; tags: string[] }[] = [];
     const toUpdate = contacts.filter(c => selected.has(c.id) && (c.tags || []).length > 0);
     toUpdate.forEach(c => {
-      updateContact.mutate({ id: c.id, tags: [] });
+      updates.push({ id: c.id, tags: [] });
     });
+    if (updates.length > 0) {
+      bulkUpdateContacts.mutate(updates);
+    }
     toast({ title: "Tags removidas", description: `Tags removidas de ${toUpdate.length} contatos.` });
     setRemoveTagDialogOpen(false);
   };
