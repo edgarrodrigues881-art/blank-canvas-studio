@@ -393,8 +393,8 @@ class RandomPicker {
 // ══════════════════════════════════════════════════════════
 async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value: boolean }) {
   const campaignId = campaign.id;
-  activeCampaignId = campaignId;
-  log.info(`Processing campaign ${campaignId.slice(0, 8)}: "${campaign.name}"`);
+  activeCampaigns.add(campaignId);
+  log.info(`▶ Campaign STARTED ${campaignId.slice(0, 8)}: "${campaign.name}"`);
 
   const deviceIds = getCampaignDeviceIds(campaign);
   if (deviceIds.length === 0) {
