@@ -892,8 +892,8 @@ const Devices = () => {
     // Sync proxy statuses when proxy changes
     if (oldProxyId !== newProxyId) {
       const proxyOps: Promise<any>[] = [];
-      if (oldProxyId) proxyOps.push(supabase.from("proxies").update({ status: "USADA" } as any).eq("id", oldProxyId));
-      if (newProxyId) proxyOps.push(supabase.from("proxies").update({ status: "USANDO" } as any).eq("id", newProxyId));
+      if (oldProxyId) proxyOps.push(supabase.from("proxies").update({ status: "USADA" } as any).eq("id", oldProxyId).then());
+      if (newProxyId) proxyOps.push(supabase.from("proxies").update({ status: "USANDO" } as any).eq("id", newProxyId).then());
       if (proxyOps.length > 0) Promise.allSettled(proxyOps).then(() => queryClient.invalidateQueries({ queryKey: ["proxies"] }));
     }
 
