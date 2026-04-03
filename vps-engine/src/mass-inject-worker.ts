@@ -751,17 +751,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         break;
       }
 
-      // Acquire global device lock (cross-worker coordination)
-      if (!globalLockedDevices.has(deviceId)) {
-        const lockAcquired = DeviceLockManager.tryAcquire(deviceId, "mass_inject", campaignId);
-        if (!lockAcquired) {
-          const lockReason = DeviceLockManager.getBlockingReason(deviceId, "mass_inject");
-          log.info(`Campaign ${campaignId.slice(0, 8)}: device ${deviceId.slice(0, 8)} locked by: ${lockReason} — skipping to next device`);
-          failedDeviceIds.set(deviceId, Date.now());
-          continue;
-        }
-        globalLockedDevices.add(deviceId);
-      }
+      // Device lock is now acquired per-action (around addToGroup), not per-campaign
 
       // 3. Get device credentials
       const { data: device } = await sb.from("devices")
