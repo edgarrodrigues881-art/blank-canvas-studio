@@ -727,7 +727,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       const deviceId = pickDeviceId(freshCampaign, failedDeviceIds);
       if (!deviceId) {
         if (failedDeviceIds.size > 0) {
-          log.warn(`Campaign ${campaignId.slice(0, 8)}: all devices are cooling down after connection issues — waiting 60s before retry`);
+          log.warn(`Campaign ${campaignId.slice(0, 8)}: all devices cooling down — waiting ${DEVICE_RETRY_INTERVAL_MS / 1000}s`);
           await sb.from("mass_inject_campaigns").update({
             updated_at: nowIso(),
             next_run_at: new Date(Date.now() + DEVICE_RETRY_INTERVAL_MS).toISOString(),
