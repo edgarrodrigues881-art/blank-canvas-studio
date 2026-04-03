@@ -1086,8 +1086,9 @@ export async function massInjectTick(isRunningRef: { value: boolean }) {
     .or(`processed_at.lt.${staleThreshold},processed_at.is.null`);
 
   // 2. Find active campaigns (skip ones already being processed)
-  const MAX_GLOBAL_CONCURRENT = 30;
-  const MAX_PER_USER_CONCURRENT = 10;
+  // ── NO LIMITS: all campaigns run freely ──
+  // const MAX_GLOBAL_CONCURRENT = 30;
+  // const MAX_PER_USER_CONCURRENT = 10;
 
   const { data: campaigns } = await db.from("mass_inject_campaigns")
     .select("*")
