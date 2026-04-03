@@ -408,7 +408,7 @@ export default function GroupLeadExtractor() {
                   rowComponent={VirtualRow as any}
                   rowCount={filteredLeads.length}
                   rowHeight={ROW_HEIGHT}
-                  rowProps={{}}
+                  rowProps={{ data: filteredLeads }}
                   overscanCount={20}
                 />
               ) : (
