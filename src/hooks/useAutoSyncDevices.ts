@@ -60,7 +60,7 @@ export function resumeKeepAlive() {
  * 2. Periodic sync every 10s as fallback
  * 3. Immediate sync on tab focus
  */
-export function useAutoSyncDevices(intervalMs = 15_000) {
+export function useAutoSyncDevices(intervalMs = 8_000) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const shouldSkipSync = () => Date.now() < mutedUntil || Date.now() < keepAlivePausedUntil;
