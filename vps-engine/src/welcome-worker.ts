@@ -350,11 +350,23 @@ async function monitorPhase() {
     const groups = automation.welcome_automation_groups || [];
     if (!groups.length) continue;
 
+    // Acquire device lock for monitoring device
+    const monitorDeviceId = automation.monitoring_device_id;
+    if (!monitorDeviceId) continue;
+
+    const monitorLockAcquired = DeviceLockManager.tryAcquire(monitorDeviceId, "welcome_monitor", `monitor_${automation.id}`);
+    if (!monitorLockAcquired) {
+      const lockReason = DeviceLockManager.getLockReason(monitorDeviceId);
+      log.info(`Welcome monitor: device ${monitorDeviceId.slice(0, 8)} locked by: ${lockReason} — skipping`);
+      continue;
+    }
+
+    try {
     // Get monitoring device credentials
     const { data: device } = await db
       .from("devices")
       .select("id, uazapi_token, uazapi_base_url, status, number")
-      .eq("id", automation.monitoring_device_id)
+      .eq("id", monitorDeviceId)
       .single();
 
     if (!device?.uazapi_token || !device?.uazapi_base_url) continue;
