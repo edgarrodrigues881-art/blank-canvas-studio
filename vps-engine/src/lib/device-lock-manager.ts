@@ -183,15 +183,8 @@ class DeviceLockManagerImpl {
   /**
    * Get blocking reason string for a specific worker type.
    */
-  getBlockingReason(deviceId: string, workerType: WorkerType): string | null {
-    const category = WORKER_CATEGORY[workerType];
-    const deviceLocks = this.locks.get(deviceId);
-    if (!deviceLocks) return null;
-    for (const existing of deviceLocks.values()) {
-      if (categoriesConflict(category, existing.category)) {
-        return `${WORKER_LABELS[existing.workerType]} em execução [${existing.category}] (${existing.label})`;
-      }
-    }
+  getBlockingReason(_deviceId: string, _workerType: WorkerType): string | null {
+    // ── NO RESTRICTIONS: never blocked ──
     return null;
   }
 
