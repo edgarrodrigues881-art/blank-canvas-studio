@@ -777,13 +777,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       // Check connection less often: first contact, then every 50, or if DB says disconnected
       const shouldCheckConnection = processed === 0 || processed % 50 === 0 || (!CONNECTED_DEVICE_STATUSES.has(statusHint) && processed % 10 === 0);
 
-      // 4. Connection check — single fast check, no multi-retry
+      // 4. Connection check — uses streak-based confirmation
       if (shouldCheckConnection) {
-        const liveConnection = await isDeviceConnected(
-          baseUrl,
-          device.uazapi_token,
-          1, // Always single check — less delay, less paranoia
-        );
+        const liveConnection = await isDeviceConnected(baseUrl, device.uazapi_token);
 
         if (liveConnection.connected === false) {
           log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} disconnected`);
