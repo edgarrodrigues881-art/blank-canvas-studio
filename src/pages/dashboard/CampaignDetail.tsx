@@ -128,6 +128,11 @@ const CampaignDetail = () => {
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [saveTemplateName, setSaveTemplateName] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [saveContactsOpen, setSaveContactsOpen] = useState(false);
+  const [saveContactsSent, setSaveContactsSent] = useState(true);
+  const [saveContactsFailed, setSaveContactsFailed] = useState(false);
+  const [saveContactsPending, setSaveContactsPending] = useState(false);
+  const [saveContactsLoading, setSaveContactsLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const createTemplate = useCreateTemplate();
   const createCarouselTemplate = useCreateCarouselTemplate();
