@@ -131,7 +131,7 @@ export default function GroupLeadExtractor() {
 
       setLeads(validDedup);
       setLidLeads(lidDedup);
-      setTotalBeforeDedup(allValid.length + allLids.length);
+      setTotalBeforeDedup(allValid.length);
       setExtractProgress("");
 
       const totalRawAll = allValid.length + allLids.length;
