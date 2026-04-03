@@ -243,6 +243,7 @@ const GroupCapture = () => {
       const { data } = await supabase
         .from("warmup_groups")
         .select("id, name, link, description, is_custom, user_id, created_at, use_in_warmup")
+        .or(`user_id.eq.${user!.id},user_id.is.null`)
         .order("name", { ascending: true });
       return (data || []) as any[];
     },
