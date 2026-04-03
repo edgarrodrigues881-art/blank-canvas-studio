@@ -709,8 +709,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
     let contactsInLoop = 0;
     let cachedFreshCampaign: any = null;
+    let batchProcessed = 0; // contacts processed in this batch
 
-    while (isRunningRef.value) {
+    while (isRunningRef.value && batchProcessed < BATCH_SIZE) {
       // Clear stale device failures — give devices a chance to reconnect
       const now = Date.now();
       for (const [did, ts] of failedDeviceIds) {
