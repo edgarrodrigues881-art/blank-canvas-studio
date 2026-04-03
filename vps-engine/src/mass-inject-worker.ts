@@ -1007,6 +1007,12 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       } catch { /* non-critical */ }
 
       await sleep(delayMs);
+      batchProcessed++;
+    }
+
+    // Batch complete — if campaign still has contacts, log and let next tick continue
+    if (batchProcessed >= BATCH_SIZE) {
+      log.info(`Campaign ${campaignId.slice(0, 8)}: batch of ${batchProcessed} done — yielding to next tick`);
     }
   } catch (err: any) {
     const errMessage = String(err?.message || err || "Erro interno desconhecido");
