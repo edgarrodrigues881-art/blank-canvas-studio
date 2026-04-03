@@ -105,14 +105,14 @@ function GroupJoinCampaignsWidget() {
     queryFn: async () => {
       const { data } = await supabase
         .from("group_join_campaigns" as any)
-        .select("*")
+        .select("id, name, status, total_items, success_count, error_count, already_member_count, created_at, updated_at")
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(15);
       return (data || []) as any[];
     },
     enabled: !!user,
-    refetchInterval: 120_000,
+    refetchInterval: () => document.hidden ? false : 120_000,
     staleTime: 60_000,
   });
 
