@@ -142,13 +142,18 @@ const Proxy = () => {
 
   const deleteMultipleMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { data: linkedDevices } = await supabase
-        .from("devices")
-        .select("proxy_id")
-        .in("proxy_id", ids.slice(0, 500));
+      // Check all linked proxies (handle >500 by batching)
+      const allLinkedIds = new Set<string>();
+      for (let i = 0; i < ids.length; i += 200) {
+        const batch = ids.slice(i, i + 200);
+        const { data: linkedDevices } = await supabase
+          .from("devices")
+          .select("proxy_id")
+          .in("proxy_id", batch);
+        (linkedDevices || []).forEach(d => { if (d.proxy_id) allLinkedIds.add(d.proxy_id); });
+      }
       
-      const linkedIds = new Set((linkedDevices || []).map(d => d.proxy_id).filter(Boolean));
-      const deletableIds = ids.filter(id => !linkedIds.has(id));
+      const deletableIds = ids.filter(id => !allLinkedIds.has(id));
       const blockedCount = ids.length - deletableIds.length;
 
       // Delete in batches of 200 to avoid URL length limits
