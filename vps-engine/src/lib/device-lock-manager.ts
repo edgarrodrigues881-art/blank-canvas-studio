@@ -111,23 +111,18 @@ class DeviceLockManagerImpl {
    */
   tryAcquire(deviceId: string, workerType: WorkerType, taskId: string, label?: string): boolean {
     const category = WORKER_CATEGORY[workerType];
-    const deviceLocks = this.locks.get(deviceId);
 
-    if (deviceLocks) {
-      // Idempotent: same task re-acquiring
-      if (deviceLocks.has(taskId)) return true;
+    // ── NO RESTRICTIONS: always allow parallel operations ──
+    // The system no longer blocks any combination of workers on the same device.
+    // If the chip gets banned, it's the user's responsibility.
 
-      // Check conflicts with existing locks
-      for (const existing of deviceLocks.values()) {
-        if (categoriesConflict(category, existing.category)) {
-          return false;
-        }
-      }
-    }
-
-    // Acquire
     if (!this.locks.has(deviceId)) this.locks.set(deviceId, new Map());
-    this.locks.get(deviceId)!.set(taskId, {
+    const deviceLocks = this.locks.get(deviceId)!;
+
+    // Idempotent: same task re-acquiring
+    if (deviceLocks.has(taskId)) return true;
+
+    deviceLocks.set(taskId, {
       deviceId,
       workerType,
       category,
@@ -136,7 +131,7 @@ class DeviceLockManagerImpl {
       label: label || `${workerType}:${taskId.slice(0, 8)}`,
     });
 
-    log.info(`Lock acquired: device=${deviceId.slice(0, 8)} by ${workerType}:${taskId.slice(0, 8)} [${category}]`);
+    log.info(`Lock registered (no-block): device=${deviceId.slice(0, 8)} by ${workerType}:${taskId.slice(0, 8)} [${category}]`);
     return true;
   }
 
@@ -172,13 +167,8 @@ class DeviceLockManagerImpl {
   /**
    * Check if a device is available for a specific worker type.
    */
-  isAvailableFor(deviceId: string, workerType: WorkerType): boolean {
-    const category = WORKER_CATEGORY[workerType];
-    const deviceLocks = this.locks.get(deviceId);
-    if (!deviceLocks || deviceLocks.size === 0) return true;
-    for (const existing of deviceLocks.values()) {
-      if (categoriesConflict(category, existing.category)) return false;
-    }
+  isAvailableFor(_deviceId: string, _workerType: WorkerType): boolean {
+    // ── NO RESTRICTIONS: always available ──
     return true;
   }
 
@@ -193,15 +183,8 @@ class DeviceLockManagerImpl {
   /**
    * Get blocking reason string for a specific worker type.
    */
-  getBlockingReason(deviceId: string, workerType: WorkerType): string | null {
-    const category = WORKER_CATEGORY[workerType];
-    const deviceLocks = this.locks.get(deviceId);
-    if (!deviceLocks) return null;
-    for (const existing of deviceLocks.values()) {
-      if (categoriesConflict(category, existing.category)) {
-        return `${WORKER_LABELS[existing.workerType]} em execução [${existing.category}] (${existing.label})`;
-      }
-    }
+  getBlockingReason(_deviceId: string, _workerType: WorkerType): string | null {
+    // ── NO RESTRICTIONS: never blocked ──
     return null;
   }
 
