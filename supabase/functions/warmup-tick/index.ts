@@ -3487,6 +3487,25 @@ async function handleTick(
       case "community_interaction": {
         if (!baseUrl || !token) throw new Error("Credenciais UAZAPI não configuradas");
 
+        // [FIX] Auto-create community membership if missing (safety net)
+        {
+          const { data: myMembership } = await db.from("warmup_community_membership")
+            .select("id, is_enabled").eq("device_id", job.device_id).maybeSingle();
+          if (!myMembership) {
+            await db.from("warmup_community_membership").insert({
+              user_id: job.user_id, device_id: job.device_id, cycle_id: cycle.id,
+              is_eligible: true, is_enabled: true, enabled_at: new Date().toISOString(),
+              community_mode: "warmup_managed", community_day: 1,
+              messages_today: 0, pairs_today: 0,
+            });
+            bufferAudit({ user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id, level: "warn", event_type: "community_membership_auto_created", message: "Membership criado automaticamente (faltava)" });
+          } else if (!myMembership.is_enabled) {
+            await db.from("warmup_community_membership")
+              .update({ is_enabled: true, is_eligible: true })
+              .eq("id", myMembership.id);
+          }
+        }
+
         const isReplyTurn = typeof job.payload?.pair_id === "string" && typeof job.payload?.conversation_id === "string";
 
         // ── Helper: processa um turno para um par específico ──
