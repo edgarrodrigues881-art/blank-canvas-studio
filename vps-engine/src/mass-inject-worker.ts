@@ -358,15 +358,7 @@ async function isDeviceConnected(baseUrl: string, token: string, _checks = 1): P
     return { connected: null, detail: error?.message || "Falha temporária na verificação." };
   }
 }
-    }
-  }
 
-  if (results.length > 0 && results.every((entry) => entry.connected === false)) {
-    return { connected: false, detail: `Desconexão confirmada após ${Math.max(1, checks)} verificações.` };
-  }
-
-  return results[results.length - 1] || { connected: null, detail: "Não foi possível validar a conexão da instância." };
-}
 
 // ── Add to group (with endpoint caching) ──
 interface AddResult {
