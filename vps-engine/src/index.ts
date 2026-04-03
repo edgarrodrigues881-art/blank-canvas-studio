@@ -9,6 +9,7 @@ import { config } from "./config";
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
 import { Semaphore } from "./lib/concurrency";
+import { DeviceLockManager } from "./lib/device-lock-manager";
 import { isWithinOperatingWindow, getBrtTodayAt } from "./lib/brt";
 import { massInjectTick, getMassInjectStatus, lastMassInjectTickAt } from "./mass-inject-worker";
 import { campaignWorkerTick, getCampaignWorkerStatus, lastCampaignWorkerTickAt } from "./campaign-worker";
