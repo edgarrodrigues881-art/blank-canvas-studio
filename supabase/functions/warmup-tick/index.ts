@@ -652,6 +652,21 @@ async function ensureJoinGroupJobs(db: any, cycleId: string, userId: string, dev
     .in("status", ["pending", "running"]).limit(1);
   if (existing?.length > 0) return 0;
 
+  // [BUG FIX] Also retry FAILED groups — reset them to pending so they get retried
+  const { data: failedGroups } = await db.from("warmup_instance_groups")
+    .select("id")
+    .eq("cycle_id", cycleId)
+    .eq("device_id", deviceId)
+    .eq("join_status", "failed");
+  if (failedGroups?.length) {
+    await db.from("warmup_instance_groups")
+      .update({ join_status: "pending" })
+      .eq("cycle_id", cycleId)
+      .eq("device_id", deviceId)
+      .eq("join_status", "failed");
+    console.log(`[ensureJoinGroupJobs] Reset ${failedGroups.length} failed groups to pending for retry`);
+  }
+
   const { data: pending } = await db.from("warmup_instance_groups")
     .select("group_id, group_name, invite_link")
     .eq("cycle_id", cycleId)
