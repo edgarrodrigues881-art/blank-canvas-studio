@@ -742,6 +742,105 @@ const CampaignDetail = () => {
         <StatCard label="Falhas" value={stats.failed} icon={XCircle} colorClass="bg-destructive/10 text-destructive" />
       </div>
 
+  const handleSaveContactsConfirm = async () => {
+    if (!id || !user || saveContactsLoading) return;
+    setSaveContactsLoading(true);
+    try {
+      const statuses: string[] = [];
+      if (saveContactsSent) statuses.push("sent", "delivered");
+      if (saveContactsFailed) statuses.push("failed", "error");
+      if (saveContactsPending) statuses.push("pending");
+      if (statuses.length === 0) {
+        toast({ title: "Selecione ao menos um filtro", variant: "destructive" });
+        setSaveContactsLoading(false);
+        return;
+      }
+
+      // Fetch all matching contacts with variables
+      let allContacts: any[] = [];
+      let offset = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("campaign_contacts")
+          .select("phone, name, status, var1, var2, var3, var4, var5, var6, var7, var8, var9, var10")
+          .eq("campaign_id", id)
+          .in("status", statuses)
+          .range(offset, offset + batchSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allContacts = [...allContacts, ...data];
+        if (data.length < batchSize) break;
+        offset += batchSize;
+      }
+
+      if (allContacts.length === 0) {
+        toast({ title: "Nenhum contato encontrado", variant: "destructive" });
+        setSaveContactsLoading(false);
+        return;
+      }
+
+      // Check existing phones to avoid duplicates
+      const phones = allContacts.map(c => c.phone);
+      const existingPhones = new Set<string>();
+      for (let i = 0; i < phones.length; i += 500) {
+        const chunk = phones.slice(i, i + 500);
+        const { data: existing } = await supabase
+          .from("contacts")
+          .select("phone")
+          .eq("user_id", user.id)
+          .in("phone", chunk);
+        if (existing) existing.forEach(e => existingPhones.add(e.phone));
+      }
+
+      const newContacts = allContacts
+        .filter(c => !existingPhones.has(c.phone))
+        .map(c => ({
+          user_id: user.id,
+          phone: c.phone,
+          name: c.name || "",
+          tags: [],
+          var1: c.var1 || "",
+          var2: c.var2 || "",
+          var3: c.var3 || "",
+          var4: c.var4 || "",
+          var5: c.var5 || "",
+          var6: c.var6 || "",
+          var7: c.var7 || "",
+          var8: c.var8 || "",
+          var9: c.var9 || "",
+          var10: c.var10 || "",
+        }));
+
+      if (newContacts.length === 0) {
+        toast({ title: "Todos os contatos já existem na sua base", description: `${allContacts.length} contatos já salvos.` });
+        setSaveContactsOpen(false);
+        setSaveContactsLoading(false);
+        return;
+      }
+
+      // Insert in batches
+      const BATCH = 500;
+      let inserted = 0;
+      for (let i = 0; i < newContacts.length; i += BATCH) {
+        const chunk = newContacts.slice(i, i + BATCH);
+        const { error } = await supabase.from("contacts").insert(chunk);
+        if (error) throw error;
+        inserted += chunk.length;
+      }
+
+      const skipped = allContacts.length - newContacts.length;
+      toast({
+        title: `✅ ${inserted} contatos salvos!`,
+        description: skipped > 0 ? `${skipped} já existiam e foram ignorados.` : undefined,
+      });
+      setSaveContactsOpen(false);
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar contatos", description: err.message, variant: "destructive" });
+    } finally {
+      setSaveContactsLoading(false);
+    }
+  };
 
       {/* ── Delay Config (collapsible) ───────────────────────────── */}
       <div className="rounded-xl border border-border/30 bg-card/50 overflow-hidden">
