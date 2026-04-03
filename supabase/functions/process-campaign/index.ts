@@ -1161,7 +1161,6 @@ Deno.serve(async (req) => {
       let pendingPauseMs = body.pendingPauseMs || 0;
 
       const useRotation = allDevices.length > 1;
-      const useParallel = false; // Parallel mode removed
 
       const dynamicBatchSize = Math.min(1000, Math.max(100, allDevices.length * 3));
       const { data: contacts, error: contactsErr } = await serviceClient
