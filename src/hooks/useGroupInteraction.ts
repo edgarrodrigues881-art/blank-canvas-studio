@@ -107,10 +107,11 @@ export function useGroupInteraction() {
         .from("group_interaction_logs" as any)
         .select("id, interaction_id, group_id, group_name, message_content, message_category, status, error_message, pause_applied_seconds, sent_at")
         .eq("user_id", user.id)
-        .order("sent_at", { ascending: true })
-        .limit(50);
+        .order("sent_at", { ascending: false })
+        .limit(200);
       if (error) throw error;
-      return (data || []) as unknown as GroupInteractionLog[];
+      // Reverse so UI shows oldest→newest but we fetched the latest 200
+      return ((data || []) as unknown as GroupInteractionLog[]).reverse();
     },
     enabled: !!user,
     staleTime: 120_000,

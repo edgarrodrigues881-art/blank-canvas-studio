@@ -39,6 +39,30 @@ function getCategoryForIndex(i: number, total: number): string {
   return pickRandom(["continuacao", "pergunta", "resposta_curta", "engajamento"]);
 }
 
+// ── Group Map Cache (avoid calling API every tick) ──
+const groupMapCache = new Map<string, { map: Map<string, { jid: string; name: string }>; fetchedAt: number }>();
+const GROUP_MAP_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+async function getDeviceGroupMap(baseUrl: string, token: string, deviceId: string): Promise<Map<string, { jid: string; name: string }>> {
+  const cached = groupMapCache.get(deviceId);
+  if (cached && Date.now() - cached.fetchedAt < GROUP_MAP_TTL_MS) {
+    return cached.map;
+  }
+
+  const groups = await fetchDeviceGroupJids(baseUrl, token);
+  groupMapCache.set(deviceId, { map: groups, fetchedAt: Date.now() });
+
+  // Evict old entries
+  if (groupMapCache.size > 50) {
+    const now = Date.now();
+    for (const [key, val] of groupMapCache) {
+      if (now - val.fetchedAt > GROUP_MAP_TTL_MS * 2) groupMapCache.delete(key);
+    }
+  }
+
+  return groups;
+}
+
 async function uazapiSendText(baseUrl: string, token: string, number: string, text: string) {
   const isGroup = number.includes("@g.us");
   const attempts = isGroup
@@ -141,7 +165,6 @@ function resolveGroupIdentifier(id: string, groupMap: Map<string, { jid: string;
   if (id.includes("@g.us")) return groupMap.get(id) || { jid: id, name: "" };
   const direct = groupMap.get(id);
   if (direct) return direct;
-  // Try invite code
   const code = id.replace(/^https?:\/\/chat\.whatsapp\.com\//i, "").split(/[/?#]/)[0]?.trim();
   if (code && code.length >= 10) {
     const byCode = groupMap.get(code) || groupMap.get(`https://chat.whatsapp.com/${code}`);
@@ -159,6 +182,11 @@ const FALLBACK_AUDIOS = [
   "https://cdn.freesound.org/previews/531/531947_4397472-lq.mp3",
 ];
 
+// ── Today count daily reset helper ──
+function getBrazilDateString(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }); // YYYY-MM-DD
+}
+
 async function processOneInteraction(sb: any, interaction: any) {
   const userId = interaction.user_id;
   const groupIds: string[] = Array.isArray(interaction.group_ids) ? interaction.group_ids : [];
@@ -170,7 +198,7 @@ async function processOneInteraction(sb: any, interaction: any) {
   // Time window check
   const brNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
   const currentHour = `${String(brNow.getHours()).padStart(2, "0")}:${String(brNow.getMinutes()).padStart(2, "0")}`;
-  if (currentHour < interaction.start_hour || currentHour > interaction.end_hour) return; // Skip, will retry
+  if (currentHour < interaction.start_hour || currentHour > interaction.end_hour) return;
 
   const dayMap = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
   const activeDays: string[] = interaction.active_days || [];
@@ -185,6 +213,23 @@ async function processOneInteraction(sb: any, interaction: any) {
     }
   }
 
+  // ── Daily reset of today_count ──
+  const todayBR = getBrazilDateString();
+  const lastResetDate = interaction.last_daily_reset_date || "";
+  let todayCount = interaction.today_count || 0;
+  if (lastResetDate !== todayBR) {
+    todayCount = 0;
+    await sb.from("group_interactions").update({ today_count: 0, last_daily_reset_date: todayBR }).eq("id", interaction.id);
+    log.info(`Interaction ${interaction.id.slice(0, 8)}: daily reset (${lastResetDate} → ${todayBR})`);
+  }
+
+  // ── Daily limit check ──
+  const dailyLimit = interaction.daily_limit_total || 0;
+  if (dailyLimit > 0 && todayCount >= dailyLimit) {
+    log.info(`Interaction ${interaction.id.slice(0, 8)}: daily limit reached (${todayCount}/${dailyLimit})`);
+    return; // Will retry next tick, naturally respecting the limit
+  }
+
   // Device
   if (!interaction.device_id) return;
   const { data: device } = await sb.from("devices").select("id, name, uazapi_token, uazapi_base_url, status").eq("id", interaction.device_id).single();
@@ -195,16 +240,25 @@ async function processOneInteraction(sb: any, interaction: any) {
 
   const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
 
-  // Resolve groups
-  const groupMap = await fetchDeviceGroupJids(baseUrl, device.uazapi_token);
+  // Resolve groups (cached per device)
+  const groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
   const resolved: { jid: string; name: string }[] = [];
   for (const gid of groupIds) {
     const r = resolveGroupIdentifier(gid, groupMap);
     if (r) resolved.push(r);
   }
   if (resolved.length === 0) {
-    await sb.from("group_interactions").update({ last_error: `Nenhum grupo resolvido (${groupIds.length} links, ${groupMap.size} grupos)`, updated_at: new Date().toISOString() }).eq("id", interaction.id);
-    return;
+    // Invalidate cache and try once more
+    groupMapCache.delete(device.id);
+    const freshMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
+    for (const gid of groupIds) {
+      const r = resolveGroupIdentifier(gid, freshMap);
+      if (r) resolved.push(r);
+    }
+    if (resolved.length === 0) {
+      await sb.from("group_interactions").update({ last_error: `Nenhum grupo resolvido (${groupIds.length} links, ${groupMap.size} grupos)`, updated_at: new Date().toISOString() }).eq("id", interaction.id);
+      return;
+    }
   }
 
   // Get messages
@@ -220,15 +274,21 @@ async function processOneInteraction(sb: any, interaction: any) {
   // Pick group (avoid last used)
   const rotated = resolved.filter(g => g.jid !== interaction.last_group_used);
   const group = pickRandom(rotated.length > 0 ? rotated : resolved);
-  const category = getCategoryForIndex((interaction.today_count || 0) % 5, 5);
+  const category = getCategoryForIndex(todayCount % 5, 5);
 
-  // Pick content type
-  const hasImage = (mediaByType.image?.length || 0) > 0;
-  const hasAudio = (mediaByType.audio?.length || 0) > 0;
+  // ── Respect content_types config from user ──
+  const contentTypes: Record<string, boolean> = interaction.content_types || { text: true };
+  const hasImage = contentTypes.image && ((mediaByType.image?.length || 0) > 0);
+  const hasAudio = contentTypes.audio && ((mediaByType.audio?.length || 0) > 0);
+  const hasSticker = contentTypes.sticker && ((mediaByType.sticker?.length || 0) > 0);
+
   const bag = ["text", "text", "text", "text", "text"];
   if (hasImage) bag.push("image", "image");
+  if (hasSticker) bag.push("sticker", "sticker");
   if (hasAudio) bag.push("audio");
-  const contentType = pickRandom(bag);
+  const contentType = contentTypes.text === false && bag.length > 5
+    ? pickRandom(bag.filter(t => t !== "text"))
+    : pickRandom(bag);
 
   let messageText = "";
   let sentOk = false;
@@ -243,6 +303,11 @@ async function processOneInteraction(sb: any, interaction: any) {
       await sleep(randomBetween(1000, 3000));
       await uazapiSendText(baseUrl, device.uazapi_token, group.jid, caption);
       messageText = `[IMG+TXT] ${caption}`;
+    } else if (contentType === "sticker") {
+      const picked = mediaByType.sticker?.length ? pickRandom(mediaByType.sticker) : null;
+      const stickerUrl = picked?.file_url || pickRandom(FALLBACK_IMAGES);
+      await uazapiSendSticker(baseUrl, device.uazapi_token, group.jid, stickerUrl);
+      messageText = `[STICKER] ${picked?.content || "🎭"}`;
     } else if (contentType === "audio") {
       const picked = mediaByType.audio?.length ? pickRandom(mediaByType.audio) : null;
       const audioUrl = picked?.file_url || pickRandom(FALLBACK_AUDIOS);
@@ -257,32 +322,37 @@ async function processOneInteraction(sb: any, interaction: any) {
     sendError = e.message;
   }
 
-  // Log
-  await sb.from("group_interaction_logs").insert({
+  // Single combined update + log insert (avoid multiple round-trips)
+  const logPromise = sb.from("group_interaction_logs").insert({
     interaction_id: interaction.id, user_id: userId, group_id: group.jid, group_name: group.name,
     message_content: messageText, message_category: `${contentType}:${category}`,
     device_id: device.id, status: sentOk ? "sent" : "failed", error_message: sendError,
     pause_applied_seconds: 0, sent_at: new Date().toISOString(),
   }).then(() => {}, () => {});
 
+  const updatePayload: Record<string, any> = { updated_at: new Date().toISOString() };
   if (sentOk) {
-    await sb.from("group_interactions").update({
-      total_messages_sent: (interaction.total_messages_sent || 0) + 1,
-      last_group_used: group.jid, last_content_sent: messageText,
-      last_sent_at: new Date().toISOString(), today_count: (interaction.today_count || 0) + 1,
-      last_error: null, updated_at: new Date().toISOString(),
-    }).eq("id", interaction.id);
+    updatePayload.total_messages_sent = (interaction.total_messages_sent || 0) + 1;
+    updatePayload.last_group_used = group.jid;
+    updatePayload.last_content_sent = messageText;
+    updatePayload.last_sent_at = new Date().toISOString();
+    updatePayload.today_count = todayCount + 1;
+    updatePayload.last_error = null;
   } else {
-    await sb.from("group_interactions").update({ last_error: sendError, updated_at: new Date().toISOString() }).eq("id", interaction.id);
+    updatePayload.last_error = sendError;
   }
 
-  // Schedule next
+  // Schedule next delay
   const delay = randomBetween(
     Math.max(0, interaction.min_delay_seconds || 0),
     Math.max(interaction.min_delay_seconds || 0, interaction.max_delay_seconds || 60),
   );
-  const nextAt = new Date(Date.now() + delay * 1000).toISOString();
-  await sb.from("group_interactions").update({ next_action_at: nextAt, updated_at: new Date().toISOString() }).eq("id", interaction.id).in("status", ["running", "active"]);
+  updatePayload.next_action_at = new Date(Date.now() + delay * 1000).toISOString();
+
+  // Single update with everything
+  const updatePromise = sb.from("group_interactions").update(updatePayload).eq("id", interaction.id).in("status", ["running", "active"]);
+
+  await Promise.all([logPromise, updatePromise]);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -305,7 +375,6 @@ export async function groupInteractionTick() {
     const deviceId = interaction.device_id;
     if (!deviceId) continue;
 
-    // Check category-based device lock (allows non-conflicting parallel tasks)
     const lockAcquired = DeviceLockManager.tryAcquire(deviceId, "group_interaction", interaction.id);
     if (!lockAcquired) {
       const blockReason = DeviceLockManager.getBlockingReason(deviceId, "group_interaction");
