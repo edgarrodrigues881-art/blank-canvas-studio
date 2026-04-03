@@ -683,10 +683,6 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
   await acquireGlobalSlot(slotLabel);
   activeCampaignIds.add(campaignId);
   log.info(`Processing campaign ${campaignId.slice(0, 8)}: group=${campaign.group_id}, contacts=${campaign.total_items || "?"}`);
-
-  // Track which devices we locked for this campaign — declared before try/finally so it's accessible in finally
-  const globalLockedDevices = new Set<string>();
-
   try {
     // Mark as processing
     if (campaign.status === "queued") {
