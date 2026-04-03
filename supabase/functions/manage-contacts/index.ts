@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,28 +19,28 @@ Deno.serve(async (req) => {
     });
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: authHeader } } }
-  );
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const admin = createClient(supabaseUrl, serviceKey);
 
   const token = authHeader.replace("Bearer ", "");
-  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-  if (claimsError || !claimsData?.claims) {
+  const { data: { user }, error: authErr } = await admin.auth.getUser(token);
+  if (authErr || !user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const userId = claimsData.claims.sub;
+  const userId = user.id;
 
   try {
-    const { action, contacts, contactId, updates } = await req.json();
+    const body = await req.json();
+    const { action } = body;
 
     // Bulk import with deduplication
     if (action === "bulk-import") {
+      const { contacts } = body;
       if (!contacts || !Array.isArray(contacts)) {
         return new Response(JSON.stringify({ error: "Lista de contatos inválida" }), {
           status: 400,
@@ -49,13 +49,13 @@ Deno.serve(async (req) => {
       }
 
       // Get existing contacts for dedup
-      const { data: existing } = await supabase
+      const { data: existing } = await admin
         .from("contacts")
-        .select("phone");
+        .select("phone")
+        .eq("user_id", userId);
 
       const existingPhones = new Set((existing || []).map((c: any) => c.phone.replace(/\D/g, "")));
 
-      // Filter and validate
       const validated: any[] = [];
       const skipped: string[] = [];
 
@@ -79,15 +79,18 @@ Deno.serve(async (req) => {
           email: c.email || null,
           tags: c.tags || [],
           notes: c.notes || null,
+          var1: c.var1 || "", var2: c.var2 || "", var3: c.var3 || "", var4: c.var4 || "",
+          var5: c.var5 || "", var6: c.var6 || "", var7: c.var7 || "", var8: c.var8 || "",
+          var9: c.var9 || "", var10: c.var10 || "",
         });
       }
 
       let imported = 0;
       if (validated.length > 0) {
-        // Insert in batches of 100
-        for (let i = 0; i < validated.length; i += 100) {
-          const batch = validated.slice(i, i + 100);
-          const { error } = await supabase.from("contacts").insert(batch);
+        const BATCH = 500;
+        for (let i = 0; i < validated.length; i += BATCH) {
+          const batch = validated.slice(i, i + BATCH);
+          const { error } = await admin.from("contacts").insert(batch);
           if (error) throw error;
           imported += batch.length;
         }
@@ -101,12 +104,13 @@ Deno.serve(async (req) => {
 
     // Remove duplicates
     if (action === "remove-duplicates") {
-      const { data: allContacts } = await supabase
+      const { data: allContacts } = await admin
         .from("contacts")
         .select("id, phone, created_at")
+        .eq("user_id", userId)
         .order("created_at", { ascending: true });
 
-      if (!allContacts) {
+      if (!allContacts?.length) {
         return new Response(JSON.stringify({ removed: 0 }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -125,10 +129,10 @@ Deno.serve(async (req) => {
       }
 
       if (toDelete.length > 0) {
-        // Delete in batches
-        for (let i = 0; i < toDelete.length; i += 100) {
-          const batch = toDelete.slice(i, i + 100);
-          await supabase.from("contacts").delete().in("id", batch);
+        const BATCH = 500;
+        for (let i = 0; i < toDelete.length; i += BATCH) {
+          const batch = toDelete.slice(i, i + BATCH);
+          await admin.from("contacts").delete().in("id", batch);
         }
       }
 
@@ -140,9 +144,10 @@ Deno.serve(async (req) => {
 
     // Validate phone numbers
     if (action === "validate-phones") {
-      const { data: allContacts } = await supabase
+      const { data: allContacts } = await admin
         .from("contacts")
-        .select("id, phone, name");
+        .select("id, phone, name")
+        .eq("user_id", userId);
 
       const invalid: any[] = [];
       for (const c of allContacts || []) {
@@ -160,7 +165,7 @@ Deno.serve(async (req) => {
 
     // Bulk tag
     if (action === "bulk-tag") {
-      const { contactIds, tag } = await req.json();
+      const { contactIds, tag } = body;
       if (!contactIds || !tag) {
         return new Response(JSON.stringify({ error: "IDs e tag são obrigatórios" }), {
           status: 400,
@@ -168,21 +173,24 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: contacts } = await supabase
+      const { data: contacts } = await admin
         .from("contacts")
         .select("id, tags")
+        .eq("user_id", userId)
         .in("id", contactIds);
 
       let updated = 0;
-      for (const c of contacts || []) {
-        const tags = c.tags || [];
-        if (!tags.includes(tag)) {
-          await supabase
-            .from("contacts")
-            .update({ tags: [...tags, tag] })
-            .eq("id", c.id);
-          updated++;
-        }
+      const BATCH = 50;
+      const toUpdate = (contacts || []).filter((c: any) => !(c.tags || []).includes(tag));
+
+      for (let i = 0; i < toUpdate.length; i += BATCH) {
+        const chunk = toUpdate.slice(i, i + BATCH);
+        await Promise.all(
+          chunk.map((c: any) =>
+            admin.from("contacts").update({ tags: [...(c.tags || []), tag] }).eq("id", c.id)
+          )
+        );
+        updated += chunk.length;
       }
 
       return new Response(
@@ -195,7 +203,7 @@ Deno.serve(async (req) => {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err) {
+  } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -29,15 +29,38 @@ export function useContacts() {
   return useQuery({
     queryKey: ["contacts", user?.id],
     queryFn: async () => {
+      if (!user) return [];
       const { data, error } = await supabase
         .from("contacts")
         .select("id, name, phone, email, tags, notes, var1, var2, var3, var4, var5, var6, var7, var8, var9, var10, created_at, updated_at")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Contact[];
     },
     enabled: !!user,
     staleTime: 120_000,
+  });
+}
+
+export function useBulkUpdateContacts() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (updates: { id: string; tags: string[] }[]) => {
+      // Batch updates in chunks of 50 to avoid overwhelming the API
+      const BATCH = 50;
+      for (let i = 0; i < updates.length; i += BATCH) {
+        const chunk = updates.slice(i, i + BATCH);
+        await Promise.all(
+          chunk.map(({ id, tags }) =>
+            supabase.from("contacts").update({ tags }).eq("id", id)
+          )
+        );
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["contacts"] }),
   });
 }
 
@@ -108,15 +131,21 @@ export function useDeleteContacts() {
 
   return useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase.from("contacts").delete().in("id", ids);
-      if (error) throw error;
+      // Delete in batches of 500 to avoid query size limits
+      const BATCH = 500;
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const chunk = ids.slice(i, i + BATCH);
+        const { error } = await supabase.from("contacts").delete().in("id", chunk);
+        if (error) throw error;
+      }
       return ids;
     },
     onMutate: async (ids: string[]) => {
       await queryClient.cancelQueries({ queryKey: ["contacts"] });
       const previous = queryClient.getQueryData(["contacts", user?.id]);
+      const idSet = new Set(ids);
       queryClient.setQueryData(["contacts", user?.id], (old: Contact[] | undefined) =>
-        old ? old.filter(c => !ids.includes(c.id)) : old
+        old ? old.filter(c => !idSet.has(c.id)) : old
       );
       return { previous };
     },
