@@ -504,8 +504,24 @@ async function scheduleDayJobs(
   const actualGroupCount = remainingBudget !== null ? Math.min(volumes.groupMsgs, reservedGroupBudget) : volumes.groupMsgs;
   const actualAutosaveCount = remainingBudget !== null ? Math.min(autosaveNeeded, reservedAutosaveBudget) : autosaveNeeded;
 
-  // Group interactions — spread evenly across the ENTIRE window
+  // [BUG FIX] Check if cycle has ANY usable groups before creating group_interaction jobs
+  // This prevents infinite orphan recovery → fail → recovery loops
+  let hasUsableGroups = true;
   if (actualGroupCount > 0) {
+    const { data: joinedGroups } = await db.from("warmup_instance_groups")
+      .select("id")
+      .eq("cycle_id", cycleId)
+      .eq("device_id", deviceId)
+      .eq("join_status", "joined")
+      .limit(1);
+    if (!joinedGroups?.length) {
+      hasUsableGroups = false;
+      console.log(`[scheduleDayJobs] No joined groups for cycle ${cycleId} — skipping group_interaction jobs`);
+    }
+  }
+
+  // Group interactions — spread evenly across the ENTIRE window
+  if (actualGroupCount > 0 && hasUsableGroups) {
     const firstJobOffset = randInt(60, 300) * 1000; // 1-5 min after window opens
     const remainingWindow = windowMs - firstJobOffset;
     const spacing = remainingWindow / Math.max(actualGroupCount, 1);
@@ -651,6 +667,21 @@ async function ensureJoinGroupJobs(db: any, cycleId: string, userId: string, dev
     .select("id").eq("cycle_id", cycleId).eq("job_type", "join_group")
     .in("status", ["pending", "running"]).limit(1);
   if (existing?.length > 0) return 0;
+
+  // [BUG FIX] Also retry FAILED groups — reset them to pending so they get retried
+  const { data: failedGroups } = await db.from("warmup_instance_groups")
+    .select("id")
+    .eq("cycle_id", cycleId)
+    .eq("device_id", deviceId)
+    .eq("join_status", "failed");
+  if (failedGroups?.length) {
+    await db.from("warmup_instance_groups")
+      .update({ join_status: "pending" })
+      .eq("cycle_id", cycleId)
+      .eq("device_id", deviceId)
+      .eq("join_status", "failed");
+    console.log(`[ensureJoinGroupJobs] Reset ${failedGroups.length} failed groups to pending for retry`);
+  }
 
   const { data: pending } = await db.from("warmup_instance_groups")
     .select("group_id, group_name, invite_link")
@@ -2155,6 +2186,31 @@ async function handleTick(
         if (!dev || !CONNECTED_STATUSES.includes(dev.status)) continue;
 
         console.log(`[warmup-tick] ORPHAN RECOVERY: cycle ${cycle.id} (${cycle.phase}, day ${cycle.day_index}) has 0 pending jobs, budget ${cycle.daily_interaction_budget_used}/${cycle.daily_interaction_budget_target} — regenerating`);
+
+        // [BUG FIX] Check if cycle has any groups at all before regenerating
+        // If group_source=custom but no groups exist, populate from system groups
+        const { data: totalGroupsCheck } = await db.from("warmup_instance_groups")
+          .select("id").eq("cycle_id", cycle.id).limit(1);
+        if (!totalGroupsCheck?.length) {
+          // No groups at all — try to auto-populate from system groups
+          const { data: systemGroups } = await db.from("warmup_groups")
+            .select("id, name, invite_link")
+            .is("user_id", null)
+            .eq("is_custom", false)
+            .limit(5);
+          if (systemGroups?.length) {
+            const groupRows = systemGroups.map((g: any) => ({
+              cycle_id: cycle.id, device_id: cycle.device_id, user_id: cycle.user_id,
+              group_id: g.id, group_name: g.name, invite_link: g.invite_link,
+              join_status: "pending",
+            }));
+            await db.from("warmup_instance_groups").insert(groupRows);
+            console.log(`[warmup-tick] ORPHAN RECOVERY: Auto-populated ${groupRows.length} system groups for cycle ${cycle.id}`);
+          } else {
+            console.log(`[warmup-tick] ORPHAN RECOVERY SKIP: cycle ${cycle.id} has no groups and no system groups available`);
+            continue;
+          }
+        }
 
         await scheduleDayJobs(db, cycle.id, cycle.user_id, cycle.device_id, cycle.day_index, cycle.phase, cycle.chip_state, true);
         await ensureNextDailyResetJob(db, { user_id: cycle.user_id, device_id: cycle.device_id }, cycle.id);
