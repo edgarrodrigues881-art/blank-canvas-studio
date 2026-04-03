@@ -68,7 +68,7 @@ export default function GroupJoinCampaignDetail() {
   const { data: campaign, isLoading } = useQuery({
     queryKey: ["group-join-campaign", id],
     queryFn: async () => {
-      const { data } = await supabase.from("group_join_campaigns" as any).select("id, name, status, total_links, joined_count, failed_count, started_at, completed_at, created_at, updated_at, last_error").eq("id", id).single();
+      const { data } = await supabase.from("group_join_campaigns" as any).select("id, name, description, status, total_items, success_count, error_count, already_member_count, device_ids, min_delay, max_delay, pause_every, pause_duration, started_at, completed_at, created_at, updated_at").eq("id", id).single();
       return data as any;
     },
     enabled: !!id && !!user,

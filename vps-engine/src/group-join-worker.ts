@@ -76,16 +76,24 @@ function interpretResult(status: number, body: any): { joinStatus: string; error
 }
 
 async function updateCampaignCounters(sb: any, campaignId: string, markDone = false) {
-  const { data: allItems } = await sb.from("group_join_queue").select("status").eq("campaign_id", campaignId);
-  const items = allItems || [];
-  const successCount = items.filter((i: any) => i.status === "success").length;
-  const alreadyCount = items.filter((i: any) => i.status === "already_member").length;
-  const errorCount = items.filter((i: any) => i.status === "error" || i.status === "skipped").length;
-  const pendingCount = items.filter((i: any) => i.status === "pending").length;
-  const pendingApprovalCount = items.filter((i: any) => i.status === "pending_approval").length;
+  const countByStatus = async (statuses: string[]) => {
+    const { count } = await sb.from("group_join_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id", campaignId)
+      .in("status", statuses);
+    return count || 0;
+  };
+
+  const [successCount, alreadyCount, approvalCount, errorCount, pendingCount] = await Promise.all([
+    countByStatus(["success"]),
+    countByStatus(["already_member"]),
+    countByStatus(["pending_approval"]),
+    countByStatus(["error", "skipped"]),
+    countByStatus(["pending"]),
+  ]);
 
   await sb.from("group_join_campaigns").update({
-    success_count: successCount + alreadyCount + pendingApprovalCount,
+    success_count: successCount + alreadyCount + approvalCount,
     already_member_count: alreadyCount,
     error_count: errorCount,
     ...(markDone || pendingCount === 0 ? { status: "done", completed_at: new Date().toISOString() } : {}),
