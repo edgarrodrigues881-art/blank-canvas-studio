@@ -1135,8 +1135,9 @@ export async function massInjectTick(isRunningRef: { value: boolean }) {
     }
 
     // Fire-and-forget: launch campaign processing without awaiting
+    const userActive = activePerUser.get(campaign.user_id) || 0;
     activePerUser.set(campaign.user_id, userActive + 1);
-    log.info(`Launching campaign ${campaign.id.slice(0, 8)} "${campaign.name}" in parallel (user: ${userActive + 1}/${MAX_PER_USER_CONCURRENT}, global: ${activeCampaignIds.size + 1}/${MAX_GLOBAL_CONCURRENT})`);
+    log.info(`Launching campaign ${campaign.id.slice(0, 8)} "${campaign.name}" in parallel (user: ${userActive + 1}, global: ${activeCampaignIds.size + 1})`);
     processOneCampaign(db, campaign, isRunningRef).catch((err: any) => {
       log.error(`Campaign ${campaign.id.slice(0, 8)} error: ${err.message}`);
     });
