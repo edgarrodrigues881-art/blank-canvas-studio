@@ -125,13 +125,12 @@ function normalizeConversationRuntimeStatus(status: string | null | undefined): 
   return "idle";
 }
 
-function getFixedConfiguredDelay(primary: unknown, fallback: unknown, defaultValue: number): number {
-  const primaryNum = Number(primary);
-  const fallbackNum = Number(fallback);
-
-  if (Number.isFinite(primaryNum) && primaryNum > 0) return Math.floor(primaryNum);
-  if (Number.isFinite(fallbackNum) && fallbackNum > 0) return Math.floor(fallbackNum);
-  return defaultValue;
+function safeRange(min: unknown, max: unknown, defaultMin: number, defaultMax?: number): number {
+  const minN = Number(min);
+  const maxN = Number(max);
+  const safeMin = Number.isFinite(minN) && minN > 0 ? Math.floor(minN) : defaultMin;
+  const safeMax = Number.isFinite(maxN) && maxN > safeMin ? Math.floor(maxN) : (defaultMax ?? safeMin);
+  return randInt(safeMin, safeMax);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -423,11 +422,15 @@ async function handleTick(admin: any, conversationId: string, scheduledFor?: str
     return json({ error: "Need at least 2 configured devices" }, 400);
   }
 
-  const senderIndex = (conv.total_messages_sent || 0) % 2;
+  // Rotate through ALL devices, not just first 2
+  const totalDevices = activeDevices.length;
+  const turnIndex = (conv.total_messages_sent || 0);
+  const senderIndex = turnIndex % totalDevices;
+  const receiverIndex = (senderIndex + 1) % totalDevices;
   const sender = activeDevices[senderIndex];
-  const receiver = activeDevices[(senderIndex + 1) % 2];
+  const receiver = activeDevices[receiverIndex];
 
-  console.log(`[tick] Turn #${conv.total_messages_sent || 0}: ${sender.name} → ${receiver.name}`);
+  console.log(`[tick] Turn #${turnIndex}: ${sender.name} → ${receiver.name} (${totalDevices} devices rotating)`);
 
   const messageText = pickRandom(userMessages);
   const result = await sendTextMessage(
@@ -437,7 +440,7 @@ async function handleTick(admin: any, conversationId: string, scheduledFor?: str
     messageText,
   );
 
-  const newTotal = (conv.total_messages_sent || 0) + (result.ok ? 1 : 0);
+  const newTotal = turnIndex + (result.ok ? 1 : 0);
   const lastError = result.ok ? null : (result.error || "Unknown");
 
   const logResult = await admin.from("chip_conversation_logs").insert({
@@ -472,9 +475,10 @@ async function handleTick(admin: any, conversationId: string, scheduledFor?: str
     })
     .eq("id", conversationId);
 
-  const cycleTarget = getFixedConfiguredDelay(conv.messages_per_cycle_min, conv.messages_per_cycle_max, 10);
-  const normalDelay = getFixedConfiguredDelay(conv.min_delay_seconds, conv.max_delay_seconds, 30);
-  const pauseDelay = getFixedConfiguredDelay(conv.pause_duration_min, conv.pause_duration_max, 120);
+  // Randomized delays
+  const cycleTarget = safeRange(conv.messages_per_cycle_min, conv.messages_per_cycle_max, 10, 30);
+  const normalDelay = safeRange(conv.min_delay_seconds, conv.max_delay_seconds, 15, 60);
+  const pauseDelay = safeRange(conv.pause_duration_min, conv.pause_duration_max, 120, 300);
 
   const reachedCyclePause = newTotal > 0 && newTotal % cycleTarget === 0;
   const nextDelay = reachedCyclePause ? pauseDelay : normalDelay;

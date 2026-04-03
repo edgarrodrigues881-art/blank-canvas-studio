@@ -67,12 +67,12 @@ async function getUserMessages(sb: any, userId: string): Promise<string[]> {
   return msgs.length > 0 ? msgs : FALLBACK_MESSAGES;
 }
 
-function safeDelay(primary: unknown, fallback: unknown, defaultVal: number): number {
-  const p = Number(primary);
-  if (Number.isFinite(p) && p > 0) return Math.floor(p);
-  const f = Number(fallback);
-  if (Number.isFinite(f) && f > 0) return Math.floor(f);
-  return defaultVal;
+function safeRange(min: unknown, max: unknown, defaultMin: number, defaultMax?: number): number {
+  const minN = Number(min);
+  const maxN = Number(max);
+  const safeMin = Number.isFinite(minN) && minN > 0 ? Math.floor(minN) : defaultMin;
+  const safeMax = Number.isFinite(maxN) && maxN > safeMin ? Math.floor(maxN) : (defaultMax ?? safeMin);
+  return randomBetween(safeMin, safeMax);
 }
 
 async function processOneConversation(sb: any, conv: any) {
@@ -108,16 +108,24 @@ async function processOneConversation(sb: any, conv: any) {
     return -1;
   }
 
-  const senderIndex = (conv.total_messages_sent || 0) % 2;
+  // Rotate through ALL devices, not just first 2
+  const totalDevices = activeDevices.length;
+  const turnIndex = (conv.total_messages_sent || 0);
+  const senderIndex = turnIndex % totalDevices;
+  // Receiver: next device in rotation (wraps around)
+  const receiverIndex = (senderIndex + 1) % totalDevices;
   const sender = activeDevices[senderIndex];
-  const receiver = activeDevices[(senderIndex + 1) % 2];
+  const receiver = activeDevices[receiverIndex];
 
   const messageText = pickRandom(userMessages);
+  log.info(`Turn #${turnIndex}: ${sender.name} → ${receiver.name} (${totalDevices} devices rotating)`);
+
   const result = await sendTextMessage(sender.uazapi_base_url, sender.uazapi_token, receiver.number, messageText);
 
-  const newTotal = (conv.total_messages_sent || 0) + (result.ok ? 1 : 0);
+  const newTotal = turnIndex + (result.ok ? 1 : 0);
 
-  await sb.from("chip_conversation_logs").insert({
+  // Fire-and-forget log insert
+  sb.from("chip_conversation_logs").insert({
     conversation_id: conversationId, user_id: conv.user_id,
     sender_device_id: sender.id, receiver_device_id: receiver.id,
     sender_name: sender.name, receiver_name: receiver.name,
@@ -128,9 +136,10 @@ async function processOneConversation(sb: any, conv: any) {
 
   await sb.from("chip_conversations").update({ total_messages_sent: newTotal, last_error: result.ok ? null : result.error, status: "active" }).eq("id", conversationId);
 
-  const cycleTarget = safeDelay(conv.messages_per_cycle_min, conv.messages_per_cycle_max, 10);
-  const normalDelay = safeDelay(conv.min_delay_seconds, conv.max_delay_seconds, 30);
-  const pauseDelay = safeDelay(conv.pause_duration_min, conv.pause_duration_max, 120);
+  // Use randomized delays instead of fixed values
+  const cycleTarget = safeRange(conv.messages_per_cycle_min, conv.messages_per_cycle_max, 10, 30);
+  const normalDelay = safeRange(conv.min_delay_seconds, conv.max_delay_seconds, 15, 60);
+  const pauseDelay = safeRange(conv.pause_duration_min, conv.pause_duration_max, 120, 300);
   const reachedPause = newTotal > 0 && newTotal % cycleTarget === 0;
 
   return reachedPause ? pauseDelay : normalDelay;
