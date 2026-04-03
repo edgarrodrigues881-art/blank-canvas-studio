@@ -423,6 +423,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
   if (lockedDeviceIds.length === 0) {
     log.warn(`Campaign ${campaignId.slice(0, 8)}: all devices locked by other workers — retrying later`);
     activeCampaigns.delete(campaignId);
+    releaseGlobalSlot(slotLabel);
     return;
   }
 
