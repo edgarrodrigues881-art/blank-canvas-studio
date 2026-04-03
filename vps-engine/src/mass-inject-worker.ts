@@ -69,23 +69,6 @@ const PARTICIPANT_FAILURE_CACHE_TTL_MS = 3 * 60_000; // 3 min
 export let lastMassInjectTickAt: Date | null = null;
 const activeCampaignIds = new Set<string>();
 
-// ── Device-level mutex: prevents two campaigns from hitting the same device simultaneously ──
-const deviceMutexes = new Map<string, Promise<void>>();
-
-async function withDeviceMutex<T>(deviceId: string, fn: () => Promise<T>): Promise<T> {
-  while (deviceMutexes.has(deviceId)) {
-    await deviceMutexes.get(deviceId);
-  }
-  let resolve: () => void = () => {};
-  const promise = new Promise<void>(r => { resolve = r; });
-  deviceMutexes.set(deviceId, promise);
-  try {
-    return await fn();
-  } finally {
-    deviceMutexes.delete(deviceId);
-    resolve();
-  }
-}
 
 export function getMassInjectStatus() {
   return { lastTick: lastMassInjectTickAt, activeCampaigns: Array.from(activeCampaignIds) };
