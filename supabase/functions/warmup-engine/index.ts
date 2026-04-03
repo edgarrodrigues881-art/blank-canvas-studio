@@ -209,10 +209,10 @@ function getCommunityBurstsPerPeer(dayIndex: number, chipState: string): number 
   return 8;
 }
 
-function getGroupMsgsForDay(dayIndex: number): number {
-  // Regra fixa: do dia 2 ao dia 30, todas as contas enviam 120-200 msgs/dia em grupo
+function getGroupMsgsForDay(dayIndex: number, chipState: string = "new"): number {
+  // Volume progressivo por chip type (sincronizado com warmup-tick)
   if (dayIndex < 2) return 0;
-  return randInt(120, 200);
+  return getProgressiveDailyBudget(dayIndex, chipState);
 }
 
 function getVolumes(chipState: string, dayIndex: number, phase: string): DayVolumes {
@@ -222,8 +222,8 @@ function getVolumes(chipState: string, dayIndex: number, phase: string): DayVolu
   };
   if (["pre_24h", "completed", "paused", "error"].includes(phase)) return v;
 
-  // Grupo: faixa fixa 120-200 para todos os dias 2-30
-  v.groupMsgs = getGroupMsgsForDay(dayIndex);
+  // Grupo: volume progressivo por chip type
+  v.groupMsgs = getGroupMsgsForDay(dayIndex, chipState);
 
   if (phase === "autosave_enabled") {
     const asContacts = getAutosaveContactsForDay(dayIndex, chipState);
