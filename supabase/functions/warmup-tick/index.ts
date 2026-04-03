@@ -3002,10 +3002,6 @@ async function handleTick(
                 jid: g?.jid || g?.id || g?.JID || g?.groupJid || g?.chatId || null,
                 name: g?.subject || g?.name || g?.Name || g?.title || "Grupo",
               }));
-              .map((g: any) => ({
-                jid: g?.jid || g?.id || g?.JID || g?.groupJid || g?.chatId || null,
-                name: g?.subject || g?.name || g?.Name || g?.title || "Grupo",
-              }));
 
             if (candidates.length > 0) {
               const fallbackGroup = pickRandom(candidates);
