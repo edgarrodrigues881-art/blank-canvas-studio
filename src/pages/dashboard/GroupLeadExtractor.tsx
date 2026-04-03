@@ -20,6 +20,19 @@ import {
 interface GroupInfo { jid: string; name: string; participants_count: number }
 interface ExtractedLead { phone: string; name: string; group_jid: string; group_name: string; is_admin: boolean }
 
+const ROW_HEIGHT = 40;
+
+const VirtualRow = ({ index, style, data }: { index: number; style: CSSProperties; data: ExtractedLead[]; [key: string]: any }) => {
+  const lead = data[index];
+  if (!lead) return null;
+  return (
+    <div style={style} className="flex items-center px-3 border-b border-border/20 text-sm hover:bg-muted/30">
+      <div className="w-[60px] text-muted-foreground text-[11px] shrink-0">{index + 1}</div>
+      <div className="flex-1 font-mono truncate">{lead.phone}</div>
+    </div>
+  );
+};
+
 export default function GroupLeadExtractor() {
   const [selectedDevice, setSelectedDevice] = useState("");
   const [groups, setGroups] = useState<GroupInfo[]>([]);
