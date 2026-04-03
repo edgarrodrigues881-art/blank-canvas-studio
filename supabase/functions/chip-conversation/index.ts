@@ -125,13 +125,12 @@ function normalizeConversationRuntimeStatus(status: string | null | undefined): 
   return "idle";
 }
 
-function getFixedConfiguredDelay(primary: unknown, fallback: unknown, defaultValue: number): number {
-  const primaryNum = Number(primary);
-  const fallbackNum = Number(fallback);
-
-  if (Number.isFinite(primaryNum) && primaryNum > 0) return Math.floor(primaryNum);
-  if (Number.isFinite(fallbackNum) && fallbackNum > 0) return Math.floor(fallbackNum);
-  return defaultValue;
+function safeRange(min: unknown, max: unknown, defaultMin: number, defaultMax?: number): number {
+  const minN = Number(min);
+  const maxN = Number(max);
+  const safeMin = Number.isFinite(minN) && minN > 0 ? Math.floor(minN) : defaultMin;
+  const safeMax = Number.isFinite(maxN) && maxN > safeMin ? Math.floor(maxN) : (defaultMax ?? safeMin);
+  return randInt(safeMin, safeMax);
 }
 
 // ══════════════════════════════════════════════════════════
