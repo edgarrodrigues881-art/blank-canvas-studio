@@ -326,7 +326,9 @@ export async function groupInteractionTick() {
         .in("status", ["running", "active"]).select("id").maybeSingle();
       if (!claimed) continue;
 
+      const t0 = Date.now();
       await processOneInteraction(db, interaction);
+      log.info(`Interaction ${interaction.id.slice(0, 8)} processed in ${Date.now() - t0}ms`);
     } catch (err: any) {
       log.error(`Interaction ${interaction.id.slice(0, 8)} error: ${err.message}`);
       await db.from("group_interactions").update({ last_error: err.message }).eq("id", interaction.id).then(() => {}, () => {});

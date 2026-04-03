@@ -10,6 +10,7 @@ import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
 import { DeviceLockManager } from "./lib/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot, getGlobalConcurrencyStats } from "./lib/global-semaphore";
+import { workerMetrics } from "./lib/worker-metrics";
 import { isWithinOperatingWindow, getBrtTodayAt } from "./lib/brt";
 import { massInjectTick, getMassInjectStatus, lastMassInjectTickAt } from "./mass-inject-worker";
 import { campaignWorkerTick, getCampaignWorkerStatus, lastCampaignWorkerTickAt } from "./campaign-worker";
@@ -55,6 +56,7 @@ app.get("/health", (_req: Request, res: Response) => {
     tickCount,
     tickErrors,
     concurrency: getGlobalConcurrencyStats(),
+    workers: workerMetrics.getAllStats(),
     deviceLocks: {
       active: DeviceLockManager.getActiveLocks().length,
       byWorker: DeviceLockManager.getLocksByWorker(),
@@ -956,14 +958,25 @@ async function mainLoop() {
       while (isRunning) {
         if (tickRunning[name]) {
           log.warn(`⚠️ ${name} tick SKIPPED — previous still running`);
+          workerMetrics.recordSkip(name);
         } else {
           tickRunning[name] = true;
+          workerMetrics.setRunning(name, true);
+          const t0 = Date.now();
           try {
             await fn();
+            const elapsed = Date.now() - t0;
+            workerMetrics.recordTick(name, elapsed);
+            if (elapsed > 10_000) {
+              log.info(`🐢 ${name} tick slow: ${(elapsed / 1000).toFixed(1)}s`);
+            }
           } catch (err: any) {
+            workerMetrics.recordTick(name, Date.now() - t0);
+            workerMetrics.recordError(name);
             log.error(`${name} tick error`, serializeUnknownError(err));
           } finally {
             tickRunning[name] = false;
+            workerMetrics.setRunning(name, false);
           }
         }
         await new Promise((r) => setTimeout(r, intervalMs));
