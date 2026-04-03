@@ -2404,7 +2404,13 @@ async function handleTick(
     userMsgsMap[m.user_id].push(m.content);
   });
   const autosaveMap: Record<string, any[]> = {};
+  // Filter out autosave contacts for users who disabled autosave
+  const autosaveDisabledUsers = new Set<string>();
+  profilesArr.forEach((p: any) => {
+    if (p.autosave_enabled === false) autosaveDisabledUsers.add(p.id);
+  });
   autosaveArr.forEach((c: any) => {
+    if (autosaveDisabledUsers.has(c.user_id)) return; // skip disabled users
     if (!autosaveMap[c.user_id]) autosaveMap[c.user_id] = [];
     autosaveMap[c.user_id].push(c);
   });
@@ -2426,6 +2432,9 @@ async function handleTick(
       return String(a.id || "").localeCompare(String(b.id || ""));
     });
   });
+  if (autosaveDisabledUsers.size > 0) {
+    console.log(`[warmup-tick] Skipped autosave contacts for ${autosaveDisabledUsers.size} users with autosave disabled`);
+  }
   const instanceGroupsMap: Record<string, any[]> = {};
   instanceGroupsArr.forEach((ig: any) => {
     if (!instanceGroupsMap[ig.device_id]) instanceGroupsMap[ig.device_id] = [];
