@@ -661,7 +661,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 // Up to MAX_PARALLEL campaigns concurrently, respecting device conflicts.
 // ══════════════════════════════════════════════════════════
 
-const MAX_PARALLEL_CAMPAIGNS = 5;
+// ── NO LIMIT: all campaigns run freely in parallel ──
+const MAX_PARALLEL_CAMPAIGNS = 999;
 
 export async function campaignWorkerTick(isRunningRef: { value: boolean }) {
   const db = getDb();
