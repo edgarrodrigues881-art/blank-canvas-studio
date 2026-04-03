@@ -953,7 +953,7 @@ Deno.serve(async (req) => {
         .eq("campaign_id", campaignId)
         .eq("status", "processing");
       const pauseStats = await syncCampaignCounters(serviceClient, campaignId);
-      const pauseFilter = serviceClient.from("campaigns").update({
+      let pauseQuery = serviceClient.from("campaigns").update({
         status: "paused",
         sent_count: pauseStats.sent,
         delivered_count: pauseStats.delivered,
@@ -961,8 +961,8 @@ Deno.serve(async (req) => {
         total_contacts: pauseStats.total,
         updated_at: new Date().toISOString(),
       }).eq("id", campaignId);
-      if (!isAdmin) pauseFilter.eq("user_id", userId);
-      await pauseFilter;
+      if (!isAdmin) pauseQuery = pauseQuery.eq("user_id", userId);
+      await pauseQuery;
       if (campData) {
         const ids = getCampaignDeviceIds(campData);
         await releaseDeviceLocks(serviceClient, ids, campaignId);
@@ -977,12 +977,12 @@ Deno.serve(async (req) => {
       await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: "Campanha cancelada" }).eq("campaign_id", campaignId).eq("status", "pending");
       await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: "Campanha cancelada" }).eq("campaign_id", campaignId).eq("status", "processing");
       const cancelStats = await syncCampaignCounters(serviceClient, campaignId);
-      const cancelFilter = serviceClient.from("campaigns").update({
+      let cancelQuery = serviceClient.from("campaigns").update({
         status: "canceled",
         completed_at: new Date().toISOString(),
       }).eq("id", campaignId);
-      if (!isAdmin) cancelFilter.eq("user_id", userId);
-      await cancelFilter;
+      if (!isAdmin) cancelQuery = cancelQuery.eq("user_id", userId);
+      await cancelQuery;
       if (campDataC) {
         const ids = getCampaignDeviceIds(campDataC);
         await releaseDeviceLocks(serviceClient, ids, campaignId);
@@ -1012,9 +1012,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      const resumeFilter = serviceClient.from("campaigns").update({ status: "running" }).eq("id", campaignId);
-      if (!isAdmin) resumeFilter.eq("user_id", userId);
-      await resumeFilter;
+      let resumeQuery = serviceClient.from("campaigns").update({ status: "running" }).eq("id", campaignId);
+      if (!isAdmin) resumeQuery = resumeQuery.eq("user_id", userId);
+      await resumeQuery;
       selfContinue(supabaseUrl, serviceRoleKey, campaignId, deviceId, { batchSent: 0, currentDeviceIndex: 0, instanceMsgCount: 0, msgsSincePause: 0 });
       return new Response(JSON.stringify({ success: true, status: "running" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -1161,7 +1161,6 @@ Deno.serve(async (req) => {
       let pendingPauseMs = body.pendingPauseMs || 0;
 
       const useRotation = allDevices.length > 1;
-      const useParallel = false; // Parallel mode removed
 
       const dynamicBatchSize = Math.min(1000, Math.max(100, allDevices.length * 3));
       const { data: contacts, error: contactsErr } = await serviceClient
@@ -1240,183 +1239,8 @@ Deno.serve(async (req) => {
       let needsContinue = false;
       let heartbeatCounter = 0;
 
-      // ─── PARALLEL MODE ───
-      if (useParallel) {
-        const chunks: any[][] = allDevices.map(() => [] as any[]);
-        contacts.forEach((c, i) => chunks[i % allDevices.length].push(c));
-
-        const DEVICE_WAVE_SIZE = 30;
-        const allResults: { sent: number; failed: number }[] = [];
-
-        for (let wave = 0; wave < allDevices.length; wave += DEVICE_WAVE_SIZE) {
-          const waveDevices = allDevices.slice(wave, wave + DEVICE_WAVE_SIZE);
-          const waveChunks = waveDevices.map((_, wi) => chunks[wave + wi] || []);
-
-          const waveResults = await Promise.allSettled(waveDevices.map(async (dev, devIdx) => {
-            const chunk = waveChunks[devIdx];
-            if (!chunk || chunk.length === 0) return { sent: 0, failed: 0 };
-            const devToken = dev.uazapi_token;
-            const devBaseUrl = (dev.uazapi_base_url || "").replace(/\/+$/, "");
-            let devSent = 0, devFailed = 0;
-            let devHeartbeat = 0;
-            let cancelled = false;
-            const devUsedRand4 = new Set<string>();
-            const devUsedRand3 = new Set<string>();
-            const devRandomPicker = new RandomPicker(messageVariants.length);
-
-            for (const contact of chunk) {
-              if (cancelled || Date.now() - startTime > MAX_EXECUTION_MS) { needsContinue = true; break; }
-
-              const { data: locked } = await serviceClient
-                .from("campaign_contacts")
-                .update({ status: "processing" })
-                .eq("id", contact.id)
-                .eq("status", "pending")
-                .select("id");
-              if (!locked || locked.length === 0) continue;
-
-              devHeartbeat++;
-              if (devHeartbeat % 25 === 0) {
-                await heartbeatLock(serviceClient, campaignId);
-              }
-
-              if (devHeartbeat % 20 === 1) {
-                const { data: fresh } = await serviceClient.from("campaigns").select("status").eq("id", campaignId).single();
-                if (fresh && (fresh.status === "paused" || fresh.status === "canceled")) {
-                  await serviceClient.from("campaign_contacts").update({ status: "pending" }).eq("id", contact.id).eq("status", "processing");
-                  cancelled = true;
-                  break;
-                }
-              }
-
-              const isLidContact = contact.phone.includes("@lid");
-              const phone = isLidContact ? contact.phone.replace("@lid", "") : contact.phone.replace(/\D/g, "");
-              if (!isLidContact && phone.length < 10) {
-                await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: "Número inválido", device_id: dev.id }).eq("id", contact.id);
-                devFailed++;
-                continue;
-              }
-              try {
-                const pSendStart = Date.now();
-                const rand4 = generateUniqueRand4(devUsedRand4);
-                const rand3 = generateUniqueRand3(devUsedRand3);
-                const chosenMessage = messageVariants[devRandomPicker.next()];
-                const msg = replaceVariables(chosenMessage, contact, rand4, rand3);
-                const sendTo = isLidContact ? phone : normalizeBrazilianPhone(phone);
-                
-                // Skip number validation for @lid contacts
-                if (!isLidContact) {
-                  const check = await checkNumberExists(devBaseUrl, devToken, sendTo);
-                  if (!check.exists) {
-                    await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: check.error || "Número inválido", device_id: dev.id }).eq("id", contact.id);
-                    devFailed++;
-                    if (check.error === "WhatsApp desconectado") {
-                      const idx = chunk.indexOf(contact);
-                      const remainingIds = chunk.slice(idx + 1).map((c: any) => c.id);
-                      if (remainingIds.length > 0) {
-                        await serviceClient.from("campaign_contacts").update({ status: "pending" }).eq("campaign_id", campaignId).in("id", remainingIds);
-                      }
-                      break;
-                    }
-                    console.log(`Number ${sendTo} invalid, skipping`);
-                    continue;
-                  }
-                }
-                if (sendAllMode && messageVariants.length > 1) {
-                  let allSendFailed = false;
-                  let lastSendError = "";
-                  for (let mi = 0; mi < messageVariants.length; mi++) {
-                    const allMsg = replaceVariables(messageVariants[mi], contact, rand4, rand3);
-                    const result = await sendWithRetry(devBaseUrl, devToken, sendTo, allMsg, mi === 0 ? mediaUrl : null, mi === 0 ? campaignButtons : [], msgType, mi === 0 ? campaignCarouselCards : []);
-                    if (!result.success) {
-                      allSendFailed = true;
-                      lastSendError = result.error || "";
-                      const translated = translateErrorMessage(lastSendError);
-                      await serviceClient.from("campaign_contacts").update({ status: "failed", error_message: `${translated} (${result.attempts} tentativas)`, device_id: dev.id }).eq("id", contact.id);
-                      devFailed++;
-                      if (isDisconnectError(lastSendError)) {
-                        const idx = chunk.indexOf(contact);
-                        const remainingIds = chunk.slice(idx + 1).map((c: any) => c.id);
-                        if (remainingIds.length > 0) {
-                          await serviceClient.from("campaign_contacts").update({ status: "pending" }).eq("campaign_id", campaignId).in("id", remainingIds);
-                        }
-                      }
-                      break;
-                    }
-                    if (mi < messageVariants.length - 1) {
-                      await new Promise(r => setTimeout(r, randomBetween(minDelayMs, maxDelayMs)));
-                    }
-                  }
-                  if (allSendFailed) {
-                    // FIX: Check actual error instead of isDisconnectError("")
-                    if (isDisconnectError(lastSendError)) break;
-                    continue;
-                  }
-                } else {
-                  const result = await sendWithRetry(devBaseUrl, devToken, sendTo, msg, mediaUrl, campaignButtons, msgType, campaignCarouselCards);
-                  if (!result.success) {
-                    const translated = translateErrorMessage(result.error || "Erro");
-                    await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: sendTo, status: "failed", deviceId: dev.id, errorMessage: `${translated} (${result.attempts} tentativas)` });
-                    devFailed++;
-                    if (isDisconnectError(result.error || "")) {
-                      const idx = chunk.indexOf(contact);
-                      const remainingIds = chunk.slice(idx + 1).map((c: any) => c.id);
-                      if (remainingIds.length > 0) {
-                        await serviceClient.from("campaign_contacts").update({ status: "pending" }).eq("campaign_id", campaignId).in("id", remainingIds);
-                      }
-                      break;
-                    }
-                    continue;
-                  }
-                }
-                await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: sendTo, status: "sent", deviceId: dev.id });
-                devSent++;
-
-                const isLastInChunk = chunk.indexOf(contact) === chunk.length - 1;
-                if (!isLastInChunk) {
-                  const pTargetDelay = randomBetween(minDelayMs, maxDelayMs);
-                  await new Promise(r => setTimeout(r, pTargetDelay));
-                }
-              } catch (err) {
-                const translated = translateErrorMessage(err.message || "Erro");
-                await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone: phone, status: "failed", deviceId: dev.id, errorMessage: translated });
-                devFailed++;
-                if (isDisconnectError(err.message || "")) {
-                  const idx = chunk.indexOf(contact);
-                  const remainingIds = chunk.slice(idx + 1).map((c: any) => c.id);
-                  if (remainingIds.length > 0) {
-                    await serviceClient.from("campaign_contacts").update({ status: "pending" }).eq("campaign_id", campaignId).in("id", remainingIds);
-                  }
-                  break;
-                }
-              }
-            }
-            return { sent: devSent, failed: devFailed };
-          }));
-
-          for (const r of waveResults) {
-            if (r.status === "fulfilled") allResults.push(r.value);
-          }
-        }
-
-        for (const r of allResults) {
-          sentCount += r.sent;
-          failedCount += r.failed;
-        }
-        await serviceClient.from("campaigns").update({ sent_count: sentCount, delivered_count: sentCount, failed_count: failedCount }).eq("id", campaignId);
-
-        // Check if disconnect occurred
-        const { count: stillPending } = await serviceClient.from("campaign_contacts").select("id", { count: "exact", head: true }).eq("campaign_id", campaignId).eq("status", "pending");
-        if (stillPending && stillPending > 0) {
-          const { data: devStatuses } = await serviceClient.from("devices").select("id, status").in("id", deviceIds);
-          const allDisconnected = devStatuses?.every(d => !connectedStatuses.includes(d.status));
-          if (allDisconnected) {
-            const didPause = await handleDisconnectPause(serviceClient, campaignId, deviceIds, failedCount, campaign.name, campaign.user_id, pauseOnDisconnect);
-            if (!didPause) { needsContinue = true; }
-          }
-        }
-
-      } else {
+      // ─── SEQUENTIAL / ROTATION MODE ───
+      {
         // ─── SEQUENTIAL / ROTATION MODE ───
         if (pendingPauseMs > 0) {
           console.log(`Applying deferred pause of ${Math.round(pendingPauseMs / 1000)}s`);
@@ -1591,7 +1415,10 @@ Deno.serve(async (req) => {
             batchSent++;
             instanceMsgCount++;
             msgsSincePause++;
-            await serviceClient.from("campaigns").update({ sent_count: sentCount, delivered_count: sentCount, failed_count: failedCount, updated_at: new Date().toISOString() }).eq("id", campaignId);
+            // Update counters every 5 messages instead of every message (reduces DB load)
+            if (batchSent % 5 === 0 || contacts.indexOf(contact) === contacts.length - 1) {
+              await serviceClient.from("campaigns").update({ sent_count: sentCount, delivered_count: sentCount, failed_count: failedCount, updated_at: new Date().toISOString() }).eq("id", campaignId);
+            }
 
             const isLastContact = contacts.indexOf(contact) === contacts.length - 1;
             if (!isLastContact) {

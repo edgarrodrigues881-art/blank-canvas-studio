@@ -311,8 +311,8 @@ function generateUniqueRand3(usedSet: Set<string>): string {
 }
 
 function replaceVariables(template: string, contact: any, rand4: string, rand3: string): string {
-  // Fallback: se name estiver vazio/null, usa o phone para {{nome}}
-  const contactName = (contact.name && contact.name.trim()) ? contact.name.trim() : (contact.phone || "");
+  // Se name estiver vazio/null, {{nome}} fica vazio (consistente com Edge Function)
+  const contactName = (contact.name && contact.name.trim() && contact.name.trim() !== contact.phone) ? contact.name.trim() : "";
   return template
     .replace(/\{\{nome\}\}/gi, contactName)
     .replace(/\{\{numero\}\}/gi, contact.phone || "")
@@ -666,12 +666,12 @@ const MAX_PARALLEL_CAMPAIGNS = 5;
 export async function campaignWorkerTick(isRunningRef: { value: boolean }) {
   const db = getDb();
 
-  // Reset stale processing contacts
+  // Reset stale processing contacts (use updated_at, not created_at)
   const staleThreshold = new Date(Date.now() - 5 * 60_000).toISOString();
   await db.from("campaign_contacts")
     .update({ status: "pending" })
     .eq("status", "processing")
-    .lt("created_at", staleThreshold);
+    .lt("updated_at", staleThreshold);
 
   // Find running campaigns
   const { data: campaigns } = await db.from("campaigns")
