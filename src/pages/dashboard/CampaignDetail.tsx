@@ -784,7 +784,7 @@ const CampaignDetail = () => {
               </Button>
             )}
             {stats.total > 0 && (
-              <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-lg" onClick={() => { setSaveContactsSent(true); setSaveContactsFailed(false); setSaveContactsPending(false); setSaveContactsOpen(true); }}>
+              <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-lg" onClick={() => { setSaveContactsSent(false); setSaveContactsFailed(false); setSaveContactsPending(false); setSaveContactsOpen(true); }}>
                 <Users className="w-3.5 h-3.5" /> Salvar Contatos
               </Button>
             )}
