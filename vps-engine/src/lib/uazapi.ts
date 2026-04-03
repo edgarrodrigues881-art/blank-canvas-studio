@@ -1,8 +1,9 @@
 // ══════════════════════════════════════════════════════════
-// VPS Engine — UAZAPI communication with timeout
+// VPS Engine — UAZAPI communication with timeout & circuit breaker
 // ══════════════════════════════════════════════════════════
 
 import { config } from "../config";
+import { canRequest, recordSuccess, recordFailure } from "./circuit-breaker";
 
 export interface UazapiCredentialValidation {
   status: "valid" | "invalid" | "unknown";
@@ -96,6 +97,11 @@ export async function uazapiRequest(
   payload: any,
   method: "POST" | "GET" = "POST",
 ): Promise<any> {
+  // Circuit breaker check
+  const check = canRequest(baseUrl);
+  if (!check.allowed) {
+    throw new Error(`Circuit breaker OPEN for ${baseUrl.slice(0, 40)}… — ${check.reason} (retry in ${Math.round(check.retryInMs / 1000)}s)`);
+  }
   let url = `${baseUrl}${endpoint}`;
   const headers: Record<string, string> = { token, Accept: "application/json" };
 
@@ -120,10 +126,11 @@ export async function uazapiRequest(
     res = await fetch(url, fetchOptions);
   } catch (err: any) {
     clearTimeout(timeoutId);
-    if (err?.name === "AbortError") {
-      throw new Error(`Timeout após ${config.apiTimeoutMs / 1000}s aguardando resposta da API`);
-    }
-    throw err;
+    const msg = err?.name === "AbortError"
+      ? `Timeout após ${config.apiTimeoutMs / 1000}s aguardando resposta da API`
+      : err?.message || String(err);
+    recordFailure(baseUrl, msg);
+    throw new Error(msg);
   }
   clearTimeout(timeoutId);
 
@@ -139,6 +146,7 @@ export async function uazapiRequest(
     } catch {
       errorMsg = text;
     }
+    recordFailure(baseUrl, errorMsg);
     if (isInvalidApiKeyResponse(res.status, errorMsg)) {
       throw new Error(`Invalid API key (${endpoint})`);
     }
@@ -146,8 +154,10 @@ export async function uazapiRequest(
   }
   const parsed = JSON.parse(text);
   if (parsed?.error && typeof parsed.error === "string") {
+    recordFailure(baseUrl, parsed.error);
     throw new Error(parsed.error);
   }
+  recordSuccess(baseUrl);
   return parsed;
 }
 
@@ -158,6 +168,12 @@ export async function uazapiSendText(
   text: string,
   isGroup = false,
 ): Promise<any> {
+  // Circuit breaker check
+  const check = canRequest(baseUrl);
+  if (!check.allowed) {
+    throw new Error(`Circuit breaker OPEN — ${check.reason} (retry in ${Math.round(check.retryInMs / 1000)}s)`);
+  }
+
   const safeText = String(text || "").trim();
   if (!safeText) throw new Error("Texto vazio");
 
@@ -191,8 +207,10 @@ export async function uazapiSendText(
             lastErr = `${at.path}: ${raw.substring(0, 240)}`;
             continue;
           }
+          recordSuccess(baseUrl);
           return parsed;
         } catch {
+          recordSuccess(baseUrl);
           return { ok: true, raw };
         }
       }
@@ -205,6 +223,7 @@ export async function uazapiSendText(
       lastErr = `${at.path}: ${e?.message || String(e)}`;
     }
   }
+  recordFailure(baseUrl, lastErr);
   throw new Error(`Text send failed: ${lastErr}`);
 }
 

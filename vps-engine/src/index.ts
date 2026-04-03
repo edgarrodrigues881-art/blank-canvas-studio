@@ -11,6 +11,7 @@ import { createLogger } from "./lib/logger";
 import { DeviceLockManager } from "./lib/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot, getGlobalConcurrencyStats } from "./lib/global-semaphore";
 import { workerMetrics } from "./lib/worker-metrics";
+import { getCircuitBreakerStats } from "./lib/circuit-breaker";
 import { isWithinOperatingWindow, getBrtTodayAt } from "./lib/brt";
 import { massInjectTick, getMassInjectStatus, lastMassInjectTickAt } from "./mass-inject-worker";
 import { campaignWorkerTick, getCampaignWorkerStatus, lastCampaignWorkerTickAt } from "./campaign-worker";
@@ -69,6 +70,7 @@ app.get("/health", (_req: Request, res: Response) => {
       })),
     },
     withinWindow: isWithinOperatingWindow(),
+    circuitBreakers: getCircuitBreakerStats(),
   });
 });
 
