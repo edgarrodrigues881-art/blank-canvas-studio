@@ -2366,7 +2366,7 @@ async function handleTick(
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })
     ),
-    batchLoad<any>("warmup_instance_groups", "group_id, group_jid, device_id, cycle_id, join_status, group_name, invite_link", "device_id", uniqueDeviceIds),
+    batchLoad<any>("warmup_instance_groups", "id, group_id, group_jid, device_id, cycle_id, join_status, group_name, invite_link", "cycle_id", uniqueCycleIds),
     db.from("warmup_groups").select("id, link, name").then((r: any) => r.data || []),
     getImagePool(db),
     getAudioPool(db),
