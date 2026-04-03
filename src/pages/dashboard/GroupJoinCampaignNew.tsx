@@ -96,7 +96,7 @@ export default function GroupJoinCampaignNew() {
   const [pauseDuration, setPauseDuration] = useState(900);
   const [limitPerInstance, setLimitPerInstance] = useState(0);
   const [skipFailFast, setSkipFailFast] = useState(true);
-  const [shuffleLinks, setShuffleLinks] = useState(false);
+  const shuffleLinks = false;
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [deviceSearch, setDeviceSearch] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
