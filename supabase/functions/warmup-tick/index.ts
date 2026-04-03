@@ -2366,7 +2366,7 @@ async function handleTick(
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })
     ),
-    batchLoad<any>("warmup_instance_groups", "group_id, group_jid, device_id, cycle_id, join_status, group_name, invite_link", "device_id", uniqueDeviceIds),
+    batchLoad<any>("warmup_instance_groups", "id, group_id, group_jid, device_id, cycle_id, join_status, group_name, invite_link", "cycle_id", uniqueCycleIds),
     db.from("warmup_groups").select("id, link, name").then((r: any) => r.data || []),
     getImagePool(db),
     getAudioPool(db),
@@ -2435,10 +2435,12 @@ async function handleTick(
   if (autosaveDisabledUsers.size > 0) {
     console.log(`[warmup-tick] Skipped autosave contacts for ${autosaveDisabledUsers.size} users with autosave disabled`);
   }
+  // CRITICAL: Index by cycle_id (not device_id) to prevent cross-cycle group leakage
   const instanceGroupsMap: Record<string, any[]> = {};
   instanceGroupsArr.forEach((ig: any) => {
-    if (!instanceGroupsMap[ig.device_id]) instanceGroupsMap[ig.device_id] = [];
-    instanceGroupsMap[ig.device_id].push(ig);
+    const key = ig.cycle_id || ig.device_id; // cycle_id is primary key for isolation
+    if (!instanceGroupsMap[key]) instanceGroupsMap[key] = [];
+    instanceGroupsMap[key].push(ig);
   });
   const groupsMap: Record<string, any> = {};
   groupsPoolArr.forEach((g: any) => { groupsMap[g.id] = { ...g, external_group_ref: g.link }; });
@@ -2592,7 +2594,7 @@ async function handleTick(
 
         const groupId = job.payload?.group_id;
         const groupName = job.payload?.group_name || groupId;
-        const existingIGs = instanceGroupsMap[job.device_id] || [];
+        const existingIGs = instanceGroupsMap[job.cycle_id] || [];
         const record = existingIGs.find((ig: any) => ig.group_id === groupId);
 
         // Skip if already joined or manually left
@@ -2722,7 +2724,7 @@ async function handleTick(
           });
 
           // ── AUTO-TRANSITION: Check if ALL groups are now joined ──
-          const allIGs = instanceGroupsMap[job.device_id] || [];
+          const allIGs = instanceGroupsMap[job.cycle_id] || [];
           // Update local cache
           const updatedRecord = allIGs.find((ig: any) => ig.group_id === groupId);
           if (updatedRecord) updatedRecord.join_status = "joined";
@@ -2823,8 +2825,9 @@ async function handleTick(
       case "group_interaction": {
         if (!baseUrl || !token) throw new Error("Credenciais UAZAPI não configuradas");
 
-        let allIGs = instanceGroupsMap[job.device_id] || [];
-        let joinedGroups = allIGs.filter((ig: any) => ig.join_status === "joined");
+        // CRITICAL: Use cycle_id (not device_id) to prevent cross-cycle group leakage
+        let allIGs = instanceGroupsMap[job.cycle_id] || [];
+        let joinedGroups = allIGs.filter((ig: any) => ig.join_status === "joined" && ig.device_id === job.device_id);
         let liveGroupsCache: any[] = [];
 
         const norm = (v: string) =>
@@ -2894,43 +2897,27 @@ async function handleTick(
           try {
             liveGroupsCache = await fetchLiveGroups();
             if (liveGroupsCache.length > 0) {
-              const liveNames = new Set(liveGroupsCache.map((g: any) => norm(g.subject || g.name || g.Name || g.title || "")));
               const liveJids = new Set(liveGroupsCache.map((g: any) => String(g.jid || g.id || g.JID || g.groupJid || g.chatId || "").toLowerCase().trim()));
 
               for (const ig of allIGs) {
                 if (ig.join_status === "joined") continue;
-                const grpRef = groupsMap[ig.group_id];
-                const grpName = norm(grpRef?.name || ig.group_name || "");
+                if (ig.device_id !== job.device_id) continue; // only this device's groups
                 const igJid = String(ig.group_jid || "").toLowerCase().trim();
 
-                const nameMatch = grpName && liveNames.has(grpName);
-                const jidMatch = igJid && liveJids.has(igJid);
-
-                // Also try to find JID from live groups
-                let resolvedJid = ig.group_jid;
-                if (!resolvedJid) {
-                  const match = liveGroupsCache.find((g: any) =>
-                    norm(g.subject || g.name || g.Name || g.title || "") === grpName
-                  );
-                  if (match) resolvedJid = match.jid || match.id || match.JID || match.groupJid || match.chatId;
-                }
-
-                if (nameMatch || jidMatch) {
-                  const updateData: any = { join_status: "joined", joined_at: new Date().toISOString() };
-                  if (resolvedJid && !ig.group_jid) updateData.group_jid = resolvedJid;
+                // ONLY match by JID — never by name to prevent cross-group leakage
+                if (igJid && liveJids.has(igJid)) {
                   await db.from("warmup_instance_groups")
-                    .update(updateData)
+                    .update({ join_status: "joined", joined_at: new Date().toISOString() })
                     .eq("id", ig.id);
                   ig.join_status = "joined";
-                  ig.group_jid = resolvedJid || ig.group_jid;
                   bufferAudit({
                     user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id,
                     level: "info", event_type: "auto_sync_joined",
-                    message: `Auto-sync: grupo "${grpRef?.name || ig.group_name}" detectado no dispositivo → marcado como joined`,
+                    message: `Auto-sync: grupo JID ${igJid} detectado no dispositivo → marcado como joined`,
                   });
                 }
               }
-              joinedGroups = allIGs.filter((ig: any) => ig.join_status === "joined");
+              joinedGroups = allIGs.filter((ig: any) => ig.join_status === "joined" && ig.device_id === job.device_id);
             }
           } catch (syncErr) {
             console.warn("[group_interaction] auto-sync error:", syncErr);
@@ -2941,32 +2928,10 @@ async function handleTick(
         let groupName = "Grupo";
         let targetGroupId: string | null = null;
 
-        // Helper: try to resolve JID for a specific group
+        // Helper: resolve JID — ONLY from stored group_jid, never by name match
         const resolveJidForGroup = async (target: any): Promise<string | null> => {
           if (target.group_jid) return target.group_jid;
-          
-          // Try live lookup by name
-          try {
-            if (!liveGroupsCache.length) liveGroupsCache = await fetchLiveGroups();
-            const grpRef = groupsMap[target.group_id];
-            const targetName = norm(grpRef?.name || target.group_name || "");
-            if (targetName) {
-              const match = liveGroupsCache.find((g: any) =>
-                norm(g.subject || g.name || g.Name || g.title || "") === targetName
-              );
-              if (match) {
-                const jid = match.jid || match.id || match.JID || match.groupJid || match.chatId;
-                if (jid) {
-                  await db.from("warmup_instance_groups")
-                    .update({ group_jid: jid })
-                    .eq("device_id", job.device_id)
-                    .eq("group_id", target.group_id);
-                  target.group_jid = jid;
-                  return jid;
-                }
-              }
-            }
-          } catch { /* ignore */ }
+          // No name-based resolution — this caused cross-group leakage
           return null;
         };
 
@@ -3019,23 +2984,19 @@ async function handleTick(
           } catch { /* ignore */ }
 
           if (liveGroupsCache.length > 0 && allIGs.length > 0) {
-            // Build a set of registered group names and JIDs for matching
-            const registeredNames = new Set<string>();
+            // Build a set of registered JIDs ONLY — no name matching to prevent leakage
             const registeredJids = new Set<string>();
             for (const ig of allIGs) {
-              const grpRef = groupsMap[ig.group_id];
-              const name = norm(grpRef?.name || ig.group_name || "");
-              if (name) registeredNames.add(name);
+              if (ig.device_id !== job.device_id) continue;
               if (ig.group_jid) registeredJids.add(String(ig.group_jid).toLowerCase().trim());
             }
 
-            // Only consider live groups that match a registered warmup group
+            // Only consider live groups that match a registered JID
             const candidates = liveGroupsCache
               .filter((g: any) => {
                 const jid = String(g?.jid || g?.id || g?.JID || g?.groupJid || g?.chatId || "");
-                const name = norm(g?.subject || g?.name || g?.Name || g?.title || "");
                 if (!jid.includes("@g.us")) return false;
-                return registeredNames.has(name) || registeredJids.has(jid.toLowerCase().trim());
+                return registeredJids.has(jid.toLowerCase().trim());
               })
               .map((g: any) => ({
                 jid: g?.jid || g?.id || g?.JID || g?.groupJid || g?.chatId || null,
