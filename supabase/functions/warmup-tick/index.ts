@@ -2897,43 +2897,27 @@ async function handleTick(
           try {
             liveGroupsCache = await fetchLiveGroups();
             if (liveGroupsCache.length > 0) {
-              const liveNames = new Set(liveGroupsCache.map((g: any) => norm(g.subject || g.name || g.Name || g.title || "")));
               const liveJids = new Set(liveGroupsCache.map((g: any) => String(g.jid || g.id || g.JID || g.groupJid || g.chatId || "").toLowerCase().trim()));
 
               for (const ig of allIGs) {
                 if (ig.join_status === "joined") continue;
-                const grpRef = groupsMap[ig.group_id];
-                const grpName = norm(grpRef?.name || ig.group_name || "");
+                if (ig.device_id !== job.device_id) continue; // only this device's groups
                 const igJid = String(ig.group_jid || "").toLowerCase().trim();
 
-                const nameMatch = grpName && liveNames.has(grpName);
-                const jidMatch = igJid && liveJids.has(igJid);
-
-                // Also try to find JID from live groups
-                let resolvedJid = ig.group_jid;
-                if (!resolvedJid) {
-                  const match = liveGroupsCache.find((g: any) =>
-                    norm(g.subject || g.name || g.Name || g.title || "") === grpName
-                  );
-                  if (match) resolvedJid = match.jid || match.id || match.JID || match.groupJid || match.chatId;
-                }
-
-                if (nameMatch || jidMatch) {
-                  const updateData: any = { join_status: "joined", joined_at: new Date().toISOString() };
-                  if (resolvedJid && !ig.group_jid) updateData.group_jid = resolvedJid;
+                // ONLY match by JID — never by name to prevent cross-group leakage
+                if (igJid && liveJids.has(igJid)) {
                   await db.from("warmup_instance_groups")
-                    .update(updateData)
+                    .update({ join_status: "joined", joined_at: new Date().toISOString() })
                     .eq("id", ig.id);
                   ig.join_status = "joined";
-                  ig.group_jid = resolvedJid || ig.group_jid;
                   bufferAudit({
                     user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id,
                     level: "info", event_type: "auto_sync_joined",
-                    message: `Auto-sync: grupo "${grpRef?.name || ig.group_name}" detectado no dispositivo → marcado como joined`,
+                    message: `Auto-sync: grupo JID ${igJid} detectado no dispositivo → marcado como joined`,
                   });
                 }
               }
-              joinedGroups = allIGs.filter((ig: any) => ig.join_status === "joined");
+              joinedGroups = allIGs.filter((ig: any) => ig.join_status === "joined" && ig.device_id === job.device_id);
             }
           } catch (syncErr) {
             console.warn("[group_interaction] auto-sync error:", syncErr);
