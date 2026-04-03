@@ -1267,6 +1267,53 @@ const CampaignDetail = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Save Contacts Dialog ──────────────────────────────── */}
+      <Dialog open={saveContactsOpen} onOpenChange={setSaveContactsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">Salvar contatos na base</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Selecione quais contatos deseja salvar. Variáveis serão preservadas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <label className="flex items-center gap-3 rounded-lg border border-border/30 p-3 cursor-pointer hover:bg-muted/20 transition-colors">
+              <Checkbox checked={saveContactsSent} onCheckedChange={(v) => setSaveContactsSent(!!v)} />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">Enviadas</p>
+                <p className="text-[10px] text-muted-foreground">Contatos enviados com sucesso ({stats.sent})</p>
+              </div>
+              <CheckCircle2 className="w-4 h-4 text-primary/60" />
+            </label>
+            <label className="flex items-center gap-3 rounded-lg border border-border/30 p-3 cursor-pointer hover:bg-muted/20 transition-colors">
+              <Checkbox checked={saveContactsFailed} onCheckedChange={(v) => setSaveContactsFailed(!!v)} />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">Falhas</p>
+                <p className="text-[10px] text-muted-foreground">Contatos que falharam ({stats.failed})</p>
+              </div>
+              <XCircle className="w-4 h-4 text-destructive/60" />
+            </label>
+            {stats.pending > 0 && (
+              <label className="flex items-center gap-3 rounded-lg border border-border/30 p-3 cursor-pointer hover:bg-muted/20 transition-colors">
+                <Checkbox checked={saveContactsPending} onCheckedChange={(v) => setSaveContactsPending(!!v)} />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">Pendentes</p>
+                  <p className="text-[10px] text-muted-foreground">Contatos não enviados ({stats.pending})</p>
+                </div>
+                <Clock className="w-4 h-4 text-yellow-400/60" />
+              </label>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setSaveContactsOpen(false)} className="text-xs">Cancelar</Button>
+            <Button size="sm" onClick={handleSaveContactsConfirm} disabled={(!saveContactsSent && !saveContactsFailed && !saveContactsPending) || saveContactsLoading} className="gap-1.5 text-xs">
+              {saveContactsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Users className="w-3.5 h-3.5" />}
+              Salvar ({(saveContactsSent ? stats.sent : 0) + (saveContactsFailed ? stats.failed : 0) + (saveContactsPending ? stats.pending : 0)})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
