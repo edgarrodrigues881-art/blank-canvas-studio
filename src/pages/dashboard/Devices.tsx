@@ -882,11 +882,20 @@ const Devices = () => {
     muteAutoSync(8_000);
 
     const newProxyId = editProxyValue === "none" ? null : editProxyValue;
+    const oldProxyId = editingDevice.proxy_id;
     const dbUpdates: Record<string, any> = {
       name: editName,
       proxy_id: newProxyId,
       updated_at: new Date().toISOString(),
     };
+
+    // Sync proxy statuses when proxy changes
+    if (oldProxyId !== newProxyId) {
+      const proxyOps: Promise<any>[] = [];
+      if (oldProxyId) proxyOps.push(supabase.from("proxies").update({ status: "USADA" } as any).eq("id", oldProxyId));
+      if (newProxyId) proxyOps.push(supabase.from("proxies").update({ status: "USANDO" } as any).eq("id", newProxyId));
+      if (proxyOps.length > 0) Promise.allSettled(proxyOps).then(() => queryClient.invalidateQueries({ queryKey: ["proxies"] }));
+    }
 
     try {
       console.log("[edit-save] deviceId:", editingDevice.id, "wpPhotoBase64 length:", wpPhotoBase64?.length, "wpRemovePhoto:", wpRemovePhoto, "wpName:", wpName);
