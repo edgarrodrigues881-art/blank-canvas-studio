@@ -92,8 +92,7 @@ async function updateCampaignCounters(sb: any, campaignId: string, markDone = fa
 }
 
 async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value: boolean }) {
-  log.info(`Processing group-join campaign ${campaign.id.slice(0, 8)}: "${campaign.name}"`);
-
+  const globalLockedDevices = new Set<string>();
   while (isRunningRef.value) {
     // Re-check status
     const { data: fresh } = await sb.from("group_join_campaigns").select("status").eq("id", campaign.id).single();
