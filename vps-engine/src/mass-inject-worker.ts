@@ -46,7 +46,7 @@ const TRANSIENT_FAILURE_STATUSES = new Set([
   "timeout",
 ]);
 
-const DEVICE_RETRY_INTERVAL_MS = 30_000;
+const DEVICE_RETRY_INTERVAL_MS = 6_000; // 6s — fast retry, don't block
 
 // ── In-memory caches (persist across contacts within same campaign run) ──
 type ParticipantCacheEntry = {
@@ -494,7 +494,7 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
         detail: e.message,
         retryable: true,
         pauseCampaign: false,
-        cooldownMs: 15000,
+        cooldownMs: 3000,
         strategyIndex: i,
         canTryOtherStrategy: true,
         failureStatus: "api_temporary",
@@ -510,9 +510,9 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
 function classifyFailure(msg: string, status: number, strategyIndex: number): AddResult {
   const base = { ok: false as const, alreadyExists: false, strategyIndex, canTryOtherStrategy: false };
   if (msg.includes("rate-overlimit") || msg.includes("429") || msg.includes("too many") || status === 429)
-    return { ...base, detail: "Rate limit.", retryable: true, pauseCampaign: false, cooldownMs: 30000, failureStatus: "rate_limited" };
+    return { ...base, detail: "Rate limit.", retryable: true, pauseCampaign: false, cooldownMs: 8000, failureStatus: "rate_limited" };
   if (msg.includes("websocket disconnected before info query") || msg.includes("connection reset") || msg.includes("socket hang up"))
-    return { ...base, detail: "A integração interrompeu a consulta antes de concluir.", retryable: true, pauseCampaign: false, cooldownMs: 15000, canTryOtherStrategy: true, failureStatus: "api_temporary" };
+    return { ...base, detail: "A integração interrompeu a consulta antes de concluir.", retryable: true, pauseCampaign: false, cooldownMs: 3000, canTryOtherStrategy: true, failureStatus: "api_temporary" };
   if (msg.includes("privacidade") || msg.includes("saved contacts") || msg.includes("contatos salvos") || msg.includes("only allows") || msg.includes("invite de contatos"))
     return { ...base, detail: "Privacidade: só aceita convite de contatos salvos.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "failed" };
   if (msg.includes("not admin") || msg.includes("not an admin"))
@@ -526,12 +526,12 @@ function classifyFailure(msg: string, status: number, strategyIndex: number): Ad
   if (status === 401 || msg.includes("unauthorized") || msg.includes("invalid token"))
     return { ...base, detail: "Token inválido.", retryable: false, pauseCampaign: true, cooldownMs: 0, failureStatus: "unauthorized" };
   if (status === 503 || msg.includes("disconnected") || msg.includes("session disconnected") || msg.includes("socket closed"))
-    return { ...base, detail: "Instância desconectada.", retryable: true, pauseCampaign: false, cooldownMs: 20000, canTryOtherStrategy: true, failureStatus: "connection_unconfirmed" };
+    return { ...base, detail: "Instância desconectada.", retryable: true, pauseCampaign: false, cooldownMs: 5000, canTryOtherStrategy: true, failureStatus: "connection_unconfirmed" };
   if (msg.includes("timeout") || status === 408 || status === 504)
-    return { ...base, detail: "Timeout.", retryable: true, pauseCampaign: false, cooldownMs: 15000, canTryOtherStrategy: true, failureStatus: "timeout" };
+    return { ...base, detail: "Timeout.", retryable: true, pauseCampaign: false, cooldownMs: 3000, canTryOtherStrategy: true, failureStatus: "timeout" };
   if (status >= 500)
-    return { ...base, detail: `Erro servidor (${status}).`, retryable: true, pauseCampaign: false, cooldownMs: 15000, canTryOtherStrategy: true, failureStatus: "api_temporary" };
-  return { ...base, detail: msg.substring(0, 140) || `HTTP ${status}`, retryable: true, pauseCampaign: false, cooldownMs: 10000, failureStatus: "unknown_failure" };
+    return { ...base, detail: `Erro servidor (${status}).`, retryable: true, pauseCampaign: false, cooldownMs: 3000, canTryOtherStrategy: true, failureStatus: "api_temporary" };
+  return { ...base, detail: msg.substring(0, 140) || `HTTP ${status}`, retryable: true, pauseCampaign: false, cooldownMs: 3000, failureStatus: "unknown_failure" };
 }
 
 // ── Device selection ──
@@ -727,7 +727,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       const deviceId = pickDeviceId(freshCampaign, failedDeviceIds);
       if (!deviceId) {
         if (failedDeviceIds.size > 0) {
-          log.warn(`Campaign ${campaignId.slice(0, 8)}: all devices are cooling down after connection issues — waiting 60s before retry`);
+          log.warn(`Campaign ${campaignId.slice(0, 8)}: all devices cooling down — waiting ${DEVICE_RETRY_INTERVAL_MS / 1000}s`);
           await sb.from("mass_inject_campaigns").update({
             updated_at: nowIso(),
             next_run_at: new Date(Date.now() + DEVICE_RETRY_INTERVAL_MS).toISOString(),
@@ -959,15 +959,14 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
           break;
         }
 
-        // Extra cooldown for rate limits
+        // Cooldown only for rate limits — short and capped
         if (isRateLimit && result.cooldownMs > 0) {
-          // Only cooldown for actual rate limits — not connection hiccups
-          const cooldown = Math.min(result.cooldownMs, 15000); // Cap at 15s
+          const cooldown = Math.min(result.cooldownMs, 8000);
           log.info(`Campaign ${campaignId.slice(0, 8)}: rate limit cooldown ${Math.round(cooldown / 1000)}s`);
           await sleep(cooldown);
         } else if ((isConnectionIssue || isTimeout) && result.cooldownMs > 0) {
-          // Short cooldown for connection issues — don't block long
-          const cooldown = Math.min(result.cooldownMs, 5000); // Cap at 5s
+          const cooldown = Math.min(result.cooldownMs, 3000);
+          log.info(`Campaign ${campaignId.slice(0, 8)}: transient error cooldown ${Math.round(cooldown / 1000)}s`);
           await sleep(cooldown);
         }
       }
