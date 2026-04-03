@@ -573,32 +573,21 @@ const GroupCapture = () => {
                 />
               </div>
               <div className="max-h-40 overflow-y-auto rounded-xl border border-border/15 bg-muted/5 p-1.5 space-y-0.5">
-                {(() => {
-                  const sorted = [...devices].sort((a, b) => {
-                    const onlineStatuses = ["Connected", "Ready", "authenticated"];
-                    const aOn = onlineStatuses.includes(a.status) ? 0 : 1;
-                    const bOn = onlineStatuses.includes(b.status) ? 0 : 1;
-                    if (aOn !== bOn) return aOn - bOn;
-                    return a.name.localeCompare(b.name, undefined, { numeric: true });
-                  });
-                  const filtered = deviceSearch.trim()
-                    ? sorted.filter((d) => d.name.toLowerCase().includes(deviceSearch.toLowerCase()) || (d.number || "").includes(deviceSearch))
-                    : sorted;
-                  if (filtered.length === 0) return <p className="text-[11px] text-muted-foreground/30 text-center py-4">{devices.length === 0 ? "Nenhuma instância" : "Nenhum resultado"}</p>;
-                  return filtered.map((d) => {
-                    const online = ["Connected", "Ready", "authenticated"].includes(d.status);
-                    const sel = selectedDevices.includes(d.id);
-                    return (
-                      <label key={d.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${online ? "cursor-pointer" : "cursor-not-allowed opacity-40"} ${sel ? "bg-primary/5 border border-primary/10" : "border border-transparent hover:bg-muted/20"}`}>
-                        <Checkbox checked={sel} disabled={!online} onCheckedChange={() => online && toggleDevice(d.id)} />
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ring-2 ${online ? "bg-emerald-400 ring-emerald-400/20" : "bg-red-400 ring-red-400/20"}`} />
-                        <span className="text-xs font-medium truncate flex-1">{d.name}</span>
-                        {!online && <span className="text-[9px] text-destructive/60 font-medium ml-auto shrink-0">Offline</span>}
-                        {online && d.number && <span className="text-[10px] text-muted-foreground/30 font-mono ml-auto">{d.number}</span>}
-                      </label>
-                    );
-                  });
-                })()}
+                {filteredModalDevices.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground/30 text-center py-4">{devices.length === 0 ? "Nenhuma instância" : "Nenhum resultado"}</p>
+                ) : filteredModalDevices.map((d) => {
+                  const online = ["Connected", "Ready", "authenticated"].includes(d.status);
+                  const sel = selectedDevices.includes(d.id);
+                  return (
+                    <label key={d.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${online ? "cursor-pointer" : "cursor-not-allowed opacity-40"} ${sel ? "bg-primary/5 border border-primary/10" : "border border-transparent hover:bg-muted/20"}`}>
+                      <Checkbox checked={sel} disabled={!online} onCheckedChange={() => online && toggleDevice(d.id)} />
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ring-2 ${online ? "bg-emerald-400 ring-emerald-400/20" : "bg-red-400 ring-red-400/20"}`} />
+                      <span className="text-xs font-medium truncate flex-1">{d.name}</span>
+                      {!online && <span className="text-[9px] text-destructive/60 font-medium ml-auto shrink-0">Offline</span>}
+                      {online && d.number && <span className="text-[10px] text-muted-foreground/30 font-mono ml-auto">{d.number}</span>}
+                    </label>
+                  );
+                })}
               </div>
             </section>
 
