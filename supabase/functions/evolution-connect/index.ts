@@ -595,15 +595,22 @@ Deno.serve(async (req) => {
       return { confirmed: consecutive >= confirmations, latest, sawQr };
     };
 
-    const clearProviderSessionForQr = async (): Promise<ProviderStatusCheck> => {
-      let latest: ProviderStatusCheck = { valid: false, status: "unknown", rawStatus: "unknown" };
-      for (let attempt = 0; attempt < 2; attempt++) {
-        await uazapi(instanceUrl, "/instance/logout", instanceToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
-        await sleep(800);
-        await uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
-        await sleep(1200);
-        latest = await checkStatus(4000);
-        if (!isConfirmedConnected(latest) && !latest.qrcode) break;
+    const clearProviderSessionForQr = async (needsReset: boolean): Promise<ProviderStatusCheck> => {
+      if (!needsReset) {
+        return { valid: true, status: "disconnected", rawStatus: "disconnected" };
+      }
+      // Single pass: logout + disconnect in parallel, then one quick check
+      await Promise.all([
+        uazapi(instanceUrl, "/instance/logout", instanceToken, "POST", undefined, { timeoutMs: 4000, retries: 0 }),
+        uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 4000, retries: 0 }),
+      ]);
+      await sleep(600);
+      const latest = await checkStatus(3000);
+      // Only retry if still connected
+      if (isConfirmedConnected(latest)) {
+        await uazapi(instanceUrl, "/instance/logout", instanceToken, "POST", undefined, { timeoutMs: 4000, retries: 0 });
+        await sleep(500);
+        return await checkStatus(3000);
       }
       return latest;
     };
