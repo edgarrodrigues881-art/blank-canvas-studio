@@ -2984,24 +2984,24 @@ async function handleTick(
           } catch { /* ignore */ }
 
           if (liveGroupsCache.length > 0 && allIGs.length > 0) {
-            // Build a set of registered group names and JIDs for matching
-            const registeredNames = new Set<string>();
+            // Build a set of registered JIDs ONLY — no name matching to prevent leakage
             const registeredJids = new Set<string>();
             for (const ig of allIGs) {
-              const grpRef = groupsMap[ig.group_id];
-              const name = norm(grpRef?.name || ig.group_name || "");
-              if (name) registeredNames.add(name);
+              if (ig.device_id !== job.device_id) continue;
               if (ig.group_jid) registeredJids.add(String(ig.group_jid).toLowerCase().trim());
             }
 
-            // Only consider live groups that match a registered warmup group
+            // Only consider live groups that match a registered JID
             const candidates = liveGroupsCache
               .filter((g: any) => {
                 const jid = String(g?.jid || g?.id || g?.JID || g?.groupJid || g?.chatId || "");
-                const name = norm(g?.subject || g?.name || g?.Name || g?.title || "");
                 if (!jid.includes("@g.us")) return false;
-                return registeredNames.has(name) || registeredJids.has(jid.toLowerCase().trim());
+                return registeredJids.has(jid.toLowerCase().trim());
               })
+              .map((g: any) => ({
+                jid: g?.jid || g?.id || g?.JID || g?.groupJid || g?.chatId || null,
+                name: g?.subject || g?.name || g?.Name || g?.title || "Grupo",
+              }));
               .map((g: any) => ({
                 jid: g?.jid || g?.id || g?.JID || g?.groupJid || g?.chatId || null,
                 name: g?.subject || g?.name || g?.Name || g?.title || "Grupo",
