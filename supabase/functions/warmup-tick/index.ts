@@ -4329,17 +4329,27 @@ async function handleScheduleDay(db: any, body: any) {
     .in("job_type", ["group_interaction", "autosave_interaction", "community_interaction"]);
 
   if (dayIndex > 1) {
-    await db.from("warmup_jobs")
-      .update({ status: "cancelled", last_error: "Cancelado automaticamente: entrada em grupo só no dia 1" })
+    // Only cancel join_group jobs if ALL groups are already joined
+    const { data: pendingGroupsCheck } = await db.from("warmup_instance_groups")
+      .select("id")
       .eq("cycle_id", cycle_id)
-      .eq("job_type", "join_group")
-      .in("status", ["pending", "running"]);
+      .eq("device_id", device_id || cycle.device_id)
+      .eq("join_status", "pending")
+      .limit(1);
+    
+    if (!pendingGroupsCheck?.length) {
+      await db.from("warmup_jobs")
+        .update({ status: "cancelled", last_error: "Cancelado: todos os grupos já foram entrados" })
+        .eq("cycle_id", cycle_id)
+        .eq("job_type", "join_group")
+        .in("status", ["pending", "running"]);
+    }
   }
 
   let jobsCreated = 0;
 
-  // Sempre garante entradas pendentes antes de reagendar interações
-  if (dayIndex <= 1 && !["completed", "paused", "error"].includes(phase)) {
+  // Sempre garante entradas pendentes antes de reagendar interações (qualquer dia)
+  if (!["completed", "paused", "error"].includes(phase)) {
     const created = await ensureJoinGroupJobs(db, cycle_id, cycle.user_id, device_id || cycle.device_id);
     jobsCreated += created;
   }
