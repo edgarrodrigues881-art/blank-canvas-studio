@@ -24,8 +24,8 @@ const RETRYABLE_STATUSES = [
   "unknown_failure",
   "timeout",
 ] as const;
-const DISCONNECT_RECHECK_COUNT = 1;
-const DISCONNECT_RECHECK_INTERVAL_MS = 3_000;
+const DISCONNECT_CONFIRM_THRESHOLD = 2; // Must fail N consecutive checks before marking disconnected
+const DISCONNECT_RECHECK_INTERVAL_MS = 2_000;
 const CONNECTED_DEVICE_STATUSES = new Set(["connected", "ready", "active", "authenticated", "open", "online"]);
 const FINAL_FAILURE_STATUSES = new Set([
   "failed",
