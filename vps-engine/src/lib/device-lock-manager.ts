@@ -167,13 +167,8 @@ class DeviceLockManagerImpl {
   /**
    * Check if a device is available for a specific worker type.
    */
-  isAvailableFor(deviceId: string, workerType: WorkerType): boolean {
-    const category = WORKER_CATEGORY[workerType];
-    const deviceLocks = this.locks.get(deviceId);
-    if (!deviceLocks || deviceLocks.size === 0) return true;
-    for (const existing of deviceLocks.values()) {
-      if (categoriesConflict(category, existing.category)) return false;
-    }
+  isAvailableFor(_deviceId: string, _workerType: WorkerType): boolean {
+    // ── NO RESTRICTIONS: always available ──
     return true;
   }
 
