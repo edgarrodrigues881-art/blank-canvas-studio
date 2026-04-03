@@ -126,10 +126,11 @@ export async function uazapiRequest(
     res = await fetch(url, fetchOptions);
   } catch (err: any) {
     clearTimeout(timeoutId);
-    if (err?.name === "AbortError") {
-      throw new Error(`Timeout após ${config.apiTimeoutMs / 1000}s aguardando resposta da API`);
-    }
-    throw err;
+    const msg = err?.name === "AbortError"
+      ? `Timeout após ${config.apiTimeoutMs / 1000}s aguardando resposta da API`
+      : err?.message || String(err);
+    recordFailure(baseUrl, msg);
+    throw new Error(msg);
   }
   clearTimeout(timeoutId);
 
@@ -145,6 +146,7 @@ export async function uazapiRequest(
     } catch {
       errorMsg = text;
     }
+    recordFailure(baseUrl, errorMsg);
     if (isInvalidApiKeyResponse(res.status, errorMsg)) {
       throw new Error(`Invalid API key (${endpoint})`);
     }
@@ -152,8 +154,10 @@ export async function uazapiRequest(
   }
   const parsed = JSON.parse(text);
   if (parsed?.error && typeof parsed.error === "string") {
+    recordFailure(baseUrl, parsed.error);
     throw new Error(parsed.error);
   }
+  recordSuccess(baseUrl);
   return parsed;
 }
 
