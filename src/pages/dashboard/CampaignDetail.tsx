@@ -993,8 +993,8 @@ const CampaignDetail = () => {
                   };
 
                   return (
-                    <div className="rounded-lg border border-border/20 bg-background/30 p-4 space-y-3">
-                      {/* Header */}
+                    <div className="rounded-xl border border-border/30 bg-background/40 p-4 space-y-3">
+                      {/* Header — Device Management */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Users className="w-4 h-4 text-primary/70" />
