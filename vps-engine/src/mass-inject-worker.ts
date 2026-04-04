@@ -600,8 +600,45 @@ async function emitEvent(sb: any, campaignId: string, eventType: string, level: 
   } catch { /* non-critical */ }
 }
 
-// ── Update campaign counters ──
-async function updateCounters(
+// ── Update campaign counters (batched — only updates in-memory, flush writes to DB) ──
+const COUNTER_FLUSH_INTERVAL = 5; // flush every N contacts processed
+
+function updateCountersLocal(
+  counterState: {
+    success_count: number;
+    already_count: number;
+    fail_count: number;
+    rate_limit_count: number;
+    timeout_count: number;
+    consecutive_failures: number;
+    dirty: boolean;
+  },
+  status: string,
+) {
+  if (status === "completed") {
+    counterState.success_count += 1;
+    counterState.consecutive_failures = 0;
+  } else if (status === "already_exists") {
+    counterState.already_count += 1;
+    counterState.consecutive_failures = 0;
+  } else if (status === "rate_limited") {
+    counterState.rate_limit_count += 1;
+  } else if (status === "timeout") {
+    counterState.timeout_count += 1;
+  } else if (TRANSIENT_FAILURE_STATUSES.has(status)) {
+    // Retryable statuses remain in queue; no counter change
+  } else {
+    counterState.fail_count += 1;
+    if (AUTO_PAUSE_FAILURE_STATUSES.has(status)) {
+      counterState.consecutive_failures += 1;
+    } else {
+      counterState.consecutive_failures = 0;
+    }
+  }
+  counterState.dirty = true;
+}
+
+async function flushCounters(
   sb: any,
   campaignId: string,
   counterState: {
@@ -611,42 +648,20 @@ async function updateCounters(
     rate_limit_count: number;
     timeout_count: number;
     consecutive_failures: number;
+    dirty: boolean;
   },
-  status: string,
 ) {
-  const updates: Record<string, any> = { updated_at: nowIso() };
-  if (status === "completed") {
-    counterState.success_count += 1;
-    updates.success_count = counterState.success_count;
-    counterState.consecutive_failures = 0;
-    updates.consecutive_failures = 0;
-  } else if (status === "already_exists") {
-    counterState.already_count += 1;
-    updates.already_count = counterState.already_count;
-    counterState.consecutive_failures = 0;
-    updates.consecutive_failures = 0;
-  } else if (status === "rate_limited") {
-    counterState.rate_limit_count += 1;
-    updates.rate_limit_count = counterState.rate_limit_count;
-  } else if (status === "timeout") {
-    counterState.timeout_count += 1;
-    updates.timeout_count = counterState.timeout_count;
-  } else if (TRANSIENT_FAILURE_STATUSES.has(status)) {
-    // Retryable statuses remain in queue; they should not count as final failures.
-  } else {
-    counterState.fail_count += 1;
-    updates.fail_count = counterState.fail_count;
-
-    if (AUTO_PAUSE_FAILURE_STATUSES.has(status)) {
-      counterState.consecutive_failures += 1;
-      updates.consecutive_failures = counterState.consecutive_failures;
-    } else {
-      counterState.consecutive_failures = 0;
-      updates.consecutive_failures = 0;
-    }
-  }
-
-  await sb.from("mass_inject_campaigns").update(updates).eq("id", campaignId);
+  if (!counterState.dirty) return;
+  await sb.from("mass_inject_campaigns").update({
+    success_count: counterState.success_count,
+    already_count: counterState.already_count,
+    fail_count: counterState.fail_count,
+    rate_limit_count: counterState.rate_limit_count,
+    timeout_count: counterState.timeout_count,
+    consecutive_failures: counterState.consecutive_failures,
+    updated_at: nowIso(),
+  }).eq("id", campaignId);
+  counterState.dirty = false;
 }
 
 async function finalizeCampaign(sb: any, campaignId: string): Promise<boolean> {
