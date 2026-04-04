@@ -544,7 +544,7 @@ function classifyFailure(msg: string, status: number, strategyIndex: number): Ad
   if (msg.includes("not found") && (msg.includes("number") || msg.includes("participant") || msg.includes("contact")))
     return { ...base, detail: "Número não encontrado no WhatsApp.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "contact_not_found" };
   if (status === 401 || msg.includes("unauthorized") || msg.includes("invalid token"))
-    return { ...base, detail: "Token inválido.", retryable: false, pauseCampaign: true, cooldownMs: 0, failureStatus: "unauthorized" };
+    return { ...base, detail: "Token inválido.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "unauthorized" };
   if (status === 503 || msg.includes("disconnected") || msg.includes("session disconnected") || msg.includes("socket closed"))
     return { ...base, detail: "Instância desconectada.", retryable: true, pauseCampaign: false, cooldownMs: 5000, canTryOtherStrategy: true, failureStatus: "connection_unconfirmed" };
   if (msg.includes("timeout") || status === 408 || status === 504)
