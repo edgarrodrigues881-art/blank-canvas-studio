@@ -7,7 +7,7 @@
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
 import { DeviceLockManager } from "./lib/device-lock-manager";
-import { acquireGlobalSlot, releaseGlobalSlot } from "./lib/global-semaphore";
+// chip-conversation is lightweight — does NOT use global semaphore
 
 const log = createLogger("chip-conv");
 
