@@ -1072,6 +1072,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         updateCountersLocal(counterState, "completed");
         contactsSinceFlush++;
         deviceCriticalErrors.delete(deviceId); // reset on success
+        recordDeviceApiSuccess(deviceId); // mark device as healthy
         rememberParticipantInCache(baseUrl, groupId, phone);
         batchAdded++;
       } else if (result.alreadyExists) {
@@ -1082,15 +1083,32 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         contactsSinceFlush++;
         rememberParticipantInCache(baseUrl, groupId, phone);
         deviceCriticalErrors.delete(deviceId); // reset on success
+        recordDeviceApiSuccess(deviceId); // mark device as healthy
       } else {
         // Classify retryable vs permanent failure
-        const isRateLimit = result.detail.toLowerCase().includes("rate limit") || result.cooldownMs >= 30000;
-        const isTimeout = result.detail.toLowerCase().includes("timeout");
-        const isConnectionIssue = result.detail.toLowerCase().includes("desconectada") || result.detail.toLowerCase().includes("socket");
+        const detailLower = result.detail.toLowerCase();
+        const isRateLimit = detailLower.includes("rate limit") || result.cooldownMs >= 30000;
+        const isTimeout = detailLower.includes("timeout");
+        const isConnectionIssue = detailLower.includes("desconectada") || detailLower.includes("socket") || detailLower.includes("disconnected");
         let failureDetail = result.detail;
         let failStatus = result.failureStatus || (result.retryable
           ? (isRateLimit ? "rate_limited" : isTimeout ? "timeout" : isConnectionIssue ? "connection_unconfirmed" : "api_temporary")
           : "failed");
+
+        // Track API failures for connection state
+        if (isConnectionIssue || isTimeout) {
+          const shouldForceRecheck = recordDeviceApiFailure(deviceId, failureDetail);
+          if (shouldForceRecheck && isConnectionIssue) {
+            // Connection issue confirmed by API failures — revert contact to pending (don't consume attempt)
+            await sb.from("mass_inject_contacts").update({
+              status: "pending", error_message: `Aguardando reconexão: ${failureDetail}`, device_used: null,
+            }).eq("id", contact.id);
+            failedDeviceIds.set(deviceId, Date.now());
+            batchFailed++;
+            // Don't count this as a campaign failure — device is the issue
+            continue;
+          }
+        }
 
         if (isConnectionIssue) {
           failStatus = "api_temporary";
