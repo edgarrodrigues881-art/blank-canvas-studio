@@ -696,8 +696,14 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         .select("min_delay_seconds, max_delay_seconds, pause_every_min, pause_every_max, pause_duration_min, pause_duration_max, messages_per_instance")
         .eq("id", campaignId).single();
       if (dynCfg) {
+        const previousMessagesPerInstance = messagesPerInstance;
         const newMpi = Math.max(dynCfg.messages_per_instance || 50, 1);
-        if (newMpi !== messagesPerInstance) log.info(`Campaign ${campaignId.slice(0, 8)}: messages_per_instance changed ${messagesPerInstance} → ${newMpi}`);
+        if (newMpi !== previousMessagesPerInstance) {
+          log.info(
+            `Campaign ${campaignId.slice(0, 8)}: messages_per_instance changed ${previousMessagesPerInstance} → ${newMpi} — resetting current device counter`,
+          );
+          instanceMsgCount = 0;
+        }
         messagesPerInstance = newMpi;
         minDelayMs = (dynCfg.min_delay_seconds || 8) * 1000;
         maxDelayMs = (dynCfg.max_delay_seconds || 25) * 1000;
