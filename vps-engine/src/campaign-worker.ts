@@ -484,8 +484,50 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
   const usedRand4 = new Set<string>();
   const usedRand3 = new Set<string>();
   const picker = new RandomPicker(messageVariants.length);
+
+  // ── Resume-aware rotation: detect last device used before pause ──
   let currentDeviceIndex = 0;
   let instanceMsgCount = 0;
+  try {
+    // Find the last sent contact to know which device was active
+    const { data: lastSent } = await sb.from("campaign_contacts")
+      .select("device_id")
+      .eq("campaign_id", campaignId)
+      .eq("status", "sent")
+      .order("sent_at", { ascending: false })
+      .limit(1);
+
+    if (lastSent?.length && lastSent[0].device_id) {
+      const lastDeviceId = lastSent[0].device_id;
+      const lastIdx = allDevices.findIndex((d: any) => d.id === lastDeviceId);
+
+      if (lastIdx >= 0) {
+        // Count how many messages this device sent in the current rotation window
+        const { count: sentByDevice } = await sb.from("campaign_contacts")
+          .select("id", { count: "exact", head: true })
+          .eq("campaign_id", campaignId)
+          .eq("status", "sent")
+          .eq("device_id", lastDeviceId);
+
+        const sentCount = Number(sentByDevice || 0);
+        const countInCurrentWindow = sentCount % messagesPerInstance;
+
+        if (countInCurrentWindow >= messagesPerInstance) {
+          // Device already hit rotation limit — move to next
+          currentDeviceIndex = (lastIdx + 1) % allDevices.length;
+          instanceMsgCount = 0;
+          log.info(`Campaign ${campaignId.slice(0, 8)}: resumed — rotating to device ${allDevices[currentDeviceIndex]?.name} (prev device hit ${messagesPerInstance} limit)`);
+        } else {
+          currentDeviceIndex = lastIdx;
+          instanceMsgCount = countInCurrentWindow;
+          log.info(`Campaign ${campaignId.slice(0, 8)}: resumed on device ${allDevices[currentDeviceIndex]?.name} (${countInCurrentWindow}/${messagesPerInstance} msgs in window)`);
+        }
+      }
+    }
+  } catch (e: any) {
+    log.warn(`Campaign ${campaignId.slice(0, 8)}: failed to detect resume state: ${e.message}`);
+  }
+
   let msgsSincePause = 0;
   let pauseAfter = Math.round(randomBetween(pauseEveryMin, pauseEveryMax));
   let heartbeatCounter = 0;
@@ -645,8 +687,10 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       continue;
     }
 
-    // 13. Normal delay
-    await sleep(randomBetween(minDelayMs, maxDelayMs));
+    // 13. Normal delay (random within configured range)
+    const delayMs = Math.round(randomBetween(minDelayMs, maxDelayMs));
+    log.info(`Campaign ${campaignId.slice(0, 8)}: delay ${Math.round(delayMs / 1000)}s (range ${Math.round(minDelayMs / 1000)}-${Math.round(maxDelayMs / 1000)}s)`);
+    await sleep(delayMs);
   }
 
   // Release global device locks
