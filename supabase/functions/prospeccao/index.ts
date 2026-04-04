@@ -6,6 +6,38 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Generate query variations to get more unique results from Serper
+function buildQueryVariations(nicho: string, cidade: string, estado: string, target: number): string[] {
+  const base = `${nicho} ${cidade} ${estado}`;
+  const variations = [
+    `${nicho} em ${cidade}, ${estado}`,
+    `${nicho} ${cidade} ${estado}`,
+    `${nicho} perto de ${cidade} ${estado}`,
+    `melhor ${nicho} ${cidade} ${estado}`,
+    `${nicho} delivery ${cidade} ${estado}`,
+    `${nicho} aberto agora ${cidade} ${estado}`,
+    `${nicho} centro ${cidade} ${estado}`,
+    `${nicho} popular ${cidade} ${estado}`,
+    `${nicho} barato ${cidade} ${estado}`,
+    `${nicho} novo ${cidade} ${estado}`,
+    `${nicho} tradicional ${cidade} ${estado}`,
+    `${nicho} recomendado ${cidade} ${estado}`,
+    `${nicho} avaliado ${cidade} ${estado}`,
+    `${nicho} bom ${cidade} ${estado}`,
+    `${nicho} famoso ${cidade} ${estado}`,
+    `${nicho} região ${cidade} ${estado}`,
+    `${nicho} próximo ${cidade} ${estado}`,
+    `${nicho} zona norte ${cidade} ${estado}`,
+    `${nicho} zona sul ${cidade} ${estado}`,
+    `${nicho} zona leste ${cidade} ${estado}`,
+    `${nicho} zona oeste ${cidade} ${estado}`,
+  ];
+
+  // Each query returns ~20 results, estimate how many queries we need
+  const queriesNeeded = Math.ceil(target / 12); // ~12 unique per query after dedup
+  return variations.slice(0, Math.max(queriesNeeded, 1));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -59,72 +91,74 @@ Deno.serve(async (req) => {
     }
 
     const requestedTotal = Math.min(maxResults || 50, 5000);
-    const query = `${nicho} em ${cidade}, ${estado}`;
+    const queries = buildQueryVariations(nicho, cidade, estado, requestedTotal);
 
     console.log(
-      `[prospeccao] Buscando "${query}" (max: ${requestedTotal})`
+      `[prospeccao] Buscando "${nicho}" em "${cidade}, ${estado}" (target: ${requestedTotal}, queries: ${queries.length})`
     );
 
-    // Serper /maps returns ~20 results per page, paginate to get more
-    const perPage = 20;
-    const pages = Math.ceil(requestedTotal / perPage);
-    const allResults: any[] = [];
     const seenCids = new Set<string>();
+    const allResults: any[] = [];
 
-    for (let page = 1; page <= pages; page++) {
-      const serperResponse = await fetch("https://google.serper.dev/maps", {
-        method: "POST",
-        headers: {
-          "X-API-KEY": SERPER_API_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          q: query,
-          gl: "br",
-          hl: "pt-br",
-          num: perPage,
-          page,
-        }),
-      });
+    for (let i = 0; i < queries.length; i++) {
+      if (allResults.length >= requestedTotal) break;
 
-      if (!serperResponse.ok) {
-        const errorText = await serperResponse.text();
-        console.error(`[prospeccao] Serper error ${serperResponse.status}:`, errorText);
-        if (page === 1) {
-          return new Response(
-            JSON.stringify({
-              error: `Erro na API Serper (${serperResponse.status})`,
-              detail: errorText.slice(0, 500),
-            }),
-            {
-              status: 502,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
-          );
+      const query = queries[i];
+      try {
+        const serperResponse = await fetch("https://google.serper.dev/maps", {
+          method: "POST",
+          headers: {
+            "X-API-KEY": SERPER_API_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            q: query,
+            gl: "br",
+            hl: "pt-br",
+            num: 20,
+          }),
+        });
+
+        if (!serperResponse.ok) {
+          const errorText = await serperResponse.text();
+          console.error(`[prospeccao] Serper error ${serperResponse.status} for query "${query}":`, errorText);
+          if (i === 0) {
+            return new Response(
+              JSON.stringify({
+                error: `Erro na API Serper (${serperResponse.status})`,
+                detail: errorText.slice(0, 500),
+              }),
+              {
+                status: 502,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              }
+            );
+          }
+          continue;
         }
-        break;
+
+        const data = await serperResponse.json();
+        const places = data.places || [];
+        let newCount = 0;
+
+        for (const place of places) {
+          const key = place.cid || place.placeId || `${place.title}_${place.address}`;
+          if (!seenCids.has(key)) {
+            seenCids.add(key);
+            allResults.push(place);
+            newCount++;
+          }
+        }
+
+        console.log(`[prospeccao] Query ${i + 1}/${queries.length}: "${query}" → ${places.length} resultados, ${newCount} novos (total: ${allResults.length})`);
+      } catch (err) {
+        console.error(`[prospeccao] Error on query "${query}":`, err);
+        continue;
       }
 
-      const data = await serperResponse.json();
-      const places = data.places || [];
-
-      // Deduplicate by cid
-      for (const place of places) {
-        const key = place.cid || place.placeId || place.title;
-        if (!seenCids.has(key)) {
-          seenCids.add(key);
-          allResults.push(place);
-        }
-      }
-
-      console.log(`[prospeccao] Página ${page}: ${places.length} resultados (total acumulado: ${allResults.length})`);
-
-      // Stop if no more results or we have enough
-      if (places.length < perPage || allResults.length >= requestedTotal) break;
-
-      // Small delay between pages to avoid rate limiting
-      if (page < pages) {
-        await new Promise(r => setTimeout(r, 300));
+      // Small delay between requests
+      if (i < queries.length - 1) {
+        await new Promise(r => setTimeout(r, 200));
       }
     }
 
@@ -154,7 +188,7 @@ Deno.serve(async (req) => {
       longitude: item.longitude || null,
     }));
 
-    console.log(`[prospeccao] Total final: ${results.length} resultados`);
+    console.log(`[prospeccao] Total final: ${results.length} resultados únicos`);
 
     return new Response(JSON.stringify({ results, total: results.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
