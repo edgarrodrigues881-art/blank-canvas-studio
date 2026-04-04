@@ -1578,19 +1578,8 @@ async function reconcileCommunityPairs(
         return 3;
       };
 
-      const sortedEligible = [...(eligible || [])].sort((a: any, b: any) => {
-        // Prefer cross-user pairing (more organic) — same user gets lower priority
-        const sameUserA = a.user_id === params.userId ? 1 : 0;
-        const sameUserB = b.user_id === params.userId ? 1 : 0;
-        if (sameUserA !== sameUserB) return sameUserA - sameUserB;
-
-        const cycleA = candidateCycleMap[a.device_id];
-        const cycleB = candidateCycleMap[b.device_id];
-        const phaseDelta = phaseRank(cycleA?.phase) - phaseRank(cycleB?.phase);
-        if (phaseDelta !== 0) return phaseDelta;
-
-        return (cycleB?.day_index || 0) - (cycleA?.day_index || 0);
-      });
+      // Shuffle eligible candidates randomly — no cross-user preference
+      const sortedEligible = [...(eligible || [])].sort(() => Math.random() - 0.5);
 
       for (const candidate of sortedEligible) {
         if (validPairs.length + createdCount >= targetPeers) break;
