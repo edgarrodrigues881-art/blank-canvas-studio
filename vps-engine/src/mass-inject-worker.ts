@@ -1018,17 +1018,30 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         log.info(`Campaign ${campaignId.slice(0, 8)}: block pause ${pauseDuration}s after ${totalProcessed} contacts`);
       }
 
-      // Update next_run_at for frontend countdown
-      try {
-        await sb.from("mass_inject_campaigns").update({
-          next_run_at: new Date(Date.now() + delayMs).toISOString(),
-          updated_at: nowIso(),
-        }).eq("id", campaignId);
-      } catch { /* non-critical */ }
+      // Flush counters + next_run_at together (batched write)
+      if (contactsSinceFlush >= COUNTER_FLUSH_INTERVAL || delayMs >= 5000) {
+        try {
+          await sb.from("mass_inject_campaigns").update({
+            success_count: counterState.success_count,
+            already_count: counterState.already_count,
+            fail_count: counterState.fail_count,
+            rate_limit_count: counterState.rate_limit_count,
+            timeout_count: counterState.timeout_count,
+            consecutive_failures: counterState.consecutive_failures,
+            next_run_at: new Date(Date.now() + delayMs).toISOString(),
+            updated_at: nowIso(),
+          }).eq("id", campaignId);
+          counterState.dirty = false;
+          contactsSinceFlush = 0;
+        } catch { /* non-critical */ }
+      }
 
       await sleep(delayMs);
       batchProcessed++;
     }
+
+    // Flush any remaining dirty counters at end of batch
+    await flushCounters(sb, campaignId, counterState);
 
     // Batch complete — if campaign still has contacts, log and let next tick continue
     if (batchProcessed >= BATCH_SIZE) {
