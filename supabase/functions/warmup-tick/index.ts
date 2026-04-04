@@ -1548,6 +1548,7 @@ async function reconcileCommunityPairs(
       .select("device_id, user_id, community_day")
       .eq("is_enabled", true)
       .eq("is_eligible", true)
+      .gte("community_day", 1)
       .neq("device_id", params.deviceId)
       .limit(200);
 
