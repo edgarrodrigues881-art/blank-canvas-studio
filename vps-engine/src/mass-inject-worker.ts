@@ -600,8 +600,45 @@ async function emitEvent(sb: any, campaignId: string, eventType: string, level: 
   } catch { /* non-critical */ }
 }
 
-// ── Update campaign counters ──
-async function updateCounters(
+// ── Update campaign counters (batched — only updates in-memory, flush writes to DB) ──
+const COUNTER_FLUSH_INTERVAL = 5; // flush every N contacts processed
+
+function updateCountersLocal(
+  counterState: {
+    success_count: number;
+    already_count: number;
+    fail_count: number;
+    rate_limit_count: number;
+    timeout_count: number;
+    consecutive_failures: number;
+    dirty: boolean;
+  },
+  status: string,
+) {
+  if (status === "completed") {
+    counterState.success_count += 1;
+    counterState.consecutive_failures = 0;
+  } else if (status === "already_exists") {
+    counterState.already_count += 1;
+    counterState.consecutive_failures = 0;
+  } else if (status === "rate_limited") {
+    counterState.rate_limit_count += 1;
+  } else if (status === "timeout") {
+    counterState.timeout_count += 1;
+  } else if (TRANSIENT_FAILURE_STATUSES.has(status)) {
+    // Retryable statuses remain in queue; no counter change
+  } else {
+    counterState.fail_count += 1;
+    if (AUTO_PAUSE_FAILURE_STATUSES.has(status)) {
+      counterState.consecutive_failures += 1;
+    } else {
+      counterState.consecutive_failures = 0;
+    }
+  }
+  counterState.dirty = true;
+}
+
+async function flushCounters(
   sb: any,
   campaignId: string,
   counterState: {
@@ -611,42 +648,20 @@ async function updateCounters(
     rate_limit_count: number;
     timeout_count: number;
     consecutive_failures: number;
+    dirty: boolean;
   },
-  status: string,
 ) {
-  const updates: Record<string, any> = { updated_at: nowIso() };
-  if (status === "completed") {
-    counterState.success_count += 1;
-    updates.success_count = counterState.success_count;
-    counterState.consecutive_failures = 0;
-    updates.consecutive_failures = 0;
-  } else if (status === "already_exists") {
-    counterState.already_count += 1;
-    updates.already_count = counterState.already_count;
-    counterState.consecutive_failures = 0;
-    updates.consecutive_failures = 0;
-  } else if (status === "rate_limited") {
-    counterState.rate_limit_count += 1;
-    updates.rate_limit_count = counterState.rate_limit_count;
-  } else if (status === "timeout") {
-    counterState.timeout_count += 1;
-    updates.timeout_count = counterState.timeout_count;
-  } else if (TRANSIENT_FAILURE_STATUSES.has(status)) {
-    // Retryable statuses remain in queue; they should not count as final failures.
-  } else {
-    counterState.fail_count += 1;
-    updates.fail_count = counterState.fail_count;
-
-    if (AUTO_PAUSE_FAILURE_STATUSES.has(status)) {
-      counterState.consecutive_failures += 1;
-      updates.consecutive_failures = counterState.consecutive_failures;
-    } else {
-      counterState.consecutive_failures = 0;
-      updates.consecutive_failures = 0;
-    }
-  }
-
-  await sb.from("mass_inject_campaigns").update(updates).eq("id", campaignId);
+  if (!counterState.dirty) return;
+  await sb.from("mass_inject_campaigns").update({
+    success_count: counterState.success_count,
+    already_count: counterState.already_count,
+    fail_count: counterState.fail_count,
+    rate_limit_count: counterState.rate_limit_count,
+    timeout_count: counterState.timeout_count,
+    consecutive_failures: counterState.consecutive_failures,
+    updated_at: nowIso(),
+  }).eq("id", campaignId);
+  counterState.dirty = false;
 }
 
 async function finalizeCampaign(sb: any, campaignId: string): Promise<boolean> {
@@ -687,7 +702,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     rate_limit_count: Number(campaign.rate_limit_count || 0),
     timeout_count: Number(campaign.timeout_count || 0),
     consecutive_failures: Number(campaign.consecutive_failures || 0),
+    dirty: false,
   };
+  let contactsSinceFlush = 0;
 
   const slotLabel = `mass-inject:${campaignId.slice(0, 8)}`;
   await acquireGlobalSlot(slotLabel);
@@ -843,7 +860,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         break;
       }
 
-      await sb.from("mass_inject_contacts").update({ processed_at: nowIso(), device_used: device.name || device.id }).eq("id", contact.id);
+      // processed_at will be set in the final status update below — skip redundant write here
 
       // 6. Skip own number (admin's device number — can't add yourself)
       const groupId = contact.target_group_id || freshCampaign.group_id;
@@ -853,7 +870,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: "Próprio número da instância (admin) — ignorado.", processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCounters(sb, campaignId, counterState, "already_exists");
+        updateCountersLocal(counterState, "already_exists");
+        contactsSinceFlush++;
+        if (contactsSinceFlush >= COUNTER_FLUSH_INTERVAL) { await flushCounters(sb, campaignId, counterState); contactsSinceFlush = 0; }
         consecutiveFailures = 0;
         log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} is the device's own number — skipped`);
         // Still apply configured delay even for skipped contacts
@@ -881,7 +900,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: "Contato já participava do grupo.", processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCounters(sb, campaignId, counterState, "already_exists");
+        updateCountersLocal(counterState, "already_exists");
+        contactsSinceFlush++;
+        if (contactsSinceFlush >= COUNTER_FLUSH_INTERVAL) { await flushCounters(sb, campaignId, counterState); contactsSinceFlush = 0; }
         consecutiveFailures = 0;
         log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} already in group`);
         // Apply configured delay even for already-existing contacts
@@ -909,7 +930,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         await sb.from("mass_inject_contacts").update({
           status: "completed", error_message: result.detail, processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCounters(sb, campaignId, counterState, "completed");
+        updateCountersLocal(counterState, "completed");
+        contactsSinceFlush++;
         consecutiveFailures = 0;
         rememberParticipantInCache(baseUrl, groupId, phone);
         log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} added successfully`);
@@ -917,7 +939,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: result.detail, processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCounters(sb, campaignId, counterState, "already_exists");
+        updateCountersLocal(counterState, "already_exists");
+        contactsSinceFlush++;
         rememberParticipantInCache(baseUrl, groupId, phone);
         consecutiveFailures = 0;
       } else {
@@ -941,7 +964,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         await sb.from("mass_inject_contacts").update({
           status: failStatus, error_message: failureDetail, processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCounters(sb, campaignId, counterState, failStatus);
+        updateCountersLocal(counterState, failStatus);
+        contactsSinceFlush++;
 
         consecutiveFailures = AUTO_PAUSE_FAILURE_STATUSES.has(failStatus)
           ? counterState.consecutive_failures
@@ -949,6 +973,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         log.warn(`Campaign ${campaignId.slice(0, 8)}: ${phone} ${FINAL_FAILURE_STATUSES.has(failStatus) ? "failed" : "retryable"} — ${failureDetail}${consecutiveFailures > 0 ? ` (consecutive: ${consecutiveFailures})` : ""}`);
 
         if (result.pauseCampaign) {
+          await flushCounters(sb, campaignId, counterState);
           await sb.from("mass_inject_campaigns").update({
             status: "paused", updated_at: nowIso(), next_run_at: null,
             pause_reason: result.detail,
@@ -959,6 +984,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
           const reason = `Pausada por ${MAX_CONSECUTIVE_FAILURES} falhas consecutivas.`;
+          await flushCounters(sb, campaignId, counterState);
           await sb.from("mass_inject_campaigns").update({
             status: "paused", updated_at: nowIso(), next_run_at: null, pause_reason: reason,
           }).eq("id", campaignId);
@@ -994,17 +1020,30 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         log.info(`Campaign ${campaignId.slice(0, 8)}: block pause ${pauseDuration}s after ${totalProcessed} contacts`);
       }
 
-      // Update next_run_at for frontend countdown
-      try {
-        await sb.from("mass_inject_campaigns").update({
-          next_run_at: new Date(Date.now() + delayMs).toISOString(),
-          updated_at: nowIso(),
-        }).eq("id", campaignId);
-      } catch { /* non-critical */ }
+      // Flush counters + next_run_at together (batched write)
+      if (contactsSinceFlush >= COUNTER_FLUSH_INTERVAL || delayMs >= 5000) {
+        try {
+          await sb.from("mass_inject_campaigns").update({
+            success_count: counterState.success_count,
+            already_count: counterState.already_count,
+            fail_count: counterState.fail_count,
+            rate_limit_count: counterState.rate_limit_count,
+            timeout_count: counterState.timeout_count,
+            consecutive_failures: counterState.consecutive_failures,
+            next_run_at: new Date(Date.now() + delayMs).toISOString(),
+            updated_at: nowIso(),
+          }).eq("id", campaignId);
+          counterState.dirty = false;
+          contactsSinceFlush = 0;
+        } catch { /* non-critical */ }
+      }
 
       await sleep(delayMs);
       batchProcessed++;
     }
+
+    // Flush any remaining dirty counters at end of batch
+    await flushCounters(sb, campaignId, counterState);
 
     // Batch complete — if campaign still has contacts, log and let next tick continue
     if (batchProcessed >= BATCH_SIZE) {
