@@ -358,16 +358,11 @@ async function isDeviceConnected(baseUrl: string, token: string, _checks = 1): P
         return { connected: false, detail: `Desconexão confirmada após ${streak} verificações.` };
       }
 
-      // Not yet confirmed — treat as uncertain, retry on next cycle
-      // Not yet confirmed — treat as uncertain silently
       return { connected: null, detail: `Status instável (${streak}/${DISCONNECT_CONFIRM_THRESHOLD} checks negativos).` };
     }
 
-    // "unknown" — don't block, just proceed
-    // "unknown" — proceed silently
     return { connected: null, detail: extractProviderMessage(body, raw) || "Status incerto — prosseguindo." };
   } catch (error: any) {
-    // Network error / timeout — don't immediately mark as disconnected
     const key = baseUrl;
     const streak = (deviceDisconnectStreak.get(key) || 0) + 1;
     deviceDisconnectStreak.set(key, streak);
@@ -376,8 +371,98 @@ async function isDeviceConnected(baseUrl: string, token: string, _checks = 1): P
       return { connected: false, detail: `Falha de rede confirmada após ${streak} tentativas: ${error?.message || "erro"}` };
     }
 
-    // Not yet confirmed — proceed silently
     return { connected: null, detail: error?.message || "Falha temporária na verificação." };
+  }
+}
+
+// ── Smart instance connection validator ──
+// Uses cached state + live check to avoid unnecessary API calls
+async function isInstanceConnected(
+  deviceId: string,
+  baseUrl: string,
+  token: string,
+  forceCheck = false,
+): Promise<{ connected: boolean; detail: string; shouldSkipDevice: boolean }> {
+  const now = Date.now();
+  const state = deviceConnectionState.get(deviceId);
+
+  // If we have a recent "connected" result and no force, trust the cache
+  if (!forceCheck && state && state.status === "connected" && (now - state.lastCheckedAt) < DEVICE_CONNECTED_CACHE_MS) {
+    return { connected: true, detail: "Cache: conectado.", shouldSkipDevice: false };
+  }
+
+  // If confirmed disconnected recently, don't bother re-checking too soon
+  if (!forceCheck && state && state.status === "disconnected" && state.confirmedDisconnectedAt) {
+    const sinceDisconnect = now - state.confirmedDisconnectedAt;
+    if (sinceDisconnect < DEVICE_DISCONNECTED_RECHECK_MS) {
+      return { connected: false, detail: `Desconectado (recheck em ${Math.round((DEVICE_DISCONNECTED_RECHECK_MS - sinceDisconnect) / 1000)}s).`, shouldSkipDevice: true };
+    }
+  }
+
+  // Perform live check
+  const result = await isDeviceConnected(baseUrl, token);
+
+  if (result.connected === true) {
+    deviceConnectionState.set(deviceId, {
+      status: "connected",
+      lastCheckedAt: now,
+      confirmedDisconnectedAt: null,
+      consecutiveApiFailures: 0,
+    });
+    return { connected: true, detail: result.detail, shouldSkipDevice: false };
+  }
+
+  if (result.connected === false) {
+    const prevState = deviceConnectionState.get(deviceId);
+    deviceConnectionState.set(deviceId, {
+      status: "disconnected",
+      lastCheckedAt: now,
+      confirmedDisconnectedAt: prevState?.confirmedDisconnectedAt || now,
+      consecutiveApiFailures: prevState?.consecutiveApiFailures || 0,
+    });
+    return { connected: false, detail: result.detail, shouldSkipDevice: true };
+  }
+
+  // Unknown — proceed but mark as uncertain
+  if (state) {
+    state.lastCheckedAt = now;
+    deviceConnectionState.set(deviceId, state);
+  } else {
+    deviceConnectionState.set(deviceId, {
+      status: "unknown",
+      lastCheckedAt: now,
+      confirmedDisconnectedAt: null,
+      consecutiveApiFailures: 0,
+    });
+  }
+  return { connected: true, detail: result.detail, shouldSkipDevice: false };
+}
+
+// Track API failures that suggest device is disconnecting
+function recordDeviceApiFailure(deviceId: string, errorDetail: string): boolean {
+  const state = deviceConnectionState.get(deviceId);
+  const failures = (state?.consecutiveApiFailures || 0) + 1;
+  deviceConnectionState.set(deviceId, {
+    status: failures >= API_FAILURE_DISCONNECT_THRESHOLD ? "disconnected" : (state?.status || "unknown"),
+    lastCheckedAt: state?.lastCheckedAt || Date.now(),
+    confirmedDisconnectedAt: failures >= API_FAILURE_DISCONNECT_THRESHOLD ? Date.now() : (state?.confirmedDisconnectedAt || null),
+    consecutiveApiFailures: failures,
+  });
+  if (failures >= API_FAILURE_DISCONNECT_THRESHOLD) {
+    log.warn(`Device ${deviceId.slice(0, 8)}: ${failures} consecutive API failures — marking for re-check. Last: ${errorDetail.slice(0, 80)}`);
+    return true; // should force connection re-check
+  }
+  return false;
+}
+
+function recordDeviceApiSuccess(deviceId: string) {
+  const state = deviceConnectionState.get(deviceId);
+  if (state) {
+    state.consecutiveApiFailures = 0;
+    state.status = "connected";
+    state.confirmedDisconnectedAt = null;
+    state.lastCheckedAt = Date.now();
+    deviceConnectionState.set(deviceId, state);
   }
 }
 
