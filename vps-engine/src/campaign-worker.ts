@@ -491,6 +491,28 @@ async function syncCampaignRuntimeDevices(
     .filter((device: any) => device && device.uazapi_token && device.uazapi_base_url && CONNECTED_STATUSES.includes(device.status));
 }
 
+async function releaseContactIfCampaignStopped(
+  sb: any,
+  campaignId: string,
+  contactId: string,
+  reason: string,
+) {
+  const { data: liveCampaign } = await sb.from("campaigns")
+    .select("status")
+    .eq("id", campaignId)
+    .single();
+
+  if (liveCampaign?.status === "running") return false;
+
+  await sb.from("campaign_contacts")
+    .update({ status: "pending", error_message: null })
+    .eq("id", contactId)
+    .eq("status", "processing");
+
+  log.info(`Campaign ${campaignId.slice(0, 8)}: detected ${liveCampaign?.status ?? "unknown"} ${reason} — contact ${contactId.slice(0, 8)} returned to pending`);
+  return true;
+}
+
 class RandomPicker {
   private queue: number[] = [];
   private lastPicked = -1;
