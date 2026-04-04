@@ -382,50 +382,55 @@ function getCampaignDeviceIds(campaign: any): string[] {
 }
 
 async function deriveCampaignResumeState(sb: any, campaignId: string, devices: any[], messagesPerInstance: number) {
-  let currentDeviceIndex = 0;
+  let currentDeviceId: string | null = devices.length > 0 ? devices[0].id : null;
   let instanceMsgCount = 0;
 
   try {
-    const { data: lastSent } = await sb.from("campaign_contacts")
+    // Get the last N sent messages to count the current consecutive window on the last device
+    const { data: recentSent } = await sb.from("campaign_contacts")
       .select("device_id")
       .eq("campaign_id", campaignId)
       .eq("status", "sent")
       .order("sent_at", { ascending: false })
-      .limit(1);
+      .limit(messagesPerInstance + 5);
 
-    if (!lastSent?.length || !lastSent[0].device_id) {
-      return { currentDeviceIndex, instanceMsgCount };
+    if (!recentSent?.length || !recentSent[0].device_id) {
+      return { currentDeviceId, instanceMsgCount };
     }
 
-    const lastDeviceId = lastSent[0].device_id;
+    const lastDeviceId = recentSent[0].device_id;
     const lastIdx = devices.findIndex((device: any) => device.id === lastDeviceId);
+
+    // If last device is no longer in pool, start fresh on first available device
     if (lastIdx < 0) {
-      return { currentDeviceIndex, instanceMsgCount };
+      log.info(`Campaign ${campaignId.slice(0, 8)}: last device ${lastDeviceId.slice(0, 8)} no longer in pool — starting fresh`);
+      return { currentDeviceId, instanceMsgCount: 0 };
     }
 
-    const { count } = await sb.from("campaign_contacts")
-      .select("id", { count: "exact", head: true })
-      .eq("campaign_id", campaignId)
-      .eq("status", "sent")
-      .eq("device_id", lastDeviceId);
+    // Count consecutive messages sent by the last device (current window)
+    let consecutiveCount = 0;
+    for (const row of recentSent) {
+      if (row.device_id === lastDeviceId) consecutiveCount++;
+      else break;
+    }
 
-    const sentCount = Number(count || 0);
-    const shouldRotate = sentCount > 0 && sentCount % messagesPerInstance === 0;
+    const shouldRotate = consecutiveCount >= messagesPerInstance;
 
     if (shouldRotate && devices.length > 1) {
-      currentDeviceIndex = (lastIdx + 1) % devices.length;
+      const nextIdx = (lastIdx + 1) % devices.length;
+      currentDeviceId = devices[nextIdx].id;
       instanceMsgCount = 0;
-      log.info(`Campaign ${campaignId.slice(0, 8)}: resumed — rotating to device ${devices[currentDeviceIndex]?.name} (previous device closed a ${messagesPerInstance}-message window)`);
+      log.info(`Campaign ${campaignId.slice(0, 8)}: resumed — rotating to device ${devices[nextIdx]?.name} (previous device completed ${consecutiveCount} consecutive msgs)`);
     } else {
-      currentDeviceIndex = lastIdx;
-      instanceMsgCount = sentCount % messagesPerInstance;
-      log.info(`Campaign ${campaignId.slice(0, 8)}: resumed on device ${devices[currentDeviceIndex]?.name} (${instanceMsgCount}/${messagesPerInstance} msgs in current window)`);
+      currentDeviceId = lastDeviceId;
+      instanceMsgCount = consecutiveCount;
+      log.info(`Campaign ${campaignId.slice(0, 8)}: resumed on device ${devices[lastIdx]?.name} (${instanceMsgCount}/${messagesPerInstance} msgs in current window)`);
     }
   } catch (error: any) {
     log.warn(`Campaign ${campaignId.slice(0, 8)}: failed to derive resume state: ${error.message}`);
   }
 
-  return { currentDeviceIndex, instanceMsgCount };
+  return { currentDeviceId, instanceMsgCount };
 }
 
 async function syncCampaignRuntimeDevices(
