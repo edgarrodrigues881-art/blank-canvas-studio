@@ -968,9 +968,11 @@ const CampaignDetail = () => {
 
                 {/* ── Device Management Panel ─────────────────── */}
                 {(() => {
-                  const activeIds = campaign.device_ids && Array.isArray(campaign.device_ids) ? (campaign.device_ids as string[]) : [];
-                  const isConnected = (d: typeof devices[0]) => d.status && ["connected", "Ready", "Connected", "authenticated"].includes(d.status);
-                  const availableDevices = devices.filter(d => !activeIds.includes(d.id));
+                   const activeIds = campaign.device_ids && Array.isArray(campaign.device_ids) ? (campaign.device_ids as string[]) : [];
+                   // Also include legacy single device_id
+                   const allActiveIds = new Set([...activeIds, ...(campaign.device_id ? [campaign.device_id] : [])]);
+                   const isConnected = (d: typeof devices[0]) => d.status && ["connected", "Ready", "Connected", "authenticated"].includes(d.status);
+                   const availableDevices = devices.filter(d => !allActiveIds.has(d.id));
 
                   const handleAddDevice = async (deviceId: string) => {
                     if (!id) return;
