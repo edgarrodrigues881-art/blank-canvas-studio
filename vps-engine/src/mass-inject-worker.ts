@@ -641,7 +641,9 @@ function updateCountersLocal(
     // Retryable statuses remain in queue; no counter change
   } else {
     counterState.fail_count += 1;
-    if (AUTO_PAUSE_FAILURE_STATUSES.has(status)) {
+    // consecutive_failures is now tracked per-device in deviceCriticalErrors
+    // Keep the counter for DB persistence but don't use it for pause decisions
+    if (CRITICAL_FAILURE_STATUSES.has(status)) {
       counterState.consecutive_failures += 1;
     } else {
       counterState.consecutive_failures = 0;
