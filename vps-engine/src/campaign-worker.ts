@@ -265,16 +265,40 @@ function translateErrorMessage(msg: string): string {
   return msg;
 }
 
-async function sendWithRetry(baseUrl: string, token: string, to: string, body: string, mediaUrl?: string | null, buttons?: CampaignButton[], messageType?: string, carouselCards?: CarouselCard[]): Promise<{ success: boolean; attempts: number; error?: string }> {
+async function sendWithRetry(
+  baseUrl: string,
+  token: string,
+  to: string,
+  body: string,
+  mediaUrl?: string | null,
+  buttons?: CampaignButton[],
+  messageType?: string,
+  carouselCards?: CarouselCard[],
+  shouldContinue?: () => Promise<boolean>,
+): Promise<{ success: boolean; attempts: number; error?: string }> {
   let lastError = "";
   for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+    if (shouldContinue && !(await shouldContinue())) {
+      return { success: false, attempts: attempt, error: "Campaign paused before send" };
+    }
+
     try {
       await sendUazapiMessage(baseUrl, token, to, body, mediaUrl, buttons, messageType, carouselCards);
       return { success: true, attempts: attempt };
     } catch (err: any) {
       lastError = err.message || "Erro";
       if (!isTemporaryError(lastError) || attempt > MAX_RETRIES) return { success: false, attempts: attempt, error: lastError };
-      await sleep(RETRY_DELAY_MIN_MS + secureRandom() * (RETRY_DELAY_MAX_MS - RETRY_DELAY_MIN_MS));
+
+      const retryDelay = RETRY_DELAY_MIN_MS + secureRandom() * (RETRY_DELAY_MAX_MS - RETRY_DELAY_MIN_MS);
+      let remainingRetry = retryDelay;
+      while (remainingRetry > 0) {
+        const chunk = Math.min(remainingRetry, 3000);
+        await sleep(chunk);
+        remainingRetry -= chunk;
+        if (shouldContinue && !(await shouldContinue())) {
+          return { success: false, attempts: attempt, error: "Campaign paused before retry" };
+        }
+      }
     }
   }
   return { success: false, attempts: MAX_RETRIES + 1, error: lastError };
