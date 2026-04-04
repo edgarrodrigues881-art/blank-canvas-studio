@@ -389,20 +389,17 @@ interface AddResult {
 function buildAddStrategies(baseUrl: string, groupId: string, phone: string) {
   const p = phone.replace(/@.*/, "");
   return [
+    // Strategy 0: Most common UAZAPI endpoint (groupJid camelCase)
     { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupJid: groupId, action: "add", participants: [p] } },
+    // Strategy 1: lowercase groupjid variant
     { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupjid: groupId, action: "add", participants: [p] } },
+    // Strategy 2: PUT with query param
     { method: "PUT" as const, url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`, body: { action: "add", participants: [p] } },
+    // Strategy 3: with @s.whatsapp.net suffix (fallback for strict APIs)
     { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupJid: groupId, action: "add", participants: [`${p}@s.whatsapp.net`] } },
-    { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupjid: groupId, action: "add", participants: [`${p}@s.whatsapp.net`] } },
-    { method: "PUT" as const, url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`, body: { action: "add", participants: [`${p}@s.whatsapp.net`] } },
+    // Strategy 4: legacy addParticipant endpoint
     { method: "POST" as const, url: `${baseUrl}/group/addParticipant`, body: { groupJid: groupId, participant: p } },
   ];
-}
-
-function hasExplicitFailure(errorFields: string) {
-  // ONLY check error/message fields — NOT the full response body which may contain group/participant data
-  const n = errorFields.toLowerCase();
-  return ["failed", "bad-request", "not admin", "not found", "invalid group", "invalid participant", "unauthorized", "blocked", "forbidden", "denied", "unable to add"].some(t => n.includes(t));
 }
 
 async function addToGroup(baseUrl: string, token: string, groupId: string, phone: string): Promise<AddResult> {
@@ -421,14 +418,12 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
   };
 
   const processResult = (res: Response, raw: string, body: any, idx: number): AddResult => {
-    // Extract ONLY error/message fields for failure detection — NOT the entire response
     const errorMsg = [body?.error, body?.message, body?.msg, body?.details, body?.data?.error, body?.data?.message]
       .filter(v => typeof v === "string" && v.trim())
       .join(" ");
     const errorMsgLower = errorMsg.toLowerCase();
     const rawLower = raw.toLowerCase();
 
-    // groupUpdated array — most reliable success indicator from UAZAPI
     const gu = body?.groupUpdated || body?.data?.groupUpdated;
     if (Array.isArray(gu) && gu.length > 0) {
       const errCode = Number(gu[0]?.Error ?? gu[0]?.error ?? -1);
@@ -444,12 +439,9 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
       if (errCode >= 400) {
         return classifyFailure(errorMsgLower || rawLower, errCode, idx);
       }
-      // groupUpdated exists with no error code or code < 400 — success
       return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
     }
 
-    // SUCCESS PATTERN: API returns the updated group object { group: { JID: ... } }
-    // This is the standard updateParticipants response when addition succeeds
     const groupObj = body?.group || body?.data?.group;
     if (groupObj && typeof groupObj === "object" && (groupObj.JID || groupObj.jid || groupObj.id)) {
       if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(errorMsgLower)) {
@@ -457,64 +449,64 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
       }
     }
 
-    // Already exists — check error fields and status code only
     if (errorMsgLower.includes("already") || errorMsgLower.includes("já") || errorMsgLower.includes("memberaddmode") || res.status === 409) {
       return { ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
     }
 
-    // Generic success for 200/201 with no error fields
     if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(errorMsgLower)) {
       return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
     }
 
-    // Classify failure using error message fields only
     return classifyFailure(errorMsgLower || rawLower, res.status, idx);
   };
 
-  const orderedStrategyIndexes = cachedIdx !== undefined && cachedIdx >= 0 && cachedIdx < strategies.length
-    ? [cachedIdx, ...Array.from({ length: strategies.length }, (_, i) => i).filter((i) => i !== cachedIdx)]
-    : Array.from({ length: strategies.length }, (_, i) => i);
-
-  let lastTransientResult: AddResult | null = null;
-
-  for (const i of orderedStrategyIndexes) {
+  // ── FAST PATH: If we have a cached winning strategy, try ONLY that first ──
+  if (cachedIdx !== undefined && cachedIdx >= 0 && cachedIdx < strategies.length) {
     try {
-      const { res, raw, body, idx } = await tryStrategy(i);
-      if (res.status === 405) continue;
-      const result = processResult(res, raw, body, idx);
-
-      if (result.canTryOtherStrategy) {
-        if (cachedIdx === idx) {
-          endpointCache.delete(cacheKey);
-          log.warn(`Mass inject fallback: cached add strategy ${idx} failed temporarily for group ${groupId}`, {
-            detail: result.detail,
-          });
+      const { res, raw, body, idx } = await tryStrategy(cachedIdx);
+      if (res.status !== 405) {
+        const result = processResult(res, raw, body, idx);
+        // Definitive result (success, already exists, or non-transient failure) → return immediately
+        if (!result.canTryOtherStrategy) {
+          endpointCache.set(cacheKey, idx);
+          return result;
         }
-        lastTransientResult = result;
-        continue;
-      }
-
-      endpointCache.set(cacheKey, idx);
-      return result;
-    } catch (e: any) {
-      if (cachedIdx === i) {
+        // Transient error on cached strategy → invalidate cache and fall through to discovery
+        endpointCache.delete(cacheKey);
+        log.warn(`Cached strategy ${cachedIdx} failed transiently for ${groupId.slice(0, 15)} — discovering...`);
+      } else {
+        // 405 on cached strategy → invalidate
         endpointCache.delete(cacheKey);
       }
-      lastTransientResult = {
-        ok: false,
-        alreadyExists: false,
-        detail: e.message,
-        retryable: true,
-        pauseCampaign: false,
-        cooldownMs: 3000,
-        strategyIndex: i,
-        canTryOtherStrategy: true,
-        failureStatus: "api_temporary",
-      };
+    } catch (e: any) {
+      endpointCache.delete(cacheKey);
+      log.warn(`Cached strategy ${cachedIdx} threw for ${groupId.slice(0, 15)}: ${e.message}`);
     }
   }
 
-  if (lastTransientResult) return lastTransientResult;
+  // ── DISCOVERY PATH: Try strategies in order, STOP on first non-405 response ──
+  for (let i = 0; i < strategies.length; i++) {
+    if (i === cachedIdx) continue; // Already tried above
+    try {
+      const { res, raw, body, idx } = await tryStrategy(i);
+      if (res.status === 405) continue; // Endpoint not supported, try next
+
+      const result = processResult(res, raw, body, idx);
+
+      // Any non-405 response means this endpoint exists — cache it and return
+      if (!result.canTryOtherStrategy) {
+        endpointCache.set(cacheKey, idx);
+        return result;
+      }
+
+      // Transient error but endpoint exists — cache it for next contacts, return the transient result
+      endpointCache.set(cacheKey, idx);
+      return result;
+    } catch (e: any) {
+      // Network/timeout error — don't cache, try next strategy
+      continue;
+    }
+  }
 
   return { ok: false, alreadyExists: false, detail: "Nenhum endpoint encontrado (405).", retryable: false, pauseCampaign: true, cooldownMs: 0, canTryOtherStrategy: false, failureStatus: "failed" };
 }
