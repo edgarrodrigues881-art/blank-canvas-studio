@@ -965,7 +965,7 @@ const CampaignDetail = () => {
                 )}
 
                 {/* ── Rotation / Multi-instance ─────────────────── */}
-                {campaign.device_ids && Array.isArray(campaign.device_ids) && (campaign.device_ids as string[]).length >= 2 && (
+                {campaign.device_ids && Array.isArray(campaign.device_ids) && (campaign.device_ids as string[]).length >= 1 && (
                   <div className="rounded-lg border border-border/20 bg-background/30 p-3 space-y-2.5">
                     <div className="flex items-center gap-2">
                       <RefreshCw className="w-3.5 h-3.5 text-primary/70" />
