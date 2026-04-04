@@ -62,8 +62,9 @@ type ConnectionCheckResult = {
 
 const participantCache = new Map<string, ParticipantCacheEntry>();
 const endpointCache = new Map<string, number>();
-const PARTICIPANT_CACHE_TTL_MS = 10 * 60_000; // 10 min — less refetching
-const PARTICIPANT_FAILURE_CACHE_TTL_MS = 3 * 60_000; // 3 min
+const PARTICIPANT_CACHE_TTL_MS = 30 * 60_000; // 30 min — trust cache heavily during a campaign
+const PARTICIPANT_FAILURE_CACHE_TTL_MS = 10 * 60_000; // 10 min — even failed lookups shouldn't retry often
+const participantEndpointCache = new Map<string, number>(); // baseUrl → winning strategy index
 
 // ── Tracking ──
 export let lastMassInjectTickAt: Date | null = null;
