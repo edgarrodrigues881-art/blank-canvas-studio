@@ -939,7 +939,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: result.detail, processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCounters(sb, campaignId, counterState, "already_exists");
+        updateCountersLocal(counterState, "already_exists");
+        contactsSinceFlush++;
         rememberParticipantInCache(baseUrl, groupId, phone);
         consecutiveFailures = 0;
       } else {
