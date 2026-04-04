@@ -597,13 +597,15 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
   const carouselCards = normalizeCarouselCards(campaign.carousel_cards);
   const msgType = campaign.message_type || "texto";
   const pauseOnDisconnect = campaign.pause_on_disconnect !== false;
-  const messagesPerInstance = Math.max(campaign.messages_per_instance || 50, 1);
-  const minDelayMs = (campaign.min_delay_seconds || 8) * 1000;
-  const maxDelayMs = (campaign.max_delay_seconds || 25) * 1000;
-  const pauseEveryMin = campaign.pause_every_min || 10;
-  const pauseEveryMax = campaign.pause_every_max || 20;
-  const pauseDurMinMs = (campaign.pause_duration_min || 30) * 1000;
-  const pauseDurMaxMs = (campaign.pause_duration_max || 120) * 1000;
+
+  // Dynamic settings — re-read from DB each iteration to pick up live edits
+  let messagesPerInstance = Math.max(campaign.messages_per_instance || 50, 1);
+  let minDelayMs = (campaign.min_delay_seconds || 8) * 1000;
+  let maxDelayMs = (campaign.max_delay_seconds || 25) * 1000;
+  let pauseEveryMin = campaign.pause_every_min || 10;
+  let pauseEveryMax = campaign.pause_every_max || 20;
+  let pauseDurMinMs = (campaign.pause_duration_min || 30) * 1000;
+  let pauseDurMaxMs = (campaign.pause_duration_max || 120) * 1000;
 
   const usedRand4 = new Set<string>();
   const usedRand3 = new Set<string>();
@@ -621,6 +623,25 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
   while (isRunningRef.value) {
     // 1. Check campaign status
     const { data: fresh } = await sb.from("campaigns").select("status, device_id, device_ids").eq("id", campaignId).single();
+
+    // Re-read dynamic settings every 5 iterations
+    if (heartbeatCounter % 5 === 0) {
+      const { data: dynCfg } = await sb.from("campaigns")
+        .select("min_delay_seconds, max_delay_seconds, pause_every_min, pause_every_max, pause_duration_min, pause_duration_max, messages_per_instance")
+        .eq("id", campaignId).single();
+      if (dynCfg) {
+        const newMpi = Math.max(dynCfg.messages_per_instance || 50, 1);
+        if (newMpi !== messagesPerInstance) log.info(`Campaign ${campaignId.slice(0, 8)}: messages_per_instance changed ${messagesPerInstance} → ${newMpi}`);
+        messagesPerInstance = newMpi;
+        minDelayMs = (dynCfg.min_delay_seconds || 8) * 1000;
+        maxDelayMs = (dynCfg.max_delay_seconds || 25) * 1000;
+        pauseEveryMin = dynCfg.pause_every_min || 10;
+        pauseEveryMax = dynCfg.pause_every_max || 20;
+        pauseDurMinMs = (dynCfg.pause_duration_min || 30) * 1000;
+        pauseDurMaxMs = (dynCfg.pause_duration_max || 120) * 1000;
+      }
+    }
+
     if (!fresh || !["running"].includes(fresh.status)) {
       log.info(`Campaign ${campaignId.slice(0, 8)} status=${fresh?.status} — stopping`);
       break;
