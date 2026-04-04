@@ -30,6 +30,7 @@ import {
   Lock,
   Layers,
   Phone,
+  Building2,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -443,6 +444,7 @@ export function AppSidebar() {
               {renderNavItem({ title: "Meus Contatos", url: "/dashboard/contacts", icon: BookUser })}
               {renderNavItem({ title: "Extrator de Grupos", url: "/dashboard/group-extractor", icon: Users })}
               {renderNavItem({ title: "Verificador WhatsApp", url: "/dashboard/whatsapp-verifier", icon: Phone })}
+              {renderNavItem({ title: "Prospecção", url: "/dashboard/prospeccao", icon: Building2 })}
               {renderNavItem({ title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn })}
               {renderNavItem({ title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus })}
               {renderNavItem({ title: "Boas-vindas", url: "/dashboard/welcome", icon: Heart })}
