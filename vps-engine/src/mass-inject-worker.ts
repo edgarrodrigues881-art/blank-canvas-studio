@@ -973,6 +973,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         log.warn(`Campaign ${campaignId.slice(0, 8)}: ${phone} ${FINAL_FAILURE_STATUSES.has(failStatus) ? "failed" : "retryable"} — ${failureDetail}${consecutiveFailures > 0 ? ` (consecutive: ${consecutiveFailures})` : ""}`);
 
         if (result.pauseCampaign) {
+          await flushCounters(sb, campaignId, counterState);
           await sb.from("mass_inject_campaigns").update({
             status: "paused", updated_at: nowIso(), next_run_at: null,
             pause_reason: result.detail,
