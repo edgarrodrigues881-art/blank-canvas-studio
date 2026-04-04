@@ -702,7 +702,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     rate_limit_count: Number(campaign.rate_limit_count || 0),
     timeout_count: Number(campaign.timeout_count || 0),
     consecutive_failures: Number(campaign.consecutive_failures || 0),
+    dirty: false,
   };
+  let contactsSinceFlush = 0;
 
   const slotLabel = `mass-inject:${campaignId.slice(0, 8)}`;
   await acquireGlobalSlot(slotLabel);
