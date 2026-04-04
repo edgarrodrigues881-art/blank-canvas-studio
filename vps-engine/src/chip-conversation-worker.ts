@@ -7,7 +7,7 @@
 import { getDb } from "./db";
 import { createLogger } from "./lib/logger";
 import { DeviceLockManager } from "./lib/device-lock-manager";
-import { acquireGlobalSlot, releaseGlobalSlot } from "./lib/global-semaphore";
+// chip-conversation is lightweight — does NOT use global semaphore
 
 const log = createLogger("chip-conv");
 
@@ -180,9 +180,6 @@ export async function chipConversationTick() {
       continue;
     }
 
-    const slotLabel = `chip-conv:${conv.id.slice(0, 8)}`;
-    await acquireGlobalSlot(slotLabel);
-
     try {
       const nextDelay = await processOneConversation(db, conv);
       if (nextDelay === -1) continue;
@@ -192,7 +189,6 @@ export async function chipConversationTick() {
       await db.from("chip_conversations").update({ last_error: err.message }).eq("id", conv.id).then(() => {}, () => {});
     } finally {
       for (const did of lockedIds) DeviceLockManager.release(did, conv.id);
-      releaseGlobalSlot(slotLabel);
     }
   }
 
