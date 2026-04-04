@@ -794,20 +794,47 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       log.info(`Campaign ${campaignId.slice(0, 8)}: rotated to device ${allDevices[currentDeviceIndex % allDevices.length]?.name}`);
     }
 
-    // 12. Block pause
+    // 12. Block pause — sleep in chunks to detect pause/cancel faster
     if (msgsSincePause >= pauseAfter) {
       const pauseMs = randomBetween(pauseDurMinMs, pauseDurMaxMs);
       log.info(`Campaign ${campaignId.slice(0, 8)}: block pause ${Math.round(pauseMs / 1000)}s`);
       msgsSincePause = 0;
       pauseAfter = Math.round(randomBetween(pauseEveryMin, pauseEveryMax));
-      await sleep(pauseMs);
+      let remainingPause = pauseMs;
+      let pauseAborted = false;
+      while (remainingPause > 0 && isRunningRef.value) {
+        const chunk = Math.min(remainingPause, 3000);
+        await sleep(chunk);
+        remainingPause -= chunk;
+        const { data: pauseCheck } = await sb.from("campaigns").select("status").eq("id", campaignId).single();
+        if (!pauseCheck || !["running"].includes(pauseCheck.status)) {
+          log.info(`Campaign ${campaignId.slice(0, 8)}: detected ${pauseCheck?.status} during block pause — stopping`);
+          pauseAborted = true;
+          break;
+        }
+      }
+      if (pauseAborted) break;
       continue;
     }
 
-    // 13. Normal delay (random within configured range)
+    // 13. Normal delay (random within configured range) — split into chunks to detect pause faster
     const delayMs = Math.round(randomBetween(minDelayMs, maxDelayMs));
     log.info(`Campaign ${campaignId.slice(0, 8)}: delay ${Math.round(delayMs / 1000)}s (range ${Math.round(minDelayMs / 1000)}-${Math.round(maxDelayMs / 1000)}s)`);
-    await sleep(delayMs);
+    // Sleep in 3s chunks, checking for pause/cancel between chunks
+    let remainingDelay = delayMs;
+    while (remainingDelay > 0 && isRunningRef.value) {
+      const chunk = Math.min(remainingDelay, 3000);
+      await sleep(chunk);
+      remainingDelay -= chunk;
+      if (remainingDelay > 0) {
+        const { data: midCheck } = await sb.from("campaigns").select("status").eq("id", campaignId).single();
+        if (!midCheck || !["running"].includes(midCheck.status)) {
+          log.info(`Campaign ${campaignId.slice(0, 8)}: detected ${midCheck?.status} during delay — stopping`);
+          remainingDelay = 0;
+          break;
+        }
+      }
+    }
   }
 
   // Release global device locks
