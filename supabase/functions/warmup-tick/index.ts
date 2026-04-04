@@ -1333,7 +1333,7 @@ const INTERACTION_JOB_TYPES = ["group_interaction", "autosave_interaction", "com
 // Max active pairs a device can participate in (as A or B)
 // Based on community_day progression
 function getMaxPairsForChip(chipState: string, communityDay?: number): number {
-  if (!communityDay || communityDay <= 0) return 3;
+  if (!communityDay || communityDay <= 0) return 0; // Not in community yet — no pairs allowed
   const target = getCommunityPeersFromCommunityDay(communityDay);
   return target.max;
 }
