@@ -726,9 +726,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     // After sync, verify current device still exists in pool
     if (!findDeviceById(currentDeviceId, allDevices)) {
       const oldId = currentDeviceId || "unknown";
-      currentDeviceId = allDevices[0].id;
+      currentDeviceId = (allDevices[0] as any).id as string;
       instanceMsgCount = 0;
-      log.info(`Campaign ${campaignId.slice(0, 8)}: current device ${oldId.slice(0, 8)} removed from pool — switched to ${currentDeviceId.slice(0, 8)}`);
+      log.info(`Campaign ${campaignId.slice(0, 8)}: current device ${oldId.slice(0, 8)} removed from pool — switched to ${currentDeviceId!.slice(0, 8)}`);
     }
 
     // 2. Heartbeat
