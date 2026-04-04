@@ -916,7 +916,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         updateCountersLocal(counterState, "already_exists");
         contactsSinceFlush++;
         if (contactsSinceFlush >= COUNTER_FLUSH_INTERVAL) { await flushCounters(sb, campaignId, counterState); contactsSinceFlush = 0; }
-        consecutiveFailures = 0;
+        deviceCriticalErrors.delete(deviceId);
         batchAlready++;
         {
           const minD = Number(freshCampaign.min_delay || 0);
