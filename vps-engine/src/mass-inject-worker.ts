@@ -1065,6 +1065,14 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         DeviceLockManager.release(deviceId, actionLockId);
       }
 
+      // Pre-classify failure type (needed for delay logic below)
+      const detailLower = result.detail.toLowerCase();
+      let isRateLimit = false;
+      let isTimeout = false;
+      let isConnectionIssue = false;
+      let failStatus = "";
+      let failureDetail = result.detail;
+
       if (result.ok) {
         await sb.from("mass_inject_contacts").update({
           status: "completed", error_message: result.detail, processed_at: nowIso(),
@@ -1086,12 +1094,11 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         recordDeviceApiSuccess(deviceId); // mark device as healthy
       } else {
         // Classify retryable vs permanent failure
-        const detailLower = result.detail.toLowerCase();
-        const isRateLimit = detailLower.includes("rate limit") || result.cooldownMs >= 30000;
-        const isTimeout = detailLower.includes("timeout");
-        const isConnectionIssue = detailLower.includes("desconectada") || detailLower.includes("socket") || detailLower.includes("disconnected");
-        let failureDetail = result.detail;
-        let failStatus = result.failureStatus || (result.retryable
+        isRateLimit = detailLower.includes("rate limit") || result.cooldownMs >= 30000;
+        isTimeout = detailLower.includes("timeout");
+        isConnectionIssue = detailLower.includes("desconectada") || detailLower.includes("socket") || detailLower.includes("disconnected");
+        failureDetail = result.detail;
+        failStatus = result.failureStatus || (result.retryable
           ? (isRateLimit ? "rate_limited" : isTimeout ? "timeout" : isConnectionIssue ? "connection_unconfirmed" : "api_temporary")
           : "failed");
 
@@ -1171,19 +1178,32 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         }
       }
 
-      // 9. Apply delay
+      // 9. Apply delay — ONLY full delay for successful actions
+      // Transient failures (connection, timeout, rate limit) use micro-delay to retry faster
       contactsInLoop++;
-      const minDelay = Number(freshCampaign.min_delay ?? 0);
-      const maxDelay = Math.max(Number(freshCampaign.max_delay ?? 0), minDelay);
-      let delayMs = minDelay === maxDelay ? minDelay * 1000 : randomBetween(minDelay * 1000, maxDelay * 1000);
+      const wasSuccess = result.ok || result.alreadyExists;
+      const wasTransient = !wasSuccess && (isConnectionIssue || isTimeout || isRateLimit || TRANSIENT_FAILURE_STATUSES.has(failStatus));
 
-      // Block pause check
-      const pauseAfter = Number(freshCampaign.pause_after || 0);
-      const pauseDuration = Number(freshCampaign.pause_duration || 0);
-      const totalProcessed = processed + 1;
-      if (pauseAfter > 0 && totalProcessed > 0 && totalProcessed % pauseAfter === 0) {
-        delayMs = Math.max(delayMs, pauseDuration * 1000);
-        log.info(`Campaign ${campaignId.slice(0, 8)}: block pause ${pauseDuration}s after ${totalProcessed} contacts`);
+      let delayMs: number;
+      if (wasTransient) {
+        // Transient failure — don't waste user's configured delay, just short pause
+        delayMs = isRateLimit ? Math.min(result.cooldownMs || 5000, 8000) : randomBetween(2000, 4000);
+      } else {
+        // Success or permanent failure — apply user-configured delay
+        const minDelay = Number(freshCampaign.min_delay ?? 0);
+        const maxDelay = Math.max(Number(freshCampaign.max_delay ?? 0), minDelay);
+        delayMs = minDelay === maxDelay ? minDelay * 1000 : randomBetween(minDelay * 1000, maxDelay * 1000);
+      }
+
+      // Block pause check (only on successful processing)
+      if (wasSuccess) {
+        const pauseAfter = Number(freshCampaign.pause_after || 0);
+        const pauseDuration = Number(freshCampaign.pause_duration || 0);
+        const totalProcessed = processed + 1;
+        if (pauseAfter > 0 && totalProcessed > 0 && totalProcessed % pauseAfter === 0) {
+          delayMs = Math.max(delayMs, pauseDuration * 1000);
+          log.info(`Campaign ${campaignId.slice(0, 8)}: block pause ${pauseDuration}s after ${totalProcessed} contacts`);
+        }
       }
 
       // Flush counters + next_run_at together (batched write)
@@ -1198,6 +1218,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
             consecutive_failures: counterState.consecutive_failures,
             next_run_at: new Date(Date.now() + delayMs).toISOString(),
             updated_at: nowIso(),
+            pause_reason: wasTransient ? `Falha temporária — retry rápido` : null,
           }).eq("id", campaignId);
           counterState.dirty = false;
           contactsSinceFlush = 0;
