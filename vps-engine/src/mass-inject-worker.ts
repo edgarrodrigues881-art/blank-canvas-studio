@@ -62,8 +62,9 @@ type ConnectionCheckResult = {
 
 const participantCache = new Map<string, ParticipantCacheEntry>();
 const endpointCache = new Map<string, number>();
-const PARTICIPANT_CACHE_TTL_MS = 10 * 60_000; // 10 min — less refetching
-const PARTICIPANT_FAILURE_CACHE_TTL_MS = 3 * 60_000; // 3 min
+const PARTICIPANT_CACHE_TTL_MS = 30 * 60_000; // 30 min — trust cache heavily during a campaign
+const PARTICIPANT_FAILURE_CACHE_TTL_MS = 10 * 60_000; // 10 min — even failed lookups shouldn't retry often
+const participantEndpointCache = new Map<string, number>(); // baseUrl → winning strategy index
 
 // ── Tracking ──
 export let lastMassInjectTickAt: Date | null = null;
@@ -213,7 +214,6 @@ function extractPhone(value: any): string | null {
 }
 
 async function fetchGroupParticipants(baseUrl: string, token: string, groupId: string): Promise<ParticipantCacheEntry> {
-  // Check cache first
   const cacheKey = `${baseUrl}::${groupId}`;
   const cached = participantCache.get(cacheKey);
   if (cached) {
@@ -225,65 +225,69 @@ async function fetchGroupParticipants(baseUrl: string, token: string, groupId: s
 
   const participants = new Set<string>();
 
-  // Strategy 1: /group/list with participants
-  try {
-    const res = await fetchWithTimeout(`${baseUrl}/group/list?GetParticipants=true&count=500`, { headers: buildHeaders(token) });
-    if (res.ok) {
+  // All fetch strategies in order of reliability
+  const strategies = [
+    { id: 0, fn: async () => {
+      const res = await fetchWithTimeout(`${baseUrl}/group/list?GetParticipants=true&count=500`, { headers: buildHeaders(token) });
+      if (!res.ok) return null;
       const body: any = await res.json();
       const groups = Array.isArray(body) ? body : body?.groups || body?.data || [];
-      const target = groups.find((g: any) => (g?.JID || g?.jid || g?.id || "") === groupId);
-      if (target) {
-        collectParticipants(target?.Participants || target?.participants || target?.members || [], participants);
-        if (participants.size > 0) {
+      return groups.find((g: any) => (g?.JID || g?.jid || g?.id || "") === groupId) || null;
+    }},
+    { id: 1, fn: async () => {
+      const res = await fetchWithTimeout(`${baseUrl}/group/fetchAllGroups`, { headers: buildHeaders(token) });
+      if (!res.ok) return null;
+      const body: any = await res.json();
+      const groups = Array.isArray(body) ? body : body?.groups || body?.data || [];
+      return groups.find((g: any) => (g?.JID || g?.jid || g?.id || "") === groupId) || null;
+    }},
+    { id: 2, fn: async () => {
+      const res = await fetchWithTimeout(`${baseUrl}/group/info`, { method: "POST", headers: buildHeaders(token, true), body: JSON.stringify({ groupJid: groupId }) });
+      if (!res.ok) return null;
+      const body: any = await res.json();
+      return body?.group || body?.data?.group || body?.data || body;
+    }},
+    { id: 3, fn: async () => {
+      const res = await fetchWithTimeout(`${baseUrl}/group/info?groupJid=${encodeURIComponent(groupId)}`, { headers: buildHeaders(token) });
+      if (!res.ok) return null;
+      const body: any = await res.json();
+      return body?.group || body?.data?.group || body?.data || body;
+    }},
+  ];
+
+  // FAST PATH: try cached winning strategy first
+  const cachedStrategyIdx = participantEndpointCache.get(baseUrl);
+  if (cachedStrategyIdx !== undefined) {
+    const strategy = strategies.find(s => s.id === cachedStrategyIdx);
+    if (strategy) {
+      try {
+        const target = await strategy.fn();
+        if (target) {
+          collectParticipants(target?.Participants || target?.participants || target?.members || [], participants);
+          if (participants.size > 0) {
             const entry = { participants, fetchedAt: Date.now(), confirmed: true };
             participantCache.set(cacheKey, entry);
             return entry;
+          }
         }
-      }
+      } catch { /* fall through to discovery */ }
     }
-  } catch (e) { /* fallback */ }
+  }
 
-  // Strategy 2: /group/fetchAllGroups
-  try {
-    const res = await fetchWithTimeout(`${baseUrl}/group/fetchAllGroups`, { headers: buildHeaders(token) });
-    if (res.ok) {
-      const body: any = await res.json();
-      const groups = Array.isArray(body) ? body : body?.groups || body?.data || [];
-      const target = groups.find((g: any) => (g?.JID || g?.jid || g?.id || "") === groupId);
-      if (target) {
-        collectParticipants(target?.Participants || target?.participants || target?.members || [], participants);
-        if (participants.size > 0) {
-          const entry = { participants, fetchedAt: Date.now(), confirmed: true };
-          participantCache.set(cacheKey, entry);
-          return entry;
-        }
-      }
-    }
-  } catch (e) { /* fallback */ }
-
-  // Strategy 3-5: individual endpoints
-  const fallbacks = [
-    { method: "POST" as const, url: `${baseUrl}/group/info`, body: { groupJid: groupId } },
-    { method: "GET" as const, url: `${baseUrl}/group/info?groupJid=${encodeURIComponent(groupId)}` },
-    { method: "POST" as const, url: `${baseUrl}/chat/info`, body: { chatId: groupId } },
-  ];
-  for (const fb of fallbacks) {
+  // DISCOVERY: try each strategy, stop on first success
+  for (const strategy of strategies) {
+    if (strategy.id === cachedStrategyIdx) continue; // already tried
     try {
-      const res = await fetchWithTimeout(fb.url, {
-        method: fb.method,
-        headers: fb.body ? buildHeaders(token, true) : buildHeaders(token),
-        ...(fb.body ? { body: JSON.stringify(fb.body) } : {}),
-      });
-      if (!res.ok) continue;
-      const body: any = await res.json();
-      const gp = body?.group || body?.data?.group || body?.data || body;
-      collectParticipants(gp?.Participants || gp?.participants || gp?.members || [], participants);
+      const target = await strategy.fn();
+      if (!target) continue;
+      collectParticipants(target?.Participants || target?.participants || target?.members || [], participants);
       if (participants.size > 0) {
+        participantEndpointCache.set(baseUrl, strategy.id);
         const entry = { participants, fetchedAt: Date.now(), confirmed: true };
         participantCache.set(cacheKey, entry);
         return entry;
       }
-    } catch { /* continue */ }
+    } catch { continue; }
   }
 
   const fallbackEntry = { participants, fetchedAt: Date.now(), confirmed: false };
@@ -867,8 +871,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       const cacheKey = `${baseUrl}::${groupId}`;
       const cachedParticipants = participantCache.get(cacheKey);
       const useCachedCheck = cachedParticipants && cachedParticipants.confirmed && (Date.now() - cachedParticipants.fetchedAt < PARTICIPANT_CACHE_TTL_MS);
-      // Only fetch fresh participants on first contact or every 50 — rely on cache more
-      const shouldFetchFresh = !useCachedCheck && (processed === 0 || processed % 50 === 0);
+      // Only fetch fresh on first contact or every 100 — trust cache heavily
+      const shouldFetchFresh = !useCachedCheck && (processed === 0 || processed % 100 === 0);
       const participantSnapshot = shouldFetchFresh
         ? await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId)
         : (useCachedCheck ? cachedParticipants! : null);
