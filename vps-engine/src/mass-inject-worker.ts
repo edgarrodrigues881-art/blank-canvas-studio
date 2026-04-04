@@ -830,10 +830,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
           continue;
         }
 
-        // If connection is unknown/null, just proceed — don't block
-        if (liveConnection.connected === null && !CONNECTED_DEVICE_STATUSES.has(statusHint)) {
-          log.info(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} status uncertain — proceeding anyway`);
-        }
+        // If connection is unknown/null, just proceed — don't block or log
       }
 
       if (!String(device.number || "").trim()) {
