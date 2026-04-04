@@ -485,29 +485,40 @@ async function warmupTick() {
     }
   }
 
-  // 3. Fetch pending jobs
-  const { data: pendingJobs, error: fetchErr } = await db.from("warmup_jobs")
-    .select("id, user_id, device_id, cycle_id, job_type, payload, run_at, status, attempts, max_attempts")
-    .eq("status", "pending")
-    .lte("run_at", now)
-    .order("run_at", { ascending: true })
-    .limit(2000);
+  // 3. Fetch pending jobs — balanced across job types to prevent groups from starving autosave/community
+  // Fetch each priority type separately, then merge & interleave
+  const jobTypeBuckets = [
+    { types: ["daily_reset"], limit: 200 },           // Highest priority — resets must happen first
+    { types: ["autosave_interaction"], limit: 400 },   // Auto save needs guaranteed slots
+    { types: ["community_interaction"], limit: 400 },  // Community needs guaranteed slots
+    { types: ["group_interaction"], limit: 1000 },     // Groups get the largest share but capped
+  ];
 
-  if (fetchErr) {
-    const serializedFetchErr = serializeUnknownError(fetchErr);
-    logQueryDiagnostics("warmup.pending_jobs.fetch", {
-      table: "warmup_jobs",
-      columns: "id, user_id, device_id, cycle_id, job_type, payload, run_at, status, attempts, max_attempts",
-      filters: { status: "pending", run_at_lte: now, order_by: "run_at asc", limit: 2000 },
-      note: "fetch pending jobs for warmup tick",
-    }, fetchErr);
-    if (String(serializedFetchErr.raw).includes("Invalid API key") || String(serializedFetchErr.raw).includes("401") || serializedFetchErr.code === "PGRST301") {
-      throw new Error(`Supabase auth error fetching jobs: ${serializedFetchErr.raw}. Verify SUPABASE_SERVICE_ROLE_KEY.`);
+  const allJobs: any[] = [];
+  for (const bucket of jobTypeBuckets) {
+    const { data: bucketJobs, error: bucketErr } = await db.from("warmup_jobs")
+      .select("id, user_id, device_id, cycle_id, job_type, payload, run_at, status, attempts, max_attempts")
+      .eq("status", "pending")
+      .lte("run_at", now)
+      .in("job_type", bucket.types)
+      .order("run_at", { ascending: true })
+      .limit(bucket.limit);
+    if (bucketErr) {
+      log.warn(`Error fetching ${bucket.types.join(",")} jobs: ${bucketErr.message}`);
+      continue;
     }
-    throw new Error(`DB fetch error: ${serializedFetchErr.raw}`);
+    if (bucketJobs?.length) allJobs.push(...bucketJobs);
   }
 
+  // Sort merged results by run_at for fair ordering
+  const pendingJobs = allJobs.sort((a, b) => new Date(a.run_at).getTime() - new Date(b.run_at).getTime());
+
   if (!pendingJobs?.length) return { processed: 0 };
+
+  // Log job type distribution for observability
+  const jobTypeCounts: Record<string, number> = {};
+  for (const j of pendingJobs) { jobTypeCounts[j.job_type] = (jobTypeCounts[j.job_type] || 0) + 1; }
+  log.info("Warmup job distribution", jobTypeCounts);
 
   // 4. Pre-load device credentials for all unique devices
   const uniqueDeviceIds = [...new Set(pendingJobs.map(j => j.device_id))];
