@@ -140,6 +140,7 @@ const CampaignDetail = () => {
   const [deviceToRemove, setDeviceToRemove] = useState<string | null>(null);
   const [replacementDevice, setReplacementDevice] = useState<string>("none");
   const [deviceActionLoading, setDeviceActionLoading] = useState(false);
+  const [deviceSearchQuery, setDeviceSearchQuery] = useState("");
   const createTemplate = useCreateTemplate();
   const createCarouselTemplate = useCreateCarouselTemplate();
   const updateCarouselTemplate = useUpdateCarouselTemplate();
