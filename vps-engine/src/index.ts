@@ -19,6 +19,7 @@ import { groupInteractionTick, getGroupInteractionStatus, lastGroupInteractionTi
 import { chipConversationTick, getChipConvStatus, lastChipConvTickAt } from "./chip-conversation-worker";
 import { groupJoinTick, getGroupJoinStatus, lastGroupJoinTickAt } from "./group-join-worker";
 import { welcomeTick, getWelcomeStatus, lastWelcomeTickAt } from "./welcome-worker";
+import { verifyTick, getVerifyStatus, lastVerifyTickAt } from "./verify-worker";
 import { backoffMinutes } from "./lib/retry";
 import { validateUazapiCredentials } from "./lib/uazapi";
 
@@ -41,6 +42,7 @@ app.get("/health", (_req: Request, res: Response) => {
   const chipConvStatus = getChipConvStatus();
   const groupJoinStatus = getGroupJoinStatus();
   const welcomeStatus = getWelcomeStatus();
+  const verifyStatus = getVerifyStatus();
   res.json({
     status: "ok",
     uptime: Math.round((Date.now() - startedAt.getTime()) / 1000),
@@ -52,6 +54,7 @@ app.get("/health", (_req: Request, res: Response) => {
     lastChipConvTick: lastChipConvTickAt?.toISOString() || null,
     lastGroupJoinTick: lastGroupJoinTickAt?.toISOString() || null,
     lastWelcomeTick: lastWelcomeTickAt?.toISOString() || null,
+    lastVerifyTick: lastVerifyTickAt?.toISOString() || null,
     activeMassInjectCampaigns: massInjectStatus.activeCampaigns,
     activeCampaignWorker: campaignWorkerStatus.activeCampaigns,
     tickCount,
@@ -960,6 +963,7 @@ async function mainLoop() {
     chipConv: false,
     groupJoin: false,
     welcome: false,
+    verify: false,
   };
 
   function guardedLoop(
@@ -1037,6 +1041,10 @@ async function mainLoop() {
     guardedLoop("welcome", async () => {
       await welcomeTick();
     }, 30_000)(),
+
+    guardedLoop("verify", async () => {
+      await verifyTick();
+    }, 15_000)(),
   ]);
 }
 
