@@ -1045,9 +1045,15 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     // Flush any remaining dirty counters at end of batch
     await flushCounters(sb, campaignId, counterState);
 
-    // Batch complete — if campaign still has contacts, log and let next tick continue
-    if (batchProcessed >= BATCH_SIZE) {
-      log.info(`Campaign ${campaignId.slice(0, 8)}: batch of ${batchProcessed} done — yielding to next tick`);
+    // Batch summary log (single line replaces all per-contact logs)
+    if (batchProcessed > 0) {
+      const parts = [];
+      if (batchAdded) parts.push(`+${batchAdded} added`);
+      if (batchAlready) parts.push(`${batchAlready} already`);
+      if (batchFailed) parts.push(`${batchFailed} failed`);
+      if (batchSkipped) parts.push(`${batchSkipped} skipped`);
+      const total = counterState.success_count + counterState.already_count + counterState.fail_count;
+      log.info(`Campaign ${campaignId.slice(0, 8)}: batch ${batchProcessed} contacts [${parts.join(", ")}] — total ${total}/${campaign.total_items || "?"}`);
     }
   } catch (err: any) {
     const errMessage = String(err?.message || err || "Erro interno desconhecido");
