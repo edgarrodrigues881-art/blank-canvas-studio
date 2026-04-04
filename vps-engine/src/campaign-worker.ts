@@ -378,12 +378,31 @@ function getCampaignDeviceIds(campaign: any): string[] {
 }
 
 class RandomPicker {
+  private queue: number[] = [];
   private lastPicked = -1;
   constructor(private total: number) {}
+
+  private shuffle(): number[] {
+    const arr = Array.from({ length: this.total }, (_, i) => i);
+    // Fisher-Yates shuffle
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(secureRandom() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    // Ensure first item of new batch != last item of previous batch
+    if (this.total > 1 && arr[0] === this.lastPicked) {
+      const swapIdx = 1 + Math.floor(secureRandom() * (arr.length - 1));
+      [arr[0], arr[swapIdx]] = [arr[swapIdx], arr[0]];
+    }
+    return arr;
+  }
+
   next(): number {
     if (this.total <= 1) return 0;
-    let picked: number;
-    do { picked = Math.floor(secureRandom() * this.total); } while (picked === this.lastPicked && this.total > 1);
+    if (this.queue.length === 0) {
+      this.queue = this.shuffle();
+    }
+    const picked = this.queue.shift()!;
     this.lastPicked = picked;
     return picked;
   }
