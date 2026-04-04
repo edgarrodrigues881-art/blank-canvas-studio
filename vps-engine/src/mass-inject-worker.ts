@@ -730,7 +730,6 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     }
 
     const failedDeviceIds = new Map<string, number>();
-    let consecutiveFailures = Number(campaign.consecutive_failures || 0);
 
     let contactsInLoop = 0;
     let cachedFreshCampaign: any = null;
