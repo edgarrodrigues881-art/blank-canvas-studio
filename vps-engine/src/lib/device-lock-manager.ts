@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════
-// VPS Engine — Device Concurrency Manager (v2)
+// VPS Engine — Device Concurrency Manager (v3)
 // Category-based concurrency: allows safe parallelism,
 // blocks only conflicting heavy operations on the same device.
 // ══════════════════════════════════════════════════════════
@@ -43,9 +43,11 @@ const WORKER_CATEGORY: Record<WorkerType, ResourceCategory> = {
   welcome_send: "messaging_heavy",
 };
 
+// ── Light categories that NEVER block and are NEVER blocked ──
+const LIGHT_CATEGORIES = new Set<ResourceCategory>(["monitoring", "sync_light", "welcome", "warmup"]);
+
 // ── Conflict matrix ──
 // Only listed pairs are BLOCKED from running together on the same device.
-// Everything else is allowed in parallel.
 const CONFLICTS: Array<[ResourceCategory, ResourceCategory]> = [
   // Two heavy messaging tasks conflict
   ["messaging_heavy", "messaging_heavy"],
@@ -69,7 +71,6 @@ for (const [a, b] of CONFLICTS) {
 }
 
 function categoriesConflict(a: ResourceCategory, b: ResourceCategory): boolean {
-  if (a === b && conflictSet.has(`${a}::${b}`)) return true;
   return conflictSet.has(`${a}::${b}`);
 }
 
@@ -99,7 +100,8 @@ const WORKER_LABELS: Record<WorkerType, string> = {
 /**
  * Category-based device concurrency manager (Singleton).
  * Multiple tasks CAN run on the same device if their categories don't conflict.
- * Only truly incompatible operations are blocked.
+ * Only truly incompatible heavy operations are blocked.
+ * Light categories (monitoring, sync, warmup, welcome) are never blocked.
  */
 class DeviceLockManagerImpl {
   // deviceId → Map<taskId, LockInfo>
@@ -108,19 +110,30 @@ class DeviceLockManagerImpl {
   /**
    * Try to acquire a slot on a device. Non-blocking.
    * Returns true if acquired (no conflicting category running).
+   * Light categories always succeed.
    */
   tryAcquire(deviceId: string, workerType: WorkerType, taskId: string, label?: string): boolean {
     const category = WORKER_CATEGORY[workerType];
-
-    // ── NO RESTRICTIONS: always allow parallel operations ──
-    // The system no longer blocks any combination of workers on the same device.
-    // If the chip gets banned, it's the user's responsibility.
 
     if (!this.locks.has(deviceId)) this.locks.set(deviceId, new Map());
     const deviceLocks = this.locks.get(deviceId)!;
 
     // Idempotent: same task re-acquiring
     if (deviceLocks.has(taskId)) return true;
+
+    // Light categories never block and are never blocked
+    if (!LIGHT_CATEGORIES.has(category)) {
+      // Check for conflicts with existing locks
+      for (const existing of deviceLocks.values()) {
+        if (LIGHT_CATEGORIES.has(existing.category)) continue; // skip light locks
+        if (categoriesConflict(category, existing.category)) {
+          log.warn(
+            `Lock DENIED: device=${deviceId.slice(0, 8)} ${workerType}:${taskId.slice(0, 8)} [${category}] conflicts with ${existing.workerType}:${existing.taskId.slice(0, 8)} [${existing.category}]`
+          );
+          return false;
+        }
+      }
+    }
 
     deviceLocks.set(taskId, {
       deviceId,
@@ -131,7 +144,7 @@ class DeviceLockManagerImpl {
       label: label || `${workerType}:${taskId.slice(0, 8)}`,
     });
 
-    log.info(`Lock registered (no-block): device=${deviceId.slice(0, 8)} by ${workerType}:${taskId.slice(0, 8)} [${category}]`);
+    log.info(`Lock acquired: device=${deviceId.slice(0, 8)} by ${workerType}:${taskId.slice(0, 8)} [${category}]`);
     return true;
   }
 
@@ -167,35 +180,61 @@ class DeviceLockManagerImpl {
   /**
    * Check if a device is available for a specific worker type.
    */
-  isAvailableFor(_deviceId: string, _workerType: WorkerType): boolean {
-    // ── NO RESTRICTIONS: always available ──
+  isAvailableFor(deviceId: string, workerType: WorkerType): boolean {
+    const category = WORKER_CATEGORY[workerType];
+    if (LIGHT_CATEGORIES.has(category)) return true;
+
+    const deviceLocks = this.locks.get(deviceId);
+    if (!deviceLocks || deviceLocks.size === 0) return true;
+
+    for (const existing of deviceLocks.values()) {
+      if (LIGHT_CATEGORIES.has(existing.category)) continue;
+      if (categoriesConflict(category, existing.category)) return false;
+    }
     return true;
   }
 
   /**
-   * Check if device has any locks at all.
+   * Check if device has any heavy locks.
    */
   isAvailable(deviceId: string): boolean {
     const deviceLocks = this.locks.get(deviceId);
-    return !deviceLocks || deviceLocks.size === 0;
+    if (!deviceLocks || deviceLocks.size === 0) return true;
+    // Available if only light categories are held
+    for (const lock of deviceLocks.values()) {
+      if (!LIGHT_CATEGORIES.has(lock.category)) return false;
+    }
+    return true;
   }
 
   /**
    * Get blocking reason string for a specific worker type.
    */
-  getBlockingReason(_deviceId: string, _workerType: WorkerType): string | null {
-    // ── NO RESTRICTIONS: never blocked ──
+  getBlockingReason(deviceId: string, workerType: WorkerType): string | null {
+    const category = WORKER_CATEGORY[workerType];
+    if (LIGHT_CATEGORIES.has(category)) return null;
+
+    const deviceLocks = this.locks.get(deviceId);
+    if (!deviceLocks || deviceLocks.size === 0) return null;
+
+    for (const existing of deviceLocks.values()) {
+      if (LIGHT_CATEGORIES.has(existing.category)) continue;
+      if (categoriesConflict(category, existing.category)) {
+        return `${WORKER_LABELS[existing.workerType]} [${existing.category}] em execução`;
+      }
+    }
     return null;
   }
 
   /**
-   * Get lock reason (any lock) — backward compat.
+   * Get lock reason (any heavy lock) — backward compat.
    */
   getLockReason(deviceId: string): string | null {
     const deviceLocks = this.locks.get(deviceId);
     if (!deviceLocks || deviceLocks.size === 0) return null;
-    const items = Array.from(deviceLocks.values());
-    return items.map(i => `${WORKER_LABELS[i.workerType]} [${i.category}]`).join(", ");
+    const heavy = Array.from(deviceLocks.values()).filter(i => !LIGHT_CATEGORIES.has(i.category));
+    if (heavy.length === 0) return null;
+    return heavy.map(i => `${WORKER_LABELS[i.workerType]} [${i.category}]`).join(", ");
   }
 
   /**
