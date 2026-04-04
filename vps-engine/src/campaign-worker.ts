@@ -617,8 +617,23 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
   const picker = new RandomPicker(messageVariants.length);
 
   const resumeState = await deriveCampaignResumeState(sb, campaignId, allDevices, messagesPerInstance);
-  let currentDeviceIndex = resumeState.currentDeviceIndex;
+  let currentDeviceId: string | null = resumeState.currentDeviceId;
   let instanceMsgCount = resumeState.instanceMsgCount;
+
+  // Helper to find device by ID in current pool
+  function findDeviceById(id: string | null, devices: any[]): any | null {
+    if (!id || devices.length === 0) return devices[0] || null;
+    return devices.find((d: any) => d.id === id) || null;
+  }
+
+  // Helper to get next device in rotation
+  function getNextDeviceId(currentId: string | null, devices: any[]): string | null {
+    if (devices.length === 0) return null;
+    if (devices.length === 1) return devices[0].id;
+    const idx = devices.findIndex((d: any) => d.id === currentId);
+    const nextIdx = (idx < 0 ? 0 : idx + 1) % devices.length;
+    return devices[nextIdx].id;
+  }
 
   let msgsSincePause = 0;
   let pauseAfter = Math.round(randomBetween(pauseEveryMin, pauseEveryMax));
@@ -661,7 +676,14 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       sendCampaignAlertToWa(sb, campaign.user_id, campaign.name, "paused", stats);
       break;
     }
-    currentDeviceIndex = currentDeviceIndex % allDevices.length;
+
+    // After sync, verify current device still exists in pool
+    if (!findDeviceById(currentDeviceId, allDevices)) {
+      const oldId = currentDeviceId;
+      currentDeviceId = allDevices[0].id;
+      instanceMsgCount = 0;
+      log.info(`Campaign ${campaignId.slice(0, 8)}: current device ${oldId?.slice(0, 8)} removed from pool — switched to ${currentDeviceId.slice(0, 8)}`);
+    }
 
     // 2. Heartbeat
     heartbeatCounter++;
