@@ -115,8 +115,8 @@ async function processJob(jobId: string) {
       return;
     }
 
-    const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
-    const token = device.uazapi_token;
+    let baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
+    let token = device.uazapi_token;
 
     // Mark as running
     await db.from("verify_jobs").update({ status: "running", started_at: new Date().toISOString() }).eq("id", jobId);
