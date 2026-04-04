@@ -961,7 +961,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         updateCountersLocal(counterState, "already_exists");
         contactsSinceFlush++;
         rememberParticipantInCache(baseUrl, groupId, phone);
-        consecutiveFailures = 0;
+        deviceCriticalErrors.delete(deviceId); // reset on success
       } else {
         // Classify retryable vs permanent failure
         const isRateLimit = result.detail.toLowerCase().includes("rate limit") || result.cooldownMs >= 30000;
