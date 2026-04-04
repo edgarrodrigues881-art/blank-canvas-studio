@@ -964,7 +964,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         await sb.from("mass_inject_contacts").update({
           status: failStatus, error_message: failureDetail, processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCounters(sb, campaignId, counterState, failStatus);
+        updateCountersLocal(counterState, failStatus);
+        contactsSinceFlush++;
 
         consecutiveFailures = AUTO_PAUSE_FAILURE_STATUSES.has(failStatus)
           ? counterState.consecutive_failures
