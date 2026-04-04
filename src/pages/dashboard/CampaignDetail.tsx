@@ -964,78 +964,179 @@ const CampaignDetail = () => {
                   <p className="text-[10px] text-muted-foreground/40 italic">Pause a campanha para editar.</p>
                 )}
 
-                {/* ── Rotation / Multi-instance ─────────────────── */}
-                {campaign.device_ids && Array.isArray(campaign.device_ids) && (campaign.device_ids as string[]).length >= 1 && (
-                  <div className="rounded-lg border border-border/20 bg-background/30 p-3 space-y-2.5">
-                    <div className="flex items-center gap-2">
-                      <RefreshCw className="w-3.5 h-3.5 text-primary/70" />
-                      <span className="text-[11px] font-medium text-foreground">Trocar de conta</span>
-                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-primary/20 text-primary">
-                        {(campaign.device_ids as string[]).length} instâncias
-                      </Badge>
-                    </div>
+                {/* ── Device Management Panel ─────────────────── */}
+                {(() => {
+                  const activeIds = campaign.device_ids && Array.isArray(campaign.device_ids) ? (campaign.device_ids as string[]) : [];
+                  const isConnected = (d: typeof devices[0]) => d.status && ["connected", "Ready", "Connected", "authenticated"].includes(d.status);
+                  const availableDevices = devices.filter(d => !activeIds.includes(d.id));
 
-                    <div className="space-y-2">
-                      <p className="text-[11px] text-muted-foreground/70">Trocar de conta após quantas mensagens?</p>
-                      <div className={cn("flex items-center gap-2 transition-opacity", isActive && "opacity-30 pointer-events-none select-none")}>
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Trocar após</span>
-                        <Input
-                          type="text"
-                          inputMode="numeric"
-                          value={messagesPerInstanceInput}
-                          onFocus={() => setIsEditingMessagesPerInstance(true)}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/\D/g, "");
-                            setMessagesPerInstanceInput(raw);
-                          }}
-                          onBlur={async () => {
-                            setIsEditingMessagesPerInstance(false);
-                            const parsed = Number(messagesPerInstanceInput.replace(/\D/g, ""));
-                            const value = parsed > 0 ? Math.min(500, parsed) : 50;
-                            setMessagesPerInstanceInput(String(value));
-                            if (id) {
-                              await supabase.from("campaigns").update({ messages_per_instance: value }).eq("id", id);
-                              queryClient.invalidateQueries({ queryKey: ["campaign", id] });
-                            }
-                          }}
-                          onKeyDown={async (e) => {
-                            if (e.key === "Enter") {
-                              e.currentTarget.blur();
-                            }
-                          }}
-                          className="h-7 w-20 text-center text-[11px] bg-background/30 border-border/20"
-                        />
-                        <span className="text-[10px] text-muted-foreground">msgs</span>
+                  const handleAddDevice = async (deviceId: string) => {
+                    if (!id) return;
+                    const newIds = [...activeIds, deviceId];
+                    await supabase.from("campaigns").update({ device_ids: newIds, updated_at: new Date().toISOString() }).eq("id", id);
+                    queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+                    const dev = devices.find(d => d.id === deviceId);
+                    toast({ title: `✅ ${dev?.name || "Conta"} adicionada ao disparo` });
+                  };
+
+                  const handleQuickRemove = async (deviceId: string) => {
+                    if (!id) return;
+                    const newIds = activeIds.filter(did => did !== deviceId);
+                    const updates: Record<string, any> = { device_ids: newIds, updated_at: new Date().toISOString() };
+                    if (newIds.length > 0 && !newIds.includes(campaign?.device_id as string)) {
+                      updates.device_id = newIds[0];
+                    }
+                    await supabase.from("campaigns").update(updates).eq("id", id);
+                    queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+                    const dev = devices.find(d => d.id === deviceId);
+                    toast({ title: `🗑 ${dev?.name || "Conta"} removida`, description: newIds.length === 0 ? "Campanha será pausada automaticamente." : `${newIds.length} instância(s) ativa(s)` });
+                  };
+
+                  return (
+                    <div className="rounded-lg border border-border/20 bg-background/30 p-4 space-y-3">
+                      {/* Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-primary/70" />
+                          <span className="text-xs font-semibold text-foreground">Gerenciamento de Contas</span>
+                        </div>
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-primary/20 text-primary">
+                          {activeIds.length} ativa{activeIds.length !== 1 ? "s" : ""} / {devices.length} total
+                        </Badge>
                       </div>
-                    </div>
 
+                      {/* Rotation config */}
+                      {activeIds.length >= 2 && (
+                        <div className="flex items-center gap-2 p-2 rounded-md bg-muted/20 border border-border/10">
+                          <RefreshCw className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">Trocar após</span>
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            value={messagesPerInstanceInput}
+                            onFocus={() => setIsEditingMessagesPerInstance(true)}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/\D/g, "");
+                              setMessagesPerInstanceInput(raw);
+                            }}
+                            onBlur={async () => {
+                              setIsEditingMessagesPerInstance(false);
+                              const parsed = Number(messagesPerInstanceInput.replace(/\D/g, ""));
+                              const value = parsed > 0 ? Math.min(500, parsed) : 50;
+                              setMessagesPerInstanceInput(String(value));
+                              if (id) {
+                                await supabase.from("campaigns").update({ messages_per_instance: value }).eq("id", id);
+                                queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+                              }
+                            }}
+                            onKeyDown={async (e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                            className="h-6 w-16 text-center text-[10px] bg-background/30 border-border/20"
+                          />
+                          <span className="text-[10px] text-muted-foreground">mensagens</span>
+                        </div>
+                      )}
 
-                    <div className="flex flex-wrap gap-1.5">
-                      {(campaign.device_ids as string[]).map((did, i) => {
-                        const dev = devices.find(d => d.id === did);
-                        return (
-                          <span key={did} className="inline-flex items-center gap-1 rounded-md bg-muted/30 border border-border/20 px-2 py-0.5 text-[10px] text-muted-foreground group">
-                            <span className={cn("w-1.5 h-1.5 rounded-full", dev?.status && ["connected", "Ready", "Connected", "authenticated"].includes(dev.status) ? "bg-primary" : "bg-muted-foreground")} />
-                            {dev?.name || dev?.number || `Instância ${i + 1}`}
-                            {(campaign.device_ids as string[]).length >= 1 && (
-                              <button
-                                onClick={() => {
-                                  setDeviceToRemove(did);
-                                  setReplacementDevice("none");
-                                  setRemoveDeviceOpen(true);
-                                }}
-                                className="ml-0.5 text-destructive/60 hover:text-destructive transition-colors"
-                                title="Remover conta"
-                              >
-                                <XCircle className="w-3 h-3" />
-                              </button>
-                            )}
-                          </span>
-                        );
-                      })}
+                      {/* Active devices */}
+                      <div className="space-y-1">
+                        <p className="text-[9px] font-medium text-muted-foreground/60 uppercase tracking-wider">Em uso no disparo</p>
+                        {activeIds.length === 0 ? (
+                          <p className="text-[10px] text-muted-foreground/40 italic py-2">Nenhuma conta selecionada</p>
+                        ) : (
+                          <div className="space-y-1">
+                            {activeIds.map((did, i) => {
+                              const dev = devices.find(d => d.id === did);
+                              const connected = dev ? isConnected(dev) : false;
+                              return (
+                                <div key={did} className="flex items-center justify-between rounded-md border border-border/20 bg-card/30 px-3 py-2 group hover:border-border/40 transition-colors">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary text-[9px] font-bold">
+                                      {i + 1}
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className="text-[11px] font-medium text-foreground leading-tight">
+                                        {dev?.name || `Instância ${i + 1}`}
+                                      </span>
+                                      {dev?.number && (
+                                        <span className="text-[9px] text-muted-foreground/50 font-mono">{dev.number}</span>
+                                      )}
+                                    </div>
+                                    <Badge
+                                      variant="outline"
+                                      className={cn(
+                                        "text-[8px] px-1.5 py-0 h-4",
+                                        connected
+                                          ? "border-primary/30 text-primary bg-primary/5"
+                                          : "border-destructive/30 text-destructive bg-destructive/5"
+                                      )}
+                                    >
+                                      {connected ? "Conectada" : "Desconectada"}
+                                    </Badge>
+                                  </div>
+                                  <button
+                                    onClick={() => handleQuickRemove(did)}
+                                    className="text-muted-foreground/40 hover:text-destructive transition-colors p-1 rounded-md hover:bg-destructive/10"
+                                    title="Remover do disparo"
+                                  >
+                                    <XCircle className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Available devices to add */}
+                      {availableDevices.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-[9px] font-medium text-muted-foreground/60 uppercase tracking-wider">Disponíveis para adicionar</p>
+                          <div className="space-y-1">
+                            {availableDevices.map(dev => {
+                              const connected = isConnected(dev);
+                              return (
+                                <div key={dev.id} className="flex items-center justify-between rounded-md border border-dashed border-border/20 bg-background/20 px-3 py-2 hover:border-primary/30 transition-colors">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-5 h-5 rounded-full bg-muted/30 flex items-center justify-center">
+                                      <span className={cn("w-2 h-2 rounded-full", connected ? "bg-primary" : "bg-muted-foreground/30")} />
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className="text-[11px] font-medium text-muted-foreground leading-tight">
+                                        {dev.name}
+                                      </span>
+                                      {dev.number && (
+                                        <span className="text-[9px] text-muted-foreground/40 font-mono">{dev.number}</span>
+                                      )}
+                                    </div>
+                                    <Badge
+                                      variant="outline"
+                                      className={cn(
+                                        "text-[8px] px-1.5 py-0 h-4",
+                                        connected
+                                          ? "border-primary/30 text-primary bg-primary/5"
+                                          : "border-muted-foreground/20 text-muted-foreground/50 bg-muted/10"
+                                      )}
+                                    >
+                                      {connected ? "Conectada" : "Offline"}
+                                    </Badge>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleAddDevice(dev.id)}
+                                    className="h-7 px-2.5 text-[10px] text-primary hover:text-primary hover:bg-primary/10 gap-1"
+                                  >
+                                    <Zap className="w-3 h-3" />
+                                    Adicionar
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Pause on disconnect toggle */}
                 <div className="rounded-lg border border-border/20 bg-background/30 p-3">
