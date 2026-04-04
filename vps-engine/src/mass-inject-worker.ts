@@ -346,7 +346,7 @@ async function isDeviceConnected(baseUrl: string, token: string, _checks = 1): P
     }
 
     // "unknown" — don't block, just proceed
-    log.info(`Device ${baseUrl.slice(0, 30)} status unknown — proceeding normally`);
+    // "unknown" — proceed silently
     return { connected: null, detail: extractProviderMessage(body, raw) || "Status incerto — prosseguindo." };
   } catch (error: any) {
     // Network error / timeout — don't immediately mark as disconnected
