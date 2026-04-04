@@ -722,15 +722,20 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
     let contactsInLoop = 0;
     let cachedFreshCampaign: any = null;
-    let batchProcessed = 0; // contacts processed in this batch
+    let batchProcessed = 0;
+    let noNumberWarned = false; // log "no number" only once per campaign run
+    // Batch summary counters (for reduced logging)
+    let batchAdded = 0;
+    let batchAlready = 0;
+    let batchFailed = 0;
+    let batchSkipped = 0;
 
     while (isRunningRef.value && batchProcessed < BATCH_SIZE) {
-      // Clear stale device failures — give devices a chance to reconnect
+      // Clear stale device failures
       const now = Date.now();
       for (const [did, ts] of failedDeviceIds) {
         if (now - ts > DEVICE_RETRY_INTERVAL_MS) {
           failedDeviceIds.delete(did);
-          log.info(`Campaign ${campaignId.slice(0, 8)}: clearing failed flag for device ${did.slice(0, 8)} — retrying`);
         }
       }
       // 1. Check campaign status — full refresh every 10 contacts or on first iteration
