@@ -536,9 +536,9 @@ function classifyFailure(msg: string, status: number, strategyIndex: number): Ad
   if (msg.includes("privacidade") || msg.includes("saved contacts") || msg.includes("contatos salvos") || msg.includes("only allows") || msg.includes("invite de contatos"))
     return { ...base, detail: "Privacidade: só aceita convite de contatos salvos.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "failed" };
   if (msg.includes("not admin") || msg.includes("not an admin"))
-    return { ...base, detail: "Sem permissão de admin.", retryable: false, pauseCampaign: true, cooldownMs: 0, failureStatus: "confirmed_no_admin" };
+    return { ...base, detail: "Sem permissão de admin.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "confirmed_no_admin" };
   if ((msg.includes("not found") && (msg.includes("group") || msg.includes("invalid group"))) || msg.includes("full") || msg.includes("limit reached"))
-    return { ...base, detail: msg.includes("full") || msg.includes("limit reached") ? "Grupo atingiu limite de participantes." : "Grupo inválido.", retryable: false, pauseCampaign: true, cooldownMs: 0, failureStatus: "invalid_group" };
+    return { ...base, detail: msg.includes("full") || msg.includes("limit reached") ? "Grupo atingiu limite de participantes." : "Grupo inválido.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "invalid_group" };
   if (msg.includes("blocked") || msg.includes("ban"))
     return { ...base, detail: "Contato bloqueado.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "blocked" };
   if (msg.includes("not found") && (msg.includes("number") || msg.includes("participant") || msg.includes("contact")))
