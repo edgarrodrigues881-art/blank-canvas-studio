@@ -160,7 +160,19 @@ Deno.serve(async (req) => {
     for (const config of configs) {
       const creds = await getDeviceCredentials(config.device_id!, config.user_id);
       if (!creds) continue;
-      if (config.connection_status !== "connected") continue;
+
+      // Check actual device status from devices table instead of stale config field
+      const { data: deviceRow } = await serviceClient
+        .from("devices")
+        .select("status")
+        .eq("id", config.device_id!)
+        .maybeSingle();
+      const devStatus = (deviceRow?.status || "").toLowerCase();
+      const isDeviceOnline = ["ready", "connected", "authenticated", "open"].includes(devStatus);
+      if (!isDeviceOnline) {
+        console.log(`[report-wa-cron] Skipping user ${config.user_id}: device ${config.device_id} is ${deviceRow?.status || "unknown"}`);
+        continue;
+      }
 
       const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
