@@ -1065,6 +1065,14 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         DeviceLockManager.release(deviceId, actionLockId);
       }
 
+      // Pre-classify failure type (needed for delay logic below)
+      const detailLower = result.detail.toLowerCase();
+      let isRateLimit = false;
+      let isTimeout = false;
+      let isConnectionIssue = false;
+      let failStatus = "";
+      let failureDetail = result.detail;
+
       if (result.ok) {
         await sb.from("mass_inject_contacts").update({
           status: "completed", error_message: result.detail, processed_at: nowIso(),
@@ -1086,12 +1094,11 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         recordDeviceApiSuccess(deviceId); // mark device as healthy
       } else {
         // Classify retryable vs permanent failure
-        const detailLower = result.detail.toLowerCase();
-        const isRateLimit = detailLower.includes("rate limit") || result.cooldownMs >= 30000;
-        const isTimeout = detailLower.includes("timeout");
-        const isConnectionIssue = detailLower.includes("desconectada") || detailLower.includes("socket") || detailLower.includes("disconnected");
-        let failureDetail = result.detail;
-        let failStatus = result.failureStatus || (result.retryable
+        isRateLimit = detailLower.includes("rate limit") || result.cooldownMs >= 30000;
+        isTimeout = detailLower.includes("timeout");
+        isConnectionIssue = detailLower.includes("desconectada") || detailLower.includes("socket") || detailLower.includes("disconnected");
+        failureDetail = result.detail;
+        failStatus = result.failureStatus || (result.retryable
           ? (isRateLimit ? "rate_limited" : isTimeout ? "timeout" : isConnectionIssue ? "connection_unconfirmed" : "api_temporary")
           : "failed");
 
