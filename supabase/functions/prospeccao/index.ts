@@ -58,39 +58,39 @@ Deno.serve(async (req) => {
       );
     }
 
-    const location = `${cidade}, ${estado}, Brazil`;
-    const limit = Math.min(maxResults || 50, 100); // Serper returns max 100 per request
+    const requestedTotal = Math.min(maxResults || 50, 5000);
+    const query = `${nicho} em ${cidade}, ${estado}`;
 
     console.log(
-      `[prospeccao] Buscando "${nicho}" em "${location}" (max: ${limit})`
+      `[prospeccao] Buscando "${query}" (max: ${requestedTotal})`
     );
 
-    // Calculate how many pages we need (Serper returns max 100 per request)
-    const requestedTotal = Math.min(maxResults || 50, 5000);
-    const pages = Math.ceil(requestedTotal / 100);
+    // Serper /maps returns ~20 results per page, paginate to get more
+    const perPage = 20;
+    const pages = Math.ceil(requestedTotal / perPage);
     const allResults: any[] = [];
+    const seenCids = new Set<string>();
 
-    for (let page = 0; page < pages; page++) {
-      const serperResponse = await fetch("https://google.serper.dev/places", {
+    for (let page = 1; page <= pages; page++) {
+      const serperResponse = await fetch("https://google.serper.dev/maps", {
         method: "POST",
         headers: {
           "X-API-KEY": SERPER_API_KEY,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          q: `${nicho} em ${cidade}`,
+          q: query,
           gl: "br",
           hl: "pt-br",
-          location,
-          num: 100,
-          page: page + 1,
+          num: perPage,
+          page,
         }),
       });
 
       if (!serperResponse.ok) {
         const errorText = await serperResponse.text();
         console.error(`[prospeccao] Serper error ${serperResponse.status}:`, errorText);
-        if (page === 0) {
+        if (page === 1) {
           return new Response(
             JSON.stringify({
               error: `Erro na API Serper (${serperResponse.status})`,
@@ -102,25 +102,33 @@ Deno.serve(async (req) => {
             }
           );
         }
-        break; // If subsequent pages fail, return what we have
+        break;
       }
 
       const data = await serperResponse.json();
       const places = data.places || [];
-      allResults.push(...places);
 
-      console.log(`[prospeccao] Página ${page + 1}: ${places.length} resultados`);
+      // Deduplicate by cid
+      for (const place of places) {
+        const key = place.cid || place.placeId || place.title;
+        if (!seenCids.has(key)) {
+          seenCids.add(key);
+          allResults.push(place);
+        }
+      }
 
-      // If we got fewer results than requested, no more pages
-      if (places.length < 100) break;
+      console.log(`[prospeccao] Página ${page}: ${places.length} resultados (total acumulado: ${allResults.length})`);
 
-      // Small delay between pages
-      if (page < pages - 1) {
-        await new Promise(r => setTimeout(r, 500));
+      // Stop if no more results or we have enough
+      if (places.length < perPage || allResults.length >= requestedTotal) break;
+
+      // Small delay between pages to avoid rate limiting
+      if (page < pages) {
+        await new Promise(r => setTimeout(r, 300));
       }
     }
 
-    // Map Serper response to our format
+    // Map Serper /maps response to our format
     const results = allResults.slice(0, requestedTotal).map((item: any) => ({
       nome: item.title || "",
       endereco: item.address || "",
@@ -128,23 +136,25 @@ Deno.serve(async (req) => {
       website: item.website || "",
       avaliacao: item.rating || null,
       totalAvaliacoes: item.ratingCount || 0,
-      categoria: item.category || item.type || "",
-      categorias: item.categories || (item.category ? [item.category] : []),
+      categoria: item.type || item.category || "",
+      categorias: item.types || (item.type ? [item.type] : []),
       horario: item.openingHours || null,
-      googleMapsUrl: item.placeLink || item.cid ? `https://www.google.com/maps/place/?q=place_id:${item.placeId || ""}` : "",
+      googleMapsUrl: item.cid
+        ? `https://www.google.com/maps?cid=${item.cid}`
+        : "",
       placeId: item.placeId || "",
-      imagem: item.thumbnailUrl || item.imageUrl || "",
-      email: "", // Serper doesn't provide email directly
+      imagem: item.thumbnailUrl || "",
+      email: "",
       instagram: "",
       facebook: "",
       descricao: item.description || "",
-      faixaPreco: item.priceRange || item.price || "",
+      faixaPreco: item.priceLevel || "",
       permanentementeFechado: false,
       latitude: item.latitude || null,
       longitude: item.longitude || null,
     }));
 
-    console.log(`[prospeccao] Total: ${results.length} resultados`);
+    console.log(`[prospeccao] Total final: ${results.length} resultados`);
 
     return new Response(JSON.stringify({ results, total: results.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
