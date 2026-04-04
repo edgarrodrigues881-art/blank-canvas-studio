@@ -870,7 +870,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: "Próprio número da instância (admin) — ignorado.", processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCounters(sb, campaignId, counterState, "already_exists");
+        updateCountersLocal(counterState, "already_exists");
+        contactsSinceFlush++;
+        if (contactsSinceFlush >= COUNTER_FLUSH_INTERVAL) { await flushCounters(sb, campaignId, counterState); contactsSinceFlush = 0; }
         consecutiveFailures = 0;
         log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} is the device's own number — skipped`);
         // Still apply configured delay even for skipped contacts
