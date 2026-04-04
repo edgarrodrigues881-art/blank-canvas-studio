@@ -515,6 +515,13 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
   return { ok: false, alreadyExists: false, detail: "Nenhum endpoint encontrado (405).", retryable: false, pauseCampaign: true, cooldownMs: 0, canTryOtherStrategy: false, failureStatus: "failed" };
 }
 
+/** Check if the lowercase error message contains keywords that indicate a real failure even on 2xx */
+function hasExplicitFailure(msg: string): boolean {
+  if (!msg) return false;
+  const keywords = ["blocked", "ban", "not admin", "not an admin", "not found", "unauthorized", "invalid token", "disconnected", "session disconnected", "privacidade", "saved contacts", "contatos salvos", "only allows"];
+  return keywords.some((kw) => msg.includes(kw));
+}
+
 function classifyFailure(msg: string, status: number, strategyIndex: number): AddResult {
   const base = { ok: false as const, alreadyExists: false, strategyIndex, canTryOtherStrategy: false };
   if (msg.includes("rate-overlimit") || msg.includes("429") || msg.includes("too many") || status === 429)
