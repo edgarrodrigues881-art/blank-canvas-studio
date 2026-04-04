@@ -718,6 +718,13 @@ async function phaseMonitorSessions(db: any): Promise<{ resumed: number }> {
     let nextSender = session.device_a;
     if (session.last_sender) {
       nextSender = session.last_sender === session.device_a ? session.device_b : session.device_a;
+    } else {
+      // No last_sender: older chip (higher community_day) initiates first
+      const { data: memA } = await db.from("warmup_community_membership")
+        .select("community_day").eq("device_id", session.device_a).maybeSingle();
+      const { data: memB } = await db.from("warmup_community_membership")
+        .select("community_day").eq("device_id", session.device_b).maybeSingle();
+      nextSender = (memA?.community_day || 1) >= (memB?.community_day || 1) ? session.device_a : session.device_b;
     }
 
     const { data: dev } = await db.from("devices").select("status, uazapi_token").eq("id", nextSender).maybeSingle();
