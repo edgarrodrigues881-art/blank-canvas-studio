@@ -876,7 +876,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         contactsSinceFlush++;
         if (contactsSinceFlush >= COUNTER_FLUSH_INTERVAL) { await flushCounters(sb, campaignId, counterState); contactsSinceFlush = 0; }
         consecutiveFailures = 0;
-        log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} is the device's own number — skipped`);
+        batchSkipped++;
         // Still apply configured delay even for skipped contacts
         {
           const minD = Number(freshCampaign.min_delay || 0);
