@@ -1611,6 +1611,39 @@ async function reconcileCommunityPairs(
         createdCount++;
         if (insertedPair) validPairs.push(insertedPair);
       }
+
+      // ── Fallback: if current device ended up with 0 pairs (odd chip), relax max and try again ──
+      if (validPairs.length + createdCount === 0 && targetPeers > 0) {
+        for (const candidate of sortedEligible) {
+          if (usedDevices.has(candidate.device_id)) continue;
+          const partnerDevice = candidateDeviceMap[candidate.device_id];
+          const partnerCycle = candidateCycleMap[candidate.device_id];
+          if (!partnerDevice?.number || !CONNECTED_STATUSES.includes(partnerDevice.status)) continue;
+          if (!partnerCycle?.is_running || ["paused", "completed", "error"].includes(partnerCycle.phase)) continue;
+
+          const partnerPairCount = await getActivePairCount(db, candidate.device_id);
+          const partnerChipState = partnerCycle.chip_state || "new";
+          const partnerMembership = (eligible || []).find((e: any) => e.device_id === candidate.device_id);
+          const partnerCommunityDay = partnerMembership?.community_day || 1;
+          // Relax: allow partner to have 1 extra pair beyond normal max
+          if (partnerPairCount >= getMaxPairsForChip(partnerChipState, partnerCommunityDay) + 1) continue;
+
+          const { data: insertedPair } = await db.from("community_pairs")
+            .insert({
+              cycle_id: params.cycleId,
+              instance_id_a: params.deviceId,
+              instance_id_b: candidate.device_id,
+              status: "active",
+              meta: { initiator: (params.communityDay || 1) >= partnerCommunityDay ? "a" : "b", is_new: true, is_odd_fallback: true },
+            })
+            .select("id, cycle_id, instance_id_a, instance_id_b, meta")
+            .maybeSingle();
+
+          createdCount++;
+          if (insertedPair) validPairs.push(insertedPair);
+          break; // Only need 1 pair for the odd chip
+        }
+      }
     }
   }
 
