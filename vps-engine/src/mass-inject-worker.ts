@@ -358,7 +358,7 @@ async function isDeviceConnected(baseUrl: string, token: string, _checks = 1): P
       return { connected: false, detail: `Falha de rede confirmada após ${streak} tentativas: ${error?.message || "erro"}` };
     }
 
-    log.info(`Device ${baseUrl.slice(0, 30)} check failed (streak ${streak}/${DISCONNECT_CONFIRM_THRESHOLD}): ${error?.message} — not blocking`);
+    // Not yet confirmed — proceed silently
     return { connected: null, detail: error?.message || "Falha temporária na verificação." };
   }
 }
