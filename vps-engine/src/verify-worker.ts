@@ -128,12 +128,41 @@ async function processJob(jobId: string) {
     let errorCount = job.error_count || 0;
 
     while (true) {
-      // Re-check job status (user might have canceled)
-      const { data: freshJob } = await db.from("verify_jobs").select("status").eq("id", jobId).single();
+      // Re-check job status (user might have canceled or paused)
+      const { data: freshJob } = await db.from("verify_jobs").select("status, device_id").eq("id", jobId).single();
       if (!freshJob || freshJob.status === "canceled") {
         log.info(`Job ${jobId.slice(0, 8)} canceled by user`);
         activeJobs.delete(jobId);
         return;
+      }
+      if (freshJob.status === "paused") {
+        log.info(`Job ${jobId.slice(0, 8)} paused by user`);
+        activeJobs.delete(jobId);
+        return;
+      }
+
+      // Check if device was swapped mid-job
+      if (freshJob.device_id !== device.id) {
+        log.info(`Job ${jobId.slice(0, 8)} device swapped, reloading credentials`);
+        const { data: newDevice } = await db.from("devices").select("id, uazapi_base_url, uazapi_token, status").eq("id", freshJob.device_id).single();
+        if (!newDevice || !newDevice.uazapi_base_url || !newDevice.uazapi_token) {
+          await db.from("verify_jobs").update({ status: "paused", last_error: "Nova instância sem credenciais" }).eq("id", jobId);
+          activeJobs.delete(jobId);
+          return;
+        }
+        if (!CONNECTED_STATUSES.includes(newDevice.status)) {
+          await db.from("verify_jobs").update({ status: "paused", last_error: "Nova instância desconectada" }).eq("id", jobId);
+          activeJobs.delete(jobId);
+          return;
+        }
+        // Update local references
+        (device as any).id = newDevice.id;
+        (device as any).uazapi_base_url = newDevice.uazapi_base_url;
+        (device as any).uazapi_token = newDevice.uazapi_token;
+        (device as any).status = newDevice.status;
+        baseUrl = newDevice.uazapi_base_url.replace(/\/+$/, "");
+        token = newDevice.uazapi_token;
+        log.info(`Job ${jobId.slice(0, 8)} now using device ${newDevice.id.slice(0, 8)}`);
       }
 
       // Fetch next batch of pending results
