@@ -3,7 +3,7 @@
 // ══════════════════════════════════════════════════════════
 
 export function backoffMinutes(attempt: number): number {
-  return [5, 15, 60, 180, 360][Math.min(attempt, 4)];
+  return [1, 3, 5, 10, 15][Math.min(attempt, 4)];
 }
 
 export async function withRetry<T>(
