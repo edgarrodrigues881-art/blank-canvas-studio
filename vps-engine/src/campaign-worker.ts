@@ -817,9 +817,12 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
     // 11. Instance rotation
     if (allDevices.length > 1 && instanceMsgCount >= messagesPerInstance) {
-      currentDeviceIndex = (currentDeviceIndex + 1) % allDevices.length;
+      const nextId = getNextDeviceId(currentDeviceId, allDevices);
+      const prevName = findDeviceById(currentDeviceId, allDevices)?.name || currentDeviceId?.slice(0, 8);
+      currentDeviceId = nextId;
       instanceMsgCount = 0;
-      log.info(`Campaign ${campaignId.slice(0, 8)}: rotated to device ${allDevices[currentDeviceIndex % allDevices.length]?.name}`);
+      const nextName = findDeviceById(nextId, allDevices)?.name || nextId?.slice(0, 8);
+      log.info(`Campaign ${campaignId.slice(0, 8)}: rotated ${prevName} → ${nextName} (after ${messagesPerInstance} msgs)`);
     }
 
     // 12. Block pause — sleep in chunks to detect pause/cancel faster
