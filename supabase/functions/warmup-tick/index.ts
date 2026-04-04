@@ -1333,7 +1333,7 @@ const INTERACTION_JOB_TYPES = ["group_interaction", "autosave_interaction", "com
 // Max active pairs a device can participate in (as A or B)
 // Based on community_day progression
 function getMaxPairsForChip(chipState: string, communityDay?: number): number {
-  if (!communityDay || communityDay <= 0) return 3;
+  if (!communityDay || communityDay <= 0) return 0; // Not in community yet — no pairs allowed
   const target = getCommunityPeersFromCommunityDay(communityDay);
   return target.max;
 }
@@ -1410,7 +1410,7 @@ async function reconcileCommunityPairs(
   if (communityDay === undefined) {
     const { data: membership } = await db.from("warmup_community_membership")
       .select("community_day").eq("device_id", params.deviceId).maybeSingle();
-    communityDay = membership?.community_day || 1;
+    communityDay = membership?.community_day || 0;
   }
 
   const targetPeers = getCommunityPeers(params.dayIndex, params.chipState, communityDay);
@@ -1548,6 +1548,7 @@ async function reconcileCommunityPairs(
       .select("device_id, user_id, community_day")
       .eq("is_enabled", true)
       .eq("is_eligible", true)
+      .gte("community_day", 1)
       .neq("device_id", params.deviceId)
       .limit(200);
 
