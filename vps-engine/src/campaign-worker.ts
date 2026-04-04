@@ -371,10 +371,119 @@ async function acquireDeviceLock(sb: any, deviceId: string, campaignId: string, 
   return data === true;
 }
 
+async function releaseDeviceLock(sb: any, deviceId: string, campaignId: string) {
+  await sb.from("campaign_device_locks").delete().eq("campaign_id", campaignId).eq("device_id", deviceId);
+}
+
 function getCampaignDeviceIds(campaign: any): string[] {
   if (Array.isArray(campaign.device_ids) && campaign.device_ids.length > 0) return campaign.device_ids;
   if (campaign.device_id) return [campaign.device_id];
   return [];
+}
+
+async function deriveCampaignResumeState(sb: any, campaignId: string, devices: any[], messagesPerInstance: number) {
+  let currentDeviceIndex = 0;
+  let instanceMsgCount = 0;
+
+  try {
+    const { data: lastSent } = await sb.from("campaign_contacts")
+      .select("device_id")
+      .eq("campaign_id", campaignId)
+      .eq("status", "sent")
+      .order("sent_at", { ascending: false })
+      .limit(1);
+
+    if (!lastSent?.length || !lastSent[0].device_id) {
+      return { currentDeviceIndex, instanceMsgCount };
+    }
+
+    const lastDeviceId = lastSent[0].device_id;
+    const lastIdx = devices.findIndex((device: any) => device.id === lastDeviceId);
+    if (lastIdx < 0) {
+      return { currentDeviceIndex, instanceMsgCount };
+    }
+
+    const { count } = await sb.from("campaign_contacts")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id", campaignId)
+      .eq("status", "sent")
+      .eq("device_id", lastDeviceId);
+
+    const sentCount = Number(count || 0);
+    const shouldRotate = sentCount > 0 && sentCount % messagesPerInstance === 0;
+
+    if (shouldRotate && devices.length > 1) {
+      currentDeviceIndex = (lastIdx + 1) % devices.length;
+      instanceMsgCount = 0;
+      log.info(`Campaign ${campaignId.slice(0, 8)}: resumed — rotating to device ${devices[currentDeviceIndex]?.name} (previous device closed a ${messagesPerInstance}-message window)`);
+    } else {
+      currentDeviceIndex = lastIdx;
+      instanceMsgCount = sentCount % messagesPerInstance;
+      log.info(`Campaign ${campaignId.slice(0, 8)}: resumed on device ${devices[currentDeviceIndex]?.name} (${instanceMsgCount}/${messagesPerInstance} msgs in current window)`);
+    }
+  } catch (error: any) {
+    log.warn(`Campaign ${campaignId.slice(0, 8)}: failed to derive resume state: ${error.message}`);
+  }
+
+  return { currentDeviceIndex, instanceMsgCount };
+}
+
+async function syncCampaignRuntimeDevices(
+  sb: any,
+  campaignId: string,
+  userId: string,
+  lockedDeviceIds: string[],
+  desiredDeviceIds?: string[],
+) {
+  const targetDeviceIds = Array.isArray(desiredDeviceIds)
+    ? desiredDeviceIds
+    : getCampaignDeviceIds((await sb.from("campaigns").select("device_id, device_ids").eq("id", campaignId).single()).data || {});
+
+  const desiredSet = new Set(targetDeviceIds);
+
+  for (const lockedId of [...lockedDeviceIds]) {
+    if (desiredSet.has(lockedId)) continue;
+
+    await releaseDeviceLock(sb, lockedId, campaignId);
+    DeviceLockManager.release(lockedId, campaignId);
+    const idx = lockedDeviceIds.indexOf(lockedId);
+    if (idx >= 0) lockedDeviceIds.splice(idx, 1);
+    log.info(`Campaign ${campaignId.slice(0, 8)}: device ${lockedId.slice(0, 8)} removed from live pool`);
+  }
+
+  for (const targetId of targetDeviceIds) {
+    if (lockedDeviceIds.includes(targetId)) continue;
+
+    const acquired = DeviceLockManager.tryAcquire(targetId, "campaign", campaignId);
+    if (!acquired) {
+      const blockReason = DeviceLockManager.getBlockingReason(targetId, "campaign");
+      log.warn(`Campaign ${campaignId.slice(0, 8)}: live add blocked for device ${targetId.slice(0, 8)} by ${blockReason}`);
+      continue;
+    }
+
+    const dbLocked = await acquireDeviceLock(sb, targetId, campaignId, userId);
+    if (!dbLocked) {
+      DeviceLockManager.release(targetId, campaignId);
+      log.warn(`Campaign ${campaignId.slice(0, 8)}: DB lock failed while adding device ${targetId.slice(0, 8)}`);
+      continue;
+    }
+
+    lockedDeviceIds.push(targetId);
+    log.info(`Campaign ${campaignId.slice(0, 8)}: device ${targetId.slice(0, 8)} added to live pool`);
+  }
+
+  const activeIds = targetDeviceIds.filter((id) => lockedDeviceIds.includes(id));
+  if (activeIds.length === 0) return [];
+
+  const { data: devicesRaw } = await sb.from("devices")
+    .select("id, name, uazapi_token, uazapi_base_url, status")
+    .in("id", activeIds);
+
+  const deviceMap = new Map((devicesRaw || []).map((device: any) => [device.id, device]));
+
+  return activeIds
+    .map((id) => deviceMap.get(id))
+    .filter((device: any) => device && device.uazapi_token && device.uazapi_base_url && CONNECTED_STATUSES.includes(device.status));
 }
 
 class RandomPicker {
@@ -460,11 +569,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     }
   }
 
-  // Load devices
-  const { data: devicesRaw } = await sb.from("devices")
-    .select("id, name, uazapi_token, uazapi_base_url, status")
-    .in("id", deviceIds);
-  let allDevices = (devicesRaw || []).filter((d: any) => d.uazapi_token && d.uazapi_base_url && CONNECTED_STATUSES.includes(d.status));
+  let allDevices = await syncCampaignRuntimeDevices(sb, campaignId, campaign.user_id, lockedDeviceIds, deviceIds);
 
   if (allDevices.length === 0) {
     log.warn(`Campaign ${campaignId.slice(0, 8)}: no connected devices`);
@@ -504,48 +609,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
   const usedRand3 = new Set<string>();
   const picker = new RandomPicker(messageVariants.length);
 
-  // ── Resume-aware rotation: detect last device used before pause ──
-  let currentDeviceIndex = 0;
-  let instanceMsgCount = 0;
-  try {
-    // Find the last sent contact to know which device was active
-    const { data: lastSent } = await sb.from("campaign_contacts")
-      .select("device_id")
-      .eq("campaign_id", campaignId)
-      .eq("status", "sent")
-      .order("sent_at", { ascending: false })
-      .limit(1);
-
-    if (lastSent?.length && lastSent[0].device_id) {
-      const lastDeviceId = lastSent[0].device_id;
-      const lastIdx = allDevices.findIndex((d: any) => d.id === lastDeviceId);
-
-      if (lastIdx >= 0) {
-        // Count how many messages this device sent in the current rotation window
-        const { count: sentByDevice } = await sb.from("campaign_contacts")
-          .select("id", { count: "exact", head: true })
-          .eq("campaign_id", campaignId)
-          .eq("status", "sent")
-          .eq("device_id", lastDeviceId);
-
-        const sentCount = Number(sentByDevice || 0);
-        const countInCurrentWindow = sentCount % messagesPerInstance;
-
-        if (countInCurrentWindow >= messagesPerInstance) {
-          // Device already hit rotation limit — move to next
-          currentDeviceIndex = (lastIdx + 1) % allDevices.length;
-          instanceMsgCount = 0;
-          log.info(`Campaign ${campaignId.slice(0, 8)}: resumed — rotating to device ${allDevices[currentDeviceIndex]?.name} (prev device hit ${messagesPerInstance} limit)`);
-        } else {
-          currentDeviceIndex = lastIdx;
-          instanceMsgCount = countInCurrentWindow;
-          log.info(`Campaign ${campaignId.slice(0, 8)}: resumed on device ${allDevices[currentDeviceIndex]?.name} (${countInCurrentWindow}/${messagesPerInstance} msgs in window)`);
-        }
-      }
-    }
-  } catch (e: any) {
-    log.warn(`Campaign ${campaignId.slice(0, 8)}: failed to detect resume state: ${e.message}`);
-  }
+  const resumeState = await deriveCampaignResumeState(sb, campaignId, allDevices, messagesPerInstance);
+  let currentDeviceIndex = resumeState.currentDeviceIndex;
+  let instanceMsgCount = resumeState.instanceMsgCount;
 
   let msgsSincePause = 0;
   let pauseAfter = Math.round(randomBetween(pauseEveryMin, pauseEveryMax));
@@ -554,11 +620,22 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
   while (isRunningRef.value) {
     // 1. Check campaign status
-    const { data: fresh } = await sb.from("campaigns").select("status").eq("id", campaignId).single();
+    const { data: fresh } = await sb.from("campaigns").select("status, device_id, device_ids").eq("id", campaignId).single();
     if (!fresh || !["running"].includes(fresh.status)) {
       log.info(`Campaign ${campaignId.slice(0, 8)} status=${fresh?.status} — stopping`);
       break;
     }
+
+    allDevices = await syncCampaignRuntimeDevices(sb, campaignId, campaign.user_id, lockedDeviceIds, getCampaignDeviceIds(fresh));
+    if (allDevices.length === 0) {
+      log.warn(`Campaign ${campaignId.slice(0, 8)}: no available devices after live sync — pausing`);
+      const stats = await getRealCampaignStats(sb, campaignId);
+      await sb.from("campaigns").update({ status: "paused", sent_count: stats.sent, delivered_count: stats.delivered, failed_count: stats.failed, total_contacts: stats.total, updated_at: nowIso() }).eq("id", campaignId);
+      await sb.from("campaign_device_locks").delete().eq("campaign_id", campaignId);
+      sendCampaignAlertToWa(sb, campaign.user_id, campaign.name, "paused", stats);
+      break;
+    }
+    currentDeviceIndex = currentDeviceIndex % allDevices.length;
 
     // 2. Heartbeat
     heartbeatCounter++;
