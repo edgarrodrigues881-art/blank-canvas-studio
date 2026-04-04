@@ -1612,7 +1612,7 @@ async function reconcileCommunityPairs(
             instance_id_a: params.deviceId,
             instance_id_b: candidate.device_id,
             status: "active",
-            meta: { initiator: Math.random() < 0.5 ? "a" : "b", is_new: true },
+            meta: { initiator: (params.communityDay || 1) >= partnerCommunityDay ? "a" : "b", is_new: true },
           })
           .select("id, cycle_id, instance_id_a, instance_id_b, meta")
           .maybeSingle();
