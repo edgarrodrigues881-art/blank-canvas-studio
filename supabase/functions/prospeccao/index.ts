@@ -12,7 +12,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -28,9 +27,8 @@ Deno.serve(async (req) => {
     );
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } =
-      await supabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -61,14 +59,16 @@ Deno.serve(async (req) => {
     }
 
     const locationQuery = `${cidade}, ${estado}, Brasil`;
-    const limit = Math.min(maxResults || 50, 200);
+    const limit = Math.min(maxResults || 50, 5000);
+
+    // Calculate timeout based on limit
+    const timeoutSeconds = limit <= 200 ? 120 : limit <= 1000 ? 300 : 600;
 
     console.log(
-      `[prospeccao] Buscando "${nicho}" em "${locationQuery}" (max: ${limit})`
+      `[prospeccao] Buscando "${nicho}" em "${locationQuery}" (max: ${limit}, timeout: ${timeoutSeconds}s)`
     );
 
-    // Use Apify's sync endpoint to run actor and get dataset items directly
-    const apifyUrl = `https://api.apify.com/v2/acts/compass~crawler-google-places/run-sync-get-dataset-items?token=${APIFY_API_KEY}&timeout=120`;
+    const apifyUrl = `https://api.apify.com/v2/acts/compass~crawler-google-places/run-sync-get-dataset-items?token=${APIFY_API_KEY}&timeout=${timeoutSeconds}`;
 
     const apifyResponse = await fetch(apifyUrl, {
       method: "POST",
@@ -80,6 +80,8 @@ Deno.serve(async (req) => {
         language: "pt-BR",
         deeperCityScrape: false,
         skipClosedPlaces: true,
+        scrapeContacts: true,
+        scrapeDirectories: true,
       }),
     });
 
@@ -100,7 +102,21 @@ Deno.serve(async (req) => {
 
     const rawResults = await apifyResponse.json();
 
-    // Map to clean structure
+    // Extract social media links
+    const getSocial = (item: any, platform: string): string => {
+      if (!item.socialProfiles && !item.socialMediaLinks) return "";
+      const profiles = item.socialProfiles || item.socialMediaLinks || [];
+      if (Array.isArray(profiles)) {
+        const found = profiles.find((p: any) =>
+          (typeof p === "string" && p.includes(platform)) ||
+          (p?.url && p.url.includes(platform)) ||
+          (p?.platform && p.platform.toLowerCase().includes(platform))
+        );
+        if (found) return typeof found === "string" ? found : found.url || "";
+      }
+      return "";
+    };
+
     const results = (Array.isArray(rawResults) ? rawResults : []).map(
       (item: any) => ({
         nome: item.title || item.name || "",
@@ -118,6 +134,12 @@ Deno.serve(async (req) => {
         googleMapsUrl: item.url || item.googleMapsUrl || "",
         placeId: item.placeId || "",
         imagem: item.imageUrl || item.thumbnailUrl || "",
+        email: item.email || item.emails?.[0] || "",
+        instagram: getSocial(item, "instagram"),
+        facebook: getSocial(item, "facebook"),
+        descricao: item.description || item.additionalInfo?.["Sobre"] || "",
+        faixaPreco: item.price || item.priceLevel || "",
+        permanentementeFechado: item.permanentlyClosed || false,
       })
     );
 

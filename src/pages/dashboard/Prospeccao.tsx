@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,11 +8,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Search, Download, MapPin, Phone, Globe, Star, Loader2, Building2 } from "lucide-react";
+import { Search, Download, MapPin, Phone, Globe, Star, Loader2, Building2, Mail, Clock, Instagram } from "lucide-react";
 
-const ESTADOS_BR = [
-  "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT",
-  "PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"
+const ESTADOS_BR: { sigla: string; nome: string }[] = [
+  { sigla: "AC", nome: "Acre" },
+  { sigla: "AL", nome: "Alagoas" },
+  { sigla: "AM", nome: "Amazonas" },
+  { sigla: "AP", nome: "Amapá" },
+  { sigla: "BA", nome: "Bahia" },
+  { sigla: "CE", nome: "Ceará" },
+  { sigla: "DF", nome: "Distrito Federal" },
+  { sigla: "ES", nome: "Espírito Santo" },
+  { sigla: "GO", nome: "Goiás" },
+  { sigla: "MA", nome: "Maranhão" },
+  { sigla: "MG", nome: "Minas Gerais" },
+  { sigla: "MS", nome: "Mato Grosso do Sul" },
+  { sigla: "MT", nome: "Mato Grosso" },
+  { sigla: "PA", nome: "Pará" },
+  { sigla: "PB", nome: "Paraíba" },
+  { sigla: "PE", nome: "Pernambuco" },
+  { sigla: "PI", nome: "Piauí" },
+  { sigla: "PR", nome: "Paraná" },
+  { sigla: "RJ", nome: "Rio de Janeiro" },
+  { sigla: "RN", nome: "Rio Grande do Norte" },
+  { sigla: "RO", nome: "Rondônia" },
+  { sigla: "RR", nome: "Roraima" },
+  { sigla: "RS", nome: "Rio Grande do Sul" },
+  { sigla: "SC", nome: "Santa Catarina" },
+  { sigla: "SE", nome: "Sergipe" },
+  { sigla: "SP", nome: "São Paulo" },
+  { sigla: "TO", nome: "Tocantins" },
 ];
 
 interface ProspectResult {
@@ -27,16 +52,52 @@ interface ProspectResult {
   horario: any;
   googleMapsUrl: string;
   imagem: string;
+  email: string;
+  instagram: string;
+  facebook: string;
+  descricao: string;
+  faixaPreco: string;
+  permanentementeFechado: boolean;
 }
 
 export default function Prospeccao() {
   const [nicho, setNicho] = useState("");
   const [estado, setEstado] = useState("");
   const [cidade, setCidade] = useState("");
+  const [cidades, setCidades] = useState<string[]>([]);
+  const [loadingCidades, setLoadingCidades] = useState(false);
   const [maxResults, setMaxResults] = useState("50");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<ProspectResult[]>([]);
   const [searched, setSearched] = useState(false);
+
+  // Fetch cities from IBGE API when state changes
+  useEffect(() => {
+    if (!estado) {
+      setCidades([]);
+      setCidade("");
+      return;
+    }
+
+    const fetchCidades = async () => {
+      setLoadingCidades(true);
+      setCidade("");
+      try {
+        const res = await fetch(
+          `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estado}/municipios?orderBy=nome`
+        );
+        const data = await res.json();
+        setCidades(data.map((c: any) => c.nome));
+      } catch {
+        toast.error("Erro ao carregar cidades");
+        setCidades([]);
+      } finally {
+        setLoadingCidades(false);
+      }
+    };
+
+    fetchCidades();
+  }, [estado]);
 
   const handleSearch = async () => {
     if (!nicho.trim() || !estado || !cidade.trim()) {
@@ -68,10 +129,13 @@ export default function Prospeccao() {
 
   const exportCSV = () => {
     if (!results.length) return;
-    const headers = ["Nome", "Endereço", "Telefone", "Website", "Avaliação", "Total Avaliações", "Categoria"];
+    const headers = [
+      "Nome", "Categoria", "Telefone", "Email", "Website", "Instagram", "Facebook",
+      "Endereço", "Avaliação", "Total Avaliações", "Faixa de Preço", "Descrição", "Google Maps"
+    ];
     const rows = results.map((r) => [
-      r.nome, r.endereco, r.telefone, r.website,
-      r.avaliacao ?? "", r.totalAvaliacoes, r.categoria,
+      r.nome, r.categoria, r.telefone, r.email, r.website, r.instagram, r.facebook,
+      r.endereco, r.avaliacao ?? "", r.totalAvaliacoes, r.faixaPreco, r.descricao, r.googleMapsUrl,
     ]);
     const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
@@ -84,6 +148,8 @@ export default function Prospeccao() {
     toast.success("CSV exportado!");
   };
 
+  const estadoNome = ESTADOS_BR.find(e => e.sigla === estado)?.nome || "";
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -91,7 +157,7 @@ export default function Prospeccao() {
         <div>
           <h1 className="text-2xl font-bold">Prospecção</h1>
           <p className="text-muted-foreground text-sm">
-            Busque comercios e negócios por nicho e localização
+            Busque comércios e negócios por nicho e localização
           </p>
         </div>
       </div>
@@ -114,22 +180,29 @@ export default function Prospeccao() {
               <Label>Estado *</Label>
               <Select value={estado} onValueChange={setEstado}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
+                  <SelectValue placeholder="Selecione o estado" />
                 </SelectTrigger>
                 <SelectContent>
                   {ESTADOS_BR.map((uf) => (
-                    <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                    <SelectItem key={uf.sigla} value={uf.sigla}>
+                      {uf.nome} ({uf.sigla})
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Cidade *</Label>
-              <Input
-                placeholder="Ex: São Paulo"
-                value={cidade}
-                onChange={(e) => setCidade(e.target.value)}
-              />
+              <Select value={cidade} onValueChange={setCidade} disabled={!estado || loadingCidades}>
+                <SelectTrigger>
+                  <SelectValue placeholder={loadingCidades ? "Carregando..." : estado ? "Selecione a cidade" : "Selecione o estado primeiro"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {cidades.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Máx. resultados</Label>
@@ -142,6 +215,10 @@ export default function Prospeccao() {
                   <SelectItem value="50">50</SelectItem>
                   <SelectItem value="100">100</SelectItem>
                   <SelectItem value="200">200</SelectItem>
+                  <SelectItem value="500">500</SelectItem>
+                  <SelectItem value="1000">1.000</SelectItem>
+                  <SelectItem value="2000">2.000</SelectItem>
+                  <SelectItem value="5000">5.000</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -159,7 +236,7 @@ export default function Prospeccao() {
           </div>
           {loading && (
             <p className="text-sm text-muted-foreground mt-3">
-              ⏳ A busca pode levar de 30s a 2min dependendo da quantidade de resultados...
+              ⏳ A busca pode levar de 30s a vários minutos dependendo da quantidade de resultados...
             </p>
           )}
         </CardContent>
@@ -186,17 +263,25 @@ export default function Prospeccao() {
                       <TableHead>Nome</TableHead>
                       <TableHead>Categoria</TableHead>
                       <TableHead>Telefone</TableHead>
+                      <TableHead>Email</TableHead>
                       <TableHead>Endereço</TableHead>
                       <TableHead>Avaliação</TableHead>
+                      <TableHead>Preço</TableHead>
                       <TableHead>Website</TableHead>
+                      <TableHead>Redes</TableHead>
                       <TableHead>Maps</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {results.map((r, i) => (
                       <TableRow key={i}>
-                        <TableCell className="font-medium max-w-[200px] truncate">
-                          {r.nome}
+                        <TableCell className="font-medium max-w-[200px]">
+                          <div className="truncate">{r.nome}</div>
+                          {r.descricao && (
+                            <div className="text-xs text-muted-foreground truncate max-w-[200px]" title={r.descricao}>
+                              {r.descricao}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           {r.categoria && (
@@ -210,6 +295,15 @@ export default function Prospeccao() {
                             <span className="flex items-center gap-1 text-sm">
                               <Phone className="h-3 w-3" /> {r.telefone}
                             </span>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {r.email ? (
+                            <a href={`mailto:${r.email}`} className="flex items-center gap-1 text-sm text-primary hover:underline">
+                              <Mail className="h-3 w-3" /> {r.email}
+                            </a>
                           ) : (
                             <span className="text-muted-foreground text-xs">—</span>
                           )}
@@ -230,6 +324,9 @@ export default function Prospeccao() {
                             "—"
                           )}
                         </TableCell>
+                        <TableCell className="text-sm">
+                          {r.faixaPreco || "—"}
+                        </TableCell>
                         <TableCell>
                           {r.website ? (
                             <a
@@ -243,6 +340,21 @@ export default function Prospeccao() {
                           ) : (
                             "—"
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {r.instagram && (
+                              <a href={r.instagram} target="_blank" rel="noopener noreferrer" title="Instagram">
+                                <Instagram className="h-4 w-4 text-pink-500 hover:text-pink-400" />
+                              </a>
+                            )}
+                            {r.facebook && (
+                              <a href={r.facebook} target="_blank" rel="noopener noreferrer" title="Facebook">
+                                <Globe className="h-4 w-4 text-blue-500 hover:text-blue-400" />
+                              </a>
+                            )}
+                            {!r.instagram && !r.facebook && "—"}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {r.googleMapsUrl ? (
