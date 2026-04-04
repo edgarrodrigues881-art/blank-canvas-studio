@@ -200,7 +200,7 @@ async function processJob(jobId: string) {
       status: "failed",
       last_error: err?.message || "Erro interno",
       completed_at: new Date().toISOString(),
-    }).eq("id", jobId).catch(() => {});
+    }).eq("id", jobId);
   } finally {
     activeJobs.delete(jobId);
   }
