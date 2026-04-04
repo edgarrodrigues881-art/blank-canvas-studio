@@ -1317,7 +1317,7 @@ Deno.serve(async (req) => {
             instanceMsgCount = 0;
             console.log(`Rotating to device ${allDevices[currentDeviceIndex].name}`);
           }
-          const activeDevice = useRotation ? allDevices[currentDeviceIndex] : device;
+          const activeDevice = useRotation ? allDevices[currentDeviceIndex % allDevices.length] : device;
           const activeToken = activeDevice.uazapi_token;
           const activeBaseUrl = (activeDevice.uazapi_base_url || "").replace(/\/+$/, "");
 
