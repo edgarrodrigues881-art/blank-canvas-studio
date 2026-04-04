@@ -14,9 +14,10 @@ import {
 } from "@/components/ui/dialog";
 import {
   ArrowLeft, Pause, Play, XCircle, CheckCircle2, Clock, AlertTriangle,
-  Search, Timer, Hash, Zap, RefreshCw, RotateCcw, Send, Ban, ChevronDown, Download, ShieldAlert, Save, Loader2, Users,
+  Search, Timer, Hash, Zap, RefreshCw, RotateCcw, Send, Ban, ChevronDown, Download, ShieldAlert, Save, Loader2, Users, Trash2, Replace,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -134,10 +135,63 @@ const CampaignDetail = () => {
   const [saveContactsPending, setSaveContactsPending] = useState(false);
   const [saveContactsLoading, setSaveContactsLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [removeDeviceOpen, setRemoveDeviceOpen] = useState(false);
+  const [deviceToRemove, setDeviceToRemove] = useState<string | null>(null);
+  const [replacementDevice, setReplacementDevice] = useState<string>("none");
+  const [deviceActionLoading, setDeviceActionLoading] = useState(false);
   const createTemplate = useCreateTemplate();
   const createCarouselTemplate = useCreateCarouselTemplate();
   const updateCarouselTemplate = useUpdateCarouselTemplate();
   const { data: carouselTemplates = [] } = useCarouselTemplates();
+
+  const handleRemoveDevice = async () => {
+    if (!id || !deviceToRemove || deviceActionLoading) return;
+    setDeviceActionLoading(true);
+    try {
+      const currentDeviceIds = Array.isArray(campaign?.device_ids) ? [...(campaign.device_ids as string[])] : [];
+      const newDeviceIds = currentDeviceIds.filter(did => did !== deviceToRemove);
+
+      if (replacementDevice && replacementDevice !== "none") {
+        if (!newDeviceIds.includes(replacementDevice)) {
+          newDeviceIds.push(replacementDevice);
+        }
+      }
+
+      const updates: Record<string, any> = {
+        device_ids: newDeviceIds,
+        updated_at: new Date().toISOString(),
+      };
+      if (newDeviceIds.length > 0 && !newDeviceIds.includes(campaign?.device_id as string)) {
+        updates.device_id = newDeviceIds[0];
+      }
+
+      const { error } = await supabase.from("campaigns").update(updates).eq("id", id);
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ["campaign", id] });
+      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+
+      const removedDev = devices.find(d => d.id === deviceToRemove);
+      const replacedDev = replacementDevice !== "none" ? devices.find(d => d.id === replacementDevice) : null;
+
+      toast({
+        title: replacedDev
+          ? `🔄 ${removedDev?.name || "Conta"} substituída por ${replacedDev?.name || "outra"}`
+          : `🗑 ${removedDev?.name || "Conta"} removida`,
+        description: newDeviceIds.length === 0
+          ? "Nenhuma instância restante. A campanha será pausada automaticamente."
+          : `${newDeviceIds.length} instância(s) ativa(s)`,
+      });
+
+      setRemoveDeviceOpen(false);
+      setDeviceToRemove(null);
+      setReplacementDevice("none");
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setDeviceActionLoading(false);
+    }
+  };
 
   const handleSaveTemplate = () => {
     if (!campaign || !saveTemplateName.trim()) return;
@@ -960,9 +1014,22 @@ const CampaignDetail = () => {
                       {(campaign.device_ids as string[]).map((did, i) => {
                         const dev = devices.find(d => d.id === did);
                         return (
-                          <span key={did} className="inline-flex items-center gap-1 rounded-md bg-muted/30 border border-border/20 px-2 py-0.5 text-[10px] text-muted-foreground">
+                          <span key={did} className="inline-flex items-center gap-1 rounded-md bg-muted/30 border border-border/20 px-2 py-0.5 text-[10px] text-muted-foreground group">
                             <span className={cn("w-1.5 h-1.5 rounded-full", dev?.status && ["connected", "Ready", "Connected", "authenticated"].includes(dev.status) ? "bg-primary" : "bg-muted-foreground")} />
                             {dev?.name || dev?.number || `Instância ${i + 1}`}
+                            {(campaign.device_ids as string[]).length >= 1 && (
+                              <button
+                                onClick={() => {
+                                  setDeviceToRemove(did);
+                                  setReplacementDevice("none");
+                                  setRemoveDeviceOpen(true);
+                                }}
+                                className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-destructive/60 hover:text-destructive"
+                                title="Remover conta"
+                              >
+                                <XCircle className="w-3 h-3" />
+                              </button>
+                            )}
                           </span>
                         );
                       })}
@@ -1310,6 +1377,74 @@ const CampaignDetail = () => {
             <Button size="sm" onClick={handleSaveContactsConfirm} disabled={(!saveContactsSent && !saveContactsFailed && !saveContactsPending) || saveContactsLoading} className="gap-1.5 text-xs">
               {saveContactsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Users className="w-3.5 h-3.5" />}
               Salvar ({(saveContactsSent ? stats.sent : 0) + (saveContactsFailed ? stats.failed : 0) + (saveContactsPending ? stats.pending : 0)})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Remove/Replace Device Dialog ──────────────────────── */}
+      <Dialog open={removeDeviceOpen} onOpenChange={setRemoveDeviceOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">Gerenciar conta</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Remova a conta do disparo ou substitua por outra instância.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg border border-border/30 p-3 bg-muted/10">
+              <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium mb-1">Conta a remover</p>
+              <div className="flex items-center gap-2">
+                <Trash2 className="w-4 h-4 text-destructive/60" />
+                <span className="text-sm font-medium text-foreground">
+                  {(() => {
+                    const dev = devices.find(d => d.id === deviceToRemove);
+                    return dev ? `${dev.name}${dev.number ? ` (${dev.number})` : ""}` : "Instância";
+                  })()}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Substituir por outra conta? (opcional)</Label>
+              <Select value={replacementDevice} onValueChange={setReplacementDevice}>
+                <SelectTrigger className="h-9 text-xs bg-background/50">
+                  <SelectValue placeholder="Nenhuma — apenas remover" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhuma — apenas remover</SelectItem>
+                  {devices
+                    .filter(d => {
+                      const currentIds = Array.isArray(campaign?.device_ids) ? (campaign.device_ids as string[]) : [];
+                      return !currentIds.includes(d.id) && d.id !== deviceToRemove;
+                    })
+                    .map(d => (
+                      <SelectItem key={d.id} value={d.id}>
+                        <span className="flex items-center gap-2">
+                          <span className={cn("w-1.5 h-1.5 rounded-full", d.status && ["connected", "Ready", "Connected", "authenticated"].includes(d.status) ? "bg-primary" : "bg-muted-foreground/40")} />
+                          {d.name}{d.number ? ` (${d.number})` : ""}
+                        </span>
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(campaign?.device_ids as string[])?.length === 1 && replacementDevice === "none" && (
+              <p className="text-[10px] text-amber-400/80">⚠ Ao remover a única instância, a campanha será pausada automaticamente.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setRemoveDeviceOpen(false)} className="text-xs">Cancelar</Button>
+            <Button
+              size="sm"
+              variant={replacementDevice !== "none" ? "default" : "destructive"}
+              onClick={handleRemoveDevice}
+              disabled={deviceActionLoading}
+              className="gap-1.5 text-xs"
+            >
+              {deviceActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : replacementDevice !== "none" ? <RefreshCw className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
+              {replacementDevice !== "none" ? "Substituir" : "Remover"}
             </Button>
           </DialogFooter>
         </DialogContent>
