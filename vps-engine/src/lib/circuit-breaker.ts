@@ -18,8 +18,8 @@ interface CircuitState {
 }
 
 const DEFAULT_FAILURE_THRESHOLD = 3;   // consecutive failures to open
-const DEFAULT_COOLDOWN_MS = 120_000;   // 2 min cooldown when open
-const MAX_COOLDOWN_MS = 600_000;       // 10 min max cooldown
+const DEFAULT_COOLDOWN_MS = 15_000;    // 15s cooldown when open (was 120s — too aggressive)
+const MAX_COOLDOWN_MS = 60_000;        // 60s max cooldown (was 600s)
 
 const circuits = new Map<string, CircuitState>();
 
