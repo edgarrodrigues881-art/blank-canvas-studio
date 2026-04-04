@@ -824,7 +824,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
             
             // Don't pause immediately — just continue the loop and retry
             // The loop will re-check on next iteration
-            log.info(`Campaign ${campaignId.slice(0, 8)}: retrying after cooldown — not pausing yet`);
+            // Retry silently — warn was already logged above
             continue;
           }
           continue;
