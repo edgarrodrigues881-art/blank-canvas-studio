@@ -1114,7 +1114,7 @@ const CampaignDetail = () => {
                                 />
                               </div>
                             )}
-                            <ScrollArea className="max-h-[180px]">
+                            <ScrollArea className="h-[180px]">
                               <div className="space-y-1 pr-2">
                                 {filteredAvailable.length === 0 ? (
                                   <p className="text-[10px] text-muted-foreground/40 italic py-2 text-center">Nenhuma instância encontrada</p>
