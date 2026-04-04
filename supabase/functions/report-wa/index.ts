@@ -644,32 +644,9 @@ Deno.serve(async (req) => {
 
       let sentCount = 0;
 
-      // ═══ CONNECTION ALERTS → group_id ═══
-      if (config.alert_disconnect) {
-        const gid = config.group_id;
-        if (gid) {
-          const { data: allDevices } = await serviceClient
-            .from("devices").select("id, name, number, status, login_type")
-            .eq("user_id", userId).neq("login_type", "report_wa");
-
-          for (const dev of (allDevices || [])) {
-            if (["Disconnected", "disconnected"].includes(dev.status)) {
-              if (!(await wasRecentlySent(`%${dev.name}%desconect%alerta%`))) {
-                const msg = `⚠️ ALERTA DE CONEXÃO\n\n🖥 Instância: ${dev.name}\n📞 Número: ${dev.number || "N/A"}\n\n❌ Status: Desconectado\n⏱ Horário: ${nowBRT}\n\nA instância perdeu a conexão com o WhatsApp.\n\nPara voltar a funcionar, é necessário reconectar.`;
-                if (await sendToTargetGroup(gid, msg)) sentCount++;
-                await serviceClient.from("report_wa_logs").insert({ user_id: userId, level: "WARN", message: `Instância "${dev.name}" desconectada — alerta enviado` });
-              }
-            }
-            if (dev.status === "Ready") {
-              if (!(await wasRecentlySent(`%${dev.name}%conectada%alerta%`))) {
-                const msg = `✅ INSTÂNCIA CONECTADA\n\n🔹 Instância: ${dev.name}\n📱 Chip: ${dev.profile_name || dev.name}\n📞 Número: ${dev.number || "N/A"}\n\n🟢 Status: Online\n⏱ Conectado às: ${nowBRT}`;
-                if (await sendToTargetGroup(gid, msg)) sentCount++;
-                await serviceClient.from("report_wa_logs").insert({ user_id: userId, level: "INFO", message: `Instância "${dev.name}" conectada — alerta enviado` });
-              }
-            }
-          }
-        }
-      }
+      // ═══ CONNECTION ALERTS ═══
+      // Connection alerts are now handled in real-time by sync-devices.
+      // Removed from check-events to prevent duplicate notifications.
 
       // ═══ CAMPAIGN ALERTS → group_id ═══
       if (config.toggle_campaigns && config.group_id) {
