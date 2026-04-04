@@ -687,8 +687,10 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       continue;
     }
 
-    // 13. Normal delay
-    await sleep(randomBetween(minDelayMs, maxDelayMs));
+    // 13. Normal delay (random within configured range)
+    const delayMs = Math.round(randomBetween(minDelayMs, maxDelayMs));
+    log.info(`Campaign ${campaignId.slice(0, 8)}: delay ${Math.round(delayMs / 1000)}s (range ${Math.round(minDelayMs / 1000)}-${Math.round(maxDelayMs / 1000)}s)`);
+    await sleep(delayMs);
   }
 
   // Release global device locks
