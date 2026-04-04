@@ -983,12 +983,39 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         }).eq("id", contact.id);
         updateCountersLocal(counterState, failStatus);
         contactsSinceFlush++;
-
-        consecutiveFailures = AUTO_PAUSE_FAILURE_STATUSES.has(failStatus)
-          ? counterState.consecutive_failures
-          : 0;
         batchFailed++;
 
+        // ── Per-device consecutive critical error tracking ──
+        const isCriticalError = CRITICAL_FAILURE_STATUSES.has(failStatus);
+        const isTransientError = TRANSIENT_FAILURE_STATUSES.has(failStatus);
+
+        if (isCriticalError) {
+          // Increment per-device critical error counter
+          const devErrors = (deviceCriticalErrors.get(deviceId) || 0) + 1;
+          deviceCriticalErrors.set(deviceId, devErrors);
+
+          if (devErrors >= DEVICE_CRITICAL_PAUSE_THRESHOLD) {
+            // Confirmed critical issue — pause campaign
+            const reason = `Pausada: ${devErrors} erros críticos consecutivos (${failStatus}: ${failureDetail}).`;
+            log.warn(`Campaign ${campaignId.slice(0, 8)}: ${reason}`);
+            await flushCounters(sb, campaignId, counterState);
+            await sb.from("mass_inject_campaigns").update({
+              status: "paused", updated_at: nowIso(), next_run_at: null, pause_reason: reason,
+            }).eq("id", campaignId);
+            await emitEvent(sb, campaignId, "campaign_paused", "warning", reason);
+            break;
+          }
+          // Not enough consecutive critical errors — continue with next contact
+          log.info(`Campaign ${campaignId.slice(0, 8)}: critical error ${devErrors}/${DEVICE_CRITICAL_PAUSE_THRESHOLD} on device ${device.name} — continuing`);
+        } else if (isTransientError) {
+          // Transient errors do NOT increment critical counter — just continue
+          // Don't reset critical counter either (only success/already resets it)
+        } else {
+          // Non-critical permanent failure (blocked, contact_not_found, etc.) — just skip contact
+          deviceCriticalErrors.delete(deviceId); // reset critical counter on non-critical failure
+        }
+
+        // If result says pauseCampaign (only for truly unrecoverable like no endpoint 405)
         if (result.pauseCampaign) {
           await flushCounters(sb, campaignId, counterState);
           await sb.from("mass_inject_campaigns").update({
@@ -996,16 +1023,6 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
             pause_reason: result.detail,
           }).eq("id", campaignId);
           await emitEvent(sb, campaignId, "campaign_paused", "warning", result.detail);
-          break;
-        }
-
-        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-          const reason = `Pausada por ${MAX_CONSECUTIVE_FAILURES} falhas consecutivas.`;
-          await flushCounters(sb, campaignId, counterState);
-          await sb.from("mass_inject_campaigns").update({
-            status: "paused", updated_at: nowIso(), next_run_at: null, pause_reason: reason,
-          }).eq("id", campaignId);
-          await emitEvent(sb, campaignId, "campaign_paused", "warning", reason);
           break;
         }
 
