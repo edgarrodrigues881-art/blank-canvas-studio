@@ -972,7 +972,7 @@ const CampaignDetail = () => {
                    // Also include legacy single device_id
                    const allActiveIds = new Set([...activeIds, ...(campaign.device_id ? [campaign.device_id] : [])]);
                    const isConnected = (d: typeof devices[0]) => d.status && ["connected", "Ready", "Connected", "authenticated"].includes(d.status);
-                   const availableDevices = devices.filter(d => !allActiveIds.has(d.id));
+                   const availableDevices = devices.filter(d => !allActiveIds.has(d.id) && isConnected(d));
 
                   const handleAddDevice = async (deviceId: string) => {
                     if (!id) return;
