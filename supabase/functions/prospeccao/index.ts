@@ -47,10 +47,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const APIFY_API_KEY = Deno.env.get("APIFY_API_KEY");
-    if (!APIFY_API_KEY) {
+    const SERPER_API_KEY = Deno.env.get("SERPER_API_KEY");
+    if (!SERPER_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "APIFY_API_KEY não configurada" }),
+        JSON.stringify({ error: "SERPER_API_KEY não configurada" }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -58,92 +58,93 @@ Deno.serve(async (req) => {
       );
     }
 
-    const locationQuery = `${cidade}, ${estado}, Brasil`;
-    const limit = Math.min(maxResults || 50, 5000);
-
-    // Calculate timeout based on limit
-    const timeoutSeconds = limit <= 200 ? 120 : limit <= 1000 ? 300 : 600;
+    const location = `${cidade}, ${estado}, Brazil`;
+    const limit = Math.min(maxResults || 50, 100); // Serper returns max 100 per request
 
     console.log(
-      `[prospeccao] Buscando "${nicho}" em "${locationQuery}" (max: ${limit}, timeout: ${timeoutSeconds}s)`
+      `[prospeccao] Buscando "${nicho}" em "${location}" (max: ${limit})`
     );
 
-    const apifyUrl = `https://api.apify.com/v2/acts/compass~crawler-google-places/run-sync-get-dataset-items?token=${APIFY_API_KEY}&timeout=${timeoutSeconds}`;
+    // Calculate how many pages we need (Serper returns max 100 per request)
+    const requestedTotal = Math.min(maxResults || 50, 5000);
+    const pages = Math.ceil(requestedTotal / 100);
+    const allResults: any[] = [];
 
-    const apifyResponse = await fetch(apifyUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        searchStringsArray: [nicho],
-        locationQuery,
-        maxCrawledPlacesPerSearch: limit,
-        language: "pt-BR",
-        deeperCityScrape: false,
-        skipClosedPlaces: true,
-        scrapeContacts: true,
-        scrapeDirectories: true,
-      }),
-    });
-
-    if (!apifyResponse.ok) {
-      const errorText = await apifyResponse.text();
-      console.error(`[prospeccao] Apify error ${apifyResponse.status}:`, errorText);
-      return new Response(
-        JSON.stringify({
-          error: `Erro na API Apify (${apifyResponse.status})`,
-          detail: errorText.slice(0, 500),
+    for (let page = 0; page < pages; page++) {
+      const serperResponse = await fetch("https://google.serper.dev/places", {
+        method: "POST",
+        headers: {
+          "X-API-KEY": SERPER_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          q: `${nicho} em ${cidade}`,
+          gl: "br",
+          hl: "pt-br",
+          location,
+          num: 100,
+          page: page + 1,
         }),
-        {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+
+      if (!serperResponse.ok) {
+        const errorText = await serperResponse.text();
+        console.error(`[prospeccao] Serper error ${serperResponse.status}:`, errorText);
+        if (page === 0) {
+          return new Response(
+            JSON.stringify({
+              error: `Erro na API Serper (${serperResponse.status})`,
+              detail: errorText.slice(0, 500),
+            }),
+            {
+              status: 502,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
         }
-      );
+        break; // If subsequent pages fail, return what we have
+      }
+
+      const data = await serperResponse.json();
+      const places = data.places || [];
+      allResults.push(...places);
+
+      console.log(`[prospeccao] Página ${page + 1}: ${places.length} resultados`);
+
+      // If we got fewer results than requested, no more pages
+      if (places.length < 100) break;
+
+      // Small delay between pages
+      if (page < pages - 1) {
+        await new Promise(r => setTimeout(r, 500));
+      }
     }
 
-    const rawResults = await apifyResponse.json();
+    // Map Serper response to our format
+    const results = allResults.slice(0, requestedTotal).map((item: any) => ({
+      nome: item.title || "",
+      endereco: item.address || "",
+      telefone: item.phoneNumber || "",
+      website: item.website || "",
+      avaliacao: item.rating || null,
+      totalAvaliacoes: item.ratingCount || 0,
+      categoria: item.category || item.type || "",
+      categorias: item.categories || (item.category ? [item.category] : []),
+      horario: item.openingHours || null,
+      googleMapsUrl: item.placeLink || item.cid ? `https://www.google.com/maps/place/?q=place_id:${item.placeId || ""}` : "",
+      placeId: item.placeId || "",
+      imagem: item.thumbnailUrl || item.imageUrl || "",
+      email: "", // Serper doesn't provide email directly
+      instagram: "",
+      facebook: "",
+      descricao: item.description || "",
+      faixaPreco: item.priceRange || item.price || "",
+      permanentementeFechado: false,
+      latitude: item.latitude || null,
+      longitude: item.longitude || null,
+    }));
 
-    // Extract social media links
-    const getSocial = (item: any, platform: string): string => {
-      if (!item.socialProfiles && !item.socialMediaLinks) return "";
-      const profiles = item.socialProfiles || item.socialMediaLinks || [];
-      if (Array.isArray(profiles)) {
-        const found = profiles.find((p: any) =>
-          (typeof p === "string" && p.includes(platform)) ||
-          (p?.url && p.url.includes(platform)) ||
-          (p?.platform && p.platform.toLowerCase().includes(platform))
-        );
-        if (found) return typeof found === "string" ? found : found.url || "";
-      }
-      return "";
-    };
-
-    const results = (Array.isArray(rawResults) ? rawResults : []).map(
-      (item: any) => ({
-        nome: item.title || item.name || "",
-        endereco: item.address || item.street || "",
-        telefone: item.phone || item.phoneUnformatted || "",
-        website: item.website || item.url || "",
-        avaliacao: item.totalScore || item.rating || null,
-        totalAvaliacoes: item.reviewsCount || item.reviews || 0,
-        categoria: item.categoryName || item.category || "",
-        categorias:
-          item.categories || (item.categoryName ? [item.categoryName] : []),
-        horario: item.openingHours || item.hours || null,
-        latitude: item.location?.lat || null,
-        longitude: item.location?.lng || null,
-        googleMapsUrl: item.url || item.googleMapsUrl || "",
-        placeId: item.placeId || "",
-        imagem: item.imageUrl || item.thumbnailUrl || "",
-        email: item.email || item.emails?.[0] || "",
-        instagram: getSocial(item, "instagram"),
-        facebook: getSocial(item, "facebook"),
-        descricao: item.description || item.additionalInfo?.["Sobre"] || "",
-        faixaPreco: item.price || item.priceLevel || "",
-        permanentementeFechado: item.permanentlyClosed || false,
-      })
-    );
-
-    console.log(`[prospeccao] Encontrados ${results.length} resultados`);
+    console.log(`[prospeccao] Total: ${results.length} resultados`);
 
     return new Response(JSON.stringify({ results, total: results.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
