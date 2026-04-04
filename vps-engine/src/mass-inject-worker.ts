@@ -35,7 +35,9 @@ const FINAL_FAILURE_STATUSES = new Set([
   "unauthorized",
   "blocked",
 ]);
-const AUTO_PAUSE_FAILURE_STATUSES = new Set(["confirmed_no_admin", "invalid_group", "unauthorized"]);
+// Critical errors that COUNT toward auto-pause threshold (per-device)
+const CRITICAL_FAILURE_STATUSES = new Set(["confirmed_no_admin", "invalid_group", "unauthorized"]);
+// Transient errors that do NOT count toward pause — just skip and continue
 const TRANSIENT_FAILURE_STATUSES = new Set([
   "rate_limited",
   "api_temporary",
@@ -45,6 +47,9 @@ const TRANSIENT_FAILURE_STATUSES = new Set([
   "unknown_failure",
   "timeout",
 ]);
+// Per-device consecutive critical error counter
+const deviceCriticalErrors = new Map<string, number>();
+const DEVICE_CRITICAL_PAUSE_THRESHOLD = 4; // pause only after 4 consecutive critical errors on same device
 
 const DEVICE_RETRY_INTERVAL_MS = 6_000; // 6s — fast retry, don't block
 
