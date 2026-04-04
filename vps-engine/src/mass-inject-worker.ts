@@ -12,7 +12,7 @@ import { acquireGlobalSlot, releaseGlobalSlot } from "./lib/global-semaphore";
 const log = createLogger("mass-inject");
 
 const API_TIMEOUT_MS = 25_000;
-const MAX_CONSECUTIVE_FAILURES = 25;
+
 const MIN_DEVICE_SEND_INTERVAL_MS = 3_000;
 const RETRYABLE_STATUSES = [
   "pending",
@@ -35,7 +35,9 @@ const FINAL_FAILURE_STATUSES = new Set([
   "unauthorized",
   "blocked",
 ]);
-const AUTO_PAUSE_FAILURE_STATUSES = new Set(["confirmed_no_admin", "invalid_group", "unauthorized"]);
+// Critical errors that COUNT toward auto-pause threshold (per-device)
+const CRITICAL_FAILURE_STATUSES = new Set(["confirmed_no_admin", "invalid_group", "unauthorized"]);
+// Transient errors that do NOT count toward pause — just skip and continue
 const TRANSIENT_FAILURE_STATUSES = new Set([
   "rate_limited",
   "api_temporary",
@@ -45,6 +47,9 @@ const TRANSIENT_FAILURE_STATUSES = new Set([
   "unknown_failure",
   "timeout",
 ]);
+// Per-device consecutive critical error counter
+const deviceCriticalErrors = new Map<string, number>();
+const DEVICE_CRITICAL_PAUSE_THRESHOLD = 4; // pause only after 4 consecutive critical errors on same device
 
 const DEVICE_RETRY_INTERVAL_MS = 6_000; // 6s — fast retry, don't block
 
@@ -531,15 +536,15 @@ function classifyFailure(msg: string, status: number, strategyIndex: number): Ad
   if (msg.includes("privacidade") || msg.includes("saved contacts") || msg.includes("contatos salvos") || msg.includes("only allows") || msg.includes("invite de contatos"))
     return { ...base, detail: "Privacidade: só aceita convite de contatos salvos.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "failed" };
   if (msg.includes("not admin") || msg.includes("not an admin"))
-    return { ...base, detail: "Sem permissão de admin.", retryable: false, pauseCampaign: true, cooldownMs: 0, failureStatus: "confirmed_no_admin" };
+    return { ...base, detail: "Sem permissão de admin.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "confirmed_no_admin" };
   if ((msg.includes("not found") && (msg.includes("group") || msg.includes("invalid group"))) || msg.includes("full") || msg.includes("limit reached"))
-    return { ...base, detail: msg.includes("full") || msg.includes("limit reached") ? "Grupo atingiu limite de participantes." : "Grupo inválido.", retryable: false, pauseCampaign: true, cooldownMs: 0, failureStatus: "invalid_group" };
+    return { ...base, detail: msg.includes("full") || msg.includes("limit reached") ? "Grupo atingiu limite de participantes." : "Grupo inválido.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "invalid_group" };
   if (msg.includes("blocked") || msg.includes("ban"))
     return { ...base, detail: "Contato bloqueado.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "blocked" };
   if (msg.includes("not found") && (msg.includes("number") || msg.includes("participant") || msg.includes("contact")))
     return { ...base, detail: "Número não encontrado no WhatsApp.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "contact_not_found" };
   if (status === 401 || msg.includes("unauthorized") || msg.includes("invalid token"))
-    return { ...base, detail: "Token inválido.", retryable: false, pauseCampaign: true, cooldownMs: 0, failureStatus: "unauthorized" };
+    return { ...base, detail: "Token inválido.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "unauthorized" };
   if (status === 503 || msg.includes("disconnected") || msg.includes("session disconnected") || msg.includes("socket closed"))
     return { ...base, detail: "Instância desconectada.", retryable: true, pauseCampaign: false, cooldownMs: 5000, canTryOtherStrategy: true, failureStatus: "connection_unconfirmed" };
   if (msg.includes("timeout") || status === 408 || status === 504)
@@ -636,7 +641,9 @@ function updateCountersLocal(
     // Retryable statuses remain in queue; no counter change
   } else {
     counterState.fail_count += 1;
-    if (AUTO_PAUSE_FAILURE_STATUSES.has(status)) {
+    // consecutive_failures is now tracked per-device in deviceCriticalErrors
+    // Keep the counter for DB persistence but don't use it for pause decisions
+    if (CRITICAL_FAILURE_STATUSES.has(status)) {
       counterState.consecutive_failures += 1;
     } else {
       counterState.consecutive_failures = 0;
@@ -725,7 +732,6 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     }
 
     const failedDeviceIds = new Map<string, number>();
-    let consecutiveFailures = Number(campaign.consecutive_failures || 0);
 
     let contactsInLoop = 0;
     let cachedFreshCampaign: any = null;
@@ -759,7 +765,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         counterState.rate_limit_count = Number(freshCampaign.rate_limit_count || 0);
         counterState.timeout_count = Number(freshCampaign.timeout_count || 0);
         counterState.consecutive_failures = Number(freshCampaign.consecutive_failures || 0);
-        consecutiveFailures = counterState.consecutive_failures;
+        // consecutiveFailures now tracked per-device in deviceCriticalErrors map
       }
       const freshCampaign = cachedFreshCampaign;
 
@@ -882,7 +888,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         updateCountersLocal(counterState, "already_exists");
         contactsSinceFlush++;
         if (contactsSinceFlush >= COUNTER_FLUSH_INTERVAL) { await flushCounters(sb, campaignId, counterState); contactsSinceFlush = 0; }
-        consecutiveFailures = 0;
+        deviceCriticalErrors.delete(deviceId);
         batchSkipped++;
         // Still apply configured delay even for skipped contacts
         {
@@ -912,7 +918,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         updateCountersLocal(counterState, "already_exists");
         contactsSinceFlush++;
         if (contactsSinceFlush >= COUNTER_FLUSH_INTERVAL) { await flushCounters(sb, campaignId, counterState); contactsSinceFlush = 0; }
-        consecutiveFailures = 0;
+        deviceCriticalErrors.delete(deviceId);
         batchAlready++;
         {
           const minD = Number(freshCampaign.min_delay || 0);
@@ -947,7 +953,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         }).eq("id", contact.id);
         updateCountersLocal(counterState, "completed");
         contactsSinceFlush++;
-        consecutiveFailures = 0;
+        deviceCriticalErrors.delete(deviceId); // reset on success
         rememberParticipantInCache(baseUrl, groupId, phone);
         batchAdded++;
       } else if (result.alreadyExists) {
@@ -957,7 +963,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         updateCountersLocal(counterState, "already_exists");
         contactsSinceFlush++;
         rememberParticipantInCache(baseUrl, groupId, phone);
-        consecutiveFailures = 0;
+        deviceCriticalErrors.delete(deviceId); // reset on success
       } else {
         // Classify retryable vs permanent failure
         const isRateLimit = result.detail.toLowerCase().includes("rate limit") || result.cooldownMs >= 30000;
@@ -978,12 +984,39 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         }).eq("id", contact.id);
         updateCountersLocal(counterState, failStatus);
         contactsSinceFlush++;
-
-        consecutiveFailures = AUTO_PAUSE_FAILURE_STATUSES.has(failStatus)
-          ? counterState.consecutive_failures
-          : 0;
         batchFailed++;
 
+        // ── Per-device consecutive critical error tracking ──
+        const isCriticalError = CRITICAL_FAILURE_STATUSES.has(failStatus);
+        const isTransientError = TRANSIENT_FAILURE_STATUSES.has(failStatus);
+
+        if (isCriticalError) {
+          // Increment per-device critical error counter
+          const devErrors = (deviceCriticalErrors.get(deviceId) || 0) + 1;
+          deviceCriticalErrors.set(deviceId, devErrors);
+
+          if (devErrors >= DEVICE_CRITICAL_PAUSE_THRESHOLD) {
+            // Confirmed critical issue — pause campaign
+            const reason = `Pausada: ${devErrors} erros críticos consecutivos (${failStatus}: ${failureDetail}).`;
+            log.warn(`Campaign ${campaignId.slice(0, 8)}: ${reason}`);
+            await flushCounters(sb, campaignId, counterState);
+            await sb.from("mass_inject_campaigns").update({
+              status: "paused", updated_at: nowIso(), next_run_at: null, pause_reason: reason,
+            }).eq("id", campaignId);
+            await emitEvent(sb, campaignId, "campaign_paused", "warning", reason);
+            break;
+          }
+          // Not enough consecutive critical errors — continue with next contact
+          log.info(`Campaign ${campaignId.slice(0, 8)}: critical error ${devErrors}/${DEVICE_CRITICAL_PAUSE_THRESHOLD} on device ${device.name} — continuing`);
+        } else if (isTransientError) {
+          // Transient errors do NOT increment critical counter — just continue
+          // Don't reset critical counter either (only success/already resets it)
+        } else {
+          // Non-critical permanent failure (blocked, contact_not_found, etc.) — just skip contact
+          deviceCriticalErrors.delete(deviceId); // reset critical counter on non-critical failure
+        }
+
+        // If result says pauseCampaign (only for truly unrecoverable like no endpoint 405)
         if (result.pauseCampaign) {
           await flushCounters(sb, campaignId, counterState);
           await sb.from("mass_inject_campaigns").update({
@@ -991,16 +1024,6 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
             pause_reason: result.detail,
           }).eq("id", campaignId);
           await emitEvent(sb, campaignId, "campaign_paused", "warning", result.detail);
-          break;
-        }
-
-        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-          const reason = `Pausada por ${MAX_CONSECUTIVE_FAILURES} falhas consecutivas.`;
-          await flushCounters(sb, campaignId, counterState);
-          await sb.from("mass_inject_campaigns").update({
-            status: "paused", updated_at: nowIso(), next_run_at: null, pause_reason: reason,
-          }).eq("id", campaignId);
-          await emitEvent(sb, campaignId, "campaign_paused", "warning", reason);
           break;
         }
 
