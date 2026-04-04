@@ -3524,10 +3524,22 @@ async function handleTick(
             if (pairMeta.conversation_id !== job.payload.conversation_id) return "skip";
             if (pairMeta.expected_sender_device_id !== job.device_id || pairMeta.turns_completed !== currentTurnIndex) return "skip";
           } else {
-            // Allow either side to initiate when there's NO active conversation
-            // The initiator check only matters during active conversations to prevent race conditions
+            // When there's an active conversation, only the expected sender can continue
             const hasActiveConversation = Boolean(rawPairMeta.conversation_id && rawPairMeta.expected_sender_device_id);
             if (hasActiveConversation && !iAmInitiator) return "skip";
+
+            // When NO active conversation, the OLDER chip (higher community_day) always initiates first
+            // This protects newer chips from being flagged for initiating too many conversations
+            if (!hasActiveConversation) {
+              const { data: myMembershipData } = await db.from("warmup_community_membership")
+                .select("community_day").eq("device_id", job.device_id).maybeSingle();
+              const { data: peerMembershipData } = await db.from("warmup_community_membership")
+                .select("community_day").eq("device_id", peerDeviceId).maybeSingle();
+              const myCommunityDay = myMembershipData?.community_day || 1;
+              const peerCommunityDay = peerMembershipData?.community_day || 1;
+              // If peer is older (higher community_day), skip — let them initiate
+              if (peerCommunityDay > myCommunityDay) return "skip";
+            }
 
             const pairBusy = Boolean(pairMeta.conversation_id && pairMeta.expected_sender_device_id);
             if (pairBusy) {
