@@ -951,7 +951,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         }).eq("id", contact.id);
         updateCountersLocal(counterState, "completed");
         contactsSinceFlush++;
-        consecutiveFailures = 0;
+        deviceCriticalErrors.delete(deviceId); // reset on success
         rememberParticipantInCache(baseUrl, groupId, phone);
         batchAdded++;
       } else if (result.alreadyExists) {
