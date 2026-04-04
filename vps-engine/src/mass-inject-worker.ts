@@ -930,7 +930,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         await sb.from("mass_inject_contacts").update({
           status: "completed", error_message: result.detail, processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCounters(sb, campaignId, counterState, "completed");
+        updateCountersLocal(counterState, "completed");
+        contactsSinceFlush++;
         consecutiveFailures = 0;
         rememberParticipantInCache(baseUrl, groupId, phone);
         log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} added successfully`);
