@@ -886,7 +886,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         updateCountersLocal(counterState, "already_exists");
         contactsSinceFlush++;
         if (contactsSinceFlush >= COUNTER_FLUSH_INTERVAL) { await flushCounters(sb, campaignId, counterState); contactsSinceFlush = 0; }
-        consecutiveFailures = 0;
+        deviceCriticalErrors.delete(deviceId);
         batchSkipped++;
         // Still apply configured delay even for skipped contacts
         {
