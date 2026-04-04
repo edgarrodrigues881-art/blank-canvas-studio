@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -139,6 +140,7 @@ const CampaignDetail = () => {
   const [deviceToRemove, setDeviceToRemove] = useState<string | null>(null);
   const [replacementDevice, setReplacementDevice] = useState<string>("none");
   const [deviceActionLoading, setDeviceActionLoading] = useState(false);
+  const [deviceSearchQuery, setDeviceSearchQuery] = useState("");
   const createTemplate = useCreateTemplate();
   const createCarouselTemplate = useCreateCarouselTemplate();
   const updateCarouselTemplate = useUpdateCarouselTemplate();
@@ -1087,53 +1089,61 @@ const CampaignDetail = () => {
                       </div>
 
                       {/* Available devices to add */}
-                      {availableDevices.length > 0 && (
-                        <div className="space-y-1">
-                          <p className="text-[9px] font-medium text-muted-foreground/60 uppercase tracking-wider">Disponíveis para adicionar</p>
-                          <div className="space-y-1">
-                            {availableDevices.map(dev => {
-                              const connected = isConnected(dev);
-                              return (
-                                <div key={dev.id} className="flex items-center justify-between rounded-md border border-dashed border-border/20 bg-background/20 px-3 py-2 hover:border-primary/30 transition-colors">
-                                  <div className="flex items-center gap-2.5">
-                                    <div className="w-5 h-5 rounded-full bg-muted/30 flex items-center justify-center">
-                                      <span className={cn("w-2 h-2 rounded-full", connected ? "bg-primary" : "bg-muted-foreground/30")} />
-                                    </div>
-                                    <div className="flex flex-col">
-                                      <span className="text-[11px] font-medium text-muted-foreground leading-tight">
-                                        {dev.name}
-                                      </span>
-                                      {dev.number && (
-                                        <span className="text-[9px] text-muted-foreground/40 font-mono">{dev.number}</span>
-                                      )}
-                                    </div>
-                                    <Badge
-                                      variant="outline"
-                                      className={cn(
-                                        "text-[8px] px-1.5 py-0 h-4",
-                                        connected
-                                          ? "border-primary/30 text-primary bg-primary/5"
-                                          : "border-muted-foreground/20 text-muted-foreground/50 bg-muted/10"
-                                      )}
-                                    >
-                                      {connected ? "Conectada" : "Offline"}
-                                    </Badge>
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleAddDevice(dev.id)}
-                                    className="h-7 px-2.5 text-[10px] text-primary hover:text-primary hover:bg-primary/10 gap-1"
-                                  >
-                                    <Zap className="w-3 h-3" />
-                                    Adicionar
-                                  </Button>
-                                </div>
-                              );
-                            })}
+                      {availableDevices.length > 0 && (() => {
+                        const filteredAvailable = availableDevices.filter(dev => {
+                          if (!deviceSearchQuery) return true;
+                          const q = deviceSearchQuery.toLowerCase();
+                          return (dev.name || "").toLowerCase().includes(q) || (dev.number || "").includes(q);
+                        });
+                        return (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[9px] font-medium text-muted-foreground/60 uppercase tracking-wider">Disponíveis para adicionar</p>
+                              <span className="text-[9px] text-muted-foreground/40">{availableDevices.length} conta{availableDevices.length !== 1 ? "s" : ""}</span>
+                            </div>
+                            {availableDevices.length > 4 && (
+                              <div className="relative">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground/40" />
+                                <Input
+                                  placeholder="Buscar instância..."
+                                  value={deviceSearchQuery}
+                                  onChange={(e) => setDeviceSearchQuery(e.target.value)}
+                                  className="h-7 pl-7 text-[10px] bg-background/30 border-border/20"
+                                />
+                              </div>
+                            )}
+                            <ScrollArea className="max-h-[180px]">
+                              <div className="space-y-1 pr-2">
+                                {filteredAvailable.length === 0 ? (
+                                  <p className="text-[10px] text-muted-foreground/40 italic py-2 text-center">Nenhuma instância encontrada</p>
+                                ) : (
+                                  filteredAvailable.map(dev => {
+                                    const connected = isConnected(dev);
+                                    return (
+                                      <div key={dev.id} className="flex items-center justify-between rounded-md border border-dashed border-border/20 bg-background/20 px-3 py-1.5 hover:border-primary/30 transition-colors">
+                                        <div className="flex items-center gap-2">
+                                          <span className={cn("w-2 h-2 rounded-full flex-shrink-0", connected ? "bg-primary" : "bg-muted-foreground/30")} />
+                                          <div className="flex flex-col">
+                                            <span className="text-[10px] font-medium text-muted-foreground leading-tight">{dev.name}</span>
+                                            {dev.number && <span className="text-[8px] text-muted-foreground/40 font-mono">{dev.number}</span>}
+                                          </div>
+                                          <Badge variant="outline" className={cn("text-[7px] px-1 py-0 h-3.5", connected ? "border-primary/30 text-primary bg-primary/5" : "border-muted-foreground/20 text-muted-foreground/50 bg-muted/10")}>
+                                            {connected ? "Online" : "Offline"}
+                                          </Badge>
+                                        </div>
+                                        <Button variant="ghost" size="sm" onClick={() => handleAddDevice(dev.id)} className="h-6 px-2 text-[9px] text-primary hover:text-primary hover:bg-primary/10 gap-1">
+                                          <Zap className="w-3 h-3" />
+                                          Adicionar
+                                        </Button>
+                                      </div>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            </ScrollArea>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </div>
                   );
                 })()}
