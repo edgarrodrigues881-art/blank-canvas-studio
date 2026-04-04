@@ -1005,12 +1005,11 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         }
       }
 
-      // 9. Apply delay — use EXACTLY what the user configured (no forced minimums)
+      // 9. Apply delay
       contactsInLoop++;
       const minDelay = Number(freshCampaign.min_delay ?? 0);
       const maxDelay = Math.max(Number(freshCampaign.max_delay ?? 0), minDelay);
       let delayMs = minDelay === maxDelay ? minDelay * 1000 : randomBetween(minDelay * 1000, maxDelay * 1000);
-      log.info(`Campaign ${campaignId.slice(0, 8)}: delay ${Math.round(delayMs / 1000)}s (range ${minDelay}-${maxDelay}s)`);
 
       // Block pause check
       const pauseAfter = Number(freshCampaign.pause_after || 0);
