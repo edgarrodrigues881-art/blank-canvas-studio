@@ -1106,8 +1106,8 @@ const CampaignDetail = () => {
                                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground/40" />
                                 <Input
                                   placeholder="Buscar instância..."
-                                  value={deviceSearch}
-                                  onChange={(e) => setDeviceSearch(e.target.value)}
+                                  value={deviceSearchQuery}
+                                  onChange={(e) => setDeviceSearchQuery(e.target.value)}
                                   className="h-7 pl-7 text-[10px] bg-background/30 border-border/20"
                                 />
                               </div>
