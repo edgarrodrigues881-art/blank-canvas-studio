@@ -341,7 +341,7 @@ async function isDeviceConnected(baseUrl: string, token: string, _checks = 1): P
       }
 
       // Not yet confirmed — treat as uncertain, retry on next cycle
-      log.info(`Device ${baseUrl.slice(0, 30)} reported disconnected (streak ${streak}/${DISCONNECT_CONFIRM_THRESHOLD}) — not blocking yet`);
+      // Not yet confirmed — treat as uncertain silently
       return { connected: null, detail: `Status instável (${streak}/${DISCONNECT_CONFIRM_THRESHOLD} checks negativos).` };
     }
 
