@@ -765,7 +765,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         counterState.rate_limit_count = Number(freshCampaign.rate_limit_count || 0);
         counterState.timeout_count = Number(freshCampaign.timeout_count || 0);
         counterState.consecutive_failures = Number(freshCampaign.consecutive_failures || 0);
-        consecutiveFailures = counterState.consecutive_failures;
+        // consecutiveFailures now tracked per-device in deviceCriticalErrors map
       }
       const freshCampaign = cachedFreshCampaign;
 
