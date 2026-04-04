@@ -1578,19 +1578,8 @@ async function reconcileCommunityPairs(
         return 3;
       };
 
-      const sortedEligible = [...(eligible || [])].sort((a: any, b: any) => {
-        // Prefer cross-user pairing (more organic) — same user gets lower priority
-        const sameUserA = a.user_id === params.userId ? 1 : 0;
-        const sameUserB = b.user_id === params.userId ? 1 : 0;
-        if (sameUserA !== sameUserB) return sameUserA - sameUserB;
-
-        const cycleA = candidateCycleMap[a.device_id];
-        const cycleB = candidateCycleMap[b.device_id];
-        const phaseDelta = phaseRank(cycleA?.phase) - phaseRank(cycleB?.phase);
-        if (phaseDelta !== 0) return phaseDelta;
-
-        return (cycleB?.day_index || 0) - (cycleA?.day_index || 0);
-      });
+      // Shuffle eligible candidates randomly — no cross-user preference
+      const sortedEligible = [...(eligible || [])].sort(() => Math.random() - 0.5);
 
       for (const candidate of sortedEligible) {
         if (validPairs.length + createdCount >= targetPeers) break;
@@ -3492,7 +3481,7 @@ async function handleTick(
         // [FIX] Auto-create community membership if missing (safety net)
         {
           const { data: myMembership } = await db.from("warmup_community_membership")
-            .select("id, is_enabled").eq("device_id", job.device_id).maybeSingle();
+            .select("id, is_enabled, community_day").eq("device_id", job.device_id).maybeSingle();
           if (!myMembership) {
             await db.from("warmup_community_membership").insert({
               user_id: job.user_id, device_id: job.device_id, cycle_id: cycle.id,
@@ -3501,10 +3490,16 @@ async function handleTick(
               messages_today: 0, pairs_today: 0,
             });
             bufferAudit({ user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id, level: "warn", event_type: "community_membership_auto_created", message: "Membership criado automaticamente (faltava)" });
-          } else if (!myMembership.is_enabled) {
-            await db.from("warmup_community_membership")
-              .update({ is_enabled: true, is_eligible: true })
-              .eq("id", myMembership.id);
+          } else {
+            // Auto-fix: if membership exists but community_day=0 while in community phase, set to 1
+            const fixData: any = {};
+            if (!myMembership.is_enabled) { fixData.is_enabled = true; fixData.is_eligible = true; }
+            if ((myMembership as any).community_day === 0) { fixData.community_day = 1; }
+            if (Object.keys(fixData).length > 0) {
+              await db.from("warmup_community_membership")
+                .update(fixData)
+                .eq("id", myMembership.id);
+            }
           }
         }
 
