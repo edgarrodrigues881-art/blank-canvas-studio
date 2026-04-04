@@ -513,21 +513,12 @@ async function warmupTick() {
   // Sort merged results by run_at for fair ordering
   const pendingJobs = allJobs.sort((a, b) => new Date(a.run_at).getTime() - new Date(b.run_at).getTime());
 
-  if (fetchErr) {
-    const serializedFetchErr = serializeUnknownError(fetchErr);
-    logQueryDiagnostics("warmup.pending_jobs.fetch", {
-      table: "warmup_jobs",
-      columns: "id, user_id, device_id, cycle_id, job_type, payload, run_at, status, attempts, max_attempts",
-      filters: { status: "pending", run_at_lte: now, order_by: "run_at asc", limit: 2000 },
-      note: "fetch pending jobs for warmup tick",
-    }, fetchErr);
-    if (String(serializedFetchErr.raw).includes("Invalid API key") || String(serializedFetchErr.raw).includes("401") || serializedFetchErr.code === "PGRST301") {
-      throw new Error(`Supabase auth error fetching jobs: ${serializedFetchErr.raw}. Verify SUPABASE_SERVICE_ROLE_KEY.`);
-    }
-    throw new Error(`DB fetch error: ${serializedFetchErr.raw}`);
-  }
-
   if (!pendingJobs?.length) return { processed: 0 };
+
+  // Log job type distribution for observability
+  const jobTypeCounts: Record<string, number> = {};
+  for (const j of pendingJobs) { jobTypeCounts[j.job_type] = (jobTypeCounts[j.job_type] || 0) + 1; }
+  log.info("Warmup job distribution", jobTypeCounts);
 
   // 4. Pre-load device credentials for all unique devices
   const uniqueDeviceIds = [...new Set(pendingJobs.map(j => j.device_id))];
