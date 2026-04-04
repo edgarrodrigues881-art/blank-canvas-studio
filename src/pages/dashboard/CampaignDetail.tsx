@@ -1024,7 +1024,7 @@ const CampaignDetail = () => {
                                   setReplacementDevice("none");
                                   setRemoveDeviceOpen(true);
                                 }}
-                                className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-destructive/60 hover:text-destructive"
+                                className="ml-0.5 text-destructive/60 hover:text-destructive transition-colors"
                                 title="Remover conta"
                               >
                                 <XCircle className="w-3 h-3" />
