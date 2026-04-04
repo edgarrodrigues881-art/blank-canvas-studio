@@ -53,6 +53,19 @@ const DEVICE_CRITICAL_PAUSE_THRESHOLD = 4; // pause only after 4 consecutive cri
 
 const DEVICE_RETRY_INTERVAL_MS = 6_000; // 6s — fast retry, don't block
 
+// ── Per-device connection state (persists across contacts) ──
+interface DeviceConnectionState {
+  status: "connected" | "disconnected" | "unknown";
+  lastCheckedAt: number;
+  confirmedDisconnectedAt: number | null; // timestamp when confirmed disconnected
+  consecutiveApiFailures: number; // API call failures suggesting disconnect
+}
+const deviceConnectionState = new Map<string, DeviceConnectionState>();
+const DEVICE_CONNECTED_CACHE_MS = 30_000; // trust "connected" for 30s
+const DEVICE_DISCONNECTED_RECHECK_MS = 15_000; // re-check disconnected device every 15s
+const DEVICE_DISCONNECT_AUTO_PAUSE_MS = 120_000; // auto-pause campaign if ALL devices disconnected for 2min
+const API_FAILURE_DISCONNECT_THRESHOLD = 3; // after 3 consecutive API failures, force connection re-check
+
 // ── In-memory caches (persist across contacts within same campaign run) ──
 type ParticipantCacheEntry = {
   participants: Set<string>;
@@ -345,16 +358,11 @@ async function isDeviceConnected(baseUrl: string, token: string, _checks = 1): P
         return { connected: false, detail: `Desconexão confirmada após ${streak} verificações.` };
       }
 
-      // Not yet confirmed — treat as uncertain, retry on next cycle
-      // Not yet confirmed — treat as uncertain silently
       return { connected: null, detail: `Status instável (${streak}/${DISCONNECT_CONFIRM_THRESHOLD} checks negativos).` };
     }
 
-    // "unknown" — don't block, just proceed
-    // "unknown" — proceed silently
     return { connected: null, detail: extractProviderMessage(body, raw) || "Status incerto — prosseguindo." };
   } catch (error: any) {
-    // Network error / timeout — don't immediately mark as disconnected
     const key = baseUrl;
     const streak = (deviceDisconnectStreak.get(key) || 0) + 1;
     deviceDisconnectStreak.set(key, streak);
@@ -363,8 +371,98 @@ async function isDeviceConnected(baseUrl: string, token: string, _checks = 1): P
       return { connected: false, detail: `Falha de rede confirmada após ${streak} tentativas: ${error?.message || "erro"}` };
     }
 
-    // Not yet confirmed — proceed silently
     return { connected: null, detail: error?.message || "Falha temporária na verificação." };
+  }
+}
+
+// ── Smart instance connection validator ──
+// Uses cached state + live check to avoid unnecessary API calls
+async function isInstanceConnected(
+  deviceId: string,
+  baseUrl: string,
+  token: string,
+  forceCheck = false,
+): Promise<{ connected: boolean; detail: string; shouldSkipDevice: boolean }> {
+  const now = Date.now();
+  const state = deviceConnectionState.get(deviceId);
+
+  // If we have a recent "connected" result and no force, trust the cache
+  if (!forceCheck && state && state.status === "connected" && (now - state.lastCheckedAt) < DEVICE_CONNECTED_CACHE_MS) {
+    return { connected: true, detail: "Cache: conectado.", shouldSkipDevice: false };
+  }
+
+  // If confirmed disconnected recently, don't bother re-checking too soon
+  if (!forceCheck && state && state.status === "disconnected" && state.confirmedDisconnectedAt) {
+    const sinceDisconnect = now - state.confirmedDisconnectedAt;
+    if (sinceDisconnect < DEVICE_DISCONNECTED_RECHECK_MS) {
+      return { connected: false, detail: `Desconectado (recheck em ${Math.round((DEVICE_DISCONNECTED_RECHECK_MS - sinceDisconnect) / 1000)}s).`, shouldSkipDevice: true };
+    }
+  }
+
+  // Perform live check
+  const result = await isDeviceConnected(baseUrl, token);
+
+  if (result.connected === true) {
+    deviceConnectionState.set(deviceId, {
+      status: "connected",
+      lastCheckedAt: now,
+      confirmedDisconnectedAt: null,
+      consecutiveApiFailures: 0,
+    });
+    return { connected: true, detail: result.detail, shouldSkipDevice: false };
+  }
+
+  if (result.connected === false) {
+    const prevState = deviceConnectionState.get(deviceId);
+    deviceConnectionState.set(deviceId, {
+      status: "disconnected",
+      lastCheckedAt: now,
+      confirmedDisconnectedAt: prevState?.confirmedDisconnectedAt || now,
+      consecutiveApiFailures: prevState?.consecutiveApiFailures || 0,
+    });
+    return { connected: false, detail: result.detail, shouldSkipDevice: true };
+  }
+
+  // Unknown — proceed but mark as uncertain
+  if (state) {
+    state.lastCheckedAt = now;
+    deviceConnectionState.set(deviceId, state);
+  } else {
+    deviceConnectionState.set(deviceId, {
+      status: "unknown",
+      lastCheckedAt: now,
+      confirmedDisconnectedAt: null,
+      consecutiveApiFailures: 0,
+    });
+  }
+  return { connected: true, detail: result.detail, shouldSkipDevice: false };
+}
+
+// Track API failures that suggest device is disconnecting
+function recordDeviceApiFailure(deviceId: string, errorDetail: string): boolean {
+  const state = deviceConnectionState.get(deviceId);
+  const failures = (state?.consecutiveApiFailures || 0) + 1;
+  deviceConnectionState.set(deviceId, {
+    status: failures >= API_FAILURE_DISCONNECT_THRESHOLD ? "disconnected" : (state?.status || "unknown"),
+    lastCheckedAt: state?.lastCheckedAt || Date.now(),
+    confirmedDisconnectedAt: failures >= API_FAILURE_DISCONNECT_THRESHOLD ? Date.now() : (state?.confirmedDisconnectedAt || null),
+    consecutiveApiFailures: failures,
+  });
+  if (failures >= API_FAILURE_DISCONNECT_THRESHOLD) {
+    log.warn(`Device ${deviceId.slice(0, 8)}: ${failures} consecutive API failures — marking for re-check. Last: ${errorDetail.slice(0, 80)}`);
+    return true; // should force connection re-check
+  }
+  return false;
+}
+
+function recordDeviceApiSuccess(deviceId: string) {
+  const state = deviceConnectionState.get(deviceId);
+  if (state) {
+    state.consecutiveApiFailures = 0;
+    state.status = "connected";
+    state.confirmedDisconnectedAt = null;
+    state.lastCheckedAt = Date.now();
+    deviceConnectionState.set(deviceId, state);
   }
 }
 
@@ -773,14 +871,35 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       const deviceId = pickDeviceId(freshCampaign, failedDeviceIds);
       if (!deviceId) {
         if (failedDeviceIds.size > 0) {
-          log.warn(`Campaign ${campaignId.slice(0, 8)}: all devices cooling down — waiting ${DEVICE_RETRY_INTERVAL_MS / 1000}s`);
+          // Check if ALL devices have been disconnected for too long → auto-pause
+          const allIds = parseDeviceIds(freshCampaign.device_ids);
+          const allDisconnectedLong = allIds.every(id => {
+            const state = deviceConnectionState.get(id);
+            return state?.status === "disconnected" && state.confirmedDisconnectedAt
+              && (Date.now() - state.confirmedDisconnectedAt) > DEVICE_DISCONNECT_AUTO_PAUSE_MS;
+          });
+
+          if (allDisconnectedLong) {
+            const elapsed = Math.round(DEVICE_DISCONNECT_AUTO_PAUSE_MS / 1000);
+            const reason = `Todas as instâncias desconectadas há mais de ${elapsed}s. Campanha pausada automaticamente.`;
+            log.warn(`Campaign ${campaignId.slice(0, 8)}: ${reason}`);
+            await sb.from("mass_inject_campaigns").update({
+              status: "paused", updated_at: nowIso(), next_run_at: null,
+              pause_reason: reason,
+            }).eq("id", campaignId);
+            await emitEvent(sb, campaignId, "campaign_auto_paused_disconnect", "warning", reason);
+            break;
+          }
+
+          // Not long enough — wait and retry with progressive check
+          const waitMs = Math.min(DEVICE_RETRY_INTERVAL_MS * 2, 15_000); // wait 12-15s
           await sb.from("mass_inject_campaigns").update({
             updated_at: nowIso(),
-            next_run_at: new Date(Date.now() + DEVICE_RETRY_INTERVAL_MS).toISOString(),
+            next_run_at: new Date(Date.now() + waitMs).toISOString(),
             pause_reason: "Aguardando reconexão das instâncias...",
           }).eq("id", campaignId);
-          await sleep(DEVICE_RETRY_INTERVAL_MS);
-          failedDeviceIds.clear();
+          await sleep(waitMs);
+          failedDeviceIds.clear(); // allow re-check on next iteration
           continue;
         }
 
@@ -806,44 +925,43 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       }
 
       const baseUrl = String(device.uazapi_base_url).replace(/\/+$/, "");
-      const statusHint = String(device.status || "").toLowerCase();
       const processed = counterState.success_count + counterState.fail_count + counterState.already_count;
-      // Check connection less often: first contact, then every 50, or if DB says disconnected
-      const shouldCheckConnection = processed === 0 || processed % 50 === 0 || (!CONNECTED_DEVICE_STATUSES.has(statusHint) && processed % 10 === 0);
 
-      // 4. Connection check — uses streak-based confirmation
-      if (shouldCheckConnection) {
-        const liveConnection = await isDeviceConnected(baseUrl, device.uazapi_token);
+      // 4. Smart connection pre-validation — checks cached state first, only hits API when needed
+      // Force check if: device has accumulated API failures, or DB says disconnected
+      const deviceState = deviceConnectionState.get(deviceId);
+      const hasApiFailures = deviceState && deviceState.consecutiveApiFailures >= API_FAILURE_DISCONNECT_THRESHOLD;
+      const dbSaysDisconnected = !CONNECTED_DEVICE_STATUSES.has(String(device.status || "").toLowerCase());
+      const forceCheck = hasApiFailures || (dbSaysDisconnected && processed % 5 === 0);
 
-        if (liveConnection.connected === false) {
-          log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} disconnected`);
+      const connResult = await isInstanceConnected(deviceId, baseUrl, device.uazapi_token, forceCheck || processed === 0);
+
+      if (!connResult.connected) {
+        if (connResult.shouldSkipDevice) {
+          // Device confirmed disconnected — skip without consuming contact
           failedDeviceIds.set(deviceId, Date.now());
 
           // Check if ALL devices are down
           const allIds = parseDeviceIds(freshCampaign.device_ids);
-          if (allIds.every(id => failedDeviceIds.has(id))) {
-            // Wait 30s and clear all failures to give devices a chance to reconnect
-            log.warn(`Campaign ${campaignId.slice(0, 8)}: all devices disconnected — waiting 30s before retrying`);
-            await emitEvent(sb, campaignId, "all_sessions_dropped", "warning", "Todas as instâncias desconectadas. Aguardando reconexão automática...");
+          const allDown = allIds.every(id => {
+            const s = deviceConnectionState.get(id);
+            return failedDeviceIds.has(id) || (s?.status === "disconnected");
+          });
+
+          if (allDown) {
+            await emitEvent(sb, campaignId, "all_sessions_dropped", "warning", "Todas as instâncias desconectadas. Aguardando reconexão...");
             await sb.from("mass_inject_campaigns").update({
               updated_at: nowIso(),
-              next_run_at: new Date(Date.now() + DEVICE_RETRY_INTERVAL_MS).toISOString(),
+              next_run_at: new Date(Date.now() + DEVICE_DISCONNECTED_RECHECK_MS).toISOString(),
               pause_reason: "Aguardando reconexão das instâncias...",
             }).eq("id", campaignId);
-            await sleep(DEVICE_RETRY_INTERVAL_MS);
-            
-            // Clear all failures and retry
+            await sleep(DEVICE_DISCONNECTED_RECHECK_MS);
             failedDeviceIds.clear();
-            
-            // Don't pause immediately — just continue the loop and retry
-            // The loop will re-check on next iteration
-            // Retry silently — warn was already logged above
             continue;
           }
-          continue;
+          continue; // try next device
         }
-
-        // If connection is unknown/null, just proceed — don't block or log
+        // Unknown status — proceed cautiously
       }
 
       if (!noNumberWarned && !String(device.number || "").trim()) {
@@ -954,6 +1072,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         updateCountersLocal(counterState, "completed");
         contactsSinceFlush++;
         deviceCriticalErrors.delete(deviceId); // reset on success
+        recordDeviceApiSuccess(deviceId); // mark device as healthy
         rememberParticipantInCache(baseUrl, groupId, phone);
         batchAdded++;
       } else if (result.alreadyExists) {
@@ -964,15 +1083,32 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         contactsSinceFlush++;
         rememberParticipantInCache(baseUrl, groupId, phone);
         deviceCriticalErrors.delete(deviceId); // reset on success
+        recordDeviceApiSuccess(deviceId); // mark device as healthy
       } else {
         // Classify retryable vs permanent failure
-        const isRateLimit = result.detail.toLowerCase().includes("rate limit") || result.cooldownMs >= 30000;
-        const isTimeout = result.detail.toLowerCase().includes("timeout");
-        const isConnectionIssue = result.detail.toLowerCase().includes("desconectada") || result.detail.toLowerCase().includes("socket");
+        const detailLower = result.detail.toLowerCase();
+        const isRateLimit = detailLower.includes("rate limit") || result.cooldownMs >= 30000;
+        const isTimeout = detailLower.includes("timeout");
+        const isConnectionIssue = detailLower.includes("desconectada") || detailLower.includes("socket") || detailLower.includes("disconnected");
         let failureDetail = result.detail;
         let failStatus = result.failureStatus || (result.retryable
           ? (isRateLimit ? "rate_limited" : isTimeout ? "timeout" : isConnectionIssue ? "connection_unconfirmed" : "api_temporary")
           : "failed");
+
+        // Track API failures for connection state
+        if (isConnectionIssue || isTimeout) {
+          const shouldForceRecheck = recordDeviceApiFailure(deviceId, failureDetail);
+          if (shouldForceRecheck && isConnectionIssue) {
+            // Connection issue confirmed by API failures — revert contact to pending (don't consume attempt)
+            await sb.from("mass_inject_contacts").update({
+              status: "pending", error_message: `Aguardando reconexão: ${failureDetail}`, device_used: null,
+            }).eq("id", contact.id);
+            failedDeviceIds.set(deviceId, Date.now());
+            batchFailed++;
+            // Don't count this as a campaign failure — device is the issue
+            continue;
+          }
+        }
 
         if (isConnectionIssue) {
           failStatus = "api_temporary";
