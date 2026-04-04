@@ -341,12 +341,12 @@ async function isDeviceConnected(baseUrl: string, token: string, _checks = 1): P
       }
 
       // Not yet confirmed — treat as uncertain, retry on next cycle
-      log.info(`Device ${baseUrl.slice(0, 30)} reported disconnected (streak ${streak}/${DISCONNECT_CONFIRM_THRESHOLD}) — not blocking yet`);
+      // Not yet confirmed — treat as uncertain silently
       return { connected: null, detail: `Status instável (${streak}/${DISCONNECT_CONFIRM_THRESHOLD} checks negativos).` };
     }
 
     // "unknown" — don't block, just proceed
-    log.info(`Device ${baseUrl.slice(0, 30)} status unknown — proceeding normally`);
+    // "unknown" — proceed silently
     return { connected: null, detail: extractProviderMessage(body, raw) || "Status incerto — prosseguindo." };
   } catch (error: any) {
     // Network error / timeout — don't immediately mark as disconnected
@@ -358,7 +358,7 @@ async function isDeviceConnected(baseUrl: string, token: string, _checks = 1): P
       return { connected: false, detail: `Falha de rede confirmada após ${streak} tentativas: ${error?.message || "erro"}` };
     }
 
-    log.info(`Device ${baseUrl.slice(0, 30)} check failed (streak ${streak}/${DISCONNECT_CONFIRM_THRESHOLD}): ${error?.message} — not blocking`);
+    // Not yet confirmed — proceed silently
     return { connected: null, detail: error?.message || "Falha temporária na verificação." };
   }
 }
@@ -722,15 +722,20 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
     let contactsInLoop = 0;
     let cachedFreshCampaign: any = null;
-    let batchProcessed = 0; // contacts processed in this batch
+    let batchProcessed = 0;
+    let noNumberWarned = false; // log "no number" only once per campaign run
+    // Batch summary counters (for reduced logging)
+    let batchAdded = 0;
+    let batchAlready = 0;
+    let batchFailed = 0;
+    let batchSkipped = 0;
 
     while (isRunningRef.value && batchProcessed < BATCH_SIZE) {
-      // Clear stale device failures — give devices a chance to reconnect
+      // Clear stale device failures
       const now = Date.now();
       for (const [did, ts] of failedDeviceIds) {
         if (now - ts > DEVICE_RETRY_INTERVAL_MS) {
           failedDeviceIds.delete(did);
-          log.info(`Campaign ${campaignId.slice(0, 8)}: clearing failed flag for device ${did.slice(0, 8)} — retrying`);
         }
       }
       // 1. Check campaign status — full refresh every 10 contacts or on first iteration
@@ -819,25 +824,22 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
             
             // Don't pause immediately — just continue the loop and retry
             // The loop will re-check on next iteration
-            log.info(`Campaign ${campaignId.slice(0, 8)}: retrying after cooldown — not pausing yet`);
+            // Retry silently — warn was already logged above
             continue;
           }
           continue;
         }
 
-        // If connection is unknown/null, just proceed — don't block
-        if (liveConnection.connected === null && !CONNECTED_DEVICE_STATUSES.has(statusHint)) {
-          log.info(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} status uncertain — proceeding anyway`);
-        }
+        // If connection is unknown/null, just proceed — don't block or log
       }
 
-      if (!String(device.number || "").trim()) {
-        log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} has no number synced in DB — proceeding without own-number guard`);
+      if (!noNumberWarned && !String(device.number || "").trim()) {
+        log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} has no number synced — own-number guard disabled`);
+        noNumberWarned = true;
       }
 
       const slotWaitMs = await claimDeviceSendSlot(sb, deviceId, Number(freshCampaign.min_delay || 0));
       if (slotWaitMs > 0) {
-        log.info(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} is cooling down for ${Math.round(slotWaitMs / 1000)}s before next add`);
         await sb.from("mass_inject_campaigns").update({
           updated_at: nowIso(),
           next_run_at: new Date(Date.now() + slotWaitMs).toISOString(),
@@ -874,7 +876,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         contactsSinceFlush++;
         if (contactsSinceFlush >= COUNTER_FLUSH_INTERVAL) { await flushCounters(sb, campaignId, counterState); contactsSinceFlush = 0; }
         consecutiveFailures = 0;
-        log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} is the device's own number — skipped`);
+        batchSkipped++;
         // Still apply configured delay even for skipped contacts
         {
           const minD = Number(freshCampaign.min_delay || 0);
@@ -904,8 +906,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         contactsSinceFlush++;
         if (contactsSinceFlush >= COUNTER_FLUSH_INTERVAL) { await flushCounters(sb, campaignId, counterState); contactsSinceFlush = 0; }
         consecutiveFailures = 0;
-        log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} already in group`);
-        // Apply configured delay even for already-existing contacts
+        batchAlready++;
         {
           const minD = Number(freshCampaign.min_delay || 0);
           const maxD = Math.max(Number(freshCampaign.max_delay || 0), minD);
@@ -941,7 +942,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         contactsSinceFlush++;
         consecutiveFailures = 0;
         rememberParticipantInCache(baseUrl, groupId, phone);
-        log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} added successfully`);
+        batchAdded++;
       } else if (result.alreadyExists) {
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: result.detail, processed_at: nowIso(),
@@ -961,11 +962,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
           : "failed");
 
         if (isConnectionIssue) {
-          // Don't do extra connection checks after add failure — just mark as retryable
-          // and let the normal flow retry. This avoids the cascade of "all disconnected" pauses.
           failStatus = "api_temporary";
           failureDetail = `Oscilação temporária: ${result.detail}`.trim();
-          log.info(`Campaign ${campaignId.slice(0, 8)}: connection issue on add — treating as temporary, will retry`);
         }
         
         await sb.from("mass_inject_contacts").update({
@@ -977,7 +975,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         consecutiveFailures = AUTO_PAUSE_FAILURE_STATUSES.has(failStatus)
           ? counterState.consecutive_failures
           : 0;
-        log.warn(`Campaign ${campaignId.slice(0, 8)}: ${phone} ${FINAL_FAILURE_STATUSES.has(failStatus) ? "failed" : "retryable"} — ${failureDetail}${consecutiveFailures > 0 ? ` (consecutive: ${consecutiveFailures})` : ""}`);
+        batchFailed++;
 
         if (result.pauseCampaign) {
           await flushCounters(sb, campaignId, counterState);
@@ -1001,22 +999,17 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
         // Cooldown only for rate limits — short and capped
         if (isRateLimit && result.cooldownMs > 0) {
-          const cooldown = Math.min(result.cooldownMs, 8000);
-          log.info(`Campaign ${campaignId.slice(0, 8)}: rate limit cooldown ${Math.round(cooldown / 1000)}s`);
-          await sleep(cooldown);
+          await sleep(Math.min(result.cooldownMs, 8000));
         } else if ((isConnectionIssue || isTimeout) && result.cooldownMs > 0) {
-          const cooldown = Math.min(result.cooldownMs, 3000);
-          log.info(`Campaign ${campaignId.slice(0, 8)}: transient error cooldown ${Math.round(cooldown / 1000)}s`);
-          await sleep(cooldown);
+          await sleep(Math.min(result.cooldownMs, 3000));
         }
       }
 
-      // 9. Apply delay — use EXACTLY what the user configured (no forced minimums)
+      // 9. Apply delay
       contactsInLoop++;
       const minDelay = Number(freshCampaign.min_delay ?? 0);
       const maxDelay = Math.max(Number(freshCampaign.max_delay ?? 0), minDelay);
       let delayMs = minDelay === maxDelay ? minDelay * 1000 : randomBetween(minDelay * 1000, maxDelay * 1000);
-      log.info(`Campaign ${campaignId.slice(0, 8)}: delay ${Math.round(delayMs / 1000)}s (range ${minDelay}-${maxDelay}s)`);
 
       // Block pause check
       const pauseAfter = Number(freshCampaign.pause_after || 0);
@@ -1052,9 +1045,15 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     // Flush any remaining dirty counters at end of batch
     await flushCounters(sb, campaignId, counterState);
 
-    // Batch complete — if campaign still has contacts, log and let next tick continue
-    if (batchProcessed >= BATCH_SIZE) {
-      log.info(`Campaign ${campaignId.slice(0, 8)}: batch of ${batchProcessed} done — yielding to next tick`);
+    // Batch summary log (single line replaces all per-contact logs)
+    if (batchProcessed > 0) {
+      const parts = [];
+      if (batchAdded) parts.push(`+${batchAdded} added`);
+      if (batchAlready) parts.push(`${batchAlready} already`);
+      if (batchFailed) parts.push(`${batchFailed} failed`);
+      if (batchSkipped) parts.push(`${batchSkipped} skipped`);
+      const total = counterState.success_count + counterState.already_count + counterState.fail_count;
+      log.info(`Campaign ${campaignId.slice(0, 8)}: batch ${batchProcessed} contacts [${parts.join(", ")}] — total ${total}/${campaign.total_items || "?"}`);
     }
   } catch (err: any) {
     const errMessage = String(err?.message || err || "Erro interno desconhecido");
