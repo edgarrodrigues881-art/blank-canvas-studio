@@ -3490,10 +3490,16 @@ async function handleTick(
               messages_today: 0, pairs_today: 0,
             });
             bufferAudit({ user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id, level: "warn", event_type: "community_membership_auto_created", message: "Membership criado automaticamente (faltava)" });
-          } else if (!myMembership.is_enabled) {
-            await db.from("warmup_community_membership")
-              .update({ is_enabled: true, is_eligible: true })
-              .eq("id", myMembership.id);
+          } else {
+            // Auto-fix: if membership exists but community_day=0 while in community phase, set to 1
+            const fixData: any = {};
+            if (!myMembership.is_enabled) { fixData.is_enabled = true; fixData.is_eligible = true; }
+            if ((myMembership as any).community_day === 0) { fixData.community_day = 1; }
+            if (Object.keys(fixData).length > 0) {
+              await db.from("warmup_community_membership")
+                .update(fixData)
+                .eq("id", myMembership.id);
+            }
           }
         }
 
