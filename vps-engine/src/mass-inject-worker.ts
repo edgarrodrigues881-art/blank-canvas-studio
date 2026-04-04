@@ -942,7 +942,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         contactsSinceFlush++;
         consecutiveFailures = 0;
         rememberParticipantInCache(baseUrl, groupId, phone);
-        log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} added successfully`);
+        batchAdded++;
       } else if (result.alreadyExists) {
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: result.detail, processed_at: nowIso(),
