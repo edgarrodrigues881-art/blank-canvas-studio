@@ -1058,8 +1058,14 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: true, status: "running" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ─── CONTINUE (internal batch processing) ───
+    // ─── CONTINUE (delegated to VPS campaign-worker) ───
     if (action === "continue") {
+      console.log(`Campaign ${campaignId} continue delegated to VPS campaign-worker`);
+      return new Response(JSON.stringify({ success: true, status: "running", delegated: "vps-engine" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ─── CONTINUE (internal batch processing — legacy path kept unreachable for fallback reference) ───
+    if (false && action === "continue") {
       const planErr = await checkActivePlan(userId);
       if (planErr) {
         console.log(`⚠️ Plan inactive for user ${userId}, pausing campaign ${campaignId}`);
