@@ -485,13 +485,33 @@ async function warmupTick() {
     }
   }
 
-  // 3. Fetch pending jobs
-  const { data: pendingJobs, error: fetchErr } = await db.from("warmup_jobs")
-    .select("id, user_id, device_id, cycle_id, job_type, payload, run_at, status, attempts, max_attempts")
-    .eq("status", "pending")
-    .lte("run_at", now)
-    .order("run_at", { ascending: true })
-    .limit(2000);
+  // 3. Fetch pending jobs — balanced across job types to prevent groups from starving autosave/community
+  // Fetch each priority type separately, then merge & interleave
+  const jobTypeBuckets = [
+    { types: ["daily_reset"], limit: 200 },           // Highest priority — resets must happen first
+    { types: ["autosave_interaction"], limit: 400 },   // Auto save needs guaranteed slots
+    { types: ["community_interaction"], limit: 400 },  // Community needs guaranteed slots
+    { types: ["group_interaction"], limit: 1000 },     // Groups get the largest share but capped
+  ];
+
+  const allJobs: any[] = [];
+  for (const bucket of jobTypeBuckets) {
+    const { data: bucketJobs, error: bucketErr } = await db.from("warmup_jobs")
+      .select("id, user_id, device_id, cycle_id, job_type, payload, run_at, status, attempts, max_attempts")
+      .eq("status", "pending")
+      .lte("run_at", now)
+      .in("job_type", bucket.types)
+      .order("run_at", { ascending: true })
+      .limit(bucket.limit);
+    if (bucketErr) {
+      log.warn(`Error fetching ${bucket.types.join(",")} jobs: ${bucketErr.message}`);
+      continue;
+    }
+    if (bucketJobs?.length) allJobs.push(...bucketJobs);
+  }
+
+  // Sort merged results by run_at for fair ordering
+  const pendingJobs = allJobs.sort((a, b) => new Date(a.run_at).getTime() - new Date(b.run_at).getTime());
 
   if (fetchErr) {
     const serializedFetchErr = serializeUnknownError(fetchErr);
