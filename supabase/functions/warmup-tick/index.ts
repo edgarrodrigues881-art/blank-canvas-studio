@@ -1410,7 +1410,7 @@ async function reconcileCommunityPairs(
   if (communityDay === undefined) {
     const { data: membership } = await db.from("warmup_community_membership")
       .select("community_day").eq("device_id", params.deviceId).maybeSingle();
-    communityDay = membership?.community_day || 1;
+    communityDay = membership?.community_day || 0;
   }
 
   const targetPeers = getCommunityPeers(params.dayIndex, params.chipState, communityDay);
