@@ -12,7 +12,7 @@ import { acquireGlobalSlot, releaseGlobalSlot } from "./lib/global-semaphore";
 const log = createLogger("mass-inject");
 
 const API_TIMEOUT_MS = 25_000;
-const MAX_CONSECUTIVE_FAILURES = 25;
+
 const MIN_DEVICE_SEND_INTERVAL_MS = 3_000;
 const RETRYABLE_STATUSES = [
   "pending",
