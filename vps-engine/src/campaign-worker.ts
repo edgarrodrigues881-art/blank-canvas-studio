@@ -265,16 +265,40 @@ function translateErrorMessage(msg: string): string {
   return msg;
 }
 
-async function sendWithRetry(baseUrl: string, token: string, to: string, body: string, mediaUrl?: string | null, buttons?: CampaignButton[], messageType?: string, carouselCards?: CarouselCard[]): Promise<{ success: boolean; attempts: number; error?: string }> {
+async function sendWithRetry(
+  baseUrl: string,
+  token: string,
+  to: string,
+  body: string,
+  mediaUrl?: string | null,
+  buttons?: CampaignButton[],
+  messageType?: string,
+  carouselCards?: CarouselCard[],
+  shouldContinue?: () => Promise<boolean>,
+): Promise<{ success: boolean; attempts: number; error?: string }> {
   let lastError = "";
   for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+    if (shouldContinue && !(await shouldContinue())) {
+      return { success: false, attempts: attempt, error: "Campaign paused before send" };
+    }
+
     try {
       await sendUazapiMessage(baseUrl, token, to, body, mediaUrl, buttons, messageType, carouselCards);
       return { success: true, attempts: attempt };
     } catch (err: any) {
       lastError = err.message || "Erro";
       if (!isTemporaryError(lastError) || attempt > MAX_RETRIES) return { success: false, attempts: attempt, error: lastError };
-      await sleep(RETRY_DELAY_MIN_MS + secureRandom() * (RETRY_DELAY_MAX_MS - RETRY_DELAY_MIN_MS));
+
+      const retryDelay = RETRY_DELAY_MIN_MS + secureRandom() * (RETRY_DELAY_MAX_MS - RETRY_DELAY_MIN_MS);
+      let remainingRetry = retryDelay;
+      while (remainingRetry > 0) {
+        const chunk = Math.min(remainingRetry, 3000);
+        await sleep(chunk);
+        remainingRetry -= chunk;
+        if (shouldContinue && !(await shouldContinue())) {
+          return { success: false, attempts: attempt, error: "Campaign paused before retry" };
+        }
+      }
     }
   }
   return { success: false, attempts: MAX_RETRIES + 1, error: lastError };
@@ -489,6 +513,28 @@ async function syncCampaignRuntimeDevices(
   return activeIds
     .map((id) => deviceMap.get(id))
     .filter((device: any) => device && device.uazapi_token && device.uazapi_base_url && CONNECTED_STATUSES.includes(device.status));
+}
+
+async function releaseContactIfCampaignStopped(
+  sb: any,
+  campaignId: string,
+  contactId: string,
+  reason: string,
+) {
+  const { data: liveCampaign } = await sb.from("campaigns")
+    .select("status")
+    .eq("id", campaignId)
+    .single();
+
+  if (liveCampaign?.status === "running") return false;
+
+  await sb.from("campaign_contacts")
+    .update({ status: "pending", error_message: null })
+    .eq("id", contactId)
+    .eq("status", "processing");
+
+  log.info(`Campaign ${campaignId.slice(0, 8)}: detected ${liveCampaign?.status ?? "unknown"} ${reason} — contact ${contactId.slice(0, 8)} returned to pending`);
+  return true;
 }
 
 class RandomPicker {
@@ -766,7 +812,20 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       }
     }
 
-    // 8. Send message
+    // 8. Final stop-check before any send attempt
+    if (await releaseContactIfCampaignStopped(sb, campaignId, contact.id, "right before send")) {
+      break;
+    }
+
+    const shouldContinueCampaign = async () => {
+      const { data: liveCampaign } = await sb.from("campaigns")
+        .select("status")
+        .eq("id", campaignId)
+        .single();
+      return liveCampaign?.status === "running";
+    };
+
+    // 9. Send message
     const rand4 = generateUniqueRand4(usedRand4);
     const rand3 = generateUniqueRand3(usedRand3);
     let success = false;
@@ -775,8 +834,14 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     if (sendAllMode && messageVariants.length > 1) {
       let allOk = true;
       for (let mi = 0; mi < messageVariants.length; mi++) {
+        if (await releaseContactIfCampaignStopped(sb, campaignId, contact.id, `before variant ${mi + 1}`)) {
+          allOk = false;
+          sendError = "Campaign paused before send";
+          break;
+        }
+
         const msg = replaceVariables(messageVariants[mi], contact, rand4, rand3);
-        const result = await sendWithRetry(baseUrl, device.uazapi_token, sendTo, msg, mi === 0 ? mediaUrl : null, mi === 0 ? campaignButtons : [], msgType, mi === 0 ? carouselCards : []);
+        const result = await sendWithRetry(baseUrl, device.uazapi_token, sendTo, msg, mi === 0 ? mediaUrl : null, mi === 0 ? campaignButtons : [], msgType, mi === 0 ? carouselCards : [], shouldContinueCampaign);
         if (!result.success) { allOk = false; sendError = result.error || "Erro"; break; }
         if (mi < messageVariants.length - 1) await sleep(randomBetween(minDelayMs, maxDelayMs));
       }
@@ -784,12 +849,17 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     } else {
       const chosenMsg = sequentialMode ? messageVariants[sequentialIndex++ % messageVariants.length] : messageVariants[picker.next()];
       const msg = replaceVariables(chosenMsg, contact, rand4, rand3);
-      const result = await sendWithRetry(baseUrl, device.uazapi_token, sendTo, msg, mediaUrl, campaignButtons, msgType, carouselCards);
+      const result = await sendWithRetry(baseUrl, device.uazapi_token, sendTo, msg, mediaUrl, campaignButtons, msgType, carouselCards, shouldContinueCampaign);
       success = result.success;
       sendError = result.error || "";
     }
 
-    // 9. Record outcome
+    if (!success && sendError.toLowerCase().includes("campaign paused before")) {
+      await sb.from("campaign_contacts").update({ status: "pending", error_message: null }).eq("id", contact.id).eq("status", "processing");
+      break;
+    }
+
+    // 10. Record outcome
     if (success) {
       await sb.from("campaign_contacts").update({ status: "sent", sent_at: nowIso(), error_message: null, device_id: device.id }).eq("id", contact.id);
       instanceMsgCount++;
