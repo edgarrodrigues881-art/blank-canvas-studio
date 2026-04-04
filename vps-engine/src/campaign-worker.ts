@@ -720,8 +720,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       .update({ status: "processing" }).eq("id", contact.id).eq("status", "pending").select("id");
     if (!locked?.length) continue;
 
-    // 5. Pick device (rotation)
-    const device = allDevices[currentDeviceIndex % allDevices.length];
+    // 5. Pick device (rotation) — by ID, not index
+    const device = findDeviceById(currentDeviceId, allDevices) || allDevices[0];
+    if (!device) { log.warn(`Campaign ${campaignId.slice(0, 8)}: no device available`); break; }
     const baseUrl = (device.uazapi_base_url || "").replace(/\/+$/, "");
 
     // 6. Check device connectivity every 10 contacts
