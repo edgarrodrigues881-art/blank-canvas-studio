@@ -3481,7 +3481,7 @@ async function handleTick(
         // [FIX] Auto-create community membership if missing (safety net)
         {
           const { data: myMembership } = await db.from("warmup_community_membership")
-            .select("id, is_enabled").eq("device_id", job.device_id).maybeSingle();
+            .select("id, is_enabled, community_day").eq("device_id", job.device_id).maybeSingle();
           if (!myMembership) {
             await db.from("warmup_community_membership").insert({
               user_id: job.user_id, device_id: job.device_id, cycle_id: cycle.id,
