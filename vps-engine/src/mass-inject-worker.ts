@@ -871,8 +871,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       const cacheKey = `${baseUrl}::${groupId}`;
       const cachedParticipants = participantCache.get(cacheKey);
       const useCachedCheck = cachedParticipants && cachedParticipants.confirmed && (Date.now() - cachedParticipants.fetchedAt < PARTICIPANT_CACHE_TTL_MS);
-      // Only fetch fresh participants on first contact or every 50 — rely on cache more
-      const shouldFetchFresh = !useCachedCheck && (processed === 0 || processed % 50 === 0);
+      // Only fetch fresh on first contact or every 100 — trust cache heavily
+      const shouldFetchFresh = !useCachedCheck && (processed === 0 || processed % 100 === 0);
       const participantSnapshot = shouldFetchFresh
         ? await fetchGroupParticipants(baseUrl, device.uazapi_token, groupId)
         : (useCachedCheck ? cachedParticipants! : null);
