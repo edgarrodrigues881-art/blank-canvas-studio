@@ -860,7 +860,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         break;
       }
 
-      await sb.from("mass_inject_contacts").update({ processed_at: nowIso(), device_used: device.name || device.id }).eq("id", contact.id);
+      // processed_at will be set in the final status update below — skip redundant write here
 
       // 6. Skip own number (admin's device number — can't add yourself)
       const groupId = contact.target_group_id || freshCampaign.group_id;
