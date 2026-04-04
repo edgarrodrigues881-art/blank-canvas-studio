@@ -984,6 +984,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
           const reason = `Pausada por ${MAX_CONSECUTIVE_FAILURES} falhas consecutivas.`;
+          await flushCounters(sb, campaignId, counterState);
           await sb.from("mass_inject_campaigns").update({
             status: "paused", updated_at: nowIso(), next_run_at: null, pause_reason: reason,
           }).eq("id", campaignId);
