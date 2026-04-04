@@ -926,7 +926,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
     // 13. Normal delay (random within configured range) — split into chunks to detect pause faster
     const delayMs = Math.round(randomBetween(minDelayMs, maxDelayMs));
-    log.info(`Campaign ${campaignId.slice(0, 8)}: delay ${Math.round(delayMs / 1000)}s (range ${Math.round(minDelayMs / 1000)}-${Math.round(maxDelayMs / 1000)}s)`);
+    log.info(`Campaign ${campaignId.slice(0, 8)}: delay ${(delayMs / 1000).toFixed(1)}s (range ${(minDelayMs / 1000).toFixed(0)}-${(maxDelayMs / 1000).toFixed(0)}s)`);
     // Sleep in 3s chunks, checking for pause/cancel between chunks
     let remainingDelay = delayMs;
     while (remainingDelay > 0 && isRunningRef.value) {
