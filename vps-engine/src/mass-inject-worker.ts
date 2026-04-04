@@ -962,11 +962,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
           : "failed");
 
         if (isConnectionIssue) {
-          // Don't do extra connection checks after add failure — just mark as retryable
-          // and let the normal flow retry. This avoids the cascade of "all disconnected" pauses.
           failStatus = "api_temporary";
           failureDetail = `Oscilação temporária: ${result.detail}`.trim();
-          log.info(`Campaign ${campaignId.slice(0, 8)}: connection issue on add — treating as temporary, will retry`);
         }
         
         await sb.from("mass_inject_contacts").update({
