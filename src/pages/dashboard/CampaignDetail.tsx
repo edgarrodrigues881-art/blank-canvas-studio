@@ -1090,10 +1090,9 @@ const CampaignDetail = () => {
 
                       {/* Available devices to add */}
                       {availableDevices.length > 0 && (() => {
-                        const [deviceSearch, setDeviceSearch] = React.useState("");
                         const filteredAvailable = availableDevices.filter(dev => {
-                          if (!deviceSearch) return true;
-                          const q = deviceSearch.toLowerCase();
+                          if (!deviceSearchQuery) return true;
+                          const q = deviceSearchQuery.toLowerCase();
                           return (dev.name || "").toLowerCase().includes(q) || (dev.number || "").includes(q);
                         });
                         return (
