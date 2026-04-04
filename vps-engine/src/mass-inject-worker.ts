@@ -975,7 +975,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         consecutiveFailures = AUTO_PAUSE_FAILURE_STATUSES.has(failStatus)
           ? counterState.consecutive_failures
           : 0;
-        log.warn(`Campaign ${campaignId.slice(0, 8)}: ${phone} ${FINAL_FAILURE_STATUSES.has(failStatus) ? "failed" : "retryable"} — ${failureDetail}${consecutiveFailures > 0 ? ` (consecutive: ${consecutiveFailures})` : ""}`);
+        batchFailed++;
 
         if (result.pauseCampaign) {
           await flushCounters(sb, campaignId, counterState);
