@@ -918,7 +918,14 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
       // 8. Add to group (lock only during the API call)
       const actionLockId = `${campaignId}:${contact.id}`;
-      DeviceLockManager.tryAcquire(deviceId, "mass_inject", actionLockId);
+      const lockAcquired = DeviceLockManager.tryAcquire(deviceId, "mass_inject", actionLockId);
+      if (!lockAcquired) {
+        // Device is busy with a conflicting heavy operation — revert contact to pending and skip
+        await sb.from("mass_inject_contacts").update({ status: "pending", error_message: "Instância ocupada — reagendado.", device_used: null }).eq("id", contact.id);
+        log.info(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} busy — skipping contact ${phone}, will retry`);
+        await sleep(2000);
+        continue;
+      }
       let result: Awaited<ReturnType<typeof addToGroup>>;
       try {
         result = await addToGroup(baseUrl, device.uazapi_token, groupId, phone);
