@@ -93,6 +93,7 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/group-join": () => { (GroupJoinCampaignList as any).__preload?.(); },
   "/dashboard/welcome": () => { (WelcomeAutomation as any).__preload?.(); },
   "/dashboard/notifications": () => { (Notifications as any).__preload?.(); },
+  "/dashboard/prospeccao": () => { (Prospeccao as any).__preload?.(); },
 };
 
 const queryClient = new QueryClient({
