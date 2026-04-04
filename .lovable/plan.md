@@ -1,60 +1,38 @@
 
-## Diagnóstico
+## Plano: Verificador de WhatsApp — Lotes Persistentes em Background
 
-O sistema **já tem** muita coisa boa implementada:
-- ✅ Workers separados por responsabilidade (7 workers)
-- ✅ Semaphore para concorrência
-- ✅ Device mutex no mass-inject
-- ✅ campaign_device_locks no banco
-- ✅ claim_device_send_slot para throttling
-- ✅ Limites per-user (10) e global (30) no mass-inject
-- ✅ Retry com backoff no warmup
+### Problema atual
+- A verificação roda **só no navegador** — ao fechar a aba, tudo para e os resultados somem
+- Não existe conceito de "campanha de verificação" — é um processo único sem histórico
+- Notificações erradas de "campanha finalizada" aparecem porque não há distinção
 
-### O PROBLEMA REAL (raiz de tudo)
+### Solução
 
-**Não existe coordenação ENTRE workers.** Cada worker age independentemente:
-- O **campaign-worker** pode usar o device X ao mesmo tempo que o **mass-inject-worker**
-- O **warmup** pode disparar interações no device X enquanto uma campanha roda nele
-- O **group-interaction** pode usar o device X simultaneamente
+#### 1. Criar tabelas no banco de dados
+- **`verify_jobs`** — cada lote de verificação (nome, instância, status, progresso, totais)
+  - Campos: `id`, `user_id`, `device_id`, `name`, `status` (pending/running/completed/failed/canceled), `total_phones`, `verified_count`, `success_count`, `no_whatsapp_count`, `error_count`, `created_at`, `updated_at`, `completed_at`
+- **`verify_results`** — resultado individual de cada número
+  - Campos: `id`, `job_id`, `phone`, `status` (pending/success/no_whatsapp/error), `detail`, `checked_at`
+- RLS para isolamento por usuário
+- Trigger de notificação quando o job completa (título "Verificação concluída", não "Campanha")
 
-Isso causa: conflitos de API, rate limits, desconexões, comportamento errático.
+#### 2. Novo worker no VPS Engine (`verify-worker.ts`)
+- Busca jobs com `status = 'running'` a cada 15s
+- Processa números `pending` em lotes de 5 (mesmo padrão atual da edge function)
+- Atualiza contadores em tempo real no `verify_jobs`
+- Ao finalizar, marca como `completed` e insere notificação correta
+- Suporta **múltiplos jobs simultâneos** (cada um com sua instância)
 
-## Plano de Implementação (3 fases)
+#### 3. Atualizar o Frontend
+- **Tela de listagem**: mostra todos os lotes (ativos, concluídos, cancelados) com progresso em tempo real
+- **Botão "Nova Verificação"**: abre formulário para criar um novo lote (selecionar instância, colar/importar números, dar nome)
+- **Tela de detalhe**: mostra resultados, exportação CSV/XLSX, copiar válidos
+- **Ações**: pausar, cancelar, retomar lotes
+- Pode rodar **vários lotes ao mesmo tempo** com instâncias diferentes
 
-### Fase 1: Device Lock Global (CRÍTICO — resolve 80% dos problemas)
-
-Criar um **mapa de locks global no processo Node** que TODOS os workers consultam antes de usar um device:
-
-```
-DeviceLockManager:
-  - acquireLock(deviceId, workerType, taskId) → boolean
-  - releaseLock(deviceId, taskId)
-  - isLocked(deviceId) → { locked: boolean, by: string }
-  - getActiveDevices() → Map
-```
-
-**Regras:**
-- 1 tarefa pesada por device por vez (campanha, mass-inject, warmup-interaction)
-- Tarefas leves (status check, heartbeat) sempre passam
-- Worker que não consegue lock → agenda retry em 30s
-
-**Impacto:** Zero mudança no frontend, zero mudança no banco, zero risco de quebrar algo.
-
-### Fase 2: Campaign Worker Multi-Campaign
-
-Hoje o campaign-worker processa **1 campanha por vez** sequencialmente. Mudar para:
-- Processar até 5 campanhas em paralelo (desde que em devices diferentes)
-- Usar o DeviceLockManager da Fase 1
-- Quando 2 campanhas usam o mesmo device → uma espera
-
-### Fase 3: Melhorar Status e Logs
-
-- Adicionar status "waiting_device_lock" nas campanhas e mass-inject
-- Mostrar no frontend: "Aguardando: device X está sendo usado pelo aquecimento"
-- Log estruturado com motivo exato de cada espera/falha
-
-## O que NÃO fazer agora
-
-- ❌ Criar nova tabela de jobs genérica (já existe warmup_jobs + campaign_contacts + mass_inject_contacts — cada um com suas especificidades)
-- ❌ Reescrever tudo do zero (o código atual é funcional, só falta coordenação entre workers)
-- ❌ Mudar a arquitetura de polling (funciona bem para a escala atual)
+#### 4. Benefícios
+- ✅ Fecha a página? Continua rodando no servidor
+- ✅ Múltiplas verificações simultâneas
+- ✅ Histórico completo de todas as verificações
+- ✅ Notificação correta ("Verificação concluída" em vez de "Campanha")
+- ✅ Progresso em tempo real via Realtime do Supabase
