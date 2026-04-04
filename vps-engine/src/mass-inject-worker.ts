@@ -871,14 +871,35 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       const deviceId = pickDeviceId(freshCampaign, failedDeviceIds);
       if (!deviceId) {
         if (failedDeviceIds.size > 0) {
-          log.warn(`Campaign ${campaignId.slice(0, 8)}: all devices cooling down — waiting ${DEVICE_RETRY_INTERVAL_MS / 1000}s`);
+          // Check if ALL devices have been disconnected for too long → auto-pause
+          const allIds = parseDeviceIds(freshCampaign.device_ids);
+          const allDisconnectedLong = allIds.every(id => {
+            const state = deviceConnectionState.get(id);
+            return state?.status === "disconnected" && state.confirmedDisconnectedAt
+              && (Date.now() - state.confirmedDisconnectedAt) > DEVICE_DISCONNECT_AUTO_PAUSE_MS;
+          });
+
+          if (allDisconnectedLong) {
+            const elapsed = Math.round(DEVICE_DISCONNECT_AUTO_PAUSE_MS / 1000);
+            const reason = `Todas as instâncias desconectadas há mais de ${elapsed}s. Campanha pausada automaticamente.`;
+            log.warn(`Campaign ${campaignId.slice(0, 8)}: ${reason}`);
+            await sb.from("mass_inject_campaigns").update({
+              status: "paused", updated_at: nowIso(), next_run_at: null,
+              pause_reason: reason,
+            }).eq("id", campaignId);
+            await emitEvent(sb, campaignId, "campaign_auto_paused_disconnect", "warning", reason);
+            break;
+          }
+
+          // Not long enough — wait and retry with progressive check
+          const waitMs = Math.min(DEVICE_RETRY_INTERVAL_MS * 2, 15_000); // wait 12-15s
           await sb.from("mass_inject_campaigns").update({
             updated_at: nowIso(),
-            next_run_at: new Date(Date.now() + DEVICE_RETRY_INTERVAL_MS).toISOString(),
+            next_run_at: new Date(Date.now() + waitMs).toISOString(),
             pause_reason: "Aguardando reconexão das instâncias...",
           }).eq("id", campaignId);
-          await sleep(DEVICE_RETRY_INTERVAL_MS);
-          failedDeviceIds.clear();
+          await sleep(waitMs);
+          failedDeviceIds.clear(); // allow re-check on next iteration
           continue;
         }
 
@@ -904,44 +925,43 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       }
 
       const baseUrl = String(device.uazapi_base_url).replace(/\/+$/, "");
-      const statusHint = String(device.status || "").toLowerCase();
       const processed = counterState.success_count + counterState.fail_count + counterState.already_count;
-      // Check connection less often: first contact, then every 50, or if DB says disconnected
-      const shouldCheckConnection = processed === 0 || processed % 50 === 0 || (!CONNECTED_DEVICE_STATUSES.has(statusHint) && processed % 10 === 0);
 
-      // 4. Connection check — uses streak-based confirmation
-      if (shouldCheckConnection) {
-        const liveConnection = await isDeviceConnected(baseUrl, device.uazapi_token);
+      // 4. Smart connection pre-validation — checks cached state first, only hits API when needed
+      // Force check if: device has accumulated API failures, or DB says disconnected
+      const deviceState = deviceConnectionState.get(deviceId);
+      const hasApiFailures = deviceState && deviceState.consecutiveApiFailures >= API_FAILURE_DISCONNECT_THRESHOLD;
+      const dbSaysDisconnected = !CONNECTED_DEVICE_STATUSES.has(String(device.status || "").toLowerCase());
+      const forceCheck = hasApiFailures || (dbSaysDisconnected && processed % 5 === 0);
 
-        if (liveConnection.connected === false) {
-          log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} disconnected`);
+      const connResult = await isInstanceConnected(deviceId, baseUrl, device.uazapi_token, forceCheck || processed === 0);
+
+      if (!connResult.connected) {
+        if (connResult.shouldSkipDevice) {
+          // Device confirmed disconnected — skip without consuming contact
           failedDeviceIds.set(deviceId, Date.now());
 
           // Check if ALL devices are down
           const allIds = parseDeviceIds(freshCampaign.device_ids);
-          if (allIds.every(id => failedDeviceIds.has(id))) {
-            // Wait 30s and clear all failures to give devices a chance to reconnect
-            log.warn(`Campaign ${campaignId.slice(0, 8)}: all devices disconnected — waiting 30s before retrying`);
-            await emitEvent(sb, campaignId, "all_sessions_dropped", "warning", "Todas as instâncias desconectadas. Aguardando reconexão automática...");
+          const allDown = allIds.every(id => {
+            const s = deviceConnectionState.get(id);
+            return failedDeviceIds.has(id) || (s?.status === "disconnected");
+          });
+
+          if (allDown) {
+            await emitEvent(sb, campaignId, "all_sessions_dropped", "warning", "Todas as instâncias desconectadas. Aguardando reconexão...");
             await sb.from("mass_inject_campaigns").update({
               updated_at: nowIso(),
-              next_run_at: new Date(Date.now() + DEVICE_RETRY_INTERVAL_MS).toISOString(),
+              next_run_at: new Date(Date.now() + DEVICE_DISCONNECTED_RECHECK_MS).toISOString(),
               pause_reason: "Aguardando reconexão das instâncias...",
             }).eq("id", campaignId);
-            await sleep(DEVICE_RETRY_INTERVAL_MS);
-            
-            // Clear all failures and retry
+            await sleep(DEVICE_DISCONNECTED_RECHECK_MS);
             failedDeviceIds.clear();
-            
-            // Don't pause immediately — just continue the loop and retry
-            // The loop will re-check on next iteration
-            // Retry silently — warn was already logged above
             continue;
           }
-          continue;
+          continue; // try next device
         }
-
-        // If connection is unknown/null, just proceed — don't block or log
+        // Unknown status — proceed cautiously
       }
 
       if (!noNumberWarned && !String(device.number || "").trim()) {
