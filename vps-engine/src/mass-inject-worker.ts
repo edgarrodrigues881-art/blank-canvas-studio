@@ -840,7 +840,6 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
       const slotWaitMs = await claimDeviceSendSlot(sb, deviceId, Number(freshCampaign.min_delay || 0));
       if (slotWaitMs > 0) {
-        log.info(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} is cooling down for ${Math.round(slotWaitMs / 1000)}s before next add`);
         await sb.from("mass_inject_campaigns").update({
           updated_at: nowIso(),
           next_run_at: new Date(Date.now() + slotWaitMs).toISOString(),
