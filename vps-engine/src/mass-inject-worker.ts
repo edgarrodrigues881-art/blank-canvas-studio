@@ -833,8 +833,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         // If connection is unknown/null, just proceed — don't block or log
       }
 
-      if (!String(device.number || "").trim()) {
-        log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} has no number synced in DB — proceeding without own-number guard`);
+      if (!noNumberWarned && !String(device.number || "").trim()) {
+        log.warn(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} has no number synced — own-number guard disabled`);
+        noNumberWarned = true;
       }
 
       const slotWaitMs = await claimDeviceSendSlot(sb, deviceId, Number(freshCampaign.min_delay || 0));
