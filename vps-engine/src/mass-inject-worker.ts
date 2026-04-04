@@ -53,6 +53,19 @@ const DEVICE_CRITICAL_PAUSE_THRESHOLD = 4; // pause only after 4 consecutive cri
 
 const DEVICE_RETRY_INTERVAL_MS = 6_000; // 6s — fast retry, don't block
 
+// ── Per-device connection state (persists across contacts) ──
+interface DeviceConnectionState {
+  status: "connected" | "disconnected" | "unknown";
+  lastCheckedAt: number;
+  confirmedDisconnectedAt: number | null; // timestamp when confirmed disconnected
+  consecutiveApiFailures: number; // API call failures suggesting disconnect
+}
+const deviceConnectionState = new Map<string, DeviceConnectionState>();
+const DEVICE_CONNECTED_CACHE_MS = 30_000; // trust "connected" for 30s
+const DEVICE_DISCONNECTED_RECHECK_MS = 15_000; // re-check disconnected device every 15s
+const DEVICE_DISCONNECT_AUTO_PAUSE_MS = 120_000; // auto-pause campaign if ALL devices disconnected for 2min
+const API_FAILURE_DISCONNECT_THRESHOLD = 3; // after 3 consecutive API failures, force connection re-check
+
 // ── In-memory caches (persist across contacts within same campaign run) ──
 type ParticipantCacheEntry = {
   participants: Set<string>;
