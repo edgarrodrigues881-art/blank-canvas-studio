@@ -900,7 +900,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: "Contato já participava do grupo.", processed_at: nowIso(),
         }).eq("id", contact.id);
-        await updateCounters(sb, campaignId, counterState, "already_exists");
+        updateCountersLocal(counterState, "already_exists");
+        contactsSinceFlush++;
+        if (contactsSinceFlush >= COUNTER_FLUSH_INTERVAL) { await flushCounters(sb, campaignId, counterState); contactsSinceFlush = 0; }
         consecutiveFailures = 0;
         log.info(`Campaign ${campaignId.slice(0, 8)}: ${phone} already in group`);
         // Apply configured delay even for already-existing contacts
