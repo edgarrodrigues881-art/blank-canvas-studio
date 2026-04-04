@@ -3068,6 +3068,116 @@ export type Database = {
         }
         Relationships: []
       }
+      verify_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          device_id: string | null
+          error_count: number
+          id: string
+          last_error: string | null
+          name: string
+          no_whatsapp_count: number
+          started_at: string | null
+          status: string
+          success_count: number
+          total_phones: number
+          updated_at: string
+          user_id: string
+          verified_count: number
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          device_id?: string | null
+          error_count?: number
+          id?: string
+          last_error?: string | null
+          name?: string
+          no_whatsapp_count?: number
+          started_at?: string | null
+          status?: string
+          success_count?: number
+          total_phones?: number
+          updated_at?: string
+          user_id: string
+          verified_count?: number
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          device_id?: string | null
+          error_count?: number
+          id?: string
+          last_error?: string | null
+          name?: string
+          no_whatsapp_count?: number
+          started_at?: string | null
+          status?: string
+          success_count?: number
+          total_phones?: number
+          updated_at?: string
+          user_id?: string
+          verified_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verify_jobs_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verify_jobs_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      verify_results: {
+        Row: {
+          checked_at: string | null
+          created_at: string
+          detail: string | null
+          id: string
+          job_id: string
+          phone: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          checked_at?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          job_id: string
+          phone: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          checked_at?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          job_id?: string
+          phone?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verify_results_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "verify_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       warmup_audit_logs: {
         Row: {
           created_at: string
