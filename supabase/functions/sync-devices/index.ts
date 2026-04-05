@@ -601,17 +601,23 @@ Deno.serve(async (req) => {
               },
             });
 
-            if (confirmedState?.state === "disconnected" && strikes >= disconnectWaveRequiredStrikes) {
+            const firstStrikeAt = disconnectWaveFirstStrikeMap.get(device.id) || Date.now();
+            const timeSpread = Date.now() - firstStrikeAt;
+            const hasEnoughStrikes = strikes >= disconnectWaveRequiredStrikes;
+            const hasEnoughTimeSpread = timeSpread >= disconnectWaveMinSpreadMs;
+
+            if (confirmedState?.state === "disconnected" && hasEnoughStrikes && hasEnoughTimeSpread) {
               effectiveState = confirmedState;
               opLogs.push({
                 user_id: userId,
                 device_id: device.id,
                 event: "sync_disconnect_wave_confirmed",
-                details: `Desconexão confirmada para "${device.name}" após ${strikes} confirmações`,
+                details: `Desconexão confirmada para "${device.name}" após ${strikes} strikes em ${Math.round(timeSpread / 1000)}s`,
                 meta: {
                   first_raw_status: normalizedState.rawStatus,
                   confirm_raw_status: confirmedState.rawStatus,
                   strikes,
+                  time_spread_seconds: Math.round(timeSpread / 1000),
                 },
               });
             } else if (confirmedState && confirmedState.state !== "disconnected") {
