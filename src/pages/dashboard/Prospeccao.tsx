@@ -408,7 +408,7 @@ export default function Prospeccao() {
                   <Select value={maxResults} onValueChange={setMaxResults}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {["20","50","100","200","500","1000","2000","5000"].map(v => (
+                      {["20","50","100","200","500","1000"].map(v => (
                         <SelectItem key={v} value={v}>{Number(v).toLocaleString("pt-BR")}</SelectItem>
                       ))}
                     </SelectContent>
