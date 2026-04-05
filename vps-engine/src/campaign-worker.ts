@@ -12,10 +12,10 @@ import { acquireGlobalSlot, releaseGlobalSlot } from "./lib/global-semaphore";
 
 const log = createLogger("campaign");
 
-const API_TIMEOUT_MS = 30_000;
+const API_TIMEOUT_MS = 25_000;
 const MAX_RETRIES = 2;
-const RETRY_DELAY_MIN_MS = 20_000;
-const RETRY_DELAY_MAX_MS = 60_000;
+const RETRY_DELAY_MIN_MS = 10_000;
+const RETRY_DELAY_MAX_MS = 30_000;
 const CONNECTED_STATUSES = ["Ready", "Connected", "authenticated", "open", "active", "online"];
 
 export let lastCampaignWorkerTickAt: Date | null = null;
