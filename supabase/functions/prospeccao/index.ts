@@ -530,22 +530,28 @@ Deno.serve(async (req) => {
       }
     }
 
-    // --- CREDIT CHECK ---
+    // --- CREDIT / FREE PULL CHECK ---
     const adminClient2 = createClient(supabaseUrl, serviceRoleKey);
     const { data: creditRow } = await adminClient2
       .from("prospeccao_credits")
-      .select("balance")
+      .select("balance, free_pulls_remaining")
       .eq("user_id", user.id)
       .maybeSingle();
 
     const currentBalance = creditRow?.balance ?? 0;
-    // Estimate minimum cost: at least 1 API call × 2.5 multiplier = 3 credits
-    const estimatedMinCost = Math.ceil(1 * 2.5);
-    if (currentBalance < estimatedMinCost) {
-      return new Response(
-        JSON.stringify({ error: "Créditos insuficientes para realizar a prospecção", balance: currentBalance, required: estimatedMinCost }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    const freePulls = creditRow?.free_pulls_remaining ?? 0;
+    const isFreePull = freePulls > 0 && currentBalance < Math.ceil(1 * 2.5);
+    const freeMaxResults = 20;
+
+    if (!isFreePull) {
+      // Paid mode — check credits
+      const estimatedMinCost = Math.ceil(1 * 2.5);
+      if (currentBalance < estimatedMinCost) {
+        return new Response(
+          JSON.stringify({ error: "Créditos insuficientes e sem puxadas grátis", balance: currentBalance, freePulls: 0 }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     const SERPER_API_KEY = Deno.env.get("SERPER_API_KEY");
