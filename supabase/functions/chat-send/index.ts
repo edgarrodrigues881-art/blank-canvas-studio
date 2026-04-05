@@ -42,25 +42,26 @@ Deno.serve(async (req) => {
     // Get conversation with device info
     const { data: conv, error: convErr } = await admin
       .from("conversations")
-      .select("*, devices!conversations_device_id_fkey(instance_name, token)")
+      .select("*, devices!conversations_device_id_fkey(name, uazapi_token, uazapi_base_url)")
       .eq("id", conversation_id)
       .eq("user_id", user.id)
       .single();
 
     if (convErr || !conv) return json({ error: "Conversa não encontrada" }, 404);
 
-    const instanceName = conv.devices?.instance_name;
-    const instanceToken = conv.devices?.token;
+    const instanceName = conv.devices?.name;
+    const instanceToken = conv.devices?.uazapi_token;
+    const deviceBaseUrl = conv.devices?.uazapi_base_url;
     const remoteJid = conv.remote_jid;
 
     if (!instanceName) {
       if (message_id) {
         await admin.from("conversation_messages").update({ status: "failed" }).eq("id", message_id);
       }
-      return json({ error: "Dispositivo sem instance_name configurado" }, 400);
+      return json({ error: "Dispositivo sem nome configurado" }, 400);
     }
 
-    const baseUrl = uazapiBaseUrl.replace(/\/+$/, "");
+    const baseUrl = (deviceBaseUrl || uazapiBaseUrl).replace(/\/+$/, "");
     const token = instanceToken || uazapiToken;
 
     // Determine endpoint and payload based on type
