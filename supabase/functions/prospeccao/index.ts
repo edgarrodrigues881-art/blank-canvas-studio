@@ -315,6 +315,20 @@ async function adaptiveSearch(
   const related = nichos.slice(1);
   const { center, radiusKm } = cityGeo;
 
+  const done = () => places.length >= target;
+  const budgetExceeded = () => Math.ceil(credits * 2.5) >= creditBudget;
+
+  // === FAST PATH: Small targets (≤20) — 1 API call is enough ===
+  if (target <= 20) {
+    const zoomFast = radiusKm < 5 ? 15 : radiusKm < 12 ? 14 : 13;
+    const llStr = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomFast}z`;
+    const added = await query(primary, llStr, apiKey, seen, places);
+    credits++;
+    logs.add("P1-center-fast", primary, llStr, added, places.length, 1);
+    console.log(`[prospeccao] FAST PATH: ${added} leads in 1 call for target=${target}`);
+    return { places, creditsUsed: credits };
+  }
+
   const ring1Dist = Math.min(radiusKm * 0.3, 5);
   const ring2Dist = Math.min(radiusKm * 0.6, 12);
   const ring3Dist = Math.min(radiusKm * 0.9, 20);
@@ -325,8 +339,6 @@ async function adaptiveSearch(
   const zoomRing1 = radiusKm < 8 ? 14 : 13;
   const zoomOuter = radiusKm < 12 ? 13 : 12;
 
-  const done = () => places.length >= target;
-  const budgetExceeded = () => Math.ceil(credits * 2.5) >= creditBudget;
   const progress = () => places.length / target;
   const filterInCity = (pts: GeoPoint[]) => pts.filter(p => isWithinCity(p, center, radiusKm * 1.1));
   const allScores: PointScore[] = [];
