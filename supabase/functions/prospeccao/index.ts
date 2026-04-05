@@ -6,13 +6,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// ---------- GEO UTILITIES ----------
+// ========== GEO UTILITIES ==========
 
 interface GeoPoint { lat: number; lng: number; }
+interface SearchResult { places: any[]; newUnique: number; }
 
-/**
- * Get city center coordinates using Nominatim (free, no API key).
- */
 async function geocodeCity(cidade: string, estado: string): Promise<GeoPoint | null> {
   try {
     const query = encodeURIComponent(`${cidade}, ${estado}, Brazil`);
@@ -24,52 +22,29 @@ async function geocodeCity(cidade: string, estado: string): Promise<GeoPoint | n
     const data = await res.json();
     if (data.length === 0) return null;
     return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-  } catch (err) {
-    console.error("[prospeccao] Geocoding error:", err);
+  } catch {
     return null;
   }
 }
 
-/**
- * Generate a grid of search points around a center.
- * radiusKm: how far from center to spread
- * spacing: distance between grid points in km
- */
-function generateGrid(center: GeoPoint, radiusKm: number, spacingKm: number): GeoPoint[] {
-  const points: GeoPoint[] = [center]; // Always include center
-  const latDeg = spacingKm / 111; // 1° lat ≈ 111km
-  const lngDeg = spacingKm / (111 * Math.cos(center.lat * Math.PI / 180));
-  const steps = Math.ceil(radiusKm / spacingKm);
-
-  for (let i = -steps; i <= steps; i++) {
-    for (let j = -steps; j <= steps; j++) {
-      if (i === 0 && j === 0) continue; // skip center, already added
-      const lat = center.lat + i * latDeg;
-      const lng = center.lng + j * lngDeg;
-      // Only include points within the radius circle
-      const dist = Math.sqrt((i * spacingKm) ** 2 + (j * spacingKm) ** 2);
-      if (dist <= radiusKm) {
-        points.push({ lat, lng });
-      }
-    }
+/** Generate ring of points at a given radius from center */
+function generateRing(center: GeoPoint, radiusKm: number, pointCount: number): GeoPoint[] {
+  const points: GeoPoint[] = [];
+  for (let i = 0; i < pointCount; i++) {
+    const angle = (2 * Math.PI * i) / pointCount;
+    const latOffset = (radiusKm / 111) * Math.cos(angle);
+    const lngOffset = (radiusKm / (111 * Math.cos(center.lat * Math.PI / 180))) * Math.sin(angle);
+    points.push({ lat: center.lat + latOffset, lng: center.lng + lngOffset });
   }
-
   return points;
 }
 
-/**
- * Determine grid parameters based on city size (estimated by target leads).
- * Small cities → smaller grid, large cities → wider coverage.
- */
-function getGridParams(target: number): { radiusKm: number; spacingKm: number; zoom: number } {
-  if (target <= 30) return { radiusKm: 3, spacingKm: 3, zoom: 14 };
-  if (target <= 100) return { radiusKm: 6, spacingKm: 4, zoom: 13 };
-  if (target <= 300) return { radiusKm: 10, spacingKm: 5, zoom: 12 };
-  if (target <= 1000) return { radiusKm: 15, spacingKm: 5, zoom: 12 };
-  return { radiusKm: 20, spacingKm: 6, zoom: 11 };
+/** Subdivide around a hot point — 4 points at half the ring spacing */
+function subdivide(point: GeoPoint, subRadiusKm: number): GeoPoint[] {
+  return generateRing(point, subRadiusKm, 4);
 }
 
-// ---------- SERPER LOGIC ----------
+// ========== SERPER ==========
 
 function mapPlace(item: any) {
   return {
@@ -85,9 +60,7 @@ function mapPlace(item: any) {
     googleMapsUrl: item.cid ? `https://www.google.com/maps?cid=${item.cid}` : "",
     placeId: item.placeId || "",
     imagem: item.thumbnailUrl || "",
-    email: "",
-    instagram: "",
-    facebook: "",
+    email: "", instagram: "", facebook: "",
     descricao: item.description || "",
     faixaPreco: item.priceLevel || "",
     permanentementeFechado: false,
@@ -96,85 +69,186 @@ function mapPlace(item: any) {
   };
 }
 
-/**
- * Build search tasks: each niche × each grid point = 1 potential query.
- * We search progressively and stop when target is reached.
- */
-interface SearchTask { query: string; ll: string; }
+async function serperQuery(
+  query: string,
+  ll: string,
+  apiKey: string,
+  seenKeys: Set<string>,
+  uniquePlaces: any[]
+): Promise<{ raw: number; newUnique: number }> {
+  const body: any = { q: query, gl: "br", hl: "pt-br", num: 20 };
+  if (ll) body.ll = ll;
 
-function buildSearchTasks(nichos: string[], gridPoints: GeoPoint[], zoom: number): SearchTask[] {
-  const tasks: SearchTask[] = [];
-  // Interleave: for each grid point, do all niches — this maximizes geographic spread
-  for (const point of gridPoints) {
-    const ll = `@${point.lat.toFixed(6)},${point.lng.toFixed(6)},${zoom}z`;
-    for (const nicho of nichos) {
-      tasks.push({ query: nicho, ll });
+  const res = await fetch("https://google.serper.dev/maps", {
+    method: "POST",
+    headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    console.error(`[prospeccao] Serper ${res.status} for "${query}" ${ll}`);
+    return { raw: 0, newUnique: 0 };
+  }
+
+  const data = await res.json();
+  const places = data.places || [];
+  let newUnique = 0;
+
+  for (const place of places) {
+    const key = place.cid || place.placeId ||
+      `${(place.title || "").toLowerCase()}_${(place.address || "").toLowerCase()}`;
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      uniquePlaces.push(place);
+      newUnique++;
     }
   }
-  return tasks;
+
+  return { raw: places.length, newUnique };
 }
 
 /**
- * Fetch results progressively — stop as soon as we have enough unique leads.
- * Each API call = 1 credit.
+ * ADAPTIVE SEARCH STRATEGY:
+ * 
+ * Phase 1: Center query (1 credit) — check density
+ * Phase 2: First ring (4-6 points) — expand outward
+ * Phase 3: If high-density points found, subdivide them
+ * Phase 4: Second ring (8 points, wider) — only if needed
+ * 
+ * Stops as soon as target is reached.
+ * Skips low-yield areas automatically.
  */
-async function fetchSerperProgressive(
-  tasks: SearchTask[],
-  apiKey: string,
-  target: number
+async function adaptiveSearch(
+  nichos: string[],
+  center: GeoPoint,
+  target: number,
+  apiKey: string
 ): Promise<{ places: any[]; creditsUsed: number }> {
   const seenKeys = new Set<string>();
   const uniquePlaces: any[] = [];
   let creditsUsed = 0;
+  const primaryNicho = nichos[0];
+  const HOT_THRESHOLD = 10; // If a point returns 10+ new leads, it's "hot"
+  const COLD_THRESHOLD = 3;  // If < 3 new leads, area is "cold" — don't subdivide
 
-  for (const task of tasks) {
-    if (uniquePlaces.length >= target) break;
+  const done = () => uniquePlaces.length >= target;
 
-    try {
-      const body: any = {
-        q: task.query,
-        gl: "br",
-        hl: "pt-br",
-        num: 20,
-      };
-      if (task.ll) {
-        body.ll = task.ll;
+  // --- PHASE 1: Center (1 query per niche) ---
+  for (const nicho of nichos) {
+    if (done()) break;
+    const ll = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},14z`;
+    const result = await serperQuery(nicho, ll, apiKey, seenKeys, uniquePlaces);
+    creditsUsed++;
+    console.log(`[prospeccao] P1 center "${nicho}" → ${result.raw} raw, +${result.newUnique} new (total: ${uniquePlaces.length})`);
+  }
+
+  if (done()) return { places: uniquePlaces, creditsUsed };
+
+  // --- PHASE 2: First ring (3km out, 6 points) ---
+  const ring1 = generateRing(center, 3, 6);
+  const hotPoints: GeoPoint[] = [];
+
+  for (const point of ring1) {
+    if (done()) break;
+    const ll = `@${point.lat.toFixed(6)},${point.lng.toFixed(6)},14z`;
+    const result = await serperQuery(primaryNicho, ll, apiKey, seenKeys, uniquePlaces);
+    creditsUsed++;
+    console.log(`[prospeccao] P2 ring1 → +${result.newUnique} new (total: ${uniquePlaces.length})`);
+
+    if (result.newUnique >= HOT_THRESHOLD) {
+      hotPoints.push(point);
+    }
+  }
+
+  if (done()) return { places: uniquePlaces, creditsUsed };
+
+  // --- PHASE 2b: Related niches on ring1 (only if we need more) ---
+  if (nichos.length > 1 && !done()) {
+    for (const nicho of nichos.slice(1)) {
+      if (done()) break;
+      // Pick 2 best ring1 points (first ones, which are spread out)
+      for (const point of ring1.slice(0, 2)) {
+        if (done()) break;
+        const ll = `@${point.lat.toFixed(6)},${point.lng.toFixed(6)},14z`;
+        const result = await serperQuery(nicho, ll, apiKey, seenKeys, uniquePlaces);
+        creditsUsed++;
+        console.log(`[prospeccao] P2b "${nicho}" → +${result.newUnique} new (total: ${uniquePlaces.length})`);
       }
+    }
+  }
 
-      const res = await fetch("https://google.serper.dev/maps", {
-        method: "POST",
-        headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+  if (done()) return { places: uniquePlaces, creditsUsed };
+
+  // --- PHASE 3: Subdivide hot points (1.5km sub-grid) ---
+  for (const hotPoint of hotPoints) {
+    if (done()) break;
+    const subPoints = subdivide(hotPoint, 1.5);
+    for (const sp of subPoints) {
+      if (done()) break;
+      const ll = `@${sp.lat.toFixed(6)},${sp.lng.toFixed(6)},15z`; // tighter zoom
+      const result = await serperQuery(primaryNicho, ll, apiKey, seenKeys, uniquePlaces);
       creditsUsed++;
+      console.log(`[prospeccao] P3 subdivide → +${result.newUnique} new (total: ${uniquePlaces.length})`);
+      // If subdivision yields nothing, skip remaining sub-points for this hot point
+      if (result.newUnique < COLD_THRESHOLD) break;
+    }
+  }
 
-      if (!res.ok) {
-        console.error(`[prospeccao] Serper ${res.status} for "${task.query}" at ${task.ll}`);
-        continue;
-      }
+  if (done()) return { places: uniquePlaces, creditsUsed };
 
-      const data = await res.json();
-      const places = data.places || [];
+  // --- PHASE 4: Second ring (7km out, 8 points) ---
+  const ring2 = generateRing(center, 7, 8);
+  for (const point of ring2) {
+    if (done()) break;
+    const ll = `@${point.lat.toFixed(6)},${point.lng.toFixed(6)},13z`;
+    const result = await serperQuery(primaryNicho, ll, apiKey, seenKeys, uniquePlaces);
+    creditsUsed++;
+    console.log(`[prospeccao] P4 ring2 → +${result.newUnique} new (total: ${uniquePlaces.length})`);
+    // Skip remaining if area is very cold
+    if (result.newUnique === 0) continue;
+  }
 
-      for (const place of places) {
-        const key = place.cid || place.placeId || `${(place.title || "").toLowerCase()}_${(place.address || "").toLowerCase()}`;
-        if (!seenKeys.has(key)) {
-          seenKeys.add(key);
-          uniquePlaces.push(place);
-        }
-      }
+  if (done()) return { places: uniquePlaces, creditsUsed };
 
-      console.log(`[prospeccao] "${task.query}" ${task.ll} → ${places.length} raw, ${uniquePlaces.length} unique (target: ${target})`);
-    } catch (err) {
-      console.error(`[prospeccao] Error:`, err);
+  // --- PHASE 5: Third ring (12km, 10 points) — large cities only ---
+  if (target > 100) {
+    const ring3 = generateRing(center, 12, 10);
+    for (const point of ring3) {
+      if (done()) break;
+      const ll = `@${point.lat.toFixed(6)},${point.lng.toFixed(6)},12z`;
+      const result = await serperQuery(primaryNicho, ll, apiKey, seenKeys, uniquePlaces);
       creditsUsed++;
+      console.log(`[prospeccao] P5 ring3 → +${result.newUnique} new (total: ${uniquePlaces.length})`);
+      if (result.newUnique === 0) continue;
     }
   }
 
   return { places: uniquePlaces, creditsUsed };
 }
 
-// ---------- MAIN HANDLER ----------
+// ========== FALLBACK (no geocoding) ==========
+
+async function textOnlySearch(
+  nichos: string[],
+  cidade: string,
+  estado: string,
+  target: number,
+  apiKey: string
+): Promise<{ places: any[]; creditsUsed: number }> {
+  const seenKeys = new Set<string>();
+  const uniquePlaces: any[] = [];
+  let creditsUsed = 0;
+
+  for (const nicho of nichos) {
+    if (uniquePlaces.length >= target) break;
+    const result = await serperQuery(`${nicho} ${cidade} ${estado}`, "", apiKey, seenKeys, uniquePlaces);
+    creditsUsed++;
+  }
+
+  return { places: uniquePlaces, creditsUsed };
+}
+
+// ========== MAIN HANDLER ==========
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -185,8 +259,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -202,8 +275,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -220,7 +292,7 @@ Deno.serve(async (req) => {
     const estadoTrimmed = estado.trim();
     const cidadeTrimmed = cidade.trim();
 
-    // --- CACHE CHECK ---
+    // --- CACHE ---
     if (!forceRefresh) {
       const adminClient = createClient(supabaseUrl, serviceRoleKey);
       const { data: cached } = await adminClient
@@ -234,20 +306,14 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (cached) {
-        console.log(`[prospeccao] Cache HIT "${nichoTrimmed}" em "${cidadeTrimmed}" (${cached.total} resultados, 0 créditos)`);
+        console.log(`[prospeccao] Cache HIT (${cached.total} resultados, 0 créditos)`);
         return new Response(JSON.stringify({
-          results: cached.results,
-          total: cached.total,
-          fromCache: true,
-          cachedAt: cached.created_at,
-          creditsUsed: 0,
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+          results: cached.results, total: cached.total,
+          fromCache: true, cachedAt: cached.created_at, creditsUsed: 0,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
 
-    // --- SERPER API ---
     const SERPER_API_KEY = Deno.env.get("SERPER_API_KEY");
     if (!SERPER_API_KEY) {
       return new Response(
@@ -260,30 +326,23 @@ Deno.serve(async (req) => {
     const relatedNiches = Array.isArray(nichosRelacionados) ? nichosRelacionados.filter(Boolean) : [];
     const allNichos = [nichoTrimmed, ...relatedNiches];
 
-    // --- GEOCODE CITY ---
+    // --- GEOCODE & SEARCH ---
     const center = await geocodeCity(cidadeTrimmed, estadoTrimmed);
-    
-    let tasks: SearchTask[];
-    
+
+    let searchResult: { places: any[]; creditsUsed: number };
+
     if (center) {
-      const { radiusKm, spacingKm, zoom } = getGridParams(requestedTotal);
-      const gridPoints = generateGrid(center, radiusKm, spacingKm);
-      tasks = buildSearchTasks(allNichos, gridPoints, zoom);
-      console.log(`[prospeccao] Grid: ${gridPoints.length} pontos (raio ${radiusKm}km, espaçamento ${spacingKm}km) × ${allNichos.length} nichos = ${tasks.length} tasks disponíveis`);
+      console.log(`[prospeccao] Geocoded "${cidadeTrimmed}" → ${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`);
+      searchResult = await adaptiveSearch(allNichos, center, requestedTotal, SERPER_API_KEY);
     } else {
-      // Fallback: text-only queries without coordinates
-      console.log(`[prospeccao] Geocoding falhou, usando busca por texto`);
-      tasks = allNichos.map(n => ({ query: `${n} ${cidadeTrimmed} ${estadoTrimmed}`, ll: "" }));
+      console.log(`[prospeccao] Geocoding falhou, fallback texto`);
+      searchResult = await textOnlySearch(allNichos, cidadeTrimmed, estadoTrimmed, requestedTotal, SERPER_API_KEY);
     }
 
-    console.log(`[prospeccao] Buscando "${nichoTrimmed}" em "${cidadeTrimmed}" (target: ${requestedTotal})`);
+    const results = searchResult.places.slice(0, requestedTotal).map(mapPlace);
+    console.log(`[prospeccao] Final: ${results.length} leads | ${searchResult.creditsUsed} créditos | ratio: ${(results.length / Math.max(searchResult.creditsUsed, 1)).toFixed(1)} leads/crédito`);
 
-    const { places: uniquePlaces, creditsUsed } = await fetchSerperProgressive(tasks, SERPER_API_KEY, requestedTotal);
-    const results = uniquePlaces.slice(0, requestedTotal).map(mapPlace);
-
-    console.log(`[prospeccao] Final: ${uniquePlaces.length} únicos → ${results.length} retornados | Créditos: ${creditsUsed}`);
-
-    // --- SAVE TO CACHE ---
+    // --- CACHE SAVE ---
     try {
       const adminClient = createClient(supabaseUrl, serviceRoleKey);
       await adminClient.from("prospeccao_cache").upsert({
@@ -291,19 +350,18 @@ Deno.serve(async (req) => {
         nicho: nichoTrimmed.toLowerCase(),
         estado: estadoTrimmed.toLowerCase(),
         cidade: cidadeTrimmed.toLowerCase(),
-        results,
-        total: results.length,
+        results, total: results.length,
         created_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       }, { onConflict: "user_id,lower(nicho),lower(estado),lower(cidade)" });
-      console.log(`[prospeccao] Cache SAVED: ${results.length} resultados`);
     } catch (cacheErr) {
       console.error("[prospeccao] Cache save error:", cacheErr);
     }
 
-    return new Response(JSON.stringify({ results, total: results.length, fromCache: false, creditsUsed }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({
+      results, total: results.length, fromCache: false,
+      creditsUsed: searchResult.creditsUsed,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("[prospeccao] Error:", error);
     return new Response(
