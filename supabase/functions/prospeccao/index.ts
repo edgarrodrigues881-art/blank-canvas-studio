@@ -489,54 +489,6 @@ async function adaptiveSearch(
   return { places, creditsUsed: credits };
 }
 
-  // P7: Related niches at best points
-  const expanded = expandNicho(primary);
-  const allRelated = [...related, ...expanded];
-  const seenTerms = new Set([primary.toLowerCase()]);
-  const uniqueRelated = allRelated.filter(t => {
-    const low = t.toLowerCase();
-    if (seenTerms.has(low)) return false;
-    seenTerms.add(low);
-    return true;
-  });
-
-  const bestPoints = allScores
-    .filter(s => s.tier !== "cold")
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5)
-    .map(s => s.pt);
-
-  for (const relNicho of uniqueRelated) {
-    if (done() || budgetExceeded()) break;
-    const llStr = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomCenter}z`;
-    const centerAdded = await query(relNicho, llStr, apiKey, seen, places);
-    credits++;
-    logs.add("P7-related-center", relNicho, llStr, centerAdded, places.length, 1);
-    if (centerAdded < 2) continue;
-
-    for (const pt of bestPoints.slice(0, 3)) {
-      if (done() || budgetExceeded()) break;
-      const ll2 = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomRing1}z`;
-      const added = await query(relNicho, ll2, apiKey, seen, places);
-      credits++;
-      logs.add("P7-related-best", relNicho, ll2, added, places.length, 1);
-      if (added < 2) break;
-    }
-
-    if (done() || budgetExceeded()) break;
-    if (bairros.length > 0 && progress() < 0.7) {
-      for (const bairro of bairros.slice(0, 3)) {
-        if (done() || budgetExceeded()) break;
-        const added = await query(`${relNicho} ${bairro} ${cidade}`, "", apiKey, seen, places);
-        credits++;
-        logs.add("P7-related-bairro", relNicho, bairro, added, places.length, 1);
-        if (added < 1) break;
-      }
-    }
-  }
-
-  return { places, creditsUsed: credits };
-}
 
 // ========== MAIN ==========
 
