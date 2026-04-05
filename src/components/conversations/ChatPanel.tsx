@@ -57,11 +57,12 @@ const attendingStatusConfig: Record<AttendingStatus, { label: string; color: str
   pausado: { label: "Pausado", color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/20", dot: "bg-orange-400" },
 };
 
-const quickReplies = [
-  { id: "1", label: "Saudação inicial", text: "Olá! Bem-vindo(a)! Como posso ajudá-lo(a) hoje? 😊" },
-  { id: "2", label: "Confirmar pagamento", text: "Confirmamos o recebimento do seu pagamento. Obrigado!" },
-  { id: "3", label: "Enviar orçamento", text: "Segue o orçamento conforme conversado. Qualquer dúvida estou à disposição." },
-  { id: "4", label: "Aguarde um momento", text: "Aguarde um momento, por favor. Já estou verificando para você." },
+// Default fallback quick replies (used when DB has none)
+const defaultQuickReplies = [
+  { id: "default-1", label: "Saudação inicial", content: "Olá! Bem-vindo(a)! Como posso ajudá-lo(a) hoje? 😊" },
+  { id: "default-2", label: "Confirmar pagamento", content: "Confirmamos o recebimento do seu pagamento. Obrigado!" },
+  { id: "default-3", label: "Enviar orçamento", content: "Segue o orçamento conforme conversado. Qualquer dúvida estou à disposição." },
+  { id: "default-4", label: "Aguarde um momento", content: "Aguarde um momento, por favor. Já estou verificando para você." },
 ];
 
 function formatDuration(seconds: number) {
