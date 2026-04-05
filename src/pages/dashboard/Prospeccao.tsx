@@ -384,7 +384,6 @@ export default function Prospeccao() {
                           className="h-8 text-sm"
                           autoFocus
                         />
-                        />
                       </div>
                       <ScrollArea className="max-h-[200px]">
                         {filteredCidades.length === 0 && (
