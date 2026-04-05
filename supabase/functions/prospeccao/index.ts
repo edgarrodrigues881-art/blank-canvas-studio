@@ -495,7 +495,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { nicho, nichosRelacionados, estado, cidade, maxResults, forceRefresh } = await req.json();
+    const { nicho, nichosRelacionados, estado, cidade, maxResults, forceRefresh, customCenter, customRadiusKm } = await req.json();
 
     if (!nicho || !cidade || !estado) {
       return new Response(
