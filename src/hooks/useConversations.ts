@@ -1,0 +1,271 @@
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
+
+export interface RealConversation {
+  id: string;
+  user_id: string;
+  device_id: string | null;
+  remote_jid: string;
+  name: string;
+  phone: string;
+  avatar_url: string | null;
+  last_message: string;
+  last_message_at: string;
+  unread_count: number;
+  status: string;
+  attending_status: string;
+  tags: string[];
+  category: string | null;
+  email: string | null;
+  company: string | null;
+  notes: string | null;
+  origin: string;
+  created_at: string;
+  updated_at: string;
+  // joined
+  deviceName?: string;
+}
+
+export interface RealMessage {
+  id: string;
+  conversation_id: string;
+  content: string;
+  direction: "sent" | "received";
+  status: string | null;
+  media_type: string | null;
+  media_url: string | null;
+  audio_duration: number | null;
+  is_ai_response: boolean;
+  whatsapp_message_id: string | null;
+  created_at: string;
+}
+
+export function useConversations() {
+  const { user } = useAuth();
+  const [conversations, setConversations] = useState<RealConversation[]>([]);
+  const [messages, setMessages] = useState<RealMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
+
+  // Fetch conversations from DB
+  const fetchConversations = useCallback(async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("conversations")
+      .select("*, devices!conversations_device_id_fkey(name)")
+      .eq("user_id", user.id)
+      .order("last_message_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching conversations:", error);
+      return;
+    }
+
+    const mapped = (data || []).map((c: any) => ({
+      ...c,
+      tags: c.tags || [],
+      attending_status: c.attending_status || "nova",
+      deviceName: c.devices?.name || undefined,
+    }));
+
+    setConversations(mapped);
+    setLoading(false);
+  }, [user]);
+
+  // Fetch messages for a conversation
+  const fetchMessages = useCallback(async (conversationId: string) => {
+    const { data, error } = await supabase
+      .from("conversation_messages")
+      .select("*")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching messages:", error);
+      return;
+    }
+
+    setMessages(data || []);
+  }, []);
+
+  // Sync from UAZAPI
+  const syncConversations = useCallback(async () => {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error("Not authenticated");
+
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
+      const resp = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/sync-conversations`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result.error || "Sync failed");
+
+      toast.success(`Sincronizadas ${result.synced} conversas de ${result.devices} dispositivos`);
+      await fetchConversations();
+    } catch (err: any) {
+      console.error("Sync error:", err);
+      toast.error("Erro ao sincronizar conversas: " + err.message);
+    } finally {
+      setSyncing(false);
+    }
+  }, [syncing, fetchConversations]);
+
+  // Update conversation status
+  const updateStatus = useCallback(async (convId: string, newStatus: string) => {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === convId ? { ...c, attending_status: newStatus } : c))
+    );
+    await supabase.from("conversations").update({ attending_status: newStatus }).eq("id", convId);
+  }, []);
+
+  // Update tags
+  const updateTags = useCallback(async (convId: string, newTags: string[]) => {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === convId ? { ...c, tags: newTags } : c))
+    );
+    await supabase.from("conversations").update({ tags: newTags }).eq("id", convId);
+  }, []);
+
+  // Update conversation fields (notes, category, etc.)
+  const updateConversation = useCallback(async (convId: string, updates: Partial<RealConversation>) => {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === convId ? { ...c, ...updates } : c))
+    );
+    await supabase.from("conversations").update(updates as any).eq("id", convId);
+  }, []);
+
+  // Send message
+  const sendMessage = useCallback(async (conversationId: string, content: string) => {
+    if (!user) return;
+
+    const conv = conversations.find((c) => c.id === conversationId);
+    if (!conv) return;
+
+    // Insert into DB
+    const { data: msg, error } = await supabase
+      .from("conversation_messages")
+      .insert({
+        conversation_id: conversationId,
+        user_id: user.id,
+        remote_jid: conv.remote_jid,
+        content,
+        direction: "sent",
+        status: "sent",
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast.error("Erro ao salvar mensagem");
+      return;
+    }
+
+    // Add to local state
+    setMessages((prev) => [...prev, msg as RealMessage]);
+
+    // Update conversation last message
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === conversationId
+          ? { ...c, last_message: content, last_message_at: new Date().toISOString() }
+          : c
+      )
+    );
+
+    // TODO: Send via UAZAPI (would need an edge function to send messages)
+    // For now, just save locally
+
+    return msg;
+  }, [user, conversations]);
+
+  // Select conversation
+  const selectConversation = useCallback((convId: string | null) => {
+    setSelectedConvId(convId);
+    if (convId) {
+      fetchMessages(convId);
+      // Mark as read
+      setConversations((prev) =>
+        prev.map((c) => (c.id === convId ? { ...c, unread_count: 0 } : c))
+      );
+      supabase.from("conversations").update({ unread_count: 0 }).eq("id", convId);
+    } else {
+      setMessages([]);
+    }
+  }, [fetchMessages]);
+
+  // Initial load
+  useEffect(() => {
+    if (user) {
+      fetchConversations();
+    }
+  }, [user, fetchConversations]);
+
+  // Real-time subscription
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel("conversations-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
+        () => {
+          fetchConversations();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "conversation_messages", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const newMsg = payload.new as RealMessage;
+          if (newMsg.conversation_id === selectedConvId) {
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === newMsg.id)) return prev;
+              return [...prev, newMsg];
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, selectedConvId, fetchConversations]);
+
+  const selectedConversation = selectedConvId
+    ? conversations.find((c) => c.id === selectedConvId) || null
+    : null;
+
+  return {
+    conversations,
+    messages,
+    loading,
+    syncing,
+    selectedConversation,
+    selectedConvId,
+    selectConversation,
+    syncConversations,
+    updateStatus,
+    updateTags,
+    updateConversation,
+    sendMessage,
+    fetchConversations,
+  };
+}
