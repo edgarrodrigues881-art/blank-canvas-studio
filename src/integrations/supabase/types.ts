@@ -3188,6 +3188,36 @@ export type Database = {
         }
         Relationships: []
       }
+      quick_replies: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          label: string
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       report_wa_configs: {
         Row: {
           alert_campaign_end: boolean
