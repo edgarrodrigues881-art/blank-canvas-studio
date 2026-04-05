@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import SearchAreaMap from "@/components/prospeccao/SearchAreaMap";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -68,6 +69,15 @@ export default function Prospeccao() {
   const [fromCache, setFromCache] = useState(false);
   const [cachedAt, setCachedAt] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("busca");
+  const [searchLat, setSearchLat] = useState<number | null>(null);
+  const [searchLng, setSearchLng] = useState<number | null>(null);
+  const [searchRadius, setSearchRadius] = useState(12);
+
+  const handleAreaChange = useCallback((lat: number, lng: number, radiusKm: number) => {
+    setSearchLat(lat);
+    setSearchLng(lng);
+    setSearchRadius(radiusKm);
+  }, []);
 
   // Campaign history
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -145,9 +155,12 @@ export default function Prospeccao() {
     setLoading(true); setSearched(true);
     try {
       const relacionados = nichosRelacionados.split(",").map(n => n.trim()).filter(Boolean);
-      const { data, error } = await supabase.functions.invoke("prospeccao", {
-        body: { nicho: nicho.trim(), nichosRelacionados: relacionados, estado, cidade: cidade.trim(), maxResults: Number(maxResults), forceRefresh },
-      });
+      const body: any = { nicho: nicho.trim(), nichosRelacionados: relacionados, estado, cidade: cidade.trim(), maxResults: Number(maxResults), forceRefresh };
+      if (searchLat !== null && searchLng !== null) {
+        body.customCenter = { lat: searchLat, lng: searchLng };
+        body.customRadiusKm = searchRadius;
+      }
+      const { data, error } = await supabase.functions.invoke("prospeccao", { body });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setResults(data.results || []);
@@ -248,6 +261,16 @@ export default function Prospeccao() {
                   </Select>
                 </div>
               </div>
+              {/* Search Area Map */}
+              <div className="mt-4">
+                <SearchAreaMap
+                  cidade={cidade}
+                  estado={estado}
+                  onAreaChange={handleAreaChange}
+                  initialRadiusKm={12}
+                />
+              </div>
+
               <div className="flex gap-3 mt-4">
                 <Button onClick={() => handleSearch()} disabled={loading} className="gap-2">
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
