@@ -29,6 +29,28 @@ const ClientOverviewTab = memo(({ client, detail }: Props) => {
   const connectedCount = devices.filter((d: any) => d.status === "Connected" || d.status === "Ready").length;
   const { mutate, isPending, invalidateClient } = useAdminAction();
   const { toast } = useToast();
+  const [addCreditsAmount, setAddCreditsAmount] = useState("");
+  const [addingCredits, setAddingCredits] = useState(false);
+  const [creditBalance, setCreditBalance] = useState<number | null>(detail?.prospeccao_credits?.balance ?? null);
+
+  const handleAddCredits = async () => {
+    const amount = parseInt(addCreditsAmount);
+    if (!amount || amount <= 0) { toast({ title: "Valor inválido", variant: "destructive" }); return; }
+    setAddingCredits(true);
+    try {
+      const { data, error } = await supabase.rpc("credit_prospeccao_balance", {
+        p_user_id: client.id,
+        p_amount: amount,
+        p_description: `Créditos adicionados via backoffice`,
+      });
+      if (error) throw error;
+      setCreditBalance(data?.balance ?? (creditBalance ?? 0) + amount);
+      setAddCreditsAmount("");
+      toast({ title: `${amount} créditos adicionados!` });
+    } catch (err: any) {
+      toast({ title: "Erro ao adicionar créditos", description: err.message, variant: "destructive" });
+    } finally { setAddingCredits(false); }
+  };
 
   const resetPassword = () => {
     mutate(
