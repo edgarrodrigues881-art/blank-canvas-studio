@@ -11,6 +11,12 @@ export function isSyncingDevices() { return _isSyncing; }
 let mutedUntil = 0;
 let keepAlivePausedUntil = 0;
 let queuedSync = false;
+
+const AUTO_SYNC_STARTUP_GRACE_MS = 60_000;
+const AUTO_SYNC_VISIBILITY_GRACE_MS = 45_000;
+const AUTO_SYNC_ONLINE_GRACE_MS = 60_000;
+const AUTO_SYNC_MIN_GAP_MS = 15_000;
+
 // Track recently deleted device IDs to filter from query results
 const recentlyDeletedIds = new Set<string>();
 const recentlyDeletedTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
@@ -58,12 +64,27 @@ export function resumeKeepAlive() {
  * Auto-syncs device statuses via:
  * 1. Realtime subscription on the `devices` table for instant updates
  * 2. Periodic sync every 10s as fallback
- * 3. Immediate sync on tab focus
+ * 3. Delayed sync on startup/focus/network recovery to avoid false offline waves
  */
 export function useAutoSyncDevices(intervalMs = 8_000) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
-  const shouldSkipSync = () => Date.now() < mutedUntil || Date.now() < keepAlivePausedUntil;
+  const autoSyncBlockedUntilRef = useRef(Date.now() + AUTO_SYNC_STARTUP_GRACE_MS);
+  const scheduledSyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSyncStartedAtRef = useRef(0);
+
+  const clearScheduledSync = useCallback(() => {
+    if (scheduledSyncRef.current) {
+      clearTimeout(scheduledSyncRef.current);
+      scheduledSyncRef.current = null;
+    }
+  }, []);
+
+  const shouldSkipSync = useCallback(() => {
+    return Date.now() < mutedUntil
+      || Date.now() < keepAlivePausedUntil
+      || Date.now() < autoSyncBlockedUntilRef.current;
+  }, []);
 
   // ── Realtime subscription for instant status changes ──
   useEffect(() => {
@@ -83,10 +104,8 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
           if (shouldSkipSync()) return;
           const updated = payload.new as any;
           if (!updated?.id) return;
-          // Skip updates for recently deleted devices
           if (recentlyDeletedIds.has(updated.id)) return;
 
-          // Surgically update just the changed device in cache
           queryClient.setQueryData(["devices"], (old: any[] | undefined) => {
             if (!old) return old;
             return old.map((d: any) =>
@@ -102,7 +121,7 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
                 : d
             );
           });
-          // Also invalidate sidebar stats
+
           queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
         }
       )
@@ -111,29 +130,37 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [session?.user?.id, queryClient]);
+  }, [session?.user?.id, queryClient, shouldSkipSync]);
 
   // ── Shared sync function exposed for manual trigger ──
   const doSync = useCallback(async () => {
-    if (shouldSkipSync()) return;
+    if (document.hidden || shouldSkipSync()) {
+      queuedSync = false;
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastSyncStartedAtRef.current < AUTO_SYNC_MIN_GAP_MS) {
+      return;
+    }
+
     if (_isSyncing) {
       queuedSync = true;
       return;
     }
 
-    // Guard: skip if no valid session (single call, reuse token below)
     let token: string | undefined;
     try {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       token = currentSession?.access_token;
       if (!token) return;
     } catch {
-      return; // Auth not ready
+      return;
     }
 
+    lastSyncStartedAtRef.current = now;
     _isSyncing = true;
     try {
-
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-devices`, {
         method: "POST",
         headers: {
@@ -146,7 +173,6 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
 
       if (response.status === 401) {
         queuedSync = false;
-        // Try to refresh the session before forcing logout
         const { data: refreshed } = await supabase.auth.refreshSession();
         if (!refreshed?.session) {
           await supabase.auth.signOut({ scope: "local" });
@@ -161,40 +187,72 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
         queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
       }
     } catch {
-      // silent — 401 or network errors are non-fatal
+      // silent — network errors here must never derrubar a UI
     } finally {
       _isSyncing = false;
 
-      if (queuedSync && !shouldSkipSync()) {
-        queuedSync = false;
-        void Promise.resolve().then(() => doSync());
-      } else if (!shouldSkipSync()) {
-        queuedSync = false;
+      const shouldRunFollowUp = queuedSync && !document.hidden && !shouldSkipSync();
+      queuedSync = false;
+
+      if (shouldRunFollowUp) {
+        clearScheduledSync();
+        scheduledSyncRef.current = setTimeout(() => {
+          scheduledSyncRef.current = null;
+          void doSync();
+        }, AUTO_SYNC_MIN_GAP_MS);
       }
     }
-  }, [queryClient]);
+  }, [clearScheduledSync, queryClient, shouldSkipSync]);
 
-  // ── Periodic background sync + immediate sync on tab focus ──
+  // ── Periodic background sync + delayed sync on startup/focus/network recovery ──
   useEffect(() => {
     if (!session?.access_token) return;
 
+    autoSyncBlockedUntilRef.current = Date.now() + AUTO_SYNC_STARTUP_GRACE_MS;
+
+    const scheduleProtectedSync = (blockMs: number) => {
+      autoSyncBlockedUntilRef.current = Math.max(autoSyncBlockedUntilRef.current, Date.now() + blockMs);
+      clearScheduledSync();
+      scheduledSyncRef.current = setTimeout(() => {
+        scheduledSyncRef.current = null;
+        if (!document.hidden) {
+          void doSync();
+        }
+      }, blockMs + 250);
+    };
+
     const onVisibilityChange = () => {
-      if (!document.hidden) doSync();
+      if (document.hidden) return;
+      scheduleProtectedSync(AUTO_SYNC_VISIBILITY_GRACE_MS);
+    };
+
+    const onOnline = () => {
+      scheduleProtectedSync(AUTO_SYNC_ONLINE_GRACE_MS);
     };
 
     document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("online", onOnline);
 
-    const initialTimeout = setTimeout(doSync, 1000);
+    const initialTimeout = setTimeout(() => {
+      if (!document.hidden) {
+        void doSync();
+      }
+    }, AUTO_SYNC_STARTUP_GRACE_MS + 250);
+
     const interval = setInterval(() => {
-      if (!document.hidden) doSync();
+      if (!document.hidden) {
+        void doSync();
+      }
     }, intervalMs);
 
     return () => {
       clearTimeout(initialTimeout);
       clearInterval(interval);
+      clearScheduledSync();
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("online", onOnline);
     };
-  }, [session?.access_token, intervalMs, doSync]);
+  }, [session?.access_token, intervalMs, doSync, clearScheduledSync]);
 
   return { doSync };
 }
