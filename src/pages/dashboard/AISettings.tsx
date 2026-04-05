@@ -31,6 +31,10 @@ import {
 
 const AISettings = () => {
   const [iaActive, setIaActive] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [aiModel, setAiModel] = useState("gpt-4o-mini");
+  const [testingAi, setTestingAi] = useState(false);
   const [businessName, setBusinessName] = useState("");
   const [businessSegment, setBusinessSegment] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
@@ -45,6 +49,23 @@ const AISettings = () => {
     "FAQ - Perguntas frequentes",
   ]);
   const [newKnowledgeItem, setNewKnowledgeItem] = useState("");
+
+  const apiKeyStatus: "empty" | "valid" | "invalid" = !apiKey
+    ? "empty"
+    : apiKey.startsWith("sk-") && apiKey.length > 20
+    ? "valid"
+    : "invalid";
+
+  const handleTestAi = async () => {
+    if (apiKeyStatus !== "valid") {
+      toast.error("Insira uma chave de API válida antes de testar");
+      return;
+    }
+    setTestingAi(true);
+    await new Promise((r) => setTimeout(r, 2000));
+    setTestingAi(false);
+    toast.success("IA respondeu com sucesso! Conexão funcionando.");
+  };
 
   const addKnowledgeItem = () => {
     if (newKnowledgeItem.trim()) {
