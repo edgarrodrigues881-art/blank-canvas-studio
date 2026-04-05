@@ -178,7 +178,7 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
             {(Object.entries(attendingStatusConfig) as [AttendingStatus, typeof currentStatusCfg][]).map(([key, cfg]) => (
               <DropdownMenuItem
                 key={key}
-                onClick={() => setCurrentStatus(key)}
+                onClick={() => { setCurrentStatus(key); onStatusChange?.(conversation.id, key); }}
                 className={cn("gap-2 text-xs cursor-pointer", currentStatus === key && "bg-muted")}
               >
                 <span className={cn("w-2 h-2 rounded-full shrink-0", cfg.dot)} />
