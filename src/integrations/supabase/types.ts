@@ -2935,6 +2935,68 @@ export type Database = {
         }
         Relationships: []
       }
+      prospeccao_credit_transactions: {
+        Row: {
+          amount: number
+          balance_after: number
+          campaign_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          balance_after: number
+          campaign_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          campaign_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospeccao_credit_transactions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccao_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospeccao_credits: {
+        Row: {
+          balance: number
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       proxies: {
         Row: {
           active: boolean
@@ -4796,6 +4858,19 @@ export type Database = {
       cleanup_stale_locks: {
         Args: { _stale_seconds?: number }
         Returns: number
+      }
+      credit_prospeccao_balance: {
+        Args: { p_amount: number; p_description?: string; p_user_id: string }
+        Returns: Json
+      }
+      debit_prospeccao_credits: {
+        Args: {
+          p_amount: number
+          p_campaign_id?: string
+          p_description?: string
+          p_user_id: string
+        }
+        Returns: Json
       }
       get_community_pairs_target: {
         Args: { p_community_day: number }
