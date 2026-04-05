@@ -318,6 +318,14 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
                         </span>
                         {msg.type === "sent" && statusIcon(msg.status)}
                       </div>
+                      {msg.status === "failed" && (
+                        <button
+                          onClick={() => onRetryMessage?.(msg.id)}
+                          className="text-[10px] text-red-400 hover:text-red-300 mt-0.5 text-right underline cursor-pointer"
+                        >
+                          Falhou — toque para reenviar
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
