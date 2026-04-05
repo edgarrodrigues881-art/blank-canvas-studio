@@ -181,7 +181,15 @@ export function ChatPanel({
   const allQuickReplies = dbReplies.length > 0 ? dbReplies : defaultQuickReplies;
 
   useEffect(() => { setCurrentStatus(conversation.attendingStatus); }, [conversation.id]);
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages]);
+  // Auto-scroll to bottom on new messages or conversation change
+  const scrollToBottom = useCallback(() => {
+    if (scrollRef.current) {
+      requestAnimationFrame(() => {
+        scrollRef.current!.scrollTop = scrollRef.current!.scrollHeight;
+      });
+    }
+  }, []);
+  useEffect(scrollToBottom, [messages, conversation.id, scrollToBottom]);
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
