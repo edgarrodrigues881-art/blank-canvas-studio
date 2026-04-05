@@ -1,0 +1,1 @@
+SELECT public.credit_prospeccao_balance('f5220141-3b20-4e85-90fd-8c85695686fa'::uuid, 2000, 'Créditos de teste adicionados manualmente');
