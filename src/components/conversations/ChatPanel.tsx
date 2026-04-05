@@ -233,6 +233,20 @@ export function ChatPanel({
     }
   }, []);
 
+  // Paste images from clipboard
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) handleFileSelected(file);
+        return;
+      }
+    }
+  }, [handleFileSelected]);
+
   const handleImageInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) handleFileSelected(file);
