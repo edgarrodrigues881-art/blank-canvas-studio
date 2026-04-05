@@ -651,43 +651,54 @@ Deno.serve(async (req) => {
               });
             }
           } else {
-            // ── Individual device disconnect: strike system (2 strikes in 3 min) ──
-            const INDIVIDUAL_REQUIRED_STRIKES = 2;
-            const INDIVIDUAL_STRIKE_WINDOW_MS = 3 * 60 * 1000;
+            // ── Individual device disconnect: strike system (3 strikes in 5 min, spread over 1 min) ──
+            const INDIVIDUAL_REQUIRED_STRIKES = 3;
+            const INDIVIDUAL_STRIKE_WINDOW_MS = 5 * 60 * 1000;
+            const INDIVIDUAL_MIN_SPREAD_MS = 60 * 1000; // strikes must span at least 1 minute
 
             const { data: recentStrikes } = await svc
               .from("operation_logs")
-              .select("id")
+              .select("id, created_at")
               .eq("device_id", device.id)
               .eq("event", "sync_individual_disconnect_strike")
-              .gte("created_at", new Date(Date.now() - INDIVIDUAL_STRIKE_WINDOW_MS).toISOString());
+              .gte("created_at", new Date(Date.now() - INDIVIDUAL_STRIKE_WINDOW_MS).toISOString())
+              .order("created_at", { ascending: true });
 
             const strikes = (recentStrikes?.length || 0) + 1;
+            const firstStrikeTime = recentStrikes?.[0]?.created_at
+              ? new Date(recentStrikes[0].created_at).getTime()
+              : Date.now();
+            const timeSpread = Date.now() - firstStrikeTime;
 
             opLogs.push({
               user_id: userId,
               device_id: device.id,
               event: "sync_individual_disconnect_strike",
-              details: `Desconexão detectada para "${device.name}" (${strikes}/${INDIVIDUAL_REQUIRED_STRIKES})`,
+              details: `Desconexão detectada para "${device.name}" (${strikes}/${INDIVIDUAL_REQUIRED_STRIKES}, spread=${Math.round(timeSpread / 1000)}s)`,
               meta: {
                 raw_status: normalizedState.rawStatus,
                 confirm_state: confirmedState?.state || null,
                 required_strikes: INDIVIDUAL_REQUIRED_STRIKES,
+                time_spread_seconds: Math.round(timeSpread / 1000),
               },
             });
 
-            if (confirmedState?.state === "disconnected" && strikes >= INDIVIDUAL_REQUIRED_STRIKES) {
-              // Confirmed after multiple strikes — allow disconnect
+            const hasEnoughStrikes = strikes >= INDIVIDUAL_REQUIRED_STRIKES;
+            const hasEnoughSpread = timeSpread >= INDIVIDUAL_MIN_SPREAD_MS;
+
+            if (confirmedState?.state === "disconnected" && hasEnoughStrikes && hasEnoughSpread) {
+              // Confirmed after multiple strikes spread over time — allow disconnect
               effectiveState = confirmedState;
               opLogs.push({
                 user_id: userId,
                 device_id: device.id,
                 event: "sync_individual_disconnect_confirmed",
-                details: `Desconexão confirmada para "${device.name}" após ${strikes} verificações consecutivas`,
+                details: `Desconexão confirmada para "${device.name}" após ${strikes} verificações em ${Math.round(timeSpread / 1000)}s`,
                 meta: {
                   first_raw_status: normalizedState.rawStatus,
                   confirm_raw_status: confirmedState.rawStatus,
                   strikes,
+                  time_spread_seconds: Math.round(timeSpread / 1000),
                 },
               });
             } else if (confirmedState && confirmedState.state !== "disconnected") {
