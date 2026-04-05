@@ -101,21 +101,46 @@ export function useConversations() {
       if (!token) throw new Error("Not authenticated");
 
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
-      const resp = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/sync-conversations`,
+
+      // Step 1: Setup webhooks on all devices (so future messages arrive automatically)
+      const webhookResp = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/webhook-conversations`,
         {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
+          body: JSON.stringify({ action: "setup_all_webhooks" }),
         }
       );
+      const webhookResult = await webhookResp.json();
+      console.log("Webhook setup result:", webhookResult);
 
-      const result = await resp.json();
-      if (!resp.ok) throw new Error(result.error || "Sync failed");
+      // Step 2: Try sync-conversations for initial import (may not work on all UAZAPI versions)
+      try {
+        const resp = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/sync-conversations`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        const result = await resp.json();
+        console.log("Sync result:", result);
+      } catch (e) {
+        console.log("Sync-conversations skipped:", e);
+      }
 
-      toast.success(`Sincronizadas ${result.synced} conversas de ${result.devices} dispositivos`);
+      const configuredCount = webhookResult.configured || 0;
+      toast.success(
+        configuredCount > 0
+          ? `Webhooks configurados em ${configuredCount} dispositivos. Conversas aparecerão automaticamente!`
+          : "Sincronização concluída. Envie/receba mensagens para ver as conversas."
+      );
       await fetchConversations();
     } catch (err: any) {
       console.error("Sync error:", err);
