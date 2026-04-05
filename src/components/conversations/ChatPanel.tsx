@@ -128,7 +128,7 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
   };
 
   return (
-    <>
+    <div className="flex flex-col h-full">
       {/* Chat Header */}
       <div className="border-b border-border flex items-center px-4 py-2.5 gap-3 shrink-0 bg-card/50">
         <Button variant="ghost" size="icon" className="md:hidden w-8 h-8 shrink-0" onClick={onBack}>
