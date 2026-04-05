@@ -62,6 +62,7 @@ interface ProspectResult {
 
 export default function Prospeccao() {
   const [nicho, setNicho] = useState("");
+  const [nichosRelacionados, setNichosRelacionados] = useState("");
   const [estado, setEstado] = useState("");
   const [cidade, setCidade] = useState("");
   const [cidades, setCidades] = useState<string[]>([]);
