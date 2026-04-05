@@ -450,7 +450,7 @@ export function useConversations() {
     const isImage = file.type.startsWith("image/");
     const mediaType = isImage ? "image" : "document";
     const ext = file.name.split(".").pop() || "bin";
-    const storagePath = `chat-files/${user.id}/${tempId}.${ext}`;
+    const storagePath = `${user.id}/chat-files/${tempId}.${ext}`;
 
     // Optimistic UI with local preview for images
     const localUrl = isImage ? URL.createObjectURL(file) : null;
