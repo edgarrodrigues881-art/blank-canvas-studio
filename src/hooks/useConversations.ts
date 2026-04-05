@@ -52,6 +52,32 @@ export function useConversations() {
   const [syncing, setSyncing] = useState(false);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
 
+  const mapConversationRow = useCallback((row: any): RealConversation => ({
+    ...row,
+    tags: row.tags || [],
+    attending_status: row.attending_status || "nova",
+    last_message: row.last_message || "",
+    last_message_at: row.last_message_at || row.updated_at || row.created_at || new Date().toISOString(),
+    unread_count: row.unread_count ?? 0,
+    status: row.status || "offline",
+    deviceName: row.devices?.name || row.deviceName || undefined,
+  }), []);
+
+  const sortConversations = useCallback((items: RealConversation[]) => {
+    return [...items].sort((a, b) => {
+      const aTs = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+      const bTs = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+      return bTs - aTs;
+    });
+  }, []);
+
+  const upsertConversationInState = useCallback((items: RealConversation[], row: any) => {
+    const mapped = mapConversationRow(row);
+    return sortConversations([mapped, ...items.filter((item) => item.id !== mapped.id)]);
+  }, [mapConversationRow, sortConversations]);
+
+  const normalizePhone = useCallback((phone: string) => phone.replace(/\D/g, ""), []);
+
   // Fetch conversations from DB
   const fetchConversations = useCallback(async () => {
     if (!user) return;
@@ -66,16 +92,10 @@ export function useConversations() {
       return;
     }
 
-    const mapped = (data || []).map((c: any) => ({
-      ...c,
-      tags: c.tags || [],
-      attending_status: c.attending_status || "nova",
-      deviceName: c.devices?.name || undefined,
-    }));
-
+    const mapped = sortConversations((data || []).map(mapConversationRow));
     setConversations(mapped);
     setLoading(false);
-  }, [user]);
+  }, [user, mapConversationRow, sortConversations]);
 
   // Fetch messages for a conversation
   const fetchMessages = useCallback(async (conversationId: string) => {
@@ -104,7 +124,6 @@ export function useConversations() {
 
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
 
-      // Step 1: Setup webhooks on all devices (so future messages arrive automatically)
       const webhookResp = await fetch(
         `https://${projectId}.supabase.co/functions/v1/webhook-conversations`,
         {
@@ -119,7 +138,6 @@ export function useConversations() {
       const webhookResult = await webhookResp.json();
       console.log("Webhook setup result:", webhookResult);
 
-      // Step 2: Try sync-conversations for initial import (may not work on all UAZAPI versions)
       try {
         const resp = await fetch(
           `https://${projectId}.supabase.co/functions/v1/sync-conversations`,
@@ -186,7 +204,6 @@ export function useConversations() {
     const tempId = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    // 1. Optimistic: show message immediately as "sending"
     const optimisticMsg: RealMessage = {
       id: tempId,
       conversation_id: conversationId,
@@ -202,16 +219,16 @@ export function useConversations() {
     };
     setMessages((prev) => [...prev, optimisticMsg]);
 
-    // Update conversation preview immediately
     setConversations((prev) =>
-      prev.map((c) =>
-        c.id === conversationId
-          ? { ...c, last_message: content, last_message_at: now }
-          : c
+      sortConversations(
+        prev.map((c) =>
+          c.id === conversationId
+            ? { ...c, last_message: content, last_message_at: now }
+            : c
+        )
       )
     );
 
-    // 2. Persist to DB
     const { data: dbMsg, error: dbError } = await supabase
       .from("conversation_messages")
       .insert({
@@ -227,7 +244,6 @@ export function useConversations() {
       .single();
 
     if (dbError || !dbMsg) {
-      // Mark as failed
       setMessages((prev) =>
         prev.map((m) => (m.id === tempId ? { ...m, status: "failed" } : m))
       );
@@ -235,12 +251,10 @@ export function useConversations() {
       return;
     }
 
-    // Replace temp ID with real DB ID
     setMessages((prev) =>
       prev.map((m) => (m.id === tempId ? { ...m, id: dbMsg.id } : m))
     );
 
-    // 3. Send via edge function (UAZAPI)
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
@@ -265,12 +279,10 @@ export function useConversations() {
       const result = await res.json();
 
       if (result.sent) {
-        // Update to "sent"
         setMessages((prev) =>
           prev.map((m) => (m.id === dbMsg.id ? { ...m, status: "sent" } : m))
         );
       } else {
-        // Mark as failed
         setMessages((prev) =>
           prev.map((m) => (m.id === dbMsg.id ? { ...m, status: "failed" } : m))
         );
@@ -286,14 +298,13 @@ export function useConversations() {
     }
 
     return dbMsg;
-  }, [user, conversations]);
+  }, [user, conversations, sortConversations]);
 
   // Retry a failed message
   const retryMessage = useCallback(async (messageId: string) => {
     const msg = messages.find((m) => m.id === messageId);
     if (!msg || !msg.content) return;
 
-    // Mark as sending again
     setMessages((prev) =>
       prev.map((m) => (m.id === messageId ? { ...m, status: "sending" } : m))
     );
@@ -351,7 +362,6 @@ export function useConversations() {
     const ext = blob.type.includes("mp4") ? "mp4" : "webm";
     const fileName = `${user.id}/chat-audio/${tempId}.${ext}`;
 
-    // Optimistic UI
     const optimisticMsg: RealMessage = {
       id: tempId,
       conversation_id: conversationId,
@@ -367,11 +377,12 @@ export function useConversations() {
     };
     setMessages((prev) => [...prev, optimisticMsg]);
     setConversations((prev) =>
-      prev.map((c) => c.id === conversationId ? { ...c, last_message: "🎧 Áudio", last_message_at: now } : c)
+      sortConversations(
+        prev.map((c) => c.id === conversationId ? { ...c, last_message: "🎧 Áudio", last_message_at: now } : c)
+      )
     );
 
     try {
-      // Upload to Supabase Storage
       const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, {
         contentType: blob.type,
         upsert: false,
@@ -381,12 +392,10 @@ export function useConversations() {
       const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
       const publicUrl = urlData.publicUrl;
 
-      // Update optimistic message with URL
       setMessages((prev) =>
         prev.map((m) => m.id === tempId ? { ...m, media_url: publicUrl } : m)
       );
 
-      // Persist to DB
       const { data: dbMsg, error: dbErr } = await supabase
         .from("conversation_messages")
         .insert({
@@ -406,10 +415,8 @@ export function useConversations() {
 
       if (dbErr || !dbMsg) throw new Error("Erro ao salvar no banco");
 
-      // Replace temp ID
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: dbMsg.id } : m));
 
-      // Send via edge function
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
@@ -437,7 +444,7 @@ export function useConversations() {
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, status: "failed" } : m));
       toast.error(err.message || "Erro ao enviar áudio");
     }
-  }, [user, conversations]);
+  }, [user, conversations, sortConversations]);
 
   // Send file message (image or document)
   const sendFileMessage = useCallback(async (conversationId: string, file: File) => {
@@ -452,7 +459,6 @@ export function useConversations() {
     const ext = file.name.split(".").pop() || "bin";
     const storagePath = `${user.id}/chat-files/${tempId}.${ext}`;
 
-    // Optimistic UI with local preview for images
     const localUrl = isImage ? URL.createObjectURL(file) : null;
     const previewLabel = isImage ? "📷 Foto" : `📎 ${file.name}`;
 
@@ -471,11 +477,12 @@ export function useConversations() {
     };
     setMessages((prev) => [...prev, optimisticMsg]);
     setConversations((prev) =>
-      prev.map((c) => c.id === conversationId ? { ...c, last_message: previewLabel, last_message_at: now } : c)
+      sortConversations(
+        prev.map((c) => c.id === conversationId ? { ...c, last_message: previewLabel, last_message_at: now } : c)
+      )
     );
 
     try {
-      // Upload to storage
       const { error: uploadErr } = await supabase.storage.from("media").upload(storagePath, file, {
         contentType: file.type,
         upsert: false,
@@ -485,12 +492,10 @@ export function useConversations() {
       const { data: urlData } = supabase.storage.from("media").getPublicUrl(storagePath);
       const publicUrl = urlData.publicUrl;
 
-      // Update optimistic with real URL
       setMessages((prev) =>
         prev.map((m) => m.id === tempId ? { ...m, media_url: publicUrl } : m)
       );
 
-      // Persist to DB
       const { data: dbMsg, error: dbErr } = await supabase
         .from("conversation_messages")
         .insert({
@@ -512,7 +517,6 @@ export function useConversations() {
 
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: dbMsg.id } : m));
 
-      // Send via edge function
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
@@ -543,12 +547,12 @@ export function useConversations() {
     } finally {
       if (localUrl) URL.revokeObjectURL(localUrl);
     }
-  }, [user, conversations]);
+  }, [user, conversations, sortConversations]);
+
   const selectConversation = useCallback((convId: string | null) => {
     setSelectedConvId(convId);
     if (convId) {
       fetchMessages(convId);
-      // Mark as read
       setConversations((prev) =>
         prev.map((c) => (c.id === convId ? { ...c, unread_count: 0 } : c))
       );
@@ -558,12 +562,87 @@ export function useConversations() {
     }
   }, [fetchMessages]);
 
+  const createConversation = useCallback(async ({ deviceId, phone, name }: { deviceId: string; phone: string; name?: string }) => {
+    if (!user) return null;
+
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
+      toast.error("Número inválido");
+      return null;
+    }
+
+    const remoteJid = `${normalizedPhone}@s.whatsapp.net`;
+    const now = new Date().toISOString();
+
+    try {
+      const { data: existing, error: existingError } = await supabase
+        .from("conversations")
+        .select("*, devices!conversations_device_id_fkey(name)")
+        .eq("user_id", user.id)
+        .eq("device_id", deviceId)
+        .eq("remote_jid", remoteJid)
+        .maybeSingle();
+
+      if (existingError) throw existingError;
+
+      let conversationRow = existing;
+      const nextName = name?.trim();
+
+      if (conversationRow) {
+        if (nextName && conversationRow.name !== nextName) {
+          const { data: updated, error: updateError } = await supabase
+            .from("conversations")
+            .update({ name: nextName, phone: normalizedPhone, updated_at: now })
+            .eq("id", conversationRow.id)
+            .select("*, devices!conversations_device_id_fkey(name)")
+            .single();
+
+          if (updateError) throw updateError;
+          conversationRow = updated;
+        }
+      } else {
+        const { data: inserted, error: insertError } = await supabase
+          .from("conversations")
+          .insert({
+            user_id: user.id,
+            device_id: deviceId,
+            remote_jid: remoteJid,
+            name: nextName || normalizedPhone,
+            phone: normalizedPhone,
+            last_message: "",
+            last_message_at: now,
+            unread_count: 0,
+            status: "offline",
+            attending_status: "nova",
+            tags: [],
+            updated_at: now,
+          })
+          .select("*, devices!conversations_device_id_fkey(name)")
+          .single();
+
+        if (insertError) throw insertError;
+        conversationRow = inserted;
+      }
+
+      if (!conversationRow) return null;
+
+      const mappedConversation = mapConversationRow(conversationRow);
+      setConversations((prev) => upsertConversationInState(prev, mappedConversation));
+      selectConversation(mappedConversation.id);
+      toast.success(existing ? "Conversa aberta" : "Nova conversa criada");
+      return mappedConversation.id;
+    } catch (error: any) {
+      console.error("Error creating conversation:", error);
+      toast.error(error?.message || "Não foi possível abrir a conversa");
+      return null;
+    }
+  }, [user, normalizePhone, mapConversationRow, upsertConversationInState, selectConversation]);
+
   // Initial load + auto background sync
   const hasSyncedRef = useRef(false);
   useEffect(() => {
     if (user) {
       fetchConversations();
-      // Auto-sync once in background (silent, no toast)
       if (!hasSyncedRef.current) {
         hasSyncedRef.current = true;
         (async () => {
@@ -573,14 +652,12 @@ export function useConversations() {
             if (!token) return;
             const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
 
-            // Setup webhooks silently
             fetch(`https://${projectId}.supabase.co/functions/v1/webhook-conversations`, {
               method: "POST",
               headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
               body: JSON.stringify({ action: "setup_all_webhooks" }),
             }).catch(() => {});
 
-            // Sync recent conversations (last 24h)
             const resp = await fetch(`https://${projectId}.supabase.co/functions/v1/sync-conversations`, {
               method: "POST",
               headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -617,7 +694,6 @@ export function useConversations() {
   }, [user, fetchConversations]);
 
   // Real-time subscription — messages (INSERT + UPDATE for status changes)
-  // Uses a ref to avoid recreating the channel on every conversation switch
   const selectedConvIdRef = useRef(selectedConvId);
   useEffect(() => { selectedConvIdRef.current = selectedConvId; }, [selectedConvId]);
 
@@ -668,6 +744,7 @@ export function useConversations() {
     selectedConversation,
     selectedConvId,
     selectConversation,
+    createConversation,
     syncConversations,
     updateStatus,
     updateTags,
