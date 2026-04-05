@@ -181,7 +181,15 @@ export function ChatPanel({
   const allQuickReplies = dbReplies.length > 0 ? dbReplies : defaultQuickReplies;
 
   useEffect(() => { setCurrentStatus(conversation.attendingStatus); }, [conversation.id]);
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages]);
+  // Auto-scroll to bottom on new messages or conversation change
+  const scrollToBottom = useCallback(() => {
+    if (scrollRef.current) {
+      requestAnimationFrame(() => {
+        scrollRef.current!.scrollTop = scrollRef.current!.scrollHeight;
+      });
+    }
+  }, []);
+  useEffect(scrollToBottom, [messages, conversation.id, scrollToBottom]);
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -209,6 +217,8 @@ export function ChatPanel({
   const handleQuickReply = (text: string) => { setInput(text); setShowQuickReplies(false); textareaRef.current?.focus(); };
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } };
 
+  // (handlePaste defined after handleFileSelected below)
+
   // ─── File handling ───
   const handleFileSelected = useCallback((file: File) => {
     if (file.size > 20 * 1024 * 1024) {
@@ -222,6 +232,20 @@ export function ChatPanel({
       setPendingPreview(null);
     }
   }, []);
+
+  // Paste images from clipboard
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) handleFileSelected(file);
+        return;
+      }
+    }
+  }, [handleFileSelected]);
 
   const handleImageInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -640,6 +664,7 @@ export function ChatPanel({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
                 rows={1}
                 className="w-full resize-none rounded-xl bg-muted/30 border border-border/50 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors"
                 style={{ minHeight: "40px", maxHeight: "120px" }}
