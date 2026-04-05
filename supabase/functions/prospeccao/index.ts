@@ -529,6 +529,22 @@ Deno.serve(async (req) => {
       }
     }
 
+    // --- CREDIT CHECK ---
+    const adminClient2 = createClient(supabaseUrl, serviceRoleKey);
+    const { data: creditRow } = await adminClient2
+      .from("prospeccao_credits")
+      .select("balance")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const currentBalance = creditRow?.balance ?? 0;
+    if (currentBalance <= 0) {
+      return new Response(
+        JSON.stringify({ error: "Créditos insuficientes para realizar a prospecção", balance: 0 }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const SERPER_API_KEY = Deno.env.get("SERPER_API_KEY");
     if (!SERPER_API_KEY) {
       return new Response(
