@@ -69,26 +69,26 @@ Deno.serve(async (req) => {
     let sendBody: Record<string, unknown>;
 
     if (type === "audio") {
-      sendUrl = `${baseUrl}/${instanceName}/send/audio`;
+      sendUrl = `${baseUrl}/send/audio`;
       sendBody = { number: remoteJid, audio: content, ptt: true };
     } else if (type === "image") {
-      sendUrl = `${baseUrl}/${instanceName}/send/image`;
+      sendUrl = `${baseUrl}/send/image`;
       sendBody = { number: remoteJid, image: content, caption: "" };
     } else if (type === "document") {
-      sendUrl = `${baseUrl}/${instanceName}/send/document`;
+      sendUrl = `${baseUrl}/send/document`;
       sendBody = { number: remoteJid, document: content, fileName: file_name || "arquivo" };
     } else {
-      sendUrl = `${baseUrl}/${instanceName}/send/text`;
+      sendUrl = `${baseUrl}/send/text`;
       sendBody = { number: remoteJid, text: content };
     }
 
-    console.log(`[chat-send] Sending ${type || "text"} to ${remoteJid} via ${instanceName}`);
+    console.log(`[chat-send] Sending ${type || "text"} to ${remoteJid} via ${baseUrl}`);
 
     const uazRes = await fetch(sendUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        token: token,
       },
       body: JSON.stringify(sendBody),
     });
