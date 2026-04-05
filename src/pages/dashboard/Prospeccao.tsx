@@ -106,10 +106,11 @@ export default function Prospeccao() {
     try {
       const { data } = await supabase
         .from("prospeccao_credits")
-        .select("balance")
+        .select("balance, free_pulls_remaining")
         .maybeSingle();
       setCreditBalance(data?.balance ?? 0);
-    } catch { setCreditBalance(0); }
+      setFreePulls((data as any)?.free_pulls_remaining ?? 0);
+    } catch { setCreditBalance(0); setFreePulls(0); }
   }, []);
 
   useEffect(() => { loadCredits(); }, [loadCredits]);
