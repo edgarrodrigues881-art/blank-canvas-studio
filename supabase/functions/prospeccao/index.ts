@@ -442,7 +442,7 @@ async function adaptiveSearch(
     if (centerAdded < 2) continue;
 
     for (const pt of bestPoints.slice(0, 3)) {
-      if (done()) break;
+      if (done() || budgetExceeded()) break;
       const ll2 = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomRing1}z`;
       const added = await query(relNicho, ll2, apiKey, seen, places);
       credits++;
