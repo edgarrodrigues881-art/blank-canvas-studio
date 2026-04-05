@@ -130,23 +130,21 @@ export default function SearchAreaMap({ cidade, estado, onAreaChange, initialRad
 
   if (!cidade || !estado) {
     return (
-      <Card className="border-dashed">
-        <CardContent className="flex items-center justify-center py-8 text-muted-foreground gap-2">
-          <MapPin className="h-5 w-5" />
-          <span>Selecione estado e cidade para visualizar o mapa</span>
-        </CardContent>
-      </Card>
+      <div className="w-full h-[280px] rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/30 flex flex-col items-center justify-center gap-3">
+        <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+          <MapPin className="h-6 w-6 text-muted-foreground/50" />
+        </div>
+        <p className="text-muted-foreground text-sm">Selecione estado e cidade para visualizar a área de busca no mapa</p>
+      </div>
     );
   }
 
   if (geocoding) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-8 text-muted-foreground gap-2">
-          <Target className="h-5 w-5 animate-pulse" />
-          <span>Localizando {cidade}...</span>
-        </CardContent>
-      </Card>
+      <div className="w-full h-[280px] rounded-xl border border-border bg-muted/20 flex flex-col items-center justify-center gap-3">
+        <Target className="h-8 w-8 text-primary animate-pulse" />
+        <p className="text-muted-foreground text-sm">Localizando {cidade}...</p>
+      </div>
     );
   }
 
