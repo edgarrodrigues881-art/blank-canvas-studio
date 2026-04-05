@@ -635,6 +635,28 @@ Deno.serve(async (req) => {
     const ratio = (results.length / Math.max(searchResult.creditsUsed, 1)).toFixed(1);
     console.log(`[prospeccao] DONE: ${results.length} leads | ${searchResult.creditsUsed} cr | ${ratio} l/cr | ${executionMs}ms`);
 
+    // --- DEBIT CREDITS (1.5x multiplier, ceil) ---
+    const rawCost = searchResult.creditsUsed;
+    const finalCost = Math.ceil(rawCost * 1.5);
+    let newBalance = currentBalance;
+
+    if (finalCost > 0) {
+      const debitAdmin = createClient(supabaseUrl, serviceRoleKey);
+      const { data: debitResult } = await debitAdmin.rpc("debit_prospeccao_credits", {
+        p_user_id: user.id,
+        p_amount: finalCost,
+        p_description: `Prospecção: ${nichoTrimmed} em ${cidadeTrimmed}/${estadoTrimmed} — ${results.length} leads`,
+        p_campaign_id: campaignId || null,
+      });
+      if (debitResult?.success === false) {
+        console.warn(`[prospeccao] Debit failed: ${debitResult.error}`);
+      } else {
+        newBalance = debitResult?.balance ?? (currentBalance - finalCost);
+      }
+    }
+
+    console.log(`[prospeccao] DONE: ${results.length} leads | API: ${rawCost} cr | Cobrado: ${finalCost} cr | Saldo: ${newBalance}`);
+
     // Save campaign results + logs
     if (campaignId) {
       try {
