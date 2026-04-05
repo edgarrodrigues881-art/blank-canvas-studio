@@ -558,10 +558,43 @@ export function useConversations() {
     }
   }, [fetchMessages]);
 
-  // Initial load
+  // Initial load + auto background sync
+  const hasSyncedRef = useRef(false);
   useEffect(() => {
     if (user) {
       fetchConversations();
+      // Auto-sync once in background (silent, no toast)
+      if (!hasSyncedRef.current) {
+        hasSyncedRef.current = true;
+        (async () => {
+          try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData?.session?.access_token;
+            if (!token) return;
+            const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
+
+            // Setup webhooks silently
+            fetch(`https://${projectId}.supabase.co/functions/v1/webhook-conversations`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "setup_all_webhooks" }),
+            }).catch(() => {});
+
+            // Sync recent conversations (last 24h)
+            const resp = await fetch(`https://${projectId}.supabase.co/functions/v1/sync-conversations`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            });
+            const result = await resp.json();
+            console.log("[auto-sync] background sync result:", result);
+            if (result.synced > 0) {
+              fetchConversations();
+            }
+          } catch (e) {
+            console.log("[auto-sync] background sync skipped:", e);
+          }
+        })();
+      }
     }
   }, [user, fetchConversations]);
 
