@@ -18,6 +18,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import SearchAreaMap from "@/components/prospeccao/SearchAreaMap";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
