@@ -167,6 +167,8 @@ const Conversations = () => {
               onToggleDetails={() => setShowDetails(!showDetails)}
               onBack={() => selectConversation(null)}
               onStatusChange={handleStatusChange}
+              onSendMessage={sendMessage}
+              onRetryMessage={retryMessage}
             />
           </div>
         )}
