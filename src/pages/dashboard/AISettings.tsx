@@ -56,7 +56,7 @@ const AISettings = () => {
   const [businessSegment, setBusinessSegment] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
   const [tone, setTone] = useState("professional");
-  const [attendanceMode, setAttendanceMode] = useState("hybrid");
+  const [attendanceMode, setAttendanceMode] = useState("knowledge");
   const [creativity, setCreativity] = useState([50]);
   const [maxResponseLength, setMaxResponseLength] = useState("medium");
   const [blockSensitive, setBlockSensitive] = useState(true);
