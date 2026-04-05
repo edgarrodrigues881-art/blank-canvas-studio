@@ -286,15 +286,6 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
     return lines;
   });
 
-  if (hasUrlButtons) {
-    return await uazapiRequest(baseUrl, token, "/send/menu", {
-      number: phone,
-      type: "list",
-      ...(primaryText ? { text: primaryText } : {}),
-      choices: menuChoices,
-    });
-  }
-
   try {
     return await uazapiRequest(baseUrl, token, "/send/carousel", payload);
   } catch {
