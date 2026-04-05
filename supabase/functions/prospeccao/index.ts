@@ -671,12 +671,7 @@ Deno.serve(async (req) => {
 
     // --- DEBIT CREDITS or FREE PULL ---
     const rawCost = searchResult.creditsUsed;
-    // Proportional billing: if we found fewer leads than target,
-    // cap the cost proportionally so users don't overpay for poor results.
-    const maxTarget = Number(maxResults) || 100;
-    const leadsFound = results.length;
     const fullCost = Math.ceil(rawCost * 6.25);
-    // Remove proportional billing — charge exactly what was used, no discounts
     const finalCost = isFreePull ? 0 : fullCost;
     let newBalance = currentBalance;
     let freePullsAfter = freePulls;
