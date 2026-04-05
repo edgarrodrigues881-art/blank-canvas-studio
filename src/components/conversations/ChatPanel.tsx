@@ -18,6 +18,7 @@ import {
   Zap,
   Bot,
   Mic,
+  Settings,
   Trash2,
   Loader2,
   X,
