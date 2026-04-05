@@ -184,8 +184,11 @@ export default function Prospeccao() {
     if (!rows.length) return;
     const headers = ["Nome","Categoria","Telefone","Email","Website","Instagram","Facebook","Endereço","Avaliação","Total Avaliações","Faixa de Preço","Descrição","Google Maps"];
     const csvRows = rows.map((r: any) => [
-      r.nome, r.categoria, r.telefone, r.email || "", r.website, r.instagram || "", r.facebook || "",
-      r.endereco, r.avaliacao ?? "", r.totalAvaliacoes || r.total_avaliacoes || "", r.faixaPreco || "", r.descricao || "", r.googleMapsUrl || r.google_maps_url || "",
+      r.nome || r.name || "", r.categoria || "", r.telefone || r.phone || "",
+      r.email || "", r.website || "", r.instagram || "", r.facebook || "",
+      r.endereco || "", r.avaliacao ?? "", r.totalAvaliacoes || r.total_avaliacoes || "",
+      r.faixaPreco || r.faixa_preco || "", r.descricao || "",
+      r.googleMapsUrl || r.google_maps_url || "",
     ]);
     const csv = [headers, ...csvRows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
@@ -196,6 +199,54 @@ export default function Prospeccao() {
     a.click();
     URL.revokeObjectURL(url);
     toast.success("CSV exportado!");
+  };
+
+  const [savingContacts, setSavingContacts] = useState(false);
+
+  const saveToContacts = async (data?: any[]) => {
+    const rows = data || results;
+    if (!rows.length) { toast.error("Sem leads para salvar"); return; }
+    const leadsWithPhone = rows.filter((r: any) => (r.telefone || r.phone));
+    if (!leadsWithPhone.length) { toast.error("Nenhum lead possui telefone"); return; }
+
+    setSavingContacts(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Não autenticado");
+
+      const contacts = leadsWithPhone.map((r: any) => ({
+        user_id: user.id,
+        name: r.nome || r.name || "Sem nome",
+        phone: (r.telefone || r.phone || "").replace(/\D/g, ""),
+        email: r.email || null,
+        tags: [r.categoria || nicho].filter(Boolean),
+        notes: r.descricao || null,
+        var1: r.categoria || "",
+        var2: r.endereco || "",
+        var3: r.website || "",
+        var4: r.instagram || "",
+        var5: r.facebook || "",
+        var6: r.googleMapsUrl || r.google_maps_url || "",
+        var7: r.avaliacao != null ? String(r.avaliacao) : "",
+        var8: r.totalAvaliacoes || r.total_avaliacoes ? String(r.totalAvaliacoes || r.total_avaliacoes) : "",
+        var9: r.faixaPreco || r.faixa_preco || "",
+        var10: "",
+      }));
+
+      // Insert in batches of 50
+      let saved = 0;
+      for (let i = 0; i < contacts.length; i += 50) {
+        const batch = contacts.slice(i, i + 50);
+        const { error } = await supabase.from("contacts").insert(batch);
+        if (error) throw error;
+        saved += batch.length;
+      }
+
+      toast.success(`${saved} contatos salvos na sua base!`);
+    } catch (err: any) {
+      console.error("Erro ao salvar contatos:", err);
+      toast.error(err.message || "Erro ao salvar contatos");
+    } finally { setSavingContacts(false); }
   };
 
   const tierBadge = (tier: string | null) => {
