@@ -176,15 +176,43 @@ export function useConversations() {
     await supabase.from("conversations").update(updates as any).eq("id", convId);
   }, []);
 
-  // Send message
+  // Send message with optimistic UI
   const sendMessage = useCallback(async (conversationId: string, content: string) => {
     if (!user) return;
 
     const conv = conversations.find((c) => c.id === conversationId);
     if (!conv) return;
 
-    // Insert into DB
-    const { data: msg, error } = await supabase
+    const tempId = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    // 1. Optimistic: show message immediately as "sending"
+    const optimisticMsg: RealMessage = {
+      id: tempId,
+      conversation_id: conversationId,
+      content,
+      direction: "sent",
+      status: "sending",
+      media_type: null,
+      media_url: null,
+      audio_duration: null,
+      is_ai_response: false,
+      whatsapp_message_id: null,
+      created_at: now,
+    };
+    setMessages((prev) => [...prev, optimisticMsg]);
+
+    // Update conversation preview immediately
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === conversationId
+          ? { ...c, last_message: content, last_message_at: now }
+          : c
+      )
+    );
+
+    // 2. Persist to DB
+    const { data: dbMsg, error: dbError } = await supabase
       .from("conversation_messages")
       .insert({
         conversation_id: conversationId,
@@ -192,33 +220,72 @@ export function useConversations() {
         remote_jid: conv.remote_jid,
         content,
         direction: "sent",
-        status: "sent",
-        created_at: new Date().toISOString(),
+        status: "sending",
+        created_at: now,
       })
       .select()
       .single();
 
-    if (error) {
+    if (dbError || !dbMsg) {
+      // Mark as failed
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, status: "failed" } : m))
+      );
       toast.error("Erro ao salvar mensagem");
       return;
     }
 
-    // Add to local state
-    setMessages((prev) => [...prev, msg as RealMessage]);
-
-    // Update conversation last message
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === conversationId
-          ? { ...c, last_message: content, last_message_at: new Date().toISOString() }
-          : c
-      )
+    // Replace temp ID with real DB ID
+    setMessages((prev) =>
+      prev.map((m) => (m.id === tempId ? { ...m, id: dbMsg.id } : m))
     );
 
-    // TODO: Send via UAZAPI (would need an edge function to send messages)
-    // For now, just save locally
+    // 3. Send via edge function (UAZAPI)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
 
-    return msg;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/chat-send`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            conversation_id: conversationId,
+            content,
+            message_id: dbMsg.id,
+          }),
+        }
+      );
+
+      const result = await res.json();
+
+      if (result.sent) {
+        // Update to "sent"
+        setMessages((prev) =>
+          prev.map((m) => (m.id === dbMsg.id ? { ...m, status: "sent" } : m))
+        );
+      } else {
+        // Mark as failed
+        setMessages((prev) =>
+          prev.map((m) => (m.id === dbMsg.id ? { ...m, status: "failed" } : m))
+        );
+        await supabase.from("conversation_messages").update({ status: "failed" }).eq("id", dbMsg.id);
+        toast.error(result.error || "Falha ao enviar mensagem");
+      }
+    } catch (err: any) {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === dbMsg.id ? { ...m, status: "failed" } : m))
+      );
+      await supabase.from("conversation_messages").update({ status: "failed" }).eq("id", dbMsg.id);
+      toast.error("Erro de conexão ao enviar mensagem");
+    }
+
+    return dbMsg;
   }, [user, conversations]);
 
   // Select conversation
