@@ -115,9 +115,11 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
   };
 
   const statusIcon = (status?: string) => {
+    if (status === "sending") return <span className="text-[10px] text-muted-foreground/40 italic">●</span>;
     if (status === "read") return <CheckCheck className="w-3.5 h-3.5 text-blue-400" />;
     if (status === "delivered") return <CheckCheck className="w-3.5 h-3.5 text-muted-foreground/50" />;
     if (status === "sent") return <Check className="w-3.5 h-3.5 text-muted-foreground/50" />;
+    if (status === "failed") return <span className="text-[10px] text-red-400 font-medium">!</span>;
     return null;
   };
 
