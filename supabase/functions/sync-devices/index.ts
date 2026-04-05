@@ -462,16 +462,18 @@ Deno.serve(async (req) => {
     const disconnectWaveOpen = !circuitOpen
       && successfulResults.length >= 4
       && disconnectCandidates >= Math.max(3, Math.ceil(successfulResults.length * 0.35));
-    const disconnectWaveRequiredStrikes = 3;
+    const disconnectWaveRequiredStrikes = 5;
     const disconnectWaveWindowMs = 15 * 60 * 1000;
+    const disconnectWaveMinSpreadMs = 2 * 60 * 1000; // strikes must span at least 2 minutes
     const disconnectWaveStrikeMap = new Map<string, number>();
+    const disconnectWaveFirstStrikeMap = new Map<string, number>(); // timestamp of first strike
 
     if (disconnectWaveOpen) {
       opLogs.push({
         user_id: userId,
         device_id: null,
         event: "sync_disconnect_wave",
-        details: `Onda de falso offline detectada: ${disconnectCandidates}/${successfulResults.length} instâncias reportaram desconectadas na mesma rodada`,
+        details: `Onda de falso offline detectada: ${disconnectCandidates}/${successfulResults.length} instâncias reportaram desconectadas na mesma rodada — proteção reforçada ativa`,
         meta: { disconnect_candidates: disconnectCandidates, successful_results: successfulResults.length },
       });
 
@@ -482,16 +484,21 @@ Deno.serve(async (req) => {
       if (candidateIds.length > 0) {
         const { data: recentWaveStrikes } = await svc
           .from("operation_logs")
-          .select("device_id")
+          .select("device_id, created_at")
           .eq("user_id", userId)
           .eq("event", "sync_disconnect_wave_strike")
           .in("device_id", candidateIds)
-          .gte("created_at", new Date(Date.now() - disconnectWaveWindowMs).toISOString());
+          .gte("created_at", new Date(Date.now() - disconnectWaveWindowMs).toISOString())
+          .order("created_at", { ascending: true });
 
         for (const row of (recentWaveStrikes || [])) {
           const key = String(row.device_id || "");
           if (!key) continue;
           disconnectWaveStrikeMap.set(key, (disconnectWaveStrikeMap.get(key) || 0) + 1);
+          // Track earliest strike timestamp per device
+          if (!disconnectWaveFirstStrikeMap.has(key)) {
+            disconnectWaveFirstStrikeMap.set(key, new Date(row.created_at).getTime());
+          }
         }
       }
     }
