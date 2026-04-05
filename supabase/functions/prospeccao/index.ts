@@ -351,7 +351,7 @@ async function adaptiveSearch(
   if (bairros.length > 0) {
     let coldStreak = 0;
     for (const bairro of bairros.slice(0, 10)) {
-      if (done() || coldStreak >= 3) break;
+      if (done() || coldStreak >= 3 || budgetExceeded()) break;
       const added = await query(`${primary} ${bairro} ${cidade}`, "", apiKey, seen, places);
       credits++;
       logs.add("P3-bairro", primary, bairro, added, places.length, 1);
