@@ -395,9 +395,9 @@ export default function Prospeccao() {
               </div>
 
               <div className="flex items-center gap-3 mt-4">
-                <Button onClick={() => handleSearch()} disabled={loading || (creditBalance !== null && creditBalance <= 0)} className="gap-2">
+                <Button onClick={() => handleSearch()} disabled={loading || ((creditBalance === null || creditBalance <= 0) && freePulls <= 0)} className="gap-2">
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                  {loading ? "Buscando..." : "Buscar"}
+                  {loading ? "Buscando..." : freePulls > 0 && (creditBalance === null || creditBalance <= 0) ? `Puxada Grátis (${freePulls})` : "Buscar"}
                 </Button>
                 {results.length > 0 && (
                   <>
@@ -410,8 +410,8 @@ export default function Prospeccao() {
                     </Button>
                   </>
                 )}
-                {creditBalance !== null && creditBalance <= 0 && (
-                  <p className="text-sm text-destructive font-medium">Créditos insuficientes para realizar a prospecção</p>
+                {(creditBalance !== null && creditBalance <= 0) && freePulls <= 0 && (
+                  <p className="text-sm text-destructive font-medium">Sem créditos e sem puxadas grátis</p>
                 )}
               </div>
               {loading && <p className="text-sm text-muted-foreground mt-3">⏳ A busca pode levar de 30s a vários minutos...</p>}
