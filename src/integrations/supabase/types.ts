@@ -1725,6 +1725,149 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_messages: {
+        Row: {
+          audio_duration: number | null
+          content: string | null
+          conversation_id: string
+          created_at: string
+          direction: string
+          id: string
+          is_ai_response: boolean | null
+          media_type: string | null
+          media_url: string | null
+          message_type: string | null
+          remote_jid: string | null
+          status: string | null
+          user_id: string
+          whatsapp_message_id: string | null
+        }
+        Insert: {
+          audio_duration?: number | null
+          content?: string | null
+          conversation_id: string
+          created_at?: string
+          direction?: string
+          id?: string
+          is_ai_response?: boolean | null
+          media_type?: string | null
+          media_url?: string | null
+          message_type?: string | null
+          remote_jid?: string | null
+          status?: string | null
+          user_id: string
+          whatsapp_message_id?: string | null
+        }
+        Update: {
+          audio_duration?: number | null
+          content?: string | null
+          conversation_id?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          is_ai_response?: boolean | null
+          media_type?: string | null
+          media_url?: string | null
+          message_type?: string | null
+          remote_jid?: string | null
+          status?: string | null
+          user_id?: string
+          whatsapp_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          attending_status: string | null
+          avatar_url: string | null
+          category: string | null
+          company: string | null
+          created_at: string
+          device_id: string | null
+          email: string | null
+          id: string
+          last_message: string | null
+          last_message_at: string | null
+          name: string
+          notes: string | null
+          origin: string | null
+          phone: string
+          remote_jid: string
+          status: string | null
+          tags: string[] | null
+          unread_count: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attending_status?: string | null
+          avatar_url?: string | null
+          category?: string | null
+          company?: string | null
+          created_at?: string
+          device_id?: string | null
+          email?: string | null
+          id?: string
+          last_message?: string | null
+          last_message_at?: string | null
+          name?: string
+          notes?: string | null
+          origin?: string | null
+          phone?: string
+          remote_jid: string
+          status?: string | null
+          tags?: string[] | null
+          unread_count?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attending_status?: string | null
+          avatar_url?: string | null
+          category?: string | null
+          company?: string | null
+          created_at?: string
+          device_id?: string | null
+          email?: string | null
+          id?: string
+          last_message?: string | null
+          last_message_at?: string | null
+          name?: string
+          notes?: string | null
+          origin?: string | null
+          phone?: string
+          remote_jid?: string
+          status?: string | null
+          tags?: string[] | null
+          unread_count?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delay_profiles: {
         Row: {
           created_at: string
