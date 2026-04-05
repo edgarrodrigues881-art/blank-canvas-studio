@@ -261,6 +261,16 @@ export default function Prospeccao() {
                   </Select>
                 </div>
               </div>
+              {/* Search Area Map */}
+              <div className="mt-4">
+                <SearchAreaMap
+                  cidade={cidade}
+                  estado={estado}
+                  onAreaChange={handleAreaChange}
+                  initialRadiusKm={12}
+                />
+              </div>
+
               <div className="flex gap-3 mt-4">
                 <Button onClick={() => handleSearch()} disabled={loading} className="gap-2">
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
