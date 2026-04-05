@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 interface ContactDetailsProps {
   conversation: Conversation;
   onClose: () => void;
+  onTagsChange?: (conversationId: string, newTags: string[]) => void;
 }
 
 const allTags = [
@@ -69,7 +70,7 @@ interface EditFormData {
   observations: string;
 }
 
-export function ContactDetails({ conversation, onClose }: ContactDetailsProps) {
+export function ContactDetails({ conversation, onClose, onTagsChange }: ContactDetailsProps) {
   const [activeTags, setActiveTags] = useState<string[]>(conversation.tags);
   const [notes, setNotes] = useState(conversation.notes || "");
   const [editingNotes, setEditingNotes] = useState(false);
@@ -100,9 +101,11 @@ export function ContactDetails({ conversation, onClose }: ContactDetailsProps) {
   }, [conversation.id]);
 
   const toggleTag = (tag: string) => {
-    setActiveTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
+    setActiveTags((prev) => {
+      const next = prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag];
+      onTagsChange?.(conversation.id, next);
+      return next;
+    });
   };
 
   const handleEditSave = () => {

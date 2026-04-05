@@ -35,6 +35,7 @@ interface ChatPanelProps {
   showDetails: boolean;
   onToggleDetails: () => void;
   onBack: () => void;
+  onStatusChange?: (conversationId: string, newStatus: AttendingStatus) => void;
 }
 
 const attendingStatusConfig: Record<AttendingStatus, { label: string; color: string; bg: string; dot: string }> = {
@@ -58,7 +59,7 @@ function formatAudioDuration(seconds: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export function ChatPanel({ conversation, messages, showDetails, onToggleDetails, onBack }: ChatPanelProps) {
+export function ChatPanel({ conversation, messages, showDetails, onToggleDetails, onBack, onStatusChange }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [currentStatus, setCurrentStatus] = useState<AttendingStatus>(conversation.attendingStatus);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
@@ -177,7 +178,7 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
             {(Object.entries(attendingStatusConfig) as [AttendingStatus, typeof currentStatusCfg][]).map(([key, cfg]) => (
               <DropdownMenuItem
                 key={key}
-                onClick={() => setCurrentStatus(key)}
+                onClick={() => { setCurrentStatus(key); onStatusChange?.(conversation.id, key); }}
                 className={cn("gap-2 text-xs cursor-pointer", currentStatus === key && "bg-muted")}
               >
                 <span className={cn("w-2 h-2 rounded-full shrink-0", cfg.dot)} />

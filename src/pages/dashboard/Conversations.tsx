@@ -1,16 +1,19 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { ConversationList } from "@/components/conversations/ConversationList";
 import { ChatPanel } from "@/components/conversations/ChatPanel";
 import { ContactDetails } from "@/components/conversations/ContactDetails";
-import { type Conversation, type Message, mockConversations, mockMessages } from "@/components/conversations/types";
+import { type Conversation, type AttendingStatus, mockConversations, mockMessages } from "@/components/conversations/types";
 import { MessageSquare } from "lucide-react";
 
 const Conversations = () => {
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredConversations = mockConversations.filter((c) =>
+  const selectedConversation = selectedId ? conversations.find((c) => c.id === selectedId) || null : null;
+
+  const filteredConversations = conversations.filter((c) =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.phone.includes(searchQuery)
   );
@@ -19,6 +22,24 @@ const Conversations = () => {
     ? mockMessages[selectedConversation.id] || []
     : [];
 
+  // Update attending status globally so list + details stay in sync
+  const handleStatusChange = useCallback((conversationId: string, newStatus: AttendingStatus) => {
+    setConversations((prev) =>
+      prev.map((c) => c.id === conversationId ? { ...c, attendingStatus: newStatus } : c)
+    );
+  }, []);
+
+  // Update tags globally
+  const handleTagsChange = useCallback((conversationId: string, newTags: string[]) => {
+    setConversations((prev) =>
+      prev.map((c) => c.id === conversationId ? { ...c, tags: newTags } : c)
+    );
+  }, []);
+
+  const handleSelect = useCallback((c: Conversation) => {
+    setSelectedId(c.id);
+  }, []);
+
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.14)-theme(spacing.5)*2)] sm:h-[calc(100vh-theme(spacing.14)-theme(spacing.10))] -m-2.5 sm:-m-5 md:-m-8">
       <div className="flex flex-1 min-h-0 overflow-hidden bg-background">
@@ -26,10 +47,10 @@ const Conversations = () => {
         <div className={`${selectedConversation ? "hidden md:flex" : "flex"} flex-col w-full md:w-[340px] lg:w-[360px] border-r border-border shrink-0`}>
           <ConversationList
             conversations={filteredConversations}
-            selectedId={selectedConversation?.id || null}
+            selectedId={selectedId}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
-            onSelect={setSelectedConversation}
+            onSelect={handleSelect}
           />
         </div>
 
@@ -41,7 +62,8 @@ const Conversations = () => {
               messages={messages}
               showDetails={showDetails}
               onToggleDetails={() => setShowDetails(!showDetails)}
-              onBack={() => setSelectedConversation(null)}
+              onBack={() => setSelectedId(null)}
+              onStatusChange={handleStatusChange}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center">
@@ -64,6 +86,7 @@ const Conversations = () => {
             <ContactDetails
               conversation={selectedConversation}
               onClose={() => setShowDetails(false)}
+              onTagsChange={handleTagsChange}
             />
           </div>
         )}
