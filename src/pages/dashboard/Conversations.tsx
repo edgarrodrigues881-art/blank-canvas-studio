@@ -23,6 +23,7 @@ const Conversations = () => {
     updateStatus,
     updateTags,
     sendMessage,
+    sendAudioMessage,
     retryMessage,
   } = useConversations();
 
