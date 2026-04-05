@@ -3,16 +3,18 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { MapPin, Target } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MapPin, Target, CheckCircle2, Navigation } from "lucide-react";
 
 interface SearchAreaMapProps {
   cidade: string;
   estado: string;
+  onAreaConfirm?: (lat: number, lng: number, radiusKm: number) => void;
   onAreaChange?: (lat: number, lng: number, radiusKm: number) => void;
   initialRadiusKm?: number;
 }
 
-export default function SearchAreaMap({ cidade, estado, onAreaChange, initialRadiusKm = 12 }: SearchAreaMapProps) {
+export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaChange, initialRadiusKm = 12 }: SearchAreaMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
@@ -20,6 +22,8 @@ export default function SearchAreaMap({ cidade, estado, onAreaChange, initialRad
   const [radiusKm, setRadiusKm] = useState(initialRadiusKm);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [geocoding, setGeocoding] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [changed, setChanged] = useState(false);
 
   useEffect(() => {
     if (!cidade || !estado) return;
@@ -32,6 +36,8 @@ export default function SearchAreaMap({ cidade, estado, onAreaChange, initialRad
         const data = await res.json();
         if (!cancelled && data.length > 0) {
           setCenter({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
+          setConfirmed(false);
+          setChanged(false);
         }
       } catch {
         console.error("Geocoding failed");
@@ -59,37 +65,41 @@ export default function SearchAreaMap({ cidade, estado, onAreaChange, initialRad
 
     L.control.zoom({ position: "topright" }).addTo(map);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    // Carto Voyager - clean and readable
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
       maxZoom: 18,
+      subdomains: "abcd",
     }).addTo(map);
 
     const icon = L.divIcon({
       className: "",
       html: `<div style="
-        width:18px;height:18px;border-radius:50%;
-        background:hsl(142,71%,45%);border:2px solid white;
-        box-shadow:0 0 6px rgba(74,222,128,0.5);
+        width:16px;height:16px;border-radius:50%;
+        background:hsl(142,71%,45%);border:2.5px solid white;
+        box-shadow:0 0 8px rgba(74,222,128,0.6);
         cursor:grab;
       "></div>`,
-      iconSize: [18, 18],
-      iconAnchor: [9, 9],
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
     });
 
     const marker = L.marker([center.lat, center.lng], { draggable: true, icon }).addTo(map);
 
     const circle = L.circle([center.lat, center.lng], {
       radius: radiusKm * 1000,
-      color: "rgba(74,222,128,0.6)",
-      fillColor: "rgba(74,222,128,0.08)",
-      fillOpacity: 0.15,
-      weight: 2,
-      dashArray: "8 5",
+      color: "hsl(142,71%,45%)",
+      fillColor: "hsl(142,71%,45%)",
+      fillOpacity: 0.08,
+      weight: 2.5,
+      dashArray: "6 4",
     }).addTo(map);
 
     marker.on("dragend", () => {
       const pos = marker.getLatLng();
       circle.setLatLng(pos);
       setCenter({ lat: pos.lat, lng: pos.lng });
+      setConfirmed(false);
+      setChanged(true);
     });
 
     mapInstanceRef.current = map;
@@ -109,11 +119,21 @@ export default function SearchAreaMap({ cidade, estado, onAreaChange, initialRad
     if (mapInstanceRef.current && circleRef.current) {
       mapInstanceRef.current.fitBounds(circleRef.current.getBounds(), { padding: [30, 30] });
     }
+    setConfirmed(false);
+    setChanged(true);
   }, [radiusKm]);
 
   useEffect(() => {
     if (center && onAreaChange) onAreaChange(center.lat, center.lng, radiusKm);
   }, [center, radiusKm, onAreaChange]);
+
+  const handleConfirm = () => {
+    if (center && onAreaConfirm) {
+      onAreaConfirm(center.lat, center.lng, radiusKm);
+    }
+    setConfirmed(true);
+    setChanged(false);
+  };
 
   if (!cidade || !estado) {
     return (
@@ -139,11 +159,40 @@ export default function SearchAreaMap({ cidade, estado, onAreaChange, initialRad
     <div className="space-y-3">
       <div className="relative">
         <div ref={mapRef} className="w-full aspect-[4/3] max-h-[400px] rounded-xl overflow-hidden border border-border" />
-        {/* Overlay info */}
-        <div className="absolute bottom-3 left-3 bg-background/80 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-border/50 text-xs text-muted-foreground">
-          Arraste o marcador para ajustar o centro
+
+        {/* Info overlay - top left */}
+        {center && (
+          <div className="absolute top-3 left-3 bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-border/50 space-y-0.5 max-w-[220px]">
+            <div className="flex items-center gap-1.5">
+              <Navigation className="h-3 w-3 text-primary shrink-0" />
+              <span className="text-xs font-medium text-foreground truncate">{cidade}, {estado}</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              {center.lat.toFixed(4)}, {center.lng.toFixed(4)} · {radiusKm}km
+            </p>
+          </div>
+        )}
+
+        {/* Status overlay - bottom */}
+        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
+          <div className="bg-background/80 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-border/50 text-[11px] text-muted-foreground">
+            Arraste o marcador para ajustar
+          </div>
+          {confirmed && !changed && (
+            <div className="bg-primary/10 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-primary/30 flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+              <span className="text-[11px] font-medium text-primary">Área confirmada</span>
+            </div>
+          )}
+          {changed && !confirmed && (
+            <div className="bg-yellow-500/10 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-yellow-500/30">
+              <span className="text-[11px] text-yellow-600 dark:text-yellow-400">Área alterada</span>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Controls */}
       <div className="flex items-center gap-4 px-1">
         <Label className="text-sm whitespace-nowrap font-medium">Raio: {radiusKm} km</Label>
         <Slider
@@ -155,6 +204,33 @@ export default function SearchAreaMap({ cidade, estado, onAreaChange, initialRad
           className="flex-1"
         />
       </div>
+
+      {/* Confirm area button */}
+      {center && (
+        <div className="flex items-center gap-3 px-1">
+          <Button
+            size="sm"
+            variant={confirmed && !changed ? "outline" : "default"}
+            onClick={handleConfirm}
+            className="gap-2"
+          >
+            {confirmed && !changed ? (
+              <>
+                <CheckCircle2 className="h-4 w-4" />
+                Área confirmada
+              </>
+            ) : (
+              <>
+                <Target className="h-4 w-4" />
+                Usar esta área
+              </>
+            )}
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            Essa área será usada na prospecção
+          </span>
+        </div>
+      )}
     </div>
   );
 }
