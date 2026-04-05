@@ -37,6 +37,8 @@ interface ChatPanelProps {
   onToggleDetails: () => void;
   onBack: () => void;
   onStatusChange?: (conversationId: string, newStatus: AttendingStatus) => void;
+  onSendMessage?: (conversationId: string, content: string) => void;
+  onRetryMessage?: (messageId: string) => void;
 }
 
 const attendingStatusConfig: Record<AttendingStatus, { label: string; color: string; bg: string; dot: string }> = {
@@ -60,7 +62,7 @@ function formatAudioDuration(seconds: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export function ChatPanel({ conversation, messages, showDetails, onToggleDetails, onBack, onStatusChange }: ChatPanelProps) {
+export function ChatPanel({ conversation, messages, showDetails, onToggleDetails, onBack, onStatusChange, onSendMessage, onRetryMessage }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [currentStatus, setCurrentStatus] = useState<AttendingStatus>(conversation.attendingStatus);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
@@ -93,8 +95,10 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
 
   const handleSend = () => {
     if (!input.trim()) return;
+    const text = input.trim();
     setInput("");
     setShowQuickReplies(false);
+    onSendMessage?.(conversation.id, text);
   };
 
   const handleQuickReply = (text: string) => {
@@ -111,9 +115,11 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
   };
 
   const statusIcon = (status?: string) => {
+    if (status === "sending") return <span className="text-[10px] text-muted-foreground/40 italic">●</span>;
     if (status === "read") return <CheckCheck className="w-3.5 h-3.5 text-blue-400" />;
     if (status === "delivered") return <CheckCheck className="w-3.5 h-3.5 text-muted-foreground/50" />;
     if (status === "sent") return <Check className="w-3.5 h-3.5 text-muted-foreground/50" />;
+    if (status === "failed") return <span className="text-[10px] text-red-400 font-medium">!</span>;
     return null;
   };
 
@@ -312,6 +318,14 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
                         </span>
                         {msg.type === "sent" && statusIcon(msg.status)}
                       </div>
+                      {msg.status === "failed" && (
+                        <button
+                          onClick={() => onRetryMessage?.(msg.id)}
+                          className="text-[10px] text-red-400 hover:text-red-300 mt-0.5 text-right underline cursor-pointer"
+                        >
+                          Falhou — toque para reenviar
+                        </button>
+                      )}
                     </>
                   )}
                 </div>

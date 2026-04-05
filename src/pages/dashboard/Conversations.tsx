@@ -23,6 +23,7 @@ const Conversations = () => {
     updateStatus,
     updateTags,
     sendMessage,
+    retryMessage,
   } = useConversations();
 
   const [showDetails, setShowDetails] = useState(true);
@@ -167,6 +168,8 @@ const Conversations = () => {
               onToggleDetails={() => setShowDetails(!showDetails)}
               onBack={() => selectConversation(null)}
               onStatusChange={handleStatusChange}
+              onSendMessage={sendMessage}
+              onRetryMessage={retryMessage}
             />
           </div>
         )}
