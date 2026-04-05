@@ -154,6 +154,8 @@ export function ChatPanel({
   conversation, messages, showDetails, onToggleDetails, onBack,
   onStatusChange, onSendMessage, onSendAudio, onSendFile, onRetryMessage,
 }: ChatPanelProps) {
+  const { replies: dbReplies } = useQuickReplies();
+  const [showQRManager, setShowQRManager] = useState(false);
   const [input, setInput] = useState("");
   const [currentStatus, setCurrentStatus] = useState<AttendingStatus>(conversation.attendingStatus);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
@@ -175,6 +177,9 @@ export function ChatPanel({
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Quick replies: use DB or defaults
+  const allQuickReplies = dbReplies.length > 0 ? dbReplies : defaultQuickReplies;
+
   useEffect(() => { setCurrentStatus(conversation.attendingStatus); }, [conversation.id]);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages]);
   useEffect(() => {
@@ -185,7 +190,7 @@ export function ChatPanel({
   }, [input]);
   const quickReplySearch = input.startsWith("/") ? input.slice(1).toLowerCase() : null;
   const filteredQuickReplies = quickReplySearch !== null
-    ? quickReplies.filter((qr) => qr.label.toLowerCase().includes(quickReplySearch) || qr.text.toLowerCase().includes(quickReplySearch))
+    ? allQuickReplies.filter((qr) => qr.label.toLowerCase().includes(quickReplySearch) || qr.content.toLowerCase().includes(quickReplySearch))
     : [];
   useEffect(() => { setShowQuickReplies(input.startsWith("/") && filteredQuickReplies.length > 0); }, [input, filteredQuickReplies.length]);
 
