@@ -328,6 +328,7 @@ export default function Prospeccao() {
                   cidade={cidade}
                   estado={estado}
                   onAreaChange={handleAreaChange}
+                  onAreaConfirm={handleAreaConfirm}
                   initialRadiusKm={12}
                 />
               </div>
