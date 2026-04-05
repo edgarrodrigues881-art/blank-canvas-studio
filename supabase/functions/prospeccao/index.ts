@@ -495,7 +495,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { nicho, nichosRelacionados, estado, cidade, maxResults, forceRefresh } = await req.json();
+    const { nicho, nichosRelacionados, estado, cidade, maxResults, forceRefresh, customCenter, customRadiusKm } = await req.json();
 
     if (!nicho || !cidade || !estado) {
       return new Response(
@@ -568,9 +568,18 @@ Deno.serve(async (req) => {
     }
     const campaignId = campaign?.id;
 
-    // Geocode + fetch bairros in parallel
+    // Use custom center from map if provided, otherwise geocode
+    let cityGeoPromise: Promise<CityGeo | null>;
+    if (customCenter && typeof customCenter.lat === "number" && typeof customCenter.lng === "number") {
+      const userRadius = typeof customRadiusKm === "number" ? Math.min(Math.max(customRadiusKm, 2), 50) : 12;
+      console.log(`[prospeccao] Using custom center: ${customCenter.lat.toFixed(4)},${customCenter.lng.toFixed(4)} | radius: ${userRadius}km`);
+      cityGeoPromise = Promise.resolve({ center: { lat: customCenter.lat, lng: customCenter.lng }, radiusKm: userRadius });
+    } else {
+      cityGeoPromise = geocodeCity(cidadeTrimmed, estadoTrimmed);
+    }
+
     const [cityGeo, bairros] = await Promise.all([
-      geocodeCity(cidadeTrimmed, estadoTrimmed),
+      cityGeoPromise,
       fetchBairros(cidadeTrimmed, estadoTrimmed),
     ]);
 
@@ -594,7 +603,18 @@ Deno.serve(async (req) => {
       searchResult = { places, creditsUsed: credits };
     }
 
-    const results = searchResult.places.slice(0, requestedTotal).map(mapPlace);
+    // Post-filter: remove results outside the search area when coordinates are available
+    let filteredPlaces = searchResult.places;
+    if (cityGeo) {
+      filteredPlaces = filteredPlaces.filter(p => {
+        if (p.latitude && p.longitude) {
+          return isWithinCity({ lat: p.latitude, lng: p.longitude }, cityGeo.center, cityGeo.radiusKm * 1.15);
+        }
+        return true; // keep places without coords
+      });
+    }
+
+    const results = filteredPlaces.slice(0, requestedTotal).map(mapPlace);
     const executionMs = Date.now() - startTime;
     const ratio = (results.length / Math.max(searchResult.creditsUsed, 1)).toFixed(1);
     console.log(`[prospeccao] DONE: ${results.length} leads | ${searchResult.creditsUsed} cr | ${ratio} l/cr | ${executionMs}ms`);
