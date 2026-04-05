@@ -565,7 +565,7 @@ Deno.serve(async (req) => {
 
     const currentBalance = creditRow?.balance ?? 0;
     const freePulls = creditRow?.free_pulls_remaining ?? 0;
-    const isFreePull = freePulls > 0 && currentBalance < Math.ceil(1 * 6.25);
+    const isFreePull = freePulls > 0 && currentBalance < Math.ceil(1 * 3.0);
     const freeMaxResults = 10;
 
     if (!isFreePull) {
