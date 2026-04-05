@@ -176,14 +176,23 @@ export default function Prospeccao() {
           <CardTitle className="text-lg">Filtros de Busca</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="space-y-2">
               <Label>Nicho / Segmento *</Label>
               <Input
-                placeholder="Ex: restaurante, dentista, academia..."
+                placeholder="Ex: pizzaria, dentista..."
                 value={nicho}
                 onChange={(e) => setNicho(e.target.value)}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Nichos relacionados</Label>
+              <Input
+                placeholder="Ex: hamburgueria, restaurante..."
+                value={nichosRelacionados}
+                onChange={(e) => setNichosRelacionados(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Separe por vírgula (opcional)</p>
             </div>
             <div className="space-y-2">
               <Label>Estado *</Label>
