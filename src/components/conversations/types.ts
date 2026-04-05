@@ -27,6 +27,7 @@ export interface Message {
   mediaUrl?: string;
   mediaType?: "image" | "audio" | "document";
   audioDuration?: number; // seconds, for audio messages
+  isAiResponse?: boolean; // true when AI responded automatically
 }
 
 // Mock data for initial UI
@@ -117,9 +118,9 @@ export const mockConversations: Conversation[] = [
 export const mockMessages: Record<string, Message[]> = {
   "1": [
     { id: "m1", conversationId: "1", content: "Boa tarde! Vi o anúncio de vocês no Instagram.", type: "received", timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString() },
-    { id: "m2", conversationId: "1", content: "Boa tarde, João! Que bom que nos encontrou 😊 Como posso ajudar?", type: "sent", timestamp: new Date(Date.now() - 1000 * 60 * 28).toISOString(), status: "read" },
+    { id: "m2", conversationId: "1", content: "Boa tarde, João! Que bom que nos encontrou 😊 Como posso ajudar?", type: "sent", timestamp: new Date(Date.now() - 1000 * 60 * 28).toISOString(), status: "read", isAiResponse: true },
     { id: "m3", conversationId: "1", content: "Gostaria de saber mais sobre o plano Pro, qual o valor?", type: "received", timestamp: new Date(Date.now() - 1000 * 60 * 25).toISOString() },
-    { id: "m4", conversationId: "1", content: "O plano Pro custa R$ 197/mês e inclui até 10 instâncias, aquecimento ilimitado e suporte prioritário.", type: "sent", timestamp: new Date(Date.now() - 1000 * 60 * 20).toISOString(), status: "read" },
+    { id: "m4", conversationId: "1", content: "O plano Pro custa R$ 197/mês e inclui até 10 instâncias, aquecimento ilimitado e suporte prioritário.", type: "sent", timestamp: new Date(Date.now() - 1000 * 60 * 20).toISOString(), status: "read", isAiResponse: true },
     { id: "m5", conversationId: "1", content: "", type: "received", timestamp: new Date(Date.now() - 1000 * 60 * 8).toISOString(), mediaType: "audio", audioDuration: 12 },
     { id: "m6", conversationId: "1", content: "Vocês têm teste grátis?", type: "received", timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString() },
     { id: "m7", conversationId: "1", content: "", type: "sent", timestamp: new Date(Date.now() - 1000 * 60 * 3).toISOString(), status: "delivered", mediaType: "audio", audioDuration: 8 },

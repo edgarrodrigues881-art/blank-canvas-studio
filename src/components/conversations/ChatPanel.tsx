@@ -15,6 +15,7 @@ import {
   Pause,
   ChevronDown,
   Zap,
+  Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -301,6 +302,11 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
                     <>
                       <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
                       <div className={cn("flex items-center gap-1 mt-0.5", msg.type === "sent" ? "justify-end" : "justify-start")}>
+                        {msg.isAiResponse && (
+                          <span className="flex items-center gap-0.5 text-[9px] text-violet-300 mr-1">
+                            <Bot className="w-3 h-3" /> IA
+                          </span>
+                        )}
                         <span className={cn("text-[10px]", msg.type === "sent" ? "text-white/50" : "text-muted-foreground/60")}>
                           {format(new Date(msg.timestamp), "HH:mm")}
                         </span>
