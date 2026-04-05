@@ -10,6 +10,8 @@ export interface ParsedConversationEvent {
   mediaUrl: string | null;
   audioDuration: number | null;
   avatarUrl: string | null;
+  quotedMessageId: string | null;
+  quotedContent: string | null;
 }
 
 type JsonObject = Record<string, any>;
@@ -75,6 +77,113 @@ export function isApiSentMessage(body: JsonObject): boolean {
     || nestedMessage.wasSentByApi === true;
 }
 
+/**
+ * Resolve the media type from multiple possible locations in the payload.
+ * UAZAPI-GO uses `body.type` or `message.type` with values like "ptt", "audio", "image", etc.
+ * Baileys uses `message.audioMessage`, `message.imageMessage`, etc.
+ */
+function resolveMediaType(body: JsonObject, nestedMessage: JsonObject): string | null {
+  // Check Baileys-style nested message objects first
+  if (nestedMessage.audioMessage || nestedMessage.pttMessage) return "audio";
+  if (nestedMessage.imageMessage) return "image";
+  if (nestedMessage.videoMessage) return "video";
+  if (nestedMessage.documentMessage || nestedMessage.documentWithCaptionMessage) return "document";
+  if (nestedMessage.stickerMessage) return "sticker";
+  if (nestedMessage.contactMessage || nestedMessage.contactsArrayMessage) return "contact";
+  if (nestedMessage.locationMessage || nestedMessage.liveLocationMessage) return "location";
+
+  // Check UAZAPI-GO style type field (can be on body, message, or data)
+  const typeStr = firstString(
+    body.type,
+    nestedMessage.type,
+    body.messageType,
+    nestedMessage.messageType,
+    body.TypeMessage,
+    body.data?.type,
+  ).toLowerCase();
+
+  if (!typeStr || typeStr === "text" || typeStr === "messages" || typeStr === "chat") return null;
+
+  if (typeStr === "ptt" || typeStr === "audio" || typeStr === "voice") return "audio";
+  if (typeStr === "image" || typeStr === "photo") return "image";
+  if (typeStr === "video") return "video";
+  if (typeStr === "document" || typeStr === "file") return "document";
+  if (typeStr === "sticker") return "sticker";
+  if (typeStr === "contact" || typeStr === "vcard") return "contact";
+  if (typeStr === "location" || typeStr === "live_location") return "location";
+
+  return null;
+}
+
+function resolveMediaUrl(body: JsonObject, nestedMessage: JsonObject, mediaType: string | null): string | null {
+  if (!mediaType) return null;
+
+  const url = firstString(
+    // Direct body fields (UAZAPI-GO)
+    body.mediaUrl,
+    body.media_url,
+    body.file,
+    body.fileUrl,
+    body.file_url,
+    // Nested message fields
+    nestedMessage.mediaUrl,
+    nestedMessage.media_url,
+    nestedMessage.file,
+    nestedMessage.fileUrl,
+    // Baileys-style nested
+    nestedMessage.audioMessage?.url,
+    nestedMessage.pttMessage?.url,
+    nestedMessage.imageMessage?.url,
+    nestedMessage.videoMessage?.url,
+    nestedMessage.documentMessage?.url,
+    // Data wrapper
+    body.data?.mediaUrl,
+    body.data?.media_url,
+  );
+
+  return url || null;
+}
+
+function resolveAudioDuration(body: JsonObject, nestedMessage: JsonObject): number | null {
+  const val =
+    nestedMessage.audioMessage?.seconds ||
+    nestedMessage.pttMessage?.seconds ||
+    body.duration ||
+    body.seconds ||
+    nestedMessage.duration ||
+    nestedMessage.seconds ||
+    body.data?.duration ||
+    null;
+  return typeof val === "number" && val > 0 ? val : null;
+}
+
+function resolveQuotedMessage(body: JsonObject, nestedMessage: JsonObject): { id: string | null; content: string | null } {
+  const ctx =
+    nestedMessage.contextInfo ||
+    nestedMessage.quotedMessage ||
+    body.contextInfo ||
+    body.quotedMsg ||
+    body.quoted ||
+    null;
+
+  if (!ctx || typeof ctx !== "object") return { id: null, content: null };
+
+  const quotedId = firstString(
+    ctx.stanzaId,
+    ctx.quotedMessageId,
+    ctx.id,
+  ) || null;
+
+  const quotedContent = firstString(
+    ctx.quotedMessage?.conversation,
+    ctx.quotedMessage?.extendedTextMessage?.text,
+    ctx.body,
+    ctx.message,
+  ) || null;
+
+  return { id: quotedId, content: quotedContent };
+}
+
 export function extractConversationEvent(body: JsonObject): ParsedConversationEvent | null {
   const event = firstString(body.event, body.EventType, body.type).toLowerCase();
   const payload = body.data && typeof body.data === "object" ? body.data : body;
@@ -134,6 +243,11 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
     phone,
   ).substring(0, 255);
 
+  // Resolve media first so we can generate a better content fallback
+  const mediaType = resolveMediaType(body, nestedMessage);
+  const mediaUrl = resolveMediaUrl(body, nestedMessage, mediaType);
+  const audioDuration = mediaType === "audio" ? resolveAudioDuration(body, nestedMessage) : null;
+
   const content = firstString(
     body.text,
     body.messageBody,
@@ -148,33 +262,13 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
     nestedMessage.imageMessage?.caption,
     nestedMessage.videoMessage?.caption,
     nestedMessage.documentMessage?.caption,
+    nestedMessage.documentMessage?.fileName,
     body.buttonsResponseMessage?.selectedDisplayText,
     body.templateButtonReplyMessage?.selectedDisplayText,
     nestedMessage.buttonsResponseMessage?.selectedDisplayText,
     nestedMessage.templateButtonReplyMessage?.selectedDisplayText,
     nestedMessage.listResponseMessage?.title,
   );
-
-  let mediaType: string | null = null;
-  let mediaUrl: string | null = null;
-  let audioDuration: number | null = null;
-
-  if (nestedMessage.imageMessage || body.type === "image") {
-    mediaType = "image";
-    mediaUrl = firstString(nestedMessage.imageMessage?.url, body.mediaUrl) || null;
-  } else if (nestedMessage.audioMessage || body.type === "audio" || body.type === "ptt") {
-    mediaType = "audio";
-    mediaUrl = firstString(body.mediaUrl) || null;
-    audioDuration = nestedMessage.audioMessage?.seconds || body.duration || null;
-  } else if (nestedMessage.videoMessage || body.type === "video") {
-    mediaType = "video";
-    mediaUrl = firstString(nestedMessage.videoMessage?.url, body.mediaUrl) || null;
-  } else if (nestedMessage.documentMessage || body.type === "document") {
-    mediaType = "document";
-    mediaUrl = firstString(nestedMessage.documentMessage?.url, body.mediaUrl) || null;
-  } else if (nestedMessage.stickerMessage || body.type === "sticker") {
-    mediaType = "sticker";
-  }
 
   const fromMe = Boolean(
     key.fromMe
@@ -212,6 +306,8 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
     chat.profilePicUrl,
   ) || null;
 
+  const quoted = resolveQuotedMessage(body, nestedMessage);
+
   return {
     remoteJid,
     phone,
@@ -224,5 +320,7 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
     mediaUrl,
     audioDuration,
     avatarUrl,
+    quotedMessageId: quoted.id,
+    quotedContent: quoted.content,
   };
 }

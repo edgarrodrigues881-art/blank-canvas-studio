@@ -27,10 +27,12 @@ export interface Message {
   timestamp: string;
   status?: "sending" | "sent" | "delivered" | "read" | "failed";
   mediaUrl?: string;
-  mediaType?: "image" | "audio" | "document";
+  mediaType?: "image" | "audio" | "document" | "video" | "sticker" | "contact" | "location";
   fileName?: string;
   audioDuration?: number;
   isAiResponse?: boolean;
+  quotedMessageId?: string;
+  quotedContent?: string;
 }
 
 // Mock data for initial UI

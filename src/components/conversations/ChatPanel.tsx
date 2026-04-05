@@ -23,6 +23,10 @@ import {
   Loader2,
   X,
   Download,
+  Reply,
+  Video,
+  MapPin,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,7 +61,6 @@ const attendingStatusConfig: Record<AttendingStatus, { label: string; color: str
   pausado: { label: "Pausado", color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/20", dot: "bg-orange-400" },
 };
 
-// Default fallback quick replies (used when DB has none)
 const defaultQuickReplies = [
   { id: "default-1", label: "Saudação inicial", content: "Olá! Bem-vindo(a)! Como posso ajudá-lo(a) hoje? 😊" },
   { id: "default-2", label: "Confirmar pagamento", content: "Confirmamos o recebimento do seu pagamento. Obrigado!" },
@@ -69,10 +72,6 @@ function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-function isImageFile(name: string) {
-  return /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(name);
 }
 
 function getFileIcon(name: string) {
@@ -88,6 +87,20 @@ function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Check if content is a media placeholder that shouldn't be shown as text */
+function isMediaPlaceholder(content: string | undefined | null): boolean {
+  if (!content) return true;
+  const lower = content.toLowerCase().trim();
+  return [
+    "[image]", "[foto]", "[audio]", "[áudio]", "[ptt]",
+    "[video]", "[vídeo]", "[document]", "[documento]", "[arquivo]",
+    "[sticker]", "[figurinha]", "[contact]", "[contato]",
+    "[location]", "[localização]", "[mensagem]",
+    "🎧 áudio", "📷 foto", "🎬 vídeo", "📎 arquivo",
+    "🏷️ figurinha", "👤 contato", "📍 localização",
+  ].some(p => lower === p || lower.startsWith(p));
 }
 
 /* ─────────── Audio Player ─────────── */
@@ -159,17 +172,16 @@ export function ChatPanel({
   const [input, setInput] = useState("");
   const [currentStatus, setCurrentStatus] = useState<AttendingStatus>(conversation.attendingStatus);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // File preview state
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const [sendingFile, setSendingFile] = useState(false);
 
-  // Audio recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [sendingAudio, setSendingAudio] = useState(false);
@@ -177,11 +189,10 @@ export function ChatPanel({
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Quick replies: use DB or defaults
   const allQuickReplies = dbReplies.length > 0 ? dbReplies : defaultQuickReplies;
 
   useEffect(() => { setCurrentStatus(conversation.attendingStatus); }, [conversation.id]);
-  // Auto-scroll to bottom on new messages or conversation change
+
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
       requestAnimationFrame(() => {
@@ -190,19 +201,20 @@ export function ChatPanel({
     }
   }, []);
   useEffect(scrollToBottom, [messages, conversation.id, scrollToBottom]);
+
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + "px";
     }
   }, [input]);
+
   const quickReplySearch = input.startsWith("/") ? input.slice(1).toLowerCase() : null;
   const filteredQuickReplies = quickReplySearch !== null
     ? allQuickReplies.filter((qr) => qr.label.toLowerCase().includes(quickReplySearch) || qr.content.toLowerCase().includes(quickReplySearch))
     : [];
   useEffect(() => { setShowQuickReplies(input.startsWith("/") && filteredQuickReplies.length > 0); }, [input, filteredQuickReplies.length]);
 
-  // Cleanup preview URL
   useEffect(() => {
     return () => { if (pendingPreview) URL.revokeObjectURL(pendingPreview); };
   }, [pendingPreview]);
@@ -212,14 +224,12 @@ export function ChatPanel({
     onSendMessage?.(conversation.id, input.trim());
     setInput("");
     setShowQuickReplies(false);
+    setReplyTo(null);
   };
 
   const handleQuickReply = (text: string) => { setInput(text); setShowQuickReplies(false); textareaRef.current?.focus(); };
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } };
 
-  // (handlePaste defined after handleFileSelected below)
-
-  // ─── File handling ───
   const handleFileSelected = useCallback((file: File) => {
     if (file.size > 20 * 1024 * 1024) {
       alert("Arquivo muito grande. Máximo: 20MB");
@@ -233,7 +243,6 @@ export function ChatPanel({
     }
   }, []);
 
-  // Paste images from clipboard
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -349,6 +358,18 @@ export function ChatPanel({
     return waveformCache.current[id];
   };
 
+  const getReplyPreview = (msg: Message) => {
+    if (msg.mediaType === "audio") return "🎧 Áudio";
+    if (msg.mediaType === "image") return "📷 Foto";
+    if (msg.mediaType === "video") return "🎬 Vídeo";
+    if (msg.mediaType === "document") return "📎 Arquivo";
+    if (msg.mediaType === "sticker") return "🏷️ Figurinha";
+    if (msg.mediaType === "contact") return "👤 Contato";
+    if (msg.mediaType === "location") return "📍 Localização";
+    if (isMediaPlaceholder(msg.content)) return "💬 Mensagem";
+    return msg.content?.substring(0, 80) || "💬 Mensagem";
+  };
+
   /* ── Timestamp + status footer ── */
   const MsgFooter = ({ msg }: { msg: Message }) => (
     <div className={cn("flex items-center gap-1 mt-0.5", msg.type === "sent" ? "justify-end" : "justify-start")}>
@@ -362,15 +383,35 @@ export function ChatPanel({
     </div>
   );
 
+  /* ── Quoted message block ── */
+  const QuotedBlock = ({ msg }: { msg: Message }) => {
+    if (!msg.quotedContent && !msg.quotedMessageId) return null;
+    return (
+      <div className={cn(
+        "rounded-lg px-2.5 py-1.5 mb-1.5 border-l-2 text-[11px] leading-snug",
+        msg.type === "sent"
+          ? "bg-white/10 border-l-white/40 text-white/70"
+          : "bg-muted/50 border-l-primary/40 text-muted-foreground"
+      )}>
+        <p className="truncate">{msg.quotedContent || "..."}</p>
+      </div>
+    );
+  };
+
   /* ── Render a single message bubble content ── */
   const renderBubbleContent = (msg: Message) => {
     const isAudio = msg.mediaType === "audio";
     const isImage = msg.mediaType === "image";
     const isDocument = msg.mediaType === "document";
+    const isVideo = msg.mediaType === "video";
+    const isSticker = msg.mediaType === "sticker";
+    const isContact = msg.mediaType === "contact";
+    const isLocation = msg.mediaType === "location";
 
     if (isAudio && msg.mediaUrl) {
       return (
         <div>
+          <QuotedBlock msg={msg} />
           <AudioPlayer src={msg.mediaUrl} duration={msg.audioDuration} isSent={msg.type === "sent"} />
           <MsgFooter msg={msg} />
         </div>
@@ -404,13 +445,35 @@ export function ChatPanel({
     if (isImage && msg.mediaUrl) {
       return (
         <div>
+          <QuotedBlock msg={msg} />
           <img
             src={msg.mediaUrl}
             alt="Imagem"
             className="rounded-lg max-w-full max-h-[300px] object-cover cursor-pointer"
             onClick={() => window.open(msg.mediaUrl, "_blank")}
           />
-          {msg.content && msg.content !== "[image]" && msg.content !== "[foto]" && (
+          {msg.content && !isMediaPlaceholder(msg.content) && (
+            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5">{msg.content}</p>
+          )}
+          <MsgFooter msg={msg} />
+        </div>
+      );
+    }
+
+    if (isVideo && msg.mediaUrl) {
+      return (
+        <div>
+          <QuotedBlock msg={msg} />
+          <div className={cn("flex items-center gap-2.5 p-2.5 rounded-lg", msg.type === "sent" ? "bg-white/10" : "bg-muted/50")}>
+            <Video className={cn("w-5 h-5 shrink-0", msg.type === "sent" ? "text-white/70" : "text-muted-foreground")} />
+            <div className="flex-1 min-w-0">
+              <p className={cn("text-[12px] font-medium", msg.type === "sent" ? "text-white" : "text-foreground")}>Vídeo</p>
+            </div>
+            <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer">
+              <Download className={cn("w-4 h-4 shrink-0", msg.type === "sent" ? "text-white/50" : "text-muted-foreground/50")} />
+            </a>
+          </div>
+          {msg.content && !isMediaPlaceholder(msg.content) && (
             <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5">{msg.content}</p>
           )}
           <MsgFooter msg={msg} />
@@ -422,6 +485,7 @@ export function ChatPanel({
       const fileName = msg.fileName || msg.mediaUrl.split("/").pop() || "Arquivo";
       return (
         <div>
+          <QuotedBlock msg={msg} />
           <a
             href={msg.mediaUrl}
             target="_blank"
@@ -438,7 +502,7 @@ export function ChatPanel({
             </div>
             <Download className={cn("w-4 h-4 shrink-0", msg.type === "sent" ? "text-white/50" : "text-muted-foreground/50")} />
           </a>
-          {msg.content && msg.content !== "[document]" && msg.content !== "[documento]" && msg.content !== "[arquivo]" && (
+          {msg.content && !isMediaPlaceholder(msg.content) && (
             <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5">{msg.content}</p>
           )}
           <MsgFooter msg={msg} />
@@ -446,10 +510,42 @@ export function ChatPanel({
       );
     }
 
-    // Text message
+    // Sticker, contact, location without URL — show icon placeholder
+    if ((isSticker || isContact || isLocation || isVideo || isImage || isDocument) && !msg.mediaUrl) {
+      const iconMap: Record<string, { icon: React.ReactNode; label: string }> = {
+        sticker: { icon: <span className="text-2xl">🏷️</span>, label: "Figurinha" },
+        contact: { icon: <User className="w-5 h-5" />, label: "Contato" },
+        location: { icon: <MapPin className="w-5 h-5" />, label: "Localização" },
+        video: { icon: <Video className="w-5 h-5" />, label: "Vídeo" },
+        image: { icon: <ImageIcon className="w-5 h-5" />, label: "Foto" },
+        document: { icon: <FileText className="w-5 h-5" />, label: "Arquivo" },
+      };
+      const info = iconMap[msg.mediaType!] || { icon: <FileText className="w-5 h-5" />, label: msg.mediaType || "Mídia" };
+
+      return (
+        <div>
+          <QuotedBlock msg={msg} />
+          <div className={cn("flex items-center gap-2.5 py-1", msg.type === "sent" ? "text-white/70" : "text-muted-foreground")}>
+            {info.icon}
+            <span className="text-[12px] font-medium">{info.label}</span>
+          </div>
+          {msg.content && !isMediaPlaceholder(msg.content) && (
+            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1">{msg.content}</p>
+          )}
+          <MsgFooter msg={msg} />
+        </div>
+      );
+    }
+
+    // Plain text or unknown content
+    const displayText = isMediaPlaceholder(msg.content) && !msg.mediaType
+      ? msg.content // show as-is if no media type (fallback)
+      : msg.content;
+
     return (
       <>
-        <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
+        <QuotedBlock msg={msg} />
+        <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{displayText}</p>
         <MsgFooter msg={msg} />
         {msg.status === "failed" && (
           <button onClick={() => onRetryMessage?.(msg.id)} className="text-[10px] text-red-400 hover:text-red-300 mt-0.5 text-right underline cursor-pointer block w-full">
@@ -462,7 +558,6 @@ export function ChatPanel({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Hidden file inputs */}
       <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageInput} />
       <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,.txt" className="hidden" onChange={handleDocInput} />
 
@@ -541,7 +636,7 @@ export function ChatPanel({
       >
         {messages.map((msg, i) => {
           const showDate = i === 0 || format(new Date(messages[i - 1].timestamp), "dd/MM/yyyy") !== format(new Date(msg.timestamp), "dd/MM/yyyy");
-          const isMedia = msg.mediaType === "audio" || msg.mediaType === "image" || msg.mediaType === "document";
+          const isMedia = !!msg.mediaType;
 
           return (
             <div key={msg.id}>
@@ -552,7 +647,18 @@ export function ChatPanel({
                   </span>
                 </div>
               )}
-              <div className={cn("flex", msg.type === "sent" ? "justify-end" : "justify-start")}>
+              <div className={cn("flex group", msg.type === "sent" ? "justify-end" : "justify-start")}>
+                {/* Reply button (appears on hover) */}
+                {msg.type === "received" && (
+                  <button
+                    onClick={() => { setReplyTo(msg); textareaRef.current?.focus(); }}
+                    className="self-center mr-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted/50"
+                    title="Responder"
+                  >
+                    <Reply className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
+                )}
+
                 <div
                   className={cn(
                     "max-w-[75%] sm:max-w-[65%] rounded-2xl relative",
@@ -563,6 +669,17 @@ export function ChatPanel({
                 >
                   {renderBubbleContent(msg)}
                 </div>
+
+                {/* Reply button for sent messages (appears on hover) */}
+                {msg.type === "sent" && (
+                  <button
+                    onClick={() => { setReplyTo(msg); textareaRef.current?.focus(); }}
+                    className="self-center ml-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted/50"
+                    title="Responder"
+                  >
+                    <Reply className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -589,6 +706,24 @@ export function ChatPanel({
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Reply Preview */}
+      {replyTo && (
+        <div className="border-t border-border bg-card/90 backdrop-blur-sm px-4 py-2 flex items-center gap-3">
+          <div className="w-1 h-8 rounded-full bg-primary shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-semibold text-primary">
+              {replyTo.type === "sent" ? "Você" : conversation.name}
+            </p>
+            <p className="text-[11px] text-muted-foreground truncate">
+              {getReplyPreview(replyTo)}
+            </p>
+          </div>
+          <Button variant="ghost" size="icon" className="w-7 h-7 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => setReplyTo(null)}>
+            <X className="w-3.5 h-3.5" />
+          </Button>
         </div>
       )}
 

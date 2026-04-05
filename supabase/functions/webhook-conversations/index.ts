@@ -5,6 +5,20 @@ import { extractConversationEvent, isApiSentMessage } from "./parser.ts";
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+function getMediaLabel(mediaType: string | null): string {
+  if (!mediaType) return "";
+  switch (mediaType) {
+    case "audio": return "🎧 Áudio";
+    case "image": return "📷 Foto";
+    case "video": return "🎬 Vídeo";
+    case "document": return "📎 Arquivo";
+    case "sticker": return "🏷️ Figurinha";
+    case "contact": return "👤 Contato";
+    case "location": return "📍 Localização";
+    default: return `[${mediaType}]`;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -15,7 +29,6 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    console.log("Webhook received:", JSON.stringify(body).substring(0, 800));
 
     const admin = createClient(supabaseUrl, serviceKey);
 
@@ -24,10 +37,25 @@ Deno.serve(async (req) => {
       return await handleSetupWebhooks(req, admin, body);
     }
 
+    // Log message-specific fields (not the huge chat object)
+    const msgFields = {
+      EventType: body.EventType,
+      type: body.type,
+      body_text: body.text?.substring?.(0, 60),
+      body_body: body.body?.substring?.(0, 60),
+      mediaUrl: body.mediaUrl,
+      messageType: body.messageType,
+      message_type: body.message?.type,
+      message_body: body.message?.body?.substring?.(0, 60),
+      message_mediaUrl: body.message?.mediaUrl,
+      fromMe: body.fromMe ?? body.isFromMe ?? body.message?.fromMe,
+      duration: body.duration || body.message?.duration || body.message?.seconds,
+    };
+    console.log("Webhook msg fields:", JSON.stringify(msgFields));
+
     // ── Find the device - multiple strategies ──
     let device: any = null;
 
-    // Strategy 1: device_id from query param
     const url = new URL(req.url);
     const deviceIdParam = url.searchParams.get("device_id");
     if (deviceIdParam) {
@@ -35,7 +63,6 @@ Deno.serve(async (req) => {
       device = d;
     }
 
-    // Strategy 2: token from header
     if (!device) {
       const headerToken = req.headers.get("token") || req.headers.get("x-instance-token") || "";
       if (headerToken) {
@@ -44,7 +71,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Strategy 3: instanceId/token from body
     if (!device) {
       const instanceId = body.instanceId || body.instance || body.token || "";
       if (instanceId) {
@@ -89,9 +115,15 @@ Deno.serve(async (req) => {
       mediaUrl,
       audioDuration,
       avatarUrl,
+      quotedMessageId,
+      quotedContent,
     } = parsed;
 
-    const displayContent = content || (mediaType ? `[${mediaType}]` : "[mensagem]");
+    // Use a readable label for media messages instead of [mensagem]
+    const mediaLabel = getMediaLabel(mediaType);
+    const displayContent = content || mediaLabel || "[mensagem]";
+
+    console.log(`Parsed: type=${mediaType}, url=${mediaUrl?.substring(0,60)}, duration=${audioDuration}, content="${content.substring(0,40)}", display="${displayContent.substring(0,40)}"`);
 
     const { data: conv, error: convErr } = await admin
       .from("conversations")
@@ -154,9 +186,9 @@ Deno.serve(async (req) => {
       created_at: timestamp,
     });
 
-    if (msgErr) console.error("Message upsert error:", msgErr);
+    if (msgErr) console.error("Message insert error:", msgErr);
 
-    console.log(`Message saved: ${fromMe ? "sent" : "received"} from ${phone} on ${device.name}: "${displayContent.substring(0, 80)}"`);
+    console.log(`Message saved: ${fromMe ? "sent" : "received"} from ${phone} on ${device.name}: media=${mediaType} "${displayContent.substring(0, 80)}"`);
 
     return json({ ok: true });
   } catch (err: any) {
@@ -168,7 +200,7 @@ Deno.serve(async (req) => {
 });
 
 // ── Setup webhooks on all user devices ──
-async function handleSetupWebhooks(req: Request, admin: any, body: any) {
+async function handleSetupWebhooks(req: Request, admin: any, _body: any) {
   const json = (data: unknown, status = 200) =>
     new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
@@ -194,7 +226,7 @@ async function handleSetupWebhooks(req: Request, admin: any, body: any) {
 
   for (const dev of devices) {
     if (!dev.uazapi_base_url || !dev.uazapi_token) continue;
-    if (!["Ready", "Connected", "authenticated"].includes(dev.status)) continue;
+    if (!["Ready", "Connected", "authenticated", "connected", "open"].includes(dev.status)) continue;
 
     const base = dev.uazapi_base_url.replace(/\/+$/, "");
     const webhookUrl = `${webhookBaseUrl}?device_id=${dev.id}`;
@@ -215,14 +247,12 @@ async function handleSetupWebhooks(req: Request, admin: any, body: any) {
     };
 
     try {
-      // Check existing webhooks
       const getRes = await fetch(`${base}/webhook`, { headers: { token: dev.uazapi_token, Accept: "application/json" } });
       const getText = await getRes.text();
       let existing: any[] = [];
       try { existing = JSON.parse(getText) || []; } catch {}
       if (!Array.isArray(existing)) existing = [];
 
-      // Check if already configured with the richer payload options we need
       const ours = existing.find((w: any) => w.url?.includes("webhook-conversations"));
       const alreadyConfigured = !!ours
         && ours.enabled === true
@@ -236,12 +266,10 @@ async function handleSetupWebhooks(req: Request, admin: any, body: any) {
         continue;
       }
 
-      // Remove old webhook-conversations entries
       for (const w of existing.filter((w: any) => w.url?.includes("webhook-conversations"))) {
         try { await fetch(`${base}/webhook/${w.id}`, { method: "DELETE", headers: { token: dev.uazapi_token } }); } catch {}
       }
 
-      // Create new webhook
       const postRes = await fetch(`${base}/webhook`, {
         method: "POST",
         headers: { token: dev.uazapi_token, "Content-Type": "application/json" },
