@@ -412,6 +412,7 @@ export function useConversations() {
     updateTags,
     updateConversation,
     sendMessage,
+    retryMessage,
     fetchConversations,
   };
 }
