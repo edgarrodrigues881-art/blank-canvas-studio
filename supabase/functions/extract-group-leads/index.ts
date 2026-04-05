@@ -218,7 +218,7 @@ Deno.serve(async (req) => {
 
     // ── ACTION: list_groups (lightweight — no participants) ──
     if (action === "list_groups") {
-      const rawGroups = await fetchGroupsList(baseUrl, token);
+      const rawGroups = await fetchGroupsList(baseUrl, deviceToken);
       const groups = rawGroups.map((g: any) => {
         const jid = g?.JID || g?.jid || g?.id || g?.groupJid || "";
         const name = g?.Name || g?.subject || g?.name || g?.title || "Grupo";
@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
       console.log(`[extractor] Extracting from ${selectedJids.size} groups`);
 
       // Fetch groups with participants (filtered to selected only)
-      const matchedGroups = await fetchGroupsWithParticipants(baseUrl, token, selectedJids);
+      const matchedGroups = await fetchGroupsWithParticipants(baseUrl, deviceToken, selectedJids);
       console.log(`[extractor] Matched ${matchedGroups.length} groups with participant data`);
 
       const allParticipants: Participant[] = [];
