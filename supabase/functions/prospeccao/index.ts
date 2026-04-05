@@ -566,8 +566,8 @@ Deno.serve(async (req) => {
 
     const currentBalance = creditRow?.balance ?? 0;
     const freePulls = creditRow?.free_pulls_remaining ?? 0;
-    const isFreePull = freePulls > 0 && currentBalance < Math.ceil(1 * 2.5);
-    const freeMaxResults = 20;
+    const isFreePull = freePulls > 0 && currentBalance < Math.ceil(1 * 6.25);
+    const freeMaxResults = 10;
 
     if (!isFreePull) {
       // Paid mode — check credits
