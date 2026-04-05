@@ -710,7 +710,7 @@ Deno.serve(async (req) => {
         await supabase.from("prospeccao_campaigns").update({
           status: "completed",
           total_leads: results.length,
-          credits_used: searchResult.creditsUsed,
+          credits_used: finalCost,
           execution_time_ms: executionMs,
           city_radius_km: cityGeo?.radiusKm ?? null,
           completed_at: new Date().toISOString(),
