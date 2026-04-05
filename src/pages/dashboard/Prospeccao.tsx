@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,7 +75,16 @@ export default function Prospeccao() {
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
   const [freePulls, setFreePulls] = useState<number>(0);
 
+  const [cidadeSearch, setCidadeSearch] = useState("");
   const [areaConfirmed, setAreaConfirmed] = useState(false);
+
+  const filteredCidades = useMemo(() => {
+    if (!cidadeSearch.trim()) return cidades;
+    const term = cidadeSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return cidades.filter(c => 
+      c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term)
+    );
+  }, [cidades, cidadeSearch]);
 
   const handleAreaChange = useCallback((lat: number, lng: number, radiusKm: number) => {
     setSearchLat(lat);
@@ -363,9 +372,25 @@ export default function Prospeccao() {
                 </div>
                 <div className="space-y-2">
                   <Label>Cidade *</Label>
-                  <Select value={cidade} onValueChange={setCidade} disabled={!estado || loadingCidades}>
+                  <Select value={cidade} onValueChange={(v) => { setCidade(v); setCidadeSearch(""); }} disabled={!estado || loadingCidades}>
                     <SelectTrigger><SelectValue placeholder={loadingCidades ? "Carregando..." : estado ? "Selecione a cidade" : "Selecione o estado primeiro"} /></SelectTrigger>
-                    <SelectContent>{cidades.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                    <SelectContent>
+                      <div className="px-2 pb-2 sticky top-0 bg-popover z-10">
+                        <Input
+                          placeholder="Buscar cidade..."
+                          value={cidadeSearch}
+                          onChange={(e) => setCidadeSearch(e.target.value)}
+                          className="h-8 text-sm"
+                          autoFocus
+                        />
+                      </div>
+                      <ScrollArea className="max-h-[200px]">
+                        {filteredCidades.length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center py-2">Nenhuma cidade encontrada</p>
+                        )}
+                        {filteredCidades.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </ScrollArea>
+                    </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
