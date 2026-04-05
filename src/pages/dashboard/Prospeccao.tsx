@@ -87,6 +87,7 @@ export default function Prospeccao() {
   const [campaignLeads, setCampaignLeads] = useState<any[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [savingContacts, setSavingContacts] = useState(false);
 
   useEffect(() => {
     if (!estado) { setCidades([]); setCidade(""); return; }
