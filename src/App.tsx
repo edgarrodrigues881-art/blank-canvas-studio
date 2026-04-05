@@ -65,6 +65,7 @@ const Proxy = lazyWithPreload(() => import("@/pages/dashboard/Proxy"));
 const CustomModule = lazyWithPreload(() => import("@/pages/dashboard/CustomModule"));
 const Prospeccao = lazyWithPreload(() => import("@/pages/dashboard/Prospeccao"));
 const Conversations = lazyWithPreload(() => import("@/pages/dashboard/Conversations"));
+const AISettings = lazyWithPreload(() => import("@/pages/dashboard/AISettings"));
 
 // Backoffice pages
 const BOCampaigns = lazyWithPreload(() => import("@/pages/backoffice/BOCampaigns"));
@@ -96,6 +97,7 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/notifications": () => { (Notifications as any).__preload?.(); },
   "/dashboard/prospeccao": () => { (Prospeccao as any).__preload?.(); },
   "/dashboard/conversations": () => { (Conversations as any).__preload?.(); },
+  "/dashboard/ai-settings": () => { (AISettings as any).__preload?.(); },
 };
 
 const queryClient = new QueryClient({
@@ -226,6 +228,7 @@ const App = () => (
                 <Route path="/dashboard/custom-module" element={<ProtectedRoute><DashboardLayout><CustomModule /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/prospeccao" element={<ProtectedRoute><DashboardLayout><Prospeccao /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/conversations" element={<ProtectedRoute><DashboardLayout><Conversations /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/ai-settings" element={<ProtectedRoute><DashboardLayout><AISettings /></DashboardLayout></ProtectedRoute>} />
 
                 {/* Backoffice — BackOffice.tsx manages its own auth + admin login internally */}
                 <Route path="/backoffice" element={<BackOffice />} />
