@@ -61,6 +61,11 @@ export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaCha
       zoom: 12,
       zoomControl: false,
       attributionControl: false,
+      scrollWheelZoom: true,
+      zoomSnap: 0.25,
+      zoomDelta: 0.5,
+      wheelDebounceTime: 80,
+      wheelPxPerZoomLevel: 180,
     });
 
     L.control.zoom({ position: "topright" }).addTo(map);
