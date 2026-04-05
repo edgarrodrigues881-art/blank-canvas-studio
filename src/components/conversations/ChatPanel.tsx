@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useQuickReplies } from "@/hooks/useQuickReplies";
+import { QuickRepliesManager } from "./QuickRepliesManager";
 import {
   ArrowLeft,
   MoreVertical,
