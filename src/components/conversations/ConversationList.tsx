@@ -119,7 +119,7 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="p-3 pb-2.5 space-y-2.5 border-b border-border">
+      <div className="px-3 pt-2.5 pb-2 space-y-2 border-b border-border">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-foreground">Atendimento</h2>
           <span className="text-[10px] text-muted-foreground">{conversations.length} conversas</span>
@@ -132,12 +132,12 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
             placeholder="Buscar nome ou número..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-8 h-8 text-xs bg-muted/30 border-border/50 rounded-lg"
+            className="pl-8 h-7 text-xs bg-muted/30 border-border/50 rounded-lg"
           />
         </div>
 
         {/* Status Tabs */}
-        <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-none">
+        <div className="flex gap-0.5 overflow-x-auto scrollbar-none -mx-0.5">
           {statusTabs.map((tab) => {
             const count = statusCount(tab.key);
             return (
@@ -145,7 +145,7 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
                 key={tab.key}
                 onClick={() => setActiveStatus(tab.key)}
                 className={cn(
-                  "px-2 py-1 rounded-md text-[10px] font-semibold whitespace-nowrap transition-all flex items-center gap-1",
+                  "px-1.5 py-0.5 rounded-md text-[10px] font-semibold whitespace-nowrap transition-all flex items-center gap-0.5",
                   activeStatus === tab.key
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -153,7 +153,7 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
               >
                 {tab.label}
                 <span className={cn(
-                  "text-[9px] min-w-[14px] h-3.5 px-0.5 rounded-full flex items-center justify-center font-bold",
+                  "text-[9px] min-w-[12px] h-3 px-0.5 rounded-full flex items-center justify-center font-bold",
                   activeStatus === tab.key
                     ? "bg-primary-foreground/20 text-primary-foreground"
                     : "bg-muted-foreground/15 text-muted-foreground"
