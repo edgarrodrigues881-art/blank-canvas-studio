@@ -177,6 +177,9 @@ export default function Prospeccao() {
     if (!nicho.trim() || !estado || !cidade.trim()) {
       toast.error("Preencha todos os campos obrigatórios"); return;
     }
+    if (creditBalance !== null && creditBalance <= 0) {
+      toast.error("Créditos insuficientes para realizar a prospecção"); return;
+    }
     setLoading(true); setSearched(true);
     try {
       const relacionados = nichosRelacionados.split(",").map(n => n.trim()).filter(Boolean);
@@ -191,11 +194,17 @@ export default function Prospeccao() {
       setResults(data.results || []);
       setFromCache(!!data.fromCache);
       setCachedAt(data.cachedAt || null);
+      // Update balance from response
+      if (typeof data.balance === "number") {
+        setCreditBalance(data.balance);
+      } else {
+        loadCredits();
+      }
       if (data.fromCache) {
         toast.success(`${data.total || 0} resultados (do cache)`);
       } else {
         const execSec = data.executionTimeMs ? `em ${(data.executionTimeMs / 1000).toFixed(1)}s` : "";
-        toast.success(`${data.total || 0} leads encontrados ${execSec} — ${data.creditsUsed || 0} créditos`);
+        toast.success(`${data.total || 0} leads encontrados ${execSec} — ${data.creditsUsed || 0} créditos consumidos`);
       }
     } catch (err: any) {
       console.error("Erro:", err);
