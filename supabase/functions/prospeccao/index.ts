@@ -646,6 +646,11 @@ Deno.serve(async (req) => {
             place_id: r.placeId,
             latitude: r.latitude,
             longitude: r.longitude,
+            email: r.email || null,
+            instagram: r.instagram || null,
+            facebook: r.facebook || null,
+            descricao: r.descricao || null,
+            faixa_preco: r.faixaPreco || null,
           }));
           for (let i = 0; i < leadRows.length; i += 100) {
             await supabase.from("prospeccao_campaign_leads").insert(leadRows.slice(i, i + 100));
