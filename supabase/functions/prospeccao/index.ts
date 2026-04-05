@@ -6,32 +6,33 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Broader query variations that include related niches
 function buildQueryVariations(nicho: string, cidade: string, estado: string, target: number): string[] {
   const variations = [
-    `${nicho} em ${cidade}, ${estado}`,
     `${nicho} ${cidade} ${estado}`,
-    `${nicho} perto de ${cidade} ${estado}`,
-    `melhor ${nicho} ${cidade} ${estado}`,
-    `${nicho} delivery ${cidade} ${estado}`,
-    `${nicho} aberto agora ${cidade} ${estado}`,
-    `${nicho} centro ${cidade} ${estado}`,
-    `${nicho} popular ${cidade} ${estado}`,
-    `${nicho} barato ${cidade} ${estado}`,
-    `${nicho} novo ${cidade} ${estado}`,
-    `${nicho} tradicional ${cidade} ${estado}`,
-    `${nicho} recomendado ${cidade} ${estado}`,
-    `${nicho} avaliado ${cidade} ${estado}`,
-    `${nicho} bom ${cidade} ${estado}`,
-    `${nicho} famoso ${cidade} ${estado}`,
-    `${nicho} região ${cidade} ${estado}`,
-    `${nicho} próximo ${cidade} ${estado}`,
-    `${nicho} zona norte ${cidade} ${estado}`,
-    `${nicho} zona sul ${cidade} ${estado}`,
-    `${nicho} zona leste ${cidade} ${estado}`,
-    `${nicho} zona oeste ${cidade} ${estado}`,
+    `${nicho} em ${cidade}`,
+    `${nicho} perto de mim ${cidade}`,
+    `melhor ${nicho} ${cidade}`,
+    `${nicho} aberto agora ${cidade}`,
+    `${nicho} delivery ${cidade}`,
+    `${nicho} centro ${cidade}`,
+    `${nicho} bairro ${cidade}`,
+    `${nicho} popular ${cidade}`,
+    `${nicho} barato ${cidade}`,
+    `${nicho} famoso ${cidade}`,
+    `${nicho} tradicional ${cidade}`,
+    `${nicho} novo ${cidade}`,
+    `${nicho} recomendado ${cidade}`,
+    `${nicho} zona norte ${cidade}`,
+    `${nicho} zona sul ${cidade}`,
+    `${nicho} zona leste ${cidade}`,
+    `${nicho} zona oeste ${cidade}`,
+    `${nicho} região ${cidade}`,
+    `${nicho} próximo ${cidade}`,
+    `${nicho} avaliado ${cidade}`,
   ];
-  const queriesNeeded = Math.ceil(target / 12);
-  return variations.slice(0, Math.max(queriesNeeded, 1));
+  const queriesNeeded = Math.ceil(target / 10);
+  return variations.slice(0, Math.max(queriesNeeded, 3)); // minimum 3 queries
 }
 
 function mapPlace(item: any) {
@@ -57,6 +58,46 @@ function mapPlace(item: any) {
     latitude: item.latitude || null,
     longitude: item.longitude || null,
   };
+}
+
+// Fire multiple Serper requests in parallel for speed
+async function fetchSerperBatch(queries: string[], apiKey: string): Promise<any[]> {
+  const BATCH_SIZE = 5;
+  const allPlaces: any[] = [];
+
+  for (let i = 0; i < queries.length; i += BATCH_SIZE) {
+    const batch = queries.slice(i, i + BATCH_SIZE);
+    const promises = batch.map(async (query) => {
+      try {
+        const res = await fetch("https://google.serper.dev/maps", {
+          method: "POST",
+          headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+          body: JSON.stringify({ q: query, gl: "br", hl: "pt-br", num: 20 }),
+        });
+        if (!res.ok) {
+          console.error(`[prospeccao] Serper ${res.status} for "${query}"`);
+          return [];
+        }
+        const data = await res.json();
+        return data.places || [];
+      } catch (err) {
+        console.error(`[prospeccao] Error for "${query}":`, err);
+        return [];
+      }
+    });
+
+    const results = await Promise.all(promises);
+    for (const places of results) {
+      allPlaces.push(...places);
+    }
+
+    // Small delay between batches to avoid rate limits
+    if (i + BATCH_SIZE < queries.length) {
+      await new Promise(r => setTimeout(r, 150));
+    }
+  }
+
+  return allPlaces;
 }
 
 Deno.serve(async (req) => {
@@ -99,6 +140,10 @@ Deno.serve(async (req) => {
       );
     }
 
+    const nichoTrimmed = nicho.trim();
+    const estadoTrimmed = estado.trim();
+    const cidadeTrimmed = cidade.trim();
+
     // --- CACHE CHECK ---
     if (!forceRefresh) {
       const adminClient = createClient(supabaseUrl, serviceRoleKey);
@@ -106,14 +151,14 @@ Deno.serve(async (req) => {
         .from("prospeccao_cache")
         .select("results, total, created_at")
         .eq("user_id", user.id)
-        .ilike("nicho", nicho.trim())
-        .ilike("estado", estado.trim())
-        .ilike("cidade", cidade.trim())
+        .ilike("nicho", nichoTrimmed)
+        .ilike("estado", estadoTrimmed)
+        .ilike("cidade", cidadeTrimmed)
         .gt("expires_at", new Date().toISOString())
         .maybeSingle();
 
       if (cached) {
-        console.log(`[prospeccao] Cache HIT para "${nicho}" em "${cidade}, ${estado}" (${cached.total} resultados, salvo em ${cached.created_at})`);
+        console.log(`[prospeccao] Cache HIT "${nichoTrimmed}" em "${cidadeTrimmed}" (${cached.total} resultados)`);
         return new Response(JSON.stringify({
           results: cached.results,
           total: cached.total,
@@ -135,64 +180,36 @@ Deno.serve(async (req) => {
     }
 
     const requestedTotal = Math.min(maxResults || 50, 5000);
-    const queries = buildQueryVariations(nicho, cidade, estado, requestedTotal);
+    const queries = buildQueryVariations(nichoTrimmed, cidadeTrimmed, estadoTrimmed, requestedTotal);
 
-    console.log(`[prospeccao] Cache MISS - buscando "${nicho}" em "${cidade}, ${estado}" (target: ${requestedTotal}, queries: ${queries.length})`);
+    console.log(`[prospeccao] Cache MISS - buscando "${nichoTrimmed}" em "${cidadeTrimmed}" (target: ${requestedTotal}, queries: ${queries.length})`);
 
-    const seenCids = new Set<string>();
-    const allResults: any[] = [];
+    // Fetch all queries in parallel batches for speed
+    const allPlaces = await fetchSerperBatch(queries, SERPER_API_KEY);
 
-    for (let i = 0; i < queries.length; i++) {
-      if (allResults.length >= requestedTotal) break;
-
-      const query = queries[i];
-      try {
-        const serperResponse = await fetch("https://google.serper.dev/maps", {
-          method: "POST",
-          headers: { "X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify({ q: query, gl: "br", hl: "pt-br", num: 20 }),
-        });
-
-        if (!serperResponse.ok) {
-          const errorText = await serperResponse.text();
-          console.error(`[prospeccao] Serper error ${serperResponse.status}:`, errorText);
-          if (i === 0) {
-            return new Response(
-              JSON.stringify({ error: `Erro na API Serper (${serperResponse.status})`, detail: errorText.slice(0, 500) }),
-              { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-          }
-          continue;
-        }
-
-        const data = await serperResponse.json();
-        const places = data.places || [];
-
-        for (const place of places) {
-          const key = place.cid || place.placeId || `${place.title}_${place.address}`;
-          if (!seenCids.has(key)) {
-            seenCids.add(key);
-            allResults.push(place);
-          }
-        }
-      } catch (err) {
-        console.error(`[prospeccao] Error on query "${query}":`, err);
-        continue;
+    // Deduplicate
+    const seenKeys = new Set<string>();
+    const uniquePlaces: any[] = [];
+    for (const place of allPlaces) {
+      const key = place.cid || place.placeId || `${place.title}_${place.address}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        uniquePlaces.push(place);
       }
-
-      if (i < queries.length - 1) await new Promise(r => setTimeout(r, 200));
     }
 
-    const results = allResults.slice(0, requestedTotal).map(mapPlace);
+    const results = uniquePlaces.slice(0, requestedTotal).map(mapPlace);
+
+    console.log(`[prospeccao] Total: ${allPlaces.length} brutos → ${uniquePlaces.length} únicos → ${results.length} retornados`);
 
     // --- SAVE TO CACHE ---
     try {
       const adminClient = createClient(supabaseUrl, serviceRoleKey);
       await adminClient.from("prospeccao_cache").upsert({
         user_id: user.id,
-        nicho: nicho.trim().toLowerCase(),
-        estado: estado.trim().toLowerCase(),
-        cidade: cidade.trim().toLowerCase(),
+        nicho: nichoTrimmed.toLowerCase(),
+        estado: estadoTrimmed.toLowerCase(),
+        cidade: cidadeTrimmed.toLowerCase(),
         results,
         total: results.length,
         created_at: new Date().toISOString(),
@@ -202,8 +219,6 @@ Deno.serve(async (req) => {
     } catch (cacheErr) {
       console.error("[prospeccao] Cache save error:", cacheErr);
     }
-
-    console.log(`[prospeccao] Total final: ${results.length} resultados únicos`);
 
     return new Response(JSON.stringify({ results, total: results.length, fromCache: false }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
