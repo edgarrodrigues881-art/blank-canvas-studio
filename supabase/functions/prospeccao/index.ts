@@ -340,7 +340,7 @@ async function adaptiveSearch(
   // P2: Ring 1
   const ring1 = filterInCity(generateRing(center, ring1Dist, ring1Pts));
   for (const pt of ring1) {
-    if (done()) break;
+    if (done() || budgetExceeded()) break;
     const r = await searchAndScore(pt, primary, zoomRing1, apiKey, seen, places, target, center, radiusKm, "P2-ring1", logs);
     credits += r.credits;
     allScores.push(r.score);
@@ -351,7 +351,7 @@ async function adaptiveSearch(
   if (bairros.length > 0) {
     let coldStreak = 0;
     for (const bairro of bairros.slice(0, 10)) {
-      if (done() || coldStreak >= 3) break;
+      if (done() || coldStreak >= 3 || budgetExceeded()) break;
       const added = await query(`${primary} ${bairro} ${cidade}`, "", apiKey, seen, places);
       credits++;
       logs.add("P3-bairro", primary, bairro, added, places.length, 1);
@@ -364,7 +364,7 @@ async function adaptiveSearch(
   const ring2 = filterInCity(generateRing(center, ring2Dist, ring2Pts));
   let ring2ColdStreak = 0;
   for (const pt of ring2) {
-    if (done() || ring2ColdStreak >= 3) break;
+    if (done() || ring2ColdStreak >= 3 || budgetExceeded()) break;
     const r = await searchAndScore(pt, primary, zoomOuter, apiKey, seen, places, target, center, radiusKm, "P4-ring2", logs);
     credits += r.credits;
     allScores.push(r.score);
@@ -377,7 +377,7 @@ async function adaptiveSearch(
     const ring3 = filterInCity(generateRing(center, ring3Dist, ring3Pts));
     let ring3ColdStreak = 0;
     for (const pt of ring3) {
-      if (done() || ring3ColdStreak >= 2) break;
+      if (done() || ring3ColdStreak >= 2 || budgetExceeded()) break;
       const llStr = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomOuter}z`;
       const added = await query(primary, llStr, apiKey, seen, places);
       credits++;
@@ -395,16 +395,16 @@ async function adaptiveSearch(
   // P6: Term expansion
   if (progress() >= 0.8 || related.length === 0) {
     const expanded = expandNicho(primary);
-    if (expanded.length > 0 && !done()) {
+    if (expanded.length > 0 && !done() && !budgetExceeded()) {
       for (const term of expanded.slice(0, 2)) {
-        if (done()) break;
+        if (done() || budgetExceeded()) break;
         const llStr = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomCenter}z`;
         const added = await query(term, llStr, apiKey, seen, places);
         credits++;
         logs.add("P6-expand", term, llStr, added, places.length, 1);
         if (added < 2) continue;
         for (const pt of ring1.slice(0, 2)) {
-          if (done()) break;
+          if (done() || budgetExceeded()) break;
           const ll2 = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomRing1}z`;
           const a = await query(term, ll2, apiKey, seen, places);
           credits++;
@@ -434,7 +434,7 @@ async function adaptiveSearch(
     .map(s => s.pt);
 
   for (const relNicho of uniqueRelated) {
-    if (done()) break;
+    if (done() || budgetExceeded()) break;
     const llStr = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomCenter}z`;
     const centerAdded = await query(relNicho, llStr, apiKey, seen, places);
     credits++;
@@ -442,7 +442,7 @@ async function adaptiveSearch(
     if (centerAdded < 2) continue;
 
     for (const pt of bestPoints.slice(0, 3)) {
-      if (done()) break;
+      if (done() || budgetExceeded()) break;
       const ll2 = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomRing1}z`;
       const added = await query(relNicho, ll2, apiKey, seen, places);
       credits++;
@@ -450,10 +450,10 @@ async function adaptiveSearch(
       if (added < 2) break;
     }
 
-    if (done()) break;
+    if (done() || budgetExceeded()) break;
     if (bairros.length > 0 && progress() < 0.7) {
       for (const bairro of bairros.slice(0, 3)) {
-        if (done()) break;
+        if (done() || budgetExceeded()) break;
         const added = await query(`${relNicho} ${bairro} ${cidade}`, "", apiKey, seen, places);
         credits++;
         logs.add("P7-related-bairro", relNicho, bairro, added, places.length, 1);
