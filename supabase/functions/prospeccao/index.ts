@@ -228,9 +228,39 @@ function classifyPoint(score: number): "hot" | "warm" | "cold" {
 }
 
 function budgetForTier(tier: "hot" | "warm" | "cold"): number {
-  if (tier === "hot") return 6;
-  if (tier === "warm") return 2;
+  if (tier === "hot") return 2;   // was 6 — reduced to control cost
+  if (tier === "warm") return 1;  // was 2
   return 0;
+}
+
+// ========== CREDIT EFFICIENCY CONTROLS ==========
+
+/** Hard cap on API credits based on target leads requested.
+ *  Final user cost = apiCredits * 2.5, so these caps translate to:
+ *    20 leads  → max 2 API  → ~5 user credits
+ *   100 leads  → max 6 API  → ~15 user credits
+ *   500 leads  → max 16 API → ~40 user credits
+ *  1000 leads  → max 24 API → ~60 user credits
+ *  5000 leads  → max 60 API → ~150 user credits
+ */
+function maxApiCreditsForTarget(target: number): number {
+  if (target <= 20) return 2;
+  if (target <= 50) return 4;
+  if (target <= 100) return 6;
+  if (target <= 200) return 10;
+  if (target <= 500) return 16;
+  if (target <= 1000) return 24;
+  if (target <= 2000) return 40;
+  return 60; // 5000 max
+}
+
+/** Minimum acceptable ROI (leads per API credit). If below this, stop searching. */
+const MIN_ROI_THRESHOLD = 2;
+
+/** Check if ROI has degraded — only after at least 3 credits spent to avoid false positives */
+function isRoiDegraded(totalLeads: number, totalCredits: number): boolean {
+  if (totalCredits < 3) return false;
+  return (totalLeads / totalCredits) < MIN_ROI_THRESHOLD;
 }
 
 // ========== ADAPTIVE SEARCH ==========
