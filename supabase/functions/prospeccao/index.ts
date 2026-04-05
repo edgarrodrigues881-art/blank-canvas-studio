@@ -6,33 +6,30 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// Broader query variations that include related niches
-function buildQueryVariations(nicho: string, cidade: string, estado: string, target: number): string[] {
-  const variations = [
-    `${nicho} ${cidade} ${estado}`,
-    `${nicho} em ${cidade}`,
-    `${nicho} perto de mim ${cidade}`,
-    `melhor ${nicho} ${cidade}`,
-    `${nicho} aberto agora ${cidade}`,
-    `${nicho} delivery ${cidade}`,
-    `${nicho} centro ${cidade}`,
-    `${nicho} bairro ${cidade}`,
-    `${nicho} popular ${cidade}`,
-    `${nicho} barato ${cidade}`,
-    `${nicho} famoso ${cidade}`,
-    `${nicho} tradicional ${cidade}`,
-    `${nicho} novo ${cidade}`,
-    `${nicho} recomendado ${cidade}`,
-    `${nicho} zona norte ${cidade}`,
-    `${nicho} zona sul ${cidade}`,
-    `${nicho} zona leste ${cidade}`,
-    `${nicho} zona oeste ${cidade}`,
-    `${nicho} região ${cidade}`,
-    `${nicho} próximo ${cidade}`,
-    `${nicho} avaliado ${cidade}`,
+// Build queries for main niche + related niches
+function buildAllQueries(nicho: string, nichosRelacionados: string[], cidade: string, estado: string, target: number): string[] {
+  const allNichos = [nicho, ...nichosRelacionados];
+  const suffixes = [
+    "", " em ", " perto de mim ", "melhor ", " delivery ",
+    " centro ", " bairro ", " popular ", " barato ", " famoso ",
+    " tradicional ", " novo ", " recomendado ",
   ];
+
+  const queries: string[] = [];
+  for (const n of allNichos) {
+    for (const suffix of suffixes) {
+      if (suffix.startsWith(" ")) {
+        queries.push(`${n}${suffix}${cidade}`);
+      } else if (suffix === "") {
+        queries.push(`${n} ${cidade} ${estado}`);
+      } else {
+        queries.push(`${suffix}${n} ${cidade}`);
+      }
+    }
+  }
+
   const queriesNeeded = Math.ceil(target / 10);
-  return variations.slice(0, Math.max(queriesNeeded, 3)); // minimum 3 queries
+  return queries.slice(0, Math.max(queriesNeeded, 3));
 }
 
 function mapPlace(item: any) {
