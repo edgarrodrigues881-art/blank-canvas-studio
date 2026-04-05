@@ -2748,6 +2748,178 @@ export type Database = {
         }
         Relationships: []
       }
+      prospeccao_campaign_leads: {
+        Row: {
+          avaliacao: number | null
+          campaign_id: string
+          categoria: string | null
+          created_at: string
+          endereco: string | null
+          google_maps_url: string | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          nome: string
+          place_id: string | null
+          telefone: string | null
+          total_avaliacoes: number | null
+          website: string | null
+        }
+        Insert: {
+          avaliacao?: number | null
+          campaign_id: string
+          categoria?: string | null
+          created_at?: string
+          endereco?: string | null
+          google_maps_url?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          nome?: string
+          place_id?: string | null
+          telefone?: string | null
+          total_avaliacoes?: number | null
+          website?: string | null
+        }
+        Update: {
+          avaliacao?: number | null
+          campaign_id?: string
+          categoria?: string | null
+          created_at?: string
+          endereco?: string | null
+          google_maps_url?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          nome?: string
+          place_id?: string | null
+          telefone?: string | null
+          total_avaliacoes?: number | null
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospeccao_campaign_leads_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccao_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospeccao_campaign_logs: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          credits_spent: number | null
+          id: string
+          leads_added: number | null
+          leads_total: number | null
+          location_info: string | null
+          phase: string
+          query_term: string | null
+          score: number | null
+          tier: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          credits_spent?: number | null
+          id?: string
+          leads_added?: number | null
+          leads_total?: number | null
+          location_info?: string | null
+          phase: string
+          query_term?: string | null
+          score?: number | null
+          tier?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          credits_spent?: number | null
+          id?: string
+          leads_added?: number | null
+          leads_total?: number | null
+          location_info?: string | null
+          phase?: string
+          query_term?: string | null
+          score?: number | null
+          tier?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospeccao_campaign_logs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccao_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospeccao_campaigns: {
+        Row: {
+          cidade: string
+          city_radius_km: number | null
+          completed_at: string | null
+          created_at: string
+          credits_used: number | null
+          estado: string
+          execution_time_ms: number | null
+          id: string
+          max_results: number
+          name: string
+          nicho: string
+          nichos_relacionados: string[] | null
+          scoring_summary: Json | null
+          started_at: string
+          status: string
+          total_leads: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cidade: string
+          city_radius_km?: number | null
+          completed_at?: string | null
+          created_at?: string
+          credits_used?: number | null
+          estado: string
+          execution_time_ms?: number | null
+          id?: string
+          max_results?: number
+          name: string
+          nicho: string
+          nichos_relacionados?: string[] | null
+          scoring_summary?: Json | null
+          started_at?: string
+          status?: string
+          total_leads?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cidade?: string
+          city_radius_km?: number | null
+          completed_at?: string | null
+          created_at?: string
+          credits_used?: number | null
+          estado?: string
+          execution_time_ms?: number | null
+          id?: string
+          max_results?: number
+          name?: string
+          nicho?: string
+          nichos_relacionados?: string[] | null
+          scoring_summary?: Json | null
+          started_at?: string
+          status?: string
+          total_leads?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       proxies: {
         Row: {
           active: boolean
