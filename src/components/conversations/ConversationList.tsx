@@ -267,6 +267,6 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
           )}
         </div>
       </ScrollArea>
-    </>
+    </div>
   );
 }
