@@ -457,7 +457,7 @@ export default function Prospeccao() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="logs" className="flex-1 overflow-hidden mt-4">
+              <TabsContent value="detail-logs" className="flex-1 overflow-hidden mt-4">
                 <ScrollArea className="h-[400px]">
                   <Table>
                     <TableHeader>
