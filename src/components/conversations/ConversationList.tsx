@@ -99,7 +99,7 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
   };
 
   return (
-    <>
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <div className="p-4 pb-3 space-y-3 border-b border-border">
         {/* Title + online indicator */}
