@@ -562,7 +562,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const requestedTotal = Math.min(maxResults || 50, 5000);
+    const requestedTotal = isFreePull ? Math.min(maxResults || 20, freeMaxResults) : Math.min(maxResults || 50, 5000);
     const relatedNiches = Array.isArray(nichosRelacionados) ? nichosRelacionados.filter(Boolean) : [];
     const allNichos = [nichoTrimmed, ...relatedNiches];
     const startTime = Date.now();
