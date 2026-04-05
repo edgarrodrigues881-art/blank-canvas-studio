@@ -213,7 +213,11 @@ export default function Prospeccao() {
         body.customRadiusKm = searchRadius;
       }
       const { data, error } = await supabase.functions.invoke("prospeccao", { body });
-      if (error) throw error;
+      if (error) {
+        // Try to extract the server error message from the response
+        if (data?.error) throw new Error(data.error);
+        throw error;
+      }
       if (data?.error) throw new Error(data.error);
       setResults(data.results || []);
       setFromCache(!!data.fromCache);
