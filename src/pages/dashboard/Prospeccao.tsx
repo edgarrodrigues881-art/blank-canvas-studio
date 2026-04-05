@@ -417,7 +417,7 @@ export default function Prospeccao() {
           {loadingDetail ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
           ) : (
-            <Tabs defaultValue="resumo" className="flex-1 overflow-hidden flex flex-col">
+            <Tabs defaultValue="detail-resumo" className="flex-1 overflow-hidden flex flex-col">
               <TabsList className="w-fit">
                 <TabsTrigger value="resumo">Resumo</TabsTrigger>
                 <TabsTrigger value="logs">Logs ({campaignLogs.length})</TabsTrigger>
