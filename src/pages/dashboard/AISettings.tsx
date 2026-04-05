@@ -59,11 +59,12 @@ const AISettings = () => {
   const [maxResponseLength, setMaxResponseLength] = useState("medium");
   const [blockSensitive, setBlockSensitive] = useState(true);
   const [requireHumanForSale, setRequireHumanForSale] = useState(true);
-  const [knowledgeItems, setKnowledgeItems] = useState<string[]>([
-    "Tabela de preços atualizada",
-    "FAQ - Perguntas frequentes",
-  ]);
-  const [newKnowledgeItem, setNewKnowledgeItem] = useState("");
+  const [knowledgeDocs, setKnowledgeDocs] = useState<KnowledgeDoc[]>([]);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [newDocTitle, setNewDocTitle] = useState("");
+  const [newDocType, setNewDocType] = useState("pdf");
+  const [newDocFile, setNewDocFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const apiKeyStatus: "empty" | "valid" | "invalid" = !apiKey
     ? "empty"
