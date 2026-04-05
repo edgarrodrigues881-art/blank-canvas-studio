@@ -404,7 +404,7 @@ async function adaptiveSearch(
         logs.add("P6-expand", term, llStr, added, places.length, 1);
         if (added < 2) continue;
         for (const pt of ring1.slice(0, 2)) {
-          if (done()) break;
+          if (done() || budgetExceeded()) break;
           const ll2 = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomRing1}z`;
           const a = await query(term, ll2, apiKey, seen, places);
           credits++;
