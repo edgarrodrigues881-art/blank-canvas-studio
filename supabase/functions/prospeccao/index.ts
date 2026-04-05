@@ -348,7 +348,7 @@ async function adaptiveSearch(
   // === EFFICIENCY CONTROLS ===
   const hardCap = maxApiCreditsForTarget(target);
   const done = () => places.length >= target;
-  const budgetExceeded = () => credits >= hardCap || Math.ceil(credits * 3.0) >= creditBudget;
+  const budgetExceeded = () => credits >= hardCap || Math.ceil(credits * 6.25) >= creditBudget;
   const roiStop = () => isRoiDegraded(places.length, credits);
   const shouldStop = () => done() || budgetExceeded() || roiStop();
 
