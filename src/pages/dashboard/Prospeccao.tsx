@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Search, Download, MapPin, Phone, Globe, Star, Loader2, Building2, Mail, Clock, Instagram } from "lucide-react";
+import { Search, Download, MapPin, Phone, Globe, Star, Loader2, Building2, Mail, Clock, Instagram, RefreshCw, Database } from "lucide-react";
 
 const ESTADOS_BR: { sigla: string; nome: string }[] = [
   { sigla: "AC", nome: "Acre" },
