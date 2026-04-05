@@ -241,7 +241,12 @@ export default function Prospeccao() {
       }
     } catch (err: any) {
       console.error("Erro:", err);
-      toast.error(err.message || "Erro ao buscar dados");
+      const msg = err?.message || "";
+      if (msg.toLowerCase().includes("insuficiente") || msg.toLowerCase().includes("créditos")) {
+        toast.error("Saldo insuficiente. Adquira mais créditos para continuar.");
+      } else {
+        toast.error(msg || "Erro ao buscar dados");
+      }
       setResults([]);
     } finally { setLoading(false); }
   };
