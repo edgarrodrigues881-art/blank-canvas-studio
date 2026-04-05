@@ -318,11 +318,22 @@ export default function Prospeccao() {
             <p className="text-muted-foreground text-sm">Busque comércios e negócios por nicho e localização</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-4 py-2">
-          <Coins className="h-4 w-4 text-primary" />
-          <span className="text-sm font-semibold">{creditBalance ?? "—"}</span>
-          <span className="text-xs text-muted-foreground">créditos</span>
-        </div>
+        {freePulls > 0 && (creditBalance === null || creditBalance <= 0) ? (
+          <div className="flex items-center gap-2 bg-card border border-primary/30 rounded-lg px-4 py-2">
+            <Target className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold text-primary">{freePulls}</span>
+            <span className="text-xs text-muted-foreground">puxada{freePulls > 1 ? "s" : ""} grátis</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-4 py-2">
+            <Coins className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold">{creditBalance ?? "—"}</span>
+            <span className="text-xs text-muted-foreground">créditos</span>
+            {freePulls > 0 && (
+              <Badge variant="outline" className="ml-1 text-[10px]">+{freePulls} grátis</Badge>
+            )}
+          </div>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
