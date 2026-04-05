@@ -7,6 +7,8 @@ export interface Conversation {
   avatar_url?: string;
   lastMessage: string;
   lastMessageAt: string;
+  lastMessageStatus?: "sent" | "delivered" | "read";
+  lastMessageDirection?: "sent" | "received";
   unreadCount: number;
   status: "online" | "offline" | "typing";
   attendingStatus: AttendingStatus;

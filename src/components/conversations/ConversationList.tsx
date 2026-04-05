@@ -1,6 +1,5 @@
-import { Search } from "lucide-react";
+import { Search, Check, CheckCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { type Conversation } from "./types";
 import { format, isToday, isYesterday } from "date-fns";
@@ -17,20 +16,12 @@ interface ConversationListProps {
 }
 
 type StatusTab = "all" | "new" | "attending" | "waiting";
-type CategoryTab = "all" | "vendas" | "financeiro" | "suporte";
 
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "all", label: "Todas" },
   { key: "new", label: "Novas" },
   { key: "attending", label: "Em Atendimento" },
   { key: "waiting", label: "Aguardando" },
-];
-
-const categoryTabs: { key: CategoryTab; label: string; color?: string; dot?: string }[] = [
-  { key: "all", label: "Todas" },
-  { key: "vendas", label: "Vendas", color: "text-emerald-400", dot: "bg-emerald-400" },
-  { key: "financeiro", label: "Financeiro", color: "text-amber-400", dot: "bg-amber-400" },
-  { key: "suporte", label: "Suporte", color: "text-blue-400", dot: "bg-blue-400" },
 ];
 
 function formatDate(dateStr: string) {
@@ -40,17 +31,44 @@ function formatDate(dateStr: string) {
   return format(d, "dd/MM", { locale: ptBR });
 }
 
-const tagColors: Record<string, string> = {
-  "novo lead": "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
-  lead: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
-  interessado: "bg-blue-500/15 text-blue-400 border-blue-500/20",
-  cliente: "bg-violet-500/15 text-violet-400 border-violet-500/20",
-  vip: "bg-amber-500/15 text-amber-400 border-amber-500/20",
-  cobrança: "bg-red-500/15 text-red-400 border-red-500/20",
-  suporte: "bg-blue-500/15 text-blue-400 border-blue-500/20",
-  prospect: "bg-cyan-500/15 text-cyan-400 border-cyan-500/20",
-  urgente: "bg-red-500/15 text-red-400 border-red-500/20",
-};
+/** Detect media type from last message content */
+function getMessagePreview(msg: string | undefined | null): { icon: string; text: string } | null {
+  if (!msg) return null;
+  const lower = msg.toLowerCase().trim();
+  // Common patterns from webhook payloads
+  if (lower.includes("[image]") || lower.includes("[foto]") || lower === "image" || lower === "foto")
+    return { icon: "📷", text: "Foto" };
+  if (lower.includes("[audio]") || lower.includes("[áudio]") || lower === "audio" || lower === "áudio" || lower.includes("[ptt]"))
+    return { icon: "🎧", text: "Áudio" };
+  if (lower.includes("[video]") || lower.includes("[vídeo]") || lower === "video" || lower === "vídeo")
+    return { icon: "🎬", text: "Vídeo" };
+  if (lower.includes("[document]") || lower.includes("[documento]") || lower.includes("[arquivo]") || lower === "document" || lower === "documento")
+    return { icon: "📎", text: "Arquivo" };
+  if (lower.includes("[sticker]") || lower.includes("[figurinha]") || lower === "sticker")
+    return { icon: "🏷️", text: "Figurinha" };
+  if (lower.includes("[contact]") || lower.includes("[contato]"))
+    return { icon: "👤", text: "Contato" };
+  if (lower.includes("[location]") || lower.includes("[localização]"))
+    return { icon: "📍", text: "Localização" };
+  return null;
+}
+
+/** Format phone to international display */
+function formatPhone(phone: string): string {
+  if (!phone) return "";
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 13 && digits.startsWith("55")) {
+    // 55 + DD + 9XXXX-XXXX
+    return `+${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 9)}-${digits.slice(9)}`;
+  }
+  if (digits.length === 12 && digits.startsWith("55")) {
+    return `+${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 8)}-${digits.slice(8)}`;
+  }
+  if (digits.length >= 10) {
+    return `+${digits}`;
+  }
+  return phone;
+}
 
 const avatarColors = [
   "bg-emerald-500/15 text-emerald-400",
@@ -69,56 +87,52 @@ function getAvatarColor(name: string) {
   return avatarColors[Math.abs(hash) % avatarColors.length];
 }
 
+/** Message status ticks component */
+function MessageTicks({ status }: { status?: "sent" | "delivered" | "read" }) {
+  if (!status) return null;
+  if (status === "sent") return <Check className="w-3.5 h-3.5 text-muted-foreground/50" />;
+  if (status === "delivered") return <CheckCheck className="w-3.5 h-3.5 text-muted-foreground/50" />;
+  if (status === "read") return <CheckCheck className="w-3.5 h-3.5 text-blue-400" />;
+  return null;
+}
+
 export function ConversationList({ conversations, selectedId, searchQuery, onSearchChange, onSelect }: ConversationListProps) {
   const [activeStatus, setActiveStatus] = useState<StatusTab>("all");
-  const [activeCategory, setActiveCategory] = useState<CategoryTab>("all");
-
-  const onlineCount = conversations.filter((c) => c.status === "online").length;
 
   // Filter by status tab
-  const filteredByStatus = conversations.filter((c) => {
+  const filtered = conversations.filter((c) => {
     if (activeStatus === "all") return true;
     if (activeStatus === "new") return c.unreadCount > 0;
-    if (activeStatus === "attending") return c.status === "online" || c.status === "typing";
-    if (activeStatus === "waiting") return c.status === "offline" && c.unreadCount === 0;
+    if (activeStatus === "attending") return c.attendingStatus === "em_atendimento";
+    if (activeStatus === "waiting") return c.attendingStatus === "aguardando";
     return true;
-  });
-
-  // Filter by category
-  const filtered = filteredByStatus.filter((c) => {
-    if (activeCategory === "all") return true;
-    return c.tags.some((t) => t.toLowerCase() === activeCategory);
   });
 
   const statusCount = (tab: StatusTab) => {
     if (tab === "all") return conversations.length;
     if (tab === "new") return conversations.filter((c) => c.unreadCount > 0).length;
-    if (tab === "attending") return conversations.filter((c) => c.status === "online" || c.status === "typing").length;
-    if (tab === "waiting") return conversations.filter((c) => c.status === "offline" && c.unreadCount === 0).length;
+    if (tab === "attending") return conversations.filter((c) => c.attendingStatus === "em_atendimento").length;
+    if (tab === "waiting") return conversations.filter((c) => c.attendingStatus === "aguardando").length;
     return 0;
   };
 
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="p-4 pb-3 space-y-3 border-b border-border">
-        {/* Title + online indicator */}
+      <div className="p-3 pb-2.5 space-y-2.5 border-b border-border">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-foreground">Atendimento</h2>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs text-emerald-400 font-semibold">{onlineCount} online</span>
-          </div>
+          <h2 className="text-sm font-bold text-foreground">Atendimento</h2>
+          <span className="text-[10px] text-muted-foreground">{conversations.length} conversas</span>
         </div>
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <Input
-            placeholder="Buscar conversa..."
+            placeholder="Buscar nome ou número..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9 h-9 text-sm bg-muted/30 border-border/50 rounded-lg"
+            className="pl-8 h-8 text-xs bg-muted/30 border-border/50 rounded-lg"
           />
         </div>
 
@@ -131,7 +145,7 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
                 key={tab.key}
                 onClick={() => setActiveStatus(tab.key)}
                 className={cn(
-                  "px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all flex items-center gap-1.5",
+                  "px-2 py-1 rounded-md text-[10px] font-semibold whitespace-nowrap transition-all flex items-center gap-1",
                   activeStatus === tab.key
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -139,7 +153,7 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
               >
                 {tab.label}
                 <span className={cn(
-                  "text-[9px] min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center font-bold",
+                  "text-[9px] min-w-[14px] h-3.5 px-0.5 rounded-full flex items-center justify-center font-bold",
                   activeStatus === tab.key
                     ? "bg-primary-foreground/20 text-primary-foreground"
                     : "bg-muted-foreground/15 text-muted-foreground"
@@ -150,44 +164,30 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
             );
           })}
         </div>
-
-        {/* Category Tabs */}
-        <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
-          {categoryTabs.map((cat) => (
-            <button
-              key={cat.key}
-              onClick={() => setActiveCategory(cat.key)}
-              className={cn(
-                "px-2.5 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 border",
-                activeCategory === cat.key
-                  ? "border-primary/30 bg-primary/10 text-primary"
-                  : "border-border/50 bg-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-              )}
-            >
-              {cat.dot && <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", cat.dot)} />}
-              {cat.label}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* List */}
       <ScrollArea className="flex-1">
         <div>
           {filtered.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
+            <div className="py-12 text-center text-xs text-muted-foreground">
               Nenhuma conversa encontrada
             </div>
           ) : (
             filtered.map((c) => {
               const isSelected = selectedId === c.id;
-              const avatarCls = getAvatarColor(c.name);
+              const hasUnread = c.unreadCount > 0;
+              const displayName = c.name && c.name !== c.phone ? c.name : null;
+              const avatarLabel = displayName || c.phone;
+              const avatarCls = getAvatarColor(avatarLabel);
+              const mediaPreview = getMessagePreview(c.lastMessage);
+
               return (
                 <button
                   key={c.id}
                   onClick={() => onSelect(c)}
                   className={cn(
-                    "w-full flex items-start gap-3 px-4 py-3 text-left transition-all border-l-2",
+                    "w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all border-l-2",
                     isSelected
                       ? "bg-primary/5 border-l-primary"
                       : "border-l-transparent hover:bg-muted/20"
@@ -196,10 +196,10 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
                   {/* Avatar */}
                   <div className="relative shrink-0">
                     {c.avatar_url ? (
-                      <img src={c.avatar_url} alt={c.name} className="w-10 h-10 rounded-full object-cover" />
+                      <img src={c.avatar_url} alt={avatarLabel} className="w-11 h-11 rounded-full object-cover" />
                     ) : (
-                      <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", avatarCls)}>
-                        <span className="text-sm font-bold">{c.name.slice(0, 2).toUpperCase()}</span>
+                      <div className={cn("w-11 h-11 rounded-full flex items-center justify-center", avatarCls)}>
+                        <span className="text-sm font-bold">{avatarLabel.slice(0, 2).toUpperCase()}</span>
                       </div>
                     )}
                     {c.status === "online" && (
@@ -209,57 +209,55 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
+                    {/* Row 1: Name + Time */}
                     <div className="flex items-center justify-between gap-2">
-                      <span className={cn("text-[13px] truncate", c.unreadCount > 0 ? "font-bold text-foreground" : "font-medium text-foreground")}>
-                        {c.name}
+                      <span className={cn(
+                        "text-[13px] truncate",
+                        hasUnread ? "font-bold text-foreground" : "font-medium text-foreground"
+                      )}>
+                        {displayName || formatPhone(c.phone)}
                       </span>
-                      <span className="text-[10px] text-muted-foreground/60 shrink-0 font-medium">
-                        {formatDate(c.lastMessageAt)}
+                      <span className={cn(
+                        "text-[10px] shrink-0",
+                        hasUnread ? "text-primary font-semibold" : "text-muted-foreground/60 font-medium"
+                      )}>
+                        {c.lastMessageAt ? formatDate(c.lastMessageAt) : ""}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 mt-0.5">
-                      <p className={cn("text-[11px] truncate", c.unreadCount > 0 ? "text-foreground/80 font-medium" : "text-muted-foreground")}>
-                        {c.status === "typing" ? (
-                          <span className="text-emerald-400 italic">digitando...</span>
-                        ) : (
-                          c.lastMessage
-                        )}
+                    {/* Row 1.5: Phone under name */}
+                    {displayName && (
+                      <p className="text-[10px] text-muted-foreground/50 truncate leading-tight">
+                        {formatPhone(c.phone)}
                       </p>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {/* Status label */}
-                        {(c.status === "online" || c.status === "typing") && (
-                          <span className="text-[9px] font-semibold text-emerald-400 whitespace-nowrap">
-                            Em atend.
-                          </span>
-                        )}
-                        {c.unreadCount > 0 && (
-                          <span className="min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-primary text-primary-foreground rounded-full flex items-center justify-center">
-                            {c.unreadCount}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Tags */}
-                    {c.tags.length > 0 && (
-                      <div className="flex gap-1 mt-1.5 overflow-hidden">
-                        {c.tags.slice(0, 3).map((tag) => {
-                          const cls = tagColors[tag.toLowerCase()] || "bg-muted text-muted-foreground border-border/50";
-                          return (
-                            <span
-                              key={tag}
-                              className={cn("text-[9px] px-1.5 py-0 h-[16px] inline-flex items-center rounded-md font-semibold border", cls)}
-                            >
-                              {tag}
-                            </span>
-                          );
-                        })}
-                        {c.tags.length > 3 && (
-                          <span className="text-[9px] text-muted-foreground/50">+{c.tags.length - 3}</span>
-                        )}
-                      </div>
                     )}
+
+                    {/* Row 2: Last message + unread badge */}
+                    <div className="flex items-center justify-between gap-1.5 mt-0.5">
+                      <div className="flex items-center gap-1 min-w-0 flex-1">
+                        {/* Ticks for sent messages (show only if last msg was sent by us) */}
+                        {c.lastMessageStatus && (
+                          <MessageTicks status={c.lastMessageStatus} />
+                        )}
+                        <p className={cn(
+                          "text-[11px] truncate",
+                          hasUnread ? "text-foreground font-semibold" : "text-muted-foreground"
+                        )}>
+                          {c.status === "typing" ? (
+                            <span className="text-emerald-400 italic">digitando...</span>
+                          ) : mediaPreview ? (
+                            <span>{mediaPreview.icon} {mediaPreview.text}</span>
+                          ) : (
+                            c.lastMessage || "..."
+                          )}
+                        </p>
+                      </div>
+                      {hasUnread && (
+                        <span className="min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-primary text-primary-foreground rounded-full flex items-center justify-center shrink-0">
+                          {c.unreadCount}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </button>
               );

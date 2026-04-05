@@ -4,7 +4,6 @@ import { ChatPanel } from "@/components/conversations/ChatPanel";
 import { ContactDetails } from "@/components/conversations/ContactDetails";
 import { type Conversation, type AttendingStatus, type Message } from "@/components/conversations/types";
 import { useConversations } from "@/hooks/useConversations";
-import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const MIN_SIDEBAR_W = 240;
@@ -70,6 +69,8 @@ const Conversations = () => {
     avatar_url: c.avatar_url || undefined,
     lastMessage: c.last_message,
     lastMessageAt: c.last_message_at,
+    lastMessageStatus: (c.last_message_status as "sent" | "delivered" | "read") || undefined,
+    lastMessageDirection: (c.last_message_direction as "sent" | "received") || undefined,
     unreadCount: c.unread_count,
     status: (c.status as "online" | "offline" | "typing") || "offline",
     attendingStatus: (c.attending_status as AttendingStatus) || "nova",
@@ -136,19 +137,7 @@ const Conversations = () => {
           }`}
           style={selectedConversation ? { width: sidebarWidth } : undefined}
         >
-          {/* Sync button */}
-          <div className="flex items-center gap-2 px-3 pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={syncConversations}
-              disabled={syncing}
-              className="ml-auto text-xs"
-            >
-              <RefreshCw className={`h-3 w-3 mr-1 ${syncing ? "animate-spin" : ""}`} />
-              {syncing ? "Sincronizando..." : "Sincronizar"}
-            </Button>
-          </div>
+          {/* Auto-sync active via realtime */}
           <ConversationList
             conversations={filteredConversations}
             selectedId={selectedConvId}
