@@ -236,12 +236,12 @@ function budgetForTier(tier: "hot" | "warm" | "cold"): number {
 // ========== CREDIT EFFICIENCY CONTROLS ==========
 
 /** Hard cap on API credits based on target leads requested.
- *  Final user cost = apiCredits * 3.0 (markup reduzido), so:
- *    10 leads  → max 1 API  → ~3 user credits
- *    20 leads  → max 2 API  → ~6 user credits
- *   100 leads  → max 6 API  → ~18 user credits
+ *  Final user cost = apiCredits * 6.25 (2.5x Serper cost + 2.5x markup), so:
+ *    10 leads  → max 1 API  → ~7 user credits
+ *    20 leads  → max 2 API  → ~13 user credits
+ *   100 leads  → max 6 API  → ~38 user credits
  *   500 leads  → max 16 API → ~48 user credits
- *  1000 leads  → max 24 API → ~72 user credits
+ *  1000 leads  → max 24 API → ~150 user credits
  */
 function maxApiCreditsForTarget(target: number): number {
   if (target <= 20) return 2;
