@@ -254,10 +254,24 @@ export default function Prospeccao() {
       {searched && !loading && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              Resultados ({results.length})
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Resultados ({results.length})
+                {fromCache && (
+                  <Badge variant="outline" className="ml-2 gap-1 text-xs font-normal">
+                    <Database className="h-3 w-3" />
+                    Cache {cachedAt ? `(${new Date(cachedAt).toLocaleDateString('pt-BR')})` : ''}
+                  </Badge>
+                )}
+              </CardTitle>
+              {fromCache && (
+                <Button variant="outline" size="sm" onClick={() => handleSearch(true)} disabled={loading} className="gap-1.5">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Nova busca
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {results.length === 0 ? (
