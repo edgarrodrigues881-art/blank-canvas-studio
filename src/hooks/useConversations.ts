@@ -24,6 +24,8 @@ export interface RealConversation {
   origin: string;
   created_at: string;
   updated_at: string;
+  last_message_status?: string;
+  last_message_direction?: string;
   // joined
   deviceName?: string;
 }
