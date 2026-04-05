@@ -658,6 +658,8 @@ export function ChatPanel({
           </div>
         )}
       </div>
+
+      <QuickRepliesManager open={showQRManager} onOpenChange={setShowQRManager} />
     </div>
   );
 }
