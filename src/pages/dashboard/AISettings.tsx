@@ -57,6 +57,11 @@ const AISettings = () => {
   const [businessDescription, setBusinessDescription] = useState("");
   const [tone, setTone] = useState("professional");
   const [attendanceMode, setAttendanceMode] = useState("knowledge");
+  const [aiInstructions, setAiInstructions] = useState("");
+  const [responseStyle, setResponseStyle] = useState("medium");
+  const [splitLongMessages, setSplitLongMessages] = useState(true);
+  const [simulateTyping, setSimulateTyping] = useState(true);
+  const [conversationMemory, setConversationMemory] = useState(true);
   const [creativity, setCreativity] = useState([50]);
   const [maxResponseLength, setMaxResponseLength] = useState("medium");
   const [blockSensitive, setBlockSensitive] = useState(true);
