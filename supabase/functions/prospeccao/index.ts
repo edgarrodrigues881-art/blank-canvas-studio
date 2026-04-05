@@ -6,30 +6,69 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// Build queries for main niche + related niches
+// Build many diverse queries to maximize unique results
 function buildAllQueries(nicho: string, nichosRelacionados: string[], cidade: string, estado: string, target: number): string[] {
   const allNichos = [nicho, ...nichosRelacionados];
-  const suffixes = [
-    "", " em ", " perto de mim ", "melhor ", " delivery ",
-    " centro ", " bairro ", " popular ", " barato ", " famoso ",
-    " tradicional ", " novo ", " recomendado ",
+
+  // Many different query patterns to get diverse results from Google Maps
+  const patterns: ((n: string, c: string, e: string) => string)[] = [
+    (n, c, e) => `${n} ${c} ${e}`,
+    (n, c) => `${n} em ${c}`,
+    (n, c) => `${n} ${c}`,
+    (n, c) => `${n} perto ${c}`,
+    (n, c) => `melhor ${n} ${c}`,
+    (n, c) => `${n} delivery ${c}`,
+    (n, c) => `${n} centro ${c}`,
+    (n, c) => `${n} ${c} centro`,
+    (n, c) => `${n} popular ${c}`,
+    (n, c) => `${n} barato ${c}`,
+    (n, c) => `${n} famoso ${c}`,
+    (n, c) => `${n} tradicional ${c}`,
+    (n, c) => `${n} novo ${c}`,
+    (n, c) => `${n} recomendado ${c}`,
+    (n, c) => `${n} aberto agora ${c}`,
+    (n, c) => `${n} bom ${c}`,
+    (n, c) => `${n} perto de mim ${c}`,
+    (n, c) => `${n} ${c} zona norte`,
+    (n, c) => `${n} ${c} zona sul`,
+    (n, c) => `${n} ${c} zona leste`,
+    (n, c) => `${n} ${c} zona oeste`,
+    (n, c) => `${n} ${c} região central`,
+    (n, c) => `top ${n} ${c}`,
+    (n, c) => `lista ${n} ${c}`,
+    (n, c) => `${n} mais avaliado ${c}`,
+    (n, c) => `${n} proximos ${c}`,
+    (n, c, e) => `${n} ${e}`,
+    (n, c) => `onde encontrar ${n} ${c}`,
+    (n, c) => `${n} aberto ${c}`,
+    (n, c) => `${n} com telefone ${c}`,
+    (n, c) => `${n} ${c} bairro`,
+    (n, c) => `${n} whatsapp ${c}`,
+    (n, c) => `${n} atacado ${c}`,
+    (n, c) => `${n} varejo ${c}`,
+    (n, c) => `${n} loja ${c}`,
+    (n, c) => `${n} serviço ${c}`,
+    (n, c) => `${n} profissional ${c}`,
   ];
 
   const queries: string[] = [];
+  const seen = new Set<string>();
+
   for (const n of allNichos) {
-    for (const suffix of suffixes) {
-      if (suffix.startsWith(" ")) {
-        queries.push(`${n}${suffix}${cidade}`);
-      } else if (suffix === "") {
-        queries.push(`${n} ${cidade} ${estado}`);
-      } else {
-        queries.push(`${suffix}${n} ${cidade}`);
+    for (const pattern of patterns) {
+      const q = pattern(n, cidade, estado).trim();
+      const key = q.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        queries.push(q);
       }
     }
   }
 
-  const queriesNeeded = Math.ceil(target / 10);
-  return queries.slice(0, Math.max(queriesNeeded, 3));
+  // Calculate how many queries we need: each returns ~20 results, after dedup maybe 40%
+  // So we need roughly target / 8 queries
+  const queriesNeeded = Math.ceil(target / 8);
+  return queries.slice(0, Math.max(queriesNeeded, 5));
 }
 
 function mapPlace(item: any) {
@@ -69,7 +108,7 @@ async function fetchSerperBatch(queries: string[], apiKey: string): Promise<any[
         const res = await fetch("https://google.serper.dev/maps", {
           method: "POST",
           headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-          body: JSON.stringify({ q: query, gl: "br", hl: "pt-br", num: 20 }),
+          body: JSON.stringify({ q: query, gl: "br", hl: "pt-br", num: 40 }),
         });
         if (!res.ok) {
           console.error(`[prospeccao] Serper ${res.status} for "${query}"`);
@@ -90,7 +129,7 @@ async function fetchSerperBatch(queries: string[], apiKey: string): Promise<any[
 
     // Small delay between batches to avoid rate limits
     if (i + BATCH_SIZE < queries.length) {
-      await new Promise(r => setTimeout(r, 150));
+      await new Promise(r => setTimeout(r, 120));
     }
   }
 
@@ -185,7 +224,7 @@ Deno.serve(async (req) => {
     // Fetch all queries in parallel batches for speed
     const allPlaces = await fetchSerperBatch(queries, SERPER_API_KEY);
 
-    // Deduplicate
+    // Deduplicate by multiple keys
     const seenKeys = new Set<string>();
     const uniquePlaces: any[] = [];
     for (const place of allPlaces) {
@@ -198,7 +237,7 @@ Deno.serve(async (req) => {
 
     const results = uniquePlaces.slice(0, requestedTotal).map(mapPlace);
 
-    console.log(`[prospeccao] Total: ${allPlaces.length} brutos → ${uniquePlaces.length} únicos → ${results.length} retornados`);
+    console.log(`[prospeccao] Total: ${allPlaces.length} brutos → ${uniquePlaces.length} únicos → ${results.length} retornados (queries: ${queries.length})`);
 
     // --- SAVE TO CACHE ---
     try {
