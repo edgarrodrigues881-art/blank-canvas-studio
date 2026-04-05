@@ -635,9 +635,9 @@ Deno.serve(async (req) => {
     const ratio = (results.length / Math.max(searchResult.creditsUsed, 1)).toFixed(1);
     console.log(`[prospeccao] DONE: ${results.length} leads | ${searchResult.creditsUsed} cr | ${ratio} l/cr | ${executionMs}ms`);
 
-    // --- DEBIT CREDITS (1.5x multiplier, ceil) ---
+    // --- DEBIT CREDITS (2.5x multiplier, ceil) ---
     const rawCost = searchResult.creditsUsed;
-    const finalCost = Math.ceil(rawCost * 1.5);
+    const finalCost = Math.ceil(rawCost * 2.5);
     let newBalance = currentBalance;
 
     if (finalCost > 0) {
