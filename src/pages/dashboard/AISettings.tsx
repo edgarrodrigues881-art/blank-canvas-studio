@@ -57,6 +57,11 @@ const AISettings = () => {
   const [businessDescription, setBusinessDescription] = useState("");
   const [tone, setTone] = useState("professional");
   const [attendanceMode, setAttendanceMode] = useState("knowledge");
+  const [aiInstructions, setAiInstructions] = useState("");
+  const [responseStyle, setResponseStyle] = useState("medium");
+  const [splitLongMessages, setSplitLongMessages] = useState(true);
+  const [simulateTyping, setSimulateTyping] = useState(true);
+  const [conversationMemory, setConversationMemory] = useState(true);
   const [creativity, setCreativity] = useState([50]);
   const [maxResponseLength, setMaxResponseLength] = useState("medium");
   const [blockSensitive, setBlockSensitive] = useState(true);
@@ -227,43 +232,99 @@ const AISettings = () => {
             <Brain className="h-4 w-4 text-primary" />
             <CardTitle className="text-base">Comportamento da IA</CardTitle>
           </div>
-          <CardDescription>Ajuste o comportamento e personalidade</CardDescription>
+          <CardDescription>Ajuste personalidade, tom e estilo de resposta</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
+          {/* Tom de voz */}
           <div className="space-y-2">
-            <Label>Tom de comunicação</Label>
+            <Label>Tom de voz</Label>
             <Select value={tone} onValueChange={setTone}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="professional">Profissional</SelectItem>
                 <SelectItem value="friendly">Amigável</SelectItem>
-                <SelectItem value="formal">Formal</SelectItem>
-                <SelectItem value="casual">Casual</SelectItem>
+                <SelectItem value="professional">Profissional</SelectItem>
+                <SelectItem value="direct">Direto</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {/* Instruções da IA */}
           <div className="space-y-2">
-            <Label>Criatividade: {creativity[0]}%</Label>
-            <Slider value={creativity} onValueChange={setCreativity} max={100} step={5} className="w-full" />
-            <div className="flex justify-between text-[10px] text-muted-foreground">
-              <span>Preciso</span>
-              <span>Criativo</span>
+            <Label>Instruções da IA</Label>
+            <Textarea
+              value={aiInstructions}
+              onChange={(e) => setAiInstructions(e.target.value)}
+              placeholder='Você é um atendente da empresa X. Seja objetivo e educado. Foque em conversão.'
+              rows={4}
+            />
+            <p className="text-[10px] text-muted-foreground">Descreva como a IA deve se comportar durante o atendimento</p>
+          </div>
+
+          {/* Estilo de resposta */}
+          <div className="space-y-2">
+            <Label>Estilo de resposta</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: "short", label: "Curto", desc: "1-2 frases" },
+                { value: "medium", label: "Médio", desc: "1 parágrafo" },
+                { value: "detailed", label: "Detalhado", desc: "Resposta completa" },
+              ].map((style) => (
+                <button
+                  key={style.value}
+                  onClick={() => setResponseStyle(style.value)}
+                  className={`rounded-lg border p-2.5 text-center transition-all ${
+                    responseStyle === style.value
+                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                      : "border-border/50 hover:border-border"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-foreground">{style.label}</p>
+                  <p className="text-[10px] text-muted-foreground">{style.desc}</p>
+                </button>
+              ))}
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>Tamanho máximo da resposta</Label>
-            <Select value={maxResponseLength} onValueChange={setMaxResponseLength}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="short">Curta (1-2 frases)</SelectItem>
-                <SelectItem value="medium">Média (1 parágrafo)</SelectItem>
-                <SelectItem value="long">Longa (detalhada)</SelectItem>
-              </SelectContent>
-            </Select>
+
+          {/* Toggles */}
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">Dividir mensagens longas</p>
+                <p className="text-xs text-muted-foreground">Quebra respostas grandes em várias mensagens</p>
+              </div>
+              <Switch checked={splitLongMessages} onCheckedChange={setSplitLongMessages} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">Simular digitando</p>
+                <p className="text-xs text-muted-foreground">Mostra "digitando..." antes de responder</p>
+              </div>
+              <Switch checked={simulateTyping} onCheckedChange={setSimulateTyping} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">Memória de conversa</p>
+                <p className="text-xs text-muted-foreground">IA lembra do contexto da conversa anterior</p>
+              </div>
+              <Switch checked={conversationMemory} onCheckedChange={setConversationMemory} />
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div className="space-y-2 pt-2">
+            <Label className="text-xs text-muted-foreground">Preview de resposta</Label>
+            <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
+              <div className="flex items-start gap-2">
+                <Bot className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                <p className="text-sm text-foreground/80 leading-relaxed">
+                  {tone === "friendly" && "Oi! 😊 Tudo bem? Como posso te ajudar hoje?"}
+                  {tone === "professional" && "Olá! Seja bem-vindo. Como posso auxiliá-lo?"}
+                  {tone === "direct" && "Olá. Em que posso ajudar?"}
+                </p>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
