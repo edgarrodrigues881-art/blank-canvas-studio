@@ -328,9 +328,15 @@ export default function Prospeccao() {
                   {loading ? "Buscando..." : "Buscar"}
                 </Button>
                 {results.length > 0 && (
-                  <Button variant="outline" onClick={() => exportCSV()} className="gap-2">
-                    <Download className="h-4 w-4" /> Exportar CSV
-                  </Button>
+                  <>
+                    <Button variant="outline" onClick={() => exportCSV()} className="gap-2">
+                      <Download className="h-4 w-4" /> Exportar CSV
+                    </Button>
+                    <Button variant="outline" onClick={() => saveToContacts()} disabled={savingContacts} className="gap-2">
+                      {savingContacts ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+                      {savingContacts ? "Salvando..." : "Salvar nos Contatos"}
+                    </Button>
+                  </>
                 )}
               </div>
               {loading && <p className="text-sm text-muted-foreground mt-3">⏳ A busca pode levar de 30s a vários minutos...</p>}
