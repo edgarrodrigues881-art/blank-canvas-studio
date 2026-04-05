@@ -641,6 +641,7 @@ export function useConversations() {
     updateConversation,
     sendMessage,
     sendAudioMessage,
+    sendFileMessage,
     retryMessage,
     fetchConversations,
   };
