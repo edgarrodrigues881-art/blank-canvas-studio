@@ -209,6 +209,7 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
               <DropdownMenuItem>Silenciar</DropdownMenuItem>
               <DropdownMenuItem>Arquivar</DropdownMenuItem>
               <DropdownMenuItem className="text-destructive">Bloquear contato</DropdownMenuItem>
+              <DropdownMenuItem onClick={onBack} className="text-destructive font-semibold">Fechar conversa</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
