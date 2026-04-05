@@ -214,7 +214,7 @@ Deno.serve(async (req) => {
     }
 
     const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
-    const token = device.uazapi_token;
+    const deviceToken = device.uazapi_token;
 
     // ── ACTION: list_groups (lightweight — no participants) ──
     if (action === "list_groups") {
