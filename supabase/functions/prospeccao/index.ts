@@ -177,7 +177,8 @@ Deno.serve(async (req) => {
     }
 
     const requestedTotal = Math.min(maxResults || 50, 5000);
-    const queries = buildQueryVariations(nichoTrimmed, cidadeTrimmed, estadoTrimmed, requestedTotal);
+    const relatedNiches = Array.isArray(nichosRelacionados) ? nichosRelacionados.filter(Boolean) : [];
+    const queries = buildAllQueries(nichoTrimmed, relatedNiches, cidadeTrimmed, estadoTrimmed, requestedTotal);
 
     console.log(`[prospeccao] Cache MISS - buscando "${nichoTrimmed}" em "${cidadeTrimmed}" (target: ${requestedTotal}, queries: ${queries.length})`);
 
