@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { extractConversationEvent, isApiSentMessage } from "./parser.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -22,10 +23,6 @@ Deno.serve(async (req) => {
     if (body.action === "setup_all_webhooks") {
       return await handleSetupWebhooks(req, admin, body);
     }
-
-    // ── Extract event data ──
-    const event = body.event || body.EventType || body.type || "";
-    const data = body.data || body.message || body;
 
     // ── Find the device - multiple strategies ──
     let device: any = null;
@@ -69,112 +66,87 @@ Deno.serve(async (req) => {
     console.log(`Device matched: ${device.name} (${device.id})`);
 
     // ── Handle message events ──
-    const chatData = body.chat || {};
-    const msgData = body.message || data.message || {};
-    const keyData = data.key || msgData.key || body.key || {};
-    const isMessageEvent = event.includes("message") || event.includes("msg") || keyData.remoteJid || chatData.JID || body.chat;
-
-    if (isMessageEvent) {
-      const remoteJid = keyData.remoteJid || chatData.JID || chatData.jid || data.from || data.chatId || body.from || "";
-      if (!remoteJid || remoteJid.endsWith("@g.us") || remoteJid.includes("status@")) {
-        return json({ ok: true, skipped: "group_or_status" });
-      }
-
-      // Anti-loop
-      if (body.wasSentByApi === true || body.wa_sentByApi === true || body.sentByApi === true) {
-        console.log("Skipping wasSentByApi");
-        return json({ ok: true, skipped: "sent_by_api" });
-      }
-
-      const fromMe = keyData.fromMe ?? data.fromMe ?? body.fromMe ?? body.isFromMe ?? false;
-      const phone = remoteJid.replace("@s.whatsapp.net", "").replace("@c.us", "");
-      const name = (body.pushName || data.pushName || chatData.Name || chatData.name || data.notify || data.name || phone).substring(0, 255);
-
-      // Extract content
-      const content = msgData.conversation
-        || msgData.extendedTextMessage?.text
-        || msgData.imageMessage?.caption
-        || msgData.videoMessage?.caption
-        || body.text || body.body || body.messageBody
-        || data.body || data.text || data.caption || "";
-
-      const waId = keyData.id || data.id?._serialized || body.messageId || `wh-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-
-      const rawTs = data.messageTimestamp || body.messageTimestamp || body.timestamp || body.t;
-      const timestamp = rawTs
-        ? new Date((typeof rawTs === "number" && rawTs < 1e12 ? rawTs * 1000 : Number(rawTs) < 1e12 ? Number(rawTs) * 1000 : Number(rawTs))).toISOString()
-        : new Date().toISOString();
-
-      // Media detection
-      let mediaType: string | null = null;
-      let mediaUrl: string | null = null;
-      let audioDuration: number | null = null;
-
-      if (msgData.imageMessage || body.type === "image") {
-        mediaType = "image"; mediaUrl = msgData.imageMessage?.url || body.mediaUrl || null;
-      } else if (msgData.audioMessage || body.type === "audio" || body.type === "ptt") {
-        mediaType = "audio"; audioDuration = msgData.audioMessage?.seconds || body.duration || null; mediaUrl = body.mediaUrl || null;
-      } else if (msgData.videoMessage || body.type === "video") {
-        mediaType = "video"; mediaUrl = msgData.videoMessage?.url || body.mediaUrl || null;
-      } else if (msgData.documentMessage || body.type === "document") {
-        mediaType = "document"; mediaUrl = msgData.documentMessage?.url || body.mediaUrl || null;
-      } else if (msgData.stickerMessage || body.type === "sticker") {
-        mediaType = "sticker";
-      }
-
-      const displayContent = content || (mediaType ? `[${mediaType}]` : "");
-
-      // Upsert conversation
-      const { data: conv, error: convErr } = await admin
-        .from("conversations")
-        .upsert({
-          user_id: device.user_id, device_id: device.id, remote_jid: remoteJid,
-          name, phone,
-          last_message: displayContent.substring(0, 500),
-          last_message_at: timestamp,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "user_id,device_id,remote_jid" })
-        .select("id")
-        .single();
-
-      let conversationId = conv?.id;
-
-      if (convErr && !conversationId) {
-        console.error("Conversation upsert error:", convErr);
-        const { data: existing } = await admin.from("conversations").select("id")
-          .eq("user_id", device.user_id).eq("device_id", device.id).eq("remote_jid", remoteJid).single();
-        conversationId = existing?.id;
-      }
-
-      if (!conversationId) {
-        return json({ error: "Failed to upsert conversation" }, 500);
-      }
-
-      // Update unread count
-      if (!fromMe) {
-        const { data: cur } = await admin.from("conversations").select("unread_count").eq("id", conversationId).single();
-        await admin.from("conversations").update({ unread_count: (cur?.unread_count || 0) + 1 }).eq("id", conversationId);
-      }
-
-      // Insert message
-      const { error: msgErr } = await admin.from("conversation_messages").upsert({
-        conversation_id: conversationId,
-        user_id: device.user_id,
-        remote_jid: remoteJid,
-        content: displayContent.substring(0, 5000),
-        direction: fromMe ? "sent" : "received",
-        status: fromMe ? "sent" : "received",
-        media_type: mediaType,
-        media_url: mediaUrl,
-        audio_duration: audioDuration,
-        whatsapp_message_id: waId,
-        created_at: timestamp,
-      }, { onConflict: "whatsapp_message_id", ignoreDuplicates: true });
-
-      if (msgErr) console.error("Message upsert error:", msgErr);
-
-      console.log(`Message saved: ${fromMe ? "sent" : "received"} from ${phone} on ${device.name}: "${displayContent.substring(0, 80)}"`);
+    if (isApiSentMessage(body)) {
+      console.log("Skipping wasSentByApi");
+      return json({ ok: true, skipped: "sent_by_api" });
     }
+
+    const parsed = extractConversationEvent(body);
+    if (!parsed) {
+      console.log("Skipping webhook: no private chat payload could be extracted");
+      return json({ ok: true, skipped: "group_or_unrecognized" });
+    }
+
+    const {
+      remoteJid,
+      phone,
+      name,
+      content,
+      fromMe,
+      waId,
+      timestamp,
+      mediaType,
+      mediaUrl,
+      audioDuration,
+      avatarUrl,
+    } = parsed;
+
+    const displayContent = content || (mediaType ? `[${mediaType}]` : "[mensagem]");
+
+    const { data: conv, error: convErr } = await admin
+      .from("conversations")
+      .upsert({
+        user_id: device.user_id,
+        device_id: device.id,
+        remote_jid: remoteJid,
+        name,
+        phone,
+        avatar_url: avatarUrl,
+        last_message: displayContent.substring(0, 500),
+        last_message_at: timestamp,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id,device_id,remote_jid" })
+      .select("id")
+      .single();
+
+    let conversationId = conv?.id;
+
+    if (convErr && !conversationId) {
+      console.error("Conversation upsert error:", convErr);
+      const { data: existing } = await admin.from("conversations").select("id")
+        .eq("user_id", device.user_id)
+        .eq("device_id", device.id)
+        .eq("remote_jid", remoteJid)
+        .single();
+      conversationId = existing?.id;
+    }
+
+    if (!conversationId) {
+      return json({ error: "Failed to upsert conversation" }, 500);
+    }
+
+    if (!fromMe) {
+      const { data: cur } = await admin.from("conversations").select("unread_count").eq("id", conversationId).single();
+      await admin.from("conversations").update({ unread_count: (cur?.unread_count || 0) + 1 }).eq("id", conversationId);
+    }
+
+    const { error: msgErr } = await admin.from("conversation_messages").upsert({
+      conversation_id: conversationId,
+      user_id: device.user_id,
+      remote_jid: remoteJid,
+      content: displayContent.substring(0, 5000),
+      direction: fromMe ? "sent" : "received",
+      status: fromMe ? "sent" : "received",
+      media_type: mediaType,
+      media_url: mediaUrl,
+      audio_duration: audioDuration,
+      whatsapp_message_id: waId,
+      created_at: timestamp,
+    }, { onConflict: "whatsapp_message_id", ignoreDuplicates: true });
+
+    if (msgErr) console.error("Message upsert error:", msgErr);
+
+    console.log(`Message saved: ${fromMe ? "sent" : "received"} from ${phone} on ${device.name}: "${displayContent.substring(0, 80)}"`);
 
     return json({ ok: true });
   } catch (err: any) {
@@ -206,6 +178,7 @@ async function handleSetupWebhooks(req: Request, admin: any, body: any) {
   if (!devices?.length) return json({ configured: 0, total: 0 });
 
   const webhookBaseUrl = `${supabaseUrl}/functions/v1/webhook-conversations`;
+  const webhookSecret = Deno.env.get("WEBHOOK_SECRET") || "";
   let configured = 0;
   const errors: string[] = [];
 
@@ -215,6 +188,21 @@ async function handleSetupWebhooks(req: Request, admin: any, body: any) {
 
     const base = dev.uazapi_base_url.replace(/\/+$/, "");
     const webhookUrl = `${webhookBaseUrl}?device_id=${dev.id}`;
+    const webhookHeaders: Record<string, string> = {
+      token: dev.uazapi_token,
+      "x-device-id": dev.id,
+    };
+    if (webhookSecret) webhookHeaders["x-webhook-secret"] = webhookSecret;
+
+    const desiredBody = {
+      url: webhookUrl,
+      enabled: true,
+      events: ["messages"],
+      excludeMessages: ["wasSentByApi", "isGroupYes"],
+      addUrlEvents: true,
+      addUrlTypesMessages: true,
+      headers: webhookHeaders,
+    };
 
     try {
       // Check existing webhooks
@@ -224,9 +212,15 @@ async function handleSetupWebhooks(req: Request, admin: any, body: any) {
       try { existing = JSON.parse(getText) || []; } catch {}
       if (!Array.isArray(existing)) existing = [];
 
-      // Check if already configured
-      const ours = existing.find((w: any) => w.url?.includes("webhook-conversations") && w.enabled);
-      if (ours) {
+      // Check if already configured with the richer payload options we need
+      const ours = existing.find((w: any) => w.url?.includes("webhook-conversations"));
+      const alreadyConfigured = !!ours
+        && ours.enabled === true
+        && (Array.isArray(ours.events) ? ours.events.includes("messages") : true)
+        && (ours.addUrlEvents === true || ours.add_url_events === true)
+        && (ours.addUrlTypesMessages === true || ours.add_url_types_messages === true);
+
+      if (alreadyConfigured) {
         console.log(`[${dev.name}] Already configured`);
         configured++;
         continue;
@@ -241,7 +235,7 @@ async function handleSetupWebhooks(req: Request, admin: any, body: any) {
       const postRes = await fetch(`${base}/webhook`, {
         method: "POST",
         headers: { token: dev.uazapi_token, "Content-Type": "application/json" },
-        body: JSON.stringify({ url: webhookUrl, enabled: true, events: ["messages"] }),
+        body: JSON.stringify(desiredBody),
       });
       const postText = await postRes.text();
       console.log(`[${dev.name}] POST /webhook: ${postRes.status} ${postText.substring(0, 200)}`);

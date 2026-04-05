@@ -1,0 +1,76 @@
+import { assertEquals, assertExists } from "jsr:@std/assert";
+import { extractConversationEvent, isApiSentMessage, normalizeRemoteJid } from "./parser.ts";
+
+Deno.test("normalizeRemoteJid monta jid privado a partir do telefone", () => {
+  assertEquals(normalizeRemoteJid("+55 (11) 99876-5432"), "5511998765432@s.whatsapp.net");
+  assertEquals(normalizeRemoteJid("5511998765432@s.whatsapp.net"), "5511998765432@s.whatsapp.net");
+});
+
+Deno.test("extractConversationEvent lê payload nativo da UAZAPI com phoneNumber", () => {
+  const result = extractConversationEvent({
+    EventType: "messages",
+    chat: {
+      phoneNumber: "+55 (11) 99876-5432",
+      lead_name: "Maria",
+      imagePreview: "https://example.com/avatar.jpg",
+    },
+    text: "Olá, tudo bem?",
+    messageId: "uaz-123",
+    timestamp: 1712345678,
+  });
+
+  assertExists(result);
+  assertEquals(result.remoteJid, "5511998765432@s.whatsapp.net");
+  assertEquals(result.phone, "5511998765432");
+  assertEquals(result.name, "Maria");
+  assertEquals(result.content, "Olá, tudo bem?");
+  assertEquals(result.fromMe, false);
+  assertEquals(result.waId, "uaz-123");
+  assertEquals(result.mediaType, null);
+  assertEquals(result.avatarUrl, "https://example.com/avatar.jpg");
+});
+
+Deno.test("extractConversationEvent lê payload estilo Baileys", () => {
+  const result = extractConversationEvent({
+    event: "messages.upsert",
+    data: {
+      key: {
+        remoteJid: "5511912345678@s.whatsapp.net",
+        fromMe: true,
+        id: "msg-456",
+      },
+      message: {
+        extendedTextMessage: {
+          text: "Mensagem enviada",
+        },
+      },
+      messageTimestamp: 1712345678,
+    },
+  });
+
+  assertExists(result);
+  assertEquals(result.remoteJid, "5511912345678@s.whatsapp.net");
+  assertEquals(result.phone, "5511912345678");
+  assertEquals(result.fromMe, true);
+  assertEquals(result.content, "Mensagem enviada");
+  assertEquals(result.waId, "msg-456");
+});
+
+Deno.test("extractConversationEvent ignora grupos", () => {
+  const result = extractConversationEvent({
+    event: "messages.upsert",
+    data: {
+      key: {
+        remoteJid: "12345@g.us",
+      },
+    },
+  });
+
+  assertEquals(result, null);
+});
+
+Deno.test("isApiSentMessage detecta mensagens enviadas pela API", () => {
+  assertEquals(isApiSentMessage({ wasSentByApi: true }), true);
+  assertEquals(isApiSentMessage({ message: { wasSentByApi: true } }), true);
+  assertEquals(isApiSentMessage({ text: "oi" }), false);
+});
