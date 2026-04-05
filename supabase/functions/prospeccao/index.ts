@@ -326,6 +326,7 @@ async function adaptiveSearch(
   const zoomOuter = radiusKm < 12 ? 13 : 12;
 
   const done = () => places.length >= target;
+  const budgetExceeded = () => Math.ceil(credits * 2.5) >= creditBudget;
   const progress = () => places.length / target;
   const filterInCity = (pts: GeoPoint[]) => pts.filter(p => isWithinCity(p, center, radiusKm * 1.1));
   const allScores: PointScore[] = [];
