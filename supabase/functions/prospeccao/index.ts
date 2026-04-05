@@ -672,7 +672,7 @@ Deno.serve(async (req) => {
 
     // --- DEBIT CREDITS or FREE PULL ---
     const rawCost = searchResult.creditsUsed;
-    const finalCost = isFreePull ? 0 : Math.ceil(rawCost * 2.5);
+    const finalCost = isFreePull ? 0 : Math.ceil(rawCost * 6.25);
     let newBalance = currentBalance;
     let freePullsAfter = freePulls;
 
