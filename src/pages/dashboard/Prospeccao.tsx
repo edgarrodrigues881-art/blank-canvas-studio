@@ -191,8 +191,9 @@ export default function Prospeccao() {
     if (!nicho.trim() || !estado || !cidade.trim()) {
       toast.error("Preencha todos os campos obrigatórios"); return;
     }
-    if (creditBalance !== null && creditBalance <= 0) {
-      toast.error("Créditos insuficientes para realizar a prospecção"); return;
+    const canSearch = (creditBalance !== null && creditBalance > 0) || freePulls > 0;
+    if (!canSearch) {
+      toast.error("Sem créditos e sem puxadas grátis disponíveis"); return;
     }
     setLoading(true); setSearched(true);
     try {
