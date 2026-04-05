@@ -5,13 +5,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
 };
 
-// Plan mapping: plan name → { max_instances, price, days }
 const PLAN_CONFIG: Record<string, { max_instances: number; price: number; days: number }> = {
   Essencial: { max_instances: 5, price: 99, days: 30 },
   Start: { max_instances: 10, price: 187, days: 30 },
   Pro: { max_instances: 30, price: 397, days: 30 },
   Scale: { max_instances: 50, price: 597, days: 30 },
   Elite: { max_instances: 100, price: 1197, days: 30 },
+};
+
+const CREDIT_PACKS: Record<string, number> = {
+  Starter: 300,
+  Pro: 1000,
+  Growth: 3000,
+  Scale: 10000,
+  Elite: 50000,
 };
 
 Deno.serve(async (req) => {
@@ -33,11 +40,9 @@ Deno.serve(async (req) => {
     const body = await req.text();
     const signature = req.headers.get("stripe-signature");
 
-    // Verify webhook signature if secret is configured
     let event: any;
 
     if (STRIPE_WEBHOOK_SECRET && signature) {
-      // Manual signature verification (Stripe webhook v1)
       const parts = signature.split(",").reduce((acc: Record<string, string>, part: string) => {
         const [key, value] = part.split("=");
         acc[key] = value;
@@ -52,22 +57,14 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 400, headers: corsHeaders });
       }
 
-      // Check timestamp tolerance (5 minutes)
       const now = Math.floor(Date.now() / 1000);
       if (Math.abs(now - parseInt(timestamp)) > 300) {
         console.error("[stripe-webhook] Timestamp too old");
         return new Response(JSON.stringify({ error: "Timestamp expired" }), { status: 400, headers: corsHeaders });
       }
 
-      // Verify HMAC-SHA256 signature
       const signedPayload = `${timestamp}.${body}`;
-      const key = await crypto.subtle.importKey(
-        "raw",
-        new TextEncoder().encode(STRIPE_WEBHOOK_SECRET),
-        { name: "HMAC", hash: "SHA-256" },
-        false,
-        ["sign"]
-      );
+      const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(STRIPE_WEBHOOK_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
       const expectedSig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(signedPayload));
       const expectedHex = Array.from(new Uint8Array(expectedSig)).map(b => b.toString(16).padStart(2, "0")).join("");
 
@@ -78,7 +75,6 @@ Deno.serve(async (req) => {
 
       event = JSON.parse(body);
     } else {
-      // No webhook secret configured — parse directly (development mode)
       console.warn("[stripe-webhook] No STRIPE_WEBHOOK_SECRET — skipping signature verification");
       event = JSON.parse(body);
     }
@@ -91,11 +87,81 @@ Deno.serve(async (req) => {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
       const userId = session.metadata?.user_id || session.client_reference_id;
+      const checkoutType = session.metadata?.checkout_type || "subscription";
+
+      if (!userId) {
+        console.error("[stripe-webhook] Missing user_id in metadata");
+        return new Response(JSON.stringify({ error: "Missing metadata" }), { status: 400, headers: corsHeaders });
+      }
+
+      // ═══ CREDIT PACK PURCHASE ═══
+      if (checkoutType === "credits") {
+        const packName = session.metadata?.pack_name;
+        const creditsFromMeta = parseInt(session.metadata?.credits || "0");
+        const credits = creditsFromMeta || CREDIT_PACKS[packName] || 0;
+
+        if (credits <= 0) {
+          console.error("[stripe-webhook] Invalid credit amount:", { packName, creditsFromMeta });
+          return new Response(JSON.stringify({ error: "Invalid credit amount" }), { status: 400, headers: corsHeaders });
+        }
+
+        console.log("[stripe-webhook] Crediting user:", { userId, packName, credits });
+
+        // Use the existing credit_prospeccao_balance function
+        const { data: creditResult, error: creditError } = await adminClient
+          .rpc("credit_prospeccao_balance", {
+            p_user_id: userId,
+            p_amount: credits,
+            p_description: `Compra de créditos: pacote ${packName} (${credits.toLocaleString()} créditos) via Stripe`,
+          });
+
+        if (creditError) {
+          console.error("[stripe-webhook] Error crediting balance:", creditError);
+        } else {
+          console.log("[stripe-webhook] Credits added:", creditResult);
+        }
+
+        // Record payment
+        const amount = (session.amount_total || 0) / 100;
+        await adminClient.from("payments").insert({
+          user_id: userId,
+          admin_id: userId,
+          amount,
+          discount: 0,
+          fee: 0,
+          method: "stripe",
+          notes: `Créditos de prospecção: ${packName} (${credits.toLocaleString()} créditos) - Stripe: ${session.id}`,
+          paid_at: new Date().toISOString(),
+        });
+
+        // Notification
+        await adminClient.from("notifications").insert({
+          user_id: userId,
+          title: "Créditos adicionados! 🎉",
+          message: `${credits.toLocaleString()} créditos de prospecção foram adicionados ao seu saldo. Pacote: ${packName}.`,
+          type: "success",
+        });
+
+        // Admin log
+        await adminClient.from("admin_logs").insert({
+          admin_id: userId,
+          target_user_id: userId,
+          action: "stripe-credits-purchase",
+          details: `Compra de ${credits.toLocaleString()} créditos (pacote ${packName}) via Stripe. Session: ${session.id}`,
+        });
+
+        console.log("[stripe-webhook] Credit pack activated for user:", userId);
+        return new Response(JSON.stringify({ received: true }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // ═══ SUBSCRIPTION PURCHASE (existing logic) ═══
       const planName = session.metadata?.plan_name;
       const instances = parseInt(session.metadata?.instances || "0");
 
-      if (!userId || !planName) {
-        console.error("[stripe-webhook] Missing user_id or plan_name in metadata", { userId, planName });
+      if (!planName) {
+        console.error("[stripe-webhook] Missing plan_name in metadata");
         return new Response(JSON.stringify({ error: "Missing metadata" }), { status: 400, headers: corsHeaders });
       }
 
@@ -109,9 +175,8 @@ Deno.serve(async (req) => {
       const now = new Date();
       const expiresAt = new Date(now.getTime() + config.days * 86400000);
 
-      console.log("[stripe-webhook] Activating plan:", { userId, planName, maxInstances, expiresAt: expiresAt.toISOString() });
+      console.log("[stripe-webhook] Activating plan:", { userId, planName, maxInstances });
 
-      // Check if subscription exists
       const { data: existing } = await adminClient
         .from("subscriptions")
         .select("id")
@@ -138,7 +203,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Create subscription cycle
       await adminClient.from("subscription_cycles").insert({
         user_id: userId,
         subscription_id: existing?.id || null,
@@ -150,10 +214,9 @@ Deno.serve(async (req) => {
         notes: `Pagamento automático via Stripe (${event.id})`,
       });
 
-      // Record payment
       await adminClient.from("payments").insert({
         user_id: userId,
-        admin_id: userId, // self-payment
+        admin_id: userId,
         amount: config.price,
         discount: 0,
         fee: 0,
@@ -162,7 +225,6 @@ Deno.serve(async (req) => {
         paid_at: now.toISOString(),
       });
 
-      // Send notification to user
       await adminClient.from("notifications").insert({
         user_id: userId,
         title: "Plano ativado! 🎉",
@@ -170,7 +232,6 @@ Deno.serve(async (req) => {
         type: "success",
       });
 
-      // Log admin action
       await adminClient.from("admin_logs").insert({
         admin_id: userId,
         target_user_id: userId,
@@ -178,22 +239,19 @@ Deno.serve(async (req) => {
         details: `Plano ${planName} ativado automaticamente via Stripe. ${maxInstances} instâncias, expira em ${expiresAt.toLocaleDateString("pt-BR")}`,
       });
 
-      console.log("[stripe-webhook] Plan activated successfully for user:", userId);
+      console.log("[stripe-webhook] Plan activated for user:", userId);
     }
 
     // ─── INVOICE PAID (recurring subscription) ───
     if (event.type === "invoice.paid") {
       const invoice = event.data.object;
-      const customerId = invoice.customer;
       const customerEmail = invoice.customer_email;
 
-      // Try to find user by email
       if (customerEmail) {
         const { data: authUsers } = await adminClient.auth.admin.listUsers();
         const matchedUser = authUsers?.users?.find((u: any) => u.email === customerEmail);
 
         if (matchedUser) {
-          // Extend subscription by 30 days from current expiry (or from now)
           const { data: sub } = await adminClient
             .from("subscriptions")
             .select("id, plan_name, plan_price, max_instances, expires_at")
@@ -210,7 +268,6 @@ Deno.serve(async (req) => {
               updated_at: new Date().toISOString(),
             }).eq("user_id", matchedUser.id);
 
-            // Record payment
             const amount = (invoice.amount_paid || 0) / 100;
             await adminClient.from("payments").insert({
               user_id: matchedUser.id,
@@ -230,21 +287,19 @@ Deno.serve(async (req) => {
               type: "success",
             });
 
-            console.log("[stripe-webhook] Subscription renewed for user:", matchedUser.id, "new expiry:", newExpiry.toISOString());
+            console.log("[stripe-webhook] Subscription renewed for user:", matchedUser.id);
           }
         }
       }
     }
 
     return new Response(JSON.stringify({ received: true }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
     console.error("[stripe-webhook] Error:", err.message, err.stack);
     return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
