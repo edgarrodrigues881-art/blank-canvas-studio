@@ -60,10 +60,10 @@ export function useCampaigns() {
     enabled: !!user,
     staleTime: 30_000,
     refetchInterval: (query) => {
-      if (document.hidden) return false; // Don't poll when tab hidden
+      if (document.hidden) return false;
       const campaigns = query.state.data;
       const hasActive = campaigns?.some((c: Campaign) => ["running", "processing"].includes(c.status));
-      return hasActive ? 10_000 : 120_000; // 10s when active, 2min idle
+      return hasActive ? 5_000 : 120_000; // 5s when active, 2min idle
     },
   });
 }

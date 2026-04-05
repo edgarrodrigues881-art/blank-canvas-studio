@@ -12,10 +12,10 @@ import { acquireGlobalSlot, releaseGlobalSlot } from "./lib/global-semaphore";
 
 const log = createLogger("campaign");
 
-const API_TIMEOUT_MS = 30_000;
+const API_TIMEOUT_MS = 25_000;
 const MAX_RETRIES = 2;
-const RETRY_DELAY_MIN_MS = 20_000;
-const RETRY_DELAY_MAX_MS = 60_000;
+const RETRY_DELAY_MIN_MS = 10_000;
+const RETRY_DELAY_MAX_MS = 30_000;
 const CONNECTED_STATUSES = ["Ready", "Connected", "authenticated", "open", "active", "online"];
 
 export let lastCampaignWorkerTickAt: Date | null = null;
@@ -304,15 +304,42 @@ async function sendWithRetry(
   return { success: false, attempts: MAX_RETRIES + 1, error: lastError };
 }
 
-async function checkNumberExists(baseUrl: string, token: string, phone: string): Promise<{ exists: boolean; error?: string }> {
-  try {
-    const result = await uazapiRequest(baseUrl, token, "/check/exist", { number: phone });
-    if (result?.exists === false || result?.numberExists === false || result?.status === "not_exists") return { exists: false, error: "Número inválido" };
-    return { exists: true };
-  } catch (err: any) {
-    if (isDisconnectError(err.message || "")) return { exists: false, error: "WhatsApp desconectado" };
-    return { exists: true }; // Assume exists on error
+function generateBrazilianVariations(phone: string): string[] {
+  const raw = phone.replace(/\D/g, "");
+  const digits = raw.startsWith("55") ? raw.slice(2) : raw;
+  const ddd = digits.slice(0, 2);
+  const rest = digits.slice(2);
+
+  const variations: string[] = [`55${ddd}${rest}`];
+
+  // If has 9 digits after DDD (mobile with 9th digit), try without
+  if (rest.length === 9 && rest.startsWith("9")) {
+    variations.push(`55${ddd}${rest.slice(1)}`);
   }
+  // If has 8 digits after DDD (landline or mobile without 9th digit), try with 9
+  if (rest.length === 8 && !rest.startsWith("9")) {
+    variations.push(`55${ddd}9${rest}`);
+  }
+
+  return [...new Set(variations)];
+}
+
+async function checkNumberExists(baseUrl: string, token: string, phone: string): Promise<{ exists: boolean; validPhone?: string; error?: string }> {
+  const variations = generateBrazilianVariations(phone);
+
+  for (const variant of variations) {
+    try {
+      const result = await uazapiRequest(baseUrl, token, "/check/exist", { number: variant });
+      if (result?.exists === false || result?.numberExists === false || result?.status === "not_exists") continue;
+      return { exists: true, validPhone: variant };
+    } catch (err: any) {
+      if (isDisconnectError(err.message || "")) return { exists: false, error: "WhatsApp desconectado" };
+      // On timeout/network error, assume exists with original number
+      return { exists: true, validPhone: variant };
+    }
+  }
+
+  return { exists: false, error: "Número não encontrado no WhatsApp" };
 }
 
 // ── Variable replacement ──
@@ -806,6 +833,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     }
     const sendTo = isLid ? phone : normalizeBrazilianPhone(phone);
 
+    let sendTo = isLid ? phone : normalizeBrazilianPhone(phone);
+
     if (!isLid) {
       const check = await checkNumberExists(baseUrl, device.uazapi_token, sendTo);
       if (!check.exists) {
@@ -816,6 +845,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         }
         continue;
       }
+      // Use the validated phone variant (handles 9th digit)
+      if (check.validPhone) sendTo = check.validPhone;
     }
 
     // 8. Final stop-check before any send attempt
@@ -885,8 +916,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       }
     }
 
-    // 10. Update campaign counters periodically
-    if (heartbeatCounter % 5 === 0) {
+    // 10. Update campaign counters every message for fast UI feedback
+    if (heartbeatCounter % 2 === 0) {
       const stats = await getRealCampaignStats(sb, campaignId);
       await sb.from("campaigns").update({ sent_count: stats.sent, delivered_count: stats.delivered, failed_count: stats.failed, total_contacts: stats.total, updated_at: nowIso() }).eq("id", campaignId);
     }
