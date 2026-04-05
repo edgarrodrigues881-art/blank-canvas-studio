@@ -345,10 +345,16 @@ async function adaptiveSearch(
   const related = nichos.slice(1);
   const { center, radiusKm } = cityGeo;
 
+  // === EFFICIENCY CONTROLS ===
+  const hardCap = maxApiCreditsForTarget(target);
   const done = () => places.length >= target;
-  const budgetExceeded = () => Math.ceil(credits * 2.5) >= creditBudget;
+  const budgetExceeded = () => credits >= hardCap || Math.ceil(credits * 2.5) >= creditBudget;
+  const roiStop = () => isRoiDegraded(places.length, credits);
+  const shouldStop = () => done() || budgetExceeded() || roiStop();
 
-  // === FAST PATH: Small targets (≤20) — 1 API call is enough ===
+  console.log(`[prospeccao] Budget: hardCap=${hardCap} API credits for target=${target} | userBalance=${creditBudget}`);
+
+  // === FAST PATH: Small targets (≤20) — 1 API call ===
   if (target <= 20) {
     const zoomFast = radiusKm < 5 ? 15 : radiusKm < 12 ? 14 : 13;
     const llStr = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomFast}z`;
@@ -377,86 +383,111 @@ async function adaptiveSearch(
   const p1 = await searchAndScore(center, primary, zoomCenter, apiKey, seen, places, target, center, radiusKm, "P1-center", logs);
   credits += p1.credits;
   allScores.push(p1.score);
-  if (done() || budgetExceeded()) return { places, creditsUsed: credits };
+  if (shouldStop()) {
+    console.log(`[prospeccao] Stop after P1: ${places.length} leads, ${credits} cr, ROI=${(places.length/credits).toFixed(1)}`);
+    return { places, creditsUsed: credits };
+  }
 
   // P2: Ring 1
   const ring1 = filterInCity(generateRing(center, ring1Dist, ring1Pts));
   for (const pt of ring1) {
-    if (done() || budgetExceeded()) break;
+    if (shouldStop()) break;
     const r = await searchAndScore(pt, primary, zoomRing1, apiKey, seen, places, target, center, radiusKm, "P2-ring1", logs);
     credits += r.credits;
     allScores.push(r.score);
   }
-  if (done() || budgetExceeded()) return { places, creditsUsed: credits };
+  if (shouldStop()) {
+    console.log(`[prospeccao] Stop after P2: ${places.length} leads, ${credits} cr, ROI=${(places.length/credits).toFixed(1)}`);
+    return { places, creditsUsed: credits };
+  }
 
-  // P3: Bairros
+  // P3: Bairros (max 5 instead of 10)
   if (bairros.length > 0) {
     let coldStreak = 0;
-    for (const bairro of bairros.slice(0, 10)) {
-      if (done() || coldStreak >= 3 || budgetExceeded()) break;
+    for (const bairro of bairros.slice(0, 5)) {
+      if (shouldStop() || coldStreak >= 2) break;
       const added = await query(`${primary} ${bairro} ${cidade}`, "", apiKey, seen, places);
       credits++;
       logs.add("P3-bairro", primary, bairro, added, places.length, 1);
       coldStreak = added < 2 ? coldStreak + 1 : 0;
     }
   }
-  if (done() || budgetExceeded()) return { places, creditsUsed: credits };
-
-  // P4: Ring 2
-  const ring2 = filterInCity(generateRing(center, ring2Dist, ring2Pts));
-  let ring2ColdStreak = 0;
-  for (const pt of ring2) {
-    if (done() || ring2ColdStreak >= 3 || budgetExceeded()) break;
-    const r = await searchAndScore(pt, primary, zoomOuter, apiKey, seen, places, target, center, radiusKm, "P4-ring2", logs);
-    credits += r.credits;
-    allScores.push(r.score);
-    ring2ColdStreak = r.score.tier === "cold" ? ring2ColdStreak + 1 : 0;
-  }
-  if (done() || budgetExceeded()) return { places, creditsUsed: credits };
-
-  // P5: Ring 3 (large cities)
-  if (target > 50 && radiusKm > 6 && ring2ColdStreak < 3) {
-    const ring3 = filterInCity(generateRing(center, ring3Dist, ring3Pts));
-    let ring3ColdStreak = 0;
-    for (const pt of ring3) {
-      if (done() || ring3ColdStreak >= 2 || budgetExceeded()) break;
-      const llStr = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomOuter}z`;
-      const added = await query(primary, llStr, apiKey, seen, places);
-      credits++;
-      logs.add("P5-ring3", primary, llStr, added, places.length, 1);
-      ring3ColdStreak = added < 2 ? ring3ColdStreak + 1 : 0;
-    }
-  }
-  if (done() || budgetExceeded()) return { places, creditsUsed: credits };
-
-  // Scoring summary
-  const hotCount = allScores.filter(s => s.tier === "hot").length;
-  const warmCount = allScores.filter(s => s.tier === "warm").length;
-  const coldCount = allScores.filter(s => s.tier === "cold").length;
-
-  // P6: Term expansion
-  if (progress() >= 0.8 || related.length === 0) {
-    const expanded = expandNicho(primary);
-    if (expanded.length > 0 && !done() && !budgetExceeded()) {
-      for (const term of expanded.slice(0, 2)) {
-        if (done() || budgetExceeded()) break;
-        const llStr = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomCenter}z`;
-        const added = await query(term, llStr, apiKey, seen, places);
-        credits++;
-        logs.add("P6-expand", term, llStr, added, places.length, 1);
-        if (added < 2) continue;
-        for (const pt of ring1.slice(0, 2)) {
-          if (done() || budgetExceeded()) break;
-          const ll2 = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomRing1}z`;
-          const a = await query(term, ll2, apiKey, seen, places);
-          credits++;
-          logs.add("P6-expand-ring", term, ll2, a, places.length, 1);
-          if (a < 2) break;
-        }
-      }
-    }
+  if (shouldStop()) {
+    console.log(`[prospeccao] Stop after P3: ${places.length} leads, ${credits} cr, ROI=${(places.length/credits).toFixed(1)}`);
     return { places, creditsUsed: credits };
   }
+
+  // P4: Ring 2 — only if target > 100
+  if (target > 100) {
+    const ring2 = filterInCity(generateRing(center, ring2Dist, ring2Pts));
+    let ring2ColdStreak = 0;
+    for (const pt of ring2) {
+      if (shouldStop() || ring2ColdStreak >= 2) break;
+      const r = await searchAndScore(pt, primary, zoomOuter, apiKey, seen, places, target, center, radiusKm, "P4-ring2", logs);
+      credits += r.credits;
+      allScores.push(r.score);
+      ring2ColdStreak = r.score.tier === "cold" ? ring2ColdStreak + 1 : 0;
+    }
+    if (shouldStop()) {
+      console.log(`[prospeccao] Stop after P4: ${places.length} leads, ${credits} cr`);
+      return { places, creditsUsed: credits };
+    }
+
+    // P5: Ring 3 — only if target > 500
+    if (target > 500 && radiusKm > 6 && ring2ColdStreak < 2) {
+      const ring3 = filterInCity(generateRing(center, ring3Dist, ring3Pts));
+      let ring3ColdStreak = 0;
+      for (const pt of ring3) {
+        if (shouldStop() || ring3ColdStreak >= 2) break;
+        const llStr = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomOuter}z`;
+        const added = await query(primary, llStr, apiKey, seen, places);
+        credits++;
+        logs.add("P5-ring3", primary, llStr, added, places.length, 1);
+        ring3ColdStreak = added < 2 ? ring3ColdStreak + 1 : 0;
+      }
+      if (shouldStop()) return { places, creditsUsed: credits };
+    }
+  }
+
+  // P6: Term expansion — only if progress < 80% AND budget allows
+  if (progress() < 0.8 && !shouldStop()) {
+    const expanded = expandNicho(primary);
+    for (const term of expanded.slice(0, 2)) {
+      if (shouldStop()) break;
+      const llStr = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomCenter}z`;
+      const added = await query(term, llStr, apiKey, seen, places);
+      credits++;
+      logs.add("P6-expand", term, llStr, added, places.length, 1);
+      if (added < 3) break; // stricter threshold
+    }
+  }
+  if (shouldStop()) return { places, creditsUsed: credits };
+
+  // P7: Related niches — ONLY if progress < 50% (strict control)
+  if (progress() < 0.5 && related.length > 0 && !shouldStop()) {
+    const expanded = expandNicho(primary);
+    const allRelated = [...related, ...expanded];
+    const seenTerms = new Set([primary.toLowerCase()]);
+    const uniqueRelated = allRelated.filter(t => {
+      const low = t.toLowerCase();
+      if (seenTerms.has(low)) return false;
+      seenTerms.add(low);
+      return true;
+    });
+
+    for (const relNicho of uniqueRelated.slice(0, 2)) {
+      if (shouldStop()) break;
+      const llStr = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomCenter}z`;
+      const added = await query(relNicho, llStr, apiKey, seen, places);
+      credits++;
+      logs.add("P7-related", relNicho, llStr, added, places.length, 1);
+      if (added < 3) break;
+    }
+  }
+
+  console.log(`[prospeccao] Final: ${places.length} leads, ${credits} API cr (cap was ${hardCap}), ROI=${(places.length/Math.max(credits,1)).toFixed(1)}`);
+  return { places, creditsUsed: credits };
+}
 
   // P7: Related niches at best points
   const expanded = expandNicho(primary);
