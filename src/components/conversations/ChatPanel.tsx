@@ -179,7 +179,11 @@ export function ChatPanel({
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + "px";
     }
   }, [input]);
-  useEffect(() => { setShowQuickReplies(input === "/"); }, [input]);
+  const quickReplySearch = input.startsWith("/") ? input.slice(1).toLowerCase() : null;
+  const filteredQuickReplies = quickReplySearch !== null
+    ? quickReplies.filter((qr) => qr.label.toLowerCase().includes(quickReplySearch) || qr.text.toLowerCase().includes(quickReplySearch))
+    : [];
+  useEffect(() => { setShowQuickReplies(input.startsWith("/") && filteredQuickReplies.length > 0); }, [input, filteredQuickReplies.length]);
 
   // Cleanup preview URL
   useEffect(() => {
@@ -539,10 +543,10 @@ export function ChatPanel({
             <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
             <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Respostas Rápidas</span>
           </div>
-          <div className="px-2 pb-2 space-y-0.5">
-            {quickReplies.map((qr) => (
+          <div className="px-2 pb-2 space-y-0.5 max-h-[200px] overflow-y-auto">
+            {filteredQuickReplies.map((qr) => (
               <button key={qr.id} onClick={() => handleQuickReply(qr.text)} className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-muted/50 transition-colors flex flex-col gap-0.5">
-                <span className="text-xs font-semibold text-foreground">{qr.label}</span>
+                <span className="text-xs font-semibold text-foreground">/{qr.label}</span>
                 <span className="text-[11px] text-muted-foreground truncate">{qr.text}</span>
               </button>
             ))}
