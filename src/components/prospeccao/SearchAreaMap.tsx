@@ -66,14 +66,13 @@ export default function SearchAreaMap({ cidade, estado, onAreaChange, initialRad
     const icon = L.divIcon({
       className: "",
       html: `<div style="
-        width:36px;height:36px;border-radius:50%;
-        background:hsl(142,71%,45%);border:3px solid rgba(255,255,255,0.9);
-        box-shadow:0 0 12px rgba(74,222,128,0.5),0 2px 8px rgba(0,0,0,0.4);
-        display:flex;align-items:center;justify-content:center;
+        width:18px;height:18px;border-radius:50%;
+        background:hsl(142,71%,45%);border:2px solid white;
+        box-shadow:0 0 6px rgba(74,222,128,0.5);
         cursor:grab;
-      "><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg></div>`,
-      iconSize: [36, 36],
-      iconAnchor: [18, 18],
+      "></div>`,
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
     });
 
     const marker = L.marker([center.lat, center.lng], { draggable: true, icon }).addTo(map);
