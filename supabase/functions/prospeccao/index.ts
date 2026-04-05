@@ -306,7 +306,7 @@ async function searchAndScore(
 async function adaptiveSearch(
   nichos: string[], cityGeo: CityGeo, target: number,
   cidade: string, estado: string, bairros: string[], apiKey: string,
-  logs: LogCollector
+  logs: LogCollector, creditBudget: number = Infinity
 ): Promise<{ places: any[]; creditsUsed: number }> {
   const seen = new Set<string>();
   const places: any[] = [];
@@ -326,6 +326,7 @@ async function adaptiveSearch(
   const zoomOuter = radiusKm < 12 ? 13 : 12;
 
   const done = () => places.length >= target;
+  const budgetExceeded = () => Math.ceil(credits * 2.5) >= creditBudget;
   const progress = () => places.length / target;
   const filterInCity = (pts: GeoPoint[]) => pts.filter(p => isWithinCity(p, center, radiusKm * 1.1));
   const allScores: PointScore[] = [];
@@ -334,7 +335,7 @@ async function adaptiveSearch(
   const p1 = await searchAndScore(center, primary, zoomCenter, apiKey, seen, places, target, center, radiusKm, "P1-center", logs);
   credits += p1.credits;
   allScores.push(p1.score);
-  if (done()) return { places, creditsUsed: credits };
+  if (done() || budgetExceeded()) return { places, creditsUsed: credits };
 
   // P2: Ring 1
   const ring1 = filterInCity(generateRing(center, ring1Dist, ring1Pts));
@@ -344,7 +345,7 @@ async function adaptiveSearch(
     credits += r.credits;
     allScores.push(r.score);
   }
-  if (done()) return { places, creditsUsed: credits };
+  if (done() || budgetExceeded()) return { places, creditsUsed: credits };
 
   // P3: Bairros
   if (bairros.length > 0) {
@@ -357,7 +358,7 @@ async function adaptiveSearch(
       coldStreak = added < 2 ? coldStreak + 1 : 0;
     }
   }
-  if (done()) return { places, creditsUsed: credits };
+  if (done() || budgetExceeded()) return { places, creditsUsed: credits };
 
   // P4: Ring 2
   const ring2 = filterInCity(generateRing(center, ring2Dist, ring2Pts));
@@ -369,7 +370,7 @@ async function adaptiveSearch(
     allScores.push(r.score);
     ring2ColdStreak = r.score.tier === "cold" ? ring2ColdStreak + 1 : 0;
   }
-  if (done()) return { places, creditsUsed: credits };
+  if (done() || budgetExceeded()) return { places, creditsUsed: credits };
 
   // P5: Ring 3 (large cities)
   if (target > 50 && radiusKm > 6 && ring2ColdStreak < 3) {
@@ -384,7 +385,7 @@ async function adaptiveSearch(
       ring3ColdStreak = added < 2 ? ring3ColdStreak + 1 : 0;
     }
   }
-  if (done()) return { places, creditsUsed: credits };
+  if (done() || budgetExceeded()) return { places, creditsUsed: credits };
 
   // Scoring summary
   const hotCount = allScores.filter(s => s.tier === "hot").length;
@@ -538,9 +539,11 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const currentBalance = creditRow?.balance ?? 0;
-    if (currentBalance <= 0) {
+    // Estimate minimum cost: at least 1 API call × 2.5 multiplier = 3 credits
+    const estimatedMinCost = Math.ceil(1 * 2.5);
+    if (currentBalance < estimatedMinCost) {
       return new Response(
-        JSON.stringify({ error: "Créditos insuficientes para realizar a prospecção", balance: 0 }),
+        JSON.stringify({ error: "Créditos insuficientes para realizar a prospecção", balance: currentBalance, required: estimatedMinCost }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -605,7 +608,7 @@ Deno.serve(async (req) => {
     let searchResult: { places: any[]; creditsUsed: number };
 
     if (cityGeo) {
-      searchResult = await adaptiveSearch(allNichos, cityGeo, requestedTotal, cidadeTrimmed, estadoTrimmed, bairros, SERPER_API_KEY, logs);
+      searchResult = await adaptiveSearch(allNichos, cityGeo, requestedTotal, cidadeTrimmed, estadoTrimmed, bairros, SERPER_API_KEY, logs, currentBalance);
     } else {
       const seen = new Set<string>();
       const places: any[] = [];
@@ -635,9 +638,9 @@ Deno.serve(async (req) => {
     const ratio = (results.length / Math.max(searchResult.creditsUsed, 1)).toFixed(1);
     console.log(`[prospeccao] DONE: ${results.length} leads | ${searchResult.creditsUsed} cr | ${ratio} l/cr | ${executionMs}ms`);
 
-    // --- DEBIT CREDITS (1.5x multiplier, ceil) ---
+    // --- DEBIT CREDITS (2.5x multiplier, ceil) ---
     const rawCost = searchResult.creditsUsed;
-    const finalCost = Math.ceil(rawCost * 1.5);
+    const finalCost = Math.ceil(rawCost * 2.5);
     let newBalance = currentBalance;
 
     if (finalCost > 0) {
