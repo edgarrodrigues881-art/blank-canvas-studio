@@ -130,7 +130,17 @@ Deno.serve(async (req) => {
       await admin.from("conversations").update({ unread_count: (cur?.unread_count || 0) + 1 }).eq("id", conversationId);
     }
 
-    const { error: msgErr } = await admin.from("conversation_messages").upsert({
+    // Check for duplicate before inserting
+    if (waId) {
+      const { data: existing } = await admin.from("conversation_messages")
+        .select("id").eq("whatsapp_message_id", waId).maybeSingle();
+      if (existing) {
+        console.log(`Duplicate message skipped: ${waId}`);
+        return json({ ok: true, skipped: "duplicate" });
+      }
+    }
+
+    const { error: msgErr } = await admin.from("conversation_messages").insert({
       conversation_id: conversationId,
       user_id: device.user_id,
       remote_jid: remoteJid,
@@ -142,7 +152,7 @@ Deno.serve(async (req) => {
       audio_duration: audioDuration,
       whatsapp_message_id: waId,
       created_at: timestamp,
-    }, { onConflict: "whatsapp_message_id", ignoreDuplicates: true });
+    });
 
     if (msgErr) console.error("Message upsert error:", msgErr);
 
