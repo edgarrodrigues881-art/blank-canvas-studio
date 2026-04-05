@@ -3,7 +3,6 @@ import { ConversationList } from "@/components/conversations/ConversationList";
 import { ChatPanel } from "@/components/conversations/ChatPanel";
 import { ContactDetails } from "@/components/conversations/ContactDetails";
 import { type Conversation, type AttendingStatus, mockConversations, mockMessages } from "@/components/conversations/types";
-import { MessageSquare } from "lucide-react";
 
 const Conversations = () => {
   const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
@@ -22,14 +21,12 @@ const Conversations = () => {
     ? mockMessages[selectedConversation.id] || []
     : [];
 
-  // Update attending status globally so list + details stay in sync
   const handleStatusChange = useCallback((conversationId: string, newStatus: AttendingStatus) => {
     setConversations((prev) =>
       prev.map((c) => c.id === conversationId ? { ...c, attendingStatus: newStatus } : c)
     );
   }, []);
 
-  // Update tags globally
   const handleTagsChange = useCallback((conversationId: string, newTags: string[]) => {
     setConversations((prev) =>
       prev.map((c) => c.id === conversationId ? { ...c, tags: newTags } : c)
@@ -43,8 +40,8 @@ const Conversations = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.14)-theme(spacing.5)*2)] sm:h-[calc(100vh-theme(spacing.14)-theme(spacing.10))] -m-2.5 sm:-m-5 md:-m-8">
       <div className="flex flex-1 min-h-0 overflow-hidden bg-background">
-        {/* Left Column — Conversation List */}
-        <div className={`${selectedConversation ? "hidden md:flex" : "flex"} flex-col w-full md:w-[340px] lg:w-[360px] border-r border-border shrink-0`}>
+        {/* Left Column — full width when nothing selected, sidebar when selected */}
+        <div className={`${selectedConversation ? "hidden md:flex flex-col w-full md:w-[340px] lg:w-[360px] border-r border-border shrink-0" : "flex flex-col w-full"}`}>
           <ConversationList
             conversations={filteredConversations}
             selectedId={selectedId}
@@ -54,9 +51,9 @@ const Conversations = () => {
           />
         </div>
 
-        {/* Center Column — Chat */}
-        <div className={`${selectedConversation ? "flex" : "hidden md:flex"} flex-col flex-1 min-w-0`}>
-          {selectedConversation ? (
+        {/* Center Column — Chat (only when conversation selected) */}
+        {selectedConversation && (
+          <div className="flex flex-col flex-1 min-w-0">
             <ChatPanel
               conversation={selectedConversation}
               messages={messages}
@@ -65,7 +62,7 @@ const Conversations = () => {
               onBack={() => setSelectedId(null)}
               onStatusChange={handleStatusChange}
             />
-        </div>
+          </div>
         )}
 
         {/* Right Column — Contact Details */}
