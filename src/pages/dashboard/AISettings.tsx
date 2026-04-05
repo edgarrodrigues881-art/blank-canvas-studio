@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   Bot,
@@ -27,7 +28,19 @@ import {
   EyeOff,
   Loader2,
   Send,
+  FileText,
+  File,
+  Power,
 } from "lucide-react";
+
+interface KnowledgeDoc {
+  id: string;
+  title: string;
+  type: string;
+  fileName: string;
+  active: boolean;
+  addedAt: string;
+}
 
 const AISettings = () => {
   const [iaActive, setIaActive] = useState(false);
