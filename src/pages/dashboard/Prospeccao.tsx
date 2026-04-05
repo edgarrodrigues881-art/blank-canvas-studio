@@ -202,7 +202,6 @@ export default function Prospeccao() {
     toast.success("CSV exportado!");
   };
 
-  const [savingContacts, setSavingContacts] = useState(false);
 
   const saveToContacts = async (data?: any[]) => {
     const rows = data || results;
