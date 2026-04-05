@@ -304,15 +304,42 @@ async function sendWithRetry(
   return { success: false, attempts: MAX_RETRIES + 1, error: lastError };
 }
 
-async function checkNumberExists(baseUrl: string, token: string, phone: string): Promise<{ exists: boolean; error?: string }> {
-  try {
-    const result = await uazapiRequest(baseUrl, token, "/check/exist", { number: phone });
-    if (result?.exists === false || result?.numberExists === false || result?.status === "not_exists") return { exists: false, error: "Número inválido" };
-    return { exists: true };
-  } catch (err: any) {
-    if (isDisconnectError(err.message || "")) return { exists: false, error: "WhatsApp desconectado" };
-    return { exists: true }; // Assume exists on error
+function generateBrazilianVariations(phone: string): string[] {
+  const raw = phone.replace(/\D/g, "");
+  const digits = raw.startsWith("55") ? raw.slice(2) : raw;
+  const ddd = digits.slice(0, 2);
+  const rest = digits.slice(2);
+
+  const variations: string[] = [`55${ddd}${rest}`];
+
+  // If has 9 digits after DDD (mobile with 9th digit), try without
+  if (rest.length === 9 && rest.startsWith("9")) {
+    variations.push(`55${ddd}${rest.slice(1)}`);
   }
+  // If has 8 digits after DDD (landline or mobile without 9th digit), try with 9
+  if (rest.length === 8 && !rest.startsWith("9")) {
+    variations.push(`55${ddd}9${rest}`);
+  }
+
+  return [...new Set(variations)];
+}
+
+async function checkNumberExists(baseUrl: string, token: string, phone: string): Promise<{ exists: boolean; validPhone?: string; error?: string }> {
+  const variations = generateBrazilianVariations(phone);
+
+  for (const variant of variations) {
+    try {
+      const result = await uazapiRequest(baseUrl, token, "/check/exist", { number: variant });
+      if (result?.exists === false || result?.numberExists === false || result?.status === "not_exists") continue;
+      return { exists: true, validPhone: variant };
+    } catch (err: any) {
+      if (isDisconnectError(err.message || "")) return { exists: false, error: "WhatsApp desconectado" };
+      // On timeout/network error, assume exists with original number
+      return { exists: true, validPhone: variant };
+    }
+  }
+
+  return { exists: false, error: "Número não encontrado no WhatsApp" };
 }
 
 // ── Variable replacement ──
