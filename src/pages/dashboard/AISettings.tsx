@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   Bot,
@@ -27,7 +28,19 @@ import {
   EyeOff,
   Loader2,
   Send,
+  FileText,
+  File,
+  Power,
 } from "lucide-react";
+
+interface KnowledgeDoc {
+  id: string;
+  title: string;
+  type: string;
+  fileName: string;
+  active: boolean;
+  addedAt: string;
+}
 
 const AISettings = () => {
   const [iaActive, setIaActive] = useState(false);
@@ -46,11 +59,12 @@ const AISettings = () => {
   const [maxResponseLength, setMaxResponseLength] = useState("medium");
   const [blockSensitive, setBlockSensitive] = useState(true);
   const [requireHumanForSale, setRequireHumanForSale] = useState(true);
-  const [knowledgeItems, setKnowledgeItems] = useState<string[]>([
-    "Tabela de preços atualizada",
-    "FAQ - Perguntas frequentes",
-  ]);
-  const [newKnowledgeItem, setNewKnowledgeItem] = useState("");
+  const [knowledgeDocs, setKnowledgeDocs] = useState<KnowledgeDoc[]>([]);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [newDocTitle, setNewDocTitle] = useState("");
+  const [newDocType, setNewDocType] = useState("pdf");
+  const [newDocFile, setNewDocFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const apiKeyStatus: "empty" | "valid" | "invalid" = !apiKey
     ? "empty"
@@ -69,15 +83,34 @@ const AISettings = () => {
     toast.success("IA respondeu com sucesso! Conexão funcionando.");
   };
 
-  const addKnowledgeItem = () => {
-    if (newKnowledgeItem.trim()) {
-      setKnowledgeItems((prev) => [...prev, newKnowledgeItem.trim()]);
-      setNewKnowledgeItem("");
+  const handleAddDoc = () => {
+    if (!newDocTitle.trim() || !newDocFile) {
+      toast.error("Preencha o título e selecione um arquivo");
+      return;
     }
+    const doc: KnowledgeDoc = {
+      id: crypto.randomUUID(),
+      title: newDocTitle.trim(),
+      type: newDocType,
+      fileName: newDocFile.name,
+      active: true,
+      addedAt: new Date().toLocaleDateString("pt-BR"),
+    };
+    setKnowledgeDocs((prev) => [...prev, doc]);
+    setNewDocTitle("");
+    setNewDocType("pdf");
+    setNewDocFile(null);
+    setUploadModalOpen(false);
+    toast.success("Documento adicionado com sucesso!");
   };
 
-  const removeKnowledgeItem = (index: number) => {
-    setKnowledgeItems((prev) => prev.filter((_, i) => i !== index));
+  const toggleDocActive = (id: string) => {
+    setKnowledgeDocs((prev) => prev.map((d) => d.id === id ? { ...d, active: !d.active } : d));
+  };
+
+  const removeDoc = (id: string) => {
+    setKnowledgeDocs((prev) => prev.filter((d) => d.id !== id));
+    toast.success("Documento removido");
   };
 
   return (
@@ -280,39 +313,101 @@ const AISettings = () => {
       {/* Base de Conhecimento */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-primary" />
-            <CardTitle className="text-base">Base de Conhecimento</CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-primary" />
+              <CardTitle className="text-base">Base de Conhecimento</CardTitle>
+            </div>
+            <Button size="sm" variant="outline" className="gap-2" onClick={() => setUploadModalOpen(true)}>
+              <Plus className="h-4 w-4" /> Adicionar documento
+            </Button>
           </div>
-          <CardDescription>Documentos e informações que a IA pode consultar</CardDescription>
+          <CardDescription>Documentos que a IA pode consultar para responder (PDF, TXT, DOCX)</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Input
-              value={newKnowledgeItem}
-              onChange={(e) => setNewKnowledgeItem(e.target.value)}
-              placeholder="Nome do documento ou informação..."
-              onKeyDown={(e) => e.key === "Enter" && addKnowledgeItem()}
-            />
-            <Button variant="outline" size="icon" onClick={addKnowledgeItem}>
-              <Plus className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="icon">
-              <Upload className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="space-y-2">
-            {knowledgeItems.map((item, i) => (
-              <div key={i} className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
-                <span className="text-sm text-foreground">{item}</span>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeKnowledgeItem(i)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
-          </div>
+        <CardContent>
+          {knowledgeDocs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <File className="h-10 w-10 text-muted-foreground/40 mb-3" />
+              <p className="text-sm text-muted-foreground">Nenhum documento adicionado ainda</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Adicione PDFs, TXTs ou DOCXs para a IA usar como referência</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {knowledgeDocs.map((doc) => (
+                <div key={doc.id} className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <FileText className="h-4 w-4 text-primary shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{doc.title}</p>
+                      <p className="text-xs text-muted-foreground">{doc.fileName} · {doc.type.toUpperCase()} · {doc.addedAt}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`h-7 w-7 ${doc.active ? "text-emerald-400" : "text-muted-foreground/40"}`}
+                      onClick={() => toggleDocActive(doc.id)}
+                      title={doc.active ? "Ativo" : "Inativo"}
+                    >
+                      <Power className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeDoc(doc.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Modal de Upload */}
+      <Dialog open={uploadModalOpen} onOpenChange={setUploadModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Adicionar Documento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Título do documento</Label>
+              <Input value={newDocTitle} onChange={(e) => setNewDocTitle(e.target.value)} placeholder="Ex: Tabela de preços 2025" />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de documento</Label>
+              <Select value={newDocType} onValueChange={setNewDocType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                  <SelectItem value="txt">TXT</SelectItem>
+                  <SelectItem value="docx">DOCX</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Arquivo</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.txt,.docx"
+                className="hidden"
+                onChange={(e) => setNewDocFile(e.target.files?.[0] || null)}
+              />
+              <Button variant="outline" className="w-full gap-2 justify-center" onClick={() => fileInputRef.current?.click()}>
+                <Upload className="h-4 w-4" />
+                {newDocFile ? newDocFile.name : "Selecionar arquivo"}
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setUploadModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddDoc}>Adicionar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modo de Atendimento */}
       <Card>
