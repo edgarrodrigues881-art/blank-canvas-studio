@@ -69,6 +69,15 @@ export default function Prospeccao() {
   const [fromCache, setFromCache] = useState(false);
   const [cachedAt, setCachedAt] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("busca");
+  const [searchLat, setSearchLat] = useState<number | null>(null);
+  const [searchLng, setSearchLng] = useState<number | null>(null);
+  const [searchRadius, setSearchRadius] = useState(12);
+
+  const handleAreaChange = useCallback((lat: number, lng: number, radiusKm: number) => {
+    setSearchLat(lat);
+    setSearchLng(lng);
+    setSearchRadius(radiusKm);
+  }, []);
 
   // Campaign history
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
