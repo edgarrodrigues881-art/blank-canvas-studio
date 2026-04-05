@@ -83,15 +83,34 @@ const AISettings = () => {
     toast.success("IA respondeu com sucesso! Conexão funcionando.");
   };
 
-  const addKnowledgeItem = () => {
-    if (newKnowledgeItem.trim()) {
-      setKnowledgeItems((prev) => [...prev, newKnowledgeItem.trim()]);
-      setNewKnowledgeItem("");
+  const handleAddDoc = () => {
+    if (!newDocTitle.trim() || !newDocFile) {
+      toast.error("Preencha o título e selecione um arquivo");
+      return;
     }
+    const doc: KnowledgeDoc = {
+      id: crypto.randomUUID(),
+      title: newDocTitle.trim(),
+      type: newDocType,
+      fileName: newDocFile.name,
+      active: true,
+      addedAt: new Date().toLocaleDateString("pt-BR"),
+    };
+    setKnowledgeDocs((prev) => [...prev, doc]);
+    setNewDocTitle("");
+    setNewDocType("pdf");
+    setNewDocFile(null);
+    setUploadModalOpen(false);
+    toast.success("Documento adicionado com sucesso!");
   };
 
-  const removeKnowledgeItem = (index: number) => {
-    setKnowledgeItems((prev) => prev.filter((_, i) => i !== index));
+  const toggleDocActive = (id: string) => {
+    setKnowledgeDocs((prev) => prev.map((d) => d.id === id ? { ...d, active: !d.active } : d));
+  };
+
+  const removeDoc = (id: string) => {
+    setKnowledgeDocs((prev) => prev.filter((d) => d.id !== id));
+    toast.success("Documento removido");
   };
 
   return (
