@@ -499,7 +499,7 @@ const Devices = () => {
         Authorization: `Bearer ${accessToken}`,
         apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
       },
-      body: "{}",
+      body: JSON.stringify({ trigger: "manual" }),
     });
 
     const raw = await response.text();
