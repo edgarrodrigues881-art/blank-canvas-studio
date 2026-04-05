@@ -395,9 +395,9 @@ async function adaptiveSearch(
   // P6: Term expansion
   if (progress() >= 0.8 || related.length === 0) {
     const expanded = expandNicho(primary);
-    if (expanded.length > 0 && !done()) {
+    if (expanded.length > 0 && !done() && !budgetExceeded()) {
       for (const term of expanded.slice(0, 2)) {
-        if (done()) break;
+        if (done() || budgetExceeded()) break;
         const llStr = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomCenter}z`;
         const added = await query(term, llStr, apiKey, seen, places);
         credits++;
