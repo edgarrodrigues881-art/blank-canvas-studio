@@ -112,8 +112,9 @@ export default function Prospeccao() {
     setSearched(true);
 
     try {
+      const relacionados = nichosRelacionados.split(",").map(n => n.trim()).filter(Boolean);
       const { data, error } = await supabase.functions.invoke("prospeccao", {
-        body: { nicho: nicho.trim(), estado, cidade: cidade.trim(), maxResults: Number(maxResults), forceRefresh },
+        body: { nicho: nicho.trim(), nichosRelacionados: relacionados, estado, cidade: cidade.trim(), maxResults: Number(maxResults), forceRefresh },
       });
 
       if (error) throw error;
