@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -362,12 +362,12 @@ export function useConversations() {
     }
   }, [user, fetchConversations]);
 
-  // Real-time subscription
+  // Real-time subscription — conversations table (any change)
   useEffect(() => {
     if (!user) return;
 
     const channel = supabase
-      .channel("conversations-realtime")
+      .channel("conv-list-rt")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
@@ -375,12 +375,27 @@ export function useConversations() {
           fetchConversations();
         }
       )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user, fetchConversations]);
+
+  // Real-time subscription — messages (INSERT + UPDATE for status changes)
+  // Uses a ref to avoid recreating the channel on every conversation switch
+  const selectedConvIdRef = useRef(selectedConvId);
+  useEffect(() => { selectedConvIdRef.current = selectedConvId; }, [selectedConvId]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel("conv-msgs-rt")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "conversation_messages", filter: `user_id=eq.${user.id}` },
         (payload) => {
           const newMsg = payload.new as RealMessage;
-          if (newMsg.conversation_id === selectedConvId) {
+          if (newMsg.conversation_id === selectedConvIdRef.current) {
             setMessages((prev) => {
               if (prev.some((m) => m.id === newMsg.id)) return prev;
               return [...prev, newMsg];
@@ -388,12 +403,22 @@ export function useConversations() {
           }
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "conversation_messages", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const updated = payload.new as RealMessage;
+          if (updated.conversation_id === selectedConvIdRef.current) {
+            setMessages((prev) =>
+              prev.map((m) => (m.id === updated.id ? { ...m, status: updated.status } : m))
+            );
+          }
+        }
+      )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, selectedConvId, fetchConversations]);
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
 
   const selectedConversation = selectedConvId
     ? conversations.find((c) => c.id === selectedConvId) || null
