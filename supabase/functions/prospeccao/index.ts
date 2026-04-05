@@ -644,12 +644,23 @@ Deno.serve(async (req) => {
     const ratio = (results.length / Math.max(searchResult.creditsUsed, 1)).toFixed(1);
     console.log(`[prospeccao] DONE: ${results.length} leads | ${searchResult.creditsUsed} cr | ${ratio} l/cr | ${executionMs}ms`);
 
-    // --- DEBIT CREDITS (2.5x multiplier, ceil) ---
+    // --- DEBIT CREDITS or FREE PULL ---
     const rawCost = searchResult.creditsUsed;
-    const finalCost = Math.ceil(rawCost * 2.5);
+    const finalCost = isFreePull ? 0 : Math.ceil(rawCost * 2.5);
     let newBalance = currentBalance;
+    let freePullsAfter = freePulls;
 
-    if (finalCost > 0) {
+    if (isFreePull) {
+      // Consume a free pull instead of credits
+      const debitAdmin = createClient(supabaseUrl, serviceRoleKey);
+      const { data: pullResult } = await debitAdmin.rpc("use_free_pull", { p_user_id: user.id });
+      if (pullResult?.success) {
+        freePullsAfter = pullResult.remaining;
+      } else {
+        console.warn(`[prospeccao] Free pull failed: ${pullResult?.error}`);
+      }
+      console.log(`[prospeccao] FREE PULL used: ${results.length} leads | Remaining: ${freePullsAfter}`);
+    } else if (finalCost > 0) {
       const debitAdmin = createClient(supabaseUrl, serviceRoleKey);
       const { data: debitResult } = await debitAdmin.rpc("debit_prospeccao_credits", {
         p_user_id: user.id,
