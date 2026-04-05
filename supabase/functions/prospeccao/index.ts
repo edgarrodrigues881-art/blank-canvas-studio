@@ -190,12 +190,48 @@ async function query(
   } catch { return 0; }
 }
 
+// ========== HOT POINT SCORING ==========
+
+interface PointScore {
+  pt: GeoPoint;
+  totalLeads: number;
+  newLeads: number;
+  queries: number;
+  duplicates: number;
+  score: number;
+  tier: "hot" | "warm" | "cold";
+}
+
+function calcScore(s: Pick<PointScore, "totalLeads" | "newLeads" | "queries" | "duplicates">): number {
+  // Density: new leads per query (max contribution ~40)
+  const density = s.queries > 0 ? (s.newLeads / s.queries) : 0;
+  // Freshness: ratio of new vs total found (max contribution ~30)
+  const freshness = s.totalLeads > 0 ? (s.newLeads / s.totalLeads) : 0;
+  // Volume bonus (max contribution ~20)
+  const volume = Math.min(s.newLeads / 5, 4);
+  // ROI penalty: if many queries but few new leads
+  const roiPenalty = s.queries > 2 && density < 1 ? -10 : 0;
+
+  return Math.round((density * 4) + (freshness * 30) + (volume * 5) + roiPenalty);
+}
+
+function classifyPoint(score: number): "hot" | "warm" | "cold" {
+  if (score >= 30) return "hot";
+  if (score >= 12) return "warm";
+  return "cold";
+}
+
+function budgetForTier(tier: "hot" | "warm" | "cold"): number {
+  if (tier === "hot") return 6;
+  if (tier === "warm") return 2;
+  return 0;
+}
+
 // ========== ADAPTIVE SEARCH ==========
 
 /**
- * Deep drill into a hot point: zoom variations + term variations + micro-grid.
- * Max budget per point to prevent runaway costs.
- * Returns total new leads added.
+ * Deep drill into a hot point: zoom variations + micro-grid.
+ * Budget is now controlled by the scoring system.
  */
 async function deepDrill(
   pt: GeoPoint, primary: string, apiKey: string,
@@ -206,10 +242,10 @@ async function deepDrill(
   let totalAdded = 0;
   let spent = 0;
   const done = () => places.length >= target;
-  const saturated = (a: number) => a < 2; // less than 2 new = saturated
+  const saturated = (a: number) => a < 2;
   const ll = (p: GeoPoint, z: number) => `@${p.lat.toFixed(6)},${p.lng.toFixed(6)},${z}z`;
 
-  // Strategy 1: Zoom in tighter (15z, 16z) — reveals smaller businesses
+  // Strategy 1: Zoom in tighter (15z, 16z)
   for (const zoom of [15, 16]) {
     if (done() || spent >= maxCredits) break;
     const added = await query(primary, ll(pt, zoom), apiKey, seen, places);
@@ -218,7 +254,7 @@ async function deepDrill(
     if (saturated(added)) break;
   }
 
-  // Strategy 2: Micro-grid — 4 points at 0.8km around the hot point
+  // Strategy 2: Micro-grid — 4 points at 0.8km
   if (!done() && spent < maxCredits) {
     const microPts = generateRing(pt, 0.8, 4).filter(p => isWithinCity(p, center, radiusKm * 1.1));
     for (const mp of microPts) {
@@ -226,11 +262,59 @@ async function deepDrill(
       const added = await query(primary, ll(mp, 15), apiKey, seen, places);
       spent++;
       totalAdded += added;
-      if (saturated(added)) break; // micro area exhausted
+      if (saturated(added)) break;
     }
   }
 
   return { added: totalAdded, spent };
+}
+
+/**
+ * Search a point, score it, and decide if deep drill is worth it.
+ */
+async function searchAndScore(
+  pt: GeoPoint, primary: string, zoom: number, apiKey: string,
+  seen: Set<string>, places: any[], target: number,
+  center: GeoPoint, radiusKm: number, phase: string
+): Promise<{ score: PointScore; credits: number }> {
+  const beforeLen = places.length;
+  const beforeSeen = seen.size;
+
+  const added = await query(primary, `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoom}z`, apiKey, seen, places);
+  let credits = 1;
+
+  const totalFound = added + (seen.size - beforeSeen - added); // includes dupes detected
+  const duplicates = Math.max(0, totalFound - added);
+
+  const ps: PointScore = {
+    pt,
+    totalLeads: totalFound || added,
+    newLeads: added,
+    queries: 1,
+    duplicates,
+    score: 0,
+    tier: "cold",
+  };
+  ps.score = calcScore(ps);
+  ps.tier = classifyPoint(ps.score);
+
+  console.log(`[prospeccao] ${phase} → +${added} | score=${ps.score} tier=${ps.tier} [${credits}cr]`);
+
+  // Adaptive deep drill based on tier
+  const drillBudget = budgetForTier(ps.tier);
+  if (drillBudget > 0 && places.length < target) {
+    const drill = await deepDrill(pt, primary, apiKey, seen, places, target, center, radiusKm, drillBudget);
+    credits += drill.spent;
+    ps.newLeads += drill.added;
+    ps.queries += drill.spent;
+    ps.score = calcScore(ps); // recalculate after drill
+    ps.tier = classifyPoint(ps.score);
+    if (drill.added > 0) {
+      console.log(`[prospeccao] ${phase} drill → +${drill.added} | score=${ps.score} tier=${ps.tier} [${drill.spent}cr]`);
+    }
+  }
+
+  return { score: ps, credits };
 }
 
 async function adaptiveSearch(
@@ -248,7 +332,6 @@ async function adaptiveSearch(
   const primary = nichos[0];
   const related = nichos.slice(1);
   const { center, radiusKm } = cityGeo;
-  const HOT = 10;
 
   // Dynamic ring config
   const ring1Dist = Math.min(radiusKm * 0.3, 5);
@@ -265,49 +348,33 @@ async function adaptiveSearch(
 
   const done = () => places.length >= target;
   const progress = () => places.length / target;
-  const log = (phase: string, added: number) =>
-    console.log(`[prospeccao] ${phase} → +${added} (${places.length}/${target}) [${credits}cr]`);
   const filterInCity = (pts: GeoPoint[]) => pts.filter(p => isWithinCity(p, center, radiusKm * 1.1));
-  const ll = (pt: GeoPoint, z: number) => `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${z}z`;
+
+  // Track all scored points for analytics
+  const allScores: PointScore[] = [];
 
   // ====================================================================
-  // P1: Center (1 credit)
+  // P1: Center — scored
   // ====================================================================
-  const p1Added = await query(primary, ll(center, zoomCenter), apiKey, seen, places);
-  credits++;
-  log(`P1 center "${primary}"`, p1Added);
-
-  // Deep drill center if it's hot
-  if (!done() && p1Added >= HOT) {
-    const drill = await deepDrill(center, primary, apiKey, seen, places, target, center, radiusKm, 4);
-    credits += drill.spent;
-    log(`P1 deep-drill center`, drill.added);
-  }
+  const p1 = await searchAndScore(center, primary, zoomCenter, apiKey, seen, places, target, center, radiusKm, "P1 center");
+  credits += p1.credits;
+  allScores.push(p1.score);
   if (done()) return { places, creditsUsed: credits };
 
   // ====================================================================
-  // P2: Ring 1 + immediate deep drill on hot points
+  // P2: Ring 1 — each point scored individually
   // ====================================================================
   const ring1 = filterInCity(generateRing(center, ring1Dist, ring1Pts));
-  const hotPts: GeoPoint[] = [];
   for (const pt of ring1) {
     if (done()) break;
-    const added = await query(primary, ll(pt, zoomRing1), apiKey, seen, places);
-    credits++;
-    log("P2 ring1", added);
-
-    // Immediately deep drill if hot — extract maximum before moving on
-    if (added >= HOT && !done()) {
-      hotPts.push(pt);
-      const drill = await deepDrill(pt, primary, apiKey, seen, places, target, center, radiusKm, 4);
-      credits += drill.spent;
-      log(`P2 deep-drill`, drill.added);
-    }
+    const r = await searchAndScore(pt, primary, zoomRing1, apiKey, seen, places, target, center, radiusKm, "P2 ring1");
+    credits += r.credits;
+    allScores.push(r.score);
   }
   if (done()) return { places, creditsUsed: credits };
 
   // ====================================================================
-  // P3: Bairros (text-based)
+  // P3: Bairros (text-based, no geo scoring)
   // ====================================================================
   if (bairros.length > 0) {
     let coldStreak = 0;
@@ -315,66 +382,68 @@ async function adaptiveSearch(
       if (done() || coldStreak >= 3) break;
       const added = await query(`${primary} ${bairro} ${cidade}`, "", apiKey, seen, places);
       credits++;
-      log(`P3 bairro "${bairro}"`, added);
+      console.log(`[prospeccao] P3 bairro "${bairro}" → +${added} (${places.length}/${target}) [${credits}cr]`);
       coldStreak = added < 2 ? coldStreak + 1 : 0;
     }
   }
   if (done()) return { places, creditsUsed: credits };
 
   // ====================================================================
-  // P4: Ring 2
+  // P4: Ring 2 — scored
   // ====================================================================
   const ring2 = filterInCity(generateRing(center, ring2Dist, ring2Pts));
+  let ring2ColdStreak = 0;
   for (const pt of ring2) {
-    if (done()) break;
-    const added = await query(primary, ll(pt, zoomOuter), apiKey, seen, places);
-    credits++;
-    log("P4 ring2", added);
-    // Deep drill ring2 hot points too (smaller budget)
-    if (added >= HOT && !done()) {
-      const drill = await deepDrill(pt, primary, apiKey, seen, places, target, center, radiusKm, 3);
-      credits += drill.spent;
-      log("P4 deep-drill", drill.added);
+    if (done() || ring2ColdStreak >= 3) break;
+    const r = await searchAndScore(pt, primary, zoomOuter, apiKey, seen, places, target, center, radiusKm, "P4 ring2");
+    credits += r.credits;
+    allScores.push(r.score);
+    ring2ColdStreak = r.score.tier === "cold" ? ring2ColdStreak + 1 : 0;
+  }
+  if (done()) return { places, creditsUsed: credits };
+
+  // ====================================================================
+  // P5: Ring 3 (large cities, skip if ring2 was mostly cold)
+  // ====================================================================
+  const ring2HotCount = allScores.filter(s => s.tier === "hot").length;
+  if (target > 50 && radiusKm > 6 && ring2ColdStreak < 3) {
+    const ring3 = filterInCity(generateRing(center, ring3Dist, ring3Pts));
+    let ring3ColdStreak = 0;
+    for (const pt of ring3) {
+      if (done() || ring3ColdStreak >= 2) break;
+      const added = await query(primary, `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomOuter}z`, apiKey, seen, places);
+      credits++;
+      console.log(`[prospeccao] P5 ring3 → +${added} (${places.length}/${target}) [${credits}cr]`);
+      ring3ColdStreak = added < 2 ? ring3ColdStreak + 1 : 0;
     }
   }
   if (done()) return { places, creditsUsed: credits };
 
   // ====================================================================
-  // P5: Ring 3 (large cities only)
+  // Score summary
   // ====================================================================
-  if (target > 50 && radiusKm > 6) {
-    const ring3 = filterInCity(generateRing(center, ring3Dist, ring3Pts));
-    for (const pt of ring3) {
-      if (done()) break;
-      const added = await query(primary, ll(pt, zoomOuter), apiKey, seen, places);
-      credits++;
-      log("P5 ring3", added);
-    }
-  }
-  if (done()) return { places, creditsUsed: credits };
+  const hotCount = allScores.filter(s => s.tier === "hot").length;
+  const warmCount = allScores.filter(s => s.tier === "warm").length;
+  const coldCount = allScores.filter(s => s.tier === "cold").length;
+  const avgScore = allScores.length > 0 ? (allScores.reduce((a, s) => a + s.score, 0) / allScores.length).toFixed(1) : "0";
+  console.log(`[prospeccao] Scoring: ${hotCount} hot, ${warmCount} warm, ${coldCount} cold | avg=${avgScore} | primary=${places.length} leads`);
 
   // ====================================================================
   // PRIMARY EXHAUSTED — evaluate related niches
   // ====================================================================
-  const primaryLeads = places.length;
-  console.log(`[prospeccao] Primary done: ${primaryLeads} leads, ${(progress() * 100).toFixed(0)}%`);
-
   if (progress() >= 0.8 || related.length === 0) {
-    // Try expanded terms as last resort
     const expanded = expandNicho(primary);
     if (expanded.length > 0 && !done()) {
       for (const term of expanded.slice(0, 2)) {
         if (done()) break;
-        const added = await query(term, ll(center, zoomCenter), apiKey, seen, places);
+        const added = await query(term, `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomCenter}z`, apiKey, seen, places);
         credits++;
-        log(`P6 expand "${term}"`, added);
+        console.log(`[prospeccao] P6 expand "${term}" → +${added} [${credits}cr]`);
         if (added < 2) continue;
-        // If it works, try ring1 too
         for (const pt of ring1.slice(0, 2)) {
           if (done()) break;
-          const a = await query(term, ll(pt, zoomRing1), apiKey, seen, places);
+          const a = await query(term, `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomRing1}z`, apiKey, seen, places);
           credits++;
-          log(`P6 expand "${term}" ring1`, a);
           if (a < 2) break;
         }
       }
@@ -383,7 +452,7 @@ async function adaptiveSearch(
   }
 
   // ====================================================================
-  // P7: Related niches — progressive, one at a time
+  // P7: Related niches — only at previously hot/warm points
   // ====================================================================
   const expanded = expandNicho(primary);
   const allRelated = [...related, ...expanded];
@@ -395,37 +464,41 @@ async function adaptiveSearch(
     return true;
   });
 
-  console.log(`[prospeccao] Related niches: ${uniqueRelated.join(", ")}`);
+  // Prioritize related searches at points that scored hot/warm
+  const bestPoints = allScores
+    .filter(s => s.tier !== "cold")
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map(s => s.pt);
+
+  console.log(`[prospeccao] Related niches: ${uniqueRelated.join(", ")} | best ${bestPoints.length} pts`);
 
   for (const relNicho of uniqueRelated) {
     if (done()) break;
 
-    // Test at center first
-    const centerAdded = await query(relNicho, ll(center, zoomCenter), apiKey, seen, places);
+    // Test at center
+    const centerAdded = await query(relNicho, `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomCenter}z`, apiKey, seen, places);
     credits++;
-    log(`P7a "${relNicho}" center`, centerAdded);
-    if (centerAdded < 2) continue; // skip this niche
+    console.log(`[prospeccao] P7a "${relNicho}" center → +${centerAdded} [${credits}cr]`);
+    if (centerAdded < 2) continue;
 
-    if (done()) break;
-
-    // Extend to ring1 (max 3 points)
-    for (const pt of ring1.slice(0, 3)) {
+    // Search at best-scoring points instead of arbitrary ring1
+    for (const pt of bestPoints.slice(0, 3)) {
       if (done()) break;
-      const added = await query(relNicho, ll(pt, zoomRing1), apiKey, seen, places);
+      const added = await query(relNicho, `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomRing1}z`, apiKey, seen, places);
       credits++;
-      log(`P7b "${relNicho}" ring1`, added);
+      console.log(`[prospeccao] P7b "${relNicho}" best-pt → +${added} [${credits}cr]`);
       if (added < 2) break;
     }
 
     if (done()) break;
 
-    // Bairros (max 3, only if under 70%)
     if (bairros.length > 0 && progress() < 0.7) {
       for (const bairro of bairros.slice(0, 3)) {
         if (done()) break;
         const added = await query(`${relNicho} ${bairro} ${cidade}`, "", apiKey, seen, places);
         credits++;
-        log(`P7c "${relNicho}" bairro "${bairro}"`, added);
+        console.log(`[prospeccao] P7c "${relNicho}" bairro "${bairro}" → +${added} [${credits}cr]`);
         if (added < 1) break;
       }
     }
