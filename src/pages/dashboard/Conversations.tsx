@@ -4,7 +4,6 @@ import { ChatPanel } from "@/components/conversations/ChatPanel";
 import { ContactDetails } from "@/components/conversations/ContactDetails";
 import { type Conversation, type AttendingStatus, type Message } from "@/components/conversations/types";
 import { useConversations } from "@/hooks/useConversations";
-import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const MIN_SIDEBAR_W = 240;
