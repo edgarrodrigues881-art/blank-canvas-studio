@@ -418,29 +418,71 @@ const AISettings = () => {
             <Headset className="h-4 w-4 text-primary" />
             <CardTitle className="text-base">Modo de Atendimento</CardTitle>
           </div>
-          <CardDescription>Como a IA deve interagir com os clientes</CardDescription>
+          <CardDescription>Selecione um ou mais modos de atendimento da IA</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { value: "full", label: "100% IA", desc: "IA responde tudo sozinha" },
-              { value: "hybrid", label: "Híbrido", desc: "IA + humano quando necessário" },
-              { value: "assist", label: "Assistente", desc: "IA sugere, humano envia" },
-            ].map((mode) => (
-              <button
-                key={mode.value}
-                onClick={() => setAttendanceMode(mode.value)}
-                className={`rounded-lg border p-3 text-left transition-all ${
-                  attendanceMode === mode.value
-                    ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                    : "border-border/50 hover:border-border"
-                }`}
-              >
-                <p className="font-medium text-sm text-foreground">{mode.label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{mode.desc}</p>
-              </button>
-            ))}
-          </div>
+          <TooltipProvider>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                {
+                  value: "knowledge",
+                  label: "Base de Conhecimento",
+                  desc: "IA responde perguntas usando os documentos cadastrados",
+                  tooltip: "A IA consulta seus documentos (PDFs, TXTs, DOCXs) para formular respostas precisas baseadas nas informações do seu negócio.",
+                  recommended: true,
+                },
+                {
+                  value: "scheduling",
+                  label: "Agendamentos",
+                  desc: "IA foca em marcar horários e compromissos",
+                  tooltip: "A IA conduz a conversa para agendar horários, confirmando disponibilidade e registrando compromissos automaticamente.",
+                  recommended: false,
+                },
+              ].map((mode) => {
+                const isSelected = attendanceMode.includes(mode.value);
+                return (
+                  <Tooltip key={mode.value}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => {
+                          setAttendanceMode((prev: string) => {
+                            const modes = prev ? prev.split(",").filter(Boolean) : [];
+                            if (modes.includes(mode.value)) {
+                              return modes.filter((m) => m !== mode.value).join(",");
+                            }
+                            return [...modes, mode.value].join(",");
+                          });
+                        }}
+                        className={`rounded-lg border p-4 text-left transition-all relative ${
+                          isSelected
+                            ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                            : "border-border/50 hover:border-border"
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Checkbox checked={isSelected} className="mt-0.5 pointer-events-none" />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm text-foreground">{mode.label}</p>
+                              {mode.recommended && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary">
+                                  Recomendado
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">{mode.desc}</p>
+                          </div>
+                        </div>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[260px] text-xs">
+                      {mode.tooltip}
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+          </TooltipProvider>
         </CardContent>
       </Card>
 
