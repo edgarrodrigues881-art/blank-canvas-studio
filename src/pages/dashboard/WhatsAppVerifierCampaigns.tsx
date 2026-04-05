@@ -361,7 +361,7 @@ export default function WhatsAppVerifierCampaigns() {
         {/* Instance info */}
         <Card className="border-border/50 bg-card/50">
           <CardContent className="py-4">
-            <div className="flex items-center justify-center gap-3 flex-wrap">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-3">
                 <Smartphone className="w-5 h-5 text-muted-foreground" />
                 <div>
