@@ -391,7 +391,7 @@ export default function Prospeccao() {
           {searched && !loading && (
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <MapPin className="h-5 w-5" /> Resultados ({results.length})
                     {fromCache && (
@@ -400,11 +400,24 @@ export default function Prospeccao() {
                       </Badge>
                     )}
                   </CardTitle>
-                  {fromCache && (
-                    <Button variant="outline" size="sm" onClick={() => handleSearch(true)} disabled={loading} className="gap-1.5">
-                      <RefreshCw className="h-3.5 w-3.5" /> Nova busca
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {fromCache && (
+                      <Button variant="outline" size="sm" onClick={() => handleSearch(true)} disabled={loading} className="gap-1.5">
+                        <RefreshCw className="h-3.5 w-3.5" /> Nova busca
+                      </Button>
+                    )}
+                    {results.length > 0 && (
+                      <>
+                        <Button variant="outline" size="sm" onClick={() => exportCSV()} className="gap-1.5">
+                          <Download className="h-3.5 w-3.5" /> Exportar CSV
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => saveToContacts()} disabled={savingContacts} className="gap-1.5">
+                          {savingContacts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
+                          {savingContacts ? "Salvando..." : "Salvar nos Contatos"}
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
