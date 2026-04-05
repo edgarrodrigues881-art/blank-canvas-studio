@@ -737,7 +737,9 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       results, total: results.length, fromCache: false,
-      creditsUsed: searchResult.creditsUsed,
+      creditsUsed: finalCost,
+      apiCreditsUsed: rawCost,
+      balance: newBalance,
       campaignId,
       executionTimeMs: executionMs,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
