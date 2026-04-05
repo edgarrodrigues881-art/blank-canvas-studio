@@ -170,6 +170,7 @@ const Conversations = () => {
               onBack={() => selectConversation(null)}
               onStatusChange={handleStatusChange}
               onSendMessage={sendMessage}
+              onSendAudio={sendAudioMessage}
               onRetryMessage={retryMessage}
             />
           </div>
