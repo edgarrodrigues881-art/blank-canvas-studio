@@ -498,7 +498,7 @@ export default function Prospeccao() {
                     </TableHeader>
                     <TableBody>
                       {campaigns.map(c => (
-                        <TableRow key={c.id}>
+                        <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openCampaignDetail(c)}>
                           <TableCell className="font-medium">
                             <div>{c.name}</div>
                             <div className="text-xs text-muted-foreground">{c.nicho} — {c.cidade}/{c.estado}</div>
@@ -521,9 +521,12 @@ export default function Prospeccao() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="flex gap-1">
+                            <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openCampaignDetail(c)} title="Ver detalhes">
                                 <Eye className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { exportCampaignLeads(c); }} title="Baixar CSV">
+                                <Download className="h-3.5 w-3.5" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => duplicateCampaign(c)} title="Duplicar busca">
                                 <Copy className="h-3.5 w-3.5" />
