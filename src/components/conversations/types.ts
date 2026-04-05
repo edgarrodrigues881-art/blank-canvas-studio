@@ -26,6 +26,7 @@ export interface Message {
   status?: "sent" | "delivered" | "read";
   mediaUrl?: string;
   mediaType?: "image" | "audio" | "document";
+  audioDuration?: number; // seconds, for audio messages
 }
 
 // Mock data for initial UI
