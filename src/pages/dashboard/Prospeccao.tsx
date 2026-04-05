@@ -419,12 +419,12 @@ export default function Prospeccao() {
           ) : (
             <Tabs defaultValue="detail-resumo" className="flex-1 overflow-hidden flex flex-col">
               <TabsList className="w-fit">
-                <TabsTrigger value="resumo">Resumo</TabsTrigger>
-                <TabsTrigger value="logs">Logs ({campaignLogs.length})</TabsTrigger>
-                <TabsTrigger value="leads">Leads ({campaignLeads.length})</TabsTrigger>
+                <TabsTrigger value="detail-resumo">Resumo</TabsTrigger>
+                <TabsTrigger value="detail-logs">Logs ({campaignLogs.length})</TabsTrigger>
+                <TabsTrigger value="detail-leads">Leads ({campaignLeads.length})</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="resumo" className="mt-4 space-y-4">
+              <TabsContent value="detail-resumo" className="mt-4 space-y-4">
                 {selectedCampaign && (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <Card><CardContent className="pt-4 text-center">
