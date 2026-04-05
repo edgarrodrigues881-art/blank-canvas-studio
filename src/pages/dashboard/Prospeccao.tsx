@@ -75,7 +75,16 @@ export default function Prospeccao() {
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
   const [freePulls, setFreePulls] = useState<number>(0);
 
+  const [cidadeSearch, setCidadeSearch] = useState("");
   const [areaConfirmed, setAreaConfirmed] = useState(false);
+
+  const filteredCidades = useMemo(() => {
+    if (!cidadeSearch.trim()) return cidades;
+    const term = cidadeSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return cidades.filter(c => 
+      c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term)
+    );
+  }, [cidades, cidadeSearch]);
 
   const handleAreaChange = useCallback((lat: number, lng: number, radiusKm: number) => {
     setSearchLat(lat);
