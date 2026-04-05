@@ -213,7 +213,11 @@ export default function Prospeccao() {
         body.customRadiusKm = searchRadius;
       }
       const { data, error } = await supabase.functions.invoke("prospeccao", { body });
-      if (error) throw error;
+      if (error) {
+        // Try to extract the server error message from the response
+        if (data?.error) throw new Error(data.error);
+        throw error;
+      }
       if (data?.error) throw new Error(data.error);
       setResults(data.results || []);
       setFromCache(!!data.fromCache);
@@ -237,7 +241,12 @@ export default function Prospeccao() {
       }
     } catch (err: any) {
       console.error("Erro:", err);
-      toast.error(err.message || "Erro ao buscar dados");
+      const msg = err?.message || "";
+      if (msg.toLowerCase().includes("insuficiente") || msg.toLowerCase().includes("créditos")) {
+        toast.error("Saldo insuficiente. Adquira mais créditos para continuar.");
+      } else {
+        toast.error(msg || "Erro ao buscar dados");
+      }
       setResults([]);
     } finally { setLoading(false); }
   };
