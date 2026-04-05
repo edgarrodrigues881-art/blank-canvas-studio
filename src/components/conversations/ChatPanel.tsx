@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useQuickReplies } from "@/hooks/useQuickReplies";
+import { QuickRepliesManager } from "./QuickRepliesManager";
 import {
   ArrowLeft,
   MoreVertical,
@@ -16,6 +18,7 @@ import {
   Zap,
   Bot,
   Mic,
+  Settings,
   Trash2,
   Loader2,
   X,
@@ -54,11 +57,12 @@ const attendingStatusConfig: Record<AttendingStatus, { label: string; color: str
   pausado: { label: "Pausado", color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/20", dot: "bg-orange-400" },
 };
 
-const quickReplies = [
-  { id: "1", label: "Saudação inicial", text: "Olá! Bem-vindo(a)! Como posso ajudá-lo(a) hoje? 😊" },
-  { id: "2", label: "Confirmar pagamento", text: "Confirmamos o recebimento do seu pagamento. Obrigado!" },
-  { id: "3", label: "Enviar orçamento", text: "Segue o orçamento conforme conversado. Qualquer dúvida estou à disposição." },
-  { id: "4", label: "Aguarde um momento", text: "Aguarde um momento, por favor. Já estou verificando para você." },
+// Default fallback quick replies (used when DB has none)
+const defaultQuickReplies = [
+  { id: "default-1", label: "Saudação inicial", content: "Olá! Bem-vindo(a)! Como posso ajudá-lo(a) hoje? 😊" },
+  { id: "default-2", label: "Confirmar pagamento", content: "Confirmamos o recebimento do seu pagamento. Obrigado!" },
+  { id: "default-3", label: "Enviar orçamento", content: "Segue o orçamento conforme conversado. Qualquer dúvida estou à disposição." },
+  { id: "default-4", label: "Aguarde um momento", content: "Aguarde um momento, por favor. Já estou verificando para você." },
 ];
 
 function formatDuration(seconds: number) {
@@ -150,6 +154,8 @@ export function ChatPanel({
   conversation, messages, showDetails, onToggleDetails, onBack,
   onStatusChange, onSendMessage, onSendAudio, onSendFile, onRetryMessage,
 }: ChatPanelProps) {
+  const { replies: dbReplies } = useQuickReplies();
+  const [showQRManager, setShowQRManager] = useState(false);
   const [input, setInput] = useState("");
   const [currentStatus, setCurrentStatus] = useState<AttendingStatus>(conversation.attendingStatus);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
@@ -171,6 +177,9 @@ export function ChatPanel({
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Quick replies: use DB or defaults
+  const allQuickReplies = dbReplies.length > 0 ? dbReplies : defaultQuickReplies;
+
   useEffect(() => { setCurrentStatus(conversation.attendingStatus); }, [conversation.id]);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages]);
   useEffect(() => {
@@ -181,7 +190,7 @@ export function ChatPanel({
   }, [input]);
   const quickReplySearch = input.startsWith("/") ? input.slice(1).toLowerCase() : null;
   const filteredQuickReplies = quickReplySearch !== null
-    ? quickReplies.filter((qr) => qr.label.toLowerCase().includes(quickReplySearch) || qr.text.toLowerCase().includes(quickReplySearch))
+    ? allQuickReplies.filter((qr) => qr.label.toLowerCase().includes(quickReplySearch) || qr.content.toLowerCase().includes(quickReplySearch))
     : [];
   useEffect(() => { setShowQuickReplies(input.startsWith("/") && filteredQuickReplies.length > 0); }, [input, filteredQuickReplies.length]);
 
@@ -539,15 +548,20 @@ export function ChatPanel({
       {/* Quick Replies */}
       {showQuickReplies && (
         <div className="border-t border-border bg-card/90 backdrop-blur-sm">
-          <div className="px-4 py-2 flex items-center gap-2">
-            <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Respostas Rápidas</span>
+          <div className="px-4 py-2 flex items-center gap-2 justify-between">
+            <div className="flex items-center gap-2">
+              <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Respostas Rápidas</span>
+            </div>
+            <button onClick={() => { setShowQuickReplies(false); setInput(""); setShowQRManager(true); }} className="text-[10px] text-primary hover:underline">
+              <Settings className="w-3.5 h-3.5 inline mr-0.5" />Gerenciar
+            </button>
           </div>
           <div className="px-2 pb-2 space-y-0.5 max-h-[200px] overflow-y-auto">
             {filteredQuickReplies.map((qr) => (
-              <button key={qr.id} onClick={() => handleQuickReply(qr.text)} className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-muted/50 transition-colors flex flex-col gap-0.5">
+              <button key={qr.id} onClick={() => handleQuickReply(qr.content)} className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-muted/50 transition-colors flex flex-col gap-0.5">
                 <span className="text-xs font-semibold text-foreground">/{qr.label}</span>
-                <span className="text-[11px] text-muted-foreground truncate">{qr.text}</span>
+                <span className="text-[11px] text-muted-foreground truncate">{qr.content}</span>
               </button>
             ))}
           </div>
@@ -644,6 +658,8 @@ export function ChatPanel({
           </div>
         )}
       </div>
+
+      <QuickRepliesManager open={showQRManager} onOpenChange={setShowQRManager} />
     </div>
   );
 }
