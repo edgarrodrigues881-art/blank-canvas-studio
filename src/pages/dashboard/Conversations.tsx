@@ -24,6 +24,7 @@ const Conversations = () => {
     updateTags,
     sendMessage,
     sendAudioMessage,
+    sendFileMessage,
     retryMessage,
   } = useConversations();
 
