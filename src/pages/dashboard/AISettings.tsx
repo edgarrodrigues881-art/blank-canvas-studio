@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { toast } from "sonner";
 import {
   Bot,
   Building2,
@@ -19,6 +20,13 @@ import {
   Plus,
   Trash2,
   Sparkles,
+  Key,
+  CheckCircle2,
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  Loader2,
+  Send,
 } from "lucide-react";
 
 const AISettings = () => {
