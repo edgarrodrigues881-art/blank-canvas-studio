@@ -328,6 +328,9 @@ const AISettings = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Informações do Negócio */}
+      <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-primary" />
