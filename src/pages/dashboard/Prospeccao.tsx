@@ -482,7 +482,7 @@ export default function Prospeccao() {
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="leads" className="flex-1 overflow-hidden mt-4">
+              <TabsContent value="detail-leads" className="flex-1 overflow-hidden mt-4">
                 <div className="flex justify-end mb-2">
                   <Button variant="outline" size="sm" onClick={() => exportCSV(campaignLeads, `leads_${selectedCampaign?.name}.csv`)} className="gap-1.5">
                     <Download className="h-3.5 w-3.5" /> Exportar
