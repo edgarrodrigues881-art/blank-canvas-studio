@@ -1,9 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   ArrowLeft,
   MoreVertical,
   Paperclip,
-  Smile,
   Send,
   Image,
   FileText,
@@ -16,9 +15,12 @@ import {
   ChevronDown,
   Zap,
   Bot,
+  Mic,
+  Square,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +40,7 @@ interface ChatPanelProps {
   onBack: () => void;
   onStatusChange?: (conversationId: string, newStatus: AttendingStatus) => void;
   onSendMessage?: (conversationId: string, content: string) => void;
+  onSendAudio?: (conversationId: string, blob: Blob, duration: number) => void;
   onRetryMessage?: (messageId: string) => void;
 }
 
@@ -56,28 +59,119 @@ const quickReplies = [
   { id: "4", label: "Aguarde um momento", text: "Aguarde um momento, por favor. Já estou verificando para você." },
 ];
 
-function formatAudioDuration(seconds: number) {
+function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
+  const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export function ChatPanel({ conversation, messages, showDetails, onToggleDetails, onBack, onStatusChange, onSendMessage, onRetryMessage }: ChatPanelProps) {
+/* ─────────── Audio Player Component ─────────── */
+function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number; isSent: boolean }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [totalDuration, setTotalDuration] = useState(duration || 0);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const onTime = () => {
+      setCurrentTime(audio.currentTime);
+      if (audio.duration && isFinite(audio.duration)) {
+        setProgress((audio.currentTime / audio.duration) * 100);
+        setTotalDuration(audio.duration);
+      }
+    };
+    const onEnded = () => { setPlaying(false); setProgress(0); setCurrentTime(0); };
+    const onLoaded = () => {
+      if (audio.duration && isFinite(audio.duration)) setTotalDuration(audio.duration);
+    };
+
+    audio.addEventListener("timeupdate", onTime);
+    audio.addEventListener("ended", onEnded);
+    audio.addEventListener("loadedmetadata", onLoaded);
+    return () => {
+      audio.removeEventListener("timeupdate", onTime);
+      audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("loadedmetadata", onLoaded);
+    };
+  }, []);
+
+  const toggle = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (playing) { audio.pause(); } else { audio.play(); }
+    setPlaying(!playing);
+  };
+
+  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const audio = audioRef.current;
+    if (!audio || !audio.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    audio.currentTime = pct * audio.duration;
+  };
+
+  return (
+    <div className="flex items-center gap-2.5 min-w-[200px]">
+      <audio ref={audioRef} src={src} preload="metadata" />
+      <button
+        onClick={toggle}
+        className={cn(
+          "w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors",
+          isSent ? "bg-white/20 hover:bg-white/30 text-white" : "bg-primary/10 hover:bg-primary/20 text-primary"
+        )}
+      >
+        {playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
+      </button>
+      <div className="flex-1 min-w-0">
+        {/* Progress bar */}
+        <div
+          className={cn("h-1.5 rounded-full cursor-pointer", isSent ? "bg-white/20" : "bg-muted-foreground/15")}
+          onClick={seek}
+        >
+          <div
+            className={cn("h-full rounded-full transition-all", isSent ? "bg-white/70" : "bg-primary/60")}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          <span className={cn("text-[10px]", isSent ? "text-white/60" : "text-muted-foreground/60")}>
+            {playing || currentTime > 0 ? formatDuration(currentTime) : formatDuration(totalDuration)}
+          </span>
+          <span className={cn("text-[10px]", isSent ? "text-white/60" : "text-muted-foreground/60")}>
+            {formatDuration(totalDuration)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── Main ChatPanel ─────────── */
+export function ChatPanel({
+  conversation, messages, showDetails, onToggleDetails, onBack,
+  onStatusChange, onSendMessage, onSendAudio, onRetryMessage,
+}: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [currentStatus, setCurrentStatus] = useState<AttendingStatus>(conversation.attendingStatus);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
-  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    setCurrentStatus(conversation.attendingStatus);
-  }, [conversation.id]);
+  // Audio recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [sendingAudio, setSendingAudio] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  useEffect(() => { setCurrentStatus(conversation.attendingStatus); }, [conversation.id]);
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
   // Auto-resize textarea
@@ -88,10 +182,7 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
     }
   }, [input]);
 
-  // Show quick replies when "/" is typed
-  useEffect(() => {
-    setShowQuickReplies(input === "/");
-  }, [input]);
+  useEffect(() => { setShowQuickReplies(input === "/"); }, [input]);
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -108,18 +199,89 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
+  // ─── Audio Recording ───
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/mp4")
+          ? "audio/mp4"
+          : "audio/webm";
+      const recorder = new MediaRecorder(stream, { mimeType });
+      chunksRef.current = [];
+
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      recorder.onstop = () => { stream.getTracks().forEach((t) => t.stop()); };
+
+      recorder.start(250); // collect data every 250ms
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+      setRecordingTime(0);
+      timerRef.current = setInterval(() => setRecordingTime((t) => t + 1), 1000);
+    } catch (err) {
+      console.error("Microphone access denied:", err);
+    }
+  }, []);
+
+  const stopAndSend = useCallback(async () => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") return;
+
+    setSendingAudio(true);
+    const duration = recordingTime;
+
+    // Wait for recorder to actually stop and collect final data
+    await new Promise<void>((resolve) => {
+      const origStop = recorder.onstop;
+      recorder.onstop = (e) => {
+        if (origStop && typeof origStop === "function") (origStop as any).call(recorder, e);
+        resolve();
+      };
+      recorder.stop();
+    });
+
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    setIsRecording(false);
+    setRecordingTime(0);
+
+    const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
+    if (blob.size > 0) {
+      onSendAudio?.(conversation.id, blob, duration);
+    }
+    setSendingAudio(false);
+    mediaRecorderRef.current = null;
+  }, [recordingTime, conversation.id, onSendAudio]);
+
+  const cancelRecording = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") recorder.stop();
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    setIsRecording(false);
+    setRecordingTime(0);
+    chunksRef.current = [];
+    mediaRecorderRef.current = null;
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
+
   const statusIcon = (status?: string) => {
-    if (status === "sending") return <span className="text-[10px] text-muted-foreground/40 italic">●</span>;
+    if (status === "sending") return <Loader2 className="w-3 h-3 animate-spin text-muted-foreground/40" />;
     if (status === "read") return <CheckCheck className="w-3.5 h-3.5 text-blue-400" />;
     if (status === "delivered") return <CheckCheck className="w-3.5 h-3.5 text-muted-foreground/50" />;
     if (status === "sent") return <Check className="w-3.5 h-3.5 text-muted-foreground/50" />;
-    if (status === "failed") return <span className="text-[10px] text-red-400 font-medium">!</span>;
+    if (status === "failed") return <span className="text-[10px] text-red-400 font-medium">⚠</span>;
     return null;
   };
 
@@ -127,11 +289,19 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
   const categoryTag = conversation.category
     ? conversation.category.charAt(0).toUpperCase() + conversation.category.slice(1)
     : null;
-
   const categoryColor: Record<string, string> = {
     vendas: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
     financeiro: "bg-amber-500/15 text-amber-400 border-amber-500/20",
     suporte: "bg-blue-500/15 text-blue-400 border-blue-500/20",
+  };
+
+  // Memoize waveform heights so they don't re-randomize on every render
+  const waveformCache = useRef<Record<string, number[]>>({});
+  const getWaveform = (id: string) => {
+    if (!waveformCache.current[id]) {
+      waveformCache.current[id] = Array.from({ length: 28 }, () => Math.random() * 14 + 4);
+    }
+    return waveformCache.current[id];
   };
 
   return (
@@ -141,8 +311,6 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
         <Button variant="ghost" size="icon" className="md:hidden w-8 h-8 shrink-0" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
-
-        {/* Avatar */}
         <div className="relative shrink-0">
           {conversation.avatar_url ? (
             <img src={conversation.avatar_url} alt={conversation.name} className="w-9 h-9 rounded-full object-cover" />
@@ -155,8 +323,6 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
             <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-card" />
           )}
         </div>
-
-        {/* Name + Tag + Status */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-foreground truncate">{conversation.name}</p>
@@ -195,14 +361,8 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="hidden lg:flex w-8 h-8 text-muted-foreground hover:text-foreground"
-            onClick={onToggleDetails}
-          >
+          <Button variant="ghost" size="icon" className="hidden lg:flex w-8 h-8 text-muted-foreground hover:text-foreground" onClick={onToggleDetails}>
             {showDetails ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
           </Button>
           <DropdownMenu>
@@ -238,6 +398,7 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
               format(new Date(msg.timestamp), "dd/MM/yyyy");
 
           const isAudio = msg.mediaType === "audio";
+          const hasAudioUrl = isAudio && msg.mediaUrl;
 
           return (
             <div key={msg.id}>
@@ -255,54 +416,48 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
                     isAudio ? "px-3 py-2" : "px-3.5 py-2",
                     msg.type === "sent"
                       ? "bg-blue-600 text-white rounded-br-md"
-                      : "bg-card border border-border text-foreground rounded-bl-md"
+                      : "bg-card border border-border text-foreground rounded-bl-md",
+                    msg.status === "failed" && "opacity-70"
                   )}
                 >
                   {isAudio ? (
-                    /* Audio message */
-                    <div className="flex items-center gap-2.5 min-w-[180px]">
-                      <button
-                        onClick={() => setPlayingAudioId(playingAudioId === msg.id ? null : msg.id)}
-                        className={cn(
-                          "w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors",
-                          msg.type === "sent"
-                            ? "bg-white/20 hover:bg-white/30 text-white"
-                            : "bg-primary/10 hover:bg-primary/20 text-primary"
-                        )}
-                      >
-                        {playingAudioId === msg.id ? (
-                          <Pause className="w-3.5 h-3.5" />
-                        ) : (
-                          <Play className="w-3.5 h-3.5 ml-0.5" />
-                        )}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        {/* Waveform placeholder */}
-                        <div className="flex items-center gap-[2px] h-5">
-                          {Array.from({ length: 20 }).map((_, idx) => {
-                            const h = Math.random() * 14 + 4;
-                            return (
-                              <div
-                                key={idx}
-                                className={cn("w-[2px] rounded-full", msg.type === "sent" ? "bg-white/40" : "bg-muted-foreground/30")}
-                                style={{ height: `${h}px` }}
-                              />
-                            );
-                          })}
-                        </div>
-                        <div className="flex items-center justify-between mt-0.5">
-                          <span className={cn("text-[10px]", msg.type === "sent" ? "text-white/60" : "text-muted-foreground/60")}>
-                            {formatAudioDuration(msg.audioDuration || 0)}
+                    hasAudioUrl ? (
+                      /* Real audio player */
+                      <div>
+                        <AudioPlayer src={msg.mediaUrl!} duration={msg.audioDuration} isSent={msg.type === "sent"} />
+                        <div className="flex items-center gap-1 justify-end mt-0.5">
+                          <span className={cn("text-[10px]", msg.type === "sent" ? "text-white/50" : "text-muted-foreground/60")}>
+                            {format(new Date(msg.timestamp), "HH:mm")}
                           </span>
-                          <div className="flex items-center gap-1">
+                          {msg.type === "sent" && statusIcon(msg.status)}
+                        </div>
+                      </div>
+                    ) : (
+                      /* Fallback waveform (no URL) */
+                      <div className="flex items-center gap-2.5 min-w-[180px]">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-primary/10 text-primary">
+                          <Play className="w-3.5 h-3.5 ml-0.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-[2px] h-5">
+                            {getWaveform(msg.id).map((h, idx) => (
+                              <div key={idx} className={cn("w-[2px] rounded-full", msg.type === "sent" ? "bg-white/40" : "bg-muted-foreground/30")} style={{ height: `${h}px` }} />
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-between mt-0.5">
                             <span className={cn("text-[10px]", msg.type === "sent" ? "text-white/60" : "text-muted-foreground/60")}>
-                              {format(new Date(msg.timestamp), "HH:mm")}
+                              {formatDuration(msg.audioDuration || 0)}
                             </span>
-                            {msg.type === "sent" && statusIcon(msg.status)}
+                            <div className="flex items-center gap-1">
+                              <span className={cn("text-[10px]", msg.type === "sent" ? "text-white/60" : "text-muted-foreground/60")}>
+                                {format(new Date(msg.timestamp), "HH:mm")}
+                              </span>
+                              {msg.type === "sent" && statusIcon(msg.status)}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
+                    )
                   ) : (
                     /* Text message */
                     <>
@@ -321,7 +476,7 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
                       {msg.status === "failed" && (
                         <button
                           onClick={() => onRetryMessage?.(msg.id)}
-                          className="text-[10px] text-red-400 hover:text-red-300 mt-0.5 text-right underline cursor-pointer"
+                          className="text-[10px] text-red-400 hover:text-red-300 mt-0.5 text-right underline cursor-pointer block w-full"
                         >
                           Falhou — toque para reenviar
                         </button>
@@ -359,50 +514,91 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
 
       {/* Input Area */}
       <div className="border-t border-border p-3 bg-card/50 shrink-0">
-        <div className="flex items-end gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="w-9 h-9 shrink-0 text-muted-foreground hover:text-foreground mb-0.5">
-                <Paperclip className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start">
-              <DropdownMenuItem className="gap-2">
-                <Image className="w-4 h-4" /> Imagem
-              </DropdownMenuItem>
-              <DropdownMenuItem className="gap-2">
-                <FileText className="w-4 h-4" /> Arquivo
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <div className="flex-1 relative">
-            <textarea
-              ref={textareaRef}
-              placeholder="Digite / para respostas rápidas, Shift+Enter para nova linha..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              className="w-full resize-none rounded-xl bg-muted/30 border border-border/50 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors"
-              style={{ minHeight: "40px", maxHeight: "120px" }}
-            />
+        {isRecording ? (
+          /* Recording UI */
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" className="w-9 h-9 shrink-0 text-red-400 hover:text-red-300" onClick={cancelRecording}>
+              <Trash2 className="w-4 h-4" />
+            </Button>
+            <div className="flex-1 flex items-center gap-3">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+              <span className="text-sm font-medium text-foreground">{formatDuration(recordingTime)}</span>
+              {/* Live waveform animation */}
+              <div className="flex items-center gap-[2px] flex-1 h-6 overflow-hidden">
+                {Array.from({ length: 40 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-[2px] rounded-full bg-red-400/60"
+                    style={{
+                      height: `${Math.random() * 16 + 4}px`,
+                      animation: "pulse 0.5s ease-in-out infinite",
+                      animationDelay: `${i * 0.03}s`,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+            <Button
+              size="icon"
+              className="w-10 h-10 shrink-0 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 shadow-md"
+              onClick={stopAndSend}
+              disabled={sendingAudio}
+            >
+              {sendingAudio ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </Button>
           </div>
+        ) : (
+          /* Normal input */
+          <div className="flex items-end gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="w-9 h-9 shrink-0 text-muted-foreground hover:text-foreground mb-0.5">
+                  <Paperclip className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="start">
+                <DropdownMenuItem className="gap-2">
+                  <Image className="w-4 h-4" /> Imagem
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2">
+                  <FileText className="w-4 h-4" /> Arquivo
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          <Button
-            size="icon"
-            className={cn(
-              "w-9 h-9 shrink-0 rounded-xl transition-all mb-0.5",
-              input.trim()
-                ? "bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm"
-                : "bg-muted text-muted-foreground"
+            <div className="flex-1 relative">
+              <textarea
+                ref={textareaRef}
+                placeholder="Digite / para respostas rápidas..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={1}
+                className="w-full resize-none rounded-xl bg-muted/30 border border-border/50 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors"
+                style={{ minHeight: "40px", maxHeight: "120px" }}
+              />
+            </div>
+
+            {input.trim() ? (
+              <Button
+                size="icon"
+                className="w-9 h-9 shrink-0 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm mb-0.5"
+                onClick={handleSend}
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            ) : (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="w-9 h-9 shrink-0 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/50 mb-0.5"
+                onClick={startRecording}
+              >
+                <Mic className="w-4 h-4" />
+              </Button>
             )}
-            onClick={handleSend}
-            disabled={!input.trim()}
-          >
-            <Send className="w-4 h-4" />
-          </Button>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
