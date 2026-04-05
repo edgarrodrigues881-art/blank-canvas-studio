@@ -568,9 +568,18 @@ Deno.serve(async (req) => {
     }
     const campaignId = campaign?.id;
 
-    // Geocode + fetch bairros in parallel
+    // Use custom center from map if provided, otherwise geocode
+    let cityGeoPromise: Promise<CityGeo | null>;
+    if (customCenter && typeof customCenter.lat === "number" && typeof customCenter.lng === "number") {
+      const userRadius = typeof customRadiusKm === "number" ? Math.min(Math.max(customRadiusKm, 2), 50) : 12;
+      console.log(`[prospeccao] Using custom center: ${customCenter.lat.toFixed(4)},${customCenter.lng.toFixed(4)} | radius: ${userRadius}km`);
+      cityGeoPromise = Promise.resolve({ center: { lat: customCenter.lat, lng: customCenter.lng }, radiusKm: userRadius });
+    } else {
+      cityGeoPromise = geocodeCity(cidadeTrimmed, estadoTrimmed);
+    }
+
     const [cityGeo, bairros] = await Promise.all([
-      geocodeCity(cidadeTrimmed, estadoTrimmed),
+      cityGeoPromise,
       fetchBairros(cidadeTrimmed, estadoTrimmed),
     ]);
 
