@@ -155,9 +155,12 @@ export default function Prospeccao() {
     setLoading(true); setSearched(true);
     try {
       const relacionados = nichosRelacionados.split(",").map(n => n.trim()).filter(Boolean);
-      const { data, error } = await supabase.functions.invoke("prospeccao", {
-        body: { nicho: nicho.trim(), nichosRelacionados: relacionados, estado, cidade: cidade.trim(), maxResults: Number(maxResults), forceRefresh },
-      });
+      const body: any = { nicho: nicho.trim(), nichosRelacionados: relacionados, estado, cidade: cidade.trim(), maxResults: Number(maxResults), forceRefresh };
+      if (searchLat !== null && searchLng !== null) {
+        body.customCenter = { lat: searchLat, lng: searchLng };
+        body.customRadiusKm = searchRadius;
+      }
+      const { data, error } = await supabase.functions.invoke("prospeccao", { body });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setResults(data.results || []);
