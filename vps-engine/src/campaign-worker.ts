@@ -833,6 +833,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     }
     const sendTo = isLid ? phone : normalizeBrazilianPhone(phone);
 
+    let sendTo = isLid ? phone : normalizeBrazilianPhone(phone);
+
     if (!isLid) {
       const check = await checkNumberExists(baseUrl, device.uazapi_token, sendTo);
       if (!check.exists) {
@@ -843,6 +845,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
         }
         continue;
       }
+      // Use the validated phone variant (handles 9th digit)
+      if (check.validPhone) sendTo = check.validPhone;
     }
 
     // 8. Final stop-check before any send attempt
