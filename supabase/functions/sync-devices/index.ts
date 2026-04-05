@@ -588,7 +588,38 @@ Deno.serve(async (req) => {
             );
           }
 
-          if (disconnectWaveOpen && wasReady) {
+          if (protectedDisconnectTrigger) {
+            if (confirmedState && confirmedState.state !== "disconnected") {
+              effectiveState = confirmedState;
+              opLogs.push({
+                user_id: userId,
+                device_id: device.id,
+                event: "sync_disconnect_ignored",
+                details: `Falso offline ignorado para "${device.name}" em sync protegido (${syncTrigger})`,
+                meta: {
+                  reason: "protected_trigger_guard",
+                  trigger: syncTrigger,
+                  first_raw_status: normalizedState.rawStatus,
+                  confirm_raw_status: confirmedState.rawStatus,
+                  confirm_state: confirmedState.state,
+                },
+              });
+            } else {
+              effectiveState = { ...normalizedState, state: "unknown" };
+              opLogs.push({
+                user_id: userId,
+                device_id: device.id,
+                event: "sync_disconnect_ignored",
+                details: `Desconexão protegida para "${device.name}" durante ${syncTrigger}`,
+                meta: {
+                  reason: "protected_trigger_guard",
+                  trigger: syncTrigger,
+                  raw_status: normalizedState.rawStatus,
+                  confirm_state: confirmedState?.state || null,
+                },
+              });
+            }
+          } else if (disconnectWaveOpen && wasReady) {
             const strikes = (disconnectWaveStrikeMap.get(device.id) || 0) + 1;
             disconnectWaveStrikeMap.set(device.id, strikes);
 
@@ -689,7 +720,6 @@ Deno.serve(async (req) => {
             const hasEnoughSpread = timeSpread >= INDIVIDUAL_MIN_SPREAD_MS;
 
             if (confirmedState?.state === "disconnected" && hasEnoughStrikes && hasEnoughSpread) {
-              // Confirmed after multiple strikes spread over time — allow disconnect
               effectiveState = confirmedState;
               opLogs.push({
                 user_id: userId,
@@ -704,7 +734,6 @@ Deno.serve(async (req) => {
                 },
               });
             } else if (confirmedState && confirmedState.state !== "disconnected") {
-              // Re-check says connected — false alarm
               effectiveState = confirmedState;
               opLogs.push({
                 user_id: userId,
@@ -719,7 +748,6 @@ Deno.serve(async (req) => {
                 },
               });
             } else {
-              // Not enough strikes or confirm failed — hold status
               effectiveState = { ...normalizedState, state: "unknown" };
               opLogs.push({
                 user_id: userId,
