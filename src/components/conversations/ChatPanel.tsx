@@ -179,7 +179,11 @@ export function ChatPanel({
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + "px";
     }
   }, [input]);
-  useEffect(() => { setShowQuickReplies(input === "/"); }, [input]);
+  const quickReplySearch = input.startsWith("/") ? input.slice(1).toLowerCase() : null;
+  const filteredQuickReplies = quickReplySearch !== null
+    ? quickReplies.filter((qr) => qr.label.toLowerCase().includes(quickReplySearch) || qr.text.toLowerCase().includes(quickReplySearch))
+    : [];
+  useEffect(() => { setShowQuickReplies(input.startsWith("/") && filteredQuickReplies.length > 0); }, [input, filteredQuickReplies.length]);
 
   // Cleanup preview URL
   useEffect(() => {
