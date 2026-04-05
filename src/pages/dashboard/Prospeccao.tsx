@@ -173,7 +173,18 @@ export default function Prospeccao() {
     toast.success("Parâmetros copiados! Clique em Buscar.");
   };
 
-  const handleSearch = async (forceRefresh = false) => {
+  const exportCampaignLeads = async (c: Campaign) => {
+    try {
+      const { data: leads } = await supabase
+        .from("prospeccao_campaign_leads")
+        .select("*")
+        .eq("campaign_id", c.id)
+        .limit(5000);
+      if (!leads?.length) { toast.error("Nenhum lead encontrado"); return; }
+      exportCSV(leads, `leads_${c.name}.csv`);
+    } catch { toast.error("Erro ao exportar"); }
+  };
+
     if (!nicho.trim() || !estado || !cidade.trim()) {
       toast.error("Preencha todos os campos obrigatórios"); return;
     }
