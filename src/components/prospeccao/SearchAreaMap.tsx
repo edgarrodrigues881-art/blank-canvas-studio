@@ -117,10 +117,11 @@ export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaCha
     markerRef.current = marker;
     circleRef.current = circle;
 
-    setTimeout(() => {
+    // Multiple invalidateSize calls to handle layout shifts
+    const timers = [150, 500, 1000].map(ms => setTimeout(() => {
       map.invalidateSize();
-      map.fitBounds(circle.getBounds(), { padding: [30, 30] });
-    }, 150);
+      if (circleRef.current) map.fitBounds(circleRef.current.getBounds(), { padding: [30, 30] });
+    }, ms));
 
     return () => { map.remove(); mapInstanceRef.current = null; };
   }, [center?.lat, center?.lng]);
