@@ -28,6 +28,7 @@ export interface Message {
   status?: "sending" | "sent" | "delivered" | "read" | "failed";
   mediaUrl?: string;
   mediaType?: "image" | "audio" | "document";
+  fileName?: string;
   audioDuration?: number;
   isAiResponse?: boolean;
 }
