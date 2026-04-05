@@ -35,6 +35,7 @@ interface ChatPanelProps {
   showDetails: boolean;
   onToggleDetails: () => void;
   onBack: () => void;
+  onStatusChange?: (conversationId: string, newStatus: AttendingStatus) => void;
 }
 
 const attendingStatusConfig: Record<AttendingStatus, { label: string; color: string; bg: string; dot: string }> = {
