@@ -43,50 +43,103 @@ Deno.serve(async (req) => {
     }
 
     let totalSynced = 0;
+    const errors: string[] = [];
 
     for (const device of devices) {
       if (!device.uazapi_base_url || !device.uazapi_token) continue;
       if (!["Ready", "Connected", "authenticated"].includes(device.status)) continue;
 
+      const baseUrl = device.uazapi_base_url.replace(/\/$/, "");
+      const apiHeaders = {
+        token: device.uazapi_token,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      };
+
+      const fetchSafe = async (url: string, method = "GET", body?: any): Promise<any> => {
+        try {
+          const opts: RequestInit = { method, headers: apiHeaders };
+          if (body && method === "POST") opts.body = JSON.stringify(body);
+          const res = await fetch(url, opts);
+          if (!res.ok) {
+            console.error(`[${device.name}] ${method} ${url}: ${res.status}`);
+            return null;
+          }
+          return await res.json();
+        } catch (e: any) {
+          console.error(`[${device.name}] fetch error ${url}: ${e.message}`);
+          return null;
+        }
+      };
+
       try {
-        // Fetch chats from UAZAPI
-        const baseUrl = device.uazapi_base_url.replace(/\/$/, "");
-        const resp = await fetch(`${baseUrl}/chat/fetchChats`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            token: device.uazapi_token,
-          },
-          body: JSON.stringify({ count: 50 }),
+        // Try multiple endpoints to fetch chats (private conversations, not groups)
+        let chats: any[] = [];
+
+        // Endpoint 1: /chats (GET) - most common
+        const data1 = await fetchSafe(`${baseUrl}/chats?count=100`);
+        if (data1) {
+          const arr = Array.isArray(data1.chats || data1.data || data1) ? (data1.chats || data1.data || data1) : [];
+          chats = arr;
+          console.log(`[${device.name}] /chats: ${arr.length} results`);
+        }
+
+        // Endpoint 2: /chat/list (GET) - fallback
+        if (chats.length === 0) {
+          const data2 = await fetchSafe(`${baseUrl}/chat/list?count=100`);
+          if (data2) {
+            const arr = Array.isArray(data2.chats || data2.data || data2) ? (data2.chats || data2.data || data2) : [];
+            chats = arr;
+            console.log(`[${device.name}] /chat/list: ${arr.length} results`);
+          }
+        }
+
+        // Endpoint 3: /chat/getChats (GET) - another fallback
+        if (chats.length === 0) {
+          const data3 = await fetchSafe(`${baseUrl}/chat/getChats`);
+          if (data3) {
+            const arr = Array.isArray(data3.chats || data3.data || data3) ? (data3.chats || data3.data || data3) : [];
+            chats = arr;
+            console.log(`[${device.name}] /chat/getChats: ${arr.length} results`);
+          }
+        }
+
+        // Endpoint 4: /chat/fetchChats (GET instead of POST)
+        if (chats.length === 0) {
+          const data4 = await fetchSafe(`${baseUrl}/chat/fetchChats`);
+          if (data4) {
+            const arr = Array.isArray(data4.chats || data4.data || data4) ? (data4.chats || data4.data || data4) : [];
+            chats = arr;
+            console.log(`[${device.name}] /chat/fetchChats GET: ${arr.length} results`);
+          }
+        }
+
+        if (chats.length === 0) {
+          console.log(`[${device.name}] No chats found from any endpoint`);
+          errors.push(`${device.name}: nenhum chat encontrado`);
+          continue;
+        }
+
+        // Filter only private chats (exclude groups and status)
+        const privateChats = chats.filter((c: any) => {
+          const jid = c.JID || c.jid || c.id || c.chatId || "";
+          return jid && !jid.endsWith("@g.us") && !jid.includes("status@") && jid !== "status";
         });
 
-        if (!resp.ok) {
-          console.error(`Device ${device.name}: fetch failed ${resp.status}`);
-          continue;
-        }
+        console.log(`[${device.name}] ${privateChats.length} private chats (of ${chats.length} total)`);
 
-        const chats = await resp.json();
-        if (!Array.isArray(chats)) {
-          console.error(`Device ${device.name}: unexpected response`, typeof chats);
-          continue;
-        }
-
-        for (const chat of chats) {
-          // Skip groups and status broadcasts
-          const jid = chat.id || chat.jid || chat.chatId || "";
-          if (!jid || jid.endsWith("@g.us") || jid.includes("status@") || jid === "status") continue;
-
+        for (const chat of privateChats) {
+          const jid = chat.JID || chat.jid || chat.id || chat.chatId || "";
           const phone = jid.replace("@s.whatsapp.net", "").replace("@c.us", "");
-          const name = chat.name || chat.pushName || chat.notify || phone;
-          const lastMsg = chat.lastMessage?.body || chat.last_message?.text || chat.msg?.conversation || "";
-          const lastMsgAt = chat.lastMessage?.timestamp
-            ? new Date(chat.lastMessage.timestamp * 1000).toISOString()
-            : chat.t ? new Date(chat.t * 1000).toISOString()
+          const name = chat.Name || chat.name || chat.pushName || chat.notify || chat.Contact?.name || phone;
+          const lastMsg = chat.LastMessage?.Text || chat.lastMessage?.body || chat.last_message?.text || chat.msg?.conversation || "";
+          const lastMsgTs = chat.LastMessage?.Timestamp || chat.lastMessage?.timestamp || chat.t || chat.timestamp;
+          const lastMsgAt = lastMsgTs
+            ? new Date(typeof lastMsgTs === "number" && lastMsgTs < 1e12 ? lastMsgTs * 1000 : lastMsgTs).toISOString()
             : new Date().toISOString();
-          const unread = chat.unreadCount || chat.unread || 0;
-          const avatar = chat.profilePicUrl || chat.imgUrl || null;
+          const unread = chat.UnreadCount || chat.unreadCount || chat.unread || 0;
+          const avatar = chat.ProfilePicUrl || chat.profilePicUrl || chat.imgUrl || chat.Contact?.profilePicUrl || null;
 
-          // Upsert conversation
           const { error: upsertErr } = await admin
             .from("conversations")
             .upsert(
@@ -94,10 +147,10 @@ Deno.serve(async (req) => {
                 user_id: userId,
                 device_id: device.id,
                 remote_jid: jid,
-                name,
+                name: name.substring(0, 255),
                 phone,
                 avatar_url: avatar,
-                last_message: lastMsg.substring(0, 500),
+                last_message: (lastMsg || "").substring(0, 500),
                 last_message_at: lastMsgAt,
                 unread_count: unread,
                 updated_at: new Date().toISOString(),
@@ -106,56 +159,79 @@ Deno.serve(async (req) => {
             );
 
           if (upsertErr) {
-            console.error(`Upsert error for ${jid}:`, upsertErr.message);
+            console.error(`[${device.name}] Upsert error for ${jid}:`, upsertErr.message);
           } else {
             totalSynced++;
           }
         }
 
-        // Now fetch recent messages for synced conversations
+        // Fetch recent messages for the top 15 conversations
         const { data: convs } = await admin
           .from("conversations")
           .select("id, remote_jid")
           .eq("user_id", userId)
           .eq("device_id", device.id)
           .order("last_message_at", { ascending: false })
-          .limit(20);
+          .limit(15);
 
-        if (convs) {
+        if (convs && convs.length > 0) {
           for (const conv of convs) {
             try {
-              const msgResp = await fetch(`${baseUrl}/chat/fetchMessages`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", token: device.uazapi_token },
-                body: JSON.stringify({ chatId: conv.remote_jid, count: 30 }),
-              });
+              // Try multiple endpoints for fetching messages
+              let messages: any[] = [];
 
-              if (!msgResp.ok) continue;
-              const messages = await msgResp.json();
-              if (!Array.isArray(messages)) continue;
+              // Try /chat/fetchMessages POST
+              const msgData1 = await fetchSafe(`${baseUrl}/chat/fetchMessages`, "POST", { chatId: conv.remote_jid, count: 30 });
+              if (msgData1) {
+                messages = Array.isArray(msgData1.messages || msgData1.data || msgData1) ? (msgData1.messages || msgData1.data || msgData1) : [];
+              }
+
+              // Fallback: /chat/messages GET
+              if (messages.length === 0) {
+                const msgData2 = await fetchSafe(`${baseUrl}/chat/messages?chatId=${encodeURIComponent(conv.remote_jid)}&count=30`);
+                if (msgData2) {
+                  messages = Array.isArray(msgData2.messages || msgData2.data || msgData2) ? (msgData2.messages || msgData2.data || msgData2) : [];
+                }
+              }
+
+              // Fallback: /message/list
+              if (messages.length === 0) {
+                const msgData3 = await fetchSafe(`${baseUrl}/message/list?chatId=${encodeURIComponent(conv.remote_jid)}&count=30`);
+                if (msgData3) {
+                  messages = Array.isArray(msgData3.messages || msgData3.data || msgData3) ? (msgData3.messages || msgData3.data || msgData3) : [];
+                }
+              }
+
+              if (messages.length === 0) continue;
+
+              console.log(`[${device.name}] ${conv.remote_jid}: ${messages.length} messages`);
 
               for (const msg of messages) {
-                const waId = msg.id?._serialized || msg.id?.id || msg.key?.id || `${Date.now()}-${Math.random()}`;
-                const content = msg.body || msg.text || msg.conversation || msg.caption || "";
-                const fromMe = msg.fromMe ?? msg.key?.fromMe ?? false;
-                const timestamp = msg.timestamp || msg.t
-                  ? new Date((msg.timestamp || msg.t) * 1000).toISOString()
+                const waId = msg.key?.id || msg.id?._serialized || msg.id?.id || msg.messageId || `${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+                const content = msg.message?.conversation
+                  || msg.message?.extendedTextMessage?.text
+                  || msg.body || msg.text || msg.caption || msg.content || "";
+                const fromMe = msg.key?.fromMe ?? msg.fromMe ?? false;
+                const rawTs = msg.messageTimestamp || msg.timestamp || msg.t;
+                const timestamp = rawTs
+                  ? new Date(typeof rawTs === "number" && rawTs < 1e12 ? rawTs * 1000 : Number(rawTs)).toISOString()
                   : new Date().toISOString();
 
                 let mediaType: string | null = null;
                 let mediaUrl: string | null = null;
                 let audioDuration: number | null = null;
+                const msgObj = msg.message || msg;
 
-                if (msg.type === "image" || msg.mimetype?.startsWith("image")) {
+                if (msgObj.imageMessage || msg.type === "image" || msg.mimetype?.startsWith("image")) {
                   mediaType = "image";
-                  mediaUrl = msg.mediaUrl || msg.directPath || null;
-                } else if (msg.type === "audio" || msg.type === "ptt" || msg.mimetype?.startsWith("audio")) {
+                  mediaUrl = msgObj.imageMessage?.url || msg.mediaUrl || null;
+                } else if (msgObj.audioMessage || msg.type === "audio" || msg.type === "ptt" || msg.mimetype?.startsWith("audio")) {
                   mediaType = "audio";
-                  audioDuration = msg.duration || msg.seconds || null;
+                  audioDuration = msgObj.audioMessage?.seconds || msg.duration || null;
                   mediaUrl = msg.mediaUrl || null;
-                } else if (msg.type === "document") {
+                } else if (msgObj.documentMessage || msg.type === "document") {
                   mediaType = "document";
-                  mediaUrl = msg.mediaUrl || null;
+                  mediaUrl = msgObj.documentMessage?.url || msg.mediaUrl || null;
                 }
 
                 await admin.from("conversation_messages").upsert(
@@ -163,7 +239,7 @@ Deno.serve(async (req) => {
                     conversation_id: conv.id,
                     user_id: userId,
                     remote_jid: conv.remote_jid,
-                    content,
+                    content: content.substring(0, 5000),
                     direction: fromMe ? "sent" : "received",
                     status: fromMe ? (msg.ack >= 3 ? "read" : msg.ack >= 2 ? "delivered" : "sent") : "received",
                     media_type: mediaType,
@@ -175,20 +251,21 @@ Deno.serve(async (req) => {
                   { onConflict: "whatsapp_message_id", ignoreDuplicates: true }
                 );
               }
-            } catch (e) {
-              console.error(`Messages fetch error for ${conv.remote_jid}:`, e);
+            } catch (e: any) {
+              console.error(`[${device.name}] Messages error ${conv.remote_jid}:`, e.message);
             }
           }
         }
-      } catch (e) {
-        console.error(`Device ${device.name} sync error:`, e);
+      } catch (e: any) {
+        console.error(`[${device.name}] sync error:`, e.message);
+        errors.push(`${device.name}: ${e.message}`);
       }
     }
 
-    return new Response(JSON.stringify({ synced: totalSynced, devices: devices.length }), {
+    return new Response(JSON.stringify({ synced: totalSynced, devices: devices.length, errors }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("sync-conversations error:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
