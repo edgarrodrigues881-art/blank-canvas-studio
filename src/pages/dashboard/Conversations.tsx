@@ -138,19 +138,7 @@ const Conversations = () => {
           }`}
           style={selectedConversation ? { width: sidebarWidth } : undefined}
         >
-          {/* Sync button */}
-          <div className="flex items-center gap-2 px-3 pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={syncConversations}
-              disabled={syncing}
-              className="ml-auto text-xs"
-            >
-              <RefreshCw className={`h-3 w-3 mr-1 ${syncing ? "animate-spin" : ""}`} />
-              {syncing ? "Sincronizando..." : "Sincronizar"}
-            </Button>
-          </div>
+          {/* Auto-sync active via realtime */}
           <ConversationList
             conversations={filteredConversations}
             selectedId={selectedConvId}
