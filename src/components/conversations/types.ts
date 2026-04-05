@@ -27,6 +27,7 @@ export interface Message {
   mediaUrl?: string;
   mediaType?: "image" | "audio" | "document";
   audioDuration?: number; // seconds, for audio messages
+  isAiResponse?: boolean; // true when AI responded automatically
 }
 
 // Mock data for initial UI
