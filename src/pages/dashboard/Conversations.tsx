@@ -24,6 +24,7 @@ const Conversations = () => {
     updateTags,
     sendMessage,
     sendAudioMessage,
+    sendFileMessage,
     retryMessage,
   } = useConversations();
 
@@ -171,6 +172,7 @@ const Conversations = () => {
               onStatusChange={handleStatusChange}
               onSendMessage={sendMessage}
               onSendAudio={sendAudioMessage}
+              onSendFile={sendFileMessage}
               onRetryMessage={retryMessage}
             />
           </div>

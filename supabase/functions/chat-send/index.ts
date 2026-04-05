@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceKey);
 
     const body = await req.json();
-    const { conversation_id, content, message_id, type } = body;
+    const { conversation_id, content, message_id, type, file_name } = body;
 
     if (!conversation_id || !content) {
       return json({ error: "conversation_id e content são obrigatórios" }, 400);
@@ -64,16 +64,24 @@ Deno.serve(async (req) => {
     const token = instanceToken || uazapiToken;
 
     // Determine endpoint and payload based on type
-    const isAudio = type === "audio";
-    const sendUrl = isAudio
-      ? `${baseUrl}/${instanceName}/send/audio`
-      : `${baseUrl}/${instanceName}/send/text`;
+    let sendUrl: string;
+    let sendBody: Record<string, unknown>;
 
-    const sendBody = isAudio
-      ? { number: remoteJid, audio: content, ptt: true }
-      : { number: remoteJid, text: content };
+    if (type === "audio") {
+      sendUrl = `${baseUrl}/${instanceName}/send/audio`;
+      sendBody = { number: remoteJid, audio: content, ptt: true };
+    } else if (type === "image") {
+      sendUrl = `${baseUrl}/${instanceName}/send/image`;
+      sendBody = { number: remoteJid, image: content, caption: "" };
+    } else if (type === "document") {
+      sendUrl = `${baseUrl}/${instanceName}/send/document`;
+      sendBody = { number: remoteJid, document: content, fileName: file_name || "arquivo" };
+    } else {
+      sendUrl = `${baseUrl}/${instanceName}/send/text`;
+      sendBody = { number: remoteJid, text: content };
+    }
 
-    console.log(`[chat-send] Sending ${isAudio ? "audio" : "text"} to ${remoteJid} via ${instanceName}`);
+    console.log(`[chat-send] Sending ${type || "text"} to ${remoteJid} via ${instanceName}`);
 
     const uazRes = await fetch(sendUrl, {
       method: "POST",
