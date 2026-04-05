@@ -101,9 +101,11 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
   }, [conversation.id]);
 
   const toggleTag = (tag: string) => {
-    setActiveTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
+    setActiveTags((prev) => {
+      const next = prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag];
+      onTagsChange?.(conversation.id, next);
+      return next;
+    });
   };
 
   const handleEditSave = () => {
