@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceKey);
 
     const body = await req.json();
-    const { conversation_id, content, message_id } = body;
+    const { conversation_id, content, message_id, type } = body;
 
     if (!conversation_id || !content) {
       return json({ error: "conversation_id e content são obrigatórios" }, 400);
@@ -54,30 +54,34 @@ Deno.serve(async (req) => {
     const remoteJid = conv.remote_jid;
 
     if (!instanceName) {
-      // Update message status to failed
       if (message_id) {
         await admin.from("conversation_messages").update({ status: "failed" }).eq("id", message_id);
       }
       return json({ error: "Dispositivo sem instance_name configurado" }, 400);
     }
 
-    // Build UAZAPI URL
     const baseUrl = uazapiBaseUrl.replace(/\/+$/, "");
     const token = instanceToken || uazapiToken;
-    const sendUrl = `${baseUrl}/${instanceName}/send/text`;
 
-    console.log(`[chat-send] Sending to ${remoteJid} via ${instanceName}`);
+    // Determine endpoint and payload based on type
+    const isAudio = type === "audio";
+    const sendUrl = isAudio
+      ? `${baseUrl}/${instanceName}/send/audio`
+      : `${baseUrl}/${instanceName}/send/text`;
 
-    // Send via UAZAPI
+    const sendBody = isAudio
+      ? { number: remoteJid, audio: content, ptt: true }
+      : { number: remoteJid, text: content };
+
+    console.log(`[chat-send] Sending ${isAudio ? "audio" : "text"} to ${remoteJid} via ${instanceName}`);
+
     const uazRes = await fetch(sendUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        number: remoteJid,
-        text: content,
+      body: JSON.stringify(sendBody),
       }),
     });
 
