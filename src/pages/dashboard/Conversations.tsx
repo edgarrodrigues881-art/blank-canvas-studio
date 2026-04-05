@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { ConversationList } from "@/components/conversations/ConversationList";
 import { ChatPanel } from "@/components/conversations/ChatPanel";
 import { ContactDetails } from "@/components/conversations/ContactDetails";
@@ -6,6 +6,10 @@ import { type Conversation, type AttendingStatus, type Message } from "@/compone
 import { useConversations } from "@/hooks/useConversations";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+const MIN_SIDEBAR_W = 240;
+const MAX_SIDEBAR_W = 600;
+const DEFAULT_SIDEBAR_W = 340;
 
 const Conversations = () => {
   const {
@@ -24,6 +28,39 @@ const Conversations = () => {
 
   const [showDetails, setShowDetails] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_W);
+  const isDragging = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Drag logic
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const newW = Math.min(MAX_SIDEBAR_W, Math.max(MIN_SIDEBAR_W, e.clientX - rect.left));
+      setSidebarWidth(newW);
+    };
+    const handleMouseUp = () => {
+      if (isDragging.current) {
+        isDragging.current = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      }
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
 
   // Map real data to the Conversation type used by components
   const conversations: Conversation[] = realConvs.map((c) => ({
@@ -53,7 +90,6 @@ const Conversations = () => {
       c.phone.includes(searchQuery)
   );
 
-  // Map real messages to Message type
   const messages: Message[] = realMsgs.map((m) => ({
     id: m.id,
     conversationId: m.conversation_id,
@@ -90,14 +126,15 @@ const Conversations = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.14)-theme(spacing.5)*2)] sm:h-[calc(100vh-theme(spacing.14)-theme(spacing.10))] -m-2.5 sm:-m-5 md:-m-8">
-      <div className="flex flex-1 min-h-0 overflow-hidden bg-background">
+      <div ref={containerRef} className="flex flex-1 min-h-0 overflow-hidden bg-background">
         {/* Left Column */}
         <div
           className={`${
             selectedConversation
-              ? "hidden md:flex flex-col w-full md:w-[340px] lg:w-[360px] border-r border-border shrink-0"
+              ? "hidden md:flex flex-col shrink-0"
               : "flex flex-col w-full"
           }`}
+          style={selectedConversation ? { width: sidebarWidth } : undefined}
         >
           {/* Sync button */}
           <div className="flex items-center gap-2 px-3 pt-2">
@@ -120,6 +157,16 @@ const Conversations = () => {
             onSelect={handleSelect}
           />
         </div>
+
+        {/* Draggable divider */}
+        {selectedConversation && (
+          <div
+            onMouseDown={handleMouseDown}
+            className="hidden md:flex items-center justify-center w-1.5 cursor-col-resize group hover:bg-primary/20 active:bg-primary/30 transition-colors shrink-0 relative"
+          >
+            <div className="w-0.5 h-8 rounded-full bg-border group-hover:bg-primary/50 group-active:bg-primary transition-colors" />
+          </div>
+        )}
 
         {/* Center Column — Chat */}
         {selectedConversation && (
