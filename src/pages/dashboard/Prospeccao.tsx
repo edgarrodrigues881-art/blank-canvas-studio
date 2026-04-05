@@ -100,6 +100,19 @@ export default function Prospeccao() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [savingContacts, setSavingContacts] = useState(false);
 
+  // Load credit balance
+  const loadCredits = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from("prospeccao_credits")
+        .select("balance")
+        .maybeSingle();
+      setCreditBalance(data?.balance ?? 0);
+    } catch { setCreditBalance(0); }
+  }, []);
+
+  useEffect(() => { loadCredits(); }, [loadCredits]);
+
   useEffect(() => {
     if (!estado) { setCidades([]); setCidade(""); return; }
     const fetchCidades = async () => {
