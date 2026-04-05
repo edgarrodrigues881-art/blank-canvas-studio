@@ -1,3 +1,5 @@
+export type AttendingStatus = "nova" | "em_atendimento" | "aguardando" | "finalizado" | "pausado";
+
 export interface Conversation {
   id: string;
   name: string;
@@ -7,7 +9,9 @@ export interface Conversation {
   lastMessageAt: string;
   unreadCount: number;
   status: "online" | "offline" | "typing";
+  attendingStatus: AttendingStatus;
   tags: string[];
+  category?: "vendas" | "financeiro" | "suporte";
   email?: string;
   notes?: string;
   deviceName?: string;
