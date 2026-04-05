@@ -173,6 +173,18 @@ export default function Prospeccao() {
     toast.success("Parâmetros copiados! Clique em Buscar.");
   };
 
+  const exportCampaignLeads = async (c: Campaign) => {
+    try {
+      const { data: leads } = await supabase
+        .from("prospeccao_campaign_leads")
+        .select("*")
+        .eq("campaign_id", c.id)
+        .limit(5000);
+      if (!leads?.length) { toast.error("Nenhum lead encontrado"); return; }
+      exportCSV(leads, `leads_${c.name}.csv`);
+    } catch { toast.error("Erro ao exportar"); }
+  };
+
   const handleSearch = async (forceRefresh = false) => {
     if (!nicho.trim() || !estado || !cidade.trim()) {
       toast.error("Preencha todos os campos obrigatórios"); return;
@@ -391,7 +403,7 @@ export default function Prospeccao() {
           {searched && !loading && (
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <MapPin className="h-5 w-5" /> Resultados ({results.length})
                     {fromCache && (
@@ -400,11 +412,24 @@ export default function Prospeccao() {
                       </Badge>
                     )}
                   </CardTitle>
-                  {fromCache && (
-                    <Button variant="outline" size="sm" onClick={() => handleSearch(true)} disabled={loading} className="gap-1.5">
-                      <RefreshCw className="h-3.5 w-3.5" /> Nova busca
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {fromCache && (
+                      <Button variant="outline" size="sm" onClick={() => handleSearch(true)} disabled={loading} className="gap-1.5">
+                        <RefreshCw className="h-3.5 w-3.5" /> Nova busca
+                      </Button>
+                    )}
+                    {results.length > 0 && (
+                      <>
+                        <Button variant="outline" size="sm" onClick={() => exportCSV()} className="gap-1.5">
+                          <Download className="h-3.5 w-3.5" /> Exportar CSV
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => saveToContacts()} disabled={savingContacts} className="gap-1.5">
+                          {savingContacts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
+                          {savingContacts ? "Salvando..." : "Salvar nos Contatos"}
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -485,7 +510,7 @@ export default function Prospeccao() {
                     </TableHeader>
                     <TableBody>
                       {campaigns.map(c => (
-                        <TableRow key={c.id}>
+                        <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openCampaignDetail(c)}>
                           <TableCell className="font-medium">
                             <div>{c.name}</div>
                             <div className="text-xs text-muted-foreground">{c.nicho} — {c.cidade}/{c.estado}</div>
@@ -508,9 +533,12 @@ export default function Prospeccao() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="flex gap-1">
+                            <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openCampaignDetail(c)} title="Ver detalhes">
                                 <Eye className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { exportCampaignLeads(c); }} title="Baixar CSV">
+                                <Download className="h-3.5 w-3.5" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => duplicateCampaign(c)} title="Duplicar busca">
                                 <Copy className="h-3.5 w-3.5" />
