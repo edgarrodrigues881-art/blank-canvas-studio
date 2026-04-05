@@ -2754,9 +2754,14 @@ export type Database = {
           campaign_id: string
           categoria: string | null
           created_at: string
+          descricao: string | null
+          email: string | null
           endereco: string | null
+          facebook: string | null
+          faixa_preco: string | null
           google_maps_url: string | null
           id: string
+          instagram: string | null
           latitude: number | null
           longitude: number | null
           nome: string
@@ -2770,9 +2775,14 @@ export type Database = {
           campaign_id: string
           categoria?: string | null
           created_at?: string
+          descricao?: string | null
+          email?: string | null
           endereco?: string | null
+          facebook?: string | null
+          faixa_preco?: string | null
           google_maps_url?: string | null
           id?: string
+          instagram?: string | null
           latitude?: number | null
           longitude?: number | null
           nome?: string
@@ -2786,9 +2796,14 @@ export type Database = {
           campaign_id?: string
           categoria?: string | null
           created_at?: string
+          descricao?: string | null
+          email?: string | null
           endereco?: string | null
+          facebook?: string | null
+          faixa_preco?: string | null
           google_maps_url?: string | null
           id?: string
+          instagram?: string | null
           latitude?: number | null
           longitude?: number | null
           nome?: string
