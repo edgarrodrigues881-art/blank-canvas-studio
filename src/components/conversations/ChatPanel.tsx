@@ -217,6 +217,20 @@ export function ChatPanel({
   const handleQuickReply = (text: string) => { setInput(text); setShowQuickReplies(false); textareaRef.current?.focus(); };
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } };
 
+  // Paste images from clipboard
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) handleFileSelected(file);
+        return;
+      }
+    }
+  }, [handleFileSelected]);
+
   // ─── File handling ───
   const handleFileSelected = useCallback((file: File) => {
     if (file.size > 20 * 1024 * 1024) {
