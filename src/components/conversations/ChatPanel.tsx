@@ -62,7 +62,7 @@ function formatAudioDuration(seconds: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export function ChatPanel({ conversation, messages, showDetails, onToggleDetails, onBack, onStatusChange }: ChatPanelProps) {
+export function ChatPanel({ conversation, messages, showDetails, onToggleDetails, onBack, onStatusChange, onSendMessage, onRetryMessage }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [currentStatus, setCurrentStatus] = useState<AttendingStatus>(conversation.attendingStatus);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
