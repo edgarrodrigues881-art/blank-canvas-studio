@@ -377,7 +377,7 @@ async function adaptiveSearch(
     const ring3 = filterInCity(generateRing(center, ring3Dist, ring3Pts));
     let ring3ColdStreak = 0;
     for (const pt of ring3) {
-      if (done() || ring3ColdStreak >= 2) break;
+      if (done() || ring3ColdStreak >= 2 || budgetExceeded()) break;
       const llStr = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomOuter}z`;
       const added = await query(primary, llStr, apiKey, seen, places);
       credits++;
