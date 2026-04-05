@@ -70,6 +70,8 @@ const Conversations = () => {
     avatar_url: c.avatar_url || undefined,
     lastMessage: c.last_message,
     lastMessageAt: c.last_message_at,
+    lastMessageStatus: (c.last_message_status as "sent" | "delivered" | "read") || undefined,
+    lastMessageDirection: (c.last_message_direction as "sent" | "received") || undefined,
     unreadCount: c.unread_count,
     status: (c.status as "online" | "offline" | "typing") || "offline",
     attendingStatus: (c.attending_status as AttendingStatus) || "nova",
