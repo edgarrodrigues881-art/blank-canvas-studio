@@ -434,7 +434,7 @@ export default function Prospeccao() {
                     const t = parseInt(maxResults) || 50;
                     const caps: Record<number, number> = { 10: 1, 20: 2, 50: 4, 100: 6, 200: 10, 500: 16, 1000: 24 };
                     const api = Object.entries(caps).reduce((acc, [k, v]) => t <= Number(k) ? (acc === 0 ? v : acc) : acc, 0) || 60;
-                    return Math.ceil(api * 3.0);
+                    return Math.ceil(api * 6.25);
                   })()} créditos</strong> para {maxResults} leads
                 </div>
               )}

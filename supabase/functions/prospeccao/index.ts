@@ -236,12 +236,12 @@ function budgetForTier(tier: "hot" | "warm" | "cold"): number {
 // ========== CREDIT EFFICIENCY CONTROLS ==========
 
 /** Hard cap on API credits based on target leads requested.
- *  Final user cost = apiCredits * 3.0 (markup reduzido), so:
- *    10 leads  → max 1 API  → ~3 user credits
- *    20 leads  → max 2 API  → ~6 user credits
- *   100 leads  → max 6 API  → ~18 user credits
+ *  Final user cost = apiCredits * 6.25 (2.5x Serper cost + 2.5x markup), so:
+ *    10 leads  → max 1 API  → ~7 user credits
+ *    20 leads  → max 2 API  → ~13 user credits
+ *   100 leads  → max 6 API  → ~38 user credits
  *   500 leads  → max 16 API → ~48 user credits
- *  1000 leads  → max 24 API → ~72 user credits
+ *  1000 leads  → max 24 API → ~150 user credits
  */
 function maxApiCreditsForTarget(target: number): number {
   if (target <= 20) return 2;
@@ -255,11 +255,11 @@ function maxApiCreditsForTarget(target: number): number {
 }
 
 /** Minimum acceptable ROI (leads per API credit). If below this, stop searching. */
-const MIN_ROI_THRESHOLD = 2;
+const MIN_ROI_THRESHOLD = 3;
 
-/** Check if ROI has degraded — only after at least 3 credits spent to avoid false positives */
+/** Check if ROI has degraded — stop early if not finding enough leads per API call */
 function isRoiDegraded(totalLeads: number, totalCredits: number): boolean {
-  if (totalCredits < 3) return false;
+  if (totalCredits < 2) return false;
   return (totalLeads / totalCredits) < MIN_ROI_THRESHOLD;
 }
 
@@ -348,7 +348,7 @@ async function adaptiveSearch(
   // === EFFICIENCY CONTROLS ===
   const hardCap = maxApiCreditsForTarget(target);
   const done = () => places.length >= target;
-  const budgetExceeded = () => credits >= hardCap || Math.ceil(credits * 3.0) >= creditBudget;
+  const budgetExceeded = () => credits >= hardCap || Math.ceil(credits * 6.25) >= creditBudget;
   const roiStop = () => isRoiDegraded(places.length, credits);
   const shouldStop = () => done() || budgetExceeded() || roiStop();
 
@@ -565,12 +565,12 @@ Deno.serve(async (req) => {
 
     const currentBalance = creditRow?.balance ?? 0;
     const freePulls = creditRow?.free_pulls_remaining ?? 0;
-    const isFreePull = freePulls > 0 && currentBalance < Math.ceil(1 * 3.0);
+    const isFreePull = freePulls > 0 && currentBalance < Math.ceil(1 * 6.25);
     const freeMaxResults = 10;
 
     if (!isFreePull) {
       // Paid mode — check credits
-      const estimatedMinCost = Math.ceil(1 * 3.0);
+      const estimatedMinCost = Math.ceil(1 * 6.25);
       if (currentBalance < estimatedMinCost) {
         return new Response(
           JSON.stringify({ error: "Créditos insuficientes e sem puxadas grátis", balance: currentBalance, freePulls: 0 }),
@@ -671,15 +671,8 @@ Deno.serve(async (req) => {
 
     // --- DEBIT CREDITS or FREE PULL ---
     const rawCost = searchResult.creditsUsed;
-    // Proportional billing: if we found fewer leads than target,
-    // cap the cost proportionally so users don't overpay for poor results.
-    const maxTarget = Number(maxResults) || 100;
-    const leadsFound = results.length;
-    const fullCost = Math.ceil(rawCost * 3.0);
-    const proportionalCost = leadsFound > 0 && leadsFound < maxTarget
-      ? Math.ceil(fullCost * Math.max(leadsFound / maxTarget, 0.3)) // minimum 30% of full cost
-      : fullCost;
-    const finalCost = isFreePull ? 0 : Math.min(fullCost, proportionalCost);
+    const fullCost = Math.ceil(rawCost * 6.25);
+    const finalCost = isFreePull ? 0 : fullCost;
     let newBalance = currentBalance;
     let freePullsAfter = freePulls;
 
