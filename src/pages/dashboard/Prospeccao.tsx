@@ -73,10 +73,20 @@ export default function Prospeccao() {
   const [searchLng, setSearchLng] = useState<number | null>(null);
   const [searchRadius, setSearchRadius] = useState(12);
 
+  const [areaConfirmed, setAreaConfirmed] = useState(false);
+
   const handleAreaChange = useCallback((lat: number, lng: number, radiusKm: number) => {
     setSearchLat(lat);
     setSearchLng(lng);
     setSearchRadius(radiusKm);
+    setAreaConfirmed(false);
+  }, []);
+
+  const handleAreaConfirm = useCallback((lat: number, lng: number, radiusKm: number) => {
+    setSearchLat(lat);
+    setSearchLng(lng);
+    setSearchRadius(radiusKm);
+    setAreaConfirmed(true);
   }, []);
 
   // Campaign history
@@ -318,6 +328,7 @@ export default function Prospeccao() {
                   cidade={cidade}
                   estado={estado}
                   onAreaChange={handleAreaChange}
+                  onAreaConfirm={handleAreaConfirm}
                   initialRadiusKm={12}
                 />
               </div>
