@@ -205,53 +205,55 @@ async function adaptiveSearch(
   const places: any[] = [];
   let credits = 0;
   const primary = nichos[0];
+  const related = nichos.slice(1);
   const { center, radiusKm } = cityGeo;
   const HOT = 10;
 
-  // Dynamic ring distances based on city radius
-  const ring1Dist = Math.min(radiusKm * 0.3, 5);   // ~30% of radius
-  const ring2Dist = Math.min(radiusKm * 0.6, 12);   // ~60% of radius
-  const ring3Dist = Math.min(radiusKm * 0.9, 20);   // ~90% of radius
+  // Dynamic ring config
+  const ring1Dist = Math.min(radiusKm * 0.3, 5);
+  const ring2Dist = Math.min(radiusKm * 0.6, 12);
+  const ring3Dist = Math.min(radiusKm * 0.9, 20);
   const ring1Pts = radiusKm < 5 ? 4 : 6;
   const ring2Pts = radiusKm < 8 ? 6 : 8;
   const ring3Pts = radiusKm < 10 ? 8 : 10;
-  // Zoom: tighter for small cities, wider for large
   const zoomCenter = radiusKm < 5 ? 15 : radiusKm < 12 ? 14 : 13;
   const zoomRing1 = radiusKm < 8 ? 14 : 13;
   const zoomOuter = radiusKm < 12 ? 13 : 12;
 
-  console.log(`[prospeccao] Adaptive rings: R1=${ring1Dist.toFixed(1)}km(${ring1Pts}pts) R2=${ring2Dist.toFixed(1)}km(${ring2Pts}pts) R3=${ring3Dist.toFixed(1)}km(${ring3Pts}pts) | cityRadius=${radiusKm.toFixed(1)}km`);
+  console.log(`[prospeccao] Rings: R1=${ring1Dist.toFixed(1)}km R2=${ring2Dist.toFixed(1)}km R3=${ring3Dist.toFixed(1)}km | city=${radiusKm.toFixed(1)}km | primary="${primary}" related=${related.length}`);
 
   const done = () => places.length >= target;
+  const progress = () => places.length / target; // 0.0 to 1.0
   const log = (phase: string, added: number) =>
-    console.log(`[prospeccao] ${phase} → +${added} new (total: ${places.length}/${target}) [${credits} cr]`);
-
+    console.log(`[prospeccao] ${phase} → +${added} (${places.length}/${target}) [${credits}cr]`);
   const filterInCity = (pts: GeoPoint[]) => pts.filter(p => isWithinCity(p, center, radiusKm * 1.1));
+  const ll = (pt: GeoPoint, z: number) => `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${z}z`;
 
-  // === P1: Center — all niches ===
-  for (const n of nichos) {
-    if (done()) break;
-    const ll = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomCenter}z`;
-    const added = await query(n, ll, apiKey, seen, places);
-    credits++;
-    log(`P1 center "${n}"`, added);
-  }
+  // ====================================================================
+  // PHASE 1: Primary niche — center only (1 credit)
+  // ====================================================================
+  const p1Added = await query(primary, ll(center, zoomCenter), apiKey, seen, places);
+  credits++;
+  log(`P1 center "${primary}"`, p1Added);
   if (done()) return { places, creditsUsed: credits };
 
-  // === P2: Ring 1 — primary niche ===
+  // ====================================================================
+  // PHASE 2: Primary niche — Ring 1 (inner coverage)
+  // ====================================================================
   const ring1 = filterInCity(generateRing(center, ring1Dist, ring1Pts));
   const hotPts: GeoPoint[] = [];
   for (const pt of ring1) {
     if (done()) break;
-    const ll = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomRing1}z`;
-    const added = await query(primary, ll, apiKey, seen, places);
+    const added = await query(primary, ll(pt, zoomRing1), apiKey, seen, places);
     credits++;
     log("P2 ring1", added);
     if (added >= HOT) hotPts.push(pt);
   }
   if (done()) return { places, creditsUsed: credits };
 
-  // === P3: Bairros — text search ===
+  // ====================================================================
+  // PHASE 3: Primary niche — Bairros (text-based, unique results)
+  // ====================================================================
   if (bairros.length > 0) {
     let coldStreak = 0;
     for (const bairro of bairros.slice(0, 10)) {
@@ -264,14 +266,15 @@ async function adaptiveSearch(
   }
   if (done()) return { places, creditsUsed: credits };
 
-  // === P4: Subdivide hot points ===
+  // ====================================================================
+  // PHASE 4: Primary niche — Subdivide hot points
+  // ====================================================================
   const subRadius = Math.max(ring1Dist * 0.4, 1);
   for (const hp of hotPts) {
     if (done()) break;
     for (const sp of filterInCity(subdivide(hp, subRadius))) {
       if (done()) break;
-      const ll = `@${sp.lat.toFixed(6)},${sp.lng.toFixed(6)},${zoomCenter}z`;
-      const added = await query(primary, ll, apiKey, seen, places);
+      const added = await query(primary, ll(sp, zoomCenter), apiKey, seen, places);
       credits++;
       log("P4 subdivide", added);
       if (added < 2) break;
@@ -279,57 +282,95 @@ async function adaptiveSearch(
   }
   if (done()) return { places, creditsUsed: credits };
 
-  // === P5: Expanded terms ===
-  const expanded = expandNicho(primary);
-  if (expanded.length > 0) {
-    const bestPts = [center, ...ring1.slice(0, 2)];
-    for (const term of expanded.slice(0, 3)) {
-      if (done()) break;
-      for (const pt of bestPts) {
-        if (done()) break;
-        const ll = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomOuter}z`;
-        const added = await query(term, ll, apiKey, seen, places);
-        credits++;
-        log(`P5 expand "${term}"`, added);
-        if (added < 2) break;
-      }
-    }
-  }
-  if (done()) return { places, creditsUsed: credits };
-
-  // === P6: Ring 2 ===
+  // ====================================================================
+  // PHASE 5: Primary niche — Ring 2 (wider coverage)
+  // ====================================================================
   const ring2 = filterInCity(generateRing(center, ring2Dist, ring2Pts));
   for (const pt of ring2) {
     if (done()) break;
-    const ll = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomOuter}z`;
-    const added = await query(primary, ll, apiKey, seen, places);
+    const added = await query(primary, ll(pt, zoomOuter), apiKey, seen, places);
     credits++;
-    log("P6 ring2", added);
+    log("P5 ring2", added);
   }
   if (done()) return { places, creditsUsed: credits };
 
-  // === P7: Ring 3 — only if city is large enough and target demands it ===
+  // ====================================================================
+  // PHASE 6: Primary niche — Ring 3 (edge of city, only if large)
+  // ====================================================================
   if (target > 50 && radiusKm > 6) {
     const ring3 = filterInCity(generateRing(center, ring3Dist, ring3Pts));
     for (const pt of ring3) {
       if (done()) break;
-      const ll = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomOuter}z`;
-      const added = await query(primary, ll, apiKey, seen, places);
+      const added = await query(primary, ll(pt, zoomOuter), apiKey, seen, places);
       credits++;
-      log("P7 ring3", added);
+      log("P6 ring3", added);
     }
   }
   if (done()) return { places, creditsUsed: credits };
 
-  // === P8: Bairros + related niches ===
-  if (bairros.length > 0 && nichos.length > 1) {
-    for (const n of nichos.slice(1)) {
+  // ====================================================================
+  // PRIMARY EXHAUSTED — evaluate if related niches are needed
+  // ====================================================================
+  const primaryLeads = places.length;
+  const deficit = target - primaryLeads;
+  console.log(`[prospeccao] Primary exhausted: ${primaryLeads} leads, deficit: ${deficit}, progress: ${(progress() * 100).toFixed(0)}%`);
+
+  // If primary already got 80%+ of target, skip related niches (not worth the cost)
+  if (progress() >= 0.8 || related.length === 0) {
+    return { places, creditsUsed: credits };
+  }
+
+  // ====================================================================
+  // PHASE 7: Related niches — ONE AT A TIME, progressive
+  // Each related niche: center first, then best ring1 points only if yielding
+  // ====================================================================
+  const expanded = expandNicho(primary);
+  const allRelated = [...related, ...expanded];
+  // Deduplicate related terms
+  const seenTerms = new Set([primary.toLowerCase()]);
+  const uniqueRelated = allRelated.filter(t => {
+    const low = t.toLowerCase();
+    if (seenTerms.has(low)) return false;
+    seenTerms.add(low);
+    return true;
+  });
+
+  console.log(`[prospeccao] Activating ${uniqueRelated.length} related niches: ${uniqueRelated.join(", ")}`);
+
+  for (const relNicho of uniqueRelated) {
+    if (done()) break;
+
+    // Step A: Try center first (1 credit)
+    const centerAdded = await query(relNicho, ll(center, zoomCenter), apiKey, seen, places);
+    credits++;
+    log(`P7a "${relNicho}" center`, centerAdded);
+
+    // If center yielded nothing, skip this niche entirely
+    if (centerAdded < 2) {
+      console.log(`[prospeccao] Skipping "${relNicho}" — low yield at center`);
+      continue;
+    }
+
+    if (done()) break;
+
+    // Step B: Extend to ring1 points (only top 3 to save credits)
+    for (const pt of ring1.slice(0, 3)) {
       if (done()) break;
-      for (const bairro of bairros.slice(0, 5)) {
+      const added = await query(relNicho, ll(pt, zoomRing1), apiKey, seen, places);
+      credits++;
+      log(`P7b "${relNicho}" ring1`, added);
+      if (added < 2) break; // this niche is dry at this distance
+    }
+
+    if (done()) break;
+
+    // Step C: Bairros with this niche (max 3, only if still short)
+    if (bairros.length > 0 && progress() < 0.7) {
+      for (const bairro of bairros.slice(0, 3)) {
         if (done()) break;
-        const added = await query(`${n} ${bairro} ${cidade}`, "", apiKey, seen, places);
+        const added = await query(`${relNicho} ${bairro} ${cidade}`, "", apiKey, seen, places);
         credits++;
-        log(`P8 "${n}" bairro "${bairro}"`, added);
+        log(`P7c "${relNicho}" bairro "${bairro}"`, added);
         if (added < 1) break;
       }
     }
