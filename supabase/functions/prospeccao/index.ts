@@ -434,7 +434,7 @@ async function adaptiveSearch(
     .map(s => s.pt);
 
   for (const relNicho of uniqueRelated) {
-    if (done()) break;
+    if (done() || budgetExceeded()) break;
     const llStr = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomCenter}z`;
     const centerAdded = await query(relNicho, llStr, apiKey, seen, places);
     credits++;
