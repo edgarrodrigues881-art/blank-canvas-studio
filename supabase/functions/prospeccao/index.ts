@@ -255,11 +255,11 @@ function maxApiCreditsForTarget(target: number): number {
 }
 
 /** Minimum acceptable ROI (leads per API credit). If below this, stop searching. */
-const MIN_ROI_THRESHOLD = 2;
+const MIN_ROI_THRESHOLD = 3;
 
-/** Check if ROI has degraded — only after at least 3 credits spent to avoid false positives */
+/** Check if ROI has degraded — stop early if not finding enough leads per API call */
 function isRoiDegraded(totalLeads: number, totalCredits: number): boolean {
-  if (totalCredits < 3) return false;
+  if (totalCredits < 2) return false;
   return (totalLeads / totalCredits) < MIN_ROI_THRESHOLD;
 }
 
