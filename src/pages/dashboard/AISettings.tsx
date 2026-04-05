@@ -36,6 +36,8 @@ const AISettings = () => {
   const [aiModel, setAiModel] = useState("gpt-4o-mini");
   const [testingAi, setTestingAi] = useState(false);
   const [businessName, setBusinessName] = useState("");
+  const [businessType, setBusinessType] = useState("");
+  const [businessHours, setBusinessHours] = useState("");
   const [businessSegment, setBusinessSegment] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
   const [tone, setTone] = useState("professional");
