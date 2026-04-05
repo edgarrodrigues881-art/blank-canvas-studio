@@ -340,7 +340,7 @@ async function adaptiveSearch(
   // P2: Ring 1
   const ring1 = filterInCity(generateRing(center, ring1Dist, ring1Pts));
   for (const pt of ring1) {
-    if (done()) break;
+    if (done() || budgetExceeded()) break;
     const r = await searchAndScore(pt, primary, zoomRing1, apiKey, seen, places, target, center, radiusKm, "P2-ring1", logs);
     credits += r.credits;
     allScores.push(r.score);
