@@ -65,22 +65,29 @@ export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaCha
 
     L.control.zoom({ position: "topright" }).addTo(map);
 
-    // Carto Voyager - clean and readable
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+    // Carto Positron - minimal, clean, no clutter
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
       maxZoom: 18,
       subdomains: "abcd",
+    }).addTo(map);
+
+    // Separate labels layer on top (thin, subtle)
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {
+      maxZoom: 18,
+      subdomains: "abcd",
+      pane: "overlayPane",
     }).addTo(map);
 
     const icon = L.divIcon({
       className: "",
       html: `<div style="
-        width:16px;height:16px;border-radius:50%;
-        background:hsl(142,71%,45%);border:2.5px solid white;
-        box-shadow:0 0 8px rgba(74,222,128,0.6);
+        width:14px;height:14px;border-radius:50%;
+        background:hsl(142,71%,45%);border:2px solid white;
+        box-shadow:0 0 0 3px hsla(142,71%,45%,0.3), 0 0 12px hsla(142,71%,45%,0.4);
         cursor:grab;
       "></div>`,
-      iconSize: [16, 16],
-      iconAnchor: [8, 8],
+      iconSize: [14, 14],
+      iconAnchor: [7, 7],
     });
 
     const marker = L.marker([center.lat, center.lng], { draggable: true, icon }).addTo(map);
@@ -89,9 +96,8 @@ export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaCha
       radius: radiusKm * 1000,
       color: "hsl(142,71%,45%)",
       fillColor: "hsl(142,71%,45%)",
-      fillOpacity: 0.08,
+      fillOpacity: 0.12,
       weight: 2.5,
-      dashArray: "6 4",
     }).addTo(map);
 
     marker.on("dragend", () => {
