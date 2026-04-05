@@ -209,14 +209,19 @@ export default function Prospeccao() {
       setResults(data.results || []);
       setFromCache(!!data.fromCache);
       setCachedAt(data.cachedAt || null);
-      // Update balance from response
       if (typeof data.balance === "number") {
         setCreditBalance(data.balance);
-      } else {
+      }
+      if (typeof data.freePulls === "number") {
+        setFreePulls(data.freePulls);
+      }
+      if (data.balance === undefined && data.freePulls === undefined) {
         loadCredits();
       }
       if (data.fromCache) {
         toast.success(`${data.total || 0} resultados (do cache)`);
+      } else if (data.isFreePull) {
+        toast.success(`${data.total || 0} leads encontrados — puxada grátis utilizada (${data.freePulls} restantes)`);
       } else {
         const execSec = data.executionTimeMs ? `em ${(data.executionTimeMs / 1000).toFixed(1)}s` : "";
         toast.success(`${data.total || 0} leads encontrados ${execSec} — ${data.creditsUsed || 0} créditos consumidos`);
