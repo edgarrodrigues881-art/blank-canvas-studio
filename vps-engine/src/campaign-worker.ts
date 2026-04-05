@@ -17,6 +17,35 @@ const MAX_RETRIES = 2;
 const RETRY_DELAY_MIN_MS = 10_000;
 const RETRY_DELAY_MAX_MS = 30_000;
 const CONNECTED_STATUSES = ["Ready", "Connected", "authenticated", "open", "active", "online"];
+const SEND_ENDPOINT_PREFIXES = ["/send/", "/chat/", "/message/"];
+const UAZAPI_FAILURE_STATUSES = new Set(["error", "failed", "fail", "not_found", "not_exists", "invalid", "unauthorized", "disconnected", "timeout", "rate_limited"]);
+const UAZAPI_FAILURE_KEYWORDS = [
+  "not found",
+  "not_exists",
+  "not exists",
+  "not on whatsapp",
+  "not on whats",
+  "not registered",
+  "invalid token",
+  "token inválido",
+  "token invalido",
+  "unauthorized",
+  "disconnected",
+  "session disconnected",
+  "socket hang up",
+  "logout",
+  "qr code",
+  "rate limit",
+  "too many requests",
+  "timeout",
+  "timed out",
+  "bad-request",
+  "failed",
+  "invalid number",
+  "número inválido",
+  "número nao encontrado",
+  "número não encontrado",
+];
 
 export let lastCampaignWorkerTickAt: Date | null = null;
 const activeCampaigns = new Set<string>();
@@ -83,9 +112,73 @@ async function uazapiRequest(baseUrl: string, token: string, endpoint: string, p
     try { const data = JSON.parse(text); errorMsg = data?.message || data?.error || text; } catch { errorMsg = text; }
     throw new Error(errorMsg);
   }
-  const parsed = JSON.parse(text);
+  let parsed: any = {};
+  try {
+    parsed = text ? JSON.parse(text) : {};
+  } catch {
+    parsed = text ? { raw: text } : {};
+  }
   if (parsed?.error && typeof parsed.error === "string") throw new Error(parsed.error);
+  if (isSendEndpoint(endpoint)) {
+    const failure = detectUazapiSendFailure(parsed);
+    if (failure) throw new Error(failure);
+  }
   return parsed;
+}
+
+function isSendEndpoint(endpoint: string): boolean {
+  return SEND_ENDPOINT_PREFIXES.some(prefix => endpoint.startsWith(prefix));
+}
+
+function collectUazapiTexts(value: unknown, depth = 0): string[] {
+  if (depth > 3 || value == null) return [];
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed ? [trimmed] : [];
+  }
+  if (Array.isArray(value)) return value.flatMap(item => collectUazapiTexts(item, depth + 1));
+  if (typeof value !== "object") return [];
+
+  const obj = value as Record<string, unknown>;
+  const texts: string[] = [];
+  for (const key of ["error", "message", "msg", "detail", "details", "reason", "statusText", "raw"]) {
+    const field = obj[key];
+    if (typeof field === "string" && field.trim()) texts.push(field.trim());
+  }
+  if ("data" in obj) texts.push(...collectUazapiTexts(obj.data, depth + 1));
+  if ("response" in obj) texts.push(...collectUazapiTexts(obj.response, depth + 1));
+  if ("body" in obj) texts.push(...collectUazapiTexts(obj.body, depth + 1));
+  return texts;
+}
+
+function detectUazapiSendFailure(parsed: any): string | null {
+  const candidates = [parsed, parsed?.data, Array.isArray(parsed) ? parsed[0] : null].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const record = candidate as Record<string, unknown>;
+
+    if (record.success === false || record.ok === false || record.sent === false || record.delivered === false) {
+      return String(record.error || record.message || record.detail || "Falha no envio");
+    }
+
+    const status = typeof record.status === "string" ? record.status.toLowerCase() : "";
+    if (status && UAZAPI_FAILURE_STATUSES.has(status)) {
+      return String(record.error || record.message || record.detail || status);
+    }
+
+    const codeRaw = record.code ?? record.statusCode ?? record.errorCode ?? record.Error ?? record.error_code;
+    const code = typeof codeRaw === "number" ? codeRaw : Number(codeRaw);
+    if (!Number.isNaN(code) && code >= 400) {
+      return String(record.error || record.message || record.detail || `API error ${code}`);
+    }
+  }
+
+  const failureText = collectUazapiTexts(parsed)
+    .map(text => text.toLowerCase())
+    .find(text => UAZAPI_FAILURE_KEYWORDS.some(keyword => text.includes(keyword)));
+
+  return failureText || null;
 }
 
 // ── Media & message sending ──
@@ -173,6 +266,7 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
   const normalized = normalizeCarouselCards(cards);
   if (normalized.length === 0) throw new Error("Carrossel sem cards configurados.");
   const primaryText = body?.trim() || null;
+  const hasUrlButtons = normalized.some(card => (card.buttons || []).some((button: any) => (button.type || "").toLowerCase() === "url"));
 
   const payload = {
     number: phone,
@@ -192,10 +286,18 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
     return lines;
   });
 
+  if (hasUrlButtons) {
+    return await uazapiRequest(baseUrl, token, "/send/menu", {
+      number: phone,
+      type: "list",
+      ...(primaryText ? { text: primaryText } : {}),
+      choices: menuChoices,
+    });
+  }
+
   try {
     return await uazapiRequest(baseUrl, token, "/send/carousel", payload);
   } catch {
-    const hasUrlButtons = normalized.some(c => (c.buttons || []).some((b: any) => (b.type || "").toLowerCase() === "url"));
     return await uazapiRequest(baseUrl, token, "/send/menu", {
       number: phone,
       type: hasUrlButtons ? "list" : "carousel",
@@ -831,8 +933,6 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       await sb.from("campaign_contacts").update({ status: "failed", error_message: "Número inválido", device_id: device.id }).eq("id", contact.id);
       continue;
     }
-    const sendTo = isLid ? phone : normalizeBrazilianPhone(phone);
-
     let sendTo = isLid ? phone : normalizeBrazilianPhone(phone);
 
     if (!isLid) {
