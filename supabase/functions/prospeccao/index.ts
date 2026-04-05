@@ -603,7 +603,18 @@ Deno.serve(async (req) => {
       searchResult = { places, creditsUsed: credits };
     }
 
-    const results = searchResult.places.slice(0, requestedTotal).map(mapPlace);
+    // Post-filter: remove results outside the search area when coordinates are available
+    let filteredPlaces = searchResult.places;
+    if (cityGeo) {
+      filteredPlaces = filteredPlaces.filter(p => {
+        if (p.latitude && p.longitude) {
+          return isWithinCity({ lat: p.latitude, lng: p.longitude }, cityGeo.center, cityGeo.radiusKm * 1.15);
+        }
+        return true; // keep places without coords
+      });
+    }
+
+    const results = filteredPlaces.slice(0, requestedTotal).map(mapPlace);
     const executionMs = Date.now() - startTime;
     const ratio = (results.length / Math.max(searchResult.creditsUsed, 1)).toFixed(1);
     console.log(`[prospeccao] DONE: ${results.length} leads | ${searchResult.creditsUsed} cr | ${ratio} l/cr | ${executionMs}ms`);
