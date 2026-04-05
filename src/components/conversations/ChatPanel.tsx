@@ -95,8 +95,10 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
 
   const handleSend = () => {
     if (!input.trim()) return;
+    const text = input.trim();
     setInput("");
     setShowQuickReplies(false);
+    onSendMessage?.(conversation.id, text);
   };
 
   const handleQuickReply = (text: string) => {
