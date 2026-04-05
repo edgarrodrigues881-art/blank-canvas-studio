@@ -185,6 +185,7 @@ export default function Prospeccao() {
     } catch { toast.error("Erro ao exportar"); }
   };
 
+  const handleSearch = async (forceRefresh = false) => {
     if (!nicho.trim() || !estado || !cidade.trim()) {
       toast.error("Preencha todos os campos obrigatórios"); return;
     }
