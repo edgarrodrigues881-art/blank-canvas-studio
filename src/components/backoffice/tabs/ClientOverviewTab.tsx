@@ -44,7 +44,8 @@ const ClientOverviewTab = memo(({ client, detail }: Props) => {
         p_description: `Créditos adicionados via backoffice`,
       });
       if (error) throw error;
-      setCreditBalance(data?.balance ?? (creditBalance ?? 0) + amount);
+      const result = data as any;
+      setCreditBalance(result?.balance ?? (creditBalance ?? 0) + amount);
       setAddCreditsAmount("");
       toast({ title: `${amount} créditos adicionados!` });
     } catch (err: any) {
