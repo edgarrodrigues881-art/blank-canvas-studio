@@ -9,8 +9,12 @@ const corsHeaders = {
 // ========== GEO ==========
 
 interface GeoPoint { lat: number; lng: number; }
+interface CityGeo {
+  center: GeoPoint;
+  radiusKm: number; // estimated city radius from bounding box
+}
 
-async function geocodeCity(cidade: string, estado: string): Promise<GeoPoint | null> {
+async function geocodeCity(cidade: string, estado: string): Promise<CityGeo | null> {
   try {
     const q = encodeURIComponent(`${cidade}, ${estado}, Brazil`);
     const res = await fetch(
@@ -19,8 +23,32 @@ async function geocodeCity(cidade: string, estado: string): Promise<GeoPoint | n
     );
     if (!res.ok) return null;
     const data = await res.json();
-    return data.length ? { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) } : null;
+    if (!data.length) return null;
+
+    const item = data[0];
+    const center: GeoPoint = { lat: parseFloat(item.lat), lng: parseFloat(item.lon) };
+
+    // Calculate city radius from bounding box if available
+    let radiusKm = 8; // default
+    if (item.boundingbox) {
+      const [south, north, west, east] = item.boundingbox.map(Number);
+      const latSpan = (north - south) * 111; // km
+      const lngSpan = (east - west) * 111 * Math.cos(center.lat * Math.PI / 180);
+      radiusKm = Math.max(latSpan, lngSpan) / 2;
+      // Clamp: min 3km (vila), max 30km (metrópole)
+      radiusKm = Math.min(Math.max(radiusKm, 3), 30);
+    }
+
+    console.log(`[prospeccao] City "${cidade}": center ${center.lat.toFixed(4)},${center.lng.toFixed(4)} | radius ~${radiusKm.toFixed(1)}km`);
+    return { center, radiusKm };
   } catch { return null; }
+}
+
+/** Check if a point is within city radius (prevents searching outside the city) */
+function isWithinCity(point: GeoPoint, center: GeoPoint, maxRadiusKm: number): boolean {
+  const dLat = (point.lat - center.lat) * 111;
+  const dLng = (point.lng - center.lng) * 111 * Math.cos(center.lat * Math.PI / 180);
+  return Math.sqrt(dLat * dLat + dLng * dLng) <= maxRadiusKm;
 }
 
 function generateRing(center: GeoPoint, radiusKm: number, count: number): GeoPoint[] {
