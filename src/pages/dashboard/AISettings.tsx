@@ -66,6 +66,11 @@ const AISettings = () => {
   const [maxResponseLength, setMaxResponseLength] = useState("medium");
   const [blockSensitive, setBlockSensitive] = useState(true);
   const [requireHumanForSale, setRequireHumanForSale] = useState(true);
+  const [pauseWords, setPauseWords] = useState("parar, atendente");
+  const [reactivateWords, setReactivateWords] = useState("voltar, continuar");
+  const [fallbackImage, setFallbackImage] = useState("Não consigo ver imagens, descreva por texto");
+  const [fallbackAudio, setFallbackAudio] = useState("Não consigo ouvir áudios, pode escrever?");
+  const [autoTransferHuman, setAutoTransferHuman] = useState(false);
   const [knowledgeDocs, setKnowledgeDocs] = useState<KnowledgeDoc[]>([]);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState("");
