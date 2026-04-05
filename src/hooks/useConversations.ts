@@ -288,6 +288,58 @@ export function useConversations() {
     return dbMsg;
   }, [user, conversations]);
 
+  // Retry a failed message
+  const retryMessage = useCallback(async (messageId: string) => {
+    const msg = messages.find((m) => m.id === messageId);
+    if (!msg || !msg.content) return;
+
+    // Mark as sending again
+    setMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, status: "sending" } : m))
+    );
+    await supabase.from("conversation_messages").update({ status: "sending" }).eq("id", messageId);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
+
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/chat-send`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            conversation_id: msg.conversation_id,
+            content: msg.content,
+            message_id: messageId,
+          }),
+        }
+      );
+      const result = await res.json();
+
+      if (result.sent) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, status: "sent" } : m))
+        );
+      } else {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, status: "failed" } : m))
+        );
+        await supabase.from("conversation_messages").update({ status: "failed" }).eq("id", messageId);
+        toast.error(result.error || "Falha ao reenviar");
+      }
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, status: "failed" } : m))
+      );
+      toast.error("Erro de conexão ao reenviar");
+    }
+  }, [messages]);
+
   // Select conversation
   const selectConversation = useCallback((convId: string | null) => {
     setSelectedConvId(convId);
