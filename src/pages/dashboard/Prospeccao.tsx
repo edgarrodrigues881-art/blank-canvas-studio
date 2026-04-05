@@ -417,14 +417,14 @@ export default function Prospeccao() {
           {loadingDetail ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
           ) : (
-            <Tabs defaultValue="resumo" className="flex-1 overflow-hidden flex flex-col">
+            <Tabs defaultValue="detail-resumo" className="flex-1 overflow-hidden flex flex-col">
               <TabsList className="w-fit">
-                <TabsTrigger value="resumo">Resumo</TabsTrigger>
-                <TabsTrigger value="logs">Logs ({campaignLogs.length})</TabsTrigger>
-                <TabsTrigger value="leads">Leads ({campaignLeads.length})</TabsTrigger>
+                <TabsTrigger value="detail-resumo">Resumo</TabsTrigger>
+                <TabsTrigger value="detail-logs">Logs ({campaignLogs.length})</TabsTrigger>
+                <TabsTrigger value="detail-leads">Leads ({campaignLeads.length})</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="resumo" className="mt-4 space-y-4">
+              <TabsContent value="detail-resumo" className="mt-4 space-y-4">
                 {selectedCampaign && (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <Card><CardContent className="pt-4 text-center">
@@ -457,7 +457,7 @@ export default function Prospeccao() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="logs" className="flex-1 overflow-hidden mt-4">
+              <TabsContent value="detail-logs" className="flex-1 overflow-hidden mt-4">
                 <ScrollArea className="h-[400px]">
                   <Table>
                     <TableHeader>
@@ -482,7 +482,7 @@ export default function Prospeccao() {
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="leads" className="flex-1 overflow-hidden mt-4">
+              <TabsContent value="detail-leads" className="flex-1 overflow-hidden mt-4">
                 <div className="flex justify-end mb-2">
                   <Button variant="outline" size="sm" onClick={() => exportCSV(campaignLeads, `leads_${selectedCampaign?.name}.csv`)} className="gap-1.5">
                     <Download className="h-3.5 w-3.5" /> Exportar
