@@ -337,6 +337,9 @@ const MyPlan = () => {
           </div>
         </div>
 
+        {/* ════════════ CREDIT PACKS ════════════ */}
+        <CreditPackCards />
+
         {/* Trust badges */}
         <div className="space-y-6 pb-8">
           <div className="flex flex-col sm:flex-row items-center justify-center gap-8 text-sm text-muted-foreground">
