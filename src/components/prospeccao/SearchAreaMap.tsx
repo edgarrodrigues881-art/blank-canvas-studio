@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { MapPin, Target, CheckCircle2, Navigation } from "lucide-react";
+import { MapPin, Target, CheckCircle2, Navigation, Minus, Plus } from "lucide-react";
 
 interface SearchAreaMapProps {
   cidade: string;
