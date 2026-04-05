@@ -578,6 +578,76 @@ const AISettings = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Controle da IA */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-primary" />
+            <CardTitle className="text-base">Controle da IA</CardTitle>
+          </div>
+          <CardDescription>Palavras-chave e respostas de fallback</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* Palavras para pausar */}
+          <div className="space-y-2">
+            <Label>Palavras para pausar a IA</Label>
+            <Input
+              value={pauseWords}
+              onChange={(e) => setPauseWords(e.target.value)}
+              placeholder='Ex: parar, atendente, humano'
+            />
+            <p className="text-[10px] text-muted-foreground">Quando o cliente digitar uma dessas palavras, a IA para de responder</p>
+          </div>
+
+          {/* Palavras para reativar */}
+          <div className="space-y-2">
+            <Label>Palavras para reativar a IA</Label>
+            <Input
+              value={reactivateWords}
+              onChange={(e) => setReactivateWords(e.target.value)}
+              placeholder='Ex: voltar, continuar, ia'
+            />
+            <p className="text-[10px] text-muted-foreground">Quando o cliente digitar uma dessas palavras, a IA volta a responder</p>
+          </div>
+
+          {/* Respostas de fallback */}
+          <div className="space-y-3">
+            <Label>Respostas de fallback</Label>
+            <div className="space-y-2">
+              <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">Imagem</Badge>
+                </div>
+                <Input
+                  value={fallbackImage}
+                  onChange={(e) => setFallbackImage(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+              <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">Áudio</Badge>
+                </div>
+                <Input
+                  value={fallbackAudio}
+                  onChange={(e) => setFallbackAudio(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Toggle transferir */}
+          <div className="flex items-center justify-between pt-1">
+            <div>
+              <p className="text-sm font-medium text-foreground">Transferir para humano automaticamente</p>
+              <p className="text-xs text-muted-foreground">Quando a IA não souber responder, transfere para um atendente</p>
+            </div>
+            <Switch checked={autoTransferHuman} onCheckedChange={setAutoTransferHuman} />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
