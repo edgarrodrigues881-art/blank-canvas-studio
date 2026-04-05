@@ -760,6 +760,8 @@ Deno.serve(async (req) => {
       creditsUsed: finalCost,
       apiCreditsUsed: rawCost,
       balance: newBalance,
+      freePulls: freePullsAfter,
+      isFreePull,
       campaignId,
       executionTimeMs: executionMs,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
