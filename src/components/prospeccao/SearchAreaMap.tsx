@@ -123,7 +123,7 @@ export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaCha
       if (circleRef.current) map.fitBounds(circleRef.current.getBounds(), { padding: [30, 30] });
     }, ms));
 
-    return () => { map.remove(); mapInstanceRef.current = null; };
+    return () => { timers.forEach(clearTimeout); map.remove(); mapInstanceRef.current = null; };
   }, [center?.lat, center?.lng]);
 
   useEffect(() => {
