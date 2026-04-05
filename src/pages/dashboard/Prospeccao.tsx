@@ -70,6 +70,8 @@ export default function Prospeccao() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<ProspectResult[]>([]);
   const [searched, setSearched] = useState(false);
+  const [fromCache, setFromCache] = useState(false);
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
 
   // Fetch cities from IBGE API when state changes
   useEffect(() => {
