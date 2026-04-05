@@ -1,9 +1,12 @@
+import { useState } from "react";
 import type { AdminUser } from "@/hooks/useAdmin";
-import { User, CreditCard, Server, Clock, AlertTriangle, KeyRound, LogOut, ShieldAlert, ShieldCheck } from "lucide-react";
+import { User, CreditCard, Server, Clock, AlertTriangle, KeyRound, LogOut, ShieldAlert, ShieldCheck, Coins, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAdminAction } from "@/hooks/useAdmin";
 import { memo } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
