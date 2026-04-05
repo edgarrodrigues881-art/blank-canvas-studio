@@ -224,6 +224,7 @@ const App = () => (
                 <Route path="/dashboard/proxy" element={<ProtectedRoute><DashboardLayout><Proxy /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/custom-module" element={<ProtectedRoute><DashboardLayout><CustomModule /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/prospeccao" element={<ProtectedRoute><DashboardLayout><Prospeccao /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/conversations" element={<ProtectedRoute><DashboardLayout><Conversations /></DashboardLayout></ProtectedRoute>} />
 
                 {/* Backoffice — BackOffice.tsx manages its own auth + admin login internally */}
                 <Route path="/backoffice" element={<BackOffice />} />
