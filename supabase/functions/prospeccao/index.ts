@@ -570,7 +570,7 @@ Deno.serve(async (req) => {
 
     if (!isFreePull) {
       // Paid mode — check credits
-      const estimatedMinCost = Math.ceil(1 * 6.25);
+      const estimatedMinCost = Math.ceil(1 * 3.0);
       if (currentBalance < estimatedMinCost) {
         return new Response(
           JSON.stringify({ error: "Créditos insuficientes e sem puxadas grátis", balance: currentBalance, freePulls: 0 }),
