@@ -538,9 +538,11 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const currentBalance = creditRow?.balance ?? 0;
-    if (currentBalance <= 0) {
+    // Estimate minimum cost: at least 1 API call × 2.5 multiplier = 3 credits
+    const estimatedMinCost = Math.ceil(1 * 2.5);
+    if (currentBalance < estimatedMinCost) {
       return new Response(
-        JSON.stringify({ error: "Créditos insuficientes para realizar a prospecção", balance: 0 }),
+        JSON.stringify({ error: "Créditos insuficientes para realizar a prospecção", balance: currentBalance, required: estimatedMinCost }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
