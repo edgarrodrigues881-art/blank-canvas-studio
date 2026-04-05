@@ -335,7 +335,7 @@ async function adaptiveSearch(
   const p1 = await searchAndScore(center, primary, zoomCenter, apiKey, seen, places, target, center, radiusKm, "P1-center", logs);
   credits += p1.credits;
   allScores.push(p1.score);
-  if (done()) return { places, creditsUsed: credits };
+  if (done() || budgetExceeded()) return { places, creditsUsed: credits };
 
   // P2: Ring 1
   const ring1 = filterInCity(generateRing(center, ring1Dist, ring1Pts));
@@ -345,7 +345,7 @@ async function adaptiveSearch(
     credits += r.credits;
     allScores.push(r.score);
   }
-  if (done()) return { places, creditsUsed: credits };
+  if (done() || budgetExceeded()) return { places, creditsUsed: credits };
 
   // P3: Bairros
   if (bairros.length > 0) {
@@ -358,7 +358,7 @@ async function adaptiveSearch(
       coldStreak = added < 2 ? coldStreak + 1 : 0;
     }
   }
-  if (done()) return { places, creditsUsed: credits };
+  if (done() || budgetExceeded()) return { places, creditsUsed: credits };
 
   // P4: Ring 2
   const ring2 = filterInCity(generateRing(center, ring2Dist, ring2Pts));
@@ -370,7 +370,7 @@ async function adaptiveSearch(
     allScores.push(r.score);
     ring2ColdStreak = r.score.tier === "cold" ? ring2ColdStreak + 1 : 0;
   }
-  if (done()) return { places, creditsUsed: credits };
+  if (done() || budgetExceeded()) return { places, creditsUsed: credits };
 
   // P5: Ring 3 (large cities)
   if (target > 50 && radiusKm > 6 && ring2ColdStreak < 3) {
@@ -385,7 +385,7 @@ async function adaptiveSearch(
       ring3ColdStreak = added < 2 ? ring3ColdStreak + 1 : 0;
     }
   }
-  if (done()) return { places, creditsUsed: credits };
+  if (done() || budgetExceeded()) return { places, creditsUsed: credits };
 
   // Scoring summary
   const hotCount = allScores.filter(s => s.tier === "hot").length;
