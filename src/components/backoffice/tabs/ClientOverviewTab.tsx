@@ -1,9 +1,12 @@
+import { useState } from "react";
 import type { AdminUser } from "@/hooks/useAdmin";
-import { User, CreditCard, Server, Clock, AlertTriangle, KeyRound, LogOut, ShieldAlert, ShieldCheck } from "lucide-react";
+import { User, CreditCard, Server, Clock, AlertTriangle, KeyRound, LogOut, ShieldAlert, ShieldCheck, Coins, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAdminAction } from "@/hooks/useAdmin";
 import { memo } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -26,6 +29,29 @@ const ClientOverviewTab = memo(({ client, detail }: Props) => {
   const connectedCount = devices.filter((d: any) => d.status === "Connected" || d.status === "Ready").length;
   const { mutate, isPending, invalidateClient } = useAdminAction();
   const { toast } = useToast();
+  const [addCreditsAmount, setAddCreditsAmount] = useState("");
+  const [addingCredits, setAddingCredits] = useState(false);
+  const [creditBalance, setCreditBalance] = useState<number | null>(detail?.prospeccao_credits?.balance ?? null);
+
+  const handleAddCredits = async () => {
+    const amount = parseInt(addCreditsAmount);
+    if (!amount || amount <= 0) { toast({ title: "Valor inválido", variant: "destructive" }); return; }
+    setAddingCredits(true);
+    try {
+      const { data, error } = await supabase.rpc("credit_prospeccao_balance", {
+        p_user_id: client.id,
+        p_amount: amount,
+        p_description: `Créditos adicionados via backoffice`,
+      });
+      if (error) throw error;
+      const result = data as any;
+      setCreditBalance(result?.balance ?? (creditBalance ?? 0) + amount);
+      setAddCreditsAmount("");
+      toast({ title: `${amount} créditos adicionados!` });
+    } catch (err: any) {
+      toast({ title: "Erro ao adicionar créditos", description: err.message, variant: "destructive" });
+    } finally { setAddingCredits(false); }
+  };
 
   const resetPassword = () => {
     mutate(
@@ -147,6 +173,29 @@ const ClientOverviewTab = memo(({ client, detail }: Props) => {
           <p className="text-[11px] text-muted-foreground">
             {sub?.expires_at ? new Date(sub.expires_at).toLocaleDateString("pt-BR") : "—"}
           </p>
+        </div>
+      </div>
+
+      {/* Prospecting Credits */}
+      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+            <Coins size={13} className="text-primary" />
+          </div>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Créditos Prospecção</span>
+        </div>
+        <p className="text-2xl font-bold text-foreground">{creditBalance ?? "—"}</p>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            placeholder="Qtd"
+            value={addCreditsAmount}
+            onChange={e => setAddCreditsAmount(e.target.value)}
+            className="h-8 w-24 text-xs"
+          />
+          <Button size="sm" className="h-8 text-xs gap-1" onClick={handleAddCredits} disabled={addingCredits}>
+            <Plus size={12} /> Adicionar
+          </Button>
         </div>
       </div>
 

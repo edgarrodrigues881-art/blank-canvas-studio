@@ -529,6 +529,22 @@ Deno.serve(async (req) => {
       }
     }
 
+    // --- CREDIT CHECK ---
+    const adminClient2 = createClient(supabaseUrl, serviceRoleKey);
+    const { data: creditRow } = await adminClient2
+      .from("prospeccao_credits")
+      .select("balance")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const currentBalance = creditRow?.balance ?? 0;
+    if (currentBalance <= 0) {
+      return new Response(
+        JSON.stringify({ error: "Créditos insuficientes para realizar a prospecção", balance: 0 }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const SERPER_API_KEY = Deno.env.get("SERPER_API_KEY");
     if (!SERPER_API_KEY) {
       return new Response(
@@ -619,6 +635,28 @@ Deno.serve(async (req) => {
     const ratio = (results.length / Math.max(searchResult.creditsUsed, 1)).toFixed(1);
     console.log(`[prospeccao] DONE: ${results.length} leads | ${searchResult.creditsUsed} cr | ${ratio} l/cr | ${executionMs}ms`);
 
+    // --- DEBIT CREDITS (1.5x multiplier, ceil) ---
+    const rawCost = searchResult.creditsUsed;
+    const finalCost = Math.ceil(rawCost * 1.5);
+    let newBalance = currentBalance;
+
+    if (finalCost > 0) {
+      const debitAdmin = createClient(supabaseUrl, serviceRoleKey);
+      const { data: debitResult } = await debitAdmin.rpc("debit_prospeccao_credits", {
+        p_user_id: user.id,
+        p_amount: finalCost,
+        p_description: `Prospecção: ${nichoTrimmed} em ${cidadeTrimmed}/${estadoTrimmed} — ${results.length} leads`,
+        p_campaign_id: campaignId || null,
+      });
+      if (debitResult?.success === false) {
+        console.warn(`[prospeccao] Debit failed: ${debitResult.error}`);
+      } else {
+        newBalance = debitResult?.balance ?? (currentBalance - finalCost);
+      }
+    }
+
+    console.log(`[prospeccao] DONE: ${results.length} leads | API: ${rawCost} cr | Cobrado: ${finalCost} cr | Saldo: ${newBalance}`);
+
     // Save campaign results + logs
     if (campaignId) {
       try {
@@ -699,7 +737,9 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       results, total: results.length, fromCache: false,
-      creditsUsed: searchResult.creditsUsed,
+      creditsUsed: finalCost,
+      apiCreditsUsed: rawCost,
+      balance: newBalance,
       campaignId,
       executionTimeMs: executionMs,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
