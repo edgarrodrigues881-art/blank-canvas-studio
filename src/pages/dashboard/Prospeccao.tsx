@@ -380,6 +380,7 @@ export default function Prospeccao() {
                           placeholder="Buscar cidade..."
                           value={cidadeSearch}
                           onChange={(e) => setCidadeSearch(e.target.value)}
+                          onKeyDown={(e) => e.stopPropagation()}
                           className="h-8 text-sm"
                           autoFocus
                         />
