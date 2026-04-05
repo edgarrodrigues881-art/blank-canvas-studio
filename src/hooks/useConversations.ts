@@ -340,6 +340,105 @@ export function useConversations() {
     }
   }, [messages]);
 
+  // Send audio message
+  const sendAudioMessage = useCallback(async (conversationId: string, blob: Blob, duration: number) => {
+    if (!user) return;
+    const conv = conversations.find((c) => c.id === conversationId);
+    if (!conv) return;
+
+    const tempId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const ext = blob.type.includes("mp4") ? "mp4" : "webm";
+    const fileName = `chat-audio/${user.id}/${tempId}.${ext}`;
+
+    // Optimistic UI
+    const optimisticMsg: RealMessage = {
+      id: tempId,
+      conversation_id: conversationId,
+      content: "[audio]",
+      direction: "sent",
+      status: "sending",
+      media_type: "audio",
+      media_url: null,
+      audio_duration: duration,
+      is_ai_response: false,
+      whatsapp_message_id: null,
+      created_at: now,
+    };
+    setMessages((prev) => [...prev, optimisticMsg]);
+    setConversations((prev) =>
+      prev.map((c) => c.id === conversationId ? { ...c, last_message: "🎧 Áudio", last_message_at: now } : c)
+    );
+
+    try {
+      // Upload to Supabase Storage
+      const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, {
+        contentType: blob.type,
+        upsert: false,
+      });
+      if (uploadErr) throw new Error("Upload falhou: " + uploadErr.message);
+
+      const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
+      const publicUrl = urlData.publicUrl;
+
+      // Update optimistic message with URL
+      setMessages((prev) =>
+        prev.map((m) => m.id === tempId ? { ...m, media_url: publicUrl } : m)
+      );
+
+      // Persist to DB
+      const { data: dbMsg, error: dbErr } = await supabase
+        .from("conversation_messages")
+        .insert({
+          conversation_id: conversationId,
+          user_id: user.id,
+          remote_jid: conv.remote_jid,
+          content: "[audio]",
+          direction: "sent",
+          status: "sending",
+          media_type: "audio",
+          media_url: publicUrl,
+          audio_duration: duration,
+          created_at: now,
+        })
+        .select()
+        .single();
+
+      if (dbErr || !dbMsg) throw new Error("Erro ao salvar no banco");
+
+      // Replace temp ID
+      setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: dbMsg.id } : m));
+
+      // Send via edge function
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
+
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/chat-send`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          content: publicUrl,
+          message_id: dbMsg.id,
+          type: "audio",
+        }),
+      });
+      const result = await res.json();
+
+      if (result.sent) {
+        setMessages((prev) => prev.map((m) => m.id === dbMsg.id ? { ...m, status: "sent" } : m));
+      } else {
+        setMessages((prev) => prev.map((m) => m.id === dbMsg.id ? { ...m, status: "failed" } : m));
+        await supabase.from("conversation_messages").update({ status: "failed" }).eq("id", dbMsg.id);
+        toast.error(result.error || "Falha ao enviar áudio");
+      }
+    } catch (err: any) {
+      setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, status: "failed" } : m));
+      toast.error(err.message || "Erro ao enviar áudio");
+    }
+  }, [user, conversations]);
+
   // Select conversation
   const selectConversation = useCallback((convId: string | null) => {
     setSelectedConvId(convId);
