@@ -675,11 +675,9 @@ Deno.serve(async (req) => {
     // cap the cost proportionally so users don't overpay for poor results.
     const maxTarget = Number(maxResults) || 100;
     const leadsFound = results.length;
-    const fullCost = Math.ceil(rawCost * 3.0);
-    const proportionalCost = leadsFound > 0 && leadsFound < maxTarget
-      ? Math.ceil(fullCost * Math.max(leadsFound / maxTarget, 0.3)) // minimum 30% of full cost
-      : fullCost;
-    const finalCost = isFreePull ? 0 : Math.min(fullCost, proportionalCost);
+    const fullCost = Math.ceil(rawCost * 6.25);
+    // Remove proportional billing — charge exactly what was used, no discounts
+    const finalCost = isFreePull ? 0 : fullCost;
     let newBalance = currentBalance;
     let freePullsAfter = freePulls;
 
