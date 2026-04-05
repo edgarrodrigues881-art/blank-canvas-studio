@@ -59,10 +59,8 @@ export default function SearchAreaMap({ cidade, estado, onAreaChange, initialRad
 
     L.control.zoom({ position: "topright" }).addTo(map);
 
-    // Dark minimal tile — CartoDB Dark Matter (no labels variant for cleaner look)
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 18,
-      subdomains: "abcd",
     }).addTo(map);
 
     const icon = L.divIcon({
