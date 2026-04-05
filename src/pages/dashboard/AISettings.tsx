@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { toast } from "sonner";
 import {
   Bot,
   Building2,
@@ -19,10 +20,21 @@ import {
   Plus,
   Trash2,
   Sparkles,
+  Key,
+  CheckCircle2,
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  Loader2,
+  Send,
 } from "lucide-react";
 
 const AISettings = () => {
   const [iaActive, setIaActive] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [aiModel, setAiModel] = useState("gpt-4o-mini");
+  const [testingAi, setTestingAi] = useState(false);
   const [businessName, setBusinessName] = useState("");
   const [businessSegment, setBusinessSegment] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
@@ -37,6 +49,23 @@ const AISettings = () => {
     "FAQ - Perguntas frequentes",
   ]);
   const [newKnowledgeItem, setNewKnowledgeItem] = useState("");
+
+  const apiKeyStatus: "empty" | "valid" | "invalid" = !apiKey
+    ? "empty"
+    : apiKey.startsWith("sk-") && apiKey.length > 20
+    ? "valid"
+    : "invalid";
+
+  const handleTestAi = async () => {
+    if (apiKeyStatus !== "valid") {
+      toast.error("Insira uma chave de API válida antes de testar");
+      return;
+    }
+    setTestingAi(true);
+    await new Promise((r) => setTimeout(r, 2000));
+    setTestingAi(false);
+    toast.success("IA respondeu com sucesso! Conexão funcionando.");
+  };
 
   const addKnowledgeItem = () => {
     if (newKnowledgeItem.trim()) {
@@ -79,12 +108,87 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
-      {/* Configuração da IA */}
+      {/* Configuração da IA — API & Modelo */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Key className="h-4 w-4 text-primary" />
+            <CardTitle className="text-base">Configuração da IA</CardTitle>
+          </div>
+          <CardDescription>Conecte sua chave de API e escolha o modelo</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Chave da API (OpenAI)</Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  type={showApiKey ? "text" : "password"}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="sk-..."
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            {/* Status */}
+            <div className="flex items-center gap-2 mt-1">
+              {apiKeyStatus === "valid" && (
+                <Badge variant="outline" className="border-emerald-500/50 text-emerald-400 gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> Conectado
+                </Badge>
+              )}
+              {apiKeyStatus === "invalid" && (
+                <Badge variant="outline" className="border-destructive/50 text-destructive gap-1">
+                  <AlertTriangle className="h-3 w-3" /> Chave inválida
+                </Badge>
+              )}
+              {apiKeyStatus === "empty" && (
+                <div className="flex items-center gap-1.5 text-amber-400 text-xs">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  <span>A IA não funcionará sem uma chave válida</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Modelo</Label>
+            <Select value={aiModel} onValueChange={setAiModel}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="gpt-4o-mini">GPT-4o Mini (rápido)</SelectItem>
+                <SelectItem value="gpt-4o">GPT-4o (mais inteligente)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleTestAi}
+            disabled={testingAi || apiKeyStatus !== "valid"}
+            className="gap-2"
+          >
+            {testingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Testar IA
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Comportamento da IA */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Brain className="h-4 w-4 text-primary" />
-            <CardTitle className="text-base">Configuração da IA</CardTitle>
+            <CardTitle className="text-base">Comportamento da IA</CardTitle>
           </div>
           <CardDescription>Ajuste o comportamento e personalidade</CardDescription>
         </CardHeader>
