@@ -450,10 +450,10 @@ async function adaptiveSearch(
       if (added < 2) break;
     }
 
-    if (done()) break;
+    if (done() || budgetExceeded()) break;
     if (bairros.length > 0 && progress() < 0.7) {
       for (const bairro of bairros.slice(0, 3)) {
-        if (done()) break;
+        if (done() || budgetExceeded()) break;
         const added = await query(`${relNicho} ${bairro} ${cidade}`, "", apiKey, seen, places);
         credits++;
         logs.add("P7-related-bairro", relNicho, bairro, added, places.length, 1);
