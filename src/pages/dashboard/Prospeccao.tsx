@@ -101,7 +101,7 @@ export default function Prospeccao() {
     fetchCidades();
   }, [estado]);
 
-  const handleSearch = async () => {
+  const handleSearch = async (forceRefresh = false) => {
     if (!nicho.trim() || !estado || !cidade.trim()) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
@@ -112,14 +112,21 @@ export default function Prospeccao() {
 
     try {
       const { data, error } = await supabase.functions.invoke("prospeccao", {
-        body: { nicho: nicho.trim(), estado, cidade: cidade.trim(), maxResults: Number(maxResults) },
+        body: { nicho: nicho.trim(), estado, cidade: cidade.trim(), maxResults: Number(maxResults), forceRefresh },
       });
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
       setResults(data.results || []);
-      toast.success(`${data.total || 0} resultados encontrados`);
+      setFromCache(!!data.fromCache);
+      setCachedAt(data.cachedAt || null);
+
+      if (data.fromCache) {
+        toast.success(`${data.total || 0} resultados (do cache — sem gastar créditos!)`);
+      } else {
+        toast.success(`${data.total || 0} resultados encontrados e salvos no cache`);
+      }
     } catch (err: any) {
       console.error("Erro na prospecção:", err);
       toast.error(err.message || "Erro ao buscar dados");
