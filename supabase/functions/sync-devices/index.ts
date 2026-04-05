@@ -323,11 +323,13 @@ Deno.serve(async (req) => {
     const userId = user.id;
     const svc = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // ── Shard support: split large device sets across multiple invocations ──
+    // ── Shard support + trigger origin ──
     let body: any = {};
     try { body = await req.json(); } catch { /* empty body ok */ }
     const shardIndex = body.shard ?? 0;     // 0-based shard index
     const shardTotal = body.shards ?? 1;    // total number of shards
+    const syncTrigger = typeof body.trigger === "string" ? body.trigger.trim().toLowerCase() : "interval";
+    const protectedDisconnectTrigger = syncTrigger === "startup" || syncTrigger === "visibility" || syncTrigger === "online";
 
     // ── Fetch all devices with pagination ──
     let devices: any[] = [];
