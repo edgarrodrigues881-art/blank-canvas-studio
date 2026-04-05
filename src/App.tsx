@@ -97,6 +97,7 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/notifications": () => { (Notifications as any).__preload?.(); },
   "/dashboard/prospeccao": () => { (Prospeccao as any).__preload?.(); },
   "/dashboard/conversations": () => { (Conversations as any).__preload?.(); },
+  "/dashboard/ai-settings": () => { (AISettings as any).__preload?.(); },
 };
 
 const queryClient = new QueryClient({
