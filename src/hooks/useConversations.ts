@@ -536,6 +536,7 @@ export function useConversations() {
     updateTags,
     updateConversation,
     sendMessage,
+    sendAudioMessage,
     retryMessage,
     fetchConversations,
   };
