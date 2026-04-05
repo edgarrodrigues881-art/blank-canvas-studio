@@ -2712,6 +2712,42 @@ export type Database = {
         }
         Relationships: []
       }
+      prospeccao_cache: {
+        Row: {
+          cidade: string
+          created_at: string
+          estado: string
+          expires_at: string
+          id: string
+          nicho: string
+          results: Json
+          total: number
+          user_id: string
+        }
+        Insert: {
+          cidade: string
+          created_at?: string
+          estado: string
+          expires_at?: string
+          id?: string
+          nicho: string
+          results?: Json
+          total?: number
+          user_id: string
+        }
+        Update: {
+          cidade?: string
+          created_at?: string
+          estado?: string
+          expires_at?: string
+          id?: string
+          nicho?: string
+          results?: Json
+          total?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       proxies: {
         Row: {
           active: boolean

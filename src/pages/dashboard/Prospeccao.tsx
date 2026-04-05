@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Search, Download, MapPin, Phone, Globe, Star, Loader2, Building2, Mail, Clock, Instagram } from "lucide-react";
+import { Search, Download, MapPin, Phone, Globe, Star, Loader2, Building2, Mail, Clock, Instagram, RefreshCw, Database } from "lucide-react";
 
 const ESTADOS_BR: { sigla: string; nome: string }[] = [
   { sigla: "AC", nome: "Acre" },
@@ -70,6 +70,8 @@ export default function Prospeccao() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<ProspectResult[]>([]);
   const [searched, setSearched] = useState(false);
+  const [fromCache, setFromCache] = useState(false);
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
 
   // Fetch cities from IBGE API when state changes
   useEffect(() => {
@@ -99,7 +101,7 @@ export default function Prospeccao() {
     fetchCidades();
   }, [estado]);
 
-  const handleSearch = async () => {
+  const handleSearch = async (forceRefresh = false) => {
     if (!nicho.trim() || !estado || !cidade.trim()) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
@@ -110,14 +112,21 @@ export default function Prospeccao() {
 
     try {
       const { data, error } = await supabase.functions.invoke("prospeccao", {
-        body: { nicho: nicho.trim(), estado, cidade: cidade.trim(), maxResults: Number(maxResults) },
+        body: { nicho: nicho.trim(), estado, cidade: cidade.trim(), maxResults: Number(maxResults), forceRefresh },
       });
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
       setResults(data.results || []);
-      toast.success(`${data.total || 0} resultados encontrados`);
+      setFromCache(!!data.fromCache);
+      setCachedAt(data.cachedAt || null);
+
+      if (data.fromCache) {
+        toast.success(`${data.total || 0} resultados (do cache — sem gastar créditos!)`);
+      } else {
+        toast.success(`${data.total || 0} resultados encontrados e salvos no cache`);
+      }
     } catch (err: any) {
       console.error("Erro na prospecção:", err);
       toast.error(err.message || "Erro ao buscar dados");
@@ -224,7 +233,7 @@ export default function Prospeccao() {
             </div>
           </div>
           <div className="flex gap-3 mt-4">
-            <Button onClick={handleSearch} disabled={loading} className="gap-2">
+            <Button onClick={() => handleSearch()} disabled={loading} className="gap-2">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               {loading ? "Buscando..." : "Buscar"}
             </Button>
@@ -245,10 +254,24 @@ export default function Prospeccao() {
       {searched && !loading && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              Resultados ({results.length})
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Resultados ({results.length})
+                {fromCache && (
+                  <Badge variant="outline" className="ml-2 gap-1 text-xs font-normal">
+                    <Database className="h-3 w-3" />
+                    Cache {cachedAt ? `(${new Date(cachedAt).toLocaleDateString('pt-BR')})` : ''}
+                  </Badge>
+                )}
+              </CardTitle>
+              {fromCache && (
+                <Button variant="outline" size="sm" onClick={() => handleSearch(true)} disabled={loading} className="gap-1.5">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Nova busca
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {results.length === 0 ? (
