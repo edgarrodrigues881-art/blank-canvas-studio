@@ -11,7 +11,7 @@ const corsHeaders = {
 interface GeoPoint { lat: number; lng: number; }
 interface CityGeo {
   center: GeoPoint;
-  radiusKm: number; // estimated city radius from bounding box
+  radiusKm: number;
 }
 
 async function geocodeCity(cidade: string, estado: string): Promise<CityGeo | null> {
@@ -28,14 +28,12 @@ async function geocodeCity(cidade: string, estado: string): Promise<CityGeo | nu
     const item = data[0];
     const center: GeoPoint = { lat: parseFloat(item.lat), lng: parseFloat(item.lon) };
 
-    // Calculate city radius from bounding box if available
-    let radiusKm = 8; // default
+    let radiusKm = 8;
     if (item.boundingbox) {
       const [south, north, west, east] = item.boundingbox.map(Number);
-      const latSpan = (north - south) * 111; // km
+      const latSpan = (north - south) * 111;
       const lngSpan = (east - west) * 111 * Math.cos(center.lat * Math.PI / 180);
       radiusKm = Math.max(latSpan, lngSpan) / 2;
-      // Clamp: min 3km (vila), max 30km (metrópole)
       radiusKm = Math.min(Math.max(radiusKm, 3), 30);
     }
 
@@ -44,7 +42,6 @@ async function geocodeCity(cidade: string, estado: string): Promise<CityGeo | nu
   } catch { return null; }
 }
 
-/** Check if a point is within city radius (prevents searching outside the city) */
 function isWithinCity(point: GeoPoint, center: GeoPoint, maxRadiusKm: number): boolean {
   const dLat = (point.lat - center.lat) * 111;
   const dLng = (point.lng - center.lng) * 111 * Math.cos(center.lat * Math.PI / 180);
@@ -61,10 +58,6 @@ function generateRing(center: GeoPoint, radiusKm: number, count: number): GeoPoi
     });
   }
   return pts;
-}
-
-function subdivide(p: GeoPoint, r: number): GeoPoint[] {
-  return generateRing(p, r, 4);
 }
 
 // ========== TERM EXPANSION ==========
@@ -95,9 +88,7 @@ const NICHE_SYNONYMS: Record<string, string[]> = {
 function expandNicho(nicho: string): string[] {
   const key = nicho.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   for (const [k, synonyms] of Object.entries(NICHE_SYNONYMS)) {
-    if (key.includes(k) || k.includes(key)) {
-      return synonyms;
-    }
+    if (key.includes(k) || k.includes(key)) return synonyms;
   }
   return [];
 }
@@ -106,8 +97,6 @@ function expandNicho(nicho: string): string[] {
 
 async function fetchBairros(cidade: string, estado: string): Promise<string[]> {
   try {
-    const q = encodeURIComponent(`bairros de ${cidade} ${estado}`);
-    // Use Nominatim to find neighborhoods
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(`${cidade}, ${estado}, Brazil`)}&format=json&limit=1&countrycodes=br`,
       { headers: { "User-Agent": "ProspeccaoBot/1.0" } }
@@ -117,7 +106,6 @@ async function fetchBairros(cidade: string, estado: string): Promise<string[]> {
     if (!data.length) return [];
     
     const { lat, lon } = data[0];
-    // Search for suburbs/neighborhoods around the city
     const nbRes = await fetch(
       `https://nominatim.openstreetmap.org/search?q=bairro+${encodeURIComponent(cidade)}&format=json&limit=20&countrycodes=br&bounded=1&viewbox=${parseFloat(lon)-0.15},${parseFloat(lat)+0.15},${parseFloat(lon)+0.15},${parseFloat(lat)-0.15}`,
       { headers: { "User-Agent": "ProspeccaoBot/1.0" } }
@@ -136,9 +124,7 @@ async function fetchBairros(cidade: string, estado: string): Promise<string[]> {
       }
     }
     return bairros.slice(0, 15);
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
 // ========== SERPER ==========
@@ -190,6 +176,31 @@ async function query(
   } catch { return 0; }
 }
 
+// ========== LOG COLLECTOR ==========
+
+interface LogEntry {
+  phase: string;
+  query_term: string;
+  location_info: string;
+  leads_added: number;
+  leads_total: number;
+  credits_spent: number;
+  score: number | null;
+  tier: string | null;
+}
+
+class LogCollector {
+  entries: LogEntry[] = [];
+  
+  add(phase: string, term: string, location: string, added: number, total: number, credits: number, score?: number, tier?: string) {
+    this.entries.push({
+      phase, query_term: term, location_info: location,
+      leads_added: added, leads_total: total, credits_spent: credits,
+      score: score ?? null, tier: tier ?? null,
+    });
+  }
+}
+
 // ========== HOT POINT SCORING ==========
 
 interface PointScore {
@@ -203,15 +214,10 @@ interface PointScore {
 }
 
 function calcScore(s: Pick<PointScore, "totalLeads" | "newLeads" | "queries" | "duplicates">): number {
-  // Density: new leads per query (max contribution ~40)
   const density = s.queries > 0 ? (s.newLeads / s.queries) : 0;
-  // Freshness: ratio of new vs total found (max contribution ~30)
   const freshness = s.totalLeads > 0 ? (s.newLeads / s.totalLeads) : 0;
-  // Volume bonus (max contribution ~20)
   const volume = Math.min(s.newLeads / 5, 4);
-  // ROI penalty: if many queries but few new leads
   const roiPenalty = s.queries > 2 && density < 1 ? -10 : 0;
-
   return Math.round((density * 4) + (freshness * 30) + (volume * 5) + roiPenalty);
 }
 
@@ -229,15 +235,11 @@ function budgetForTier(tier: "hot" | "warm" | "cold"): number {
 
 // ========== ADAPTIVE SEARCH ==========
 
-/**
- * Deep drill into a hot point: zoom variations + micro-grid.
- * Budget is now controlled by the scoring system.
- */
 async function deepDrill(
   pt: GeoPoint, primary: string, apiKey: string,
   seen: Set<string>, places: any[], target: number,
   center: GeoPoint, radiusKm: number,
-  maxCredits: number = 6
+  maxCredits: number, logs: LogCollector
 ): Promise<{ added: number; spent: number }> {
   let totalAdded = 0;
   let spent = 0;
@@ -245,16 +247,15 @@ async function deepDrill(
   const saturated = (a: number) => a < 2;
   const ll = (p: GeoPoint, z: number) => `@${p.lat.toFixed(6)},${p.lng.toFixed(6)},${z}z`;
 
-  // Strategy 1: Zoom in tighter (15z, 16z)
   for (const zoom of [15, 16]) {
     if (done() || spent >= maxCredits) break;
     const added = await query(primary, ll(pt, zoom), apiKey, seen, places);
     spent++;
     totalAdded += added;
+    logs.add("deep-drill-zoom", primary, ll(pt, zoom), added, places.length, 1);
     if (saturated(added)) break;
   }
 
-  // Strategy 2: Micro-grid — 4 points at 0.8km
   if (!done() && spent < maxCredits) {
     const microPts = generateRing(pt, 0.8, 4).filter(p => isWithinCity(p, center, radiusKm * 1.1));
     for (const mp of microPts) {
@@ -262,6 +263,7 @@ async function deepDrill(
       const added = await query(primary, ll(mp, 15), apiKey, seen, places);
       spent++;
       totalAdded += added;
+      logs.add("deep-drill-micro", primary, ll(mp, 15), added, places.length, 1);
       if (saturated(added)) break;
     }
   }
@@ -269,62 +271,42 @@ async function deepDrill(
   return { added: totalAdded, spent };
 }
 
-/**
- * Search a point, score it, and decide if deep drill is worth it.
- */
 async function searchAndScore(
   pt: GeoPoint, primary: string, zoom: number, apiKey: string,
   seen: Set<string>, places: any[], target: number,
-  center: GeoPoint, radiusKm: number, phase: string
+  center: GeoPoint, radiusKm: number, phase: string,
+  logs: LogCollector
 ): Promise<{ score: PointScore; credits: number }> {
-  const beforeLen = places.length;
-  const beforeSeen = seen.size;
-
-  const added = await query(primary, `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoom}z`, apiKey, seen, places);
+  const llStr = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoom}z`;
+  const added = await query(primary, llStr, apiKey, seen, places);
   let credits = 1;
 
-  const totalFound = added + (seen.size - beforeSeen - added); // includes dupes detected
-  const duplicates = Math.max(0, totalFound - added);
-
   const ps: PointScore = {
-    pt,
-    totalLeads: totalFound || added,
-    newLeads: added,
-    queries: 1,
-    duplicates,
-    score: 0,
-    tier: "cold",
+    pt, totalLeads: added, newLeads: added, queries: 1, duplicates: 0, score: 0, tier: "cold",
   };
   ps.score = calcScore(ps);
   ps.tier = classifyPoint(ps.score);
 
+  logs.add(phase, primary, llStr, added, places.length, 1, ps.score, ps.tier);
   console.log(`[prospeccao] ${phase} → +${added} | score=${ps.score} tier=${ps.tier} [${credits}cr]`);
 
-  // Adaptive deep drill based on tier
   const drillBudget = budgetForTier(ps.tier);
   if (drillBudget > 0 && places.length < target) {
-    const drill = await deepDrill(pt, primary, apiKey, seen, places, target, center, radiusKm, drillBudget);
+    const drill = await deepDrill(pt, primary, apiKey, seen, places, target, center, radiusKm, drillBudget, logs);
     credits += drill.spent;
     ps.newLeads += drill.added;
     ps.queries += drill.spent;
-    ps.score = calcScore(ps); // recalculate after drill
+    ps.score = calcScore(ps);
     ps.tier = classifyPoint(ps.score);
-    if (drill.added > 0) {
-      console.log(`[prospeccao] ${phase} drill → +${drill.added} | score=${ps.score} tier=${ps.tier} [${drill.spent}cr]`);
-    }
   }
 
   return { score: ps, credits };
 }
 
 async function adaptiveSearch(
-  nichos: string[],
-  cityGeo: CityGeo,
-  target: number,
-  cidade: string,
-  estado: string,
-  bairros: string[],
-  apiKey: string
+  nichos: string[], cityGeo: CityGeo, target: number,
+  cidade: string, estado: string, bairros: string[], apiKey: string,
+  logs: LogCollector
 ): Promise<{ places: any[]; creditsUsed: number }> {
   const seen = new Set<string>();
   const places: any[] = [];
@@ -333,7 +315,6 @@ async function adaptiveSearch(
   const related = nichos.slice(1);
   const { center, radiusKm } = cityGeo;
 
-  // Dynamic ring config
   const ring1Dist = Math.min(radiusKm * 0.3, 5);
   const ring2Dist = Math.min(radiusKm * 0.6, 12);
   const ring3Dist = Math.min(radiusKm * 0.9, 20);
@@ -344,106 +325,89 @@ async function adaptiveSearch(
   const zoomRing1 = radiusKm < 8 ? 14 : 13;
   const zoomOuter = radiusKm < 12 ? 13 : 12;
 
-  console.log(`[prospeccao] Rings: R1=${ring1Dist.toFixed(1)}km R2=${ring2Dist.toFixed(1)}km R3=${ring3Dist.toFixed(1)}km | city=${radiusKm.toFixed(1)}km`);
-
   const done = () => places.length >= target;
   const progress = () => places.length / target;
   const filterInCity = (pts: GeoPoint[]) => pts.filter(p => isWithinCity(p, center, radiusKm * 1.1));
-
-  // Track all scored points for analytics
   const allScores: PointScore[] = [];
 
-  // ====================================================================
-  // P1: Center — scored
-  // ====================================================================
-  const p1 = await searchAndScore(center, primary, zoomCenter, apiKey, seen, places, target, center, radiusKm, "P1 center");
+  // P1: Center
+  const p1 = await searchAndScore(center, primary, zoomCenter, apiKey, seen, places, target, center, radiusKm, "P1-center", logs);
   credits += p1.credits;
   allScores.push(p1.score);
   if (done()) return { places, creditsUsed: credits };
 
-  // ====================================================================
-  // P2: Ring 1 — each point scored individually
-  // ====================================================================
+  // P2: Ring 1
   const ring1 = filterInCity(generateRing(center, ring1Dist, ring1Pts));
   for (const pt of ring1) {
     if (done()) break;
-    const r = await searchAndScore(pt, primary, zoomRing1, apiKey, seen, places, target, center, radiusKm, "P2 ring1");
+    const r = await searchAndScore(pt, primary, zoomRing1, apiKey, seen, places, target, center, radiusKm, "P2-ring1", logs);
     credits += r.credits;
     allScores.push(r.score);
   }
   if (done()) return { places, creditsUsed: credits };
 
-  // ====================================================================
-  // P3: Bairros (text-based, no geo scoring)
-  // ====================================================================
+  // P3: Bairros
   if (bairros.length > 0) {
     let coldStreak = 0;
     for (const bairro of bairros.slice(0, 10)) {
       if (done() || coldStreak >= 3) break;
       const added = await query(`${primary} ${bairro} ${cidade}`, "", apiKey, seen, places);
       credits++;
-      console.log(`[prospeccao] P3 bairro "${bairro}" → +${added} (${places.length}/${target}) [${credits}cr]`);
+      logs.add("P3-bairro", primary, bairro, added, places.length, 1);
       coldStreak = added < 2 ? coldStreak + 1 : 0;
     }
   }
   if (done()) return { places, creditsUsed: credits };
 
-  // ====================================================================
-  // P4: Ring 2 — scored
-  // ====================================================================
+  // P4: Ring 2
   const ring2 = filterInCity(generateRing(center, ring2Dist, ring2Pts));
   let ring2ColdStreak = 0;
   for (const pt of ring2) {
     if (done() || ring2ColdStreak >= 3) break;
-    const r = await searchAndScore(pt, primary, zoomOuter, apiKey, seen, places, target, center, radiusKm, "P4 ring2");
+    const r = await searchAndScore(pt, primary, zoomOuter, apiKey, seen, places, target, center, radiusKm, "P4-ring2", logs);
     credits += r.credits;
     allScores.push(r.score);
     ring2ColdStreak = r.score.tier === "cold" ? ring2ColdStreak + 1 : 0;
   }
   if (done()) return { places, creditsUsed: credits };
 
-  // ====================================================================
-  // P5: Ring 3 (large cities, skip if ring2 was mostly cold)
-  // ====================================================================
-  const ring2HotCount = allScores.filter(s => s.tier === "hot").length;
+  // P5: Ring 3 (large cities)
   if (target > 50 && radiusKm > 6 && ring2ColdStreak < 3) {
     const ring3 = filterInCity(generateRing(center, ring3Dist, ring3Pts));
     let ring3ColdStreak = 0;
     for (const pt of ring3) {
       if (done() || ring3ColdStreak >= 2) break;
-      const added = await query(primary, `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomOuter}z`, apiKey, seen, places);
+      const llStr = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomOuter}z`;
+      const added = await query(primary, llStr, apiKey, seen, places);
       credits++;
-      console.log(`[prospeccao] P5 ring3 → +${added} (${places.length}/${target}) [${credits}cr]`);
+      logs.add("P5-ring3", primary, llStr, added, places.length, 1);
       ring3ColdStreak = added < 2 ? ring3ColdStreak + 1 : 0;
     }
   }
   if (done()) return { places, creditsUsed: credits };
 
-  // ====================================================================
-  // Score summary
-  // ====================================================================
+  // Scoring summary
   const hotCount = allScores.filter(s => s.tier === "hot").length;
   const warmCount = allScores.filter(s => s.tier === "warm").length;
   const coldCount = allScores.filter(s => s.tier === "cold").length;
-  const avgScore = allScores.length > 0 ? (allScores.reduce((a, s) => a + s.score, 0) / allScores.length).toFixed(1) : "0";
-  console.log(`[prospeccao] Scoring: ${hotCount} hot, ${warmCount} warm, ${coldCount} cold | avg=${avgScore} | primary=${places.length} leads`);
 
-  // ====================================================================
-  // PRIMARY EXHAUSTED — evaluate related niches
-  // ====================================================================
+  // P6: Term expansion
   if (progress() >= 0.8 || related.length === 0) {
     const expanded = expandNicho(primary);
     if (expanded.length > 0 && !done()) {
       for (const term of expanded.slice(0, 2)) {
         if (done()) break;
-        const added = await query(term, `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomCenter}z`, apiKey, seen, places);
+        const llStr = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomCenter}z`;
+        const added = await query(term, llStr, apiKey, seen, places);
         credits++;
-        console.log(`[prospeccao] P6 expand "${term}" → +${added} [${credits}cr]`);
+        logs.add("P6-expand", term, llStr, added, places.length, 1);
         if (added < 2) continue;
         for (const pt of ring1.slice(0, 2)) {
           if (done()) break;
-          const a = await query(term, `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomRing1}z`, apiKey, seen, places);
+          const ll2 = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomRing1}z`;
+          const a = await query(term, ll2, apiKey, seen, places);
           credits++;
+          logs.add("P6-expand-ring", term, ll2, a, places.length, 1);
           if (a < 2) break;
         }
       }
@@ -451,9 +415,7 @@ async function adaptiveSearch(
     return { places, creditsUsed: credits };
   }
 
-  // ====================================================================
-  // P7: Related niches — only at previously hot/warm points
-  // ====================================================================
+  // P7: Related niches at best points
   const expanded = expandNicho(primary);
   const allRelated = [...related, ...expanded];
   const seenTerms = new Set([primary.toLowerCase()]);
@@ -464,41 +426,36 @@ async function adaptiveSearch(
     return true;
   });
 
-  // Prioritize related searches at points that scored hot/warm
   const bestPoints = allScores
     .filter(s => s.tier !== "cold")
     .sort((a, b) => b.score - a.score)
     .slice(0, 5)
     .map(s => s.pt);
 
-  console.log(`[prospeccao] Related niches: ${uniqueRelated.join(", ")} | best ${bestPoints.length} pts`);
-
   for (const relNicho of uniqueRelated) {
     if (done()) break;
-
-    // Test at center
-    const centerAdded = await query(relNicho, `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomCenter}z`, apiKey, seen, places);
+    const llStr = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomCenter}z`;
+    const centerAdded = await query(relNicho, llStr, apiKey, seen, places);
     credits++;
-    console.log(`[prospeccao] P7a "${relNicho}" center → +${centerAdded} [${credits}cr]`);
+    logs.add("P7-related-center", relNicho, llStr, centerAdded, places.length, 1);
     if (centerAdded < 2) continue;
 
-    // Search at best-scoring points instead of arbitrary ring1
     for (const pt of bestPoints.slice(0, 3)) {
       if (done()) break;
-      const added = await query(relNicho, `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomRing1}z`, apiKey, seen, places);
+      const ll2 = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomRing1}z`;
+      const added = await query(relNicho, ll2, apiKey, seen, places);
       credits++;
-      console.log(`[prospeccao] P7b "${relNicho}" best-pt → +${added} [${credits}cr]`);
+      logs.add("P7-related-best", relNicho, ll2, added, places.length, 1);
       if (added < 2) break;
     }
 
     if (done()) break;
-
     if (bairros.length > 0 && progress() < 0.7) {
       for (const bairro of bairros.slice(0, 3)) {
         if (done()) break;
         const added = await query(`${relNicho} ${bairro} ${cidade}`, "", apiKey, seen, places);
         credits++;
-        console.log(`[prospeccao] P7c "${relNicho}" bairro "${bairro}" → +${added} [${credits}cr]`);
+        logs.add("P7-related-bairro", relNicho, bairro, added, places.length, 1);
         if (added < 1) break;
       }
     }
@@ -583,6 +540,33 @@ Deno.serve(async (req) => {
     const requestedTotal = Math.min(maxResults || 50, 5000);
     const relatedNiches = Array.isArray(nichosRelacionados) ? nichosRelacionados.filter(Boolean) : [];
     const allNichos = [nichoTrimmed, ...relatedNiches];
+    const startTime = Date.now();
+
+    // Create campaign
+    const now = new Date();
+    const dateStr = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}`;
+    const campaignName = `${nichoTrimmed} - ${cidadeTrimmed} - ${dateStr}`;
+
+    const { data: campaign, error: campErr } = await supabase
+      .from("prospeccao_campaigns")
+      .insert({
+        user_id: user.id,
+        name: campaignName,
+        nicho: nichoTrimmed,
+        nichos_relacionados: relatedNiches,
+        estado: estadoTrimmed,
+        cidade: cidadeTrimmed,
+        max_results: requestedTotal,
+        status: "running",
+        started_at: now.toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (campErr) {
+      console.error("[prospeccao] Campaign create error:", campErr);
+    }
+    const campaignId = campaign?.id;
 
     // Geocode + fetch bairros in parallel
     const [cityGeo, bairros] = await Promise.all([
@@ -590,28 +574,87 @@ Deno.serve(async (req) => {
       fetchBairros(cidadeTrimmed, estadoTrimmed),
     ]);
 
-    console.log(`[prospeccao] "${nichoTrimmed}" em "${cidadeTrimmed}" | target: ${requestedTotal} | bairros: ${bairros.length} | nichos: ${allNichos.length} | cityRadius: ${cityGeo?.radiusKm.toFixed(1) || "?"} km`);
+    console.log(`[prospeccao] "${nichoTrimmed}" em "${cidadeTrimmed}" | target: ${requestedTotal} | bairros: ${bairros.length} | campaign: ${campaignId}`);
 
+    const logs = new LogCollector();
     let searchResult: { places: any[]; creditsUsed: number };
 
     if (cityGeo) {
-      searchResult = await adaptiveSearch(allNichos, cityGeo, requestedTotal, cidadeTrimmed, estadoTrimmed, bairros, SERPER_API_KEY);
+      searchResult = await adaptiveSearch(allNichos, cityGeo, requestedTotal, cidadeTrimmed, estadoTrimmed, bairros, SERPER_API_KEY, logs);
     } else {
-      // Fallback text-only
       const seen = new Set<string>();
       const places: any[] = [];
       let credits = 0;
       for (const n of allNichos) {
         if (places.length >= requestedTotal) break;
-        await query(`${n} ${cidadeTrimmed} ${estadoTrimmed}`, "", SERPER_API_KEY, seen, places);
+        const added = await query(`${n} ${cidadeTrimmed} ${estadoTrimmed}`, "", SERPER_API_KEY, seen, places);
         credits++;
+        logs.add("fallback-text", n, `${cidadeTrimmed} ${estadoTrimmed}`, added, places.length, 1);
       }
       searchResult = { places, creditsUsed: credits };
     }
 
     const results = searchResult.places.slice(0, requestedTotal).map(mapPlace);
+    const executionMs = Date.now() - startTime;
     const ratio = (results.length / Math.max(searchResult.creditsUsed, 1)).toFixed(1);
-    console.log(`[prospeccao] DONE: ${results.length} leads | ${searchResult.creditsUsed} créditos | ${ratio} leads/crédito`);
+    console.log(`[prospeccao] DONE: ${results.length} leads | ${searchResult.creditsUsed} cr | ${ratio} l/cr | ${executionMs}ms`);
+
+    // Save campaign results + logs
+    if (campaignId) {
+      try {
+        // Update campaign
+        await supabase.from("prospeccao_campaigns").update({
+          status: "completed",
+          total_leads: results.length,
+          credits_used: searchResult.creditsUsed,
+          execution_time_ms: executionMs,
+          city_radius_km: cityGeo?.radiusKm ?? null,
+          completed_at: new Date().toISOString(),
+        }).eq("id", campaignId);
+
+        // Save logs in batches
+        if (logs.entries.length > 0) {
+          const logRows = logs.entries.map(e => ({
+            campaign_id: campaignId,
+            phase: e.phase,
+            query_term: e.query_term,
+            location_info: e.location_info,
+            leads_added: e.leads_added,
+            leads_total: e.leads_total,
+            credits_spent: e.credits_spent,
+            score: e.score,
+            tier: e.tier,
+          }));
+          // Insert in chunks of 50
+          for (let i = 0; i < logRows.length; i += 50) {
+            await supabase.from("prospeccao_campaign_logs").insert(logRows.slice(i, i + 50));
+          }
+        }
+
+        // Save leads in batches
+        if (results.length > 0) {
+          const leadRows = results.map(r => ({
+            campaign_id: campaignId,
+            nome: r.nome,
+            endereco: r.endereco,
+            telefone: r.telefone,
+            website: r.website,
+            avaliacao: r.avaliacao,
+            total_avaliacoes: r.totalAvaliacoes,
+            categoria: r.categoria,
+            google_maps_url: r.googleMapsUrl,
+            place_id: r.placeId,
+            latitude: r.latitude,
+            longitude: r.longitude,
+          }));
+          for (let i = 0; i < leadRows.length; i += 100) {
+            await supabase.from("prospeccao_campaign_leads").insert(leadRows.slice(i, i + 100));
+          }
+        }
+      } catch (e) {
+        console.error("[prospeccao] Campaign save error:", e);
+      }
+    }
 
     // --- CACHE SAVE ---
     try {
@@ -632,6 +675,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       results, total: results.length, fromCache: false,
       creditsUsed: searchResult.creditsUsed,
+      campaignId,
+      executionTimeMs: executionMs,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("[prospeccao] Error:", error);
