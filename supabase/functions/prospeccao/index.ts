@@ -416,17 +416,17 @@ Deno.serve(async (req) => {
     const allNichos = [nichoTrimmed, ...relatedNiches];
 
     // Geocode + fetch bairros in parallel
-    const [center, bairros] = await Promise.all([
+    const [cityGeo, bairros] = await Promise.all([
       geocodeCity(cidadeTrimmed, estadoTrimmed),
       fetchBairros(cidadeTrimmed, estadoTrimmed),
     ]);
 
-    console.log(`[prospeccao] "${nichoTrimmed}" em "${cidadeTrimmed}" | target: ${requestedTotal} | bairros: ${bairros.length} | nichos: ${allNichos.length}`);
+    console.log(`[prospeccao] "${nichoTrimmed}" em "${cidadeTrimmed}" | target: ${requestedTotal} | bairros: ${bairros.length} | nichos: ${allNichos.length} | cityRadius: ${cityGeo?.radiusKm.toFixed(1) || "?"} km`);
 
     let searchResult: { places: any[]; creditsUsed: number };
 
-    if (center) {
-      searchResult = await adaptiveSearch(allNichos, center, requestedTotal, cidadeTrimmed, estadoTrimmed, bairros, SERPER_API_KEY);
+    if (cityGeo) {
+      searchResult = await adaptiveSearch(allNichos, cityGeo, requestedTotal, cidadeTrimmed, estadoTrimmed, bairros, SERPER_API_KEY);
     } else {
       // Fallback text-only
       const seen = new Set<string>();
