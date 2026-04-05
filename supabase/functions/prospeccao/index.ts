@@ -9,8 +9,12 @@ const corsHeaders = {
 // ========== GEO ==========
 
 interface GeoPoint { lat: number; lng: number; }
+interface CityGeo {
+  center: GeoPoint;
+  radiusKm: number; // estimated city radius from bounding box
+}
 
-async function geocodeCity(cidade: string, estado: string): Promise<GeoPoint | null> {
+async function geocodeCity(cidade: string, estado: string): Promise<CityGeo | null> {
   try {
     const q = encodeURIComponent(`${cidade}, ${estado}, Brazil`);
     const res = await fetch(
@@ -19,8 +23,32 @@ async function geocodeCity(cidade: string, estado: string): Promise<GeoPoint | n
     );
     if (!res.ok) return null;
     const data = await res.json();
-    return data.length ? { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) } : null;
+    if (!data.length) return null;
+
+    const item = data[0];
+    const center: GeoPoint = { lat: parseFloat(item.lat), lng: parseFloat(item.lon) };
+
+    // Calculate city radius from bounding box if available
+    let radiusKm = 8; // default
+    if (item.boundingbox) {
+      const [south, north, west, east] = item.boundingbox.map(Number);
+      const latSpan = (north - south) * 111; // km
+      const lngSpan = (east - west) * 111 * Math.cos(center.lat * Math.PI / 180);
+      radiusKm = Math.max(latSpan, lngSpan) / 2;
+      // Clamp: min 3km (vila), max 30km (metrópole)
+      radiusKm = Math.min(Math.max(radiusKm, 3), 30);
+    }
+
+    console.log(`[prospeccao] City "${cidade}": center ${center.lat.toFixed(4)},${center.lng.toFixed(4)} | radius ~${radiusKm.toFixed(1)}km`);
+    return { center, radiusKm };
   } catch { return null; }
+}
+
+/** Check if a point is within city radius (prevents searching outside the city) */
+function isWithinCity(point: GeoPoint, center: GeoPoint, maxRadiusKm: number): boolean {
+  const dLat = (point.lat - center.lat) * 111;
+  const dLng = (point.lng - center.lng) * 111 * Math.cos(center.lat * Math.PI / 180);
+  return Math.sqrt(dLat * dLat + dLng * dLng) <= maxRadiusKm;
 }
 
 function generateRing(center: GeoPoint, radiusKm: number, count: number): GeoPoint[] {
@@ -166,7 +194,7 @@ async function query(
 
 async function adaptiveSearch(
   nichos: string[],
-  center: GeoPoint,
+  cityGeo: CityGeo,
   target: number,
   cidade: string,
   estado: string,
@@ -177,28 +205,45 @@ async function adaptiveSearch(
   const places: any[] = [];
   let credits = 0;
   const primary = nichos[0];
+  const { center, radiusKm } = cityGeo;
   const HOT = 10;
+
+  // Dynamic ring distances based on city radius
+  const ring1Dist = Math.min(radiusKm * 0.3, 5);   // ~30% of radius
+  const ring2Dist = Math.min(radiusKm * 0.6, 12);   // ~60% of radius
+  const ring3Dist = Math.min(radiusKm * 0.9, 20);   // ~90% of radius
+  const ring1Pts = radiusKm < 5 ? 4 : 6;
+  const ring2Pts = radiusKm < 8 ? 6 : 8;
+  const ring3Pts = radiusKm < 10 ? 8 : 10;
+  // Zoom: tighter for small cities, wider for large
+  const zoomCenter = radiusKm < 5 ? 15 : radiusKm < 12 ? 14 : 13;
+  const zoomRing1 = radiusKm < 8 ? 14 : 13;
+  const zoomOuter = radiusKm < 12 ? 13 : 12;
+
+  console.log(`[prospeccao] Adaptive rings: R1=${ring1Dist.toFixed(1)}km(${ring1Pts}pts) R2=${ring2Dist.toFixed(1)}km(${ring2Pts}pts) R3=${ring3Dist.toFixed(1)}km(${ring3Pts}pts) | cityRadius=${radiusKm.toFixed(1)}km`);
 
   const done = () => places.length >= target;
   const log = (phase: string, added: number) =>
-    console.log(`[prospeccao] ${phase} → +${added} new (total: ${places.length}/${target}) [${credits} credits]`);
+    console.log(`[prospeccao] ${phase} → +${added} new (total: ${places.length}/${target}) [${credits} cr]`);
+
+  const filterInCity = (pts: GeoPoint[]) => pts.filter(p => isWithinCity(p, center, radiusKm * 1.1));
 
   // === P1: Center — all niches ===
   for (const n of nichos) {
     if (done()) break;
-    const ll = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},14z`;
+    const ll = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomCenter}z`;
     const added = await query(n, ll, apiKey, seen, places);
     credits++;
     log(`P1 center "${n}"`, added);
   }
   if (done()) return { places, creditsUsed: credits };
 
-  // === P2: Ring 1 (3km, 6 pts) — primary niche ===
-  const ring1 = generateRing(center, 3, 6);
+  // === P2: Ring 1 — primary niche ===
+  const ring1 = filterInCity(generateRing(center, ring1Dist, ring1Pts));
   const hotPts: GeoPoint[] = [];
   for (const pt of ring1) {
     if (done()) break;
-    const ll = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},14z`;
+    const ll = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomRing1}z`;
     const added = await query(primary, ll, apiKey, seen, places);
     credits++;
     log("P2 ring1", added);
@@ -206,9 +251,8 @@ async function adaptiveSearch(
   }
   if (done()) return { places, creditsUsed: credits };
 
-  // === P3: Bairros — text-based search (no coordinates, different results!) ===
+  // === P3: Bairros — text search ===
   if (bairros.length > 0) {
-    // Sort bairros: try up to 10, stop if cold streak
     let coldStreak = 0;
     for (const bairro of bairros.slice(0, 10)) {
       if (done() || coldStreak >= 3) break;
@@ -220,12 +264,13 @@ async function adaptiveSearch(
   }
   if (done()) return { places, creditsUsed: credits };
 
-  // === P4: Subdivide hot points (1.5km) ===
+  // === P4: Subdivide hot points ===
+  const subRadius = Math.max(ring1Dist * 0.4, 1);
   for (const hp of hotPts) {
     if (done()) break;
-    for (const sp of subdivide(hp, 1.5)) {
+    for (const sp of filterInCity(subdivide(hp, subRadius))) {
       if (done()) break;
-      const ll = `@${sp.lat.toFixed(6)},${sp.lng.toFixed(6)},15z`;
+      const ll = `@${sp.lat.toFixed(6)},${sp.lng.toFixed(6)},${zoomCenter}z`;
       const added = await query(primary, ll, apiKey, seen, places);
       credits++;
       log("P4 subdivide", added);
@@ -234,51 +279,50 @@ async function adaptiveSearch(
   }
   if (done()) return { places, creditsUsed: credits };
 
-  // === P5: Expanded terms on best points ===
+  // === P5: Expanded terms ===
   const expanded = expandNicho(primary);
   if (expanded.length > 0) {
-    // Use center + first 2 ring1 points with expanded terms
     const bestPts = [center, ...ring1.slice(0, 2)];
     for (const term of expanded.slice(0, 3)) {
       if (done()) break;
       for (const pt of bestPts) {
         if (done()) break;
-        const ll = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},13z`;
+        const ll = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomOuter}z`;
         const added = await query(term, ll, apiKey, seen, places);
         credits++;
         log(`P5 expand "${term}"`, added);
-        if (added < 2) break; // this term isn't yielding results here
+        if (added < 2) break;
       }
     }
   }
   if (done()) return { places, creditsUsed: credits };
 
-  // === P6: Ring 2 (7km, 8 pts) ===
-  const ring2 = generateRing(center, 7, 8);
+  // === P6: Ring 2 ===
+  const ring2 = filterInCity(generateRing(center, ring2Dist, ring2Pts));
   for (const pt of ring2) {
     if (done()) break;
-    const ll = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},13z`;
+    const ll = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomOuter}z`;
     const added = await query(primary, ll, apiKey, seen, places);
     credits++;
     log("P6 ring2", added);
   }
   if (done()) return { places, creditsUsed: credits };
 
-  // === P7: Ring 3 (12km, 10 pts) — only for large targets ===
-  if (target > 100) {
-    const ring3 = generateRing(center, 12, 10);
+  // === P7: Ring 3 — only if city is large enough and target demands it ===
+  if (target > 50 && radiusKm > 6) {
+    const ring3 = filterInCity(generateRing(center, ring3Dist, ring3Pts));
     for (const pt of ring3) {
       if (done()) break;
-      const ll = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},12z`;
+      const ll = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomOuter}z`;
       const added = await query(primary, ll, apiKey, seen, places);
       credits++;
       log("P7 ring3", added);
-      if (added === 0) continue;
     }
   }
+  if (done()) return { places, creditsUsed: credits };
 
-  // === P8: Bairros with related niches (if still short) ===
-  if (!done() && bairros.length > 0 && nichos.length > 1) {
+  // === P8: Bairros + related niches ===
+  if (bairros.length > 0 && nichos.length > 1) {
     for (const n of nichos.slice(1)) {
       if (done()) break;
       for (const bairro of bairros.slice(0, 5)) {
@@ -372,17 +416,17 @@ Deno.serve(async (req) => {
     const allNichos = [nichoTrimmed, ...relatedNiches];
 
     // Geocode + fetch bairros in parallel
-    const [center, bairros] = await Promise.all([
+    const [cityGeo, bairros] = await Promise.all([
       geocodeCity(cidadeTrimmed, estadoTrimmed),
       fetchBairros(cidadeTrimmed, estadoTrimmed),
     ]);
 
-    console.log(`[prospeccao] "${nichoTrimmed}" em "${cidadeTrimmed}" | target: ${requestedTotal} | bairros: ${bairros.length} | nichos: ${allNichos.length}`);
+    console.log(`[prospeccao] "${nichoTrimmed}" em "${cidadeTrimmed}" | target: ${requestedTotal} | bairros: ${bairros.length} | nichos: ${allNichos.length} | cityRadius: ${cityGeo?.radiusKm.toFixed(1) || "?"} km`);
 
     let searchResult: { places: any[]; creditsUsed: number };
 
-    if (center) {
-      searchResult = await adaptiveSearch(allNichos, center, requestedTotal, cidadeTrimmed, estadoTrimmed, bairros, SERPER_API_KEY);
+    if (cityGeo) {
+      searchResult = await adaptiveSearch(allNichos, cityGeo, requestedTotal, cidadeTrimmed, estadoTrimmed, bairros, SERPER_API_KEY);
     } else {
       // Fallback text-only
       const seen = new Set<string>();
