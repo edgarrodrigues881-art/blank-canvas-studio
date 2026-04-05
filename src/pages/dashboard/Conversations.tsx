@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { ConversationList } from "@/components/conversations/ConversationList";
 import { ChatPanel } from "@/components/conversations/ChatPanel";
 import { ContactDetails } from "@/components/conversations/ContactDetails";
+import { NewConversationDialog } from "@/components/conversations/NewConversationDialog";
 import { type Conversation, type AttendingStatus, type Message } from "@/components/conversations/types";
 import { useConversations } from "@/hooks/useConversations";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ const Conversations = () => {
     selectedConversation: selectedReal,
     selectedConvId,
     selectConversation,
+    createConversation,
     syncConversations,
     updateStatus,
     updateTags,
@@ -31,10 +33,10 @@ const Conversations = () => {
   const [showDetails, setShowDetails] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_W);
+  const [newConversationOpen, setNewConversationOpen] = useState(false);
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Drag logic
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     isDragging.current = true;
@@ -64,7 +66,6 @@ const Conversations = () => {
     };
   }, []);
 
-  // Map real data to the Conversation type used by components
   const conversations: Conversation[] = realConvs.map((c) => ({
     id: c.id,
     name: c.name,
@@ -129,68 +130,73 @@ const Conversations = () => {
   );
 
   return (
-    <div className="flex flex-col h-[calc(100vh-theme(spacing.14)-theme(spacing.5)*2)] sm:h-[calc(100vh-theme(spacing.14)-theme(spacing.10))] -m-2.5 sm:-m-5 md:-m-8">
-      <div ref={containerRef} className="flex flex-1 min-h-0 overflow-hidden bg-background">
-        {/* Left Column */}
-        <div
-          className={`${
-            selectedConversation
-              ? "hidden md:flex flex-col shrink-0"
-              : "flex flex-col w-full"
-          }`}
-          style={selectedConversation ? { width: sidebarWidth } : undefined}
-        >
-          {/* Auto-sync active via realtime */}
-          <ConversationList
-            conversations={filteredConversations}
-            selectedId={selectedConvId}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onSelect={handleSelect}
-          />
-        </div>
-
-        {/* Draggable divider */}
-        {selectedConversation && (
+    <>
+      <div className="flex flex-col h-[calc(100vh-theme(spacing.14)-theme(spacing.5)*2)] sm:h-[calc(100vh-theme(spacing.14)-theme(spacing.10))] -m-2.5 sm:-m-5 md:-m-8">
+        <div ref={containerRef} className="flex flex-1 min-h-0 overflow-hidden bg-background">
           <div
-            onMouseDown={handleMouseDown}
-            className="hidden md:flex items-center justify-center w-1.5 cursor-col-resize group hover:bg-primary/20 active:bg-primary/30 transition-colors shrink-0 relative"
+            className={`${
+              selectedConversation
+                ? "hidden md:flex flex-col shrink-0"
+                : "flex flex-col w-full"
+            }`}
+            style={selectedConversation ? { width: sidebarWidth } : undefined}
           >
-            <div className="w-0.5 h-8 rounded-full bg-border group-hover:bg-primary/50 group-active:bg-primary transition-colors" />
-          </div>
-        )}
-
-        {/* Center Column — Chat */}
-        {selectedConversation && (
-          <div className="flex flex-col flex-1 min-w-0">
-            <ChatPanel
-              conversation={selectedConversation}
-              messages={messages}
-              showDetails={showDetails}
-              onToggleDetails={() => setShowDetails(!showDetails)}
-              onBack={() => selectConversation(null)}
-              onStatusChange={handleStatusChange}
-              onSendMessage={sendMessage}
-              onSendAudio={sendAudioMessage}
-              onSendFile={sendFileMessage}
-              onRetryMessage={retryMessage}
+            <ConversationList
+              conversations={filteredConversations}
+              selectedId={selectedConvId}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onSelect={handleSelect}
+              onNewConversationClick={() => setNewConversationOpen(true)}
             />
           </div>
-        )}
 
-        {/* Right Column — Contact Details */}
-        {selectedConversation && showDetails && (
-          <div className="hidden lg:flex flex-col w-[300px] xl:w-[320px] border-l border-border shrink-0">
-            <ContactDetails
-              conversation={selectedConversation}
-              onClose={() => setShowDetails(false)}
-              onTagsChange={handleTagsChange}
-            />
-          </div>
-        )}
+          {selectedConversation && (
+            <div
+              onMouseDown={handleMouseDown}
+              className="hidden md:flex items-center justify-center w-1.5 cursor-col-resize group hover:bg-primary/20 active:bg-primary/30 transition-colors shrink-0 relative"
+            >
+              <div className="w-0.5 h-8 rounded-full bg-border group-hover:bg-primary/50 group-active:bg-primary transition-colors" />
+            </div>
+          )}
+
+          {selectedConversation && (
+            <div className="flex flex-col flex-1 min-w-0">
+              <ChatPanel
+                conversation={selectedConversation}
+                messages={messages}
+                showDetails={showDetails}
+                onToggleDetails={() => setShowDetails(!showDetails)}
+                onBack={() => selectConversation(null)}
+                onStatusChange={handleStatusChange}
+                onSendMessage={sendMessage}
+                onSendAudio={sendAudioMessage}
+                onSendFile={sendFileMessage}
+                onRetryMessage={retryMessage}
+              />
+            </div>
+          )}
+
+          {selectedConversation && showDetails && (
+            <div className="hidden lg:flex flex-col w-[300px] xl:w-[320px] border-l border-border shrink-0">
+              <ContactDetails
+                conversation={selectedConversation}
+                onClose={() => setShowDetails(false)}
+                onTagsChange={handleTagsChange}
+              />
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      <NewConversationDialog
+        open={newConversationOpen}
+        onOpenChange={setNewConversationOpen}
+        onCreateConversation={createConversation}
+      />
+    </>
   );
 };
 
 export default Conversations;
+
