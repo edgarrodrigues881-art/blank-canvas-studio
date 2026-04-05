@@ -384,6 +384,6 @@ export function ChatPanel({ conversation, messages, showDetails, onToggleDetails
           </Button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
