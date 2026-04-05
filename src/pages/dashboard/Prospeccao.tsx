@@ -379,6 +379,9 @@ export default function Prospeccao() {
                     </Button>
                   </>
                 )}
+                {creditBalance !== null && creditBalance <= 0 && (
+                  <p className="text-sm text-destructive font-medium">Créditos insuficientes para realizar a prospecção</p>
+                )}
               </div>
               {loading && <p className="text-sm text-muted-foreground mt-3">⏳ A busca pode levar de 30s a vários minutos...</p>}
             </CardContent>
