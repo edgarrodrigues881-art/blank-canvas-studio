@@ -99,10 +99,10 @@ Deno.serve(async (req) => {
     let parsed: any = {};
     try { parsed = JSON.parse(uazBody); } catch {}
 
-    // Detect failures
-    const failureKeywords = ["not found", "invalid", "disconnected", "blocked", "not on whatsapp", "privacidade", "error"];
+    // Detect failures — be careful not to false-positive on normal response fields
+    const hardFailKeywords = ["not found", "invalid number", "disconnected", "blocked", "not on whatsapp", "privacidade"];
     const bodyLower = uazBody.toLowerCase();
-    const hasFailed = !uazRes.ok || failureKeywords.some((k) => bodyLower.includes(k));
+    const hasFailed = !uazRes.ok || hardFailKeywords.some((k) => bodyLower.includes(k));
 
     if (hasFailed) {
       const errorMsg = parsed?.message || parsed?.error || uazBody.substring(0, 200);
@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
 
     // Success — update message to sent
     if (message_id) {
-      const waMessageId = parsed?.key?.id || parsed?.messageId || parsed?.id || null;
+      const waMessageId = parsed?.messageid || parsed?.key?.id || parsed?.messageId || parsed?.id || null;
       await admin.from("conversation_messages").update({
         status: "sent",
         whatsapp_message_id: waMessageId,
