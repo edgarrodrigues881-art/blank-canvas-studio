@@ -133,7 +133,7 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
   }, [session?.user?.id, queryClient, shouldSkipSync]);
 
   // ── Shared sync function exposed for manual trigger ──
-  const doSync = useCallback(async () => {
+  const doSync = useCallback(async (trigger: "interval" | "startup" | "visibility" | "online" = "interval") => {
     if (document.hidden || shouldSkipSync()) {
       queuedSync = false;
       return;
@@ -168,7 +168,7 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
           Authorization: `Bearer ${token}`,
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
-        body: "{}",
+        body: JSON.stringify(trigger === "interval" ? {} : { trigger }),
       });
 
       if (response.status === 401) {
@@ -210,24 +210,24 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
 
     autoSyncBlockedUntilRef.current = Date.now() + AUTO_SYNC_STARTUP_GRACE_MS;
 
-    const scheduleProtectedSync = (blockMs: number) => {
+    const scheduleProtectedSync = (trigger: "startup" | "visibility" | "online", blockMs: number) => {
       autoSyncBlockedUntilRef.current = Math.max(autoSyncBlockedUntilRef.current, Date.now() + blockMs);
       clearScheduledSync();
       scheduledSyncRef.current = setTimeout(() => {
         scheduledSyncRef.current = null;
         if (!document.hidden) {
-          void doSync();
+          void doSync(trigger);
         }
       }, blockMs + 250);
     };
 
     const onVisibilityChange = () => {
       if (document.hidden) return;
-      scheduleProtectedSync(AUTO_SYNC_VISIBILITY_GRACE_MS);
+      scheduleProtectedSync("visibility", AUTO_SYNC_VISIBILITY_GRACE_MS);
     };
 
     const onOnline = () => {
-      scheduleProtectedSync(AUTO_SYNC_ONLINE_GRACE_MS);
+      scheduleProtectedSync("online", AUTO_SYNC_ONLINE_GRACE_MS);
     };
 
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -235,7 +235,7 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
 
     const initialTimeout = setTimeout(() => {
       if (!document.hidden) {
-        void doSync();
+        void doSync("startup");
       }
     }, AUTO_SYNC_STARTUP_GRACE_MS + 250);
 
