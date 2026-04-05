@@ -70,7 +70,7 @@ interface EditFormData {
   observations: string;
 }
 
-export function ContactDetails({ conversation, onClose }: ContactDetailsProps) {
+export function ContactDetails({ conversation, onClose, onTagsChange }: ContactDetailsProps) {
   const [activeTags, setActiveTags] = useState<string[]>(conversation.tags);
   const [notes, setNotes] = useState(conversation.notes || "");
   const [editingNotes, setEditingNotes] = useState(false);
