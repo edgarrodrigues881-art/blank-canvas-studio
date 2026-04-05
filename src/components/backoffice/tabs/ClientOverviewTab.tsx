@@ -176,6 +176,29 @@ const ClientOverviewTab = memo(({ client, detail }: Props) => {
         </div>
       </div>
 
+      {/* Prospecting Credits */}
+      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+            <Coins size={13} className="text-primary" />
+          </div>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Créditos Prospecção</span>
+        </div>
+        <p className="text-2xl font-bold text-foreground">{creditBalance ?? "—"}</p>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            placeholder="Qtd"
+            value={addCreditsAmount}
+            onChange={e => setAddCreditsAmount(e.target.value)}
+            className="h-8 w-24 text-xs"
+          />
+          <Button size="sm" className="h-8 text-xs gap-1" onClick={handleAddCredits} disabled={addingCredits}>
+            <Plus size={12} /> Adicionar
+          </Button>
+        </div>
+      </div>
+
       {/* Actions */}
       <div className="bg-card border border-border rounded-xl p-4">
         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Ações da Conta</p>
