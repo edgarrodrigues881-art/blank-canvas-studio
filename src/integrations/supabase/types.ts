@@ -2979,18 +2979,21 @@ export type Database = {
       prospeccao_credits: {
         Row: {
           balance: number
+          free_pulls_remaining: number
           id: string
           updated_at: string
           user_id: string
         }
         Insert: {
           balance?: number
+          free_pulls_remaining?: number
           id?: string
           updated_at?: string
           user_id: string
         }
         Update: {
           balance?: number
+          free_pulls_remaining?: number
           id?: string
           updated_at?: string
           user_id?: string
@@ -4939,6 +4942,7 @@ export type Database = {
         Returns: boolean
       }
       try_provision_lock: { Args: { _user_id: string }; Returns: boolean }
+      use_free_pull: { Args: { p_user_id: string }; Returns: Json }
     }
     Enums: {
       alert_severity: "INFO" | "WARNING" | "CRITICAL"

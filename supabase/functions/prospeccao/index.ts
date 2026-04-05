@@ -530,22 +530,28 @@ Deno.serve(async (req) => {
       }
     }
 
-    // --- CREDIT CHECK ---
+    // --- CREDIT / FREE PULL CHECK ---
     const adminClient2 = createClient(supabaseUrl, serviceRoleKey);
     const { data: creditRow } = await adminClient2
       .from("prospeccao_credits")
-      .select("balance")
+      .select("balance, free_pulls_remaining")
       .eq("user_id", user.id)
       .maybeSingle();
 
     const currentBalance = creditRow?.balance ?? 0;
-    // Estimate minimum cost: at least 1 API call × 2.5 multiplier = 3 credits
-    const estimatedMinCost = Math.ceil(1 * 2.5);
-    if (currentBalance < estimatedMinCost) {
-      return new Response(
-        JSON.stringify({ error: "Créditos insuficientes para realizar a prospecção", balance: currentBalance, required: estimatedMinCost }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    const freePulls = creditRow?.free_pulls_remaining ?? 0;
+    const isFreePull = freePulls > 0 && currentBalance < Math.ceil(1 * 2.5);
+    const freeMaxResults = 20;
+
+    if (!isFreePull) {
+      // Paid mode — check credits
+      const estimatedMinCost = Math.ceil(1 * 2.5);
+      if (currentBalance < estimatedMinCost) {
+        return new Response(
+          JSON.stringify({ error: "Créditos insuficientes e sem puxadas grátis", balance: currentBalance, freePulls: 0 }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     const SERPER_API_KEY = Deno.env.get("SERPER_API_KEY");
@@ -556,7 +562,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const requestedTotal = Math.min(maxResults || 50, 5000);
+    const requestedTotal = isFreePull ? Math.min(maxResults || 20, freeMaxResults) : Math.min(maxResults || 50, 5000);
     const relatedNiches = Array.isArray(nichosRelacionados) ? nichosRelacionados.filter(Boolean) : [];
     const allNichos = [nichoTrimmed, ...relatedNiches];
     const startTime = Date.now();
@@ -638,12 +644,23 @@ Deno.serve(async (req) => {
     const ratio = (results.length / Math.max(searchResult.creditsUsed, 1)).toFixed(1);
     console.log(`[prospeccao] DONE: ${results.length} leads | ${searchResult.creditsUsed} cr | ${ratio} l/cr | ${executionMs}ms`);
 
-    // --- DEBIT CREDITS (2.5x multiplier, ceil) ---
+    // --- DEBIT CREDITS or FREE PULL ---
     const rawCost = searchResult.creditsUsed;
-    const finalCost = Math.ceil(rawCost * 2.5);
+    const finalCost = isFreePull ? 0 : Math.ceil(rawCost * 2.5);
     let newBalance = currentBalance;
+    let freePullsAfter = freePulls;
 
-    if (finalCost > 0) {
+    if (isFreePull) {
+      // Consume a free pull instead of credits
+      const debitAdmin = createClient(supabaseUrl, serviceRoleKey);
+      const { data: pullResult } = await debitAdmin.rpc("use_free_pull", { p_user_id: user.id });
+      if (pullResult?.success) {
+        freePullsAfter = pullResult.remaining;
+      } else {
+        console.warn(`[prospeccao] Free pull failed: ${pullResult?.error}`);
+      }
+      console.log(`[prospeccao] FREE PULL used: ${results.length} leads | Remaining: ${freePullsAfter}`);
+    } else if (finalCost > 0) {
       const debitAdmin = createClient(supabaseUrl, serviceRoleKey);
       const { data: debitResult } = await debitAdmin.rpc("debit_prospeccao_credits", {
         p_user_id: user.id,
@@ -743,6 +760,8 @@ Deno.serve(async (req) => {
       creditsUsed: finalCost,
       apiCreditsUsed: rawCost,
       balance: newBalance,
+      freePulls: freePullsAfter,
+      isFreePull,
       campaignId,
       executionTimeMs: executionMs,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

@@ -73,6 +73,7 @@ export default function Prospeccao() {
   const [searchLng, setSearchLng] = useState<number | null>(null);
   const [searchRadius, setSearchRadius] = useState(12);
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
+  const [freePulls, setFreePulls] = useState<number>(0);
 
   const [areaConfirmed, setAreaConfirmed] = useState(false);
 
@@ -105,10 +106,11 @@ export default function Prospeccao() {
     try {
       const { data } = await supabase
         .from("prospeccao_credits")
-        .select("balance")
+        .select("balance, free_pulls_remaining")
         .maybeSingle();
       setCreditBalance(data?.balance ?? 0);
-    } catch { setCreditBalance(0); }
+      setFreePulls((data as any)?.free_pulls_remaining ?? 0);
+    } catch { setCreditBalance(0); setFreePulls(0); }
   }, []);
 
   useEffect(() => { loadCredits(); }, [loadCredits]);
@@ -189,8 +191,9 @@ export default function Prospeccao() {
     if (!nicho.trim() || !estado || !cidade.trim()) {
       toast.error("Preencha todos os campos obrigatórios"); return;
     }
-    if (creditBalance !== null && creditBalance <= 0) {
-      toast.error("Créditos insuficientes para realizar a prospecção"); return;
+    const canSearch = (creditBalance !== null && creditBalance > 0) || freePulls > 0;
+    if (!canSearch) {
+      toast.error("Sem créditos e sem puxadas grátis disponíveis"); return;
     }
     setLoading(true); setSearched(true);
     try {
@@ -206,14 +209,19 @@ export default function Prospeccao() {
       setResults(data.results || []);
       setFromCache(!!data.fromCache);
       setCachedAt(data.cachedAt || null);
-      // Update balance from response
       if (typeof data.balance === "number") {
         setCreditBalance(data.balance);
-      } else {
+      }
+      if (typeof data.freePulls === "number") {
+        setFreePulls(data.freePulls);
+      }
+      if (data.balance === undefined && data.freePulls === undefined) {
         loadCredits();
       }
       if (data.fromCache) {
         toast.success(`${data.total || 0} resultados (do cache)`);
+      } else if (data.isFreePull) {
+        toast.success(`${data.total || 0} leads encontrados — puxada grátis utilizada (${data.freePulls} restantes)`);
       } else {
         const execSec = data.executionTimeMs ? `em ${(data.executionTimeMs / 1000).toFixed(1)}s` : "";
         toast.success(`${data.total || 0} leads encontrados ${execSec} — ${data.creditsUsed || 0} créditos consumidos`);
@@ -310,11 +318,22 @@ export default function Prospeccao() {
             <p className="text-muted-foreground text-sm">Busque comércios e negócios por nicho e localização</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-4 py-2">
-          <Coins className="h-4 w-4 text-primary" />
-          <span className="text-sm font-semibold">{creditBalance ?? "—"}</span>
-          <span className="text-xs text-muted-foreground">créditos</span>
-        </div>
+        {freePulls > 0 && (creditBalance === null || creditBalance <= 0) ? (
+          <div className="flex items-center gap-2 bg-card border border-primary/30 rounded-lg px-4 py-2">
+            <Target className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold text-primary">{freePulls}</span>
+            <span className="text-xs text-muted-foreground">puxada{freePulls > 1 ? "s" : ""} grátis</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-4 py-2">
+            <Coins className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold">{creditBalance ?? "—"}</span>
+            <span className="text-xs text-muted-foreground">créditos</span>
+            {freePulls > 0 && (
+              <Badge variant="outline" className="ml-1 text-[10px]">+{freePulls} grátis</Badge>
+            )}
+          </div>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -376,9 +395,9 @@ export default function Prospeccao() {
               </div>
 
               <div className="flex items-center gap-3 mt-4">
-                <Button onClick={() => handleSearch()} disabled={loading || (creditBalance !== null && creditBalance <= 0)} className="gap-2">
+                <Button onClick={() => handleSearch()} disabled={loading || ((creditBalance === null || creditBalance <= 0) && freePulls <= 0)} className="gap-2">
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                  {loading ? "Buscando..." : "Buscar"}
+                  {loading ? "Buscando..." : freePulls > 0 && (creditBalance === null || creditBalance <= 0) ? `Puxada Grátis (${freePulls})` : "Buscar"}
                 </Button>
                 {results.length > 0 && (
                   <>
@@ -391,8 +410,8 @@ export default function Prospeccao() {
                     </Button>
                   </>
                 )}
-                {creditBalance !== null && creditBalance <= 0 && (
-                  <p className="text-sm text-destructive font-medium">Créditos insuficientes para realizar a prospecção</p>
+                {(creditBalance !== null && creditBalance <= 0) && freePulls <= 0 && (
+                  <p className="text-sm text-destructive font-medium">Sem créditos e sem puxadas grátis</p>
                 )}
               </div>
               {loading && <p className="text-sm text-muted-foreground mt-3">⏳ A busca pode levar de 30s a vários minutos...</p>}
