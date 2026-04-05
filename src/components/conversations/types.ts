@@ -25,11 +25,11 @@ export interface Message {
   content: string;
   type: "sent" | "received";
   timestamp: string;
-  status?: "sent" | "delivered" | "read";
+  status?: "sending" | "sent" | "delivered" | "read" | "failed";
   mediaUrl?: string;
   mediaType?: "image" | "audio" | "document";
-  audioDuration?: number; // seconds, for audio messages
-  isAiResponse?: boolean; // true when AI responded automatically
+  audioDuration?: number;
+  isAiResponse?: boolean;
 }
 
 // Mock data for initial UI
