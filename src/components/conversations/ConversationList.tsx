@@ -1,6 +1,7 @@
-import { Search, Check, CheckCheck } from "lucide-react";
+import { Search, Check, CheckCheck, MessageSquarePlus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { type Conversation } from "./types";
 import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -13,6 +14,7 @@ interface ConversationListProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onSelect: (c: Conversation) => void;
+  onNewConversationClick?: () => void;
 }
 
 type StatusTab = "all" | "new" | "attending" | "waiting";
@@ -31,11 +33,9 @@ function formatDate(dateStr: string) {
   return format(d, "dd/MM", { locale: ptBR });
 }
 
-/** Detect media type from last message content */
 function getMessagePreview(msg: string | undefined | null): { icon: string; text: string } | null {
   if (!msg) return null;
   const lower = msg.toLowerCase().trim();
-  // Common patterns from webhook payloads
   if (lower.includes("[image]") || lower.includes("[foto]") || lower === "image" || lower === "foto")
     return { icon: "📷", text: "Foto" };
   if (lower.includes("[audio]") || lower.includes("[áudio]") || lower === "audio" || lower === "áudio" || lower.includes("[ptt]"))
@@ -53,12 +53,10 @@ function getMessagePreview(msg: string | undefined | null): { icon: string; text
   return null;
 }
 
-/** Format phone to international display */
 function formatPhone(phone: string): string {
   if (!phone) return "";
   const digits = phone.replace(/\D/g, "");
   if (digits.length === 13 && digits.startsWith("55")) {
-    // 55 + DD + 9XXXX-XXXX
     return `+${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 9)}-${digits.slice(9)}`;
   }
   if (digits.length === 12 && digits.startsWith("55")) {
@@ -87,7 +85,6 @@ function getAvatarColor(name: string) {
   return avatarColors[Math.abs(hash) % avatarColors.length];
 }
 
-/** Message status ticks component */
 function MessageTicks({ status }: { status?: "sent" | "delivered" | "read" }) {
   if (!status) return null;
   if (status === "sent") return <Check className="w-3.5 h-3.5 text-muted-foreground/50" />;
@@ -96,10 +93,16 @@ function MessageTicks({ status }: { status?: "sent" | "delivered" | "read" }) {
   return null;
 }
 
-export function ConversationList({ conversations, selectedId, searchQuery, onSearchChange, onSelect }: ConversationListProps) {
+export function ConversationList({
+  conversations,
+  selectedId,
+  searchQuery,
+  onSearchChange,
+  onSelect,
+  onNewConversationClick,
+}: ConversationListProps) {
   const [activeStatus, setActiveStatus] = useState<StatusTab>("all");
 
-  // Filter by status tab
   const filtered = conversations.filter((c) => {
     if (activeStatus === "all") return true;
     if (activeStatus === "new") return c.unreadCount > 0;
@@ -118,14 +121,26 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
       <div className="px-3 pt-2.5 pb-2 space-y-2 border-b border-border">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-foreground">Atendimento</h2>
-          <span className="text-[10px] text-muted-foreground">{conversations.length} conversas</span>
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-bold text-foreground">Atendimento</h2>
+            <span className="text-[10px] text-muted-foreground">{conversations.length} conversas</span>
+          </div>
+          {onNewConversationClick && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 rounded-lg px-2.5 text-[10px] shrink-0"
+              onClick={onNewConversationClick}
+            >
+              <MessageSquarePlus className="w-3.5 h-3.5" />
+              Nova conversa
+            </Button>
+          )}
         </div>
 
-        {/* Search */}
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <Input
@@ -136,7 +151,6 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
           />
         </div>
 
-        {/* Status Tabs */}
         <div className="flex gap-0.5 overflow-x-auto scrollbar-none -mx-0.5">
           {statusTabs.map((tab) => {
             const count = statusCount(tab.key);
@@ -166,7 +180,6 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
         </div>
       </div>
 
-      {/* List */}
       <ScrollArea className="flex-1">
         <div>
           {filtered.length === 0 ? (
@@ -193,7 +206,6 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
                       : "border-l-transparent hover:bg-muted/20"
                   )}
                 >
-                  {/* Avatar */}
                   <div className="relative shrink-0">
                     {c.avatar_url ? (
                       <img src={c.avatar_url} alt={avatarLabel} className="w-11 h-11 rounded-full object-cover" />
@@ -207,9 +219,7 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
                     )}
                   </div>
 
-                  {/* Content */}
                   <div className="flex-1 min-w-0">
-                    {/* Row 1: Name + Time */}
                     <div className="flex items-center justify-between gap-2">
                       <span className={cn(
                         "text-[13px] truncate",
@@ -225,20 +235,15 @@ export function ConversationList({ conversations, selectedId, searchQuery, onSea
                       </span>
                     </div>
 
-                    {/* Row 1.5: Phone under name */}
                     {displayName && (
                       <p className="text-[10px] text-muted-foreground/50 truncate leading-tight">
                         {formatPhone(c.phone)}
                       </p>
                     )}
 
-                    {/* Row 2: Last message + unread badge */}
                     <div className="flex items-center justify-between gap-1.5 mt-0.5">
                       <div className="flex items-center gap-1 min-w-0 flex-1">
-                        {/* Ticks for sent messages (show only if last msg was sent by us) */}
-                        {c.lastMessageStatus && (
-                          <MessageTicks status={c.lastMessageStatus} />
-                        )}
+                        {c.lastMessageStatus && <MessageTicks status={c.lastMessageStatus} />}
                         <p className={cn(
                           "text-[11px] truncate",
                           hasUnread ? "text-foreground font-semibold" : "text-muted-foreground"
