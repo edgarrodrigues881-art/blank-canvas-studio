@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 interface ContactDetailsProps {
   conversation: Conversation;
   onClose: () => void;
+  onTagsChange?: (conversationId: string, newTags: string[]) => void;
 }
 
 const allTags = [
