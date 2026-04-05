@@ -363,8 +363,8 @@ export default function Prospeccao() {
                 />
               </div>
 
-              <div className="flex gap-3 mt-4">
-                <Button onClick={() => handleSearch()} disabled={loading} className="gap-2">
+              <div className="flex items-center gap-3 mt-4">
+                <Button onClick={() => handleSearch()} disabled={loading || (creditBalance !== null && creditBalance <= 0)} className="gap-2">
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                   {loading ? "Buscando..." : "Buscar"}
                 </Button>
