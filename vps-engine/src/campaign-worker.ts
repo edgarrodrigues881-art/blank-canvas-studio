@@ -916,8 +916,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       }
     }
 
-    // 10. Update campaign counters periodically
-    if (heartbeatCounter % 5 === 0) {
+    // 10. Update campaign counters every message for fast UI feedback
+    if (heartbeatCounter % 2 === 0) {
       const stats = await getRealCampaignStats(sb, campaignId);
       await sb.from("campaigns").update({ sent_count: stats.sent, delivered_count: stats.delivered, failed_count: stats.failed, total_contacts: stats.total, updated_at: nowIso() }).eq("id", campaignId);
     }
