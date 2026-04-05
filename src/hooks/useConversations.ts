@@ -88,7 +88,7 @@ export function useConversations() {
       return;
     }
 
-    setMessages(data || []);
+    setMessages((data || []).map((m: any) => ({ ...m, direction: m.direction as "sent" | "received" })));
   }, []);
 
   // Sync from UAZAPI
