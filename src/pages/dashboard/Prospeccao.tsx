@@ -281,11 +281,18 @@ export default function Prospeccao() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Building2 className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold">Prospecção</h1>
-          <p className="text-muted-foreground text-sm">Busque comércios e negócios por nicho e localização</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Building2 className="h-8 w-8 text-primary" />
+          <div>
+            <h1 className="text-2xl font-bold">Prospecção</h1>
+            <p className="text-muted-foreground text-sm">Busque comércios e negócios por nicho e localização</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-4 py-2">
+          <Coins className="h-4 w-4 text-primary" />
+          <span className="text-sm font-semibold">{creditBalance ?? "—"}</span>
+          <span className="text-xs text-muted-foreground">créditos</span>
         </div>
       </div>
 
