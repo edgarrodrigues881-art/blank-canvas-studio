@@ -72,6 +72,7 @@ export default function Prospeccao() {
   const [searchLat, setSearchLat] = useState<number | null>(null);
   const [searchLng, setSearchLng] = useState<number | null>(null);
   const [searchRadius, setSearchRadius] = useState(12);
+  const [creditBalance, setCreditBalance] = useState<number | null>(null);
 
   const [areaConfirmed, setAreaConfirmed] = useState(false);
 
