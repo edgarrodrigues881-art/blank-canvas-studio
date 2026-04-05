@@ -36,6 +36,8 @@ const AISettings = () => {
   const [aiModel, setAiModel] = useState("gpt-4o-mini");
   const [testingAi, setTestingAi] = useState(false);
   const [businessName, setBusinessName] = useState("");
+  const [businessType, setBusinessType] = useState("");
+  const [businessHours, setBusinessHours] = useState("");
   const [businessSegment, setBusinessSegment] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
   const [tone, setTone] = useState("professional");
@@ -238,28 +240,40 @@ const AISettings = () => {
             <Building2 className="h-4 w-4 text-primary" />
             <CardTitle className="text-base">Informações do Negócio</CardTitle>
           </div>
-          <CardDescription>Dados que a IA usará para contextualizar respostas</CardDescription>
+          <CardDescription>Esses dados serão usados pela IA nas respostas</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Nome da empresa</Label>
-              <Input value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Ex: Minha Empresa" />
-            </div>
-            <div className="space-y-2">
-              <Label>Segmento</Label>
-              <Input value={businessSegment} onChange={(e) => setBusinessSegment(e.target.value)} placeholder="Ex: E-commerce, Serviços..." />
-            </div>
+          <div className="space-y-2">
+            <Label>Nome da empresa</Label>
+            <Input value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Ex: Minha Empresa LTDA" />
           </div>
           <div className="space-y-2">
-            <Label>Descrição do negócio</Label>
-            <Textarea
-              value={businessDescription}
-              onChange={(e) => setBusinessDescription(e.target.value)}
-              placeholder="Descreva brevemente seu negócio, produtos e serviços..."
-              rows={3}
-            />
+            <Label>Tipo de negócio</Label>
+            <Select value={businessType} onValueChange={setBusinessType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o tipo..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ecommerce">E-commerce</SelectItem>
+                <SelectItem value="servicos">Prestação de Serviços</SelectItem>
+                <SelectItem value="saas">SaaS / Tecnologia</SelectItem>
+                <SelectItem value="varejo">Varejo / Loja Física</SelectItem>
+                <SelectItem value="consultoria">Consultoria</SelectItem>
+                <SelectItem value="educacao">Educação</SelectItem>
+                <SelectItem value="saude">Saúde / Clínica</SelectItem>
+                <SelectItem value="alimentacao">Alimentação</SelectItem>
+                <SelectItem value="imobiliaria">Imobiliária</SelectItem>
+                <SelectItem value="outro">Outro</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+          <div className="space-y-2">
+            <Label>Horário de atendimento</Label>
+            <Input value={businessHours} onChange={(e) => setBusinessHours(e.target.value)} placeholder="Ex: Seg-Sex 08:00 às 18:00" />
+          </div>
+          <Button size="sm" className="gap-2" onClick={() => toast.success("Informações salvas com sucesso!")}>
+            Salvar informações
+          </Button>
         </CardContent>
       </Card>
 
