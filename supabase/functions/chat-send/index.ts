@@ -82,7 +82,6 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(sendBody),
-      }),
     });
 
     const uazBody = await uazRes.text();
