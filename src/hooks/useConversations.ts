@@ -402,9 +402,7 @@ export function useConversations() {
 
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: dbMsg.id } : m));
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
+      const token = await getToken();
 
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/chat-send`, {
         method: "POST",
