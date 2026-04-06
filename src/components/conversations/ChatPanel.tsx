@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo, useLayoutEffect } fr
 import { useQuickReplies, resolveVariables, QUICK_REPLY_CATEGORIES } from "@/hooks/useQuickReplies";
 import { QuickRepliesManager } from "./QuickRepliesManager";
 import { useSendMessage } from "@/hooks/useSendMessage";
+import { MessageBubble, isMediaPlaceholder } from "./MessageBubble";
 import { supabase } from "@/integrations/supabase/client";
 import { Smartphone } from "lucide-react";
 import {
