@@ -167,8 +167,26 @@ const Conversations = () => {
             }`}
             style={selectedConversation ? { width: sidebarWidth } : undefined}
           >
-            {/* Flows button at top of conversation list */}
-            <div className="flex items-center justify-end px-3 py-1.5 border-b border-border/30 shrink-0">
+            {/* Flows & notifications buttons */}
+            <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/30 shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (typeof Notification !== "undefined" && Notification.permission === "default") {
+                    Notification.requestPermission().then((p) => {
+                      if (p === "granted") toast.success("Notificações ativadas!");
+                      else toast.info("Notificações não foram permitidas");
+                    });
+                  } else if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+                    toast.info("Notificações já estão ativadas");
+                  }
+                }}
+                className="text-[11px] h-7 gap-1 text-muted-foreground hover:text-primary"
+              >
+                <Bell className="w-3.5 h-3.5" />
+                Notificações
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => setShowFlows(true)} className="text-[11px] h-7 gap-1 text-muted-foreground hover:text-primary">
                 <Zap className="w-3.5 h-3.5" />
                 Fluxos
