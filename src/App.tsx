@@ -103,6 +103,7 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/ai-settings": () => { (AISettings as any).__preload?.(); },
   "/dashboard/team": () => { (TeamManagement as any).__preload?.(); },
   "/dashboard/service-contacts": () => { (ServiceContacts as any).__preload?.(); },
+  "/dashboard/schedules": () => { (Schedules as any).__preload?.(); },
 };
 
 const queryClient = new QueryClient({
