@@ -975,7 +975,7 @@ export function ChatPanel({
         ref={scrollRef}
         onScroll={handleScroll}
         className="absolute inset-0 overflow-y-auto p-4 space-y-2"
-        style={{ backgroundImage: "radial-gradient(circle at 1px 1px, hsl(var(--muted)) 1px, transparent 0)", backgroundSize: "24px 24px" }}
+        style={{ backgroundImage: "radial-gradient(circle at 1px 1px, hsl(var(--muted)) 1px, transparent 0)", backgroundSize: "24px 24px", scrollBehavior: "smooth" }}
       >
         {messages.map((msg, i) => {
           const showDate = i === 0 || format(new Date(messages[i - 1].timestamp), "dd/MM/yyyy") !== format(new Date(msg.timestamp), "dd/MM/yyyy");
