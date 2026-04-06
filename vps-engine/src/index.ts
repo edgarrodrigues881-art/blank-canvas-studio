@@ -48,6 +48,7 @@ app.get("/health", (_req: Request, res: Response) => {
     const welcomeStatus = getWelcomeStatus();
     const verifyStatus = getVerifyStatus();
     const communityStatus = getCommunityStatus();
+    const autoreplyStatus = getAutoreplyStatus();
   res.json({
     status: "ok",
     uptime: Math.round((Date.now() - startedAt.getTime()) / 1000),
