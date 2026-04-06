@@ -52,6 +52,7 @@ export interface RealMessage {
 export function useConversations() {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<RealConversation[]>([]);
+  const [archivedConversations, setArchivedConversations] = useState<RealConversation[]>([]);
   const [messages, setMessages] = useState<RealMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
