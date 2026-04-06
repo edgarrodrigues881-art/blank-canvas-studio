@@ -928,6 +928,22 @@ export function useConversations() {
     ? conversations.find((c) => c.id === selectedConvId) || null
     : null;
 
+  // Archive conversation
+  const archiveConversation = useCallback(async (convId: string) => {
+    setConversations((prev) => prev.filter((c) => c.id !== convId));
+    await supabase.from("conversations").update({ status: "archived" } as any).eq("id", convId);
+    toast.success("Conversa arquivada");
+  }, []);
+
+  // Mark as unread
+  const markAsUnread = useCallback(async (convId: string) => {
+    setConversations((prev) =>
+      prev.map((c) => c.id === convId ? { ...c, unread_count: Math.max(c.unread_count, 1) } : c)
+    );
+    await supabase.from("conversations").update({ unread_count: 1 } as any).eq("id", convId);
+    toast.success("Marcada como não lida");
+  }, []);
+
   return {
     conversations,
     messages,
@@ -948,5 +964,7 @@ export function useConversations() {
     fetchConversations,
     assignConversation,
     releaseConversation,
+    archiveConversation,
+    markAsUnread,
   };
 }
