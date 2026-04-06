@@ -930,15 +930,7 @@ async function mainLoop() {
 
     log.info(`Pending warmup jobs ready to process: ${jobCount || 0}`);
 
-    // Test 4: Verify Edge Function accessibility
-    try {
-      const testRes = await fetch(`${config.supabaseUrl}/functions/v1/warmup-tick`, {
-        method: "OPTIONS",
-      });
-      log.info(`Edge Function warmup-tick reachable: ${testRes.status}`);
-    } catch (err: any) {
-      log.warn(`Edge Function warmup-tick not reachable: ${err.message}`);
-    }
+    log.info("Phase 3: Inline warmup processing active (no Edge Function delegation)");
 
   } catch (err: any) {
     log.error("DB connection failed", serializeUnknownError(err));
