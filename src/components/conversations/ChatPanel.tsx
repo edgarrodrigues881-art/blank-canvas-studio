@@ -3,6 +3,7 @@ import { useQuickReplies, resolveVariables, QUICK_REPLY_CATEGORIES } from "@/hoo
 import { QuickRepliesManager } from "./QuickRepliesManager";
 import { useSendMessage } from "@/hooks/useSendMessage";
 import { MessageBubble, isMediaPlaceholder } from "./MessageBubble";
+import { ChatHeader, attendingStatusConfig } from "./ChatHeader";
 import { supabase } from "@/integrations/supabase/client";
 import {
   ArrowLeft,
