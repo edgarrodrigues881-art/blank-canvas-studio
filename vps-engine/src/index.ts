@@ -957,6 +957,7 @@ async function mainLoop() {
     welcome: false,
     verify: false,
     community: false,
+    autoreply: false,
   };
 
   function guardedLoop(
