@@ -325,28 +325,39 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const { replies: dbReplies } = useQuickReplies();
   const [showQRManager, setShowQRManager] = useState(false);
-  const [input, setInput] = useState("");
   const [currentStatus, setCurrentStatus] = useState<AttendingStatus>(conversation.attendingStatus);
-  const [showQuickReplies, setShowQuickReplies] = useState(false);
-  const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [showStatusHistory, setShowStatusHistory] = useState(false);
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [pendingPreview, setPendingPreview] = useState<string | null>(null);
-  const [sendingFile, setSendingFile] = useState(false);
-
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [sendingAudio, setSendingAudio] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+  const scrollToBottomAfterSend = useCallback(() => {
+    setIsNearBottom(true);
+    forceScrollOnNextMessageRef.current = true;
+    requestAnimationFrame(() => {
+      const el = scrollRef.current;
+      if (el) el.scrollTo({ top: el.scrollHeight });
+    });
+  }, []);
+
+  const send = useSendMessage({
+    conversationId: conversation.id,
+    conversationName: conversation.name,
+    conversationPhone: conversation.phone,
+    onSendMessage,
+    onSendAudio,
+    onSendFile,
+    onAfterSend: scrollToBottomAfterSend,
+  });
+
+  const {
+    input, setInput, textareaRef, handleSend, handleKeyDown, handlePaste,
+    replyTo, setReplyTo,
+    showQuickReplies, setShowQuickReplies, quickReplySearch, getFilteredQuickReplies, handleQuickReply,
+    pendingFile, pendingPreview, sendingFile, imageInputRef, fileInputRef,
+    handleFileSelected, handleImageInput, handleDocInput, cancelPendingFile, sendPendingFile,
+    isRecording, recordingTime, sendingAudio, startRecording, stopAndSend, cancelRecording,
+  } = send;
 
   const allQuickReplies = dbReplies.length > 0 ? dbReplies : defaultQuickReplies;
 
