@@ -76,7 +76,7 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.stopPropagation();
-    setZoom((z) => Math.min(5, Math.max(0.5, z - e.deltaY * 0.002)));
+    setZoom((z) => Math.min(5, Math.max(1, z - e.deltaY * 0.002)));
   }, []);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
