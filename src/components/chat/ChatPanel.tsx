@@ -340,7 +340,7 @@ export function ChatPanel({
   }, [setReplyTo, textareaRef]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-w-0 max-w-full overflow-hidden">
       <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageInput} />
       <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,.txt" className="hidden" onChange={handleDocInput} />
 
