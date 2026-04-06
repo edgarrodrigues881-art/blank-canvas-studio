@@ -185,7 +185,7 @@ export function ConversationList({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <div className="px-3 pt-2.5 pb-2 space-y-2 border-b border-border">
+      <div className="px-3 pt-2 pb-1.5 space-y-1.5 border-b border-border">
         <div className="flex items-center justify-between gap-2">
           <div>
             <h2 className="text-sm font-bold text-foreground">Atendimento</h2>
@@ -257,16 +257,17 @@ export function ConversationList({
           })}
         </div>
 
-        {/* Instance filter chips */}
+        {/* Instance filter chips — inline, minimal */}
         {availableInstances.length > 1 && (
-          <div className="flex gap-0.5 overflow-x-auto scrollbar-none">
+          <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none text-[9px] text-muted-foreground/60">
+            <Smartphone className="w-2.5 h-2.5 shrink-0" />
             <button
               onClick={() => onFilterInstancesChange?.([])}
               className={cn(
-                "px-1.5 py-px rounded text-[9px] whitespace-nowrap transition-colors",
+                "px-1 py-px rounded whitespace-nowrap transition-colors",
                 filterInstanceIds.length === 0
-                  ? "text-primary font-semibold bg-primary/10"
-                  : "text-muted-foreground/70 hover:text-muted-foreground"
+                  ? "text-primary font-semibold"
+                  : "hover:text-muted-foreground"
               )}
             >
               Todas
@@ -278,10 +279,10 @@ export function ConversationList({
                   key={inst.id}
                   onClick={() => toggleInstance(inst.id)}
                   className={cn(
-                    "px-1.5 py-px rounded text-[9px] whitespace-nowrap transition-colors",
+                    "px-1 py-px rounded whitespace-nowrap transition-colors",
                     isActive
-                      ? "text-primary font-semibold bg-primary/10"
-                      : "text-muted-foreground/70 hover:text-muted-foreground"
+                      ? "text-primary font-semibold"
+                      : "hover:text-muted-foreground"
                   )}
                 >
                   {inst.name}
