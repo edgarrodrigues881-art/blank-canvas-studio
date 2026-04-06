@@ -22,6 +22,7 @@ type StatusTab = "all" | "mine" | "new" | "attending" | "waiting";
 
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "all", label: "Todas" },
+  { key: "mine", label: "Minhas" },
   { key: "new", label: "Novas" },
   { key: "attending", label: "Em Atendimento" },
   { key: "waiting", label: "Aguardando" },
