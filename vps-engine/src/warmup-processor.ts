@@ -44,7 +44,7 @@ async function getAudioPool(db: any): Promise<string[]> {
     if (!error && files?.length > 0) {
       const base = `${config.supabaseUrl}/storage/v1/object/public/media/warmup-audio`;
       const audios = files.filter((f: any) => f.name && !f.name.startsWith(".") && /\.(mp3|ogg|wav|m4a|opus)$/i.test(f.name)).map((f: any) => `${base}/${encodeURIComponent(f.name)}`);
-      if (audios.length > 0) { _audioPoolCache = audios; return _audioPoolCache; }
+      if (audios.length > 0) { _audioPoolCache = audios; return audios; }
     }
   } catch {}
   _audioPoolCache = [...FALLBACK_AUDIOS];
