@@ -79,6 +79,12 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
 
+    // Check if this is a single-conversation sync request
+    let body: any = {};
+    try { body = await req.json(); } catch { body = {}; }
+    const targetConversationId = body.conversation_id || null;
+    const targetRemoteJid = body.remote_jid || null;
+
     // Get all user devices with tokens
     const { data: devices, error: devErr } = await admin
       .from("devices")
@@ -91,6 +97,11 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ synced: 0, message: "Nenhum dispositivo encontrado" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ── Single conversation sync mode ──
+    if (targetConversationId || targetRemoteJid) {
+      return await syncSingleConversation(admin, userId, devices, targetConversationId, targetRemoteJid);
     }
 
     let totalSynced = 0;
