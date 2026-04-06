@@ -695,6 +695,21 @@ export function ChatPanel({
       );
     }
 
+    // Sticker with URL — small, no background bubble
+    if (isSticker && msg.mediaUrl) {
+      return (
+        <div>
+          <img
+            src={msg.mediaUrl}
+            alt="Figurinha"
+            className="max-w-[140px] max-h-[140px] object-contain cursor-pointer drop-shadow-md"
+            onClick={() => setLightboxUrl(msg.mediaUrl!)}
+          />
+          <MsgFooter msg={msg} />
+        </div>
+      );
+    }
+
     if (isImage && msg.mediaUrl) {
       return (
         <div>
@@ -702,7 +717,7 @@ export function ChatPanel({
           <img
             src={msg.mediaUrl}
             alt="Imagem"
-            className="rounded-lg max-w-full max-h-[300px] object-cover cursor-pointer"
+            className="rounded-lg max-w-full max-h-[360px] object-cover cursor-pointer"
             onClick={() => setLightboxUrl(msg.mediaUrl!)}
           />
           {msg.content && !isMediaPlaceholder(msg.content) && (
@@ -717,15 +732,11 @@ export function ChatPanel({
       return (
         <div>
           <QuotedBlock msg={msg} />
-          <div className={cn("flex items-center gap-2.5 p-2.5 rounded-lg", msg.type === "sent" ? "bg-white/10" : "bg-muted/50")}>
-            <Video className={cn("w-5 h-5 shrink-0", msg.type === "sent" ? "text-white/70" : "text-muted-foreground")} />
-            <div className="flex-1 min-w-0">
-              <p className={cn("text-[12px] font-medium", msg.type === "sent" ? "text-white" : "text-foreground")}>Vídeo</p>
-            </div>
-            <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer">
-              <Download className={cn("w-4 h-4 shrink-0", msg.type === "sent" ? "text-white/50" : "text-muted-foreground/50")} />
-            </a>
-          </div>
+          <video
+            src={msg.mediaUrl}
+            controls
+            className="rounded-lg max-w-full max-h-[360px] cursor-pointer"
+          />
           {msg.content && !isMediaPlaceholder(msg.content) && (
             <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5">{msg.content}</p>
           )}
