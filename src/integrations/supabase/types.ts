@@ -3036,6 +3036,36 @@ export type Database = {
         }
         Relationships: []
       }
+      permission_presets: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_system: boolean
+          name: string
+          owner_id: string | null
+          permissions: Json
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_system?: boolean
+          name: string
+          owner_id?: string | null
+          permissions?: Json
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_system?: boolean
+          name?: string
+          owner_id?: string | null
+          permissions?: Json
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           admin_notes: string | null
@@ -3725,6 +3755,111 @@ export type Database = {
           role?: string
           status?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      team_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          perm_ai_settings: boolean
+          perm_autosave: boolean
+          perm_campaigns: boolean
+          perm_carousel_templates: boolean
+          perm_chip_conversation: boolean
+          perm_community: boolean
+          perm_contacts: boolean
+          perm_conversations: boolean
+          perm_dashboard: boolean
+          perm_group_extractor: boolean
+          perm_group_interaction: boolean
+          perm_group_join: boolean
+          perm_groups: boolean
+          perm_help: boolean
+          perm_instances: boolean
+          perm_mass_inject: boolean
+          perm_my_plan: boolean
+          perm_prospection: boolean
+          perm_proxy: boolean
+          perm_report_wa: boolean
+          perm_send_message: boolean
+          perm_team: boolean
+          perm_templates: boolean
+          perm_warmup: boolean
+          perm_welcome: boolean
+          perm_whatsapp_verifier: boolean
+          permission_mode: string
+          team_owner_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          perm_ai_settings?: boolean
+          perm_autosave?: boolean
+          perm_campaigns?: boolean
+          perm_carousel_templates?: boolean
+          perm_chip_conversation?: boolean
+          perm_community?: boolean
+          perm_contacts?: boolean
+          perm_conversations?: boolean
+          perm_dashboard?: boolean
+          perm_group_extractor?: boolean
+          perm_group_interaction?: boolean
+          perm_group_join?: boolean
+          perm_groups?: boolean
+          perm_help?: boolean
+          perm_instances?: boolean
+          perm_mass_inject?: boolean
+          perm_my_plan?: boolean
+          perm_prospection?: boolean
+          perm_proxy?: boolean
+          perm_report_wa?: boolean
+          perm_send_message?: boolean
+          perm_team?: boolean
+          perm_templates?: boolean
+          perm_warmup?: boolean
+          perm_welcome?: boolean
+          perm_whatsapp_verifier?: boolean
+          permission_mode?: string
+          team_owner_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          perm_ai_settings?: boolean
+          perm_autosave?: boolean
+          perm_campaigns?: boolean
+          perm_carousel_templates?: boolean
+          perm_chip_conversation?: boolean
+          perm_community?: boolean
+          perm_contacts?: boolean
+          perm_conversations?: boolean
+          perm_dashboard?: boolean
+          perm_group_extractor?: boolean
+          perm_group_interaction?: boolean
+          perm_group_join?: boolean
+          perm_groups?: boolean
+          perm_help?: boolean
+          perm_instances?: boolean
+          perm_mass_inject?: boolean
+          perm_my_plan?: boolean
+          perm_prospection?: boolean
+          perm_proxy?: boolean
+          perm_report_wa?: boolean
+          perm_send_message?: boolean
+          perm_team?: boolean
+          perm_templates?: boolean
+          perm_warmup?: boolean
+          perm_welcome?: boolean
+          perm_whatsapp_verifier?: boolean
+          permission_mode?: string
+          team_owner_id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
