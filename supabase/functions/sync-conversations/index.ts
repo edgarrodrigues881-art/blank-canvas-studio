@@ -4,6 +4,57 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+type JsonObject = Record<string, any>;
+
+function asObject(value: unknown): JsonObject {
+  return value && typeof value === "object" ? value as JsonObject : {};
+}
+
+function firstString(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+  return "";
+}
+
+function collectMessageNodes(message: any): JsonObject[] {
+  const root = asObject(message);
+  const msg = asObject(root.message);
+  const inner = asObject(msg.message);
+  const payload = asObject(root.data);
+  const payloadMsg = asObject(payload.message);
+
+  return [root, msg, inner, payload, payloadMsg]
+    .filter((node, index, arr) => Object.keys(node).length > 0 && arr.indexOf(node) === index);
+}
+
+function inferMediaType(typeValue: string, mimeValue: string, urlValue: string): string | null {
+  const typeStr = typeValue.toLowerCase();
+  const mime = mimeValue.toLowerCase();
+  const url = urlValue.toLowerCase();
+
+  if (["audio", "ptt", "voice"].includes(typeStr)) return "audio";
+  if (["image", "photo"].includes(typeStr)) return "image";
+  if (typeStr === "video") return "video";
+  if (["document", "file"].includes(typeStr)) return "document";
+  if (typeStr === "sticker") return "sticker";
+  if (typeStr === "contact") return "contact";
+  if (typeStr === "location") return "location";
+
+  if (mime.startsWith("audio/")) return "audio";
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("video/")) return "video";
+  if (mime.includes("application/")) return "document";
+
+  if (/\.(jpg|jpeg|png|gif|webp|bmp)(\?|$)/.test(url)) return "image";
+  if (/\.(mp3|ogg|wav|aac|m4a|opus|webm)(\?|$)/.test(url)) return "audio";
+  if (/\.(mp4|mov|avi|mkv|webm)(\?|$)/.test(url)) return "video";
+  if (/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|txt|csv)(\?|$)/.test(url)) return "document";
+
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -207,32 +258,68 @@ Deno.serve(async (req) => {
               console.log(`[${device.name}] ${conv.remote_jid}: ${messages.length} messages`);
 
               for (const msg of messages) {
+                const messageNodes = collectMessageNodes(msg);
                 const waId = msg.key?.id || msg.id?._serialized || msg.id?.id || msg.messageId || `${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-                const content = msg.message?.conversation
-                  || msg.message?.extendedTextMessage?.text
-                  || msg.body || msg.text || msg.caption || msg.content || "";
+                const content = firstString(
+                  msg.body,
+                  msg.text,
+                  msg.caption,
+                  msg.content,
+                  ...messageNodes.flatMap((node) => [
+                    node.conversation,
+                    node.text,
+                    node.body,
+                    node.extendedTextMessage?.text,
+                    node.imageMessage?.caption,
+                    node.videoMessage?.caption,
+                    node.documentMessage?.caption,
+                    node.documentMessage?.fileName,
+                    typeof node.content === "string" ? node.content : "",
+                    node.content?.text,
+                  ]),
+                );
                 const fromMe = msg.key?.fromMe ?? msg.fromMe ?? false;
                 const rawTs = msg.messageTimestamp || msg.timestamp || msg.t;
                 const timestamp = rawTs
                   ? new Date(typeof rawTs === "number" && rawTs < 1e12 ? rawTs * 1000 : Number(rawTs)).toISOString()
                   : new Date().toISOString();
 
-                let mediaType: string | null = null;
-                let mediaUrl: string | null = null;
-                let audioDuration: number | null = null;
-                const msgObj = msg.message || msg;
+                const mediaUrl = firstString(
+                  msg.mediaUrl,
+                  msg.media_url,
+                  msg.file,
+                  msg.fileUrl,
+                  msg.url,
+                  ...messageNodes.flatMap((node) => [
+                    node.mediaUrl,
+                    node.media_url,
+                    node.file,
+                    node.fileUrl,
+                    node.file_url,
+                    node.url,
+                    node.link,
+                    node.imageMessage?.url,
+                    node.audioMessage?.url,
+                    node.pttMessage?.url,
+                    node.videoMessage?.url,
+                    node.documentMessage?.url,
+                  ]),
+                ) || null;
 
-                if (msgObj.imageMessage || msg.type === "image" || msg.mimetype?.startsWith("image")) {
-                  mediaType = "image";
-                  mediaUrl = msgObj.imageMessage?.url || msg.mediaUrl || null;
-                } else if (msgObj.audioMessage || msg.type === "audio" || msg.type === "ptt" || msg.mimetype?.startsWith("audio")) {
-                  mediaType = "audio";
-                  audioDuration = msgObj.audioMessage?.seconds || msg.duration || null;
-                  mediaUrl = msg.mediaUrl || null;
-                } else if (msgObj.documentMessage || msg.type === "document") {
-                  mediaType = "document";
-                  mediaUrl = msgObj.documentMessage?.url || msg.mediaUrl || null;
-                }
+                const mediaType = inferMediaType(
+                  firstString(msg.type, msg.messageType, msg.TypeMessage, ...messageNodes.flatMap((node) => [node.type, node.messageType, node.TypeMessage])),
+                  firstString(msg.mimetype, msg.mimeType, ...messageNodes.flatMap((node) => [node.mimetype, node.mimeType, node.audioMessage?.mimetype, node.imageMessage?.mimetype, node.videoMessage?.mimetype, node.documentMessage?.mimetype])),
+                  mediaUrl || "",
+                );
+
+                const audioDuration = mediaType === "audio"
+                  ? Number(
+                    msg.duration
+                    || msg.seconds
+                    || messageNodes.map((node) => node.audioMessage?.seconds || node.pttMessage?.seconds || node.duration || node.seconds || null).find((value) => typeof value === "number" && value > 0)
+                    || 0
+                  ) || null
+                  : null;
 
                 await admin.from("conversation_messages").upsert(
                   {
@@ -248,7 +335,7 @@ Deno.serve(async (req) => {
                     whatsapp_message_id: waId,
                     created_at: timestamp,
                   },
-                  { onConflict: "whatsapp_message_id", ignoreDuplicates: true }
+                  { onConflict: "whatsapp_message_id" }
                 );
               }
             } catch (e: any) {

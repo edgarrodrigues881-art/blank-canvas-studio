@@ -110,7 +110,17 @@ export function useConversations() {
       return;
     }
 
-    setMessages((data || []).map((m: any) => ({ ...m, direction: m.direction as "sent" | "received" })));
+    const nextMessages = (data || []).map((m: any) => ({ ...m, direction: m.direction as "sent" | "received" }));
+
+    setMessages((prev) => {
+      const pendingMessages = prev.filter(
+        (m) => m.conversation_id === conversationId && m.status === "sending" && !nextMessages.some((next) => next.id === m.id)
+      );
+
+      return [...nextMessages, ...pendingMessages].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+    });
   }, []);
 
   // Sync from UAZAPI
@@ -731,6 +741,45 @@ export function useConversations() {
 
     return () => { supabase.removeChannel(channel); };
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    let isActive = true;
+
+    const refresh = async () => {
+      if (!isActive) return;
+      await fetchConversations();
+
+      const currentConversationId = selectedConvIdRef.current;
+      if (currentConversationId) {
+        await fetchMessages(currentConversationId);
+      }
+    };
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void refresh();
+      }
+    }, 4000);
+
+    const handleFocus = () => { void refresh(); };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void refresh();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [user, fetchConversations, fetchMessages]);
 
   const selectedConversation = selectedConvId
     ? conversations.find((c) => c.id === selectedConvId) || null
