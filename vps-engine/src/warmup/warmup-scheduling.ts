@@ -196,8 +196,8 @@ export async function scheduleDayJobs(
     for (let i = 0; i < actualGroupCount; i++) {
       if (cursor > effectiveEnd) break;
       jobs.push({ user_id: userId, device_id: deviceId, cycle_id: cycleId, job_type: "group_interaction", payload: {}, run_at: new Date(cursor).toISOString(), status: "pending" });
-      // Fixed delay: 90-150 seconds between messages (average ~2 min)
-      cursor += randInt(90, 150) * 1000;
+      // Fixed delay: 210-300 seconds (3.5-5 min) between messages
+      cursor += randInt(210, 300) * 1000;
     }
   }
 
