@@ -1027,15 +1027,27 @@ export function ChatPanel({
                   </button>
                 )}
 
-                <div
-                  className={cn(
-                    "max-w-[75%] sm:max-w-[65%] rounded-2xl relative",
-                    msg.mediaType === "image" && msg.mediaUrl ? "p-1" : isMedia ? "px-3 py-2" : "px-3.5 py-2",
-                    msg.type === "sent" ? "bg-blue-600 text-white rounded-br-md" : "bg-card border border-border text-foreground rounded-bl-md",
-                    msg.status === "failed" && "opacity-70"
+                <div className="flex flex-col">
+                  {/* Device label for multi-instance */}
+                  {instances && instances.length > 1 && msg.deviceName && (
+                    <span className={cn(
+                      "text-[9px] font-medium mb-0.5 flex items-center gap-0.5",
+                      msg.type === "sent" ? "self-end text-muted-foreground/60" : "self-start text-muted-foreground/60"
+                    )}>
+                      <Smartphone className="w-2.5 h-2.5" />
+                      {msg.deviceName}
+                    </span>
                   )}
-                >
-                  {renderBubbleContent(msg)}
+                  <div
+                    className={cn(
+                      "max-w-[75%] sm:max-w-[65%] rounded-2xl relative",
+                      msg.mediaType === "image" && msg.mediaUrl ? "p-1" : isMedia ? "px-3 py-2" : "px-3.5 py-2",
+                      msg.type === "sent" ? "bg-blue-600 text-white rounded-br-md" : "bg-card border border-border text-foreground rounded-bl-md",
+                      msg.status === "failed" && "opacity-70"
+                    )}
+                  >
+                    {renderBubbleContent(msg)}
+                  </div>
                 </div>
 
                 {/* Reply button for sent messages (appears on hover) */}
