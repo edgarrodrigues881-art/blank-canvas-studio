@@ -71,6 +71,7 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const autoSyncBlockedUntilRef = useRef(Date.now() + AUTO_SYNC_STARTUP_GRACE_MS);
+  const intervalBlockedUntilRef = useRef(Date.now() + AUTO_SYNC_STARTUP_GRACE_MS);
   const scheduledSyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSyncStartedAtRef = useRef(0);
 
