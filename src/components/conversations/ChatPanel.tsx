@@ -538,6 +538,8 @@ export function ChatPanel({
     onSendFile?.(conversation.id, pendingFile);
     cancelPendingFile();
     setSendingFile(false);
+    setIsNearBottom(true);
+    requestAnimationFrame(() => scrollToBottom());
   };
 
   // ─── Audio Recording ───
