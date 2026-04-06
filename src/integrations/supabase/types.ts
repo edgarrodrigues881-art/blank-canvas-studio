@@ -1922,6 +1922,8 @@ export type Database = {
           media_type: string | null
           media_url: string | null
           message_type: string | null
+          quoted_content: string | null
+          quoted_message_id: string | null
           remote_jid: string | null
           responded_by: string | null
           status: string | null
@@ -1939,6 +1941,8 @@ export type Database = {
           media_type?: string | null
           media_url?: string | null
           message_type?: string | null
+          quoted_content?: string | null
+          quoted_message_id?: string | null
           remote_jid?: string | null
           responded_by?: string | null
           status?: string | null
@@ -1956,6 +1960,8 @@ export type Database = {
           media_type?: string | null
           media_url?: string | null
           message_type?: string | null
+          quoted_content?: string | null
+          quoted_message_id?: string | null
           remote_jid?: string | null
           responded_by?: string | null
           status?: string | null
