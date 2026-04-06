@@ -20,6 +20,7 @@ import { chipConversationTick, getChipConvStatus, lastChipConvTickAt } from "./c
 import { groupJoinTick, getGroupJoinStatus, lastGroupJoinTickAt } from "./group-join-worker";
 import { welcomeTick, getWelcomeStatus, lastWelcomeTickAt } from "./welcome-worker";
 import { verifyTick, getVerifyStatus, lastVerifyTickAt } from "./verify-worker";
+import { communityTick as communityProcessorTick, getCommunityStatus, lastCommunityTickAt } from "./community-processor";
 import { backoffMinutes } from "./lib/retry";
 import { validateUazapiCredentials } from "./lib/uazapi";
 import { processJob, batchPreload, flushAuditLogs, ProcessJobContext } from "./warmup-processor";
@@ -43,8 +44,9 @@ app.get("/health", (_req: Request, res: Response) => {
   const groupInteractionStatus = getGroupInteractionStatus();
   const chipConvStatus = getChipConvStatus();
   const groupJoinStatus = getGroupJoinStatus();
-  const welcomeStatus = getWelcomeStatus();
-  const verifyStatus = getVerifyStatus();
+    const welcomeStatus = getWelcomeStatus();
+    const verifyStatus = getVerifyStatus();
+    const communityStatus = getCommunityStatus();
   res.json({
     status: "ok",
     uptime: Math.round((Date.now() - startedAt.getTime()) / 1000),
@@ -57,6 +59,7 @@ app.get("/health", (_req: Request, res: Response) => {
     lastGroupJoinTick: lastGroupJoinTickAt?.toISOString() || null,
     lastWelcomeTick: lastWelcomeTickAt?.toISOString() || null,
     lastVerifyTick: lastVerifyTickAt?.toISOString() || null,
+    lastCommunityTick: lastCommunityTickAt?.toISOString() || null,
     activeMassInjectCampaigns: massInjectStatus.activeCampaigns,
     activeCampaignWorker: campaignWorkerStatus.activeCampaigns,
     tickCount,
@@ -950,6 +953,7 @@ async function mainLoop() {
     groupJoin: false,
     welcome: false,
     verify: false,
+    community: false,
   };
 
   function guardedLoop(
@@ -1031,6 +1035,11 @@ async function mainLoop() {
     guardedLoop("verify", async () => {
       await verifyTick();
     }, 15_000)(),
+
+    guardedLoop("community", async () => {
+      const db = getDb();
+      await communityProcessorTick(db);
+    }, config.communityTickMs)(),
   ]);
 }
 
