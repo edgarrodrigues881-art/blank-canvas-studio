@@ -256,6 +256,42 @@ export function ConversationList({
             );
           })}
         </div>
+
+        {/* Instance filter chips */}
+        {availableInstances.length > 1 && (
+          <div className="flex gap-1 overflow-x-auto scrollbar-none -mx-0.5 pt-1">
+            <button
+              onClick={() => onFilterInstancesChange?.([])}
+              className={cn(
+                "px-2 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all flex items-center gap-1 border",
+                filterInstanceIds.length === 0
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "bg-muted/30 text-muted-foreground border-border/50 hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <Smartphone className="w-3 h-3" />
+              Todas
+            </button>
+            {availableInstances.map((inst) => {
+              const isActive = filterInstanceIds.includes(inst.id);
+              return (
+                <button
+                  key={inst.id}
+                  onClick={() => toggleInstance(inst.id)}
+                  className={cn(
+                    "px-2 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all flex items-center gap-1 border",
+                    isActive
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-muted/30 text-muted-foreground border-border/50 hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <Smartphone className="w-3 h-3" />
+                  {inst.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <ScrollArea className="flex-1">
