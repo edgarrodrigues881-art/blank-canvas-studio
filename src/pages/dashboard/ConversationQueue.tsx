@@ -39,7 +39,28 @@ const ConversationQueue = () => {
       .not("attending_status", "eq", "finalizado")
       .order("last_message_at", { ascending: false });
 
-    if (!error && data) setItems(data);
+    if (!error && data) {
+      // Group by phone to avoid duplicate clients
+      const phoneMap = new Map<string, QueueItem>();
+      data.forEach((item) => {
+        const key = item.phone.replace(/\D/g, "");
+        if (!key) return;
+        const existing = phoneMap.get(key);
+        if (!existing || new Date(item.last_message_at) > new Date(existing.last_message_at)) {
+          phoneMap.set(key, {
+            ...item,
+            // Sum unread counts
+            unread_count: (existing?.unread_count || 0) + item.unread_count,
+          });
+        } else {
+          // Still add unread count from this entry
+          phoneMap.set(key, { ...existing, unread_count: existing.unread_count + item.unread_count });
+        }
+      });
+      setItems(Array.from(phoneMap.values()).sort((a, b) => 
+        new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+      ));
+    }
     setLoading(false);
   }, [user]);
 
