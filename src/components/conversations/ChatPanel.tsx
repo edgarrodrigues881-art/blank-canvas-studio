@@ -4,7 +4,6 @@ import { QuickRepliesManager } from "./QuickRepliesManager";
 import { useSendMessage } from "@/hooks/useSendMessage";
 import { MessageBubble, isMediaPlaceholder } from "./MessageBubble";
 import { supabase } from "@/integrations/supabase/client";
-import { Smartphone } from "lucide-react";
 import {
   ArrowLeft,
   MoreVertical,
@@ -12,12 +11,6 @@ import {
   Send,
   Image as ImageIcon,
   FileText,
-  Check,
-  CheckCheck,
-  PanelRightOpen,
-  PanelRightClose,
-  Play,
-  Pause,
   ChevronDown,
   Zap,
   Mic,
@@ -26,10 +19,6 @@ import {
   Loader2,
   X,
   Download,
-  Reply,
-  Video,
-  MapPin,
-  User,
   UserCheck,
   UserX,
   Clock,
@@ -37,6 +26,7 @@ import {
   MailOpen,
   Archive,
 } from "lucide-react";
+import { PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
