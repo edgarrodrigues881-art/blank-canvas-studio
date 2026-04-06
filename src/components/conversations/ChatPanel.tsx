@@ -64,6 +64,9 @@ interface ChatPanelProps {
   currentUserId?: string;
   onAssign?: (conversationId: string) => void;
   onRelease?: (conversationId: string) => void;
+  instances?: ConversationInstance[];
+  selectedInstanceId?: string | null;
+  onInstanceChange?: (id: string) => void;
 }
 
 const attendingStatusConfig: Record<AttendingStatus, { label: string; color: string; bg: string; dot: string; textStrong: string }> = {
