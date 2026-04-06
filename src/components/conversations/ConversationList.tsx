@@ -108,6 +108,7 @@ export function ConversationList({
 
   const filtered = conversations.filter((c) => {
     if (activeStatus === "all") return true;
+    if (activeStatus === "mine") return c.assignedTo === currentUserId;
     if (activeStatus === "new") return c.unreadCount > 0;
     if (activeStatus === "attending") return c.attendingStatus === "em_atendimento";
     if (activeStatus === "waiting") return c.attendingStatus === "aguardando";
