@@ -951,10 +951,21 @@ export function useConversations() {
 
   // Archive conversation
   const archiveConversation = useCallback(async (convId: string) => {
+    const conv = conversations.find((c) => c.id === convId);
     setConversations((prev) => prev.filter((c) => c.id !== convId));
+    if (conv) setArchivedConversations((prev) => [conv, ...prev]);
     await supabase.from("conversations").update({ status: "archived" } as any).eq("id", convId);
     toast.success("Conversa arquivada");
-  }, []);
+  }, [conversations]);
+
+  // Unarchive conversation
+  const unarchiveConversation = useCallback(async (convId: string) => {
+    const conv = archivedConversations.find((c) => c.id === convId);
+    setArchivedConversations((prev) => prev.filter((c) => c.id !== convId));
+    if (conv) setConversations((prev) => sortConversations([{ ...conv, status: "offline" } as any, ...prev]));
+    await supabase.from("conversations").update({ status: "offline" } as any).eq("id", convId);
+    toast.success("Conversa desarquivada");
+  }, [archivedConversations, sortConversations]);
 
   // Mark as unread
   const markAsUnread = useCallback(async (convId: string) => {
@@ -967,6 +978,7 @@ export function useConversations() {
 
   return {
     conversations,
+    archivedConversations,
     messages,
     loading,
     syncing,
@@ -986,6 +998,7 @@ export function useConversations() {
     assignConversation,
     releaseConversation,
     archiveConversation,
+    unarchiveConversation,
     markAsUnread,
   };
 }
