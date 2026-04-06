@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════
-// VPS Engine — Entry point (Phase 2: Inline Processing)
+// VPS Engine — Entry point (Phase 3: Inline Processing)
 // Serviço contínuo que roda na VPS com PM2
 // ══════════════════════════════════════════════════════════
 
@@ -22,6 +22,8 @@ import { welcomeTick, getWelcomeStatus, lastWelcomeTickAt } from "./welcome-work
 import { verifyTick, getVerifyStatus, lastVerifyTickAt } from "./verify-worker";
 import { backoffMinutes } from "./lib/retry";
 import { validateUazapiCredentials } from "./lib/uazapi";
+import { processJob, batchPreload, flushAuditLogs, ProcessJobContext } from "./warmup-processor";
+import { CONNECTED_STATUSES } from "./lib/warmup-rules";
 
 const log = createLogger("main");
 // Global semaphore is now in lib/global-semaphore.ts (shared across all workers)
