@@ -71,6 +71,7 @@ const ServiceContacts = lazyWithPreload(() => import("@/pages/dashboard/ServiceC
 const Schedules = lazyWithPreload(() => import("@/pages/dashboard/Schedules"));
 const ActivityHistory = lazyWithPreload(() => import("@/pages/dashboard/ActivityHistory"));
 const ConversationQueue = lazyWithPreload(() => import("@/pages/dashboard/ConversationQueue"));
+const ServiceReports = lazyWithPreload(() => import("@/pages/dashboard/ServiceReports"));
 
 // Backoffice pages
 const BOCampaigns = lazyWithPreload(() => import("@/pages/backoffice/BOCampaigns"));
@@ -242,6 +243,7 @@ const App = () => (
                 <Route path="/dashboard/schedules" element={<ProtectedRoute><DashboardLayout><Schedules /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/history" element={<ProtectedRoute><DashboardLayout><ActivityHistory /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/queue" element={<ProtectedRoute><DashboardLayout><ConversationQueue /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/service-reports" element={<ProtectedRoute><DashboardLayout><ServiceReports /></DashboardLayout></ProtectedRoute>} />
 
                 {/* Backoffice — BackOffice.tsx manages its own auth + admin login internally */}
                 <Route path="/backoffice" element={<BackOffice />} />

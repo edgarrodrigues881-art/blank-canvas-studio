@@ -37,6 +37,7 @@ import {
   GitBranch,
   History,
   ListOrdered,
+  BarChart3,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -480,6 +481,7 @@ export function AppSidebar() {
                     {renderNavItem({ title: "Equipe", url: "/dashboard/team", icon: Users, locked: lk })}
                     {renderNavItem({ title: "Histórico", url: "/dashboard/history", icon: History, locked: lk })}
                     {renderNavItem({ title: "IA", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: lk })}
+                    {renderNavItem({ title: "Relatório", url: "/dashboard/service-reports", icon: BarChart3, locked: lk })}
                   </>
                 );
               })()}
