@@ -579,9 +579,14 @@ async function warmupTick() {
     jobsByDevice[job.device_id].push(job);
   }
 
-  // 6. Process devices in parallel with semaphore
+  // 6. Pre-load all context data via batchPreload
+  const preloaded = await batchPreload(getDb(), pendingJobs);
+
+  // 7. Process devices in parallel with semaphore
   let succeeded = 0;
   let failed = 0;
+  const globalAuditBuffer: any[] = [];
+  const globalOpLogBuffer: any[] = [];
 
   const deviceIds = Object.keys(jobsByDevice);
   await Promise.allSettled(
@@ -589,7 +594,6 @@ async function warmupTick() {
       const slotLabel = `warmup:${deviceId.slice(0, 8)}`;
       await acquireGlobalSlot(slotLabel);
       
-      // Acquire global device lock for warmup
       const warmupTaskId = `warmup_${deviceId}`;
       const lockAcquired = DeviceLockManager.tryAcquire(deviceId, "warmup", warmupTaskId);
       if (!lockAcquired) {
@@ -606,13 +610,10 @@ async function warmupTick() {
       try {
         const creds = deviceCredentials[deviceId];
 
-        // Validate device credentials before processing any jobs
         if (!creds) {
           log.warn(`Skipping device ${deviceId}: not found in DB`);
           for (const job of jobsByDevice[deviceId]) {
-            await db.from("warmup_jobs").update({
-              status: "failed", last_error: "VPS: dispositivo não encontrado no banco",
-            }).eq("id", job.id);
+            await db.from("warmup_jobs").update({ status: "failed", last_error: "VPS: dispositivo não encontrado no banco" }).eq("id", job.id);
             failed++;
           }
           return;
@@ -620,19 +621,11 @@ async function warmupTick() {
 
         if (!creds.hasValidCredentials) {
           log.warn(`Skipping device ${deviceId}: invalid UAZAPI credentials`, {
-            label: formatDeviceLabel(creds),
-            reason: creds.eligibilityReason,
-            tokenSource: creds.tokenSource,
-            baseUrlSource: creds.baseUrlSource,
-            credentialValidationStatus: creds.credentialValidationStatus,
-            credentialValidationReason: creds.credentialValidationReason,
-            credentialValidationHttpStatus: creds.credentialValidationHttpStatus,
+            label: formatDeviceLabel(creds), reason: creds.eligibilityReason,
+            tokenSource: creds.tokenSource, baseUrlSource: creds.baseUrlSource,
           });
           for (const job of jobsByDevice[deviceId]) {
-            await db.from("warmup_jobs").update({
-              status: "failed",
-              last_error: `VPS: dispositivo ignorado (${creds.eligibilityReason || creds.credentialValidationReason || "invalid_credentials"})`,
-            }).eq("id", job.id);
+            await db.from("warmup_jobs").update({ status: "failed", last_error: `VPS: ${creds.eligibilityReason || "invalid_credentials"}` }).eq("id", job.id);
             failed++;
           }
           return;
@@ -640,60 +633,50 @@ async function warmupTick() {
 
         if (!creds.isConnected) {
           log.warn(`Skipping device ${deviceId}: status="${creds.status}" (not connected)`);
-          // Don't fail - just skip, the Edge Function will handle cycle pausing
         }
 
         for (const job of jobsByDevice[deviceId]) {
           try {
-            // Mark as running
             await db.from("warmup_jobs").update({ status: "running" }).eq("id", job.id);
 
-            // ── DELEGATE TO EDGE FUNCTION ──
-            // The Edge Function handles all the complex logic (group interaction, autosave, community)
-            // We pass the job_id so it processes only this specific job
-            const edgeUrl = `${config.supabaseUrl}/functions/v1/warmup-tick`;
-            const res = await fetch(edgeUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                apikey: config.supabaseAnonKey,
-                Authorization: `Bearer ${config.supabaseAnonKey}`,
-              },
-              body: JSON.stringify({
-                job_id: job.id,
-                _vps_device: {
-                  id: creds.id,
-                  name: creds.name,
-                  status: creds.status,
-                  number: creds.number,
-                  uazapi_token: creds.uazapi_token,
-                  uazapi_base_url: creds.uazapi_base_url,
-                  token_source: creds.tokenSource,
-                  base_url_source: creds.baseUrlSource,
-                },
-              }),
-            });
+            // ── INLINE PROCESSING via processJob() ──
+            const cycle = preloaded.cyclesMap[job.cycle_id];
+            const device = preloaded.devicesMap[deviceId];
+            const resolvedToken = creds.uazapi_token;
+            const resolvedBaseUrl = creds.uazapi_base_url;
 
-            if (res.ok) {
+            const ctx: ProcessJobContext = {
+              cycle,
+              device,
+              baseUrl: resolvedBaseUrl,
+              token: resolvedToken,
+              chipState: cycle?.chip_state || "new",
+              subsMap: preloaded.subsMap,
+              profilesMap: preloaded.profilesMap,
+              tokenMap: preloaded.tokenMap,
+              userMsgsMap: preloaded.userMsgsMap,
+              autosaveMap: preloaded.autosaveMap,
+              instanceGroupsMap: preloaded.instanceGroupsMap,
+              groupsMap: preloaded.groupsMap,
+              imagePool: preloaded.imagePool,
+              audioPool: preloaded.audioPool,
+              pausedCycles: new Set(),
+              auditBuffer: [],
+              opLogBuffer: [],
+            };
+
+            const ok = await processJob(db, job, ctx);
+
+            // Collect audit logs
+            globalAuditBuffer.push(...ctx.auditBuffer);
+            globalOpLogBuffer.push(...ctx.opLogBuffer);
+
+            if (ok) {
+              await db.from("warmup_jobs").update({ status: "done", updated_at: new Date().toISOString() }).eq("id", job.id);
               succeeded++;
             } else {
-              const text = await res.text();
-              // Log the full error for debugging
-              log.error(`Edge function error for job ${job.id}`, {
-                deviceId,
-                jobType: job.job_type,
-                status: res.status,
-                response: text.substring(0, 300),
-                deviceStatus: creds.status,
-                hasToken: !!creds.uazapi_token,
-                hasBaseUrl: !!creds.uazapi_base_url,
-                number: creds.number,
-                tokenSource: creds.tokenSource,
-                baseUrlSource: creds.baseUrlSource,
-                credentialValidationStatus: creds.credentialValidationStatus,
-                credentialValidationReason: creds.credentialValidationReason,
-              });
-              throw new Error(`Edge function returned ${res.status}: ${text.substring(0, 200)}`);
+              // processJob returned false — job was already handled (cancelled/rescheduled)
+              succeeded++;
             }
           } catch (err: any) {
             failed++;
@@ -716,6 +699,15 @@ async function warmupTick() {
       }
     }),
   );
+
+  // 8. Flush audit logs in batch
+  if (globalAuditBuffer.length > 0 || globalOpLogBuffer.length > 0) {
+    try {
+      await flushAuditLogs(db, globalAuditBuffer, globalOpLogBuffer);
+    } catch (err: any) {
+      log.warn(`Failed to flush audit logs: ${err.message}`);
+    }
+  }
 
   return { processed: succeeded + failed, succeeded, failed, devices: deviceIds.length };
 }
