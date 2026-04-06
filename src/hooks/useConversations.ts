@@ -732,7 +732,7 @@ export function useConversations() {
           const updated = payload.new as RealMessage;
           if (updated.conversation_id === selectedConvIdRef.current) {
             setMessages((prev) =>
-              prev.map((m) => (m.id === updated.id ? { ...m, status: updated.status } : m))
+              prev.map((m) => (m.id === updated.id ? { ...m, ...updated, direction: updated.direction as "sent" | "received" } : m))
             );
           }
         }
@@ -761,7 +761,7 @@ export function useConversations() {
       if (document.visibilityState === "visible") {
         void refresh();
       }
-    }, 4000);
+    }, 15000);
 
     const handleFocus = () => { void refresh(); };
     const handleVisibility = () => {
