@@ -87,21 +87,49 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
     }
   };
 
+  const [zoom, setZoom] = useState(1);
+
+  const handleZoomIn = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setZoom((z) => Math.min(z + 0.5, 5));
+  };
+  const handleZoomOut = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setZoom((z) => Math.max(z - 0.5, 0.5));
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-150" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-150" onClick={onClose}>
       <div
         className="relative bg-card rounded-2xl shadow-2xl border border-border/30 overflow-hidden max-w-[min(480px,90vw)] max-h-[min(480px,80vh)] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header bar */}
         <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b border-border/20 shrink-0">
-          <button
-            onClick={handleDownload}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/50"
-          >
-            <Download className="w-4 h-4" />
-            Baixar
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleDownload}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/50"
+            >
+              <Download className="w-4 h-4" />
+              Baixar
+            </button>
+            <button
+              onClick={handleZoomIn}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/50"
+              title="Zoom +"
+            >
+              🔍+
+            </button>
+            <button
+              onClick={handleZoomOut}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/50"
+              title="Zoom −"
+            >
+              🔍−
+            </button>
+            <span className="text-xs text-muted-foreground ml-1">{Math.round(zoom * 100)}%</span>
+          </div>
           <button
             onClick={onClose}
             className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
@@ -110,11 +138,12 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
           </button>
         </div>
         {/* Image */}
-        <div className="flex-1 min-h-0 flex items-center justify-center p-3">
+        <div className="flex-1 min-h-0 flex items-center justify-center p-3 overflow-auto">
           <img
             src={src}
             alt="Visualização"
-            className="max-w-full max-h-[min(400px,70vh)] object-contain rounded-lg"
+            className="max-w-full max-h-[min(400px,70vh)] object-contain rounded-lg transition-transform duration-200"
+            style={{ transform: `scale(${zoom})`, transformOrigin: "center center" }}
           />
         </div>
       </div>
