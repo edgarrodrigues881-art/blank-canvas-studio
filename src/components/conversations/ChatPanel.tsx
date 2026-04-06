@@ -2,8 +2,8 @@ import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react
 import { useQuickReplies, resolveVariables, QUICK_REPLY_CATEGORIES } from "@/hooks/useQuickReplies";
 import { QuickRepliesManager } from "./QuickRepliesManager";
 import { useSendMessage } from "@/hooks/useSendMessage";
-import { MessageBubble, isMediaPlaceholder } from "./MessageBubble";
-import { ChatHeader, attendingStatusConfig } from "./ChatHeader";
+import { MessageBubble } from "./MessageBubble";
+import { ChatHeader } from "./ChatHeader";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Paperclip,
