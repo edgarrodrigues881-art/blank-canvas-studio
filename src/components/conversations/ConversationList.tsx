@@ -9,6 +9,12 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useState, useMemo, Fragment } from "react";
 
+interface InstanceFilter {
+  id: string;
+  name: string;
+  number: string;
+}
+
 interface ConversationListProps {
   conversations: Conversation[];
   archivedConversations?: Conversation[];
@@ -19,6 +25,9 @@ interface ConversationListProps {
   onNewConversationClick?: () => void;
   currentUserId?: string;
   onUnarchive?: (conversationId: string) => void;
+  availableInstances?: InstanceFilter[];
+  filterInstanceIds?: string[];
+  onFilterInstancesChange?: (ids: string[]) => void;
 }
 
 type StatusTab = "all" | "mine" | "new" | "attending" | "waiting" | "archived";
