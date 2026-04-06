@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { extractConversationEvent, isApiSentMessage } from "./parser.ts";
+import { persistIncomingMedia } from "./media.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -107,6 +108,9 @@ Deno.serve(async (req) => {
       timestamp,
       mediaType,
       mediaUrl,
+      mimeType,
+      mediaKey,
+      directPath,
       audioDuration,
       avatarUrl,
       quotedMessageId,
@@ -166,6 +170,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Persist incoming media to Supabase Storage (decrypt if needed)
+    const persistedMediaUrl = await persistIncomingMedia(admin, {
+      userId: device.user_id,
+      messageId: waId,
+      mediaType,
+      sourceUrl: mediaUrl,
+      mimeType,
+      mediaKey,
+      directPath,
+    });
+
     const { error: msgErr } = await admin.from("conversation_messages").insert({
       conversation_id: conversationId,
       user_id: device.user_id,
@@ -174,7 +189,7 @@ Deno.serve(async (req) => {
       direction: fromMe ? "sent" : "received",
       status: fromMe ? "sent" : "received",
       media_type: mediaType,
-      media_url: mediaUrl,
+      media_url: persistedMediaUrl,
       audio_duration: audioDuration,
       whatsapp_message_id: waId,
       created_at: timestamp,
