@@ -1988,6 +1988,7 @@ export type Database = {
           media_type: string | null
           media_url: string | null
           message_type: string | null
+          origin: string
           quoted_content: string | null
           quoted_message_id: string | null
           remote_jid: string | null
@@ -2007,6 +2008,7 @@ export type Database = {
           media_type?: string | null
           media_url?: string | null
           message_type?: string | null
+          origin?: string
           quoted_content?: string | null
           quoted_message_id?: string | null
           remote_jid?: string | null
@@ -2026,6 +2028,7 @@ export type Database = {
           media_type?: string | null
           media_url?: string | null
           message_type?: string | null
+          origin?: string
           quoted_content?: string | null
           quoted_message_id?: string | null
           remote_jid?: string | null

@@ -130,6 +130,23 @@ Deno.serve(async (req) => {
 
     console.log(`Parsed: type=${mediaType}, url=${mediaUrl?.substring(0,60)}, duration=${audioDuration}, content="${content.substring(0,40)}", display="${displayContent.substring(0,40)}"`);
 
+    // ── Detect autosave/warmup messages ──
+    let messageOrigin = "whatsapp";
+    if (fromMe) {
+      const phoneDigits = phone.replace(/\D/g, "");
+      const { data: autosaveHit } = await admin
+        .from("warmup_autosave_contacts")
+        .select("id")
+        .eq("user_id", device.user_id)
+        .eq("is_active", true)
+        .or(`phone_e164.eq.${phoneDigits},phone_e164.eq.+${phoneDigits}`)
+        .limit(1)
+        .maybeSingle();
+      if (autosaveHit) {
+        messageOrigin = "warmup";
+        console.log(`Autosave contact detected: ${phoneDigits} → origin=warmup`);
+      }
+    }
     const { data: conv, error: convErr } = await admin
       .from("conversations")
       .upsert({
@@ -200,6 +217,7 @@ Deno.serve(async (req) => {
       audio_duration: audioDuration,
       whatsapp_message_id: waId,
       created_at: timestamp,
+      origin: messageOrigin,
     });
 
     if (msgErr) console.error("Message insert error:", msgErr);

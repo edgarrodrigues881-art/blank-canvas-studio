@@ -104,7 +104,9 @@ export function useConversationRealtime({
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "conversation_messages", filter: `user_id=eq.${user.id}` },
         (payload) => {
-          const newMsg = payload.new as RealMessage;
+          const newMsg = payload.new as RealMessage & { origin?: string };
+          // Skip warmup/autosave messages
+          if ((newMsg as any).origin === "warmup") return;
           const selectedId = selectedConvIdRef.current;
           const isOpenConversation = Boolean(
             selectedId && (

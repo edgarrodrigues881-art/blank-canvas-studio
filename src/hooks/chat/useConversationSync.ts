@@ -127,6 +127,7 @@ export function useConversationSync() {
       .from("conversation_messages")
       .select("*")
       .in("conversation_id", groupIds)
+      .neq("origin", "warmup")
       .order("created_at", { ascending: true });
 
     if (error) {
