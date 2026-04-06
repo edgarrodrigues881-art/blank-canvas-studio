@@ -775,6 +775,22 @@ export function ChatPanel({
             <span className={cn("w-1.5 h-1.5 rounded-full", currentStatusCfg.dot)} />
             <span className={cn("text-[11px] font-medium", currentStatusCfg.color)}>{currentStatusCfg.label}</span>
           </div>
+          {/* Assignment badge */}
+          <div className="flex items-center gap-1 mt-0.5">
+            {conversation.assignedTo ? (
+              <span className={cn(
+                "text-[10px] font-medium px-1.5 py-0.5 rounded-md border inline-flex items-center gap-1",
+                conversation.assignedTo === currentUserId
+                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                  : "bg-muted/60 text-muted-foreground border-border/40"
+              )}>
+                <UserCheck className="w-3 h-3" />
+                {conversation.assignedTo === currentUserId ? "Você está atendendo" : `Atendido por: ${conversation.assignedName || "..."}`}
+              </span>
+            ) : (
+              <span className="text-[10px] text-muted-foreground/50">Sem responsável</span>
+            )}
+          </div>
         </div>
 
         <DropdownMenu>
