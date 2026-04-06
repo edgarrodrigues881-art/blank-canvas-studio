@@ -451,7 +451,7 @@ export function AppSidebar() {
         </SidebarGroup>
         )}
 
-        {(!shouldHideSection || hasAnyPermission(["/dashboard/conversations", "/dashboard/team", "/dashboard/ai-settings"])) && (
+        {(!shouldHideSection || hasAnyPermission(["/dashboard/conversations", "/dashboard/team", "/dashboard/ai-settings", "/dashboard/service-contacts"])) && (
         <SidebarGroup className="py-0 mt-1">
           {!collapsed && (
             <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
@@ -464,6 +464,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
               {renderNavItem({ title: "Conversas", url: "/dashboard/conversations", icon: MessageSquare })}
+              {renderNavItem({ title: "Base de Atendimento", url: "/dashboard/service-contacts", icon: Headset })}
               {renderNavItem({ title: "Equipe", url: "/dashboard/team", icon: Users })}
               {renderNavItem({ title: "IA", url: "/dashboard/ai-settings", icon: BotMessageSquare })}
             </SidebarMenu>
