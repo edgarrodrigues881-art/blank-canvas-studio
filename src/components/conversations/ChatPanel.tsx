@@ -486,6 +486,11 @@ export function ChatPanel({
   }, [pendingPreview]);
 
   const handleSend = () => {
+    // If there's a pending file, send it (with caption if text exists)
+    if (pendingFile) {
+      sendPendingFile();
+      return;
+    }
     if (!input.trim()) return;
     const quotedWaId = replyTo?.whatsappMessageId || undefined;
     const quotedText = replyTo?.content || undefined;
