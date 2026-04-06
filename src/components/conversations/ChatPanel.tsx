@@ -10,6 +10,7 @@ import {
   Send,
   Image as ImageIcon,
   FileText,
+  ChevronDown,
   Zap,
   Mic,
   Settings,
@@ -19,8 +20,15 @@ import {
   Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { type Conversation, type Message, type AttendingStatus, type ConversationInstance } from "./types";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 interface ChatPanelProps {
