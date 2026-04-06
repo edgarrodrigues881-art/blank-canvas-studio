@@ -4,10 +4,10 @@
 // Replaces Edge Function self-invocation
 // ══════════════════════════════════════════════════════════
 
-import { getDb } from "./db";
-import { createLogger } from "./lib/logger";
-import { DeviceLockManager } from "./lib/device-lock-manager";
-import { acquireGlobalSlot, releaseGlobalSlot } from "./lib/global-semaphore";
+import { getDb } from "../core/db";
+import { createLogger } from "../core/logger";
+import { DeviceLockManager } from "../core/device-lock-manager";
+import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
 
 const log = createLogger("group-join");
 

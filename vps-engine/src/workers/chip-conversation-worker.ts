@@ -4,9 +4,9 @@
 // Replaces Edge Function self-dispatch pattern
 // ══════════════════════════════════════════════════════════
 
-import { getDb } from "./db";
-import { createLogger } from "./lib/logger";
-import { DeviceLockManager } from "./lib/device-lock-manager";
+import { getDb } from "../core/db";
+import { createLogger } from "../core/logger";
+import { DeviceLockManager } from "../core/device-lock-manager";
 // chip-conversation is lightweight — does NOT use global semaphore
 
 const log = createLogger("chip-conv");

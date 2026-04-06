@@ -2,8 +2,8 @@
 // VPS Engine — UAZAPI communication with timeout & circuit breaker
 // ══════════════════════════════════════════════════════════
 
-import { config } from "../config";
-import { canRequest, recordSuccess, recordFailure } from "./circuit-breaker";
+import { config } from "../core/config";
+import { canRequest, recordSuccess, recordFailure } from "../core/circuit-breaker";
 
 export interface UazapiCredentialValidation {
   status: "valid" | "invalid" | "unknown";

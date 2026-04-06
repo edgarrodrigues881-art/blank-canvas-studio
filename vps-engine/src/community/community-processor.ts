@@ -4,8 +4,8 @@
 // ══════════════════════════════════════════════════════════
 
 import { SupabaseClient } from "@supabase/supabase-js";
-import { createLogger } from "./lib/logger";
-import { isWithinOperatingWindow, getBrtHourMinute, getBrtDayOfWeek } from "./lib/brt";
+import { createLogger } from "../core/logger";
+import { isWithinOperatingWindow, getBrtHourMinute, getBrtDayOfWeek } from "../utils/brt";
 
 const log = createLogger("community");
 

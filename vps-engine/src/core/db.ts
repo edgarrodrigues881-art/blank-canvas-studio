@@ -4,7 +4,7 @@
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { config, validateConfig } from "./config";
-import { withRetry } from "./lib/retry";
+import { withRetry } from "./retry";
 
 let _client: SupabaseClient | null = null;
 

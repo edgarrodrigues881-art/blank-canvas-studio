@@ -4,8 +4,8 @@
 // ══════════════════════════════════════════════════════════
 
 import { SupabaseClient } from "@supabase/supabase-js";
-import { createLogger } from "./lib/logger";
-import { config } from "./config";
+import { createLogger } from "../core/logger";
+import { config } from "../core/config";
 
 const log = createLogger("autoreply");
 
