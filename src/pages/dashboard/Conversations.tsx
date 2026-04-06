@@ -228,12 +228,14 @@ const Conversations = () => {
             </div>
             <ConversationList
               conversations={filteredConversations}
+              archivedConversations={archivedConversations}
               selectedId={selectedConvId}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onSelect={handleSelect}
               onNewConversationClick={() => setNewConversationOpen(true)}
               currentUserId={user?.id}
+              onUnarchive={unarchiveConversation}
             />
           </div>
 
