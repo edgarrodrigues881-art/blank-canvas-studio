@@ -732,11 +732,11 @@ async function phaseMonitorSessions(db: SupabaseClient): Promise<{ resumed: numb
 // PHASE 6: RELEASE COOLDOWNS
 // ══════════════════════════════════════════════════════════
 async function phaseReleaseCooldowns(db: SupabaseClient): Promise<{ released: number }> {
-  const { data: cooledOff, count } = await db.from("warmup_community_membership")
+  const { data: cooledOff } = await db.from("warmup_community_membership")
     .update({ cooldown_until: null })
     .lt("cooldown_until", new Date().toISOString())
     .neq("community_mode", "disabled")
-    .select("id, device_id", { count: "exact" });
+    .select("id, device_id");
 
   for (const c of cooledOff || []) {
     await auditLog(db, {
