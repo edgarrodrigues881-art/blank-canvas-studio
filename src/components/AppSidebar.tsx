@@ -468,6 +468,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
               {renderNavItem({ title: "Conversas", url: "/dashboard/conversations", icon: MessageSquare })}
+              {renderNavItem({ title: "Fila", url: "/dashboard/queue", icon: ListOrdered })}
               {renderNavItem({ title: "Fluxos", url: "/dashboard/flows", icon: GitBranch })}
               {renderNavItem({ title: "Base de Dados", url: "/dashboard/service-contacts", icon: Headset })}
               {renderNavItem({ title: "Agendamentos", url: "/dashboard/schedules", icon: CalendarClock })}
