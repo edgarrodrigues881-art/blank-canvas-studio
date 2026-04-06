@@ -202,8 +202,10 @@ export function ConversationList({
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all border-l-2",
                     isSelected
-                      ? "bg-primary/5 border-l-primary"
-                      : "border-l-transparent hover:bg-muted/20"
+                      ? "bg-primary/8 border-l-primary"
+                      : hasUnread
+                        ? "border-l-primary/70 bg-primary/[0.03] hover:bg-primary/[0.06]"
+                        : "border-l-transparent hover:bg-muted/20"
                   )}
                 >
                   <div className="relative shrink-0">
