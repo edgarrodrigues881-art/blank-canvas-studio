@@ -12,7 +12,7 @@ import { DeviceLockManager } from "./core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot, getGlobalConcurrencyStats } from "./core/global-semaphore";
 import { workerMetrics } from "./core/worker-metrics";
 import { getCircuitBreakerStats } from "./core/circuit-breaker";
-import { isWithinOperatingWindow, getBrtTodayAt } from "./utils/brt";
+import { isWithinOperatingWindow } from "./utils/brt";
 import { massInjectTick, getMassInjectStatus, lastMassInjectTickAt } from "./workers/mass-inject-worker";
 import { campaignWorkerTick, getCampaignWorkerStatus, lastCampaignWorkerTickAt } from "./workers/campaign-worker";
 import { groupInteractionTick, getGroupInteractionStatus, lastGroupInteractionTickAt } from "./workers/group-interaction-worker";
