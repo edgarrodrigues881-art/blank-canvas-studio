@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuickReplies } from "@/hooks/useQuickReplies";
 import { QuickRepliesManager } from "./QuickRepliesManager";
+import { supabase } from "@/integrations/supabase/client";
 import {
   ArrowLeft,
   MoreVertical,
