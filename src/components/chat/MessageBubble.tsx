@@ -8,36 +8,10 @@ import { Smartphone } from "lucide-react";
 import { type Message } from "./types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { formatDuration } from "@/utils/formatters";
+import { getFileIcon, isMediaPlaceholder } from "@/utils/fileHelpers";
 
-/* ─── Helper functions (moved from ChatPanel) ─── */
-
-function formatDuration(seconds: number) {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-function getFileIcon(name: string) {
-  if (/\.pdf$/i.test(name)) return "📄";
-  if (/\.(docx?|odt)$/i.test(name)) return "📝";
-  if (/\.(xlsx?|csv)$/i.test(name)) return "📊";
-  if (/\.(pptx?|odp)$/i.test(name)) return "📑";
-  if (/\.(zip|rar|7z|tar)$/i.test(name)) return "📦";
-  return "📎";
-}
-
-export function isMediaPlaceholder(content: string | undefined | null): boolean {
-  if (!content) return true;
-  const lower = content.toLowerCase().trim();
-  return [
-    "[image]", "[foto]", "[audio]", "[áudio]", "[ptt]",
-    "[video]", "[vídeo]", "[document]", "[documento]", "[arquivo]",
-    "[sticker]", "[figurinha]", "[contact]", "[contato]",
-    "[location]", "[localização]", "[mensagem]",
-    "🎧 áudio", "📷 foto", "🎬 vídeo", "📎 arquivo",
-    "🏷️ figurinha", "👤 contato", "📍 localização",
-  ].some(p => lower === p || lower.startsWith(p));
-}
+export { isMediaPlaceholder };
 
 /* ─── Audio Player ─── */
 

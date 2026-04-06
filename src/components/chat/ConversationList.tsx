@@ -8,6 +8,8 @@ import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useState, useMemo, Fragment } from "react";
+import { formatPhone } from "@/utils/formatters";
+import { getMessagePreview } from "@/utils/fileHelpers";
 
 interface InstanceFilter {
   id: string;
@@ -48,40 +50,6 @@ function formatDate(dateStr: string) {
   return format(d, "dd/MM", { locale: ptBR });
 }
 
-function getMessagePreview(msg: string | undefined | null): { icon: string; text: string } | null {
-  if (!msg) return null;
-  const lower = msg.toLowerCase().trim();
-  if (lower.includes("[image]") || lower.includes("[foto]") || lower === "image" || lower === "foto")
-    return { icon: "📷", text: "Foto" };
-  if (lower.includes("[audio]") || lower.includes("[áudio]") || lower === "audio" || lower === "áudio" || lower.includes("[ptt]"))
-    return { icon: "🎧", text: "Áudio" };
-  if (lower.includes("[video]") || lower.includes("[vídeo]") || lower === "video" || lower === "vídeo")
-    return { icon: "🎬", text: "Vídeo" };
-  if (lower.includes("[document]") || lower.includes("[documento]") || lower.includes("[arquivo]") || lower === "document" || lower === "documento")
-    return { icon: "📎", text: "Arquivo" };
-  if (lower.includes("[sticker]") || lower.includes("[figurinha]") || lower === "sticker")
-    return { icon: "🏷️", text: "Figurinha" };
-  if (lower.includes("[contact]") || lower.includes("[contato]"))
-    return { icon: "👤", text: "Contato" };
-  if (lower.includes("[location]") || lower.includes("[localização]"))
-    return { icon: "📍", text: "Localização" };
-  return null;
-}
-
-function formatPhone(phone: string): string {
-  if (!phone) return "";
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length === 13 && digits.startsWith("55")) {
-    return `+${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 9)}-${digits.slice(9)}`;
-  }
-  if (digits.length === 12 && digits.startsWith("55")) {
-    return `+${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 8)}-${digits.slice(8)}`;
-  }
-  if (digits.length >= 10) {
-    return `+${digits}`;
-  }
-  return phone;
-}
 
 const avatarColors = [
   "bg-emerald-500/15 text-emerald-400",

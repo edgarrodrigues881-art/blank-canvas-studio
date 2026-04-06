@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
+import { formatDuration, formatFileSize } from "@/utils/formatters";
+import { getFileIcon } from "@/utils/fileHelpers";
 import { useQuickReplies, resolveVariables, QUICK_REPLY_CATEGORIES } from "@/hooks/chat/useQuickReplies";
 import { QuickRepliesManager } from "./QuickRepliesManager";
 import { useSendMessage } from "@/hooks/chat/useSendMessage";
@@ -164,26 +166,7 @@ const defaultQuickReplies = [
   { id: "default-4", label: "Aguarde um momento", content: "Aguarde um momento, por favor. Já estou verificando para você." },
 ];
 
-function formatDuration(seconds: number) {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
 
-function getFileIcon(name: string) {
-  if (/\.pdf$/i.test(name)) return "📄";
-  if (/\.(docx?|odt)$/i.test(name)) return "📝";
-  if (/\.(xlsx?|csv)$/i.test(name)) return "📊";
-  if (/\.(pptx?|odp)$/i.test(name)) return "📑";
-  if (/\.(zip|rar|7z|tar)$/i.test(name)) return "📦";
-  return "📎";
-}
-
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export function ChatPanel({
   conversation, messages, showDetails, onToggleDetails, onBack,
