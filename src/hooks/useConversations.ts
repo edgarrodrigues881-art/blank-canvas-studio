@@ -860,32 +860,37 @@ export function useConversations() {
         { event: "INSERT", schema: "public", table: "conversation_messages", filter: `user_id=eq.${user.id}` },
         (payload) => {
           const newMsg = payload.new as RealMessage;
-          if (newMsg.conversation_id === selectedConvIdRef.current) {
+          if (newMsg.conversation_id === selectedConvIdRef.current || 
+              (selectedConvIdRef.current && getConversationIdsForSameContact(selectedConvIdRef.current).includes(newMsg.conversation_id))) {
+            // Enrich with device name
+            const deviceName = conversationsRef.current.find((c) => c.id === newMsg.conversation_id)?.deviceName;
+            const enrichedMsg = { ...newMsg, deviceName };
+
             setMessages((prev) => {
               // Skip if already exists by ID
-              if (prev.some((m) => m.id === newMsg.id)) return prev;
+              if (prev.some((m) => m.id === enrichedMsg.id)) return prev;
               // Skip if it's an optimistic duplicate (sent message with same content within 30s)
-              if (newMsg.direction === "sent") {
-                const newTime = new Date(newMsg.created_at).getTime();
+              if (enrichedMsg.direction === "sent") {
+                const newTime = new Date(enrichedMsg.created_at).getTime();
                 const isDuplicate = prev.some((m) =>
                   m.direction === "sent" &&
-                  m.content === newMsg.content &&
-                  m.conversation_id === newMsg.conversation_id &&
+                  m.content === enrichedMsg.content &&
+                  m.conversation_id === enrichedMsg.conversation_id &&
                   Math.abs(new Date(m.created_at).getTime() - newTime) < 30000
                 );
                 if (isDuplicate) {
                   // Replace the optimistic entry's ID with the real one
                   return prev.map((m) =>
                     m.direction === "sent" &&
-                    m.content === newMsg.content &&
-                    m.conversation_id === newMsg.conversation_id &&
+                    m.content === enrichedMsg.content &&
+                    m.conversation_id === enrichedMsg.conversation_id &&
                     Math.abs(new Date(m.created_at).getTime() - newTime) < 30000
-                      ? { ...m, id: newMsg.id, status: newMsg.status || m.status }
+                      ? { ...m, id: enrichedMsg.id, status: enrichedMsg.status || m.status }
                       : m
                   );
                 }
               }
-              return [...prev, newMsg];
+              return [...prev, enrichedMsg];
             });
           }
 
