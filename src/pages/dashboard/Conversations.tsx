@@ -19,6 +19,7 @@ const Conversations = () => {
   const { user } = useAuth();
   const {
     conversations: realConvs,
+    archivedConversations: realArchivedConvs,
     messages: realMsgs,
     loading,
     syncing,
@@ -36,6 +37,7 @@ const Conversations = () => {
     assignConversation,
     releaseConversation,
     archiveConversation,
+    unarchiveConversation,
     markAsUnread,
   } = useConversations();
 
