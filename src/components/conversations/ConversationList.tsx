@@ -102,6 +102,7 @@ export function ConversationList({
   onSearchChange,
   onSelect,
   onNewConversationClick,
+  currentUserId,
 }: ConversationListProps) {
   const [activeStatus, setActiveStatus] = useState<StatusTab>("all");
 
