@@ -216,9 +216,15 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
     if (!session?.access_token) return;
 
     autoSyncBlockedUntilRef.current = Date.now() + AUTO_SYNC_STARTUP_GRACE_MS;
+    intervalBlockedUntilRef.current = Date.now() + AUTO_SYNC_STARTUP_GRACE_MS + AUTO_SYNC_POST_RESUME_INTERVAL_HOLD_MS;
 
     const scheduleProtectedSync = (trigger: "startup" | "visibility" | "online", blockMs: number) => {
-      autoSyncBlockedUntilRef.current = Math.max(autoSyncBlockedUntilRef.current, Date.now() + blockMs);
+      const now = Date.now();
+      autoSyncBlockedUntilRef.current = Math.max(autoSyncBlockedUntilRef.current, now + blockMs);
+      intervalBlockedUntilRef.current = Math.max(
+        intervalBlockedUntilRef.current,
+        now + blockMs + AUTO_SYNC_POST_RESUME_INTERVAL_HOLD_MS,
+      );
       clearScheduledSync();
       scheduledSyncRef.current = setTimeout(() => {
         scheduledSyncRef.current = null;
