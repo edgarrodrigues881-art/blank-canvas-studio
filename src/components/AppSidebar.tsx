@@ -35,6 +35,7 @@ import {
   MessageSquare,
   CalendarClock,
   GitBranch,
+  History,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -453,7 +454,7 @@ export function AppSidebar() {
         </SidebarGroup>
         )}
 
-        {(!shouldHideSection || hasAnyPermission(["/dashboard/conversations", "/dashboard/flows", "/dashboard/team", "/dashboard/ai-settings", "/dashboard/service-contacts", "/dashboard/schedules"])) && (
+        {(!shouldHideSection || hasAnyPermission(["/dashboard/conversations", "/dashboard/flows", "/dashboard/team", "/dashboard/ai-settings", "/dashboard/service-contacts", "/dashboard/schedules", "/dashboard/history"])) && (
         <SidebarGroup className="py-0 mt-1">
           {!collapsed && (
             <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
@@ -470,6 +471,7 @@ export function AppSidebar() {
               {renderNavItem({ title: "Base de Atendimento", url: "/dashboard/service-contacts", icon: Headset })}
               {renderNavItem({ title: "Agendamentos", url: "/dashboard/schedules", icon: CalendarClock })}
               {renderNavItem({ title: "Equipe", url: "/dashboard/team", icon: Users })}
+              {renderNavItem({ title: "Histórico", url: "/dashboard/history", icon: History })}
               {renderNavItem({ title: "IA", url: "/dashboard/ai-settings", icon: BotMessageSquare })}
             </SidebarMenu>
           </SidebarGroupContent>
