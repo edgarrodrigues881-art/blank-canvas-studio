@@ -190,7 +190,8 @@ async function reconcileCommunityPairs(db: any, params: { deviceId: string; user
   if (validPairs.length < targetPeers) {
     const { data: eligible } = await db.from("warmup_community_membership")
       .select("device_id, user_id, community_day").eq("is_enabled", true).eq("is_eligible", true).gte("community_day", 1).neq("device_id", params.deviceId).limit(200);
-    const candidateIds: string[] = Array.from(new Set((eligible || []).map((r: any) => String(r.device_id || "")).filter((id: string) => id.length > 0))).filter((id) => !usedDevices.has(id));
+    const allCandidateIds = (eligible || []).map((r: any) => String(r.device_id || "")).filter((id: string) => id.length > 0);
+    const candidateIds: string[] = [...new Set(allCandidateIds)].filter((id: string) => !usedDevices.has(id));
 
     if (candidateIds.length > 0) {
       const [candidateDevicesRes, candidateCyclesRes] = await Promise.all([
