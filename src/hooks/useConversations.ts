@@ -52,6 +52,33 @@ export function useConversations() {
   const [syncing, setSyncing] = useState(false);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
 
+  // Cached auth token — refreshed on mount and reused across sends
+  const cachedTokenRef = useRef<string | null>(null);
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
+
+  const getToken = useCallback(async () => {
+    if (cachedTokenRef.current) return cachedTokenRef.current;
+    const { data } = await supabase.auth.getSession();
+    cachedTokenRef.current = data?.session?.access_token || null;
+    return cachedTokenRef.current;
+  }, []);
+
+  // Keep token fresh
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      cachedTokenRef.current = session?.access_token || null;
+    });
+    // Warm cache immediately
+    supabase.auth.getSession().then(({ data }) => {
+      cachedTokenRef.current = data?.session?.access_token || null;
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Ref for conversations to avoid stale closures
+  const conversationsRef = useRef(conversations);
+  useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
+
   const mapConversationRow = useCallback((row: any): RealConversation => ({
     ...row,
     tags: row.tags || [],
@@ -128,11 +155,8 @@ export function useConversations() {
     if (syncing) return;
     setSyncing(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+      const token = await getToken();
       if (!token) throw new Error("Not authenticated");
-
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
 
       const webhookResp = await fetch(
         `https://${projectId}.supabase.co/functions/v1/webhook-conversations`,
@@ -204,11 +228,10 @@ export function useConversations() {
     await supabase.from("conversations").update(updates as any).eq("id", convId);
   }, []);
 
-  // Send message with optimistic UI
+  // Send message with optimistic UI — parallelized DB + API
   const sendMessage = useCallback(async (conversationId: string, content: string) => {
     if (!user) return;
-
-    const conv = conversations.find((c) => c.id === conversationId);
+    const conv = conversationsRef.current.find((c) => c.id === conversationId);
     if (!conv) return;
 
     const tempId = crypto.randomUUID();
@@ -228,20 +251,15 @@ export function useConversations() {
       created_at: now,
     };
     setMessages((prev) => [...prev, optimisticMsg]);
-
     setConversations((prev) =>
-      sortConversations(
-        prev.map((c) =>
-          c.id === conversationId
-            ? { ...c, last_message: content, last_message_at: now }
-            : c
-        )
-      )
+      sortConversations(prev.map((c) => c.id === conversationId ? { ...c, last_message: content, last_message_at: now } : c))
     );
 
-    const { data: dbMsg, error: dbError } = await supabase
-      .from("conversation_messages")
-      .insert({
+    // Fire DB insert and API call in parallel
+    const token = await getToken();
+
+    const [dbResult, apiResult] = await Promise.allSettled([
+      supabase.from("conversation_messages").insert({
         conversation_id: conversationId,
         user_id: user.id,
         remote_jid: conv.remote_jid,
@@ -249,122 +267,76 @@ export function useConversations() {
         direction: "sent",
         status: "sending",
         created_at: now,
-      })
-      .select()
-      .single();
+      }).select().single(),
 
-    if (dbError || !dbMsg) {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? { ...m, status: "failed" } : m))
-      );
-      toast.error("Erro ao salvar mensagem");
-      return;
+      fetch(`https://${projectId}.supabase.co/functions/v1/chat-send`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: conversationId, content }),
+      }).then((r) => r.json()),
+    ]);
+
+    // Handle DB result
+    const dbMsg = dbResult.status === "fulfilled" && !dbResult.value.error ? dbResult.value.data : null;
+    if (dbMsg) {
+      setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: dbMsg.id } : m));
     }
 
-    setMessages((prev) =>
-      prev.map((m) => (m.id === tempId ? { ...m, id: dbMsg.id } : m))
-    );
+    // Handle API result
+    const apiOk = apiResult.status === "fulfilled" && apiResult.value?.sent;
+    const finalStatus = apiOk ? "sent" : "failed";
+    const finalId = dbMsg?.id || tempId;
 
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
+    setMessages((prev) => prev.map((m) => (m.id === tempId || m.id === finalId) ? { ...m, id: finalId, status: finalStatus } : m));
 
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/chat-send`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            conversation_id: conversationId,
-            content,
-            message_id: dbMsg.id,
-          }),
-        }
-      );
+    if (dbMsg) {
+      // Update DB status + message_id in background (don't await)
+      const waMessageId = apiOk ? (apiResult.value?.messageId || null) : null;
+      supabase.from("conversation_messages").update({
+        status: finalStatus,
+        whatsapp_message_id: waMessageId,
+      }).eq("id", dbMsg.id).then(() => {});
+    }
 
-      const result = await res.json();
-
-      if (result.sent) {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === dbMsg.id ? { ...m, status: "sent" } : m))
-        );
-      } else {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === dbMsg.id ? { ...m, status: "failed" } : m))
-        );
-        await supabase.from("conversation_messages").update({ status: "failed" }).eq("id", dbMsg.id);
-        toast.error(result.error || "Falha ao enviar mensagem");
-      }
-    } catch (err: any) {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === dbMsg.id ? { ...m, status: "failed" } : m))
-      );
-      await supabase.from("conversation_messages").update({ status: "failed" }).eq("id", dbMsg.id);
-      toast.error("Erro de conexão ao enviar mensagem");
+    if (!apiOk) {
+      const errMsg = apiResult.status === "fulfilled" ? apiResult.value?.error : "Erro de conexão";
+      toast.error(errMsg || "Falha ao enviar mensagem");
     }
 
     return dbMsg;
-  }, [user, conversations, sortConversations]);
+  }, [user, sortConversations, getToken, projectId]);
 
   // Retry a failed message
   const retryMessage = useCallback(async (messageId: string) => {
     const msg = messages.find((m) => m.id === messageId);
     if (!msg || !msg.content) return;
 
-    setMessages((prev) =>
-      prev.map((m) => (m.id === messageId ? { ...m, status: "sending" } : m))
-    );
-    await supabase.from("conversation_messages").update({ status: "sending" }).eq("id", messageId);
+    setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, status: "sending" } : m));
+
+    const token = await getToken();
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
-
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/chat-send`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            conversation_id: msg.conversation_id,
-            content: msg.content,
-            message_id: messageId,
-          }),
-        }
-      );
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/chat-send`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: msg.conversation_id, content: msg.content, message_id: messageId }),
+      });
       const result = await res.json();
 
-      if (result.sent) {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === messageId ? { ...m, status: "sent" } : m))
-        );
-      } else {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === messageId ? { ...m, status: "failed" } : m))
-        );
-        await supabase.from("conversation_messages").update({ status: "failed" }).eq("id", messageId);
-        toast.error(result.error || "Falha ao reenviar");
-      }
+      const status = result.sent ? "sent" : "failed";
+      setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, status } : m));
+      supabase.from("conversation_messages").update({ status }).eq("id", messageId).then(() => {});
+      if (!result.sent) toast.error(result.error || "Falha ao reenviar");
     } catch {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === messageId ? { ...m, status: "failed" } : m))
-      );
+      setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, status: "failed" } : m));
       toast.error("Erro de conexão ao reenviar");
     }
-  }, [messages]);
+  }, [messages, getToken, projectId]);
 
   // Send audio message
   const sendAudioMessage = useCallback(async (conversationId: string, blob: Blob, duration: number) => {
     if (!user) return;
-    const conv = conversations.find((c) => c.id === conversationId);
+    const conv = conversationsRef.current.find((c) => c.id === conversationId);
     if (!conv) return;
 
     const tempId = crypto.randomUUID();
@@ -427,9 +399,7 @@ export function useConversations() {
 
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: dbMsg.id } : m));
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
+      const token = await getToken();
 
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/chat-send`, {
         method: "POST",
@@ -454,12 +424,12 @@ export function useConversations() {
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, status: "failed" } : m));
       toast.error(err.message || "Erro ao enviar áudio");
     }
-  }, [user, conversations, sortConversations]);
+  }, [user, sortConversations, getToken, projectId]);
 
   // Send file message (image or document)
   const sendFileMessage = useCallback(async (conversationId: string, file: File) => {
     if (!user) return;
-    const conv = conversations.find((c) => c.id === conversationId);
+    const conv = conversationsRef.current.find((c) => c.id === conversationId);
     if (!conv) return;
 
     const tempId = crypto.randomUUID();
@@ -527,9 +497,7 @@ export function useConversations() {
 
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: dbMsg.id } : m));
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
+      const token = await getToken();
 
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/chat-send`, {
         method: "POST",
@@ -557,7 +525,7 @@ export function useConversations() {
     } finally {
       if (localUrl) URL.revokeObjectURL(localUrl);
     }
-  }, [user, conversations, sortConversations]);
+  }, [user, sortConversations, getToken, projectId]);
 
   const selectConversation = useCallback((convId: string | null) => {
     setSelectedConvId(convId);
@@ -693,15 +661,42 @@ export function useConversations() {
       .channel("conv-list-rt")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
-        () => {
-          fetchConversations();
+        { event: "INSERT", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const row = payload.new as any;
+          setConversations((prev) => upsertConversationInState(prev, row));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const row = payload.new as any;
+          setConversations((prev) => {
+            const exists = prev.some((c) => c.id === row.id);
+            if (!exists) return upsertConversationInState(prev, row);
+            return sortConversations(
+              prev.map((c) => c.id === row.id ? {
+                ...c,
+                last_message: row.last_message ?? c.last_message,
+                last_message_at: row.last_message_at ?? c.last_message_at,
+                unread_count: row.unread_count ?? c.unread_count,
+                name: row.name ?? c.name,
+                avatar_url: row.avatar_url ?? c.avatar_url,
+                attending_status: row.attending_status ?? c.attending_status,
+                tags: row.tags ?? c.tags,
+                category: row.category ?? c.category,
+                notes: row.notes ?? c.notes,
+                updated_at: row.updated_at ?? c.updated_at,
+              } : c)
+            );
+          });
         }
       )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user, fetchConversations]);
+  }, [user, upsertConversationInState, sortConversations]);
 
   // Real-time subscription — messages (INSERT + UPDATE for status changes)
   const selectedConvIdRef = useRef(selectedConvId);
@@ -742,44 +737,28 @@ export function useConversations() {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
+  // Light polling fallback — only conversations list (messages are handled by RT)
   useEffect(() => {
     if (!user) return;
-
     let isActive = true;
 
-    const refresh = async () => {
-      if (!isActive) return;
-      await fetchConversations();
-
-      const currentConversationId = selectedConvIdRef.current;
-      if (currentConversationId) {
-        await fetchMessages(currentConversationId);
-      }
-    };
-
     const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") {
-        void refresh();
+      if (isActive && document.visibilityState === "visible") {
+        fetchConversations();
       }
-    }, 15000);
+    }, 30000);
 
-    const handleFocus = () => { void refresh(); };
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        void refresh();
-      }
+      if (document.visibilityState === "visible") fetchConversations();
     };
-
-    window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       isActive = false;
       window.clearInterval(interval);
-      window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [user, fetchConversations, fetchMessages]);
+  }, [user, fetchConversations]);
 
   const selectedConversation = selectedConvId
     ? conversations.find((c) => c.id === selectedConvId) || null
