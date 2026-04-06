@@ -26,6 +26,8 @@ export interface RealConversation {
   updated_at: string;
   last_message_status?: string;
   last_message_direction?: string;
+  assigned_to?: string | null;
+  assigned_name?: string | null;
   // joined
   deviceName?: string;
 }
@@ -264,6 +266,30 @@ export function useConversations() {
       prev.map((c) => (c.id === convId ? { ...c, ...updates } : c))
     );
     await supabase.from("conversations").update(updates as any).eq("id", convId);
+  }, []);
+
+  // Assign conversation to current user
+  const assignConversation = useCallback(async (convId: string) => {
+    if (!user) return;
+    // Get user's profile name
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .single();
+    const name = profile?.full_name || user.email?.split("@")[0] || "Atendente";
+    setConversations((prev) =>
+      prev.map((c) => c.id === convId ? { ...c, assigned_to: user.id, assigned_name: name } : c)
+    );
+    await supabase.from("conversations").update({ assigned_to: user.id, assigned_name: name } as any).eq("id", convId);
+  }, [user]);
+
+  // Release conversation assignment
+  const releaseConversation = useCallback(async (convId: string) => {
+    setConversations((prev) =>
+      prev.map((c) => c.id === convId ? { ...c, assigned_to: null, assigned_name: null } : c)
+    );
+    await supabase.from("conversations").update({ assigned_to: null, assigned_name: null } as any).eq("id", convId);
   }, []);
 
   // Send message with optimistic UI — parallelized DB + API
@@ -829,5 +855,7 @@ export function useConversations() {
     sendFileMessage,
     retryMessage,
     fetchConversations,
+    assignConversation,
+    releaseConversation,
   };
 }

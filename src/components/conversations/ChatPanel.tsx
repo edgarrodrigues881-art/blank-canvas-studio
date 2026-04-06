@@ -27,6 +27,8 @@ import {
   Video,
   MapPin,
   User,
+  UserCheck,
+  UserX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,6 +53,9 @@ interface ChatPanelProps {
   onSendAudio?: (conversationId: string, blob: Blob, duration: number) => void;
   onSendFile?: (conversationId: string, file: File) => void;
   onRetryMessage?: (messageId: string) => void;
+  currentUserId?: string;
+  onAssign?: (conversationId: string) => void;
+  onRelease?: (conversationId: string) => void;
 }
 
 const attendingStatusConfig: Record<AttendingStatus, { label: string; color: string; bg: string; dot: string }> = {
@@ -305,6 +310,7 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
 export function ChatPanel({
   conversation, messages, showDetails, onToggleDetails, onBack,
   onStatusChange, onSendMessage, onSendAudio, onSendFile, onRetryMessage,
+  currentUserId, onAssign, onRelease,
 }: ChatPanelProps) {
   const { replies: dbReplies } = useQuickReplies();
   const [showQRManager, setShowQRManager] = useState(false);
@@ -769,6 +775,22 @@ export function ChatPanel({
             <span className={cn("w-1.5 h-1.5 rounded-full", currentStatusCfg.dot)} />
             <span className={cn("text-[11px] font-medium", currentStatusCfg.color)}>{currentStatusCfg.label}</span>
           </div>
+          {/* Assignment badge */}
+          <div className="flex items-center gap-1 mt-0.5">
+            {conversation.assignedTo ? (
+              <span className={cn(
+                "text-[10px] font-medium px-1.5 py-0.5 rounded-md border inline-flex items-center gap-1",
+                conversation.assignedTo === currentUserId
+                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                  : "bg-muted/60 text-muted-foreground border-border/40"
+              )}>
+                <UserCheck className="w-3 h-3" />
+                {conversation.assignedTo === currentUserId ? "Você está atendendo" : `Atendido por: ${conversation.assignedName || "..."}`}
+              </span>
+            ) : (
+              <span className="text-[10px] text-muted-foreground/50">Sem responsável</span>
+            )}
+          </div>
         </div>
 
         <DropdownMenu>
@@ -788,6 +810,19 @@ export function ChatPanel({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Assign/Release button */}
+        {conversation.assignedTo === currentUserId ? (
+          <Button variant="ghost" size="sm" className="text-[11px] h-7 px-2 text-muted-foreground hover:text-destructive gap-1" onClick={() => onRelease?.(conversation.id)}>
+            <UserX className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Liberar</span>
+          </Button>
+        ) : !conversation.assignedTo ? (
+          <Button variant="ghost" size="sm" className="text-[11px] h-7 px-2 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 gap-1" onClick={() => onAssign?.(conversation.id)}>
+            <UserCheck className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Assumir</span>
+          </Button>
+        ) : null}
 
         <div className="flex items-center gap-1 shrink-0">
           <Button variant="ghost" size="icon" className="hidden lg:flex w-8 h-8 text-muted-foreground hover:text-foreground" onClick={onToggleDetails}>

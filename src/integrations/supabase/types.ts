@@ -1786,6 +1786,8 @@ export type Database = {
       }
       conversations: {
         Row: {
+          assigned_name: string | null
+          assigned_to: string | null
           attending_status: string | null
           avatar_url: string | null
           category: string | null
@@ -1808,6 +1810,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          assigned_name?: string | null
+          assigned_to?: string | null
           attending_status?: string | null
           avatar_url?: string | null
           category?: string | null
@@ -1830,6 +1834,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          assigned_name?: string | null
+          assigned_to?: string | null
           attending_status?: string | null
           avatar_url?: string | null
           category?: string | null

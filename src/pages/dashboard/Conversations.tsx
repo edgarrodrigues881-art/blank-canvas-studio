@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useAuth } from "@/lib/auth";
 import { ConversationList } from "@/components/conversations/ConversationList";
 import { ChatPanel } from "@/components/conversations/ChatPanel";
 import { ContactDetails } from "@/components/conversations/ContactDetails";
@@ -12,6 +13,7 @@ const MAX_SIDEBAR_W = 600;
 const DEFAULT_SIDEBAR_W = 340;
 
 const Conversations = () => {
+  const { user } = useAuth();
   const {
     conversations: realConvs,
     messages: realMsgs,
@@ -28,6 +30,8 @@ const Conversations = () => {
     sendAudioMessage,
     sendFileMessage,
     retryMessage,
+    assignConversation,
+    releaseConversation,
   } = useConversations();
 
   const [showDetails, setShowDetails] = useState(true);
@@ -83,6 +87,8 @@ const Conversations = () => {
     email: c.email || undefined,
     notes: c.notes || undefined,
     deviceName: c.deviceName,
+    assignedTo: c.assigned_to || undefined,
+    assignedName: c.assigned_name || undefined,
   }));
 
   const selectedConversation = selectedReal
@@ -173,6 +179,9 @@ const Conversations = () => {
                 onSendAudio={sendAudioMessage}
                 onSendFile={sendFileMessage}
                 onRetryMessage={retryMessage}
+                currentUserId={user?.id}
+                onAssign={assignConversation}
+                onRelease={releaseConversation}
               />
             </div>
           )}
