@@ -705,7 +705,7 @@ export function ChatPanel({
           <img
             src={msg.mediaUrl}
             alt="Figurinha"
-            className="max-w-[140px] max-h-[140px] object-contain cursor-pointer drop-shadow-md"
+            className="max-w-[100px] max-h-[100px] object-contain cursor-pointer drop-shadow-md"
           onClick={() => setLightboxUrl(msg.mediaUrl!)}
           />
           <MsgFooter msg={msg} />
