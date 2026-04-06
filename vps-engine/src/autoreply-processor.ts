@@ -92,6 +92,12 @@ async function sendFlowMessage(
   imageUrl?: string, buttons?: { id: string; label: string }[]
 ) {
   const cleanPhone = phone.replace(/\D/g, "");
+
+  // ── Humanized delay: simulate reading + typing ──
+  const typingDelay = Math.max(humanTypingDelay(text), MIN_RESPONSE_DELAY_MS);
+  log.info(`Simulating ${(typingDelay / 1000).toFixed(1)}s typing delay for ${text.length} chars`);
+  await new Promise(r => setTimeout(r, typingDelay));
+
   if (buttons && buttons.length > 0) {
     const choices = buttons.map(b => `${b.label}|${b.id}`).filter(Boolean);
     const payload: any = { number: cleanPhone, type: "button", text, choices };
