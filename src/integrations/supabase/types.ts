@@ -301,6 +301,102 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_settings: {
+        Row: {
+          ai_instructions: string | null
+          ai_model: string
+          api_key: string | null
+          auto_transfer_human: boolean
+          block_sensitive: boolean
+          business_description: string | null
+          business_hours: string | null
+          business_name: string | null
+          business_segment: string | null
+          business_type: string | null
+          conversation_memory: boolean
+          created_at: string
+          creativity: number
+          fallback_audio: string | null
+          fallback_image: string | null
+          ia_active: boolean
+          id: string
+          max_delay_seconds: number
+          max_response_length: string
+          min_delay_seconds: number
+          pause_words: string | null
+          reactivate_words: string | null
+          require_human_for_sale: boolean
+          response_style: string
+          simulate_typing: boolean
+          split_long_messages: boolean
+          tone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_instructions?: string | null
+          ai_model?: string
+          api_key?: string | null
+          auto_transfer_human?: boolean
+          block_sensitive?: boolean
+          business_description?: string | null
+          business_hours?: string | null
+          business_name?: string | null
+          business_segment?: string | null
+          business_type?: string | null
+          conversation_memory?: boolean
+          created_at?: string
+          creativity?: number
+          fallback_audio?: string | null
+          fallback_image?: string | null
+          ia_active?: boolean
+          id?: string
+          max_delay_seconds?: number
+          max_response_length?: string
+          min_delay_seconds?: number
+          pause_words?: string | null
+          reactivate_words?: string | null
+          require_human_for_sale?: boolean
+          response_style?: string
+          simulate_typing?: boolean
+          split_long_messages?: boolean
+          tone?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_instructions?: string | null
+          ai_model?: string
+          api_key?: string | null
+          auto_transfer_human?: boolean
+          block_sensitive?: boolean
+          business_description?: string | null
+          business_hours?: string | null
+          business_name?: string | null
+          business_segment?: string | null
+          business_type?: string | null
+          conversation_memory?: boolean
+          created_at?: string
+          creativity?: number
+          fallback_audio?: string | null
+          fallback_image?: string | null
+          ia_active?: boolean
+          id?: string
+          max_delay_seconds?: number
+          max_response_length?: string
+          min_delay_seconds?: number
+          pause_words?: string | null
+          reactivate_words?: string | null
+          require_human_for_sale?: boolean
+          response_style?: string
+          simulate_typing?: boolean
+          split_long_messages?: boolean
+          tone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       alerts: {
         Row: {
           campaign_id: string | null
