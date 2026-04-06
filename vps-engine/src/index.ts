@@ -21,6 +21,7 @@ import { groupJoinTick, getGroupJoinStatus, lastGroupJoinTickAt } from "./group-
 import { welcomeTick, getWelcomeStatus, lastWelcomeTickAt } from "./welcome-worker";
 import { verifyTick, getVerifyStatus, lastVerifyTickAt } from "./verify-worker";
 import { communityTick as communityProcessorTick, getCommunityStatus, lastCommunityTickAt } from "./community-processor";
+import { autoreplyTick, getAutoreplyStatus, lastAutoreplyTickAt } from "./autoreply-processor";
 import { backoffMinutes } from "./lib/retry";
 import { validateUazapiCredentials } from "./lib/uazapi";
 import { processJob, batchPreload, flushAuditLogs, ProcessJobContext } from "./warmup-processor";
