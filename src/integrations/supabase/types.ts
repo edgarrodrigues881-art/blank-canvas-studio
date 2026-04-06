@@ -3615,6 +3615,66 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_messages: {
+        Row: {
+          contact_name: string
+          contact_phone: string
+          created_at: string
+          device_id: string | null
+          error_message: string | null
+          id: string
+          message_content: string
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          contact_name?: string
+          contact_phone: string
+          created_at?: string
+          device_id?: string | null
+          error_message?: string | null
+          id?: string
+          message_content: string
+          scheduled_at: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          contact_name?: string
+          contact_phone?: string
+          created_at?: string
+          device_id?: string | null
+          error_message?: string | null
+          id?: string
+          message_content?: string
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_messages_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_messages_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_contacts: {
         Row: {
           conversation_id: string | null
@@ -3841,6 +3901,7 @@ export type Database = {
           perm_prospection: boolean
           perm_proxy: boolean
           perm_report_wa: boolean
+          perm_schedules: boolean
           perm_send_message: boolean
           perm_service_contacts: boolean
           perm_team: boolean
@@ -3876,6 +3937,7 @@ export type Database = {
           perm_prospection?: boolean
           perm_proxy?: boolean
           perm_report_wa?: boolean
+          perm_schedules?: boolean
           perm_send_message?: boolean
           perm_service_contacts?: boolean
           perm_team?: boolean
@@ -3911,6 +3973,7 @@ export type Database = {
           perm_prospection?: boolean
           perm_proxy?: boolean
           perm_report_wa?: boolean
+          perm_schedules?: boolean
           perm_send_message?: boolean
           perm_service_contacts?: boolean
           perm_team?: boolean

@@ -20,6 +20,7 @@ export const PERMISSION_KEYS = {
   // CENTRAL DE ATENDIMENTO
   perm_conversations: { label: "Conversas", group: "Central de Atendimento" },
   perm_service_contacts: { label: "Base de Atendimento", group: "Central de Atendimento" },
+  perm_schedules: { label: "Agendamentos", group: "Central de Atendimento" },
   perm_team: { label: "Equipe", group: "Central de Atendimento" },
   perm_ai_settings: { label: "IA", group: "Central de Atendimento" },
   // FERRAMENTAS
@@ -55,6 +56,7 @@ const ROUTE_PERMISSION_MAP: Record<string, PermissionKey> = {
   "/dashboard/group-interaction": "perm_group_interaction",
   "/dashboard/conversations": "perm_conversations",
   "/dashboard/service-contacts": "perm_service_contacts",
+  "/dashboard/schedules": "perm_schedules",
   "/dashboard/team": "perm_team",
   "/dashboard/ai-settings": "perm_ai_settings",
   "/dashboard/contacts": "perm_contacts",
