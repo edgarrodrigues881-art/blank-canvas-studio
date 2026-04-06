@@ -674,7 +674,7 @@ async function processCommunityInteraction(db: any, job: any, ctx: ProcessJobCon
 }
 
 async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, selectedPair: any, currentTurnIndex: number, isReply: boolean): Promise<boolean> {
-  const { cycle, device, baseUrl, token } = ctx;
+  const { cycle, baseUrl, token } = ctx;
   const rawMeta = selectedPair.meta && typeof selectedPair.meta === "object" ? selectedPair.meta as Record<string, any> : {};
   const pairMeta = normalizeCommunityPairMeta(selectedPair);
   const peerDeviceId = getCommunityPeerDeviceId(selectedPair, job.device_id);
