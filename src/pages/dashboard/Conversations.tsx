@@ -4,9 +4,11 @@ import { ConversationList } from "@/components/conversations/ConversationList";
 import { ChatPanel } from "@/components/conversations/ChatPanel";
 import { ContactDetails } from "@/components/conversations/ContactDetails";
 import { NewConversationDialog } from "@/components/conversations/NewConversationDialog";
+import { AutomationFlows } from "@/components/conversations/AutomationFlows";
 import { type Conversation, type AttendingStatus, type Message } from "@/components/conversations/types";
 import { useConversations } from "@/hooks/useConversations";
 import { Button } from "@/components/ui/button";
+import { Zap } from "lucide-react";
 
 const MIN_SIDEBAR_W = 240;
 const MAX_SIDEBAR_W = 600;
