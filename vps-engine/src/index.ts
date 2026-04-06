@@ -21,6 +21,7 @@ import { groupJoinTick, getGroupJoinStatus, lastGroupJoinTickAt } from "./group-
 import { welcomeTick, getWelcomeStatus, lastWelcomeTickAt } from "./welcome-worker";
 import { verifyTick, getVerifyStatus, lastVerifyTickAt } from "./verify-worker";
 import { communityTick as communityProcessorTick, getCommunityStatus, lastCommunityTickAt } from "./community-processor";
+import { autoreplyTick, getAutoreplyStatus, lastAutoreplyTickAt } from "./autoreply-processor";
 import { backoffMinutes } from "./lib/retry";
 import { validateUazapiCredentials } from "./lib/uazapi";
 import { processJob, batchPreload, flushAuditLogs, ProcessJobContext } from "./warmup-processor";
@@ -47,6 +48,7 @@ app.get("/health", (_req: Request, res: Response) => {
     const welcomeStatus = getWelcomeStatus();
     const verifyStatus = getVerifyStatus();
     const communityStatus = getCommunityStatus();
+    const autoreplyStatus = getAutoreplyStatus();
   res.json({
     status: "ok",
     uptime: Math.round((Date.now() - startedAt.getTime()) / 1000),
@@ -60,6 +62,7 @@ app.get("/health", (_req: Request, res: Response) => {
     lastWelcomeTick: lastWelcomeTickAt?.toISOString() || null,
     lastVerifyTick: lastVerifyTickAt?.toISOString() || null,
     lastCommunityTick: lastCommunityTickAt?.toISOString() || null,
+    lastAutoreplyTick: lastAutoreplyTickAt?.toISOString() || null,
     activeMassInjectCampaigns: massInjectStatus.activeCampaigns,
     activeCampaignWorker: campaignWorkerStatus.activeCampaigns,
     tickCount,
@@ -954,6 +957,7 @@ async function mainLoop() {
     welcome: false,
     verify: false,
     community: false,
+    autoreply: false,
   };
 
   function guardedLoop(
@@ -1040,6 +1044,11 @@ async function mainLoop() {
       const db = getDb();
       await communityProcessorTick(db);
     }, config.communityTickMs)(),
+
+    guardedLoop("autoreply", async () => {
+      const db = getDb();
+      await autoreplyTick(db);
+    }, 2_000)(),
   ]);
 }
 
