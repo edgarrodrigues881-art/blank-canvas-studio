@@ -95,7 +95,19 @@ const AddToFolderDialog = memo(({ open, onOpenChange, allDevices, currentDeviceI
             </span>
             <button
               className="text-[10px] text-primary hover:text-primary/80 font-bold"
-              onClick={() => setSelected(prev => prev.size === allDevices.length ? new Set() : new Set(allDevices.map(d => d.id)))}
+              onClick={() => {
+                const filteredIds = new Set(filtered.map(d => d.id));
+                const allFilteredSelected = filtered.every(d => selected.has(d.id));
+                if (allFilteredSelected) {
+                  setSelected(prev => {
+                    const next = new Set(prev);
+                    filteredIds.forEach(id => next.delete(id));
+                    return next;
+                  });
+                } else {
+                  setSelected(prev => new Set([...prev, ...filteredIds]));
+                }
+              }}
             >
               {selected.size > 0 ? "Desmarcar" : "Selecionar todos"}
             </button>
