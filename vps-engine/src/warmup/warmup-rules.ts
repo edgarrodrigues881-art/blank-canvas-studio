@@ -3,7 +3,7 @@
 // Must match Edge Function warmup-tick logic exactly
 // ══════════════════════════════════════════════════════════
 
-import { randInt } from "./message-generator";
+import { randInt } from "../utils/message-generator";
 
 // ── Phase rules ──
 

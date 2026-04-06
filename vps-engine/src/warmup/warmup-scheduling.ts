@@ -2,8 +2,8 @@
 // VPS Engine — Warmup job scheduling (ported from Edge Function)
 // ══════════════════════════════════════════════════════════
 
-import { randInt } from "./message-generator";
-import { calculateWindow, getBrtTodayAt } from "./brt";
+import { randInt } from "../utils/message-generator";
+import { calculateWindow, getBrtTodayAt } from "../utils/brt";
 import {
   getVolumes, isCommunityPhase, INTERACTION_JOB_TYPES,
   getAutosaveContactsForDay, getAutosaveRoundsPerContact,

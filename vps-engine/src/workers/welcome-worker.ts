@@ -4,9 +4,9 @@
 // Supports: text, buttons, carousel
 // ══════════════════════════════════════════════════════════
 
-import { getDb } from "./db";
-import { createLogger } from "./lib/logger";
-import { DeviceLockManager } from "./lib/device-lock-manager";
+import { getDb } from "../core/db";
+import { createLogger } from "../core/logger";
+import { DeviceLockManager } from "../core/device-lock-manager";
 
 const log = createLogger("welcome");
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));

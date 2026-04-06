@@ -3,8 +3,8 @@
 // Processes verify_jobs in background, survives page close
 // ══════════════════════════════════════════════════════════
 
-import { getDb } from "./db";
-import { createLogger } from "./lib/logger";
+import { getDb } from "../core/db";
+import { createLogger } from "../core/logger";
 
 const log = createLogger("verify");
 

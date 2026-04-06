@@ -5,26 +5,26 @@
 
 import express, { Request, Response } from "express";
 import { inspect } from "node:util";
-import { config } from "./config";
-import { getDb } from "./db";
-import { createLogger } from "./lib/logger";
-import { DeviceLockManager } from "./lib/device-lock-manager";
-import { acquireGlobalSlot, releaseGlobalSlot, getGlobalConcurrencyStats } from "./lib/global-semaphore";
-import { workerMetrics } from "./lib/worker-metrics";
-import { getCircuitBreakerStats } from "./lib/circuit-breaker";
-import { isWithinOperatingWindow, getBrtTodayAt } from "./lib/brt";
-import { massInjectTick, getMassInjectStatus, lastMassInjectTickAt } from "./mass-inject-worker";
-import { campaignWorkerTick, getCampaignWorkerStatus, lastCampaignWorkerTickAt } from "./campaign-worker";
-import { groupInteractionTick, getGroupInteractionStatus, lastGroupInteractionTickAt } from "./group-interaction-worker";
-import { chipConversationTick, getChipConvStatus, lastChipConvTickAt } from "./chip-conversation-worker";
-import { groupJoinTick, getGroupJoinStatus, lastGroupJoinTickAt } from "./group-join-worker";
-import { welcomeTick, getWelcomeStatus, lastWelcomeTickAt } from "./welcome-worker";
-import { verifyTick, getVerifyStatus, lastVerifyTickAt } from "./verify-worker";
-import { communityTick as communityProcessorTick, getCommunityStatus, lastCommunityTickAt } from "./community-processor";
-import { autoreplyTick, getAutoreplyStatus, lastAutoreplyTickAt } from "./autoreply-processor";
-import { backoffMinutes } from "./lib/retry";
-import { validateUazapiCredentials } from "./lib/uazapi";
-import { processJob, batchPreload, flushAuditLogs, ProcessJobContext } from "./warmup-processor";
+import { config } from "./core/config";
+import { getDb } from "./core/db";
+import { createLogger } from "./core/logger";
+import { DeviceLockManager } from "./core/device-lock-manager";
+import { acquireGlobalSlot, releaseGlobalSlot, getGlobalConcurrencyStats } from "./core/global-semaphore";
+import { workerMetrics } from "./core/worker-metrics";
+import { getCircuitBreakerStats } from "./core/circuit-breaker";
+import { isWithinOperatingWindow, getBrtTodayAt } from "./utils/brt";
+import { massInjectTick, getMassInjectStatus, lastMassInjectTickAt } from "./workers/mass-inject-worker";
+import { campaignWorkerTick, getCampaignWorkerStatus, lastCampaignWorkerTickAt } from "./workers/campaign-worker";
+import { groupInteractionTick, getGroupInteractionStatus, lastGroupInteractionTickAt } from "./workers/group-interaction-worker";
+import { chipConversationTick, getChipConvStatus, lastChipConvTickAt } from "./workers/chip-conversation-worker";
+import { groupJoinTick, getGroupJoinStatus, lastGroupJoinTickAt } from "./workers/group-join-worker";
+import { welcomeTick, getWelcomeStatus, lastWelcomeTickAt } from "./workers/welcome-worker";
+import { verifyTick, getVerifyStatus, lastVerifyTickAt } from "./workers/verify-worker";
+import { communityTick as communityProcessorTick, getCommunityStatus, lastCommunityTickAt } from "./community/community-processor";
+import { autoreplyTick, getAutoreplyStatus, lastAutoreplyTickAt } from "./autoreply/autoreply-processor";
+import { backoffMinutes } from "./core/retry";
+import { validateUazapiCredentials } from "./integrations/uazapi";
+import { processJob, batchPreload, flushAuditLogs, ProcessJobContext } from "./warmup/warmup-processor";
 // CONNECTED_STATUSES is used from warmup-rules via warmup-processor
 
 const log = createLogger("main");

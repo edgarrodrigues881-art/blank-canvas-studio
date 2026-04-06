@@ -3,19 +3,19 @@
 // Replaces Edge Function delegation with direct processing
 // ══════════════════════════════════════════════════════════
 
-import { createLogger } from "./lib/logger";
-import { getDb } from "./db";
-import { config } from "./config";
-import { isWithinOperatingWindow, getBrtTodayAt, getBrtDateKey } from "./lib/brt";
-import { randInt, pickRandom, generateNaturalMessage, pickMediaTypeGroup, pickMediaTypeCommunity, IMAGE_CAPTIONS, LOCATION_CAPTIONS, FAKE_LOCATIONS, FALLBACK_IMAGES, FALLBACK_AUDIOS, pickFakeLocation } from "./lib/message-generator";
-import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiCheckPhone, fetchLiveGroups } from "./lib/uazapi";
+import { createLogger } from "../core/logger";
+import { getDb } from "../core/db";
+import { config } from "../core/config";
+import { isWithinOperatingWindow, getBrtTodayAt, getBrtDateKey } from "../utils/brt";
+import { randInt, pickRandom, generateNaturalMessage, pickMediaTypeGroup, pickMediaTypeCommunity, IMAGE_CAPTIONS, LOCATION_CAPTIONS, FAKE_LOCATIONS, FALLBACK_IMAGES, FALLBACK_AUDIOS, pickFakeLocation } from "../utils/message-generator";
+import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiCheckPhone, fetchLiveGroups } from "../integrations/uazapi";
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess, getVolumes, getGroupMsgsForDay,
   getAutosaveContactsForDay, getAutosaveRoundsPerContact, getCommunityStartDayForChip,
   getCommunityPeers, getCommunityPeersFromCommunityDay, getMaxPairsForChip,
   CONNECTED_STATUSES, INTERACTION_JOB_TYPES,
-} from "./lib/warmup-rules";
-import { scheduleDayJobs, ensureJoinGroupJobs, ensureNextDailyResetJob } from "./lib/warmup-scheduling";
+} from "./warmup-rules";
+import { scheduleDayJobs, ensureJoinGroupJobs, ensureNextDailyResetJob } from "./warmup-scheduling";
 
 const log = createLogger("warmup-processor");
 
