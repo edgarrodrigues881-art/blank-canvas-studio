@@ -22,6 +22,8 @@ import { welcomeTick, lastWelcomeTickAt } from "./workers/welcome-worker";
 import { verifyTick, lastVerifyTickAt } from "./workers/verify-worker";
 import { communityTick as communityProcessorTick, lastCommunityTickAt } from "./community/community-processor";
 import { autoreplyTick, lastAutoreplyTickAt } from "./autoreply/autoreply-processor";
+import { scheduledMessagesTick, lastScheduledMsgTickAt } from "./workers/scheduled-messages-worker";
+import { syncDevicesTick, lastSyncDevicesTickAt } from "./workers/sync-devices-worker";
 import { backoffMinutes } from "./core/retry";
 import { validateUazapiCredentials } from "./integrations/uazapi";
 import { processJob, batchPreload, flushAuditLogs, ProcessJobContext } from "./warmup/warmup-processor";
