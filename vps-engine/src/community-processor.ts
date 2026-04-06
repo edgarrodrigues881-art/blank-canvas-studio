@@ -287,23 +287,9 @@ async function phaseUpdateEligibility(db: SupabaseClient): Promise<{ updated: nu
       }
     }
 
+    // warmup_managed devices are handled by warmup-processor — skip in community-processor
     if (eligible && m.community_mode === "warmup_managed") {
-      const cycle = cycleMap[m.device_id];
-      if (!cycle) {
-        eligible = false; reason = "no_active_cycle";
-      } else {
-        const startDay = getCommunityStartDay(cycle.chip_state || "new");
-        if ((cycle.day_index || 1) < startDay) {
-          eligible = false; reason = "warmup_day_too_early";
-        } else if (m.community_day < 1) {
-          eligible = false; reason = "community_day_not_started";
-        } else {
-          const target = getPairsTarget(m.community_day);
-          if ((m.pairs_today || 0) >= target.max) {
-            eligible = false; reason = "pairs_limit_reached";
-          }
-        }
-      }
+      eligible = false; reason = "handled_by_warmup_processor";
     }
 
     if (eligible && m.community_mode === "community_only") {
@@ -677,9 +663,10 @@ async function phaseStartSessions(db: SupabaseClient): Promise<{ started: number
 // PHASE 5: MONITOR SESSIONS
 // ══════════════════════════════════════════════════════════
 async function phaseMonitorSessions(db: SupabaseClient): Promise<{ resumed: number }> {
-  const stuckThreshold = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+  // Use 10 min threshold to account for max_delay (90s) + max_pause (180s) + buffer
+  const stuckThreshold = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const { data: stuckSessions } = await db.from("community_sessions")
-    .select("id, device_a, device_b, last_sender, messages_total, target_messages, min_delay_seconds, max_delay_seconds, pause_after_messages_min, pause_after_messages_max, pause_duration_min, pause_duration_max, pair_id, community_mode, user_a, user_b")
+    .select("id, device_a, device_b, last_sender, messages_total, target_messages, min_delay_seconds, max_delay_seconds, pause_after_messages_min, pause_after_messages_max, pause_duration_min, pause_duration_max, pair_id, community_mode, user_a, user_b, last_message_at")
     .eq("status", "active").lt("updated_at", stuckThreshold).limit(5);
 
   let resumed = 0;
@@ -759,6 +746,21 @@ async function executeSessionTurn(
   if (fresh.messages_total >= fresh.target_messages) {
     await finishSession(db, fresh, "target_reached");
     return { success: true, completed: true };
+  }
+
+  // ANTI-FLOOD: Enforce alternation — same sender cannot send twice in a row
+  if (fresh.last_sender === senderDeviceId && fresh.messages_total > 0) {
+    log.warn(`Anti-flood: ${senderDeviceId.slice(0, 8)} tried to send twice in a row, switching to peer`);
+    senderDeviceId = fresh.device_a === senderDeviceId ? fresh.device_b : fresh.device_a;
+  }
+
+  // ANTI-FLOOD: Skip if last message was sent very recently (< 8 seconds ago)
+  if (fresh.last_message_at) {
+    const elapsed = Date.now() - new Date(fresh.last_message_at).getTime();
+    if (elapsed < 8000) {
+      log.warn(`Anti-flood: session ${session.id} last msg ${elapsed}ms ago, skipping duplicate`);
+      return { success: false, error: "too_fast" };
+    }
   }
 
   const { data: sender } = await db.from("devices")
