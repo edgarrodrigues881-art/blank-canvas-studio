@@ -156,6 +156,7 @@ export function useConversations() {
       .from("conversations")
       .select("*, devices!conversations_device_id_fkey(name)")
       .eq("user_id", user.id)
+      .neq("status", "archived")
       .order("last_message_at", { ascending: false });
 
     if (error) {
