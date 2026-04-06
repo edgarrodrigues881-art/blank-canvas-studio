@@ -43,19 +43,6 @@ const INTENSITY_PRESETS: Record<string, {
 export { INTENSITY_PRESETS };
 
 // ── Chip & Progression ──
-function getCommunityStartDay(chipState: string): number {
-  if (chipState === "unstable") return 9;
-  if (chipState === "recovered") return 7;
-  return 6;
-}
-
-function getPairsTarget(communityDay: number): { min: number; max: number } {
-  if (communityDay <= 1) return { min: 1, max: 3 };
-  if (communityDay === 2) return { min: 2, max: 5 };
-  if (communityDay === 3) return { min: 4, max: 7 };
-  if (communityDay <= 6) return { min: 5, max: 8 };
-  return { min: 6, max: 10 };
-}
 
 // ── BRT Window ──
 function isWithinWindow(startHour: string, endHour: string, activeDays: string[]): boolean {
