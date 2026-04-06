@@ -748,6 +748,21 @@ async function executeSessionTurn(
     return { success: true, completed: true };
   }
 
+  // ANTI-FLOOD: Enforce alternation — same sender cannot send twice in a row
+  if (fresh.last_sender === senderDeviceId && fresh.messages_total > 0) {
+    log.warn(`Anti-flood: ${senderDeviceId.slice(0, 8)} tried to send twice in a row, switching to peer`);
+    senderDeviceId = fresh.device_a === senderDeviceId ? fresh.device_b : fresh.device_a;
+  }
+
+  // ANTI-FLOOD: Skip if last message was sent very recently (< 8 seconds ago)
+  if (fresh.last_message_at) {
+    const elapsed = Date.now() - new Date(fresh.last_message_at).getTime();
+    if (elapsed < 8000) {
+      log.warn(`Anti-flood: session ${session.id} last msg ${elapsed}ms ago, skipping duplicate`);
+      return { success: false, error: "too_fast" };
+    }
+  }
+
   const { data: sender } = await db.from("devices")
     .select("id, number, uazapi_token, uazapi_base_url, user_id, name, status")
     .eq("id", senderDeviceId).maybeSingle();
