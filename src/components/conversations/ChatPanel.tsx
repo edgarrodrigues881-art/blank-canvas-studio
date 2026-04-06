@@ -222,9 +222,9 @@ export function ChatPanel({
   const {
     input, setInput, textareaRef, handleSend, handleKeyDown, handlePaste,
     replyTo, setReplyTo,
-    showQuickReplies, setShowQuickReplies, quickReplySearch, getFilteredQuickReplies, handleQuickReply,
+    showQuickReplies, setShowQuickReplies, getFilteredQuickReplies, handleQuickReply,
     pendingFile, pendingPreview, sendingFile, imageInputRef, fileInputRef,
-    handleFileSelected, handleImageInput, handleDocInput, cancelPendingFile, sendPendingFile,
+    handleImageInput, handleDocInput, cancelPendingFile, sendPendingFile,
     isRecording, recordingTime, sendingAudio, startRecording, stopAndSend, cancelRecording,
   } = send;
 
