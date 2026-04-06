@@ -709,13 +709,25 @@ export function useConversations() {
           const row = payload.new as any;
           setConversations((prev) => {
             const exists = prev.some((c) => c.id === row.id);
-            if (!exists) return upsertConversationInState(prev, row);
+            const isSelectedConversation = row.id === selectedConvIdRef.current;
+            const selectedConversation = prev.find((c) => c.id === selectedConvIdRef.current);
+            const selectedKey = selectedConversation ? getConversationContactKey(selectedConversation) : "";
+            const rowKey = getConversationContactKey(row);
+            const shouldKeepRead = Boolean(selectedKey && rowKey && selectedKey === rowKey);
+
+            if (!exists) {
+              return upsertConversationInState(prev, {
+                ...row,
+                unread_count: isSelectedConversation || shouldKeepRead ? 0 : row.unread_count,
+              });
+            }
+
             return sortConversations(
               prev.map((c) => c.id === row.id ? {
                 ...c,
                 last_message: row.last_message ?? c.last_message,
                 last_message_at: row.last_message_at ?? c.last_message_at,
-                unread_count: row.unread_count ?? c.unread_count,
+                unread_count: isSelectedConversation || shouldKeepRead ? 0 : (row.unread_count ?? c.unread_count),
                 name: row.name ?? c.name,
                 avatar_url: row.avatar_url ?? c.avatar_url,
                 attending_status: row.attending_status ?? c.attending_status,
