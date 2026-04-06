@@ -307,7 +307,7 @@ export function AppSidebar() {
           );
         })}
 
-        {/* ── Aquecimento section with folders ── */}
+        {(!shouldHideSection || hasAnyPermission(["/dashboard/warmup-v2", "/dashboard/proxy", "/dashboard/chip-conversation", "/dashboard/group-interaction"])) && (
         <SidebarGroup className="py-0 mt-1">
           {!collapsed && (
             <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
