@@ -8,9 +8,9 @@ import { randInt } from "../utils/message-generator";
 // ── Phase rules ──
 
 export function getGroupsEndDay(chipState: string): number {
-  if (chipState === "unstable") return 6;
-  if (chipState === "recovered") return 5;
-  return 2; // new: day 1 = rest, day 2 = groups, day 3 = autosave starts
+  if (chipState === "unstable") return 4; // autosave dia 5
+  if (chipState === "recovered") return 3; // autosave dia 4
+  return 2; // new: autosave dia 3
 }
 
 export function getCommunityRampEnd(chipState: string): number {
