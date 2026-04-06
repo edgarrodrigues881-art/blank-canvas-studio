@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -9,42 +9,22 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import {
-  Bot,
-  Building2,
-  BookOpen,
-  Headset,
-  Brain,
-  ShieldCheck,
-  Upload,
-  Plus,
-  Trash2,
-  Sparkles,
-  Key,
-  CheckCircle2,
-  AlertTriangle,
-  Eye,
-  EyeOff,
-  Loader2,
-  Send,
-  FileText,
-  File,
-  Power,
+  Bot, Building2, BookOpen, Headset, Brain, ShieldCheck, Upload, Plus, Trash2,
+  Sparkles, Key, CheckCircle2, AlertTriangle, Eye, EyeOff, Loader2, Send,
+  FileText, File, Power, Save,
 } from "lucide-react";
 
 interface KnowledgeDoc {
-  id: string;
-  title: string;
-  type: string;
-  fileName: string;
-  active: boolean;
-  addedAt: string;
+  id: string; title: string; type: string; fileName: string; active: boolean; addedAt: string;
 }
 
 const AISettings = () => {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [iaActive, setIaActive] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
@@ -66,17 +46,110 @@ const AISettings = () => {
   const [maxResponseLength, setMaxResponseLength] = useState("medium");
   const [blockSensitive, setBlockSensitive] = useState(true);
   const [requireHumanForSale, setRequireHumanForSale] = useState(true);
-  const [pauseWords, setPauseWords] = useState("parar, atendente");
+  const [pauseWords, setPauseWords] = useState("parar, atendente, humano");
   const [reactivateWords, setReactivateWords] = useState("voltar, continuar");
   const [fallbackImage, setFallbackImage] = useState("Não consigo ver imagens, descreva por texto");
   const [fallbackAudio, setFallbackAudio] = useState("Não consigo ouvir áudios, pode escrever?");
   const [autoTransferHuman, setAutoTransferHuman] = useState(false);
+  const [minDelay, setMinDelay] = useState(1);
+  const [maxDelay, setMaxDelay] = useState(3);
   const [knowledgeDocs, setKnowledgeDocs] = useState<KnowledgeDoc[]>([]);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState("");
   const [newDocType, setNewDocType] = useState("pdf");
   const [newDocFile, setNewDocFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load settings from DB
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setLoading(false); return; }
+
+      const { data } = await supabase
+        .from("ai_settings")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (data) {
+        setIaActive(data.ia_active);
+        setApiKey(data.api_key || "");
+        setAiModel(data.ai_model);
+        setTone(data.tone);
+        setResponseStyle(data.response_style);
+        setAiInstructions(data.ai_instructions || "");
+        setBusinessName(data.business_name || "");
+        setBusinessType(data.business_type || "");
+        setBusinessHours(data.business_hours || "");
+        setBusinessSegment(data.business_segment || "");
+        setBusinessDescription(data.business_description || "");
+        setFallbackImage(data.fallback_image || "");
+        setFallbackAudio(data.fallback_audio || "");
+        setPauseWords(data.pause_words || "");
+        setReactivateWords(data.reactivate_words || "");
+        setAutoTransferHuman(data.auto_transfer_human);
+        setSimulateTyping(data.simulate_typing);
+        setSplitLongMessages(data.split_long_messages);
+        setConversationMemory(data.conversation_memory);
+        setMinDelay(data.min_delay_seconds);
+        setMaxDelay(data.max_delay_seconds);
+        setBlockSensitive(data.block_sensitive);
+        setRequireHumanForSale(data.require_human_for_sale);
+        setCreativity([data.creativity]);
+        setMaxResponseLength(data.max_response_length);
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { toast.error("Não autenticado"); return; }
+
+      const payload = {
+        user_id: user.id,
+        ia_active: iaActive,
+        api_key: apiKey,
+        ai_model: aiModel,
+        tone,
+        response_style: responseStyle,
+        ai_instructions: aiInstructions,
+        business_name: businessName,
+        business_type: businessType,
+        business_hours: businessHours,
+        business_segment: businessSegment,
+        business_description: businessDescription,
+        fallback_image: fallbackImage,
+        fallback_audio: fallbackAudio,
+        pause_words: pauseWords,
+        reactivate_words: reactivateWords,
+        auto_transfer_human: autoTransferHuman,
+        simulate_typing: simulateTyping,
+        split_long_messages: splitLongMessages,
+        conversation_memory: conversationMemory,
+        min_delay_seconds: minDelay,
+        max_delay_seconds: maxDelay,
+        block_sensitive: blockSensitive,
+        require_human_for_sale: requireHumanForSale,
+        creativity: creativity[0],
+        max_response_length: maxResponseLength,
+      };
+
+      const { error } = await supabase
+        .from("ai_settings")
+        .upsert(payload, { onConflict: "user_id" });
+
+      if (error) throw error;
+      toast.success("Configurações salvas com sucesso!");
+    } catch (err: any) {
+      toast.error("Erro ao salvar: " + (err.message || "Erro desconhecido"));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const apiKeyStatus: "empty" | "valid" | "invalid" = !apiKey
     ? "empty"
@@ -90,9 +163,27 @@ const AISettings = () => {
       return;
     }
     setTestingAi(true);
-    await new Promise((r) => setTimeout(r, 2000));
-    setTestingAi(false);
-    toast.success("IA respondeu com sucesso! Conexão funcionando.");
+    try {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: aiModel,
+          messages: [{ role: "user", content: "Responda com 'OK' apenas." }],
+          max_tokens: 5,
+        }),
+      });
+      if (res.ok) {
+        toast.success("IA respondeu com sucesso! Conexão funcionando.");
+      } else {
+        const data = await res.json();
+        toast.error("Erro: " + (data.error?.message || `HTTP ${res.status}`));
+      }
+    } catch (e: any) {
+      toast.error("Falha na conexão: " + e.message);
+    } finally {
+      setTestingAi(false);
+    }
   };
 
   const handleAddDoc = () => {
@@ -125,6 +216,14 @@ const AISettings = () => {
     toast.success("Documento removido");
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
@@ -138,7 +237,10 @@ const AISettings = () => {
             <p className="text-sm text-muted-foreground">Configure o atendimento automático com IA</p>
           </div>
         </div>
-        <Button size="sm">Salvar Configurações</Button>
+        <Button size="sm" onClick={handleSave} disabled={saving} className="gap-2">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Salvar Configurações
+        </Button>
       </div>
 
       {/* Toggle principal */}
@@ -185,7 +287,6 @@ const AISettings = () => {
                 </button>
               </div>
             </div>
-            {/* Status */}
             <div className="flex items-center gap-2 mt-1">
               {apiKeyStatus === "valid" && (
                 <Badge variant="outline" className="border-emerald-500/50 text-emerald-400 gap-1">
@@ -208,25 +309,41 @@ const AISettings = () => {
           <div className="space-y-2">
             <Label>Modelo</Label>
             <Select value={aiModel} onValueChange={setAiModel}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="gpt-4o-mini">GPT-4o Mini (rápido)</SelectItem>
                 <SelectItem value="gpt-4o">GPT-4o (mais inteligente)</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleTestAi}
-            disabled={testingAi || apiKeyStatus !== "valid"}
-            className="gap-2"
-          >
+          <Button variant="outline" size="sm" onClick={handleTestAi} disabled={testingAi || apiKeyStatus !== "valid"} className="gap-2">
             {testingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Testar IA
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Delay de resposta */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Bot className="h-4 w-4 text-primary" />
+            <CardTitle className="text-base">Delay de Resposta</CardTitle>
+          </div>
+          <CardDescription>Tempo de espera antes de enviar a resposta (simula digitação)</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Mínimo (segundos)</Label>
+              <Input type="number" min={0} max={10} value={minDelay} onChange={(e) => setMinDelay(Number(e.target.value))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Máximo (segundos)</Label>
+              <Input type="number" min={0} max={30} value={maxDelay} onChange={(e) => setMaxDelay(Number(e.target.value))} />
+            </div>
+          </div>
+          <p className="text-[10px] text-muted-foreground">A IA esperará entre {minDelay}s e {maxDelay}s antes de responder, para parecer mais natural</p>
         </CardContent>
       </Card>
 
@@ -240,13 +357,10 @@ const AISettings = () => {
           <CardDescription>Ajuste personalidade, tom e estilo de resposta</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* Tom de voz */}
           <div className="space-y-2">
             <Label>Tom de voz</Label>
             <Select value={tone} onValueChange={setTone}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="friendly">Amigável</SelectItem>
                 <SelectItem value="professional">Profissional</SelectItem>
@@ -254,8 +368,6 @@ const AISettings = () => {
               </SelectContent>
             </Select>
           </div>
-
-          {/* Instruções da IA */}
           <div className="space-y-2">
             <Label>Instruções da IA</Label>
             <Textarea
@@ -266,8 +378,6 @@ const AISettings = () => {
             />
             <p className="text-[10px] text-muted-foreground">Descreva como a IA deve se comportar durante o atendimento</p>
           </div>
-
-          {/* Estilo de resposta */}
           <div className="space-y-2">
             <Label>Estilo de resposta</Label>
             <div className="grid grid-cols-3 gap-2">
@@ -291,8 +401,6 @@ const AISettings = () => {
               ))}
             </div>
           </div>
-
-          {/* Toggles */}
           <div className="space-y-3 pt-1">
             <div className="flex items-center justify-between">
               <div>
@@ -304,7 +412,7 @@ const AISettings = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-foreground">Simular digitando</p>
-                <p className="text-xs text-muted-foreground">Mostra "digitando..." antes de responder</p>
+                <p className="text-xs text-muted-foreground">Adiciona delay antes de responder</p>
               </div>
               <Switch checked={simulateTyping} onCheckedChange={setSimulateTyping} />
             </div>
@@ -316,8 +424,6 @@ const AISettings = () => {
               <Switch checked={conversationMemory} onCheckedChange={setConversationMemory} />
             </div>
           </div>
-
-          {/* Preview */}
           <div className="space-y-2 pt-2">
             <Label className="text-xs text-muted-foreground">Preview de resposta</Label>
             <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
@@ -351,9 +457,7 @@ const AISettings = () => {
           <div className="space-y-2">
             <Label>Tipo de negócio</Label>
             <Select value={businessType} onValueChange={setBusinessType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o tipo..." />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Selecione o tipo..." /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="ecommerce">E-commerce</SelectItem>
                 <SelectItem value="servicos">Prestação de Serviços</SelectItem>
@@ -372,9 +476,10 @@ const AISettings = () => {
             <Label>Horário de atendimento</Label>
             <Input value={businessHours} onChange={(e) => setBusinessHours(e.target.value)} placeholder="Ex: Seg-Sex 08:00 às 18:00" />
           </div>
-          <Button size="sm" className="gap-2" onClick={() => toast.success("Informações salvas com sucesso!")}>
-            Salvar informações
-          </Button>
+          <div className="space-y-2">
+            <Label>Descrição do negócio</Label>
+            <Textarea value={businessDescription} onChange={(e) => setBusinessDescription(e.target.value)} placeholder="Descreva brevemente o que sua empresa faz..." rows={3} />
+          </div>
         </CardContent>
       </Card>
 
@@ -411,13 +516,7 @@ const AISettings = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={`h-7 w-7 ${doc.active ? "text-emerald-400" : "text-muted-foreground/40"}`}
-                      onClick={() => toggleDocActive(doc.id)}
-                      title={doc.active ? "Ativo" : "Inativo"}
-                    >
+                    <Button variant="ghost" size="icon" className={`h-7 w-7 ${doc.active ? "text-emerald-400" : "text-muted-foreground/40"}`} onClick={() => toggleDocActive(doc.id)} title={doc.active ? "Ativo" : "Inativo"}>
                       <Power className="h-3.5 w-3.5" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeDoc(doc.id)}>
@@ -434,9 +533,7 @@ const AISettings = () => {
       {/* Modal de Upload */}
       <Dialog open={uploadModalOpen} onOpenChange={setUploadModalOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Adicionar Documento</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Adicionar Documento</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Título do documento</Label>
@@ -445,9 +542,7 @@ const AISettings = () => {
             <div className="space-y-2">
               <Label>Tipo de documento</Label>
               <Select value={newDocType} onValueChange={setNewDocType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pdf">PDF</SelectItem>
                   <SelectItem value="txt">TXT</SelectItem>
@@ -457,13 +552,7 @@ const AISettings = () => {
             </div>
             <div className="space-y-2">
               <Label>Arquivo</Label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.txt,.docx"
-                className="hidden"
-                onChange={(e) => setNewDocFile(e.target.files?.[0] || null)}
-              />
+              <input ref={fileInputRef} type="file" accept=".pdf,.txt,.docx" className="hidden" onChange={(e) => setNewDocFile(e.target.files?.[0] || null)} />
               <Button variant="outline" className="w-full gap-2 justify-center" onClick={() => fileInputRef.current?.click()}>
                 <Upload className="h-4 w-4" />
                 {newDocFile ? newDocFile.name : "Selecionar arquivo"}
@@ -490,20 +579,8 @@ const AISettings = () => {
           <TooltipProvider>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[
-                {
-                  value: "knowledge",
-                  label: "Base de Conhecimento",
-                  desc: "IA responde perguntas usando os documentos cadastrados",
-                  tooltip: "A IA consulta seus documentos (PDFs, TXTs, DOCXs) para formular respostas precisas baseadas nas informações do seu negócio.",
-                  recommended: true,
-                },
-                {
-                  value: "scheduling",
-                  label: "Agendamentos",
-                  desc: "IA foca em marcar horários e compromissos",
-                  tooltip: "A IA conduz a conversa para agendar horários, confirmando disponibilidade e registrando compromissos automaticamente.",
-                  recommended: false,
-                },
+                { value: "knowledge", label: "Base de Conhecimento", desc: "IA responde perguntas usando os documentos cadastrados", tooltip: "A IA consulta seus documentos para formular respostas precisas.", recommended: true },
+                { value: "scheduling", label: "Agendamentos", desc: "IA foca em marcar horários e compromissos", tooltip: "A IA conduz a conversa para agendar horários automaticamente.", recommended: false },
               ].map((mode) => {
                 const isSelected = attendanceMode.includes(mode.value);
                 return (
@@ -513,37 +590,25 @@ const AISettings = () => {
                         onClick={() => {
                           setAttendanceMode((prev: string) => {
                             const modes = prev ? prev.split(",").filter(Boolean) : [];
-                            if (modes.includes(mode.value)) {
-                              return modes.filter((m) => m !== mode.value).join(",");
-                            }
+                            if (modes.includes(mode.value)) return modes.filter((m) => m !== mode.value).join(",");
                             return [...modes, mode.value].join(",");
                           });
                         }}
-                        className={`rounded-lg border p-4 text-left transition-all relative ${
-                          isSelected
-                            ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                            : "border-border/50 hover:border-border"
-                        }`}
+                        className={`rounded-lg border p-4 text-left transition-all relative ${isSelected ? "border-primary bg-primary/10 ring-1 ring-primary/30" : "border-border/50 hover:border-border"}`}
                       >
                         <div className="flex items-start gap-3">
                           <Checkbox checked={isSelected} className="mt-0.5 pointer-events-none" />
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="font-medium text-sm text-foreground">{mode.label}</p>
-                              {mode.recommended && (
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary">
-                                  Recomendado
-                                </Badge>
-                              )}
+                              {mode.recommended && <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary">Recomendado</Badge>}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">{mode.desc}</p>
                           </div>
                         </div>
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[260px] text-xs">
-                      {mode.tooltip}
-                    </TooltipContent>
+                    <TooltipContent side="top" className="max-w-[260px] text-xs">{mode.tooltip}</TooltipContent>
                   </Tooltip>
                 );
               })}
@@ -589,56 +654,29 @@ const AISettings = () => {
           <CardDescription>Palavras-chave e respostas de fallback</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* Palavras para pausar */}
           <div className="space-y-2">
             <Label>Palavras para pausar a IA</Label>
-            <Input
-              value={pauseWords}
-              onChange={(e) => setPauseWords(e.target.value)}
-              placeholder='Ex: parar, atendente, humano'
-            />
+            <Input value={pauseWords} onChange={(e) => setPauseWords(e.target.value)} placeholder='Ex: parar, atendente, humano' />
             <p className="text-[10px] text-muted-foreground">Quando o cliente digitar uma dessas palavras, a IA para de responder</p>
           </div>
-
-          {/* Palavras para reativar */}
           <div className="space-y-2">
             <Label>Palavras para reativar a IA</Label>
-            <Input
-              value={reactivateWords}
-              onChange={(e) => setReactivateWords(e.target.value)}
-              placeholder='Ex: voltar, continuar, ia'
-            />
+            <Input value={reactivateWords} onChange={(e) => setReactivateWords(e.target.value)} placeholder='Ex: voltar, continuar, ia' />
             <p className="text-[10px] text-muted-foreground">Quando o cliente digitar uma dessas palavras, a IA volta a responder</p>
           </div>
-
-          {/* Respostas de fallback */}
           <div className="space-y-3">
             <Label>Respostas de fallback</Label>
             <div className="space-y-2">
               <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">Imagem</Badge>
-                </div>
-                <Input
-                  value={fallbackImage}
-                  onChange={(e) => setFallbackImage(e.target.value)}
-                  className="text-sm"
-                />
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0">Imagem</Badge>
+                <Input value={fallbackImage} onChange={(e) => setFallbackImage(e.target.value)} className="text-sm" />
               </div>
               <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">Áudio</Badge>
-                </div>
-                <Input
-                  value={fallbackAudio}
-                  onChange={(e) => setFallbackAudio(e.target.value)}
-                  className="text-sm"
-                />
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0">Áudio</Badge>
+                <Input value={fallbackAudio} onChange={(e) => setFallbackAudio(e.target.value)} className="text-sm" />
               </div>
             </div>
           </div>
-
-          {/* Toggle transferir */}
           <div className="flex items-center justify-between pt-1">
             <div>
               <p className="text-sm font-medium text-foreground">Transferir para humano automaticamente</p>
