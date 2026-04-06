@@ -828,7 +828,29 @@ export function useConversations() {
           const newMsg = payload.new as RealMessage;
           if (newMsg.conversation_id === selectedConvIdRef.current) {
             setMessages((prev) => {
+              // Skip if already exists by ID
               if (prev.some((m) => m.id === newMsg.id)) return prev;
+              // Skip if it's an optimistic duplicate (sent message with same content within 30s)
+              if (newMsg.direction === "sent") {
+                const newTime = new Date(newMsg.created_at).getTime();
+                const isDuplicate = prev.some((m) =>
+                  m.direction === "sent" &&
+                  m.content === newMsg.content &&
+                  m.conversation_id === newMsg.conversation_id &&
+                  Math.abs(new Date(m.created_at).getTime() - newTime) < 30000
+                );
+                if (isDuplicate) {
+                  // Replace the optimistic entry's ID with the real one
+                  return prev.map((m) =>
+                    m.direction === "sent" &&
+                    m.content === newMsg.content &&
+                    m.conversation_id === newMsg.conversation_id &&
+                    Math.abs(new Date(m.created_at).getTime() - newTime) < 30000
+                      ? { ...m, id: newMsg.id, status: newMsg.status || m.status }
+                      : m
+                  );
+                }
+              }
               return [...prev, newMsg];
             });
           }
