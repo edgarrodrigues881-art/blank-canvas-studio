@@ -812,8 +812,20 @@ export function ChatPanel({
             )}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className={cn("w-1.5 h-1.5 rounded-full", currentStatusCfg.dot)} />
-            <span className={cn("text-[11px] font-medium", currentStatusCfg.color)}>{currentStatusCfg.label}</span>
+            <span className={cn("w-2 h-2 rounded-full", currentStatusCfg.dot)} />
+            <span className={cn("text-[11px] font-bold", currentStatusCfg.textStrong)}>{currentStatusCfg.label}</span>
+            <span className="text-[10px] text-muted-foreground/50">•</span>
+            <span className="text-[10px] text-muted-foreground/60 flex items-center gap-0.5">
+              <Clock className="w-3 h-3" />
+              há {timeInStatus}
+            </span>
+            <button
+              onClick={() => setShowStatusHistory(!showStatusHistory)}
+              className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground transition-colors ml-1"
+              title="Histórico de status"
+            >
+              <History className="w-3 h-3" />
+            </button>
           </div>
           {/* Assignment badge */}
           <div className="flex items-center gap-1 mt-0.5">
@@ -835,17 +847,17 @@ export function ChatPanel({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className={cn("flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors", currentStatusCfg.bg, currentStatusCfg.color)}>
-              <span className={cn("w-1.5 h-1.5 rounded-full", currentStatusCfg.dot)} />
+            <button className={cn("flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-colors shadow-sm", currentStatusCfg.bg, currentStatusCfg.textStrong)}>
+              <span className={cn("w-2 h-2 rounded-full", currentStatusCfg.dot)} />
               {currentStatusCfg.label}
               <ChevronDown className="w-3 h-3" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[160px]">
+          <DropdownMenuContent align="end" className="min-w-[180px]">
             {(Object.entries(attendingStatusConfig) as [AttendingStatus, typeof currentStatusCfg][]).map(([key, cfg]) => (
-              <DropdownMenuItem key={key} onClick={() => { setCurrentStatus(key); onStatusChange?.(conversation.id, key); }} className={cn("gap-2 text-xs cursor-pointer", currentStatus === key && "bg-muted")}>
-                <span className={cn("w-2 h-2 rounded-full shrink-0", cfg.dot)} />
-                <span className={cfg.color}>{cfg.label}</span>
+              <DropdownMenuItem key={key} onClick={() => { setCurrentStatus(key); onStatusChange?.(conversation.id, key); }} className={cn("gap-2 text-xs cursor-pointer", currentStatus === key && "bg-muted font-bold")}>
+                <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", cfg.dot)} />
+                <span className={cn("font-semibold", cfg.textStrong)}>{cfg.label}</span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
