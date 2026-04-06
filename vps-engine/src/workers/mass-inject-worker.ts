@@ -164,14 +164,6 @@ function normalizeProviderConnectionState(payload: any): "connected" | "disconne
   return "unknown";
 }
 
-function normalizePhone(raw: string): string | null {
-  const digits = String(raw || "").replace(/\D/g, "");
-  if (digits.length < 10 || digits.length > 15) return null;
-  const phone = digits.startsWith("55") ? digits : `55${digits}`;
-  if (phone.length < 12 || phone.length > 13) return null;
-  return phone;
-}
-
 function buildPhoneFingerprints(raw: string): string[] {
   const digits = String(raw || "").replace(/\D/g, "").replace(/@.*/, "");
   if (!digits) return [];
