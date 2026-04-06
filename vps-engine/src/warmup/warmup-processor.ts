@@ -4,7 +4,7 @@
 // ══════════════════════════════════════════════════════════
 
 import { createLogger } from "../core/logger";
-import { getDb } from "../core/db";
+
 import { config } from "../core/config";
 import { isWithinOperatingWindow, getBrtTodayAt, getBrtDateKey } from "../utils/brt";
 import { randInt, pickRandom, generateNaturalMessage, pickMediaTypeGroup, pickMediaTypeCommunity, IMAGE_CAPTIONS, LOCATION_CAPTIONS, FAKE_LOCATIONS, FALLBACK_IMAGES, FALLBACK_AUDIOS, pickFakeLocation } from "../utils/message-generator";
