@@ -88,6 +88,10 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
       || Date.now() < autoSyncBlockedUntilRef.current;
   }, []);
 
+  const shouldSkipIntervalSync = useCallback(() => {
+    return shouldSkipSync() || Date.now() < intervalBlockedUntilRef.current;
+  }, [shouldSkipSync]);
+
   // ── Realtime subscription for instant status changes ──
   useEffect(() => {
     if (!session?.user?.id) return;
