@@ -922,11 +922,15 @@ export function ChatPanel({
               <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-foreground"><MoreVertical className="w-4 h-4" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Marcar como não lida</DropdownMenuItem>
-              <DropdownMenuItem>Silenciar</DropdownMenuItem>
-              <DropdownMenuItem>Arquivar</DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">Bloquear contato</DropdownMenuItem>
-              <DropdownMenuItem onClick={onBack} className="text-destructive font-semibold">Fechar conversa</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onMarkUnread?.(conversation.id)} className="gap-2 cursor-pointer">
+                <MailOpen className="w-4 h-4" /> Marcar como não lida
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { onArchive?.(conversation.id); onBack(); }} className="gap-2 cursor-pointer">
+                <Archive className="w-4 h-4" /> Arquivar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onBack} className="text-destructive font-semibold gap-2 cursor-pointer">
+                <X className="w-4 h-4" /> Fechar conversa
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
