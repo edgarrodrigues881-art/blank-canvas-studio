@@ -947,6 +947,8 @@ async function mainLoop() {
     verify: false,
     community: false,
     autoreply: false,
+    scheduledMsg: false,
+    syncDevices: false,
   };
 
   function guardedLoop(
