@@ -87,9 +87,16 @@ Deno.serve(async (req) => {
     console.log(`Device matched: ${device.name} (${device.id})`);
 
     // ── Handle message events ──
+    // Skip only messages sent by our own API (not phone-sent messages)
     if (isApiSentMessage(body)) {
       console.log("Skipping wasSentByApi");
       return json({ ok: true, skipped: "sent_by_api" });
+    }
+
+    // Also skip status/receipt updates that aren't actual messages
+    const eventType = (body.event || body.EventType || body.type || "").toString().toLowerCase();
+    if (eventType.includes("status") || eventType.includes("ack") || eventType.includes("receipt") || eventType.includes("presence")) {
+      return json({ ok: true, skipped: "status_event" });
     }
 
     const parsed = extractConversationEvent(body);
@@ -309,9 +316,12 @@ async function handleSetupWebhooks(req: Request, admin: any, _body: any) {
       url: webhookUrl,
       enabled: true,
       events: ["messages"],
-      excludeMessages: ["wasSentByApi", "isGroupYes"],
+      excludeMessages: ["isGroupYes"],
       addUrlEvents: true,
       addUrlTypesMessages: true,
+      fromMe: true,
+      sendFromMe: true,
+      allMessages: true,
       headers: webhookHeaders,
     };
 

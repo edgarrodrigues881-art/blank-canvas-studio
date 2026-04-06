@@ -203,14 +203,37 @@ export function useConversationSync() {
     }
   }, [syncing, fetchConversations, getToken, projectId]);
 
-  // ─── Select conversation ───
+  // ─── Select conversation + fetch fresh messages from UAZAPI ───
   const selectConversation = useCallback((convId: string | null) => {
     setSelectedConvId(convId);
     setMessages([]);
     if (convId) {
       fetchMessages(convId);
+
+      // Background: pull fresh messages (sent + received) from UAZAPI
+      (async () => {
+        try {
+          const token = await getToken();
+          if (!token) return;
+          const resp = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/sync-conversations`,
+            {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ conversation_id: convId }),
+            }
+          );
+          const result = await resp.json();
+          if (result.synced > 0) {
+            console.log(`[conv-sync] ${result.synced} new messages synced`);
+            fetchMessages(convId);
+          }
+        } catch (e) {
+          console.log("[conv-sync] skipped:", e);
+        }
+      })();
     }
-  }, [fetchMessages]);
+  }, [fetchMessages, getToken, projectId]);
 
   // ─── Initial load + auto background sync ───
   const hasSyncedRef = useRef(false);
