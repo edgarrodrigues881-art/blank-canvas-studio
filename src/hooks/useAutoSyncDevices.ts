@@ -140,7 +140,8 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
 
   // ── Shared sync function exposed for manual trigger ──
   const doSync = useCallback(async (trigger: "interval" | "startup" | "visibility" | "online" = "interval") => {
-    if (document.hidden || shouldSkipSync()) {
+    const skipBecauseBlocked = trigger === "interval" ? shouldSkipIntervalSync() : shouldSkipSync();
+    if (document.hidden || skipBecauseBlocked) {
       queuedSync = false;
       return;
     }
