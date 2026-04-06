@@ -841,6 +841,7 @@ export function ChatPanel({
       </div>
 
       <QuickRepliesManager open={showQRManager} onOpenChange={setShowQRManager} />
+      {lightboxUrl && <ImageLightbox src={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
     </div>
   );
 }
