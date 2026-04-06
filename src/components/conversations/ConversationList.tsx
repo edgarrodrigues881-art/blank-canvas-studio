@@ -134,10 +134,15 @@ export function ConversationList({
   onSelect,
   onNewConversationClick,
   currentUserId,
+  archivedConversations = [],
+  onUnarchive,
 }: ConversationListProps) {
   const [activeStatus, setActiveStatus] = useState<StatusTab>("all");
 
-  const filtered = conversations.filter((c) => {
+  const baseList = activeStatus === "archived" ? archivedConversations : conversations;
+
+  const filtered = baseList.filter((c) => {
+    if (activeStatus === "archived") return true;
     if (activeStatus === "all") return true;
     if (activeStatus === "mine") return c.assignedTo === currentUserId;
     if (activeStatus === "new") return c.unreadCount > 0;
@@ -147,6 +152,7 @@ export function ConversationList({
   });
 
   const statusCount = (tab: StatusTab) => {
+    if (tab === "archived") return archivedConversations.length;
     if (tab === "all") return conversations.length;
     if (tab === "mine") return conversations.filter((c) => c.assignedTo === currentUserId).length;
     if (tab === "new") return conversations.filter((c) => c.unreadCount > 0).length;
