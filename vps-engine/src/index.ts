@@ -1034,6 +1034,13 @@ async function mainLoop() {
     guardedLoop("verify", async () => {
       await verifyTick();
     }, 15_000)(),
+
+    guardedLoop("community" as any, async () => {
+      const db = getDb();
+      const result = await communityProcessorTick(db);
+      const mod = await import("./community-processor");
+      mod.lastCommunityTickAt = new Date();
+    }, config.communityTickMs)(),
   ]);
 }
 
