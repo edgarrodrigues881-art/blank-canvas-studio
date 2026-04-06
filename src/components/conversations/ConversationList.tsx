@@ -117,6 +117,7 @@ export function ConversationList({
 
   const statusCount = (tab: StatusTab) => {
     if (tab === "all") return conversations.length;
+    if (tab === "mine") return conversations.filter((c) => c.assignedTo === currentUserId).length;
     if (tab === "new") return conversations.filter((c) => c.unreadCount > 0).length;
     if (tab === "attending") return conversations.filter((c) => c.attendingStatus === "em_atendimento").length;
     if (tab === "waiting") return conversations.filter((c) => c.attendingStatus === "aguardando").length;
