@@ -262,7 +262,7 @@ export function ConversationList({
       </div>
 
       <ScrollArea className="flex-1">
-        <div>
+        <div className="pb-14">
           {filtered.length === 0 ? (
             <div className="py-12 text-center text-xs text-muted-foreground">
               Nenhuma conversa encontrada
