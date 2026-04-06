@@ -222,7 +222,7 @@ export function AppSidebar() {
 
     return (
       <SidebarMenuItem key={item.title}>
-        <SidebarMenuButton asChild tooltip={permBlocked ? `${item.title} — Sem permissão` : isLocked ? `${item.title} (Em desenvolvimento)` : item.title}>
+        <SidebarMenuButton asChild tooltip={permBlocked ? `🔒 ${item.title} — Acesso restrito pelo administrador` : isLocked ? `${item.title} (Em desenvolvimento)` : item.title}>
           <NavLink
             to={isLocked ? "#" : item.url}
             onClick={isLocked ? handleClick : undefined}
