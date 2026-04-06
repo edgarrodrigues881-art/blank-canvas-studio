@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
-import { useQuickReplies, resolveVariables, QUICK_REPLY_CATEGORIES } from "@/hooks/useQuickReplies";
+import { useQuickReplies, resolveVariables, QUICK_REPLY_CATEGORIES } from "@/hooks/chat/useQuickReplies";
 import { QuickRepliesManager } from "./QuickRepliesManager";
-import { useSendMessage } from "@/hooks/useSendMessage";
+import { useSendMessage } from "@/hooks/chat/useSendMessage";
 import { MessageBubble } from "./MessageBubble";
 import { ChatHeader } from "./ChatHeader";
 import { supabase } from "@/integrations/supabase/client";

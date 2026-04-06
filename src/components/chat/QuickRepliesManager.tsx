@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuickReplies, type QuickReply, QUICK_REPLY_CATEGORIES } from "@/hooks/useQuickReplies";
+import { useQuickReplies, type QuickReply, QUICK_REPLY_CATEGORIES } from "@/hooks/chat/useQuickReplies";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
