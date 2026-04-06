@@ -20,6 +20,7 @@ export const PERMISSION_KEYS = {
   // CENTRAL DE ATENDIMENTO
   perm_conversations: { label: "Conversas", group: "Central de Atendimento" },
   perm_service_contacts: { label: "Base de Atendimento", group: "Central de Atendimento" },
+  perm_schedules: { label: "Agendamentos", group: "Central de Atendimento" },
   perm_team: { label: "Equipe", group: "Central de Atendimento" },
   perm_ai_settings: { label: "IA", group: "Central de Atendimento" },
   // FERRAMENTAS
