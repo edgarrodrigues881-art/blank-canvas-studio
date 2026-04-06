@@ -28,6 +28,8 @@ const Conversations = () => {
     sendAudioMessage,
     sendFileMessage,
     retryMessage,
+    assignConversation,
+    releaseConversation,
   } = useConversations();
 
   const [showDetails, setShowDetails] = useState(true);

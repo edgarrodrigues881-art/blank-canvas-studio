@@ -855,5 +855,7 @@ export function useConversations() {
     sendFileMessage,
     retryMessage,
     fetchConversations,
+    assignConversation,
+    releaseConversation,
   };
 }
