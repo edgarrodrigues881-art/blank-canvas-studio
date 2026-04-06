@@ -250,7 +250,26 @@ export function useConversations() {
       prev.map((c) => (c.id === convId ? { ...c, attending_status: newStatus } : c))
     );
     await supabase.from("conversations").update({ attending_status: newStatus }).eq("id", convId);
-  }, []);
+
+    // Trigger awaiting automation when status changes to "aguardando"
+    if (newStatus === "aguardando" && user) {
+      const conv = conversationsRef.current.find((c) => c.id === convId);
+      if (conv) {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
+        const token = await getToken();
+        fetch(`https://${projectId}.supabase.co/functions/v1/conversation-automations`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "trigger",
+            user_id: user.id,
+            conversation_id: convId,
+            automation_type: "awaiting",
+          }),
+        }).catch((e) => console.error("Awaiting automation error:", e));
+      }
+    }
+  }, [user, getToken]);
 
   // Update tags
   const updateTags = useCallback(async (convId: string, newTags: string[]) => {

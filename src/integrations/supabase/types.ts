@@ -1725,6 +1725,95 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_automation_logs: {
+        Row: {
+          automation_type: string
+          conversation_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          message_sent: string
+          status: string
+          triggered_at: string
+          user_id: string
+        }
+        Insert: {
+          automation_type: string
+          conversation_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          message_sent: string
+          status?: string
+          triggered_at?: string
+          user_id: string
+        }
+        Update: {
+          automation_type?: string
+          conversation_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          message_sent?: string
+          status?: string
+          triggered_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_automation_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_automations: {
+        Row: {
+          awaiting_delay_minutes: number
+          awaiting_enabled: boolean
+          awaiting_message: string
+          created_at: string
+          followup_enabled: boolean
+          followup_message: string
+          followup_minutes: number
+          id: string
+          updated_at: string
+          user_id: string
+          welcome_enabled: boolean
+          welcome_message: string
+        }
+        Insert: {
+          awaiting_delay_minutes?: number
+          awaiting_enabled?: boolean
+          awaiting_message?: string
+          created_at?: string
+          followup_enabled?: boolean
+          followup_message?: string
+          followup_minutes?: number
+          id?: string
+          updated_at?: string
+          user_id: string
+          welcome_enabled?: boolean
+          welcome_message?: string
+        }
+        Update: {
+          awaiting_delay_minutes?: number
+          awaiting_enabled?: boolean
+          awaiting_message?: string
+          created_at?: string
+          followup_enabled?: boolean
+          followup_message?: string
+          followup_minutes?: number
+          id?: string
+          updated_at?: string
+          user_id?: string
+          welcome_enabled?: boolean
+          welcome_message?: string
+        }
+        Relationships: []
+      }
       conversation_messages: {
         Row: {
           audio_duration: number | null
@@ -1799,6 +1888,8 @@ export type Database = {
           device_id: string | null
           email: string | null
           id: string
+          last_automation_at: string | null
+          last_automation_type: string | null
           last_message: string | null
           last_message_at: string | null
           name: string
@@ -1823,6 +1914,8 @@ export type Database = {
           device_id?: string | null
           email?: string | null
           id?: string
+          last_automation_at?: string | null
+          last_automation_type?: string | null
           last_message?: string | null
           last_message_at?: string | null
           name?: string
@@ -1847,6 +1940,8 @@ export type Database = {
           device_id?: string | null
           email?: string | null
           id?: string
+          last_automation_at?: string | null
+          last_automation_type?: string | null
           last_message?: string | null
           last_message_at?: string | null
           name?: string

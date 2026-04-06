@@ -4,9 +4,11 @@ import { ConversationList } from "@/components/conversations/ConversationList";
 import { ChatPanel } from "@/components/conversations/ChatPanel";
 import { ContactDetails } from "@/components/conversations/ContactDetails";
 import { NewConversationDialog } from "@/components/conversations/NewConversationDialog";
+import { AutomationFlows } from "@/components/conversations/AutomationFlows";
 import { type Conversation, type AttendingStatus, type Message } from "@/components/conversations/types";
 import { useConversations } from "@/hooks/useConversations";
 import { Button } from "@/components/ui/button";
+import { Zap } from "lucide-react";
 
 const MIN_SIDEBAR_W = 240;
 const MAX_SIDEBAR_W = 600;
@@ -35,6 +37,7 @@ const Conversations = () => {
   } = useConversations();
 
   const [showDetails, setShowDetails] = useState(true);
+  const [showFlows, setShowFlows] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_W);
   const [newConversationOpen, setNewConversationOpen] = useState(false);
@@ -135,6 +138,21 @@ const Conversations = () => {
     [selectConversation]
   );
 
+  if (showFlows) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-theme(spacing.14)-theme(spacing.5)*2)] sm:h-[calc(100vh-theme(spacing.14)-theme(spacing.10))] -m-2.5 sm:-m-5 md:-m-8">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card/50 shrink-0">
+          <Button variant="ghost" size="sm" onClick={() => setShowFlows(false)} className="text-xs gap-1">
+            ← Conversas
+          </Button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <AutomationFlows />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="flex flex-col h-[calc(100vh-theme(spacing.14)-theme(spacing.5)*2)] sm:h-[calc(100vh-theme(spacing.14)-theme(spacing.10))] -m-2.5 sm:-m-5 md:-m-8">
@@ -147,6 +165,13 @@ const Conversations = () => {
             }`}
             style={selectedConversation ? { width: sidebarWidth } : undefined}
           >
+            {/* Flows button at top of conversation list */}
+            <div className="flex items-center justify-end px-3 py-1.5 border-b border-border/30 shrink-0">
+              <Button variant="ghost" size="sm" onClick={() => setShowFlows(true)} className="text-[11px] h-7 gap-1 text-muted-foreground hover:text-primary">
+                <Zap className="w-3.5 h-3.5" />
+                Fluxos
+              </Button>
+            </div>
             <ConversationList
               conversations={filteredConversations}
               selectedId={selectedConvId}

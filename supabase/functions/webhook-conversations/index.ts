@@ -199,6 +199,42 @@ Deno.serve(async (req) => {
 
     console.log(`Message saved: ${fromMe ? "sent" : "received"} from ${phone} on ${device.name}: media=${mediaType} "${displayContent.substring(0, 80)}"`);
 
+    // Trigger welcome automation for new conversations (first received message)
+    if (!fromMe) {
+      const { count } = await admin
+        .from("conversation_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("conversation_id", conversationId)
+        .eq("direction", "received");
+
+      if (count !== null && count <= 1) {
+        // First message received — trigger welcome automation
+        try {
+          const automationUrl = `${supabaseUrl}/functions/v1/conversation-automations`;
+          const waitPromise = fetch(automationUrl, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "trigger",
+              user_id: device.user_id,
+              conversation_id: conversationId,
+              automation_type: "welcome",
+              device_id: device.id,
+              remote_jid: remoteJid,
+            }),
+          });
+          // Use EdgeRuntime.waitUntil if available, otherwise await
+          if (typeof (globalThis as any).EdgeRuntime?.waitUntil === "function") {
+            (globalThis as any).EdgeRuntime.waitUntil(waitPromise);
+          } else {
+            await waitPromise;
+          }
+        } catch (e) {
+          console.error("Welcome automation trigger error:", e);
+        }
+      }
+    }
+
     return json({ ok: true });
   } catch (err: any) {
     console.error("webhook-conversations error:", err);
