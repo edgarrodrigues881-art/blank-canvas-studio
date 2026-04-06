@@ -507,7 +507,7 @@ export function ChatPanel({
       )}
 
       {/* Instance Selector + Input Area */}
-      <div className="border-t border-border bg-card/50 shrink-0">
+      <div className="border-t border-border bg-card/50 shrink-0 min-w-0 max-w-full">
         {instances && instances.length > 1 && (
           <div className="flex items-center gap-1.5 px-3 pt-1.5 pb-0">
             <span className="text-[10px] text-muted-foreground shrink-0">Responder como:</span>
