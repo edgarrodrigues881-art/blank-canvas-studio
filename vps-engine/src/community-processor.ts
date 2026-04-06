@@ -745,7 +745,7 @@ async function phaseReleaseCooldowns(db: SupabaseClient): Promise<{ released: nu
     });
   }
 
-  return { released: count || 0 };
+  return { released: cooledOff?.length || 0 };
 }
 
 // ══════════════════════════════════════════════════════════
