@@ -211,7 +211,7 @@ export function AppSidebar() {
         e.preventDefault();
         e.stopPropagation();
         if (permBlocked) {
-          setMaintenanceModal({ name: item.title, message: "Você não tem acesso a esta função. Solicite permissão ao administrador." });
+          setMaintenanceModal({ name: item.title, message: "Você não tem permissão para acessar esta função.\n\nFale com o administrador da sua equipe para solicitar a liberação do acesso.", variant: "permission" });
         } else {
           const name = blocked?.feature_name || item.title;
           const msg = blocked?.maintenance_message || `A função ${item.title} está em desenvolvimento e não está disponível no momento.`;
