@@ -11,15 +11,17 @@ import { useState, useMemo, Fragment } from "react";
 
 interface ConversationListProps {
   conversations: Conversation[];
+  archivedConversations?: Conversation[];
   selectedId: string | null;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onSelect: (c: Conversation) => void;
   onNewConversationClick?: () => void;
   currentUserId?: string;
+  onUnarchive?: (conversationId: string) => void;
 }
 
-type StatusTab = "all" | "mine" | "new" | "attending" | "waiting";
+type StatusTab = "all" | "mine" | "new" | "attending" | "waiting" | "archived";
 
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "all", label: "Todas" },
@@ -27,6 +29,7 @@ const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "new", label: "Novas" },
   { key: "attending", label: "Em Atendimento" },
   { key: "waiting", label: "Aguardando" },
+  { key: "archived", label: "Arquivadas" },
 ];
 
 function formatDate(dateStr: string) {
