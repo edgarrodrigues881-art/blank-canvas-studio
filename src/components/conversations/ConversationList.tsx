@@ -259,14 +259,14 @@ export function ConversationList({
 
         {/* Instance filter chips */}
         {availableInstances.length > 1 && (
-          <div className="flex gap-1 overflow-x-auto scrollbar-none -mx-0.5 pt-1">
+          <div className="flex gap-0.5 overflow-x-auto scrollbar-none">
             <button
               onClick={() => onFilterInstancesChange?.([])}
               className={cn(
-                "px-1.5 py-0.5 rounded-md text-[10px] font-semibold whitespace-nowrap transition-all flex items-center gap-0.5",
+                "px-1.5 py-px rounded text-[9px] whitespace-nowrap transition-colors",
                 filterInstanceIds.length === 0
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  ? "text-primary font-semibold bg-primary/10"
+                  : "text-muted-foreground/70 hover:text-muted-foreground"
               )}
             >
               Todas
@@ -278,10 +278,10 @@ export function ConversationList({
                   key={inst.id}
                   onClick={() => toggleInstance(inst.id)}
                   className={cn(
-                    "px-1.5 py-0.5 rounded-md text-[10px] font-semibold whitespace-nowrap transition-all flex items-center gap-0.5",
+                    "px-1.5 py-px rounded text-[9px] whitespace-nowrap transition-colors",
                     isActive
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      ? "text-primary font-semibold bg-primary/10"
+                      : "text-muted-foreground/70 hover:text-muted-foreground"
                   )}
                 >
                   {inst.name}
