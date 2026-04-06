@@ -664,15 +664,42 @@ export function useConversations() {
       .channel("conv-list-rt")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
-        () => {
-          fetchConversations();
+        { event: "INSERT", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const row = payload.new as any;
+          setConversations((prev) => upsertConversationInState(prev, row));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const row = payload.new as any;
+          setConversations((prev) => {
+            const exists = prev.some((c) => c.id === row.id);
+            if (!exists) return upsertConversationInState(prev, row);
+            return sortConversations(
+              prev.map((c) => c.id === row.id ? {
+                ...c,
+                last_message: row.last_message ?? c.last_message,
+                last_message_at: row.last_message_at ?? c.last_message_at,
+                unread_count: row.unread_count ?? c.unread_count,
+                name: row.name ?? c.name,
+                avatar_url: row.avatar_url ?? c.avatar_url,
+                attending_status: row.attending_status ?? c.attending_status,
+                tags: row.tags ?? c.tags,
+                category: row.category ?? c.category,
+                notes: row.notes ?? c.notes,
+                updated_at: row.updated_at ?? c.updated_at,
+              } : c)
+            );
+          });
         }
       )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user, fetchConversations]);
+  }, [user, upsertConversationInState, sortConversations]);
 
   // Real-time subscription — messages (INSERT + UPDATE for status changes)
   const selectedConvIdRef = useRef(selectedConvId);
