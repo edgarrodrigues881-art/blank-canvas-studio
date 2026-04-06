@@ -15,9 +15,10 @@ interface ConversationListProps {
   onSearchChange: (q: string) => void;
   onSelect: (c: Conversation) => void;
   onNewConversationClick?: () => void;
+  currentUserId?: string;
 }
 
-type StatusTab = "all" | "new" | "attending" | "waiting";
+type StatusTab = "all" | "mine" | "new" | "attending" | "waiting";
 
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "all", label: "Todas" },
