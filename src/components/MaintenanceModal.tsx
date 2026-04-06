@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, Wrench, X } from "lucide-react";
+import { Lock, Wrench, X, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface MaintenanceModalProps {
@@ -8,11 +8,15 @@ interface MaintenanceModalProps {
   onClose: () => void;
   featureName: string;
   message?: string | null;
+  variant?: "maintenance" | "permission";
 }
 
 const DEFAULT_MESSAGE = "Esta funcionalidade está temporariamente indisponível enquanto realizamos ajustes e melhorias para garantir uma experiência mais estável e segura.\n\nEm breve ela estará disponível novamente.";
+const PERMISSION_MESSAGE = "Você não tem permissão para acessar esta função.\n\nFale com o administrador da sua equipe para solicitar a liberação do acesso.";
 
-export function MaintenanceModal({ open, onClose, featureName, message }: MaintenanceModalProps) {
+export function MaintenanceModal({ open, onClose, featureName, message, variant = "maintenance" }: MaintenanceModalProps) {
+  const isPerm = variant === "permission";
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") onClose();
   }, [onClose]);
@@ -64,35 +68,41 @@ export function MaintenanceModal({ open, onClose, featureName, message }: Mainte
             </button>
 
             {/* Top accent bar */}
-            <div className="h-1 bg-gradient-to-r from-amber-500/60 via-primary/60 to-amber-500/60" />
+            <div className={`h-1 ${isPerm ? "bg-gradient-to-r from-red-500/50 via-red-400/70 to-red-500/50" : "bg-gradient-to-r from-amber-500/60 via-primary/60 to-amber-500/60"}`} />
 
             <div className="px-8 py-10 text-center space-y-6">
               {/* Icon */}
               <motion.div
-                className="mx-auto w-20 h-20 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center"
+                className={`mx-auto w-20 h-20 rounded-2xl border flex items-center justify-center ${isPerm ? "bg-red-500/10 border-red-500/20" : "bg-amber-500/10 border-amber-500/20"}`}
                 initial={{ rotate: -10 }}
                 animate={{ rotate: 0 }}
                 transition={{ type: "spring", damping: 15 }}
               >
-                <div className="relative">
-                  <Wrench size={32} className="text-amber-500" />
-                  <Lock size={14} className="text-amber-600 absolute -bottom-1 -right-1" />
-                </div>
+                {isPerm ? (
+                  <ShieldOff size={32} className="text-red-500" />
+                ) : (
+                  <div className="relative">
+                    <Wrench size={32} className="text-amber-500" />
+                    <Lock size={14} className="text-amber-600 absolute -bottom-1 -right-1" />
+                  </div>
+                )}
               </motion.div>
 
               {/* Title */}
               <div className="space-y-2">
-                <h2 className="text-xl font-bold text-foreground">Em Desenvolvimento</h2>
-                <p className="text-sm text-primary font-medium">{featureName}</p>
+                <h2 className="text-xl font-bold text-foreground">
+                  {isPerm ? "Acesso Restrito" : "Em Desenvolvimento"}
+                </h2>
+                <p className={`text-sm font-medium ${isPerm ? "text-red-400" : "text-primary"}`}>{featureName}</p>
               </div>
 
               {/* Message */}
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                {message || DEFAULT_MESSAGE}
+                {message || (isPerm ? PERMISSION_MESSAGE : DEFAULT_MESSAGE)}
               </p>
 
               {/* Button */}
-              <Button onClick={onClose} className="w-full">
+              <Button onClick={onClose} className="w-full" variant={isPerm ? "outline" : "default"}>
                 Entendi
               </Button>
             </div>
