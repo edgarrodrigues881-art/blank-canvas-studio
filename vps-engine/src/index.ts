@@ -1044,6 +1044,11 @@ async function mainLoop() {
       const db = getDb();
       await communityProcessorTick(db);
     }, config.communityTickMs)(),
+
+    guardedLoop("autoreply", async () => {
+      const db = getDb();
+      await autoreplyTick(db);
+    }, 2_000)(),
   ]);
 }
 
