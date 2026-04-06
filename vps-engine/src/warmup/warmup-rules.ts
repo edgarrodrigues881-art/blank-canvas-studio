@@ -64,18 +64,11 @@ export function getProgressiveDailyBudget(dayIndex: number, chipState: string): 
 
 // Group messages: 1 msg every 90-150s across 07:00-19:00 (12h = 720min)
 // Progressive ramp: start gentle, reach full cadence by day 5
+// Group messages: fixed 140-200/day, spread over 07:00-19:00 (12h)
+// Delay between messages: ~3.5-5 min
 export function getGroupMsgsForDay(dayIndex: number, chipState: string = "new"): number {
   if (dayIndex < 2) return 0;
-  // Day 2: ~1 msg every 5 min = 144
-  if (dayIndex === 2) return randInt(130, 155);
-  // Day 3: ~1 msg every 3.5 min = 206
-  if (dayIndex === 3) return randInt(190, 220);
-  // Day 4: ~1 msg every 2.5 min = 288
-  if (dayIndex === 4) return randInt(270, 300);
-  // Day 5+: ~1 msg every 2 min = 360
-  if (dayIndex <= 10) return randInt(330, 380);
-  // Day 11+: full cadence ~1 msg every 1.5-2 min
-  return randInt(360, 400);
+  return randInt(140, 200);
 }
 
 export function getAutosaveContactsForDay(dayIndex: number, chipState: string): number {
