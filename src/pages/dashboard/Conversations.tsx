@@ -100,11 +100,17 @@ const Conversations = () => {
     ? conversations.find((c) => c.id === selectedReal.id) || null
     : null;
 
-  const filteredConversations = conversations.filter(
-    (c) =>
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.phone.includes(searchQuery)
-  );
+  const filteredConversations = conversations.filter((c) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      c.name.toLowerCase().includes(q) ||
+      c.phone.replace(/\D/g, "").includes(q.replace(/\D/g, "")) ||
+      c.phone.includes(q) ||
+      (c.lastMessage && c.lastMessage.toLowerCase().includes(q)) ||
+      (c.tags && c.tags.some((t) => t.toLowerCase().includes(q)))
+    );
+  });
 
   const messages: Message[] = realMsgs.map((m) => ({
     id: m.id,
