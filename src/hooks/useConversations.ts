@@ -52,6 +52,33 @@ export function useConversations() {
   const [syncing, setSyncing] = useState(false);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
 
+  // Cached auth token — refreshed on mount and reused across sends
+  const cachedTokenRef = useRef<string | null>(null);
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
+
+  const getToken = useCallback(async () => {
+    if (cachedTokenRef.current) return cachedTokenRef.current;
+    const { data } = await supabase.auth.getSession();
+    cachedTokenRef.current = data?.session?.access_token || null;
+    return cachedTokenRef.current;
+  }, []);
+
+  // Keep token fresh
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      cachedTokenRef.current = session?.access_token || null;
+    });
+    // Warm cache immediately
+    supabase.auth.getSession().then(({ data }) => {
+      cachedTokenRef.current = data?.session?.access_token || null;
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Ref for conversations to avoid stale closures
+  const conversationsRef = useRef(conversations);
+  useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
+
   const mapConversationRow = useCallback((row: any): RealConversation => ({
     ...row,
     tags: row.tags || [],
