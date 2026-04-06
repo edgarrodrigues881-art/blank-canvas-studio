@@ -53,12 +53,10 @@ export interface DayVolumes {
 }
 
 // Budget: groups fill 07-19h at 1 msg every ~2min = ~360 msgs + autosave + community
+// Budget: fixed group volume (140-200) + headroom for autosave/community
 export function getProgressiveDailyBudget(dayIndex: number, chipState: string): number {
-  const day = Math.max(1, Math.min(dayIndex, 30));
-  // Base budget = group msgs + headroom for autosave/community
-  const groupBase = getGroupMsgsForDay(day, chipState);
-  // Add headroom: autosave (~15-25) + community (~50-100 at peak)
-  const headroom = day <= 5 ? 20 : day <= 10 ? 80 : day <= 20 ? 120 : 150;
+  const groupBase = getGroupMsgsForDay(Math.max(1, dayIndex), chipState);
+  const headroom = dayIndex <= 5 ? 20 : dayIndex <= 10 ? 60 : 80;
   return groupBase + headroom;
 }
 
