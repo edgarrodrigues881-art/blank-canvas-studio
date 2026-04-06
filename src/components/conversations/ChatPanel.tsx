@@ -6,13 +6,10 @@ import { MessageBubble, isMediaPlaceholder } from "./MessageBubble";
 import { ChatHeader, attendingStatusConfig } from "./ChatHeader";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  ArrowLeft,
-  MoreVertical,
   Paperclip,
   Send,
   Image as ImageIcon,
   FileText,
-  ChevronDown,
   Zap,
   Mic,
   Settings,
@@ -20,24 +17,10 @@ import {
   Loader2,
   X,
   Download,
-  UserCheck,
-  UserX,
-  Clock,
-  History,
-  MailOpen,
-  Archive,
 } from "lucide-react";
-import { PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { type Conversation, type Message, type AttendingStatus, type ConversationInstance } from "./types";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 interface ChatPanelProps {
@@ -60,14 +43,6 @@ interface ChatPanelProps {
   selectedInstanceId?: string | null;
   onInstanceChange?: (id: string) => void;
 }
-
-const attendingStatusConfig: Record<AttendingStatus, { label: string; color: string; bg: string; dot: string; textStrong: string }> = {
-  nova: { label: "Nova", color: "text-blue-400", bg: "bg-blue-600/20 border-blue-500/40", dot: "bg-blue-500", textStrong: "text-blue-300" },
-  em_atendimento: { label: "Em Atendimento", color: "text-emerald-400", bg: "bg-emerald-600/20 border-emerald-500/40", dot: "bg-emerald-500", textStrong: "text-emerald-300" },
-  aguardando: { label: "Aguardando", color: "text-amber-400", bg: "bg-amber-600/20 border-amber-500/40", dot: "bg-amber-500 animate-pulse", textStrong: "text-amber-300" },
-  finalizado: { label: "Finalizado", color: "text-gray-400", bg: "bg-gray-600/20 border-gray-500/30", dot: "bg-gray-500", textStrong: "text-gray-400" },
-  pausado: { label: "Pausado", color: "text-orange-400", bg: "bg-orange-600/20 border-orange-500/40", dot: "bg-orange-500", textStrong: "text-orange-300" },
-};
 
 /* ─────────── Image Lightbox ─────────── */
 function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
