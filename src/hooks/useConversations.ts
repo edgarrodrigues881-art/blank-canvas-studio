@@ -181,12 +181,14 @@ export function useConversations() {
     setLoading(false);
   }, [user, mapConversationRow, sortConversations]);
 
-  // Fetch messages for a conversation
+  // Fetch messages for a conversation (grouped by phone)
   const fetchMessages = useCallback(async (conversationId: string) => {
+    const groupIds = getConversationIdsForSameContact(conversationId);
+
     const { data, error } = await supabase
       .from("conversation_messages")
       .select("*")
-      .eq("conversation_id", conversationId)
+      .in("conversation_id", groupIds)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -194,18 +196,28 @@ export function useConversations() {
       return;
     }
 
-    const nextMessages = (data || []).map((m: any) => ({ ...m, direction: m.direction as "sent" | "received" }));
+    // Build device name lookup from conversations
+    const deviceMap = new Map<string, string>();
+    conversationsRef.current.forEach((c) => {
+      if (c.deviceName) deviceMap.set(c.id, c.deviceName);
+    });
+
+    const nextMessages = (data || []).map((m: any) => ({
+      ...m,
+      direction: m.direction as "sent" | "received",
+      deviceName: deviceMap.get(m.conversation_id),
+    }));
 
     setMessages((prev) => {
       const pendingMessages = prev.filter(
-        (m) => m.conversation_id === conversationId && m.status === "sending" && !nextMessages.some((next) => next.id === m.id)
+        (m) => groupIds.includes(m.conversation_id) && m.status === "sending" && !nextMessages.some((next) => next.id === m.id)
       );
 
       return [...nextMessages, ...pendingMessages].sort(
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       );
     });
-  }, []);
+  }, [getConversationIdsForSameContact]);
 
   // Sync from UAZAPI
   const syncConversations = useCallback(async () => {
