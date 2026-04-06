@@ -284,7 +284,11 @@ export function AppSidebar() {
       </div>
 
       <SidebarContent className="py-2">
-        {menuGroups.map((group, gi) => (
+        {menuGroups.map((group, gi) => {
+          // Hide entire section if no items have permission
+          const groupRoutes = group.items.map(i => i.url);
+          if (shouldHideSection && !hasAnyPermission(groupRoutes)) return null;
+          return (
           <SidebarGroup key={gi} className={`py-0 ${gi > 0 ? 'mt-1' : ''}`}>
             {group.label && !collapsed && (
               <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
@@ -300,7 +304,8 @@ export function AppSidebar() {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-        ))}
+          );
+        })}
 
         {/* ── Aquecimento section with folders ── */}
         <SidebarGroup className="py-0 mt-1">
