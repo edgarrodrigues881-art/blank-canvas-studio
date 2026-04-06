@@ -2952,6 +2952,7 @@ export type Database = {
           full_name: string | null
           id: string
           instance_override: number
+          last_seen_at: string | null
           notificacao_liberada: boolean
           phone: string | null
           risk_flag: boolean
@@ -2971,6 +2972,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           instance_override?: number
+          last_seen_at?: string | null
           notificacao_liberada?: boolean
           phone?: string | null
           risk_flag?: boolean
@@ -2990,6 +2992,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           instance_override?: number
+          last_seen_at?: string | null
           notificacao_liberada?: boolean
           phone?: string | null
           risk_flag?: boolean
@@ -3557,6 +3560,72 @@ export type Database = {
           started_at?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      team_invites: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          owner_id: string
+          role: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          owner_id: string
+          role?: string
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          owner_id?: string
+          role?: string
+          token?: string
+        }
+        Relationships: []
+      }
+      team_members: {
+        Row: {
+          created_at: string
+          id: string
+          invited_email: string | null
+          member_id: string
+          owner_id: string
+          role: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invited_email?: string | null
+          member_id: string
+          owner_id: string
+          role?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invited_email?: string | null
+          member_id?: string
+          owner_id?: string
+          role?: string
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -5210,6 +5279,7 @@ export type Database = {
           full_name: string | null
           id: string
           instance_override: number
+          last_seen_at: string | null
           notificacao_liberada: boolean
           phone: string | null
           risk_flag: boolean
