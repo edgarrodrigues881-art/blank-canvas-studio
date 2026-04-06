@@ -588,11 +588,12 @@ export function AppSidebar() {
         currentDeviceIds={editingFolder ? (folders.find(f => f.id === editingFolder.id)?.device_ids || []) : []}
       />
       {maintenanceModal && (
-        <MaintenanceModal
+      <MaintenanceModal
           open={true}
           onClose={() => setMaintenanceModal(null)}
           featureName={maintenanceModal.name}
           message={maintenanceModal.message}
+          variant={maintenanceModal.variant || "maintenance"}
         />
       )}
     </Sidebar>
