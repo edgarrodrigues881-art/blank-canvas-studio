@@ -559,8 +559,15 @@ export function ChatPanel({
   /* ── Timestamp + status footer ── */
   const MsgFooter = ({ msg }: { msg: Message }) => (
     <div className={cn("flex items-center gap-1 mt-0.5", msg.type === "sent" ? "justify-end" : "justify-start")}>
-      {msg.isAiResponse && (
-        <span className="flex items-center gap-0.5 text-[9px] text-violet-300 mr-1"><Bot className="w-3 h-3" /> IA</span>
+      {msg.type === "sent" && msg.isAiResponse && (
+        <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-300 mr-1" title="Respondido automaticamente pela IA">
+          <Bot className="w-3 h-3" /> IA
+        </span>
+      )}
+      {msg.type === "sent" && !msg.isAiResponse && (
+        <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/60 mr-1" title="Respondido por atendente humano">
+          <User className="w-3 h-3" /> Atendente
+        </span>
       )}
       <span className={cn("text-[10px]", msg.type === "sent" ? "text-white/50" : "text-muted-foreground/60")}>
         {format(new Date(msg.timestamp), "HH:mm")}
