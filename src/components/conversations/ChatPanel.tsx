@@ -432,11 +432,19 @@ export function ChatPanel({
     }
   }, [isNearBottom, conversation.id, messages]);
 
-  // Always scroll on conversation change
+  // Always scroll on conversation change — use rAF to wait for render
   useEffect(() => {
     setNewMsgCount(0);
     setIsNearBottom(true);
+    // Immediate attempt
     scrollToBottom();
+    // Retry after paint so DOM has rendered messages
+    const raf = requestAnimationFrame(() => {
+      scrollToBottom();
+      // Final fallback for slow renders
+      setTimeout(() => scrollToBottom(), 150);
+    });
+    return () => cancelAnimationFrame(raf);
   }, [conversation.id, scrollToBottom]);
 
   useEffect(() => {

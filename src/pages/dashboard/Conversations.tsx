@@ -204,16 +204,17 @@ const Conversations = () => {
     }
   }, [selectedInstances, selectedInstanceId]);
 
-  // Extract unique instances for filter chips
+  // Extract unique instances for filter chips (deduplicated by name)
   const availableInstances = useMemo(() => {
     const map = new Map<string, { id: string; name: string; number: string }>();
     realConvs.forEach((c) => {
       if (c.device_id && !map.has(c.device_id)) {
-        map.set(c.device_id, {
-          id: c.device_id,
-          name: c.deviceName || c.device_id.slice(0, 8),
-          number: "",
-        });
+        const name = c.deviceName || c.device_id.slice(0, 8);
+        // Skip if we already have an instance with the same name
+        const existing = Array.from(map.values());
+        if (!existing.some((e) => e.name === name)) {
+          map.set(c.device_id, { id: c.device_id, name, number: "" });
+        }
       }
     });
     return Array.from(map.values());
