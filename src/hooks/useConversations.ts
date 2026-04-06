@@ -432,7 +432,7 @@ export function useConversations() {
   // Send file message (image or document)
   const sendFileMessage = useCallback(async (conversationId: string, file: File) => {
     if (!user) return;
-    const conv = conversations.find((c) => c.id === conversationId);
+    const conv = conversationsRef.current.find((c) => c.id === conversationId);
     if (!conv) return;
 
     const tempId = crypto.randomUUID();
