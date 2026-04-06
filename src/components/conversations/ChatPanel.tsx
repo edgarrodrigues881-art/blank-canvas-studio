@@ -61,6 +61,26 @@ const attendingStatusConfig: Record<AttendingStatus, { label: string; color: str
   pausado: { label: "Pausado", color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/20", dot: "bg-orange-400" },
 };
 
+/* ─────────── Image Lightbox ─────────── */
+function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
+      <button onClick={onClose} className="absolute top-4 right-4 text-white/80 hover:text-white z-10 p-2 rounded-full bg-black/40 hover:bg-black/60 transition-colors">
+        <X className="w-6 h-6" />
+      </button>
+      <a href={src} download className="absolute top-4 left-4 text-white/80 hover:text-white z-10 p-2 rounded-full bg-black/40 hover:bg-black/60 transition-colors" onClick={(e) => e.stopPropagation()}>
+        <Download className="w-6 h-6" />
+      </a>
+      <img src={src} alt="Visualização" className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+    </div>
+  );
+}
+
 const defaultQuickReplies = [
   { id: "default-1", label: "Saudação inicial", content: "Olá! Bem-vindo(a)! Como posso ajudá-lo(a) hoje? 😊" },
   { id: "default-2", label: "Confirmar pagamento", content: "Confirmamos o recebimento do seu pagamento. Obrigado!" },
