@@ -5,7 +5,7 @@
 
 import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
-import { config } from "../core/config";
+
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
 
@@ -25,16 +25,7 @@ const RETRYABLE_STATUSES = [
   "timeout",
 ] as const;
 const DISCONNECT_CONFIRM_THRESHOLD = 2; // Must fail N consecutive checks before marking disconnected
-const DISCONNECT_RECHECK_INTERVAL_MS = 2_000;
 const CONNECTED_DEVICE_STATUSES = new Set(["connected", "ready", "active", "authenticated", "open", "online"]);
-const FINAL_FAILURE_STATUSES = new Set([
-  "failed",
-  "confirmed_no_admin",
-  "invalid_group",
-  "contact_not_found",
-  "unauthorized",
-  "blocked",
-]);
 // Critical errors that COUNT toward auto-pause threshold (per-device)
 const CRITICAL_FAILURE_STATUSES = new Set(["confirmed_no_admin", "invalid_group", "unauthorized"]);
 // Transient errors that do NOT count toward pause — just skip and continue
@@ -171,14 +162,6 @@ function normalizeProviderConnectionState(payload: any): "connected" | "disconne
   if (hasSignal(["connected", "authenticated", "open", "ready", "active", "online"])) return "connected";
   if (hasSignal(["disconnected", "closed", "close", "offline", "logout", "logged_out", "loggedout", "not_connected"])) return "disconnected";
   return "unknown";
-}
-
-function normalizePhone(raw: string): string | null {
-  const digits = String(raw || "").replace(/\D/g, "");
-  if (digits.length < 10 || digits.length > 15) return null;
-  const phone = digits.startsWith("55") ? digits : `55${digits}`;
-  if (phone.length < 12 || phone.length > 13) return null;
-  return phone;
 }
 
 function buildPhoneFingerprints(raw: string): string[] {

@@ -4,15 +4,15 @@
 // ══════════════════════════════════════════════════════════
 
 import { createLogger } from "../core/logger";
-import { getDb } from "../core/db";
+
 import { config } from "../core/config";
 import { isWithinOperatingWindow, getBrtTodayAt, getBrtDateKey } from "../utils/brt";
-import { randInt, pickRandom, generateNaturalMessage, pickMediaTypeGroup, pickMediaTypeCommunity, IMAGE_CAPTIONS, LOCATION_CAPTIONS, FAKE_LOCATIONS, FALLBACK_IMAGES, FALLBACK_AUDIOS, pickFakeLocation } from "../utils/message-generator";
+import { randInt, pickRandom, generateNaturalMessage, pickMediaTypeGroup, pickMediaTypeCommunity, IMAGE_CAPTIONS, LOCATION_CAPTIONS, FALLBACK_IMAGES, FALLBACK_AUDIOS, pickFakeLocation } from "../utils/message-generator";
 import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiCheckPhone, fetchLiveGroups } from "../integrations/uazapi";
 import {
-  getPhaseForDay, isCommunityPhase, hasWarmupAccess, getVolumes, getGroupMsgsForDay,
+  getPhaseForDay, isCommunityPhase, hasWarmupAccess,
   getAutosaveContactsForDay, getAutosaveRoundsPerContact, getCommunityStartDayForChip,
-  getCommunityPeers, getCommunityPeersFromCommunityDay, getMaxPairsForChip,
+  getCommunityPeers, getMaxPairsForChip,
   CONNECTED_STATUSES, INTERACTION_JOB_TYPES,
 } from "./warmup-rules";
 import { scheduleDayJobs, ensureJoinGroupJobs, ensureNextDailyResetJob } from "./warmup-scheduling";
@@ -297,7 +297,7 @@ function bufferAudit(ctx: ProcessJobContext, entry: any) {
 }
 
 export async function processJob(db: any, job: any, ctx: ProcessJobContext): Promise<boolean> {
-  const { cycle, device, baseUrl, token, chipState } = ctx;
+  const { cycle, device, baseUrl, token, chipState: _chipState } = ctx;
   const withinWindow = isWithinOperatingWindow();
 
   if (!cycle || !cycle.is_running || ctx.pausedCycles.has(cycle.id)) {
@@ -604,7 +604,7 @@ async function processAutosaveInteraction(db: any, job: any, ctx: ProcessJobCont
 
 // ── COMMUNITY INTERACTION ──
 async function processCommunityInteraction(db: any, job: any, ctx: ProcessJobContext): Promise<boolean> {
-  const { cycle, device, baseUrl, token } = ctx;
+  const { cycle, device: _device, baseUrl: _baseUrl, token: _token } = ctx;
 
   // Auto-create membership
   const { data: myMembership } = await db.from("warmup_community_membership").select("id, is_enabled, community_day").eq("device_id", job.device_id).maybeSingle();
@@ -674,7 +674,7 @@ async function processCommunityInteraction(db: any, job: any, ctx: ProcessJobCon
 }
 
 async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, selectedPair: any, currentTurnIndex: number, isReply: boolean): Promise<boolean> {
-  const { cycle, device, baseUrl, token } = ctx;
+  const { cycle, baseUrl, token } = ctx;
   const rawMeta = selectedPair.meta && typeof selectedPair.meta === "object" ? selectedPair.meta as Record<string, any> : {};
   const pairMeta = normalizeCommunityPairMeta(selectedPair);
   const peerDeviceId = getCommunityPeerDeviceId(selectedPair, job.device_id);

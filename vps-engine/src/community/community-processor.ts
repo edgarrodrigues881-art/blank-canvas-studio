@@ -5,7 +5,7 @@
 
 import { SupabaseClient } from "@supabase/supabase-js";
 import { createLogger } from "../core/logger";
-import { isWithinOperatingWindow, getBrtHourMinute, getBrtDayOfWeek } from "../utils/brt";
+import { getBrtHourMinute, getBrtDayOfWeek } from "../utils/brt";
 
 const log = createLogger("community");
 
@@ -43,19 +43,6 @@ const INTENSITY_PRESETS: Record<string, {
 export { INTENSITY_PRESETS };
 
 // ── Chip & Progression ──
-function getCommunityStartDay(chipState: string): number {
-  if (chipState === "unstable") return 9;
-  if (chipState === "recovered") return 7;
-  return 6;
-}
-
-function getPairsTarget(communityDay: number): { min: number; max: number } {
-  if (communityDay <= 1) return { min: 1, max: 3 };
-  if (communityDay === 2) return { min: 2, max: 5 };
-  if (communityDay === 3) return { min: 4, max: 7 };
-  if (communityDay <= 6) return { min: 5, max: 8 };
-  return { min: 6, max: 10 };
-}
 
 // ── BRT Window ──
 function isWithinWindow(startHour: string, endHour: string, activeDays: string[]): boolean {
@@ -258,9 +245,6 @@ async function phaseUpdateEligibility(db: SupabaseClient): Promise<{ updated: nu
   const busyDevices = new Set<string>();
   for (const s of [...(sessA || []), ...(sessB || [])] as any[]) busyDevices.add(s.device_a || s.device_b);
 
-  const { data: cycles } = await db.from("warmup_cycles")
-    .select("device_id, chip_state, day_index, is_running").in("device_id", deviceIds).eq("is_running", true);
-  const cycleMap = Object.fromEntries((cycles || []).map((c: any) => [c.device_id, c]));
 
   const reasons: Record<string, number> = {};
   let eligibleCount = 0;

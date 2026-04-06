@@ -3,10 +3,9 @@
 // ══════════════════════════════════════════════════════════
 
 import { randInt } from "../utils/message-generator";
-import { calculateWindow, getBrtTodayAt } from "../utils/brt";
+import { calculateWindow } from "../utils/brt";
 import {
-  getVolumes, isCommunityPhase, INTERACTION_JOB_TYPES,
-  getAutosaveContactsForDay, getAutosaveRoundsPerContact,
+  getVolumes, isCommunityPhase,
 } from "./warmup-rules";
 
 function evenSample<T>(arr: T[], n: number): T[] {

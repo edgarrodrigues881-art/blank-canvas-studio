@@ -12,23 +12,21 @@ import { DeviceLockManager } from "./core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot, getGlobalConcurrencyStats } from "./core/global-semaphore";
 import { workerMetrics } from "./core/worker-metrics";
 import { getCircuitBreakerStats } from "./core/circuit-breaker";
-import { isWithinOperatingWindow, getBrtTodayAt } from "./utils/brt";
+import { isWithinOperatingWindow } from "./utils/brt";
 import { massInjectTick, getMassInjectStatus, lastMassInjectTickAt } from "./workers/mass-inject-worker";
 import { campaignWorkerTick, getCampaignWorkerStatus, lastCampaignWorkerTickAt } from "./workers/campaign-worker";
-import { groupInteractionTick, getGroupInteractionStatus, lastGroupInteractionTickAt } from "./workers/group-interaction-worker";
-import { chipConversationTick, getChipConvStatus, lastChipConvTickAt } from "./workers/chip-conversation-worker";
-import { groupJoinTick, getGroupJoinStatus, lastGroupJoinTickAt } from "./workers/group-join-worker";
-import { welcomeTick, getWelcomeStatus, lastWelcomeTickAt } from "./workers/welcome-worker";
-import { verifyTick, getVerifyStatus, lastVerifyTickAt } from "./workers/verify-worker";
-import { communityTick as communityProcessorTick, getCommunityStatus, lastCommunityTickAt } from "./community/community-processor";
-import { autoreplyTick, getAutoreplyStatus, lastAutoreplyTickAt } from "./autoreply/autoreply-processor";
+import { groupInteractionTick, lastGroupInteractionTickAt } from "./workers/group-interaction-worker";
+import { chipConversationTick, lastChipConvTickAt } from "./workers/chip-conversation-worker";
+import { groupJoinTick, lastGroupJoinTickAt } from "./workers/group-join-worker";
+import { welcomeTick, lastWelcomeTickAt } from "./workers/welcome-worker";
+import { verifyTick, lastVerifyTickAt } from "./workers/verify-worker";
+import { communityTick as communityProcessorTick, lastCommunityTickAt } from "./community/community-processor";
+import { autoreplyTick, lastAutoreplyTickAt } from "./autoreply/autoreply-processor";
 import { backoffMinutes } from "./core/retry";
 import { validateUazapiCredentials } from "./integrations/uazapi";
 import { processJob, batchPreload, flushAuditLogs, ProcessJobContext } from "./warmup/warmup-processor";
-// CONNECTED_STATUSES is used from warmup-rules via warmup-processor
 
 const log = createLogger("main");
-// Global semaphore is now in lib/global-semaphore.ts (shared across all workers)
 
 // ── Health check & status ──
 const app = express();
@@ -42,13 +40,6 @@ const massInjectRunningRef = { value: true };
 app.get("/health", (_req: Request, res: Response) => {
   const massInjectStatus = getMassInjectStatus();
   const campaignWorkerStatus = getCampaignWorkerStatus();
-  const groupInteractionStatus = getGroupInteractionStatus();
-  const chipConvStatus = getChipConvStatus();
-  const groupJoinStatus = getGroupJoinStatus();
-    const welcomeStatus = getWelcomeStatus();
-    const verifyStatus = getVerifyStatus();
-    const communityStatus = getCommunityStatus();
-    const autoreplyStatus = getAutoreplyStatus();
   res.json({
     status: "ok",
     uptime: Math.round((Date.now() - startedAt.getTime()) / 1000),
@@ -439,12 +430,6 @@ async function resolveDeviceCredentialsBatch(deviceIds: string[]): Promise<Recor
   return resolved;
 }
 
-async function resolveDeviceCredentials(deviceId: string): Promise<DeviceCredentials | null> {
-  const devices = await resolveDeviceCredentialsBatch([deviceId]);
-  const resolved = devices[deviceId] || null;
-  if (!resolved) log.warn(`Device not found: ${deviceId}`);
-  return resolved;
-}
 
 // ══════════════════════════════════════════════════════════
 // WARMUP TICK — Continuous loop (replaces pg_cron)

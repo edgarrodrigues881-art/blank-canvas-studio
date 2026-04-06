@@ -6,7 +6,7 @@
 
 import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
-import { config } from "../core/config";
+
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
 
