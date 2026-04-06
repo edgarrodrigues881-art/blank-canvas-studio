@@ -471,7 +471,7 @@ export function ChatPanel({
             src={msg.mediaUrl}
             alt="Imagem"
             className="rounded-lg max-w-full max-h-[300px] object-cover cursor-pointer"
-            onClick={() => window.open(msg.mediaUrl, "_blank")}
+            onClick={() => setLightboxUrl(msg.mediaUrl!)}
           />
           {msg.content && !isMediaPlaceholder(msg.content) && (
             <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5">{msg.content}</p>
