@@ -16,6 +16,7 @@ const AUTO_SYNC_STARTUP_GRACE_MS = 60_000;
 const AUTO_SYNC_VISIBILITY_GRACE_MS = 45_000;
 const AUTO_SYNC_ONLINE_GRACE_MS = 60_000;
 const AUTO_SYNC_MIN_GAP_MS = 15_000;
+const AUTO_SYNC_POST_RESUME_INTERVAL_HOLD_MS = 75_000;
 
 // Track recently deleted device IDs to filter from query results
 const recentlyDeletedIds = new Set<string>();
