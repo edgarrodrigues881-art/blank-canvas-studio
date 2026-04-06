@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo, useLayoutEffect } from "react";
 import { useQuickReplies, resolveVariables, QUICK_REPLY_CATEGORIES } from "@/hooks/useQuickReplies";
 import { QuickRepliesManager } from "./QuickRepliesManager";
+import { useSendMessage } from "@/hooks/useSendMessage";
 import { supabase } from "@/integrations/supabase/client";
 import { Smartphone } from "lucide-react";
 import {
@@ -324,28 +325,39 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const { replies: dbReplies } = useQuickReplies();
   const [showQRManager, setShowQRManager] = useState(false);
-  const [input, setInput] = useState("");
   const [currentStatus, setCurrentStatus] = useState<AttendingStatus>(conversation.attendingStatus);
-  const [showQuickReplies, setShowQuickReplies] = useState(false);
-  const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [showStatusHistory, setShowStatusHistory] = useState(false);
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [pendingPreview, setPendingPreview] = useState<string | null>(null);
-  const [sendingFile, setSendingFile] = useState(false);
-
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [sendingAudio, setSendingAudio] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+  const scrollToBottomAfterSend = useCallback(() => {
+    setIsNearBottom(true);
+    forceScrollOnNextMessageRef.current = true;
+    requestAnimationFrame(() => {
+      const el = scrollRef.current;
+      if (el) el.scrollTo({ top: el.scrollHeight });
+    });
+  }, []);
+
+  const send = useSendMessage({
+    conversationId: conversation.id,
+    conversationName: conversation.name,
+    conversationPhone: conversation.phone,
+    onSendMessage,
+    onSendAudio,
+    onSendFile,
+    onAfterSend: scrollToBottomAfterSend,
+  });
+
+  const {
+    input, setInput, textareaRef, handleSend, handleKeyDown, handlePaste,
+    replyTo, setReplyTo,
+    showQuickReplies, setShowQuickReplies, quickReplySearch, getFilteredQuickReplies, handleQuickReply,
+    pendingFile, pendingPreview, sendingFile, imageInputRef, fileInputRef,
+    handleFileSelected, handleImageInput, handleDocInput, cancelPendingFile, sendPendingFile,
+    isRecording, recordingTime, sendingAudio, startRecording, stopAndSend, cancelRecording,
+  } = send;
 
   const allQuickReplies = dbReplies.length > 0 ? dbReplies : defaultQuickReplies;
 
@@ -468,177 +480,8 @@ export function ChatPanel({
     }
   }, [conversation.id, messages.length, restoreScrollPosition]);
 
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + "px";
-    }
-  }, [input]);
-
-  const quickReplySearch = input.startsWith("/") ? input.slice(1).toLowerCase() : null;
-  const filteredQuickReplies = quickReplySearch !== null
-    ? allQuickReplies.filter((qr) => qr.label.toLowerCase().includes(quickReplySearch) || qr.content.toLowerCase().includes(quickReplySearch))
-    : [];
+  const filteredQuickReplies = getFilteredQuickReplies(allQuickReplies);
   useEffect(() => { setShowQuickReplies(input.startsWith("/") && filteredQuickReplies.length > 0); }, [input, filteredQuickReplies.length]);
-
-  useEffect(() => {
-    return () => { if (pendingPreview) URL.revokeObjectURL(pendingPreview); };
-  }, [pendingPreview]);
-
-  const handleSend = () => {
-    // If there's a pending file, send it (with caption if text exists)
-    if (pendingFile) {
-      sendPendingFile();
-      return;
-    }
-    if (!input.trim()) return;
-    const quotedWaId = replyTo?.whatsappMessageId || undefined;
-    const quotedText = replyTo?.content || undefined;
-    onSendMessage?.(conversation.id, input.trim(), quotedWaId, quotedText);
-    setInput("");
-    setShowQuickReplies(false);
-    setReplyTo(null);
-    setIsNearBottom(true);
-    forceScrollOnNextMessageRef.current = true;
-    requestAnimationFrame(() => scrollToBottom());
-  };
-
-  const handleQuickReply = (text: string) => {
-    const resolved = resolveVariables(text, {
-      nome: conversation.name || "",
-      telefone: conversation.phone || "",
-    });
-    setInput(resolved);
-    setShowQuickReplies(false);
-    textareaRef.current?.focus();
-  };
-  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } };
-
-  const handleFileSelected = useCallback((file: File) => {
-    if (file.size > 20 * 1024 * 1024) {
-      alert("Arquivo muito grande. Máximo: 20MB");
-      return;
-    }
-    setPendingFile(file);
-    if (file.type.startsWith("image/")) {
-      setPendingPreview(URL.createObjectURL(file));
-    } else {
-      setPendingPreview(null);
-    }
-  }, []);
-
-  const handlePaste = useCallback((e: React.ClipboardEvent) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (const item of Array.from(items)) {
-      if (item.type.startsWith("image/")) {
-        e.preventDefault();
-        const file = item.getAsFile();
-        if (file) handleFileSelected(file);
-        return;
-      }
-    }
-  }, [handleFileSelected]);
-
-  const handleImageInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFileSelected(file);
-    e.target.value = "";
-  };
-
-  const handleDocInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFileSelected(file);
-    e.target.value = "";
-  };
-
-  const cancelPendingFile = () => {
-    if (pendingPreview) URL.revokeObjectURL(pendingPreview);
-    setPendingFile(null);
-    setPendingPreview(null);
-  };
-
-  const sendPendingFile = async () => {
-    if (!pendingFile) return;
-    setSendingFile(true);
-    // Send caption first if there's text, then the file
-    const caption = input.trim();
-    if (caption) {
-      onSendMessage?.(conversation.id, caption);
-      setInput("");
-    }
-    onSendFile?.(conversation.id, pendingFile);
-    cancelPendingFile();
-    setSendingFile(false);
-    setIsNearBottom(true);
-    forceScrollOnNextMessageRef.current = true;
-    requestAnimationFrame(() => scrollToBottom());
-  };
-
-  // ─── Audio Recording ───
-  const startRecording = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 },
-      });
-      // Prefer OGG Opus (WhatsApp PTT native format), then WebM Opus
-      const mimeType = MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
-        ? "audio/ogg;codecs=opus"
-        : MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-          ? "audio/webm;codecs=opus"
-          : MediaRecorder.isTypeSupported("audio/mp4")
-            ? "audio/mp4"
-            : "audio/webm";
-      const recorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 128000 });
-      chunksRef.current = [];
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      recorder.onstop = () => { stream.getTracks().forEach((t) => t.stop()); };
-      recorder.start(250);
-      mediaRecorderRef.current = recorder;
-      setIsRecording(true);
-      setRecordingTime(0);
-      timerRef.current = setInterval(() => setRecordingTime((t) => t + 1), 1000);
-    } catch (err) { console.error("Mic denied:", err); }
-  }, []);
-
-  const stopAndSend = useCallback(async () => {
-    const recorder = mediaRecorderRef.current;
-    if (!recorder || recorder.state === "inactive") return;
-    setSendingAudio(true);
-    const duration = recordingTime;
-    await new Promise<void>((resolve) => {
-      const origStop = recorder.onstop;
-      recorder.onstop = (e) => { if (origStop && typeof origStop === "function") (origStop as any).call(recorder, e); resolve(); };
-      recorder.stop();
-    });
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    setIsRecording(false);
-    setRecordingTime(0);
-    const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
-    if (blob.size > 0) onSendAudio?.(conversation.id, blob, duration);
-    setSendingAudio(false);
-    mediaRecorderRef.current = null;
-    setIsNearBottom(true);
-    forceScrollOnNextMessageRef.current = true;
-    requestAnimationFrame(() => scrollToBottom());
-  }, [recordingTime, conversation.id, onSendAudio, scrollToBottom]);
-
-  const cancelRecording = useCallback(() => {
-    const recorder = mediaRecorderRef.current;
-    if (recorder && recorder.state !== "inactive") recorder.stop();
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    setIsRecording(false);
-    setRecordingTime(0);
-    chunksRef.current = [];
-    mediaRecorderRef.current = null;
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") mediaRecorderRef.current.stop();
-    };
-  }, []);
 
   const statusIcon = (status?: string) => {
     if (status === "sending") return <Loader2 className="w-3 h-3 animate-spin text-muted-foreground/40" />;
@@ -1187,7 +1030,7 @@ export function ChatPanel({
               {replyTo.type === "sent" ? "Você" : conversation.name}
             </p>
             <p className="text-[11px] text-muted-foreground truncate">
-              {getReplyPreview(replyTo)}
+              {replyTo.content?.substring(0, 80) || "💬 Mensagem"}
             </p>
           </div>
           <Button variant="ghost" size="icon" className="w-7 h-7 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => setReplyTo(null)}>
