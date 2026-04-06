@@ -189,16 +189,15 @@ export async function scheduleDayJobs(
     if (!joinedGroups?.length) hasUsableGroups = false;
   }
 
-  // Group interaction jobs
+  // Group interaction jobs — fixed spacing of 90-150s between messages
   if (actualGroupCount > 0 && hasUsableGroups) {
-    const firstJobOffset = randInt(60, 300) * 1000;
-    const remainingWindow = windowMs - firstJobOffset;
-    const spacing = remainingWindow / Math.max(actualGroupCount, 1);
+    const firstJobOffset = randInt(60, 180) * 1000; // start 1-3 min after window opens
+    let cursor = effectiveStart + firstJobOffset;
     for (let i = 0; i < actualGroupCount; i++) {
-      const offset = firstJobOffset + spacing * i + randInt(-60, 60) * 1000;
-      const runAt = new Date(effectiveStart + Math.max(offset, 60000));
-      if (runAt.getTime() > effectiveEnd) break;
-      jobs.push({ user_id: userId, device_id: deviceId, cycle_id: cycleId, job_type: "group_interaction", payload: {}, run_at: runAt.toISOString(), status: "pending" });
+      if (cursor > effectiveEnd) break;
+      jobs.push({ user_id: userId, device_id: deviceId, cycle_id: cycleId, job_type: "group_interaction", payload: {}, run_at: new Date(cursor).toISOString(), status: "pending" });
+      // Fixed delay: 90-150 seconds between messages (average ~2 min)
+      cursor += randInt(90, 150) * 1000;
     }
   }
 
