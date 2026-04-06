@@ -225,28 +225,45 @@ function isMediaPlaceholder(content: string | undefined | null): boolean {
 /* ─────────── Audio Player ─────────── */
 function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number; isSent: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const rafRef = useRef<number>(0);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [totalDuration, setTotalDuration] = useState(duration || 0);
 
+  // Smooth RAF-based progress instead of timeupdate
+  const updateProgress = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.duration && isFinite(audio.duration)) {
+      setCurrentTime(audio.currentTime);
+      setProgress((audio.currentTime / audio.duration) * 100);
+      setTotalDuration(audio.duration);
+    }
+    if (!audio.paused) {
+      rafRef.current = requestAnimationFrame(updateProgress);
+    }
+  }, []);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    const onTime = () => {
-      setCurrentTime(audio.currentTime);
-      if (audio.duration && isFinite(audio.duration)) {
-        setProgress((audio.currentTime / audio.duration) * 100);
-        setTotalDuration(audio.duration);
-      }
-    };
-    const onEnded = () => { setPlaying(false); setProgress(0); setCurrentTime(0); };
+    const onPlay = () => { rafRef.current = requestAnimationFrame(updateProgress); };
+    const onPause = () => { cancelAnimationFrame(rafRef.current); };
+    const onEnded = () => { cancelAnimationFrame(rafRef.current); setPlaying(false); setProgress(0); setCurrentTime(0); };
     const onLoaded = () => { if (audio.duration && isFinite(audio.duration)) setTotalDuration(audio.duration); };
-    audio.addEventListener("timeupdate", onTime);
+    audio.addEventListener("play", onPlay);
+    audio.addEventListener("pause", onPause);
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("loadedmetadata", onLoaded);
-    return () => { audio.removeEventListener("timeupdate", onTime); audio.removeEventListener("ended", onEnded); audio.removeEventListener("loadedmetadata", onLoaded); };
-  }, []);
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("loadedmetadata", onLoaded);
+    };
+  }, [updateProgress]);
 
   const toggle = () => {
     const audio = audioRef.current;
@@ -259,18 +276,21 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
     const audio = audioRef.current;
     if (!audio || !audio.duration) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    audio.currentTime = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * audio.duration;
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    audio.currentTime = ratio * audio.duration;
+    setProgress(ratio * 100);
+    setCurrentTime(audio.currentTime);
   };
 
   return (
     <div className="flex items-center gap-2.5 min-w-[200px]">
-      <audio ref={audioRef} src={src} preload="metadata" />
+      <audio ref={audioRef} src={src} preload="auto" />
       <button onClick={toggle} className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors", isSent ? "bg-white/20 hover:bg-white/30 text-white" : "bg-primary/10 hover:bg-primary/20 text-primary")}>
         {playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
       </button>
       <div className="flex-1 min-w-0">
-        <div className={cn("h-1.5 rounded-full cursor-pointer", isSent ? "bg-white/20" : "bg-muted-foreground/15")} onClick={seek}>
-          <div className={cn("h-full rounded-full transition-all", isSent ? "bg-white/70" : "bg-primary/60")} style={{ width: `${progress}%` }} />
+        <div className={cn("h-1.5 rounded-full cursor-pointer relative", isSent ? "bg-white/20" : "bg-muted-foreground/15")} onClick={seek}>
+          <div className={cn("h-full rounded-full", isSent ? "bg-white/70" : "bg-primary/60")} style={{ width: `${progress}%`, transition: "none" }} />
         </div>
         <div className="flex items-center justify-between mt-1">
           <span className={cn("text-[10px]", isSent ? "text-white/60" : "text-muted-foreground/60")}>{playing || currentTime > 0 ? formatDuration(currentTime) : formatDuration(totalDuration)}</span>
@@ -405,9 +425,18 @@ export function ChatPanel({
   // ─── Audio Recording ───
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "audio/webm";
-      const recorder = new MediaRecorder(stream, { mimeType });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000 },
+      });
+      // Prefer OGG Opus (WhatsApp PTT native format), then WebM Opus
+      const mimeType = MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
+        ? "audio/ogg;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : MediaRecorder.isTypeSupported("audio/mp4")
+            ? "audio/mp4"
+            : "audio/webm";
+      const recorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 128000 });
       chunksRef.current = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       recorder.onstop = () => { stream.getTracks().forEach((t) => t.stop()); };
