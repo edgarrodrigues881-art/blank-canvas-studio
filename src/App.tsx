@@ -213,11 +213,11 @@ const App = () => (
                 <Route path="/dashboard/mass-inject" element={<ProtectedRoute><DashboardLayout><MassGroupInject /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/welcome" element={<ProtectedRoute><DashboardLayout><WelcomeAutomation /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/chip-conversation" element={<ProtectedRoute><DashboardLayout><ChipConversation /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/auto-reply" element={<ProtectedRoute><DashboardLayout><AutoReplyComingSoon /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/auto-reply/:id" element={<ProtectedRoute><DashboardLayout><AutoReplyComingSoon /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/autoreply" element={<ProtectedRoute><DashboardLayout><AutoReplyComingSoon /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/autoreply/:id" element={<ProtectedRoute><DashboardLayout><AutoReplyComingSoon /></DashboardLayout></ProtectedRoute>} />
-                <Route path="/dashboard/autoreply-soon" element={<ProtectedRoute><DashboardLayout><AutoReplyComingSoon /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/auto-reply" element={<ProtectedRoute><DashboardLayout><AutoReplyList /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/auto-reply/:id" element={<ProtectedRoute><DashboardLayout><AutoReply /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/autoreply" element={<ProtectedRoute><DashboardLayout><AutoReplyList /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/autoreply/:id" element={<ProtectedRoute><DashboardLayout><AutoReply /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/flows" element={<ProtectedRoute><DashboardLayout><AutoReplyList /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/contacts" element={<ProtectedRoute><DashboardLayout><Contacts /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-extractor" element={<ProtectedRoute><DashboardLayout><GroupLeadExtractor /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/whatsapp-verifier" element={<ProtectedRoute><DashboardLayout><WhatsAppVerifier /></DashboardLayout></ProtectedRoute>} />
