@@ -202,8 +202,10 @@ export function ConversationList({
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all border-l-2",
                     isSelected
-                      ? "bg-primary/5 border-l-primary"
-                      : "border-l-transparent hover:bg-muted/20"
+                      ? "bg-primary/8 border-l-primary"
+                      : hasUnread
+                        ? "border-l-primary/70 bg-primary/[0.03] hover:bg-primary/[0.06]"
+                        : "border-l-transparent hover:bg-muted/20"
                   )}
                 >
                   <div className="relative shrink-0">
@@ -258,7 +260,7 @@ export function ConversationList({
                         </p>
                       </div>
                       {hasUnread && (
-                        <span className="min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-primary text-primary-foreground rounded-full flex items-center justify-center shrink-0">
+                        <span className="min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-red-500 text-white rounded-full flex items-center justify-center shrink-0 animate-in zoom-in-50 duration-200 shadow-sm shadow-red-500/30">
                           {c.unreadCount}
                         </span>
                       )}

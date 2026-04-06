@@ -815,6 +815,10 @@ export function useConversations() {
   useEffect(() => {
     if (!user) return;
 
+    // Notification sound for new received messages
+    const notifAudio = new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoGAACAgICAgICAgICAgICBgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/v/+/v38+/r5+Pf29fTz8vHw7+7t7Ovq6ejn5uXk4+Lh4N/e3dzb2tnY19bV1NPS0dDPzs3My8rJyMfGxcTDwsHAv769vLu6ubm4t7a1tLOysbCvrq2sq6qpqKempaSjoqGgn56dnJuamZiXlpWUk5KRkI+OjYyLiomIh4aFhIOCgYCAgA==");
+    notifAudio.volume = 0.3;
+
     const channel = supabase
       .channel("conv-msgs-rt")
       .on(
@@ -828,8 +832,29 @@ export function useConversations() {
               return [...prev, newMsg];
             });
           }
-          // Auto-transition: received message → "em_atendimento" if currently "nova" or "aguardando"
+
+          // Sound + browser notification for received messages
           if (newMsg.direction === "received") {
+            // Play notification sound
+            notifAudio.currentTime = 0;
+            notifAudio.play().catch(() => {});
+
+            // Browser push notification (if permitted)
+            if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+              const conv = conversationsRef.current.find((c) => c.id === newMsg.conversation_id);
+              const title = conv?.name || "Nova mensagem";
+              const body = newMsg.content?.substring(0, 100) || "📩 Nova mensagem recebida";
+              try {
+                new Notification(title, {
+                  body,
+                  icon: conv?.avatar_url || "/placeholder.svg",
+                  tag: `msg-${newMsg.conversation_id}`,
+                  silent: true,
+                });
+              } catch {}
+            }
+
+            // Auto-transition: received message → "em_atendimento" if currently "nova" or "aguardando"
             const conv = conversationsRef.current.find((c) => c.id === newMsg.conversation_id);
             if (conv && (conv.attending_status === "nova" || conv.attending_status === "aguardando")) {
               updateStatus(newMsg.conversation_id, "em_atendimento");
