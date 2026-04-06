@@ -7,7 +7,7 @@ import { createLogger } from "../core/logger";
 
 import { config } from "../core/config";
 import { isWithinOperatingWindow, getBrtTodayAt, getBrtDateKey } from "../utils/brt";
-import { randInt, pickRandom, generateNaturalMessage, pickMediaTypeGroup, pickMediaTypeCommunity, IMAGE_CAPTIONS, LOCATION_CAPTIONS, FAKE_LOCATIONS, FALLBACK_IMAGES, FALLBACK_AUDIOS, pickFakeLocation } from "../utils/message-generator";
+import { randInt, pickRandom, generateNaturalMessage, pickMediaTypeGroup, pickMediaTypeCommunity, IMAGE_CAPTIONS, LOCATION_CAPTIONS, FALLBACK_IMAGES, FALLBACK_AUDIOS, pickFakeLocation } from "../utils/message-generator";
 import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiCheckPhone, fetchLiveGroups } from "../integrations/uazapi";
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess, getVolumes, getGroupMsgsForDay,
