@@ -37,6 +37,13 @@ export interface Message {
   whatsappMessageId?: string;
   quotedMessageId?: string;
   quotedContent?: string;
+  deviceName?: string;
+}
+
+export interface ConversationInstance {
+  id: string;
+  deviceName?: string;
+  lastMessageAt?: string;
 }
 
 // Mock data for initial UI
