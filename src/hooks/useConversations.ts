@@ -331,7 +331,8 @@ export function useConversations() {
         direction: "sent",
         status: "sending",
         created_at: now,
-      }).select().single(),
+        responded_by: user.id,
+      } as any).select().single(),
 
       fetch(`https://${projectId}.supabase.co/functions/v1/chat-send`, {
         method: "POST",
