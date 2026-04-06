@@ -455,7 +455,7 @@ export function AppSidebar() {
         </SidebarGroup>
         )}
 
-        {(!shouldHideSection || hasAnyPermission(["/dashboard/conversations", "/dashboard/flows", "/dashboard/team", "/dashboard/ai-settings", "/dashboard/service-contacts", "/dashboard/schedules", "/dashboard/history"])) && (
+        {(!shouldHideSection || hasAnyPermission(["/dashboard/conversations", "/dashboard/flows", "/dashboard/team", "/dashboard/ai-settings", "/dashboard/service-contacts", "/dashboard/schedules", "/dashboard/history", "/dashboard/queue"])) && (
         <SidebarGroup className="py-0 mt-1">
           {!collapsed && (
             <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
