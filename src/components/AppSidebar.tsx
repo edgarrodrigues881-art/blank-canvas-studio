@@ -449,8 +449,9 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
 
-        {/* ── Central de Atendimento section ── */}
+        {(!shouldHideSection || hasAnyPermission(["/dashboard/conversations", "/dashboard/team", "/dashboard/ai-settings"])) && (
         <SidebarGroup className="py-0 mt-1">
           {!collapsed && (
             <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
