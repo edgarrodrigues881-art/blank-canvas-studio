@@ -321,6 +321,8 @@ export function ChatPanel({
   const [currentStatus, setCurrentStatus] = useState<AttendingStatus>(conversation.attendingStatus);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [showStatusHistory, setShowStatusHistory] = useState(false);
+  const [statusHistory, setStatusHistory] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -341,6 +343,34 @@ export function ChatPanel({
   const allQuickReplies = dbReplies.length > 0 ? dbReplies : defaultQuickReplies;
 
   useEffect(() => { setCurrentStatus(conversation.attendingStatus); }, [conversation.id]);
+
+  // Time in current status
+  const [timeInStatus, setTimeInStatus] = useState("");
+  useEffect(() => {
+    const computeTime = () => {
+      const changedAt = conversation.statusChangedAt ? new Date(conversation.statusChangedAt) : new Date();
+      const diff = Math.max(0, Math.floor((Date.now() - changedAt.getTime()) / 1000));
+      if (diff < 60) { setTimeInStatus(`${diff}s`); return; }
+      if (diff < 3600) { setTimeInStatus(`${Math.floor(diff / 60)} min`); return; }
+      if (diff < 86400) { setTimeInStatus(`${Math.floor(diff / 3600)}h ${Math.floor((diff % 3600) / 60)}min`); return; }
+      setTimeInStatus(`${Math.floor(diff / 86400)}d`);
+    };
+    computeTime();
+    const interval = setInterval(computeTime, 10000);
+    return () => clearInterval(interval);
+  }, [conversation.statusChangedAt, currentStatus]);
+
+  // Fetch status history when toggled
+  useEffect(() => {
+    if (!showStatusHistory) return;
+    supabase
+      .from("conversation_status_history")
+      .select("*")
+      .eq("conversation_id", conversation.id)
+      .order("created_at", { ascending: false })
+      .limit(20)
+      .then(({ data }) => setStatusHistory(data || []));
+  }, [showStatusHistory, conversation.id]);
 
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [newMsgCount, setNewMsgCount] = useState(0);
