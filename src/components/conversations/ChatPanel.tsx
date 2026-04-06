@@ -760,7 +760,7 @@ export function ChatPanel({
           <img
             src={msg.mediaUrl}
             alt="Imagem"
-            className="rounded-xl max-w-full max-h-[320px] object-cover cursor-pointer shadow-md"
+            className="rounded-xl max-w-[260px] max-h-[260px] object-cover cursor-pointer shadow-sm border border-border/20"
             onClick={() => setLightboxUrl(msg.mediaUrl!)}
           />
           {msg.content && !isMediaPlaceholder(msg.content) && (
