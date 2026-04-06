@@ -8,6 +8,8 @@ import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useState, useMemo, Fragment } from "react";
+import { formatPhone } from "@/utils/formatters";
+import { getMessagePreview } from "@/utils/fileHelpers";
 
 interface InstanceFilter {
   id: string;
