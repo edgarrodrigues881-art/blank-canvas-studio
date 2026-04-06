@@ -369,7 +369,7 @@ export function useConversations() {
 
     const tempId = crypto.randomUUID();
     const now = new Date().toISOString();
-    const ext = blob.type.includes("mp4") ? "mp4" : "webm";
+    const ext = blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "mp4" : "webm";
     const fileName = `${user.id}/chat-audio/${tempId}.${ext}`;
 
     const optimisticMsg: RealMessage = {
