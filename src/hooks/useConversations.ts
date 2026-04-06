@@ -528,7 +528,7 @@ export function useConversations() {
     } finally {
       if (localUrl) URL.revokeObjectURL(localUrl);
     }
-  }, [user, conversations, sortConversations]);
+  }, [user, sortConversations, getToken, projectId]);
 
   const selectConversation = useCallback((convId: string | null) => {
     setSelectedConvId(convId);
