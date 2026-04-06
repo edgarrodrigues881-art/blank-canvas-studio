@@ -13,6 +13,7 @@ const MAX_SIDEBAR_W = 600;
 const DEFAULT_SIDEBAR_W = 340;
 
 const Conversations = () => {
+  const { user } = useAuth();
   const {
     conversations: realConvs,
     messages: realMsgs,
