@@ -155,11 +155,8 @@ export function useConversations() {
     if (syncing) return;
     setSyncing(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+      const token = await getToken();
       if (!token) throw new Error("Not authenticated");
-
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
 
       const webhookResp = await fetch(
         `https://${projectId}.supabase.co/functions/v1/webhook-conversations`,
