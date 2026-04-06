@@ -63,11 +63,42 @@ const attendingStatusConfig: Record<AttendingStatus, { label: string; color: str
 
 /* ─────────── Image Lightbox ─────────── */
 function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const isDragging = useRef(false);
+  const lastPos = useRef({ x: 0, y: 0 });
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.stopPropagation();
+    setZoom((z) => Math.min(5, Math.max(0.5, z - e.deltaY * 0.002)));
+  }, []);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (zoom <= 1) return;
+    e.stopPropagation();
+    isDragging.current = true;
+    lastPos.current = { x: e.clientX, y: e.clientY };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, [zoom]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    e.stopPropagation();
+    const dx = e.clientX - lastPos.current.x;
+    const dy = e.clientY - lastPos.current.y;
+    lastPos.current = { x: e.clientX, y: e.clientY };
+    setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    isDragging.current = false;
+  }, []);
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -87,26 +118,21 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
     }
   };
 
-  const [zoom, setZoom] = useState(1);
-
-  const handleZoomIn = (e: React.MouseEvent) => {
+  const resetView = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setZoom((z) => Math.min(z + 0.5, 5));
-  };
-  const handleZoomOut = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setZoom((z) => Math.max(z - 0.5, 0.5));
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-150" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/90 backdrop-blur-sm animate-in fade-in duration-150" onClick={onClose}>
       <div
-        className="relative bg-card rounded-2xl shadow-2xl border border-border/30 overflow-hidden max-w-[min(480px,90vw)] max-h-[min(480px,80vh)] flex flex-col"
+        className="relative bg-card rounded-2xl shadow-2xl border border-border/30 overflow-hidden max-w-[min(560px,92vw)] max-h-[min(560px,85vh)] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header bar */}
         <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b border-border/20 shrink-0">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <button
               onClick={handleDownload}
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/50"
@@ -115,20 +141,12 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
               Baixar
             </button>
             <button
-              onClick={handleZoomIn}
+              onClick={resetView}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/50"
-              title="Zoom +"
+              title="Resetar zoom"
             >
-              🔍+
+              {Math.round(zoom * 100)}%
             </button>
-            <button
-              onClick={handleZoomOut}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/50"
-              title="Zoom −"
-            >
-              🔍−
-            </button>
-            <span className="text-xs text-muted-foreground ml-1">{Math.round(zoom * 100)}%</span>
           </div>
           <button
             onClick={onClose}
@@ -138,12 +156,23 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
           </button>
         </div>
         {/* Image */}
-        <div className="flex-1 min-h-0 flex items-center justify-center p-3 overflow-auto">
+        <div
+          className="flex-1 min-h-0 flex items-center justify-center overflow-hidden select-none"
+          onWheel={handleWheel}
+          style={{ cursor: zoom > 1 ? "grab" : "default" }}
+        >
           <img
             src={src}
             alt="Visualização"
-            className="max-w-full max-h-[min(400px,70vh)] object-contain rounded-lg transition-transform duration-200"
-            style={{ transform: `scale(${zoom})`, transformOrigin: "center center" }}
+            draggable={false}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            className="max-w-full max-h-[min(480px,75vh)] object-contain rounded-lg transition-transform duration-100"
+            style={{
+              transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+              transformOrigin: "center center",
+            }}
           />
         </div>
       </div>
