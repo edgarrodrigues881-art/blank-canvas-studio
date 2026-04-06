@@ -472,6 +472,9 @@ export function ChatPanel({
     setInput("");
     setShowQuickReplies(false);
     setReplyTo(null);
+    // Force scroll to bottom after sending
+    setIsNearBottom(true);
+    requestAnimationFrame(() => scrollToBottom());
   };
 
   const handleQuickReply = (text: string) => {
@@ -535,6 +538,8 @@ export function ChatPanel({
     onSendFile?.(conversation.id, pendingFile);
     cancelPendingFile();
     setSendingFile(false);
+    setIsNearBottom(true);
+    requestAnimationFrame(() => scrollToBottom());
   };
 
   // ─── Audio Recording ───
@@ -580,7 +585,9 @@ export function ChatPanel({
     if (blob.size > 0) onSendAudio?.(conversation.id, blob, duration);
     setSendingAudio(false);
     mediaRecorderRef.current = null;
-  }, [recordingTime, conversation.id, onSendAudio]);
+    setIsNearBottom(true);
+    requestAnimationFrame(() => scrollToBottom());
+  }, [recordingTime, conversation.id, onSendAudio, scrollToBottom]);
 
   const cancelRecording = useCallback(() => {
     const recorder = mediaRecorderRef.current;
