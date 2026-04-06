@@ -486,6 +486,11 @@ export function ChatPanel({
   }, [pendingPreview]);
 
   const handleSend = () => {
+    // If there's a pending file, send it (with caption if text exists)
+    if (pendingFile) {
+      sendPendingFile();
+      return;
+    }
     if (!input.trim()) return;
     const quotedWaId = replyTo?.whatsappMessageId || undefined;
     const quotedText = replyTo?.content || undefined;
@@ -556,6 +561,12 @@ export function ChatPanel({
   const sendPendingFile = async () => {
     if (!pendingFile) return;
     setSendingFile(true);
+    // Send caption first if there's text, then the file
+    const caption = input.trim();
+    if (caption) {
+      onSendMessage?.(conversation.id, caption);
+      setInput("");
+    }
     onSendFile?.(conversation.id, pendingFile);
     cancelPendingFile();
     setSendingFile(false);
@@ -749,7 +760,7 @@ export function ChatPanel({
           <img
             src={msg.mediaUrl}
             alt="Imagem"
-            className="rounded-xl max-w-full max-h-[320px] object-cover cursor-pointer shadow-md"
+            className="rounded-xl max-w-[260px] max-h-[260px] object-cover cursor-pointer shadow-sm border border-border/20"
             onClick={() => setLightboxUrl(msg.mediaUrl!)}
           />
           {msg.content && !isMediaPlaceholder(msg.content) && (
