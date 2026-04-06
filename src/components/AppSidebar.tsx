@@ -499,31 +499,42 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
               {/* Meu Plano - Premium animated button */}
-              <SidebarMenuItem className="plan-gold-wrap">
-                <SidebarMenuButton asChild tooltip="Meu Plano">
-                  <NavLink
-                    to="/dashboard/my-plan"
-                    className={cn(
-                      "plan-gold-btn sidebar-nav-item relative flex items-center text-[13px] transition-[color,opacity] duration-[120ms] ease-out group/plan",
-                      collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 pr-3.5 py-[10px]',
-                      isActive("/dashboard/my-plan")
-                        ? 'text-foreground font-semibold'
-                        : 'text-muted-foreground font-medium hover:text-amber-300'
-                    )}
-                    activeClassName=""
-                  >
-                    {isActive("/dashboard/my-plan") && !collapsed && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-amber-400 z-10" />
-                    )}
-                    <span className="relative z-10 flex items-center justify-center w-[18px] h-[18px] shrink-0">
-                      <Crown className={cn("w-[16px] h-[16px] transition-colors duration-150", isActive("/dashboard/my-plan") ? "text-amber-400" : "text-amber-500/70 group-hover/plan:text-amber-400")} strokeWidth={isActive("/dashboard/my-plan") ? 2.2 : 1.8} />
-                    </span>
-                    {!collapsed && (
-                      <span className="truncate flex-1 relative z-10">Meu Plano</span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {(() => {
+                const planPermBlocked = !isOwner && !hasRoutePermission("/dashboard/my-plan");
+                if (planPermBlocked && permissionMode === "hide") return null;
+                return (
+                  <SidebarMenuItem className="plan-gold-wrap">
+                    <SidebarMenuButton asChild tooltip={planPermBlocked ? "Meu Plano — Sem permissão" : "Meu Plano"}>
+                      <NavLink
+                        to={planPermBlocked ? "#" : "/dashboard/my-plan"}
+                        onClick={planPermBlocked ? (e: React.MouseEvent) => { e.preventDefault(); setMaintenanceModal({ name: "Meu Plano", message: "Você não tem acesso a esta função." }); } : undefined}
+                        className={cn(
+                          "plan-gold-btn sidebar-nav-item relative flex items-center text-[13px] transition-[color,opacity] duration-[120ms] ease-out group/plan",
+                          collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 pr-3.5 py-[10px]',
+                          planPermBlocked
+                            ? 'text-muted-foreground/40 font-medium cursor-not-allowed'
+                            : isActive("/dashboard/my-plan")
+                              ? 'text-foreground font-semibold'
+                              : 'text-muted-foreground font-medium hover:text-amber-300'
+                        )}
+                        activeClassName=""
+                      >
+                        {isActive("/dashboard/my-plan") && !planPermBlocked && !collapsed && (
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-amber-400 z-10" />
+                        )}
+                        <span className="relative z-10 flex items-center justify-center w-[18px] h-[18px] shrink-0">
+                          <Crown className={cn("w-[16px] h-[16px] transition-colors duration-150", planPermBlocked ? "text-muted-foreground/30" : isActive("/dashboard/my-plan") ? "text-amber-400" : "text-amber-500/70 group-hover/plan:text-amber-400")} strokeWidth={isActive("/dashboard/my-plan") ? 2.2 : 1.8} />
+                          {planPermBlocked && <Lock className="absolute -bottom-1 -right-1 w-[10px] h-[10px] text-amber-500/70" strokeWidth={2.5} />}
+                        </span>
+                        {!collapsed && (
+                          <span className={cn("truncate flex-1 relative z-10", planPermBlocked && "opacity-50")}>Meu Plano</span>
+                        )}
+                        {!collapsed && planPermBlocked && <Lock className="ml-auto w-3.5 h-3.5 text-amber-500/60 shrink-0 z-10" />}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })()}
               {renderNavItem({ title: "Comunidade", url: "/dashboard/community", icon: UsersRound })}
               {renderNavItem({ title: "Ajuda", url: "/dashboard/custom-module", icon: HelpCircle })}
             </SidebarMenu>
