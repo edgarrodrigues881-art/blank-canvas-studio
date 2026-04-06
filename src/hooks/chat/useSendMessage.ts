@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { resolveVariables } from "@/hooks/useQuickReplies";
+import { resolveVariables } from "./useQuickReplies";
 
 interface UseSendMessageParams {
   conversationId: string;
