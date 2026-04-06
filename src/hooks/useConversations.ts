@@ -89,6 +89,7 @@ export function useConversations() {
     last_message_at: row.last_message_at || row.updated_at || row.created_at || new Date().toISOString(),
     unread_count: row.unread_count ?? 0,
     status: row.status || "offline",
+    status_changed_at: row.status_changed_at || row.created_at || new Date().toISOString(),
     deviceName: row.devices?.name || row.deviceName || undefined,
   }), []);
 
