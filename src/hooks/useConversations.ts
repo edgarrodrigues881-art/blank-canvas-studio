@@ -743,7 +743,7 @@ export function useConversations() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user, upsertConversationInState, sortConversations]);
+  }, [user, upsertConversationInState, sortConversations, getConversationContactKey]);
 
   // Real-time subscription — messages (INSERT + UPDATE for status changes)
   const selectedConvIdRef = useRef(selectedConvId);
