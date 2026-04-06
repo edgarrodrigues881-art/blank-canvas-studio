@@ -22,6 +22,8 @@ import { welcomeTick, lastWelcomeTickAt } from "./workers/welcome-worker";
 import { verifyTick, lastVerifyTickAt } from "./workers/verify-worker";
 import { communityTick as communityProcessorTick, lastCommunityTickAt } from "./community/community-processor";
 import { autoreplyTick, lastAutoreplyTickAt } from "./autoreply/autoreply-processor";
+import { scheduledMessagesTick, lastScheduledMsgTickAt } from "./workers/scheduled-messages-worker";
+import { syncDevicesTick, lastSyncDevicesTickAt } from "./workers/sync-devices-worker";
 import { backoffMinutes } from "./core/retry";
 import { validateUazapiCredentials } from "./integrations/uazapi";
 import { processJob, batchPreload, flushAuditLogs, ProcessJobContext } from "./warmup/warmup-processor";
@@ -54,6 +56,8 @@ app.get("/health", (_req: Request, res: Response) => {
     lastVerifyTick: lastVerifyTickAt?.toISOString() || null,
     lastCommunityTick: lastCommunityTickAt?.toISOString() || null,
     lastAutoreplyTick: lastAutoreplyTickAt?.toISOString() || null,
+    lastScheduledMsgTick: lastScheduledMsgTickAt?.toISOString() || null,
+    lastSyncDevicesTick: lastSyncDevicesTickAt?.toISOString() || null,
     activeMassInjectCampaigns: massInjectStatus.activeCampaigns,
     activeCampaignWorker: campaignWorkerStatus.activeCampaigns,
     tickCount,
@@ -943,6 +947,8 @@ async function mainLoop() {
     verify: false,
     community: false,
     autoreply: false,
+    scheduledMsg: false,
+    syncDevices: false,
   };
 
   function guardedLoop(
@@ -1034,6 +1040,14 @@ async function mainLoop() {
       const db = getDb();
       await autoreplyTick(db);
     }, 2_000)(),
+
+    guardedLoop("scheduledMsg", async () => {
+      await scheduledMessagesTick();
+    }, 30_000)(),
+
+    guardedLoop("syncDevices", async () => {
+      await syncDevicesTick();
+    }, 120_000)(),
   ]);
 }
 
