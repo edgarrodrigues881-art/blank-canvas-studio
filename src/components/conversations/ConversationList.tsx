@@ -337,6 +337,16 @@ export function ConversationList({
                           {c.unreadCount}
                         </span>
                       )}
+                      {activeStatus === "archived" && onUnarchive && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onUnarchive(c.id); }}
+                          className="shrink-0 text-[10px] text-primary hover:text-primary/80 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 hover:bg-primary/20 transition-colors"
+                          title="Desarquivar"
+                        >
+                          <ArchiveRestore className="w-3 h-3" />
+                          <span className="hidden sm:inline">Desarquivar</span>
+                        </button>
+                      )}
                     </div>
 
                     {/* Matched tags */}
