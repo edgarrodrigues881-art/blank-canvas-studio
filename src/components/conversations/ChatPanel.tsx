@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect, useCallback, useMemo, useLayoutEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
 import { useQuickReplies, resolveVariables, QUICK_REPLY_CATEGORIES } from "@/hooks/useQuickReplies";
 import { QuickRepliesManager } from "./QuickRepliesManager";
 import { useSendMessage } from "@/hooks/useSendMessage";
-import { MessageBubble, isMediaPlaceholder } from "./MessageBubble";
-import { ChatHeader, attendingStatusConfig } from "./ChatHeader";
+import { MessageBubble } from "./MessageBubble";
+import { ChatHeader } from "./ChatHeader";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Paperclip,
@@ -222,9 +222,9 @@ export function ChatPanel({
   const {
     input, setInput, textareaRef, handleSend, handleKeyDown, handlePaste,
     replyTo, setReplyTo,
-    showQuickReplies, setShowQuickReplies, quickReplySearch, getFilteredQuickReplies, handleQuickReply,
+    showQuickReplies, setShowQuickReplies, getFilteredQuickReplies, handleQuickReply,
     pendingFile, pendingPreview, sendingFile, imageInputRef, fileInputRef,
-    handleFileSelected, handleImageInput, handleDocInput, cancelPendingFile, sendPendingFile,
+    handleImageInput, handleDocInput, cancelPendingFile, sendPendingFile,
     isRecording, recordingTime, sendingAudio, startRecording, stopAndSend, cancelRecording,
   } = send;
 
