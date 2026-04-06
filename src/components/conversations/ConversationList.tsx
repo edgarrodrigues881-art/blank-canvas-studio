@@ -263,13 +263,12 @@ export function ConversationList({
             <button
               onClick={() => onFilterInstancesChange?.([])}
               className={cn(
-                "px-2 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all flex items-center gap-1 border",
+                "px-1.5 py-0.5 rounded-md text-[10px] font-semibold whitespace-nowrap transition-all flex items-center gap-0.5",
                 filterInstanceIds.length === 0
-                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                  : "bg-muted/30 text-muted-foreground border-border/50 hover:bg-muted hover:text-foreground"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
-              <Smartphone className="w-3 h-3" />
               Todas
             </button>
             {availableInstances.map((inst) => {
@@ -279,13 +278,12 @@ export function ConversationList({
                   key={inst.id}
                   onClick={() => toggleInstance(inst.id)}
                   className={cn(
-                    "px-2 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all flex items-center gap-1 border",
+                    "px-1.5 py-0.5 rounded-md text-[10px] font-semibold whitespace-nowrap transition-all flex items-center gap-0.5",
                     isActive
-                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                      : "bg-muted/30 text-muted-foreground border-border/50 hover:bg-muted hover:text-foreground"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                 >
-                  <Smartphone className="w-3 h-3" />
                   {inst.name}
                 </button>
               );
