@@ -1,4 +1,4 @@
-import { Search, Check, CheckCheck, MessageSquarePlus, Tag, X, ArchiveRestore } from "lucide-react";
+import { Search, Check, CheckCheck, MessageSquarePlus, Tag, X, ArchiveRestore, Smartphone } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,12 @@ import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useState, useMemo, Fragment } from "react";
+
+interface InstanceFilter {
+  id: string;
+  name: string;
+  number: string;
+}
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -19,6 +25,9 @@ interface ConversationListProps {
   onNewConversationClick?: () => void;
   currentUserId?: string;
   onUnarchive?: (conversationId: string) => void;
+  availableInstances?: InstanceFilter[];
+  filterInstanceIds?: string[];
+  onFilterInstancesChange?: (ids: string[]) => void;
 }
 
 type StatusTab = "all" | "mine" | "new" | "attending" | "waiting" | "archived";
@@ -136,8 +145,19 @@ export function ConversationList({
   currentUserId,
   archivedConversations = [],
   onUnarchive,
+  availableInstances = [],
+  filterInstanceIds = [],
+  onFilterInstancesChange,
 }: ConversationListProps) {
   const [activeStatus, setActiveStatus] = useState<StatusTab>("all");
+
+  const toggleInstance = (id: string) => {
+    if (!onFilterInstancesChange) return;
+    const next = filterInstanceIds.includes(id)
+      ? filterInstanceIds.filter((i) => i !== id)
+      : [...filterInstanceIds, id];
+    onFilterInstancesChange(next);
+  };
 
   const baseList = activeStatus === "archived" ? archivedConversations : conversations;
 
@@ -236,6 +256,42 @@ export function ConversationList({
             );
           })}
         </div>
+
+        {/* Instance filter chips */}
+        {availableInstances.length > 1 && (
+          <div className="flex gap-1 overflow-x-auto scrollbar-none -mx-0.5 pt-1">
+            <button
+              onClick={() => onFilterInstancesChange?.([])}
+              className={cn(
+                "px-2 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all flex items-center gap-1 border",
+                filterInstanceIds.length === 0
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "bg-muted/30 text-muted-foreground border-border/50 hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <Smartphone className="w-3 h-3" />
+              Todas
+            </button>
+            {availableInstances.map((inst) => {
+              const isActive = filterInstanceIds.includes(inst.id);
+              return (
+                <button
+                  key={inst.id}
+                  onClick={() => toggleInstance(inst.id)}
+                  className={cn(
+                    "px-2 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all flex items-center gap-1 border",
+                    isActive
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-muted/30 text-muted-foreground border-border/50 hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <Smartphone className="w-3 h-3" />
+                  {inst.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <ScrollArea className="flex-1">

@@ -55,6 +55,7 @@ const Conversations = () => {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_W);
   const [newConversationOpen, setNewConversationOpen] = useState(false);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
+  const [filterInstanceIds, setFilterInstanceIds] = useState<string[]>([]);
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -203,19 +204,49 @@ const Conversations = () => {
     }
   }, [selectedInstances, selectedInstanceId]);
 
-  const filteredConversations = useMemo(() =>
-    groupedConversations.filter((c) => {
-      if (!searchQuery) return true;
+  // Extract unique instances for filter chips
+  const availableInstances = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; number: string }>();
+    realConvs.forEach((c) => {
+      if (c.device_id && !map.has(c.device_id)) {
+        map.set(c.device_id, {
+          id: c.device_id,
+          name: c.deviceName || c.device_id.slice(0, 8),
+          number: "",
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [realConvs]);
+
+  const filteredConversations = useMemo(() => {
+    let list = groupedConversations;
+
+    // Filter by selected instances
+    if (filterInstanceIds.length > 0) {
+      list = list.filter((c) => {
+        const key = normalizePhoneKey(c.phone);
+        // Check if any raw conversation for this phone belongs to a selected instance
+        return allConversations.some(
+          (raw) => normalizePhoneKey(raw.phone) === key &&
+            realConvs.find((r) => r.id === raw.id && r.device_id && filterInstanceIds.includes(r.device_id))
+        );
+      });
+    }
+
+    if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      return (
+      list = list.filter((c) =>
         c.name.toLowerCase().includes(q) ||
         c.phone.replace(/\D/g, "").includes(q.replace(/\D/g, "")) ||
         c.phone.includes(q) ||
         (c.lastMessage && c.lastMessage.toLowerCase().includes(q)) ||
         (c.tags && c.tags.some((t) => t.toLowerCase().includes(q)))
       );
-    })
-  , [groupedConversations, searchQuery]);
+    }
+
+    return list;
+  }, [groupedConversations, searchQuery, filterInstanceIds, allConversations, realConvs]);
 
   const messages: Message[] = useMemo(() =>
     realMsgs.map((m) => ({
@@ -343,6 +374,9 @@ const Conversations = () => {
               onNewConversationClick={() => setNewConversationOpen(true)}
               currentUserId={user?.id}
               onUnarchive={unarchiveConversation}
+              availableInstances={availableInstances}
+              filterInstanceIds={filterInstanceIds}
+              onFilterInstancesChange={setFilterInstanceIds}
             />
           </div>
 
