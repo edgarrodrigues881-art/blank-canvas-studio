@@ -503,8 +503,20 @@ export async function autoreplyTick(db: SupabaseClient): Promise<void> {
       .in("id", ids);
 
     for (const item of items) {
+      // ── Deduplication check ──
+      const dedupKey = deduplicationKey(item.device_id, item.from_phone, item.message_text || "");
+      if (isDuplicate(dedupKey)) {
+        log.info(`Deduplicated: ${item.from_phone} on ${item.device_id.substring(0, 8)}`);
+        await db.from("autoreply_queue")
+          .update({ status: "done", processed_at: new Date().toISOString(), error_message: "deduplicated" })
+          .eq("id", item.id);
+        _stats.deduplicated++;
+        continue;
+      }
+
       try {
         await processQueueItem(db, item);
+        markProcessed(dedupKey);
         await db.from("autoreply_queue")
           .update({ status: "done", processed_at: new Date().toISOString() })
           .eq("id", item.id);
