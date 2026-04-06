@@ -1,55 +1,48 @@
 import { useState } from "react";
 import { useTeam } from "@/hooks/useTeam";
 import { useAuth } from "@/lib/auth";
+import { useManagePermissions, PERMISSION_KEYS, type PermissionKey, type PermissionPreset } from "@/hooks/usePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Users,
-  UserPlus,
-  Mail,
-  MoreVertical,
-  Shield,
-  Headphones,
-  Trash2,
-  Clock,
-  Circle,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Users, UserPlus, Mail, MoreVertical, Shield, Headphones, Trash2,
+  Clock, Circle, Lock, CheckSquare, XSquare, Loader2, Save, Settings2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const TeamManagement = () => {
   const { user } = useAuth();
   const {
-    members,
-    invites,
-    loading,
-    myTeamRole,
-    inviteMember,
-    updateMemberRole,
-    removeMember,
-    cancelInvite,
-    isOnline,
+    members, invites, loading, myTeamRole,
+    inviteMember, updateMemberRole, removeMember, cancelInvite, isOnline,
   } = useTeam();
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("atendente");
   const [sending, setSending] = useState(false);
+  const [permDialogOpen, setPermDialogOpen] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+
+  const isAdmin = myTeamRole === "admin";
+
+  const {
+    permissions, permissionMode, setPermissionMode, presets,
+    loading: permLoading, saving, togglePermission, selectAll, removeAll, applyPreset, save,
+  } = useManagePermissions(selectedMemberId, user?.id || null);
 
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return;
@@ -59,15 +52,30 @@ const TeamManagement = () => {
     setSending(false);
   };
 
-  const isAdmin = myTeamRole === "admin";
+  const openPermissions = (memberId: string) => {
+    setSelectedMemberId(memberId);
+    setPermDialogOpen(true);
+  };
+
+  const handleSavePermissions = async () => {
+    await save();
+    setPermDialogOpen(false);
+  };
+
+  // Group permissions by category
+  const permGroups = Object.entries(PERMISSION_KEYS).reduce((acc, [key, val]) => {
+    if (!acc[val.group]) acc[val.group] = [];
+    acc[val.group].push({ key: key as PermissionKey, label: val.label });
+    return acc;
+  }, {} as Record<string, { key: PermissionKey; label: string }[]>);
+
+  const selectedMember = members.find((m) => m.member_id === selectedMemberId);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Equipe</h1>
-        <p className="text-sm text-muted-foreground">
-          Gerencie sua equipe de atendimento
-        </p>
+        <p className="text-sm text-muted-foreground">Gerencie sua equipe de atendimento</p>
       </div>
 
       {/* Stats */}
@@ -115,17 +123,14 @@ const TeamManagement = () => {
         </Card>
       </div>
 
-      {/* Invite / Add Member */}
+      {/* Invite */}
       {isAdmin && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <UserPlus className="w-4 h-4" />
-              Convidar membro
+              <UserPlus className="w-4 h-4" /> Convidar membro
             </CardTitle>
-            <CardDescription>
-              Envie um convite por e-mail ou adicione diretamente
-            </CardDescription>
+            <CardDescription>Envie um convite por e-mail ou adicione diretamente</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-2">
@@ -137,17 +142,14 @@ const TeamManagement = () => {
                 onKeyDown={(e) => e.key === "Enter" && handleInvite()}
               />
               <Select value={inviteRole} onValueChange={setInviteRole}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="atendente">Atendente</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
               <Button onClick={handleInvite} disabled={sending || !inviteEmail.trim()}>
-                <Mail className="w-4 h-4 mr-1" />
-                Convidar
+                <Mail className="w-4 h-4 mr-1" /> Convidar
               </Button>
             </div>
           </CardContent>
@@ -157,9 +159,7 @@ const TeamManagement = () => {
       {/* Pending Invites */}
       {invites.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Convites pendentes</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-base">Convites pendentes</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {invites.map((inv) => (
               <div key={inv.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/30">
@@ -193,12 +193,10 @@ const TeamManagement = () => {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Membros da equipe</CardTitle>
-          <CardDescription>
-            {members.length} {members.length === 1 ? "membro ativo" : "membros ativos"}
-          </CardDescription>
+          <CardDescription>{members.length} {members.length === 1 ? "membro ativo" : "membros ativos"}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          {/* Owner (self) */}
+          {/* Owner */}
           <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/10">
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -232,36 +230,20 @@ const TeamManagement = () => {
                         "w-9 h-9 rounded-full flex items-center justify-center",
                         m.role === "admin" ? "bg-primary/10" : "bg-blue-500/10"
                       )}>
-                        {m.role === "admin" ? (
-                          <Shield className="w-4 h-4 text-primary" />
-                        ) : (
-                          <Headphones className="w-4 h-4 text-blue-500" />
-                        )}
+                        {m.role === "admin" ? <Shield className="w-4 h-4 text-primary" /> : <Headphones className="w-4 h-4 text-blue-500" />}
                       </div>
-                      {online && (
-                        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-card" />
-                      )}
+                      {online && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-card" />}
                     </div>
                     <div>
-                      <p className="text-sm font-medium">
-                        {m.profile?.full_name || m.invited_email || "Membro"}
-                      </p>
+                      <p className="text-sm font-medium">{m.profile?.full_name || m.invited_email || "Membro"}</p>
                       <p className="text-[11px] text-muted-foreground">
-                        {online ? (
-                          <span className="text-emerald-500">Online agora</span>
-                        ) : m.profile?.last_seen_at ? (
-                          `Visto por último: ${format(new Date(m.profile.last_seen_at), "dd/MM HH:mm")}`
-                        ) : (
-                          "Nunca conectou"
-                        )}
+                        {online ? <span className="text-emerald-500">Online agora</span>
+                          : m.profile?.last_seen_at ? `Visto: ${format(new Date(m.profile.last_seen_at), "dd/MM HH:mm")}` : "Nunca conectou"}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={cn(
-                      "text-[10px]",
-                      m.role === "admin" ? "border-primary/30 text-primary" : "border-blue-500/30 text-blue-500"
-                    )}>
+                    <Badge variant="outline" className={cn("text-[10px]", m.role === "admin" ? "border-primary/30 text-primary" : "border-blue-500/30 text-blue-500")}>
                       {m.role === "admin" ? "Admin" : "Atendente"}
                     </Badge>
                     {isAdmin && (
@@ -272,6 +254,9 @@ const TeamManagement = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openPermissions(m.member_id)} className="gap-2">
+                            <Settings2 className="w-4 h-4" /> Permissões
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => updateMemberRole(m.id, m.role === "admin" ? "atendente" : "admin")}>
                             {m.role === "admin" ? "Mudar para Atendente" : "Promover a Admin"}
                           </DropdownMenuItem>
@@ -288,6 +273,108 @@ const TeamManagement = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Permissions Dialog */}
+      <Dialog open={permDialogOpen} onOpenChange={setPermDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="w-5 h-5 text-primary" />
+              Permissões de Acesso
+              {selectedMember && (
+                <Badge variant="outline" className="ml-2 text-xs">
+                  {selectedMember.profile?.full_name || selectedMember.invited_email}
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          {permLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {/* Presets */}
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-foreground">Perfis prontos</p>
+                <div className="flex flex-wrap gap-2">
+                  {presets.filter((p) => p.is_system).map((preset) => (
+                    <Button
+                      key={preset.id}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => applyPreset(preset)}
+                    >
+                      {preset.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mode toggle */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/30">
+                <div>
+                  <p className="text-sm font-medium">Modo de bloqueio</p>
+                  <p className="text-[10px] text-muted-foreground">Como mostrar itens sem permissão</p>
+                </div>
+                <Select value={permissionMode} onValueChange={(v) => setPermissionMode(v as "lock" | "hide")}>
+                  <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lock">🔒 Mostrar com cadeado</SelectItem>
+                    <SelectItem value="hide">👁️ Ocultar completamente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Quick actions */}
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={selectAll}>
+                  <CheckSquare className="w-3.5 h-3.5" /> Selecionar tudo
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={removeAll}>
+                  <XSquare className="w-3.5 h-3.5" /> Remover tudo
+                </Button>
+              </div>
+
+              {/* Permission groups */}
+              {Object.entries(permGroups).map(([group, items]) => (
+                <div key={group} className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{group}</p>
+                  <div className="space-y-1">
+                    {items.map(({ key, label }) => (
+                      <div
+                        key={key}
+                        className={cn(
+                          "flex items-center justify-between px-3 py-2 rounded-lg border transition-colors",
+                          permissions[key]
+                            ? "bg-primary/5 border-primary/20"
+                            : "bg-muted/20 border-border/30 opacity-60"
+                        )}
+                      >
+                        <span className="text-sm font-medium">{label}</span>
+                        <Switch
+                          checked={permissions[key]}
+                          onCheckedChange={() => togglePermission(key)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <DialogFooter className="mt-4">
+            <Button variant="ghost" onClick={() => setPermDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSavePermissions} disabled={saving} className="gap-2">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Salvar Permissões
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
