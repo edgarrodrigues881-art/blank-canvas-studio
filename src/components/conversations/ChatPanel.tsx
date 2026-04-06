@@ -895,6 +895,53 @@ export function ChatPanel({
         </div>
       </div>
 
+      {/* Status History Panel */}
+      {showStatusHistory && (
+        <div className="border-b border-border bg-muted/20 px-4 py-2 max-h-[180px] overflow-y-auto animate-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
+              <History className="w-3.5 h-3.5" /> Histórico de Status
+            </span>
+            <button onClick={() => setShowStatusHistory(false)} className="text-muted-foreground/50 hover:text-foreground">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          {statusHistory.length === 0 ? (
+            <p className="text-[10px] text-muted-foreground">Nenhuma mudança registrada</p>
+          ) : (
+            <div className="space-y-1">
+              {statusHistory.map((h: any) => {
+                const oldCfg = h.old_status ? attendingStatusConfig[h.old_status as AttendingStatus] : null;
+                const newCfg = attendingStatusConfig[h.new_status as AttendingStatus] || attendingStatusConfig.nova;
+                return (
+                  <div key={h.id} className="flex items-center gap-2 text-[10px]">
+                    <span className="text-muted-foreground/50 shrink-0 w-[70px]">
+                      {format(new Date(h.created_at), "dd/MM HH:mm")}
+                    </span>
+                    {oldCfg && (
+                      <>
+                        <span className={cn("flex items-center gap-1", oldCfg.color)}>
+                          <span className={cn("w-1.5 h-1.5 rounded-full", oldCfg.dot)} />
+                          {oldCfg.label}
+                        </span>
+                        <span className="text-muted-foreground/30">→</span>
+                      </>
+                    )}
+                    <span className={cn("flex items-center gap-1 font-semibold", newCfg.color)}>
+                      <span className={cn("w-1.5 h-1.5 rounded-full", newCfg.dot)} />
+                      {newCfg.label}
+                    </span>
+                    <span className="text-muted-foreground/40 ml-auto truncate max-w-[100px]">
+                      {h.changed_by_name || "Sistema"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Messages Area */}
       <div className="flex-1 relative overflow-hidden">
       <div
