@@ -109,7 +109,7 @@ export function AppSidebar() {
   const { folders, createFolder, updateFolder, deleteFolder, addDevices, removeDevice } = useWarmupFolders();
   const { isFeatureBlocked } = useFeatureControls();
   const { hasRoutePermission, permissionMode, isOwner } = usePermissions();
-  const [maintenanceModal, setMaintenanceModal] = useState<{ name: string; message: string | null } | null>(null);
+  const [maintenanceModal, setMaintenanceModal] = useState<{ name: string; message: string | null; variant?: "maintenance" | "permission" } | null>(null);
 
   const [profileData, setProfileData] = useState<{ company: string | null; avatar_url: string | null; full_name: string | null } | null>(null);
   const [warmupExpanded, setWarmupExpanded] = useState(false);
@@ -211,7 +211,7 @@ export function AppSidebar() {
         e.preventDefault();
         e.stopPropagation();
         if (permBlocked) {
-          setMaintenanceModal({ name: item.title, message: "Você não tem acesso a esta função. Solicite permissão ao administrador." });
+          setMaintenanceModal({ name: item.title, message: "Você não tem permissão para acessar esta função.\n\nFale com o administrador da sua equipe para solicitar a liberação do acesso.", variant: "permission" });
         } else {
           const name = blocked?.feature_name || item.title;
           const msg = blocked?.maintenance_message || `A função ${item.title} está em desenvolvimento e não está disponível no momento.`;
@@ -222,7 +222,7 @@ export function AppSidebar() {
 
     return (
       <SidebarMenuItem key={item.title}>
-        <SidebarMenuButton asChild tooltip={permBlocked ? `${item.title} — Sem permissão` : isLocked ? `${item.title} (Em desenvolvimento)` : item.title}>
+        <SidebarMenuButton asChild tooltip={permBlocked ? `🔒 ${item.title} — Acesso restrito pelo administrador` : isLocked ? `${item.title} (Em desenvolvimento)` : item.title}>
           <NavLink
             to={isLocked ? "#" : item.url}
             onClick={isLocked ? handleClick : undefined}
@@ -588,11 +588,12 @@ export function AppSidebar() {
         currentDeviceIds={editingFolder ? (folders.find(f => f.id === editingFolder.id)?.device_ids || []) : []}
       />
       {maintenanceModal && (
-        <MaintenanceModal
+      <MaintenanceModal
           open={true}
           onClose={() => setMaintenanceModal(null)}
           featureName={maintenanceModal.name}
           message={maintenanceModal.message}
+          variant={maintenanceModal.variant || "maintenance"}
         />
       )}
     </Sidebar>
