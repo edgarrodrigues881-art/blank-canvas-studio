@@ -33,7 +33,7 @@ async function getImagePool(db: any): Promise<string[]> {
       if (imgs.length > 0) { _imagePoolCache = imgs; return _imagePoolCache; }
     }
   } catch {}
-  _imagePoolCache = FALLBACK_IMAGES;
+  _imagePoolCache = [...FALLBACK_IMAGES];
   return _imagePoolCache;
 }
 
