@@ -1038,13 +1038,27 @@ export function ChatPanel({
               <Settings className="w-3.5 h-3.5 inline mr-0.5" />Gerenciar
             </button>
           </div>
-          <div className="px-2 pb-2 space-y-0.5 max-h-[200px] overflow-y-auto">
-            {filteredQuickReplies.map((qr) => (
-              <button key={qr.id} onClick={() => handleQuickReply(qr.content)} className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-muted/50 transition-colors flex flex-col gap-0.5">
-                <span className="text-xs font-semibold text-foreground">/{qr.label}</span>
-                <span className="text-[11px] text-muted-foreground truncate">{qr.content}</span>
-              </button>
-            ))}
+          <div className="px-2 pb-2 space-y-0.5 max-h-[240px] overflow-y-auto">
+            {filteredQuickReplies.map((qr) => {
+              const catInfo = QUICK_REPLY_CATEGORIES.find((c) => c.value === (qr as any).category);
+              const preview = resolveVariables(qr.content, {
+                nome: conversation.name || "",
+                telefone: conversation.phone || "",
+              });
+              return (
+                <button key={qr.id} onClick={() => handleQuickReply(qr.content)} className="w-full text-left px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-xs font-semibold text-foreground">/{qr.label}</span>
+                    {catInfo && (
+                      <span className={cn("text-[9px] px-1.5 py-0 rounded-md border font-medium", catInfo.color)}>
+                        {catInfo.label}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-muted-foreground truncate block">{preview}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
