@@ -333,14 +333,45 @@ export function ChatPanel({
 
   useEffect(() => { setCurrentStatus(conversation.attendingStatus); }, [conversation.id]);
 
-  const scrollToBottom = useCallback(() => {
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const [newMsgCount, setNewMsgCount] = useState(0);
+  const prevMsgCountRef = useRef(messages.length);
+
+  const scrollToBottom = useCallback((force?: boolean) => {
     if (scrollRef.current) {
       requestAnimationFrame(() => {
         scrollRef.current!.scrollTop = scrollRef.current!.scrollHeight;
       });
+      setNewMsgCount(0);
     }
   }, []);
-  useEffect(scrollToBottom, [messages, conversation.id, scrollToBottom]);
+
+  // Track scroll position
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    const el = scrollRef.current;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    setIsNearBottom(nearBottom);
+    if (nearBottom) setNewMsgCount(0);
+  }, []);
+
+  // Only auto-scroll if near bottom; otherwise increment badge
+  useEffect(() => {
+    const diff = messages.length - prevMsgCountRef.current;
+    prevMsgCountRef.current = messages.length;
+    if (isNearBottom) {
+      scrollToBottom();
+    } else if (diff > 0) {
+      setNewMsgCount((c) => c + diff);
+    }
+  }, [messages.length, isNearBottom, scrollToBottom]);
+
+  // Always scroll on conversation change
+  useEffect(() => {
+    setNewMsgCount(0);
+    setIsNearBottom(true);
+    scrollToBottom();
+  }, [conversation.id, scrollToBottom]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -778,9 +809,11 @@ export function ChatPanel({
       </div>
 
       {/* Messages Area */}
+      <div className="flex-1 relative overflow-hidden">
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 space-y-2"
+        onScroll={handleScroll}
+        className="absolute inset-0 overflow-y-auto p-4 space-y-2"
         style={{ backgroundImage: "radial-gradient(circle at 1px 1px, hsl(var(--muted)) 1px, transparent 0)", backgroundSize: "24px 24px" }}
       >
         {messages.map((msg, i) => {
@@ -833,6 +866,22 @@ export function ChatPanel({
             </div>
           );
         })}
+      </div>
+
+      {/* Scroll to bottom FAB with unread count */}
+      {!isNearBottom && (
+        <button
+          onClick={() => scrollToBottom(true)}
+          className="absolute bottom-4 right-4 z-10 flex items-center justify-center w-10 h-10 rounded-full bg-card border border-border shadow-lg hover:bg-muted transition-colors"
+        >
+          <ChevronDown className="w-5 h-5 text-foreground" />
+          {newMsgCount > 0 && (
+            <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+              {newMsgCount > 99 ? "99+" : newMsgCount}
+            </span>
+          )}
+        </button>
+      )}
       </div>
 
       {/* Quick Replies */}
