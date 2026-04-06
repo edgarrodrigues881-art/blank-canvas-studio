@@ -1024,7 +1024,7 @@ async function mainLoop() {
 
     guardedLoop("campaignWorker", async () => {
       await campaignWorkerTick({ value: isRunning });
-    }, 15_000)(),
+    }, 5_000)(),
 
     guardedLoop("groupInteraction", async () => {
       await groupInteractionTick();
