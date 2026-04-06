@@ -236,6 +236,8 @@ const Conversations = () => {
                 currentUserId={user?.id}
                 onAssign={assignConversation}
                 onRelease={releaseConversation}
+                onArchive={archiveConversation}
+                onMarkUnread={markAsUnread}
               />
             </div>
           )}
