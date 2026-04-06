@@ -569,14 +569,11 @@ export function useConversations() {
     setSelectedConvId(convId);
     if (convId) {
       fetchMessages(convId);
-      setConversations((prev) =>
-        prev.map((c) => (c.id === convId ? { ...c, unread_count: 0 } : c))
-      );
-      supabase.from("conversations").update({ unread_count: 0 }).eq("id", convId);
+      void markConversationGroupAsRead(convId);
     } else {
       setMessages([]);
     }
-  }, [fetchMessages]);
+  }, [fetchMessages, markConversationGroupAsRead]);
 
   const createConversation = useCallback(async ({ deviceId, phone, name }: { deviceId: string; phone: string; name?: string }) => {
     if (!user) return null;
