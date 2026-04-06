@@ -374,6 +374,9 @@ const Conversations = () => {
               onNewConversationClick={() => setNewConversationOpen(true)}
               currentUserId={user?.id}
               onUnarchive={unarchiveConversation}
+              availableInstances={availableInstances}
+              filterInstanceIds={filterInstanceIds}
+              onFilterInstancesChange={setFilterInstanceIds}
             />
           </div>
 
