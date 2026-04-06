@@ -260,7 +260,7 @@ export function ConversationList({
                         </p>
                       </div>
                       {hasUnread && (
-                        <span className="min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-primary text-primary-foreground rounded-full flex items-center justify-center shrink-0">
+                        <span className="min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-red-500 text-white rounded-full flex items-center justify-center shrink-0 animate-in zoom-in-50 duration-200 shadow-sm shadow-red-500/30">
                           {c.unreadCount}
                         </span>
                       )}
