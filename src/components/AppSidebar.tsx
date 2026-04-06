@@ -196,6 +196,10 @@ export function AppSidebar() {
     routePreloadMap[url]?.();
   }, []);
 
+  // Helper: check if at least one route in a list has permission (for hiding empty sections)
+  const shouldHideSection = permissionMode === "hide" && !isOwner;
+  const hasAnyPermission = (routes: string[]) => routes.some(r => hasRoutePermission(r));
+
   const renderNavItem = (item: { title: string; url: string; icon: any; exact?: boolean; badgeKey?: BadgeKey; locked?: boolean }, indent = false) => {
     const active = isActive(item.url, item.exact);
     const badgeVal = getBadgeValue(item.badgeKey);
@@ -280,7 +284,11 @@ export function AppSidebar() {
       </div>
 
       <SidebarContent className="py-2">
-        {menuGroups.map((group, gi) => (
+        {menuGroups.map((group, gi) => {
+          // Hide entire section if no items have permission
+          const groupRoutes = group.items.map(i => i.url);
+          if (shouldHideSection && !hasAnyPermission(groupRoutes)) return null;
+          return (
           <SidebarGroup key={gi} className={`py-0 ${gi > 0 ? 'mt-1' : ''}`}>
             {group.label && !collapsed && (
               <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
@@ -296,9 +304,10 @@ export function AppSidebar() {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-        ))}
+          );
+        })}
 
-        {/* ── Aquecimento section with folders ── */}
+        {(!shouldHideSection || hasAnyPermission(["/dashboard/warmup-v2", "/dashboard/proxy", "/dashboard/chip-conversation", "/dashboard/group-interaction"])) && (
         <SidebarGroup className="py-0 mt-1">
           {!collapsed && (
             <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
@@ -440,8 +449,9 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
 
-        {/* ── Central de Atendimento section ── */}
+        {(!shouldHideSection || hasAnyPermission(["/dashboard/conversations", "/dashboard/team", "/dashboard/ai-settings"])) && (
         <SidebarGroup className="py-0 mt-1">
           {!collapsed && (
             <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
@@ -459,8 +469,9 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
 
-        {/* ── Ferramentas section ── */}
+        {(!shouldHideSection || hasAnyPermission(["/dashboard/contacts", "/dashboard/group-capture", "/dashboard/whatsapp-verifier", "/dashboard/prospeccao", "/dashboard/group-join", "/dashboard/mass-inject", "/dashboard/welcome", "/dashboard/groups", "/dashboard/autosave", "/dashboard/reports/whatsapp"])) && (
         <SidebarGroup className="py-0 mt-1">
           {!collapsed && (
             <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
@@ -485,8 +496,9 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
 
-        {/* ── Suporte section ── */}
+        {(!shouldHideSection || hasAnyPermission(["/dashboard/my-plan", "/dashboard/community-warmup", "/dashboard/custom-module"])) && (
         <SidebarGroup className="py-0 mt-1">
           {!collapsed && (
             <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
@@ -540,6 +552,7 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
       </SidebarContent>
 
       {/* Footer profile */}
