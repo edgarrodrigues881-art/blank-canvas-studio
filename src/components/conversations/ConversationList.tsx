@@ -145,8 +145,19 @@ export function ConversationList({
   currentUserId,
   archivedConversations = [],
   onUnarchive,
+  availableInstances = [],
+  filterInstanceIds = [],
+  onFilterInstancesChange,
 }: ConversationListProps) {
   const [activeStatus, setActiveStatus] = useState<StatusTab>("all");
+
+  const toggleInstance = (id: string) => {
+    if (!onFilterInstancesChange) return;
+    const next = filterInstanceIds.includes(id)
+      ? filterInstanceIds.filter((i) => i !== id)
+      : [...filterInstanceIds, id];
+    onFilterInstancesChange(next);
+  };
 
   const baseList = activeStatus === "archived" ? archivedConversations : conversations;
 
