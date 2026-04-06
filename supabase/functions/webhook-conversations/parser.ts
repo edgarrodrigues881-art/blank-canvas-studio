@@ -41,13 +41,17 @@ function collectMessageNodes(body: JsonObject, payload: JsonObject, nestedMessag
   const candidates = [
     nestedMessage,
     asObject(nestedMessage.message),
+    asObject(nestedMessage.content),
     asObject(body.message),
     asObject(asObject(body.message).message),
+    asObject(asObject(body.message).content),
     asObject(payload.message),
     asObject(asObject(payload.message).message),
+    asObject(asObject(payload.message).content),
     asObject(body.data),
     asObject(asObject(body.data).message),
     asObject(asObject(asObject(body.data).message).message),
+    asObject(asObject(asObject(body.data).message).content),
   ];
 
   const unique: JsonObject[] = [];
@@ -155,6 +159,14 @@ function resolveMediaType(body: JsonObject, messageNodes: JsonObject[]): string 
     if (node.locationMessage || node.liveLocationMessage) return "location";
   }
 
+  // UAZAPI-GO: check for content object with mimetype (e.g. message.content = {URL, mimetype, ...})
+  for (const node of messageNodes) {
+    if (node.mimetype && node.URL) {
+      const detected = inferMediaType("", String(node.mimetype), String(node.URL));
+      if (detected) return detected;
+    }
+  }
+
   const typeStr = firstString(
     body.type,
     body.messageType,
@@ -172,6 +184,8 @@ function resolveMediaType(body: JsonObject, messageNodes: JsonObject[]): string 
       ...messageNodes.flatMap((node) => [
         node.mimetype,
         node.mimeType,
+        node.content?.mimetype,
+        node.content?.mimeType,
         node.audioMessage?.mimetype,
         node.pttMessage?.mimetype,
         node.imageMessage?.mimetype,
@@ -201,6 +215,9 @@ function resolveMediaType(body: JsonObject, messageNodes: JsonObject[]): string 
         node.file_url,
         node.url,
         node.link,
+        node.URL,
+        node.content?.URL,
+        node.content?.url,
         node.audioMessage?.url,
         node.pttMessage?.url,
         node.imageMessage?.url,
@@ -240,6 +257,9 @@ function resolveMediaUrl(body: JsonObject, messageNodes: JsonObject[], mediaType
       node.file_url,
       node.url,
       node.link,
+      node.URL,
+      node.content?.URL,
+      node.content?.url,
       node.audioMessage?.url,
       node.pttMessage?.url,
       node.imageMessage?.url,
@@ -263,10 +283,12 @@ function resolveAudioDuration(body: JsonObject, messageNodes: JsonObject[]): num
     body.data?.seconds ||
     messageNodes.map((node) =>
       node.audioMessage?.seconds ||
+      node.audioMessage?.seconds ||
       node.pttMessage?.seconds ||
       node.duration ||
       node.seconds ||
       node.audio?.seconds ||
+      node.content?.seconds ||
       null
     ).find((value) => typeof value === "number" && value > 0) ||
     null;
@@ -341,6 +363,8 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
     payload.phone,
     payload.number,
     ...messageNodes.flatMap((node) => [node.sender_pn, node.remoteJid, node.chatId, node.from]),
+    nestedMessage.chatid,
+    nestedMessage.chatId,
   );
 
   const remoteJid = normalizeRemoteJid(rawRemoteJid);
@@ -375,8 +399,8 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
       node.conversation,
       node.text,
       node.body,
-      typeof node.content === "string" ? node.content : "",
-      node.content?.text,
+      typeof node.content === "string" ? node.content : (node.content?.caption || ""),
+      node.content?.text || "",
       node.extendedTextMessage?.text,
       node.imageMessage?.caption,
       node.videoMessage?.caption,
@@ -404,6 +428,8 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
     nestedMessage.id,
     body.messageId,
     body.id,
+    nestedMessage.msgId,
+    nestedMessage.messageId,
   ) || `wh-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 
   const timestamp = parseTimestamp(
