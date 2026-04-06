@@ -663,9 +663,10 @@ async function phaseStartSessions(db: SupabaseClient): Promise<{ started: number
 // PHASE 5: MONITOR SESSIONS
 // ══════════════════════════════════════════════════════════
 async function phaseMonitorSessions(db: SupabaseClient): Promise<{ resumed: number }> {
-  const stuckThreshold = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+  // Use 10 min threshold to account for max_delay (90s) + max_pause (180s) + buffer
+  const stuckThreshold = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const { data: stuckSessions } = await db.from("community_sessions")
-    .select("id, device_a, device_b, last_sender, messages_total, target_messages, min_delay_seconds, max_delay_seconds, pause_after_messages_min, pause_after_messages_max, pause_duration_min, pause_duration_max, pair_id, community_mode, user_a, user_b")
+    .select("id, device_a, device_b, last_sender, messages_total, target_messages, min_delay_seconds, max_delay_seconds, pause_after_messages_min, pause_after_messages_max, pause_duration_min, pause_duration_max, pair_id, community_mode, user_a, user_b, last_message_at")
     .eq("status", "active").lt("updated_at", stuckThreshold).limit(5);
 
   let resumed = 0;
