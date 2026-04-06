@@ -828,6 +828,13 @@ export function useConversations() {
               return [...prev, newMsg];
             });
           }
+          // Auto-transition: received message → "em_atendimento" if currently "nova" or "aguardando"
+          if (newMsg.direction === "received") {
+            const conv = conversationsRef.current.find((c) => c.id === newMsg.conversation_id);
+            if (conv && (conv.attending_status === "nova" || conv.attending_status === "aguardando")) {
+              updateStatus(newMsg.conversation_id, "em_atendimento");
+            }
+          }
         }
       )
       .on(
