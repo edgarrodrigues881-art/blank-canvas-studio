@@ -25,16 +25,7 @@ const RETRYABLE_STATUSES = [
   "timeout",
 ] as const;
 const DISCONNECT_CONFIRM_THRESHOLD = 2; // Must fail N consecutive checks before marking disconnected
-const DISCONNECT_RECHECK_INTERVAL_MS = 2_000;
 const CONNECTED_DEVICE_STATUSES = new Set(["connected", "ready", "active", "authenticated", "open", "online"]);
-const FINAL_FAILURE_STATUSES = new Set([
-  "failed",
-  "confirmed_no_admin",
-  "invalid_group",
-  "contact_not_found",
-  "unauthorized",
-  "blocked",
-]);
 // Critical errors that COUNT toward auto-pause threshold (per-device)
 const CRITICAL_FAILURE_STATUSES = new Set(["confirmed_no_admin", "invalid_group", "unauthorized"]);
 // Transient errors that do NOT count toward pause — just skip and continue
