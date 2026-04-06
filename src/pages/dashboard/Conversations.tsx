@@ -37,6 +37,7 @@ const Conversations = () => {
   } = useConversations();
 
   const [showDetails, setShowDetails] = useState(true);
+  const [showFlows, setShowFlows] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_W);
   const [newConversationOpen, setNewConversationOpen] = useState(false);
