@@ -10,7 +10,7 @@ import { randInt } from "../utils/message-generator";
 export function getGroupsEndDay(chipState: string): number {
   if (chipState === "unstable") return 6;
   if (chipState === "recovered") return 5;
-  return 4; // new
+  return 2; // new: day 1 = rest, day 2 = groups, day 3 = autosave starts
 }
 
 export function getCommunityRampEnd(chipState: string): number {
