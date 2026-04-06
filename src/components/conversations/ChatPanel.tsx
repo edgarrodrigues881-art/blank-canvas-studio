@@ -982,7 +982,7 @@ export function ChatPanel({
           const isMedia = !!msg.mediaType;
 
           return (
-            <div key={msg.id}>
+            <div key={msg.id} className="animate-fade-in">
               {showDate && (
                 <div className="flex justify-center my-3">
                   <span className="text-[10px] font-medium text-muted-foreground bg-muted/80 px-3 py-1 rounded-full">
