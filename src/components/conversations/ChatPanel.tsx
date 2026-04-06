@@ -376,11 +376,15 @@ export function ChatPanel({
   const [newMsgCount, setNewMsgCount] = useState(0);
   const prevMsgCountRef = useRef(messages.length);
 
-  const scrollToBottom = useCallback((force?: boolean) => {
+  const scrollToBottom = useCallback((smooth?: boolean) => {
     if (scrollRef.current) {
-      requestAnimationFrame(() => {
-        scrollRef.current!.scrollTop = scrollRef.current!.scrollHeight;
-      });
+      if (smooth) {
+        scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+      } else {
+        requestAnimationFrame(() => {
+          scrollRef.current!.scrollTop = scrollRef.current!.scrollHeight;
+        });
+      }
       setNewMsgCount(0);
     }
   }, []);
