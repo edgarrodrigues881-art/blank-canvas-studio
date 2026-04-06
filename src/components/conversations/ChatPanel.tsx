@@ -308,6 +308,7 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
 export function ChatPanel({
   conversation, messages, showDetails, onToggleDetails, onBack,
   onStatusChange, onSendMessage, onSendAudio, onSendFile, onRetryMessage,
+  currentUserId, onAssign, onRelease,
 }: ChatPanelProps) {
   const { replies: dbReplies } = useQuickReplies();
   const [showQRManager, setShowQRManager] = useState(false);
