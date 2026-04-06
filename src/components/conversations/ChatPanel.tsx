@@ -51,6 +51,9 @@ interface ChatPanelProps {
   onSendAudio?: (conversationId: string, blob: Blob, duration: number) => void;
   onSendFile?: (conversationId: string, file: File) => void;
   onRetryMessage?: (messageId: string) => void;
+  currentUserId?: string;
+  onAssign?: (conversationId: string) => void;
+  onRelease?: (conversationId: string) => void;
 }
 
 const attendingStatusConfig: Record<AttendingStatus, { label: string; color: string; bg: string; dot: string }> = {
