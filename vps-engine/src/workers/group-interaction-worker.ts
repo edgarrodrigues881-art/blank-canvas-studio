@@ -112,7 +112,7 @@ async function uazapiSendSticker(baseUrl: string, token: string, number: string,
     headers: { "Content-Type": "application/json", token, Accept: "application/json" },
     body: JSON.stringify({ number, file: imageUrl, type: "sticker" }),
   });
-  const raw = await res.text();
+  await res.text();
   if (res.ok) return;
   throw new Error(`Sticker send failed: ${res.status}`);
 }
