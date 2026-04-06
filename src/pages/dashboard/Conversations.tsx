@@ -199,6 +199,7 @@ const Conversations = () => {
               onSearchChange={setSearchQuery}
               onSelect={handleSelect}
               onNewConversationClick={() => setNewConversationOpen(true)}
+              currentUserId={user?.id}
             />
           </div>
 
