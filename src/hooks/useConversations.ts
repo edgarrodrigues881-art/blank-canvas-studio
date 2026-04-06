@@ -852,7 +852,7 @@ export function useConversations() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user]);
+  }, [user, updateStatus]);
 
   // Light polling fallback — only conversations list (messages are handled by RT)
   useEffect(() => {
