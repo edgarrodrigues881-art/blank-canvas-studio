@@ -27,6 +27,8 @@ import {
   Video,
   MapPin,
   User,
+  UserCheck,
+  UserX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
