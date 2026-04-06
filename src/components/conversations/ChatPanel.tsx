@@ -333,14 +333,45 @@ export function ChatPanel({
 
   useEffect(() => { setCurrentStatus(conversation.attendingStatus); }, [conversation.id]);
 
-  const scrollToBottom = useCallback(() => {
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const [newMsgCount, setNewMsgCount] = useState(0);
+  const prevMsgCountRef = useRef(messages.length);
+
+  const scrollToBottom = useCallback((force?: boolean) => {
     if (scrollRef.current) {
       requestAnimationFrame(() => {
         scrollRef.current!.scrollTop = scrollRef.current!.scrollHeight;
       });
+      setNewMsgCount(0);
     }
   }, []);
-  useEffect(scrollToBottom, [messages, conversation.id, scrollToBottom]);
+
+  // Track scroll position
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    const el = scrollRef.current;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    setIsNearBottom(nearBottom);
+    if (nearBottom) setNewMsgCount(0);
+  }, []);
+
+  // Only auto-scroll if near bottom; otherwise increment badge
+  useEffect(() => {
+    const diff = messages.length - prevMsgCountRef.current;
+    prevMsgCountRef.current = messages.length;
+    if (isNearBottom) {
+      scrollToBottom();
+    } else if (diff > 0) {
+      setNewMsgCount((c) => c + diff);
+    }
+  }, [messages.length, isNearBottom, scrollToBottom]);
+
+  // Always scroll on conversation change
+  useEffect(() => {
+    setNewMsgCount(0);
+    setIsNearBottom(true);
+    scrollToBottom();
+  }, [conversation.id, scrollToBottom]);
 
   useEffect(() => {
     if (textareaRef.current) {
