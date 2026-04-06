@@ -223,7 +223,6 @@ Deno.serve(async (req) => {
               remote_jid: remoteJid,
             }),
           });
-          // Use EdgeRuntime.waitUntil if available, otherwise await
           if (typeof (globalThis as any).EdgeRuntime?.waitUntil === "function") {
             (globalThis as any).EdgeRuntime.waitUntil(waitPromise);
           } else {
@@ -232,6 +231,31 @@ Deno.serve(async (req) => {
         } catch (e) {
           console.error("Welcome automation trigger error:", e);
         }
+      }
+
+      // Trigger AI auto-reply for all incoming messages
+      try {
+        const aiReplyUrl = `${supabaseUrl}/functions/v1/ai-autoreply`;
+        const aiPromise = fetch(aiReplyUrl, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: device.user_id,
+            conversation_id: conversationId,
+            device_id: device.id,
+            remote_jid: remoteJid,
+            contact_name: name,
+            message_content: content || displayContent,
+            media_type: mediaType,
+          }),
+        });
+        if (typeof (globalThis as any).EdgeRuntime?.waitUntil === "function") {
+          (globalThis as any).EdgeRuntime.waitUntil(aiPromise);
+        } else {
+          await aiPromise;
+        }
+      } catch (e) {
+        console.error("AI autoreply trigger error:", e);
       }
     }
 
