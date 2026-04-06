@@ -196,6 +196,10 @@ export function AppSidebar() {
     routePreloadMap[url]?.();
   }, []);
 
+  // Helper: check if at least one route in a list has permission (for hiding empty sections)
+  const shouldHideSection = permissionMode === "hide" && !isOwner;
+  const hasAnyPermission = (routes: string[]) => routes.some(r => hasRoutePermission(r));
+
   const renderNavItem = (item: { title: string; url: string; icon: any; exact?: boolean; badgeKey?: BadgeKey; locked?: boolean }, indent = false) => {
     const active = isActive(item.url, item.exact);
     const badgeVal = getBadgeValue(item.badgeKey);
