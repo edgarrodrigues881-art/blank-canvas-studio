@@ -811,6 +811,19 @@ export function ChatPanel({
           </DropdownMenuContent>
         </DropdownMenu>
 
+        {/* Assign/Release button */}
+        {conversation.assignedTo === currentUserId ? (
+          <Button variant="ghost" size="sm" className="text-[11px] h-7 px-2 text-muted-foreground hover:text-destructive gap-1" onClick={() => onRelease?.(conversation.id)}>
+            <UserX className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Liberar</span>
+          </Button>
+        ) : !conversation.assignedTo ? (
+          <Button variant="ghost" size="sm" className="text-[11px] h-7 px-2 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 gap-1" onClick={() => onAssign?.(conversation.id)}>
+            <UserCheck className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Assumir</span>
+          </Button>
+        ) : null}
+
         <div className="flex items-center gap-1 shrink-0">
           <Button variant="ghost" size="icon" className="hidden lg:flex w-8 h-8 text-muted-foreground hover:text-foreground" onClick={onToggleDetails}>
             {showDetails ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
