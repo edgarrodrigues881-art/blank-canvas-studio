@@ -604,7 +604,7 @@ async function processAutosaveInteraction(db: any, job: any, ctx: ProcessJobCont
 
 // ── COMMUNITY INTERACTION ──
 async function processCommunityInteraction(db: any, job: any, ctx: ProcessJobContext): Promise<boolean> {
-  const { cycle, device, baseUrl, token } = ctx;
+  const { cycle, device: _device, baseUrl: _baseUrl, token: _token } = ctx;
 
   // Auto-create membership
   const { data: myMembership } = await db.from("warmup_community_membership").select("id, is_enabled, community_day").eq("device_id", job.device_id).maybeSingle();
