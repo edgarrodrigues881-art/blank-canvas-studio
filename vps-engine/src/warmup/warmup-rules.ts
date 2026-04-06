@@ -52,29 +52,30 @@ export interface DayVolumes {
   communityMsgsPerPeer: number;
 }
 
+// Budget: groups fill 07-19h at 1 msg every ~2min = ~360 msgs + autosave + community
 export function getProgressiveDailyBudget(dayIndex: number, chipState: string): number {
   const day = Math.max(1, Math.min(dayIndex, 30));
-  if (chipState === "recovered") {
-    if (day <= 7) return randInt(165, 180);
-    if (day <= 15) return randInt(180, 200);
-    if (day <= 23) return randInt(200, 215);
-    return randInt(210, 220);
-  }
-  if (chipState === "unstable") {
-    if (day <= 7) return randInt(160, 170);
-    if (day <= 15) return randInt(170, 190);
-    if (day <= 23) return randInt(190, 210);
-    return randInt(205, 220);
-  }
-  if (day <= 7) return randInt(160, 175);
-  if (day <= 15) return randInt(175, 195);
-  if (day <= 23) return randInt(195, 212);
-  return randInt(210, 220);
+  // Base budget = group msgs + headroom for autosave/community
+  const groupBase = getGroupMsgsForDay(day, chipState);
+  // Add headroom: autosave (~15-25) + community (~50-100 at peak)
+  const headroom = day <= 5 ? 20 : day <= 10 ? 80 : day <= 20 ? 120 : 150;
+  return groupBase + headroom;
 }
 
+// Group messages: 1 msg every 90-150s across 07:00-19:00 (12h = 720min)
+// Progressive ramp: start gentle, reach full cadence by day 5
 export function getGroupMsgsForDay(dayIndex: number, chipState: string = "new"): number {
   if (dayIndex < 2) return 0;
-  return getProgressiveDailyBudget(dayIndex, chipState);
+  // Day 2: ~1 msg every 5 min = 144
+  if (dayIndex === 2) return randInt(130, 155);
+  // Day 3: ~1 msg every 3.5 min = 206
+  if (dayIndex === 3) return randInt(190, 220);
+  // Day 4: ~1 msg every 2.5 min = 288
+  if (dayIndex === 4) return randInt(270, 300);
+  // Day 5+: ~1 msg every 2 min = 360
+  if (dayIndex <= 10) return randInt(330, 380);
+  // Day 11+: full cadence ~1 msg every 1.5-2 min
+  return randInt(360, 400);
 }
 
 export function getAutosaveContactsForDay(dayIndex: number, chipState: string): number {
