@@ -109,7 +109,7 @@ export function AppSidebar() {
   const { folders, createFolder, updateFolder, deleteFolder, addDevices, removeDevice } = useWarmupFolders();
   const { isFeatureBlocked } = useFeatureControls();
   const { hasRoutePermission, permissionMode, isOwner } = usePermissions();
-  const [maintenanceModal, setMaintenanceModal] = useState<{ name: string; message: string | null } | null>(null);
+  const [maintenanceModal, setMaintenanceModal] = useState<{ name: string; message: string | null; variant?: "maintenance" | "permission" } | null>(null);
 
   const [profileData, setProfileData] = useState<{ company: string | null; avatar_url: string | null; full_name: string | null } | null>(null);
   const [warmupExpanded, setWarmupExpanded] = useState(false);
