@@ -76,6 +76,7 @@ Deno.test("isApiSentMessage detecta mensagens enviadas pela API", () => {
 });
 
 Deno.test("extractConversationEvent lê mídia aninhada em message.message", () => {
+  // Baileys-style double-nested
   const result = extractConversationEvent({
     event: "messages.upsert",
     data: {
@@ -100,4 +101,54 @@ Deno.test("extractConversationEvent lê mídia aninhada em message.message", () 
   assertEquals(result.mediaType, "image");
   assertEquals(result.mediaUrl, "https://example.com/foto.jpg");
   assertEquals(result.content, "Foto recebida");
+});
+
+Deno.test("extractConversationEvent lê payload UAZAPI-GO com content.URL e mimetype", () => {
+  const result = extractConversationEvent({
+    BaseUrl: "https://example.uazapi.com",
+    EventType: "messages",
+    chat: {
+      name: "Reuu",
+    },
+    message: {
+      chatid: "556294192500@s.whatsapp.net",
+      content: {
+        URL: "https://mmg.whatsapp.net/v/t62.7118-24/image.enc",
+        mimetype: "image/jpeg",
+        fileLength: 65967,
+      },
+      fromMe: false,
+      id: "uazapi-img-001",
+    },
+    timestamp: 1712345678,
+  });
+
+  assertExists(result);
+  assertEquals(result.mediaType, "image");
+  assertEquals(result.mediaUrl, "https://mmg.whatsapp.net/v/t62.7118-24/image.enc");
+  assertEquals(result.phone, "556294192500");
+  assertEquals(result.fromMe, false);
+});
+
+Deno.test("extractConversationEvent lê payload UAZAPI-GO áudio PTT", () => {
+  const result = extractConversationEvent({
+    EventType: "messages",
+    chat: { name: "João" },
+    message: {
+      chatid: "5511999999999@s.whatsapp.net",
+      content: {
+        URL: "https://mmg.whatsapp.net/audio.enc",
+        mimetype: "audio/ogg; codecs=opus",
+        seconds: 15,
+      },
+      fromMe: false,
+      id: "uazapi-audio-001",
+    },
+    timestamp: 1712345678,
+  });
+
+  assertExists(result);
+  assertEquals(result.mediaType, "audio");
+  assertEquals(result.mediaUrl, "https://mmg.whatsapp.net/audio.enc");
+  assertEquals(result.audioDuration, 15);
 });
