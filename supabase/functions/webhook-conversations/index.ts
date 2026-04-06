@@ -217,6 +217,7 @@ Deno.serve(async (req) => {
       audio_duration: audioDuration,
       whatsapp_message_id: waId,
       created_at: timestamp,
+      origin: messageOrigin,
     });
 
     if (msgErr) console.error("Message insert error:", msgErr);
