@@ -472,6 +472,9 @@ export function ChatPanel({
     setInput("");
     setShowQuickReplies(false);
     setReplyTo(null);
+    // Force scroll to bottom after sending
+    setIsNearBottom(true);
+    requestAnimationFrame(() => scrollToBottom());
   };
 
   const handleQuickReply = (text: string) => {
