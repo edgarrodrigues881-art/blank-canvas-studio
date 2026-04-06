@@ -54,7 +54,7 @@ interface ChatPanelProps {
   onToggleDetails: () => void;
   onBack: () => void;
   onStatusChange?: (conversationId: string, newStatus: AttendingStatus) => void;
-  onSendMessage?: (conversationId: string, content: string) => void;
+  onSendMessage?: (conversationId: string, content: string, quotedMessageId?: string, quotedContent?: string) => void;
   onSendAudio?: (conversationId: string, blob: Blob, duration: number) => void;
   onSendFile?: (conversationId: string, file: File) => void;
   onRetryMessage?: (messageId: string) => void;
