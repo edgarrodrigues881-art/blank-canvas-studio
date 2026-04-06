@@ -287,23 +287,9 @@ async function phaseUpdateEligibility(db: SupabaseClient): Promise<{ updated: nu
       }
     }
 
+    // warmup_managed devices are handled by warmup-processor — skip in community-processor
     if (eligible && m.community_mode === "warmup_managed") {
-      const cycle = cycleMap[m.device_id];
-      if (!cycle) {
-        eligible = false; reason = "no_active_cycle";
-      } else {
-        const startDay = getCommunityStartDay(cycle.chip_state || "new");
-        if ((cycle.day_index || 1) < startDay) {
-          eligible = false; reason = "warmup_day_too_early";
-        } else if (m.community_day < 1) {
-          eligible = false; reason = "community_day_not_started";
-        } else {
-          const target = getPairsTarget(m.community_day);
-          if ((m.pairs_today || 0) >= target.max) {
-            eligible = false; reason = "pairs_limit_reached";
-          }
-        }
-      }
+      eligible = false; reason = "handled_by_warmup_processor";
     }
 
     if (eligible && m.community_mode === "community_only") {
