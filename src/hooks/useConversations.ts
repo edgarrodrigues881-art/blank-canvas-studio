@@ -153,20 +153,30 @@ export function useConversations() {
   // Fetch conversations from DB
   const fetchConversations = useCallback(async () => {
     if (!user) return;
-    const { data, error } = await supabase
-      .from("conversations")
-      .select("*, devices!conversations_device_id_fkey(name)")
-      .eq("user_id", user.id)
-      .neq("status", "archived")
-      .order("last_message_at", { ascending: false });
+    const [activeRes, archivedRes] = await Promise.all([
+      supabase
+        .from("conversations")
+        .select("*, devices!conversations_device_id_fkey(name)")
+        .eq("user_id", user.id)
+        .neq("status", "archived")
+        .order("last_message_at", { ascending: false }),
+      supabase
+        .from("conversations")
+        .select("*, devices!conversations_device_id_fkey(name)")
+        .eq("user_id", user.id)
+        .eq("status", "archived")
+        .order("last_message_at", { ascending: false })
+        .limit(100),
+    ]);
 
-    if (error) {
-      console.error("Error fetching conversations:", error);
+    if (activeRes.error) {
+      console.error("Error fetching conversations:", activeRes.error);
       return;
     }
 
-    const mapped = sortConversations((data || []).map(mapConversationRow));
+    const mapped = sortConversations((activeRes.data || []).map(mapConversationRow));
     setConversations(mapped);
+    setArchivedConversations((archivedRes.data || []).map(mapConversationRow));
     setLoading(false);
   }, [user, mapConversationRow, sortConversations]);
 
