@@ -35,6 +35,8 @@ const Conversations = () => {
     retryMessage,
     assignConversation,
     releaseConversation,
+    archiveConversation,
+    markAsUnread,
   } = useConversations();
 
   const [showDetails, setShowDetails] = useState(true);
@@ -234,6 +236,8 @@ const Conversations = () => {
                 currentUserId={user?.id}
                 onAssign={assignConversation}
                 onRelease={releaseConversation}
+                onArchive={archiveConversation}
+                onMarkUnread={markAsUnread}
               />
             </div>
           )}

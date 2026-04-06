@@ -32,6 +32,8 @@ import {
   UserX,
   Clock,
   History,
+  MailOpen,
+  Archive,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,6 +58,8 @@ interface ChatPanelProps {
   onSendAudio?: (conversationId: string, blob: Blob, duration: number) => void;
   onSendFile?: (conversationId: string, file: File) => void;
   onRetryMessage?: (messageId: string) => void;
+  onArchive?: (conversationId: string) => void;
+  onMarkUnread?: (conversationId: string) => void;
   currentUserId?: string;
   onAssign?: (conversationId: string) => void;
   onRelease?: (conversationId: string) => void;
@@ -133,56 +137,52 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/90 backdrop-blur-sm animate-in fade-in duration-150" onClick={onClose}>
-      <div
-        className="relative bg-card rounded-2xl shadow-2xl border border-border/30 overflow-hidden max-w-[min(560px,92vw)] max-h-[min(560px,85vh)] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header bar */}
-        <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b border-border/20 shrink-0">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleDownload}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/50"
-            >
-              <Download className="w-4 h-4" />
-              Baixar
-            </button>
-            <button
-              onClick={resetView}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/50"
-              title="Resetar zoom"
-            >
-              {Math.round(zoom * 100)}%
-            </button>
-          </div>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-150" onClick={onClose}>
+      {/* Header bar - floating */}
+      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 z-10 bg-gradient-to-b from-black/60 to-transparent">
+        <div className="flex items-center gap-2">
           <button
-            onClick={onClose}
-            className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            onClick={handleDownload}
+            className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white transition-colors px-2.5 py-1.5 rounded-lg hover:bg-white/10"
           >
-            <X className="w-5 h-5" />
+            <Download className="w-4 h-4" />
+            Baixar
+          </button>
+          <button
+            onClick={resetView}
+            className="text-xs text-white/70 hover:text-white transition-colors px-2.5 py-1.5 rounded-lg hover:bg-white/10"
+            title="Resetar zoom"
+          >
+            {Math.round(zoom * 100)}%
           </button>
         </div>
-        {/* Image */}
-        <div
-          className="flex-1 min-h-0 flex items-center justify-center overflow-hidden select-none"
-          onWheel={handleWheel}
-          style={{ cursor: zoom > 1 ? "grab" : "default" }}
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
         >
-          <img
-            src={src}
-            alt="Visualização"
-            draggable={false}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            className="max-w-full max-h-[min(480px,75vh)] object-contain rounded-lg transition-transform duration-100"
-            style={{
-              transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
-              transformOrigin: "center center",
-            }}
-          />
-        </div>
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      {/* Image - full viewport */}
+      <div
+        className="w-full h-full flex items-center justify-center overflow-hidden select-none"
+        onClick={(e) => e.stopPropagation()}
+        onWheel={handleWheel}
+        style={{ cursor: zoom > 1 ? "grab" : "default" }}
+      >
+        <img
+          src={src}
+          alt="Visualização"
+          draggable={false}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          className="max-w-[92vw] max-h-[90vh] object-contain transition-transform duration-100"
+          style={{
+            transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+            transformOrigin: "center center",
+          }}
+        />
       </div>
     </div>
   );
@@ -313,6 +313,7 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
 export function ChatPanel({
   conversation, messages, showDetails, onToggleDetails, onBack,
   onStatusChange, onSendMessage, onSendAudio, onSendFile, onRetryMessage,
+  onArchive, onMarkUnread,
   currentUserId, onAssign, onRelease,
 }: ChatPanelProps) {
   const { replies: dbReplies } = useQuickReplies();
@@ -923,11 +924,15 @@ export function ChatPanel({
               <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-foreground"><MoreVertical className="w-4 h-4" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Marcar como não lida</DropdownMenuItem>
-              <DropdownMenuItem>Silenciar</DropdownMenuItem>
-              <DropdownMenuItem>Arquivar</DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">Bloquear contato</DropdownMenuItem>
-              <DropdownMenuItem onClick={onBack} className="text-destructive font-semibold">Fechar conversa</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onMarkUnread?.(conversation.id)} className="gap-2 cursor-pointer">
+                <MailOpen className="w-4 h-4" /> Marcar como não lida
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { onArchive?.(conversation.id); onBack(); }} className="gap-2 cursor-pointer">
+                <Archive className="w-4 h-4" /> Arquivar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onBack} className="text-destructive font-semibold gap-2 cursor-pointer">
+                <X className="w-4 h-4" /> Fechar conversa
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
