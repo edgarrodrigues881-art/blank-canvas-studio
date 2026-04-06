@@ -1019,5 +1019,7 @@ export function useConversations() {
     archiveConversation,
     unarchiveConversation,
     markAsUnread,
+    getConversationIdsForSameContact,
+    getConversationContactKey,
   };
 }
