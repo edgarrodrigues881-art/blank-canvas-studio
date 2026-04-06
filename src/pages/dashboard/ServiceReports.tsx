@@ -75,6 +75,7 @@ export default function ServiceReports() {
         .from("conversation_messages")
         .select("id, direction, is_ai_response, created_at")
         .eq("user_id", user.id)
+        .neq("origin", "warmup")
         .gte("created_at", from)
         .lte("created_at", to);
       if (error) throw error;
