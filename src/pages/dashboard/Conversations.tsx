@@ -85,6 +85,8 @@ const Conversations = () => {
     email: c.email || undefined,
     notes: c.notes || undefined,
     deviceName: c.deviceName,
+    assignedTo: c.assigned_to || undefined,
+    assignedName: c.assigned_name || undefined,
   }));
 
   const selectedConversation = selectedReal
