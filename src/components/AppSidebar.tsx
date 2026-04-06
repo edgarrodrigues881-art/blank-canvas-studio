@@ -200,15 +200,23 @@ export function AppSidebar() {
     const active = isActive(item.url, item.exact);
     const badgeVal = getBadgeValue(item.badgeKey);
     const blocked = isFeatureBlocked(item.url);
-    const isLocked = item.locked || !!blocked;
+    const permBlocked = !isOwner && !hasRoutePermission(item.url);
+    const isLocked = item.locked || !!blocked || permBlocked;
+
+    // If permission mode is 'hide' and permission-blocked, hide completely
+    if (permBlocked && permissionMode === "hide") return null;
     
     const handleClick = (e: React.MouseEvent) => {
       if (isLocked) {
         e.preventDefault();
         e.stopPropagation();
-        const name = blocked?.feature_name || item.title;
-        const msg = blocked?.maintenance_message || `A função ${item.title} está em desenvolvimento e não está disponível no momento.`;
-        setMaintenanceModal({ name, message: msg });
+        if (permBlocked) {
+          setMaintenanceModal({ name: item.title, message: "Você não tem acesso a esta função. Solicite permissão ao administrador." });
+        } else {
+          const name = blocked?.feature_name || item.title;
+          const msg = blocked?.maintenance_message || `A função ${item.title} está em desenvolvimento e não está disponível no momento.`;
+          setMaintenanceModal({ name, message: msg });
+        }
       }
     };
 
