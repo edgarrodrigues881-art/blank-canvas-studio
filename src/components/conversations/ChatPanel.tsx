@@ -1178,8 +1178,32 @@ export function ChatPanel({
         </div>
       )}
 
-      {/* Input Area */}
-      <div className="border-t border-border p-3 bg-card/50 shrink-0">
+      {/* Instance Selector + Input Area */}
+      <div className="border-t border-border bg-card/50 shrink-0">
+        {/* Instance selector for multi-instance conversations */}
+        {instances && instances.length > 1 && (
+          <div className="flex items-center gap-2 px-3 pt-2 pb-0">
+            <Smartphone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <span className="text-[10px] text-muted-foreground shrink-0">Responder como:</span>
+            <div className="flex gap-1 overflow-x-auto scrollbar-none">
+              {instances.map((inst) => (
+                <button
+                  key={inst.id}
+                  onClick={() => onInstanceChange?.(inst.id)}
+                  className={cn(
+                    "text-[10px] px-2 py-0.5 rounded-md border whitespace-nowrap transition-colors",
+                    selectedInstanceId === inst.id
+                      ? "bg-primary/10 border-primary/30 text-primary font-semibold"
+                      : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/50"
+                  )}
+                >
+                  {inst.deviceName || `Instância ${inst.id.slice(0, 6)}`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      <div className="p-3">
         {isRecording ? (
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" className="w-9 h-9 shrink-0 text-red-400 hover:text-red-300" onClick={cancelRecording}>
