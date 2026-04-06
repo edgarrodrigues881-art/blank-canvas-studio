@@ -1876,6 +1876,44 @@ export type Database = {
           },
         ]
       }
+      conversation_status_history: {
+        Row: {
+          changed_by_name: string | null
+          conversation_id: string
+          created_at: string
+          id: string
+          new_status: string
+          old_status: string | null
+          user_id: string
+        }
+        Insert: {
+          changed_by_name?: string | null
+          conversation_id: string
+          created_at?: string
+          id?: string
+          new_status: string
+          old_status?: string | null
+          user_id: string
+        }
+        Update: {
+          changed_by_name?: string | null
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          new_status?: string
+          old_status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_status_history_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           assigned_name: string | null
@@ -1898,6 +1936,7 @@ export type Database = {
           phone: string
           remote_jid: string
           status: string | null
+          status_changed_at: string | null
           tags: string[] | null
           unread_count: number | null
           updated_at: string
@@ -1924,6 +1963,7 @@ export type Database = {
           phone?: string
           remote_jid: string
           status?: string | null
+          status_changed_at?: string | null
           tags?: string[] | null
           unread_count?: number | null
           updated_at?: string
@@ -1950,6 +1990,7 @@ export type Database = {
           phone?: string
           remote_jid?: string
           status?: string | null
+          status_changed_at?: string | null
           tags?: string[] | null
           unread_count?: number | null
           updated_at?: string
