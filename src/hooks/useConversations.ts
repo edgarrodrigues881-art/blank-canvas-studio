@@ -44,6 +44,8 @@ export interface RealMessage {
   audio_duration: number | null;
   is_ai_response: boolean;
   whatsapp_message_id: string | null;
+  quoted_message_id?: string | null;
+  quoted_content?: string | null;
   created_at: string;
 }
 
@@ -329,7 +331,7 @@ export function useConversations() {
   }, []);
 
   // Send message with optimistic UI — parallelized DB + API
-  const sendMessage = useCallback(async (conversationId: string, content: string) => {
+  const sendMessage = useCallback(async (conversationId: string, content: string, quotedMessageId?: string, quotedContent?: string) => {
     if (!user) return;
     const conv = conversationsRef.current.find((c) => c.id === conversationId);
     if (!conv) return;
@@ -358,22 +360,29 @@ export function useConversations() {
     // Fire DB insert and API call in parallel
     const token = await getToken();
 
+    const insertPayload: any = {
+      conversation_id: conversationId,
+      user_id: user.id,
+      remote_jid: conv.remote_jid,
+      content,
+      direction: "sent",
+      status: "sending",
+      created_at: now,
+      responded_by: user.id,
+    };
+    if (quotedMessageId) insertPayload.quoted_message_id = quotedMessageId;
+    if (quotedContent) insertPayload.quoted_content = quotedContent;
+
+    const sendBody: any = { conversation_id: conversationId, content };
+    if (quotedMessageId) sendBody.quoted_message_id = quotedMessageId;
+
     const [dbResult, apiResult] = await Promise.allSettled([
-      supabase.from("conversation_messages").insert({
-        conversation_id: conversationId,
-        user_id: user.id,
-        remote_jid: conv.remote_jid,
-        content,
-        direction: "sent",
-        status: "sending",
-        created_at: now,
-        responded_by: user.id,
-      } as any).select().single(),
+      supabase.from("conversation_messages").insert(insertPayload).select().single(),
 
       fetch(`https://${projectId}.supabase.co/functions/v1/chat-send`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation_id: conversationId, content }),
+        body: JSON.stringify(sendBody),
       }).then((r) => r.json()),
     ]);
 

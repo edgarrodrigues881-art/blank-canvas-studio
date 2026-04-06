@@ -54,7 +54,7 @@ interface ChatPanelProps {
   onToggleDetails: () => void;
   onBack: () => void;
   onStatusChange?: (conversationId: string, newStatus: AttendingStatus) => void;
-  onSendMessage?: (conversationId: string, content: string) => void;
+  onSendMessage?: (conversationId: string, content: string, quotedMessageId?: string, quotedContent?: string) => void;
   onSendAudio?: (conversationId: string, blob: Blob, duration: number) => void;
   onSendFile?: (conversationId: string, file: File) => void;
   onRetryMessage?: (messageId: string) => void;
@@ -453,7 +453,9 @@ export function ChatPanel({
 
   const handleSend = () => {
     if (!input.trim()) return;
-    onSendMessage?.(conversation.id, input.trim());
+    const quotedWaId = replyTo?.whatsappMessageId || undefined;
+    const quotedText = replyTo?.content || undefined;
+    onSendMessage?.(conversation.id, input.trim(), quotedWaId, quotedText);
     setInput("");
     setShowQuickReplies(false);
     setReplyTo(null);

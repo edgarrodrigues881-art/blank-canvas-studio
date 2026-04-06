@@ -34,6 +34,7 @@ export interface Message {
   fileName?: string;
   audioDuration?: number;
   isAiResponse?: boolean;
+  whatsappMessageId?: string;
   quotedMessageId?: string;
   quotedContent?: string;
 }

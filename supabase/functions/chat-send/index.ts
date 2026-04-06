@@ -46,8 +46,14 @@ function buildAttempts(
   destination: ReturnType<typeof getDestination>,
   content: string,
   fileName?: string,
+  quotedMessageId?: string,
 ): SendAttempt[] {
   const target = destination.group ? destination.chatId : destination.number;
+
+  // Build contextInfo for quoted messages
+  const contextInfo = quotedMessageId
+    ? { quotedMessage: { stanzaId: quotedMessageId } }
+    : undefined;
 
   if (type === "audio") {
     return [
@@ -79,18 +85,18 @@ function buildAttempts(
 
   if (destination.group) {
     return [
-      { path: "/chat/send-text", body: { chatId: destination.chatId, text: safeText, body: safeText } },
-      { path: "/send/text", body: { number: destination.chatId, text: safeText } },
-      { path: "/message/sendText", body: { chatId: destination.chatId, text: safeText } },
+      { path: "/chat/send-text", body: { chatId: destination.chatId, text: safeText, body: safeText, ...(contextInfo && { contextInfo }) } },
+      { path: "/send/text", body: { number: destination.chatId, text: safeText, ...(contextInfo && { contextInfo }) } },
+      { path: "/message/sendText", body: { chatId: destination.chatId, text: safeText, ...(contextInfo && { contextInfo }) } },
     ];
   }
 
   return [
-    { path: "/send/text", body: { number: destination.number, text: safeText } },
-    { path: "/send/text", body: { chatId: destination.chatId, text: safeText } },
-    { path: "/chat/send-text", body: { number: destination.number, to: destination.number, chatId: destination.chatId, body: safeText, text: safeText } },
-    { path: "/message/sendText", body: { chatId: destination.chatId, text: safeText } },
-    { path: "/message/sendText", body: { number: destination.number, text: safeText } },
+    { path: "/send/text", body: { number: destination.number, text: safeText, ...(contextInfo && { contextInfo }) } },
+    { path: "/send/text", body: { chatId: destination.chatId, text: safeText, ...(contextInfo && { contextInfo }) } },
+    { path: "/chat/send-text", body: { number: destination.number, to: destination.number, chatId: destination.chatId, body: safeText, text: safeText, ...(contextInfo && { contextInfo }) } },
+    { path: "/message/sendText", body: { chatId: destination.chatId, text: safeText, ...(contextInfo && { contextInfo }) } },
+    { path: "/message/sendText", body: { number: destination.number, text: safeText, ...(contextInfo && { contextInfo }) } },
   ];
 }
 
@@ -190,6 +196,7 @@ Deno.serve(async (req) => {
     const messageId = body?.message_id ? String(body.message_id) : null;
     const type = body?.type ? String(body.type) : undefined;
     const fileName = body?.file_name ? String(body.file_name) : undefined;
+    const quotedMessageId = body?.quoted_message_id ? String(body.quoted_message_id) : undefined;
 
     if (!conversationId || !content) {
       return json({ error: "conversation_id e content são obrigatórios" }, 400);
@@ -215,7 +222,7 @@ Deno.serve(async (req) => {
     }
 
     const destination = getDestination(conv.remote_jid);
-    const attempts = buildAttempts(type, destination, content, fileName);
+    const attempts = buildAttempts(type, destination, content, fileName, quotedMessageId);
 
     console.log(`[chat-send] Sending ${type || "text"} to ${destination.chatId} via ${baseUrl}`);
 
