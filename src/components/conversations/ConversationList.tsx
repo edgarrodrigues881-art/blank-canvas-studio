@@ -1,4 +1,4 @@
-import { Search, Check, CheckCheck, MessageSquarePlus, Tag, X } from "lucide-react";
+import { Search, Check, CheckCheck, MessageSquarePlus, Tag, X, ArchiveRestore } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -11,15 +11,17 @@ import { useState, useMemo, Fragment } from "react";
 
 interface ConversationListProps {
   conversations: Conversation[];
+  archivedConversations?: Conversation[];
   selectedId: string | null;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onSelect: (c: Conversation) => void;
   onNewConversationClick?: () => void;
   currentUserId?: string;
+  onUnarchive?: (conversationId: string) => void;
 }
 
-type StatusTab = "all" | "mine" | "new" | "attending" | "waiting";
+type StatusTab = "all" | "mine" | "new" | "attending" | "waiting" | "archived";
 
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "all", label: "Todas" },
@@ -27,6 +29,7 @@ const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "new", label: "Novas" },
   { key: "attending", label: "Em Atendimento" },
   { key: "waiting", label: "Aguardando" },
+  { key: "archived", label: "Arquivadas" },
 ];
 
 function formatDate(dateStr: string) {
@@ -131,10 +134,15 @@ export function ConversationList({
   onSelect,
   onNewConversationClick,
   currentUserId,
+  archivedConversations = [],
+  onUnarchive,
 }: ConversationListProps) {
   const [activeStatus, setActiveStatus] = useState<StatusTab>("all");
 
-  const filtered = conversations.filter((c) => {
+  const baseList = activeStatus === "archived" ? archivedConversations : conversations;
+
+  const filtered = baseList.filter((c) => {
+    if (activeStatus === "archived") return true;
     if (activeStatus === "all") return true;
     if (activeStatus === "mine") return c.assignedTo === currentUserId;
     if (activeStatus === "new") return c.unreadCount > 0;
@@ -144,6 +152,7 @@ export function ConversationList({
   });
 
   const statusCount = (tab: StatusTab) => {
+    if (tab === "archived") return archivedConversations.length;
     if (tab === "all") return conversations.length;
     if (tab === "mine") return conversations.filter((c) => c.assignedTo === currentUserId).length;
     if (tab === "new") return conversations.filter((c) => c.unreadCount > 0).length;
@@ -327,6 +336,16 @@ export function ConversationList({
                         <span className="min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-red-500 text-white rounded-full flex items-center justify-center shrink-0 animate-in zoom-in-50 duration-200 shadow-sm shadow-red-500/30">
                           {c.unreadCount}
                         </span>
+                      )}
+                      {activeStatus === "archived" && onUnarchive && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onUnarchive(c.id); }}
+                          className="shrink-0 text-[10px] text-primary hover:text-primary/80 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 hover:bg-primary/20 transition-colors"
+                          title="Desarquivar"
+                        >
+                          <ArchiveRestore className="w-3 h-3" />
+                          <span className="hidden sm:inline">Desarquivar</span>
+                        </button>
                       )}
                     </div>
 

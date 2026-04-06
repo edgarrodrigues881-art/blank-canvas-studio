@@ -52,6 +52,7 @@ export interface RealMessage {
 export function useConversations() {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<RealConversation[]>([]);
+  const [archivedConversations, setArchivedConversations] = useState<RealConversation[]>([]);
   const [messages, setMessages] = useState<RealMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -152,20 +153,30 @@ export function useConversations() {
   // Fetch conversations from DB
   const fetchConversations = useCallback(async () => {
     if (!user) return;
-    const { data, error } = await supabase
-      .from("conversations")
-      .select("*, devices!conversations_device_id_fkey(name)")
-      .eq("user_id", user.id)
-      .neq("status", "archived")
-      .order("last_message_at", { ascending: false });
+    const [activeRes, archivedRes] = await Promise.all([
+      supabase
+        .from("conversations")
+        .select("*, devices!conversations_device_id_fkey(name)")
+        .eq("user_id", user.id)
+        .neq("status", "archived")
+        .order("last_message_at", { ascending: false }),
+      supabase
+        .from("conversations")
+        .select("*, devices!conversations_device_id_fkey(name)")
+        .eq("user_id", user.id)
+        .eq("status", "archived")
+        .order("last_message_at", { ascending: false })
+        .limit(100),
+    ]);
 
-    if (error) {
-      console.error("Error fetching conversations:", error);
+    if (activeRes.error) {
+      console.error("Error fetching conversations:", activeRes.error);
       return;
     }
 
-    const mapped = sortConversations((data || []).map(mapConversationRow));
+    const mapped = sortConversations((activeRes.data || []).map(mapConversationRow));
     setConversations(mapped);
+    setArchivedConversations((archivedRes.data || []).map(mapConversationRow));
     setLoading(false);
   }, [user, mapConversationRow, sortConversations]);
 
@@ -940,10 +951,21 @@ export function useConversations() {
 
   // Archive conversation
   const archiveConversation = useCallback(async (convId: string) => {
+    const conv = conversations.find((c) => c.id === convId);
     setConversations((prev) => prev.filter((c) => c.id !== convId));
+    if (conv) setArchivedConversations((prev) => [conv, ...prev]);
     await supabase.from("conversations").update({ status: "archived" } as any).eq("id", convId);
     toast.success("Conversa arquivada");
-  }, []);
+  }, [conversations]);
+
+  // Unarchive conversation
+  const unarchiveConversation = useCallback(async (convId: string) => {
+    const conv = archivedConversations.find((c) => c.id === convId);
+    setArchivedConversations((prev) => prev.filter((c) => c.id !== convId));
+    if (conv) setConversations((prev) => sortConversations([{ ...conv, status: "offline" } as any, ...prev]));
+    await supabase.from("conversations").update({ status: "offline" } as any).eq("id", convId);
+    toast.success("Conversa desarquivada");
+  }, [archivedConversations, sortConversations]);
 
   // Mark as unread
   const markAsUnread = useCallback(async (convId: string) => {
@@ -956,6 +978,7 @@ export function useConversations() {
 
   return {
     conversations,
+    archivedConversations,
     messages,
     loading,
     syncing,
@@ -975,6 +998,7 @@ export function useConversations() {
     assignConversation,
     releaseConversation,
     archiveConversation,
+    unarchiveConversation,
     markAsUnread,
   };
 }

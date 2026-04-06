@@ -19,6 +19,7 @@ const Conversations = () => {
   const { user } = useAuth();
   const {
     conversations: realConvs,
+    archivedConversations: realArchivedConvs,
     messages: realMsgs,
     loading,
     syncing,
@@ -36,6 +37,7 @@ const Conversations = () => {
     assignConversation,
     releaseConversation,
     archiveConversation,
+    unarchiveConversation,
     markAsUnread,
   } = useConversations();
 
@@ -98,6 +100,27 @@ const Conversations = () => {
     statusChangedAt: c.status_changed_at || c.created_at,
   }));
 
+  const archivedConversations: Conversation[] = realArchivedConvs.map((c) => ({
+    id: c.id,
+    name: c.name,
+    phone: c.phone,
+    avatar_url: c.avatar_url || undefined,
+    lastMessage: c.last_message,
+    lastMessageAt: c.last_message_at,
+    lastMessageStatus: (c.last_message_status as "sent" | "delivered" | "read") || undefined,
+    lastMessageDirection: (c.last_message_direction as "sent" | "received") || undefined,
+    unreadCount: c.unread_count,
+    status: "offline" as const,
+    attendingStatus: (c.attending_status as AttendingStatus) || "nova",
+    tags: c.tags || [],
+    category: c.category as any,
+    email: c.email || undefined,
+    notes: c.notes || undefined,
+    deviceName: c.deviceName,
+    assignedTo: c.assigned_to || undefined,
+    assignedName: c.assigned_name || undefined,
+    statusChangedAt: c.status_changed_at || c.created_at,
+  }));
   const selectedConversation = selectedReal
     ? conversations.find((c) => c.id === selectedReal.id) || null
     : null;
@@ -205,12 +228,14 @@ const Conversations = () => {
             </div>
             <ConversationList
               conversations={filteredConversations}
+              archivedConversations={archivedConversations}
               selectedId={selectedConvId}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onSelect={handleSelect}
               onNewConversationClick={() => setNewConversationOpen(true)}
               currentUserId={user?.id}
+              onUnarchive={unarchiveConversation}
             />
           </div>
 
