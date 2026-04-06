@@ -321,6 +321,7 @@ export function ChatPanel({
   onStatusChange, onSendMessage, onSendAudio, onSendFile, onRetryMessage,
   onArchive, onMarkUnread,
   currentUserId, onAssign, onRelease,
+  instances, selectedInstanceId, onInstanceChange,
 }: ChatPanelProps) {
   const { replies: dbReplies } = useQuickReplies();
   const [showQRManager, setShowQRManager] = useState(false);
