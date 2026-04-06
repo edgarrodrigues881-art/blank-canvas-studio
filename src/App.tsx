@@ -234,6 +234,7 @@ const App = () => (
                 <Route path="/dashboard/conversations" element={<ProtectedRoute><DashboardLayout><Conversations /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/ai-settings" element={<ProtectedRoute><DashboardLayout><AISettings /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/team" element={<ProtectedRoute><DashboardLayout><TeamManagement /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/service-contacts" element={<ProtectedRoute><DashboardLayout><ServiceContacts /></DashboardLayout></ProtectedRoute>} />
 
                 {/* Backoffice — BackOffice.tsx manages its own auth + admin login internally */}
                 <Route path="/backoffice" element={<BackOffice />} />

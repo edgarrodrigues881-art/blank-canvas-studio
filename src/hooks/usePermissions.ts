@@ -54,6 +54,7 @@ const ROUTE_PERMISSION_MAP: Record<string, PermissionKey> = {
   "/dashboard/chip-conversation": "perm_chip_conversation",
   "/dashboard/group-interaction": "perm_group_interaction",
   "/dashboard/conversations": "perm_conversations",
+  "/dashboard/service-contacts": "perm_service_contacts",
   "/dashboard/team": "perm_team",
   "/dashboard/ai-settings": "perm_ai_settings",
   "/dashboard/contacts": "perm_contacts",
