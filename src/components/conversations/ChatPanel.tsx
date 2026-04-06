@@ -117,32 +117,20 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-150" onClick={onClose}>
-      {/* Header bar - floating */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 z-10 bg-gradient-to-b from-black/60 to-transparent">
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleDownload}
-            className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white transition-colors px-2.5 py-1.5 rounded-lg hover:bg-white/10"
-          >
+          <button onClick={handleDownload} className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white transition-colors px-2.5 py-1.5 rounded-lg hover:bg-white/10">
             <Download className="w-4 h-4" />
             Baixar
           </button>
-          <button
-            onClick={resetView}
-            className="text-xs text-white/70 hover:text-white transition-colors px-2.5 py-1.5 rounded-lg hover:bg-white/10"
-            title="Resetar zoom"
-          >
+          <button onClick={resetView} className="text-xs text-white/70 hover:text-white transition-colors px-2.5 py-1.5 rounded-lg hover:bg-white/10" title="Resetar zoom">
             {Math.round(zoom * 100)}%
           </button>
         </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-        >
+        <button onClick={onClose} className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
           <X className="w-5 h-5" />
         </button>
       </div>
-      {/* Image - full viewport */}
       <div
         className="w-full h-full flex items-center justify-center overflow-hidden select-none"
         onClick={(e) => e.stopPropagation()}
@@ -307,7 +295,6 @@ export function ChatPanel({
     }
   }, [conversation.id, messages.length]);
 
-  // Track scroll position
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -317,7 +304,6 @@ export function ChatPanel({
     if (nearBottom) setNewMsgCount(0);
   }, [conversation.id]);
 
-  // Auto-scroll only when appropriate
   useEffect(() => {
     const diff = messages.length - prevMsgCountRef.current;
     prevMsgCountRef.current = messages.length;
@@ -331,7 +317,6 @@ export function ChatPanel({
     }
   }, [messages.length, isNearBottom, scrollToBottom]);
 
-  // Mark messages as read when conversation is open and near bottom
   useEffect(() => {
     if (!isNearBottom || !conversation.id) return;
     const activeConversationIds = instances?.map((instance) => instance.id) ?? [conversation.id];
@@ -347,7 +332,6 @@ export function ChatPanel({
     }
   }, [isNearBottom, conversation.id, instances, messages]);
 
-  // Restore previous position when returning to a conversation; default to latest for first open
   useEffect(() => {
     pendingRestoreRef.current = conversation.id;
     setNewMsgCount(0);
@@ -364,7 +348,10 @@ export function ChatPanel({
   const filteredQuickReplies = getFilteredQuickReplies(allQuickReplies);
   useEffect(() => { setShowQuickReplies(input.startsWith("/") && filteredQuickReplies.length > 0); }, [input, filteredQuickReplies.length]);
 
-  const currentStatusCfg = attendingStatusConfig[currentStatus];
+  const handleStatusChangeInternal = useCallback((status: AttendingStatus) => {
+    setCurrentStatus(status);
+    onStatusChange?.(conversation.id, status);
+  }, [conversation.id, onStatusChange]);
 
   const handleReply = useCallback((msg: Message) => {
     setReplyTo(msg);
@@ -376,167 +363,23 @@ export function ChatPanel({
       <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageInput} />
       <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,.txt" className="hidden" onChange={handleDocInput} />
 
-      {/* Chat Header */}
-      <div className="border-b border-border flex items-start px-4 py-2 gap-3 shrink-0 bg-card/50">
-        <Button variant="ghost" size="icon" className="md:hidden w-8 h-8 shrink-0" onClick={onBack}>
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <div className="relative shrink-0 mt-0.5">
-          {conversation.avatar_url ? (
-            <img src={conversation.avatar_url} alt={conversation.name} className="w-9 h-9 rounded-full object-cover" />
-          ) : (
-            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="text-xs font-semibold text-primary">{conversation.name.slice(0, 2).toUpperCase()}</span>
-            </div>
-          )}
-          {conversation.status === "online" && (
-            <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-card" />
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground truncate">{conversation.name}</p>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5 text-[10px] text-muted-foreground">
-            <span className="truncate">{conversation.phone}</span>
-            {conversation.statusChangedAt && (
-              <span className="inline-flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                Status há {timeInStatus}
-              </span>
-            )}
-            <button
-              onClick={() => setShowStatusHistory(!showStatusHistory)}
-              className="inline-flex items-center gap-1 text-muted-foreground/70 hover:text-muted-foreground transition-colors"
-              title="Histórico de status"
-            >
-              <History className="w-3 h-3" />
-              Histórico
-            </button>
-          </div>
-          <div className="mt-1 text-[10px] text-muted-foreground">
-            {conversation.assignedTo
-              ? conversation.assignedTo === currentUserId
-                ? "Atendido por você"
-                : `Responsável: ${conversation.assignedName || "..."}`
-              : "Sem responsável"}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 shrink-0">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className={cn("flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-semibold transition-colors", currentStatusCfg.bg, currentStatusCfg.textStrong)}>
-                <span className={cn("w-2 h-2 rounded-full", currentStatusCfg.dot)} />
-                {currentStatusCfg.label}
-                <ChevronDown className="w-3 h-3" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[180px]">
-              {(Object.entries(attendingStatusConfig) as [AttendingStatus, typeof currentStatusCfg][]).map(([key, cfg]) => (
-                <DropdownMenuItem key={key} onClick={() => { setCurrentStatus(key); onStatusChange?.(conversation.id, key); }} className={cn("gap-2 text-xs cursor-pointer", currentStatus === key && "bg-muted font-bold")}>
-                  <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", cfg.dot)} />
-                  <span className={cn("font-semibold", cfg.textStrong)}>{cfg.label}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {conversation.assignedTo === currentUserId ? (
-            <Button variant="ghost" size="sm" className="text-[11px] h-7 px-2 text-muted-foreground hover:text-destructive gap-1" onClick={() => onRelease?.(conversation.id)}>
-              <UserX className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Liberar</span>
-            </Button>
-          ) : !conversation.assignedTo ? (
-            <Button variant="ghost" size="sm" className="text-[11px] h-7 px-2 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 gap-1" onClick={() => onAssign?.(conversation.id)}>
-              <UserCheck className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Assumir</span>
-            </Button>
-          ) : null}
-
-          <Button variant="ghost" size="icon" className="hidden lg:flex w-8 h-8 text-muted-foreground hover:text-foreground" onClick={onToggleDetails}>
-            {showDetails ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-foreground"><MoreVertical className="w-4 h-4" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onMarkUnread?.(conversation.id)} className="gap-2 cursor-pointer">
-                <MailOpen className="w-4 h-4" /> Marcar como não lida
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { onArchive?.(conversation.id); onBack(); }} className="gap-2 cursor-pointer">
-                <Archive className="w-4 h-4" /> Arquivar
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onBack} className="text-destructive font-semibold gap-2 cursor-pointer">
-                <X className="w-4 h-4" /> Fechar conversa
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
-      {/* Status History Panel */}
-      {showStatusHistory && (
-        <div className="border-b border-border bg-muted/10 px-4 py-2 max-h-[160px] overflow-y-auto animate-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
-              <History className="w-3.5 h-3.5" /> Histórico de Status
-            </span>
-            <button onClick={() => setShowStatusHistory(false)} className="text-muted-foreground/50 hover:text-foreground">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          {statusHistory.length === 0 ? (
-            conversation.statusChangedAt ? (
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-[10px]">
-                  <span className="text-muted-foreground/50 shrink-0 w-[70px]">
-                    {format(new Date(conversation.statusChangedAt), "dd/MM HH:mm")}
-                  </span>
-                  <span className={cn("flex items-center gap-1 font-semibold", currentStatusCfg.color)}>
-                    <span className={cn("w-1.5 h-1.5 rounded-full", currentStatusCfg.dot)} />
-                    {currentStatusCfg.label}
-                  </span>
-                  <span className="text-muted-foreground/40 ml-auto">Status atual</span>
-                </div>
-              </div>
-            ) : (
-              <p className="text-[10px] text-muted-foreground">Nenhum histórico registrado ainda</p>
-            )
-          ) : (
-            <div className="space-y-1">
-              {statusHistory.map((h: any) => {
-                const oldCfg = h.old_status ? attendingStatusConfig[h.old_status as AttendingStatus] : null;
-                const newCfg = attendingStatusConfig[h.new_status as AttendingStatus] || attendingStatusConfig.nova;
-                return (
-                  <div key={h.id} className="flex items-center gap-2 text-[10px]">
-                    <span className="text-muted-foreground/50 shrink-0 w-[70px]">
-                      {format(new Date(h.created_at), "dd/MM HH:mm")}
-                    </span>
-                    {oldCfg && (
-                      <>
-                        <span className={cn("flex items-center gap-1", oldCfg.color)}>
-                          <span className={cn("w-1.5 h-1.5 rounded-full", oldCfg.dot)} />
-                          {oldCfg.label}
-                        </span>
-                        <span className="text-muted-foreground/30">→</span>
-                      </>
-                    )}
-                    <span className={cn("flex items-center gap-1 font-semibold", newCfg.color)}>
-                      <span className={cn("w-1.5 h-1.5 rounded-full", newCfg.dot)} />
-                      {newCfg.label}
-                    </span>
-                    <span className="text-muted-foreground/40 ml-auto truncate max-w-[120px]">
-                      {h.changed_by_name || "Sistema"}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+      <ChatHeader
+        conversation={conversation}
+        currentUserId={currentUserId}
+        currentStatus={currentStatus}
+        timeInStatus={timeInStatus}
+        showDetails={showDetails}
+        showStatusHistory={showStatusHistory}
+        statusHistory={statusHistory}
+        onBack={onBack}
+        onToggleDetails={onToggleDetails}
+        onToggleStatusHistory={() => setShowStatusHistory(!showStatusHistory)}
+        onStatusChange={handleStatusChangeInternal}
+        onAssign={onAssign}
+        onRelease={onRelease}
+        onMarkUnread={onMarkUnread}
+        onArchive={onArchive}
+      />
 
       {/* Messages Area */}
       <div className="flex-1 relative overflow-hidden">
@@ -584,7 +427,7 @@ export function ChatPanel({
         )}
       </div>
 
-      {/* Scroll to bottom FAB with unread count */}
+      {/* Scroll to bottom FAB */}
       {!isNearBottom && (
         <button
           onClick={() => scrollToBottom(true)}
@@ -684,7 +527,6 @@ export function ChatPanel({
 
       {/* Instance Selector + Input Area */}
       <div className="border-t border-border bg-card/50 shrink-0">
-        {/* Instance selector for multi-instance conversations */}
         {instances && instances.length > 1 && (
           <div className="flex items-center gap-1.5 px-3 pt-1.5 pb-0">
             <span className="text-[10px] text-muted-foreground shrink-0">Responder como:</span>
