@@ -19,6 +19,7 @@ export interface Conversation {
   deviceName?: string;
   assignedTo?: string;
   assignedName?: string;
+  statusChangedAt?: string;
 }
 
 export interface Message {

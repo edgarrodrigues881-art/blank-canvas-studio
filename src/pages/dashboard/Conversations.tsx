@@ -92,6 +92,7 @@ const Conversations = () => {
     deviceName: c.deviceName,
     assignedTo: c.assigned_to || undefined,
     assignedName: c.assigned_name || undefined,
+    statusChangedAt: c.status_changed_at || c.created_at,
   }));
 
   const selectedConversation = selectedReal
