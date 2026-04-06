@@ -1040,6 +1040,14 @@ async function mainLoop() {
       const db = getDb();
       await autoreplyTick(db);
     }, 2_000)(),
+
+    guardedLoop("scheduledMsg", async () => {
+      await scheduledMessagesTick();
+    }, 30_000)(),
+
+    guardedLoop("syncDevices", async () => {
+      await syncDevicesTick();
+    }, 120_000)(),
   ]);
 }
 
