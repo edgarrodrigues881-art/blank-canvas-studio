@@ -20,6 +20,7 @@ import { chipConversationTick, getChipConvStatus, lastChipConvTickAt } from "./c
 import { groupJoinTick, getGroupJoinStatus, lastGroupJoinTickAt } from "./group-join-worker";
 import { welcomeTick, getWelcomeStatus, lastWelcomeTickAt } from "./welcome-worker";
 import { verifyTick, getVerifyStatus, lastVerifyTickAt } from "./verify-worker";
+import { communityTick as communityProcessorTick, getCommunityStatus, lastCommunityTickAt } from "./community-processor";
 import { backoffMinutes } from "./lib/retry";
 import { validateUazapiCredentials } from "./lib/uazapi";
 import { processJob, batchPreload, flushAuditLogs, ProcessJobContext } from "./warmup-processor";
