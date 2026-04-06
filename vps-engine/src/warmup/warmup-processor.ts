@@ -297,7 +297,7 @@ function bufferAudit(ctx: ProcessJobContext, entry: any) {
 }
 
 export async function processJob(db: any, job: any, ctx: ProcessJobContext): Promise<boolean> {
-  const { cycle, device, baseUrl, token, chipState } = ctx;
+  const { cycle, device, baseUrl, token, chipState: _chipState } = ctx;
   const withinWindow = isWithinOperatingWindow();
 
   if (!cycle || !cycle.is_running || ctx.pausedCycles.has(cycle.id)) {
