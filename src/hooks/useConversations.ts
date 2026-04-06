@@ -928,7 +928,8 @@ export function useConversations() {
         { event: "UPDATE", schema: "public", table: "conversation_messages", filter: `user_id=eq.${user.id}` },
         (payload) => {
           const updated = payload.new as RealMessage;
-          if (updated.conversation_id === selectedConvIdRef.current) {
+          const selectedId = selectedConvIdRef.current;
+          if (selectedId && (updated.conversation_id === selectedId || getConversationIdsForSameContact(selectedId).includes(updated.conversation_id))) {
             setMessages((prev) =>
               prev.map((m) => (m.id === updated.id ? { ...m, ...updated, direction: updated.direction as "sent" | "received" } : m))
             );
