@@ -3842,6 +3842,7 @@ export type Database = {
           perm_proxy: boolean
           perm_report_wa: boolean
           perm_send_message: boolean
+          perm_service_contacts: boolean
           perm_team: boolean
           perm_templates: boolean
           perm_warmup: boolean
@@ -3876,6 +3877,7 @@ export type Database = {
           perm_proxy?: boolean
           perm_report_wa?: boolean
           perm_send_message?: boolean
+          perm_service_contacts?: boolean
           perm_team?: boolean
           perm_templates?: boolean
           perm_warmup?: boolean
@@ -3910,6 +3912,7 @@ export type Database = {
           perm_proxy?: boolean
           perm_report_wa?: boolean
           perm_send_message?: boolean
+          perm_service_contacts?: boolean
           perm_team?: boolean
           perm_templates?: boolean
           perm_warmup?: boolean
