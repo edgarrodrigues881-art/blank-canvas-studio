@@ -467,14 +467,14 @@ export function AppSidebar() {
           )}
           <SidebarGroupContent>
             <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-              {renderNavItem({ title: "Conversas", url: "/dashboard/conversations", icon: MessageSquare })}
-              {renderNavItem({ title: "Fila", url: "/dashboard/queue", icon: ListOrdered })}
-              {renderNavItem({ title: "Fluxos", url: "/dashboard/flows", icon: GitBranch })}
-              {renderNavItem({ title: "Base de Dados", url: "/dashboard/service-contacts", icon: Headset })}
-              {renderNavItem({ title: "Agendamentos", url: "/dashboard/schedules", icon: CalendarClock })}
-              {renderNavItem({ title: "Equipe", url: "/dashboard/team", icon: Users })}
-              {renderNavItem({ title: "Histórico", url: "/dashboard/history", icon: History })}
-              {renderNavItem({ title: "IA", url: "/dashboard/ai-settings", icon: BotMessageSquare })}
+              {renderNavItem({ title: "Conversas", url: "/dashboard/conversations", icon: MessageSquare, locked: true })}
+              {renderNavItem({ title: "Fila", url: "/dashboard/queue", icon: ListOrdered, locked: true })}
+              {renderNavItem({ title: "Fluxos", url: "/dashboard/flows", icon: GitBranch, locked: true })}
+              {renderNavItem({ title: "Base de Dados", url: "/dashboard/service-contacts", icon: Headset, locked: true })}
+              {renderNavItem({ title: "Agendamentos", url: "/dashboard/schedules", icon: CalendarClock, locked: true })}
+              {renderNavItem({ title: "Equipe", url: "/dashboard/team", icon: Users, locked: true })}
+              {renderNavItem({ title: "Histórico", url: "/dashboard/history", icon: History, locked: true })}
+              {renderNavItem({ title: "IA", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: true })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
