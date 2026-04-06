@@ -37,21 +37,15 @@ Deno.serve(async (req) => {
       return await handleSetupWebhooks(req, admin, body);
     }
 
-    // Log message-specific fields (not the huge chat object)
-    const msgFields = {
-      EventType: body.EventType,
-      type: body.type,
-      body_text: body.text?.substring?.(0, 60),
-      body_body: body.body?.substring?.(0, 60),
-      mediaUrl: body.mediaUrl,
-      messageType: body.messageType,
-      message_type: body.message?.type,
-      message_body: body.message?.body?.substring?.(0, 60),
-      message_mediaUrl: body.message?.mediaUrl,
-      fromMe: body.fromMe ?? body.isFromMe ?? body.message?.fromMe,
-      duration: body.duration || body.message?.duration || body.message?.seconds,
-    };
-    console.log("Webhook msg fields:", JSON.stringify(msgFields));
+    // Log FULL payload for debugging media extraction issues
+    try {
+      const safeBody = { ...body };
+      // Truncate chat object (huge) but keep everything else
+      if (safeBody.chat && typeof safeBody.chat === "object") {
+        safeBody.chat = { JID: safeBody.chat.JID, jid: safeBody.chat.jid, phoneNumber: safeBody.chat.phoneNumber, Name: safeBody.chat.Name, name: safeBody.chat.name };
+      }
+      console.log("FULL_PAYLOAD:", JSON.stringify(safeBody).substring(0, 3000));
+    } catch { console.log("Could not stringify payload"); }
 
     // ── Find the device - multiple strategies ──
     let device: any = null;
