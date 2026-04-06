@@ -553,7 +553,6 @@ export function ChatPanel({
       >
         {messages.map((msg, i) => {
           const showDate = i === 0 || format(new Date(messages[i - 1].timestamp), "dd/MM/yyyy") !== format(new Date(msg.timestamp), "dd/MM/yyyy");
-          const isMedia = !!msg.mediaType;
 
           return (
             <div key={msg.id} className="animate-fade-in">
@@ -564,54 +563,13 @@ export function ChatPanel({
                   </span>
                 </div>
               )}
-              <div className={cn("flex group", msg.type === "sent" ? "justify-end" : "justify-start")}>
-                {/* Reply button (appears on hover) */}
-                {msg.type === "received" && (
-                  <button
-                    onClick={() => { setReplyTo(msg); textareaRef.current?.focus(); }}
-                    className="self-center mr-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted/50"
-                    title="Responder"
-                  >
-                    <Reply className="w-3.5 h-3.5 text-muted-foreground" />
-                  </button>
-                )}
-
-                <div className={cn("flex flex-col", msg.type === "sent" ? "items-end" : "items-start")}>
-                  {/* Device label for multi-instance */}
-                  {instances && instances.length > 1 && msg.deviceName && (
-                    <span className={cn(
-                      "text-[9px] font-medium mb-0.5 flex items-center gap-0.5",
-                      msg.type === "sent" ? "self-end text-muted-foreground/60" : "self-start text-muted-foreground/60"
-                    )}>
-                      <Smartphone className="w-2.5 h-2.5" />
-                      {msg.deviceName}
-                    </span>
-                  )}
-                  <div
-                    className={cn(
-                      "min-w-[72px] rounded-2xl relative",
-                      msg.mediaType === "image" && msg.mediaUrl
-                        ? "w-[min(240px,72vw)] p-1.5"
-                        : "w-fit max-w-[78%] sm:max-w-[68%] px-3 py-2",
-                      msg.type === "sent" ? "bg-blue-600 text-white rounded-br-md" : "bg-card border border-border text-foreground rounded-bl-md",
-                      msg.status === "failed" && "opacity-70"
-                    )}
-                  >
-                    {renderBubbleContent(msg)}
-                  </div>
-                </div>
-
-                {/* Reply button for sent messages (appears on hover) */}
-                {msg.type === "sent" && (
-                  <button
-                    onClick={() => { setReplyTo(msg); textareaRef.current?.focus(); }}
-                    className="self-center ml-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted/50"
-                    title="Responder"
-                  >
-                    <Reply className="w-3.5 h-3.5 text-muted-foreground" />
-                  </button>
-                )}
-              </div>
+              <MessageBubble
+                msg={msg}
+                showDeviceLabel={!!(instances && instances.length > 1)}
+                onReply={handleReply}
+                onImageClick={setLightboxUrl}
+                onRetry={onRetryMessage}
+              />
             </div>
           );
         })}
