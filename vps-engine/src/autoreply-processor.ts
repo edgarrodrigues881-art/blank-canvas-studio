@@ -11,7 +11,54 @@ const log = createLogger("autoreply");
 
 let _lastTickAt: Date | null = null;
 let _processing = false;
-let _stats = { processed: 0, errors: 0, skipped: 0 };
+let _stats = { processed: 0, errors: 0, skipped: 0, deduplicated: 0 };
+
+// ── Deduplication cache (in-memory, device+phone → timestamp) ──
+const _recentlyProcessed = new Map<string, number>();
+const DEDUP_TTL_MS = 60_000; // 60s window
+
+function deduplicationKey(deviceId: string, phone: string, text: string): string {
+  // Use first 50 chars of text to avoid collisions on different messages
+  return `${deviceId}:${phone}:${text.substring(0, 50).toLowerCase().trim()}`;
+}
+
+function isDuplicate(key: string): boolean {
+  const lastProcessed = _recentlyProcessed.get(key);
+  if (!lastProcessed) return false;
+  if (Date.now() - lastProcessed > DEDUP_TTL_MS) {
+    _recentlyProcessed.delete(key);
+    return false;
+  }
+  return true;
+}
+
+function markProcessed(key: string): void {
+  _recentlyProcessed.set(key, Date.now());
+  // Periodic cleanup
+  if (_recentlyProcessed.size > 5000) {
+    const now = Date.now();
+    for (const [k, ts] of _recentlyProcessed) {
+      if (now - ts > DEDUP_TTL_MS) _recentlyProcessed.delete(k);
+    }
+  }
+}
+
+// ── Humanized delay helpers ──
+
+function randomBetween(min: number, max: number): number {
+  return min + Math.random() * (max - min);
+}
+
+/** Calculate a human-like delay based on message length */
+function humanTypingDelay(text: string): number {
+  const len = text.length;
+  if (len <= 30) return randomBetween(1000, 3000);       // Short: 1-3s
+  if (len <= 120) return randomBetween(3000, 6000);      // Medium: 3-6s
+  return randomBetween(5000, 10000);                      // Long: 5-10s
+}
+
+/** Minimum floor delay — never respond under 1s */
+const MIN_RESPONSE_DELAY_MS = 1000;
 
 export function getAutoreplyStatus() {
   return { ..._stats, lastTick: _lastTickAt?.toISOString() || null };
@@ -45,6 +92,12 @@ async function sendFlowMessage(
   imageUrl?: string, buttons?: { id: string; label: string }[]
 ) {
   const cleanPhone = phone.replace(/\D/g, "");
+
+  // ── Humanized delay: simulate reading + typing ──
+  const typingDelay = Math.max(humanTypingDelay(text), MIN_RESPONSE_DELAY_MS);
+  log.info(`Simulating ${(typingDelay / 1000).toFixed(1)}s typing delay for ${text.length} chars`);
+  await new Promise(r => setTimeout(r, typingDelay));
+
   if (buttons && buttons.length > 0) {
     const choices = buttons.map(b => `${b.label}|${b.id}`).filter(Boolean);
     const payload: any = { number: cleanPhone, type: "button", text, choices };
@@ -450,8 +503,20 @@ export async function autoreplyTick(db: SupabaseClient): Promise<void> {
       .in("id", ids);
 
     for (const item of items) {
+      // ── Deduplication check ──
+      const dedupKey = deduplicationKey(item.device_id, item.from_phone, item.message_text || "");
+      if (isDuplicate(dedupKey)) {
+        log.info(`Deduplicated: ${item.from_phone} on ${item.device_id.substring(0, 8)}`);
+        await db.from("autoreply_queue")
+          .update({ status: "done", processed_at: new Date().toISOString(), error_message: "deduplicated" })
+          .eq("id", item.id);
+        _stats.deduplicated++;
+        continue;
+      }
+
       try {
         await processQueueItem(db, item);
+        markProcessed(dedupKey);
         await db.from("autoreply_queue")
           .update({ status: "done", processed_at: new Date().toISOString() })
           .eq("id", item.id);
