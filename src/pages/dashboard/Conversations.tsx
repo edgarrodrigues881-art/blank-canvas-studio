@@ -125,6 +125,9 @@ const Conversations = () => {
     mediaType: m.media_type as any,
     audioDuration: m.audio_duration || undefined,
     isAiResponse: m.is_ai_response,
+    whatsappMessageId: m.whatsapp_message_id || undefined,
+    quotedMessageId: (m as any).quoted_message_id || undefined,
+    quotedContent: (m as any).quoted_content || undefined,
   }));
 
   const handleStatusChange = useCallback(
