@@ -30,7 +30,7 @@ async function getImagePool(db: any): Promise<string[]> {
     if (!error && files?.length > 0) {
       const base = `${config.supabaseUrl}/storage/v1/object/public/media/warmup-media`;
       const imgs = files.filter((f: any) => f.name && !f.name.startsWith(".") && !f.name.startsWith("Captura") && /\.(jpg|jpeg|png|webp|gif)$/i.test(f.name)).map((f: any) => `${base}/${encodeURIComponent(f.name)}`);
-      if (imgs.length > 0) { _imagePoolCache = imgs; return _imagePoolCache; }
+      if (imgs.length > 0) { _imagePoolCache = imgs; return imgs; }
     }
   } catch {}
   _imagePoolCache = [...FALLBACK_IMAGES];
