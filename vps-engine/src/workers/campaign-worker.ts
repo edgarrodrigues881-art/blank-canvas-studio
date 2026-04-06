@@ -1081,12 +1081,12 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 export async function campaignWorkerTick(isRunningRef: { value: boolean }) {
   const db = getDb();
 
-  // Reset stale processing contacts (use updated_at, not created_at)
+  // Reset stale processing contacts (created_at as fallback — table has no updated_at)
   const staleThreshold = new Date(Date.now() - 5 * 60_000).toISOString();
   await db.from("campaign_contacts")
     .update({ status: "pending" })
     .eq("status", "processing")
-    .lt("updated_at", staleThreshold);
+    .lt("created_at", staleThreshold);
 
   // Find running campaigns
   const { data: campaigns } = await db.from("campaigns")
