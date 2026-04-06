@@ -1,12 +1,13 @@
-import { Search, Check, CheckCheck, MessageSquarePlus } from "lucide-react";
+import { Search, Check, CheckCheck, MessageSquarePlus, Tag, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { type Conversation } from "./types";
 import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useMemo, Fragment } from "react";
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -95,6 +96,33 @@ function MessageTicks({ status }: { status?: "sent" | "delivered" | "read" }) {
   return null;
 }
 
+/** Highlight matching text portions */
+function HighlightText({ text, query }: { text: string; query: string }) {
+  if (!query || !text) return <>{text}</>;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark key={i} className="bg-primary/25 text-foreground rounded-[2px] px-[1px]">{part}</mark>
+        ) : (
+          <Fragment key={i}>{part}</Fragment>
+        )
+      )}
+    </>
+  );
+}
+
+/** Check where the match occurred for showing context */
+function getMatchContext(c: Conversation, query: string): string | null {
+  if (!query) return null;
+  const q = query.toLowerCase();
+  if (c.lastMessage && c.lastMessage.toLowerCase().includes(q)) return "mensagem";
+  if (c.tags && c.tags.some((t) => t.toLowerCase().includes(q))) return "tag";
+  return null;
+}
+
 export function ConversationList({
   conversations,
   selectedId,
@@ -124,6 +152,8 @@ export function ConversationList({
     return 0;
   };
 
+  const trimmedQuery = searchQuery.trim();
+
   return (
     <div className="flex flex-col h-full bg-background">
       <div className="px-3 pt-2.5 pb-2 space-y-2 border-b border-border">
@@ -149,12 +179,26 @@ export function ConversationList({
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <Input
-            placeholder="Buscar nome ou número..."
+            placeholder="Buscar nome, número, mensagem ou tag..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-8 h-7 text-xs bg-muted/30 border-border/50 rounded-lg"
+            className="pl-8 pr-8 h-7 text-xs bg-muted/30 border-border/50 rounded-lg"
           />
+          {searchQuery && (
+            <button
+              onClick={() => onSearchChange("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
+
+        {trimmedQuery && (
+          <div className="text-[10px] text-muted-foreground">
+            {filtered.length} resultado{filtered.length !== 1 ? "s" : ""} para "<span className="text-foreground font-medium">{trimmedQuery}</span>"
+          </div>
+        )}
 
         <div className="flex gap-0.5 overflow-x-auto scrollbar-none -mx-0.5">
           {statusTabs.map((tab) => {
@@ -199,6 +243,10 @@ export function ConversationList({
               const avatarLabel = displayName || c.phone;
               const avatarCls = getAvatarColor(avatarLabel);
               const mediaPreview = getMessagePreview(c.lastMessage);
+              const matchCtx = getMatchContext(c, trimmedQuery);
+              const matchedTags = trimmedQuery
+                ? (c.tags || []).filter((t) => t.toLowerCase().includes(trimmedQuery.toLowerCase()))
+                : [];
 
               return (
                 <button
@@ -232,7 +280,11 @@ export function ConversationList({
                         "text-[13px] truncate",
                         hasUnread ? "font-bold text-foreground" : "font-medium text-foreground"
                       )}>
-                        {displayName || formatPhone(c.phone)}
+                        {trimmedQuery ? (
+                          <HighlightText text={displayName || formatPhone(c.phone)} query={trimmedQuery} />
+                        ) : (
+                          displayName || formatPhone(c.phone)
+                        )}
                       </span>
                       <span className={cn(
                         "text-[10px] shrink-0",
@@ -244,7 +296,11 @@ export function ConversationList({
 
                     {displayName && (
                       <p className="text-[10px] text-muted-foreground/50 truncate leading-tight">
-                        {formatPhone(c.phone)}
+                        {trimmedQuery ? (
+                          <HighlightText text={formatPhone(c.phone)} query={trimmedQuery} />
+                        ) : (
+                          formatPhone(c.phone)
+                        )}
                       </p>
                     )}
 
@@ -253,12 +309,15 @@ export function ConversationList({
                         {c.lastMessageStatus && <MessageTicks status={c.lastMessageStatus} />}
                         <p className={cn(
                           "text-[11px] truncate",
-                          hasUnread ? "text-foreground font-semibold" : "text-muted-foreground"
+                          hasUnread ? "text-foreground font-semibold" : "text-muted-foreground",
+                          matchCtx === "mensagem" && "text-primary/80"
                         )}>
                           {c.status === "typing" ? (
                             <span className="text-emerald-400 italic">digitando...</span>
                           ) : mediaPreview ? (
                             <span>{mediaPreview.icon} {mediaPreview.text}</span>
+                          ) : trimmedQuery && c.lastMessage ? (
+                            <HighlightText text={c.lastMessage} query={trimmedQuery} />
                           ) : (
                             c.lastMessage || "..."
                           )}
@@ -270,6 +329,18 @@ export function ConversationList({
                         </span>
                       )}
                     </div>
+
+                    {/* Matched tags */}
+                    {matchedTags.length > 0 && (
+                      <div className="flex items-center gap-1 mt-1 overflow-hidden">
+                        <Tag className="w-2.5 h-2.5 text-primary/60 shrink-0" />
+                        {matchedTags.slice(0, 3).map((tag) => (
+                          <Badge key={tag} variant="outline" className="text-[9px] px-1.5 py-0 h-4 rounded-md border-primary/30 text-primary/80 bg-primary/5">
+                            <HighlightText text={tag} query={trimmedQuery} />
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </button>
               );
