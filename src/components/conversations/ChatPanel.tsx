@@ -68,15 +68,56 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
+
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const res = await fetch(src);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = src.split("/").pop() || "imagem.jpg";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(src, "_blank");
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-      <button onClick={onClose} className="absolute top-4 right-4 text-white/80 hover:text-white z-10 p-2 rounded-full bg-black/40 hover:bg-black/60 transition-colors">
-        <X className="w-6 h-6" />
-      </button>
-      <a href={src} download className="absolute top-4 left-4 text-white/80 hover:text-white z-10 p-2 rounded-full bg-black/40 hover:bg-black/60 transition-colors" onClick={(e) => e.stopPropagation()}>
-        <Download className="w-6 h-6" />
-      </a>
-      <img src={src} alt="Visualização" className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-150" onClick={onClose}>
+      <div
+        className="relative bg-card rounded-2xl shadow-2xl border border-border/30 overflow-hidden max-w-[min(480px,90vw)] max-h-[min(480px,80vh)] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header bar */}
+        <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b border-border/20 shrink-0">
+          <button
+            onClick={handleDownload}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/50"
+          >
+            <Download className="w-4 h-4" />
+            Baixar
+          </button>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        {/* Image */}
+        <div className="flex-1 min-h-0 flex items-center justify-center p-3">
+          <img
+            src={src}
+            alt="Visualização"
+            className="max-w-full max-h-[min(400px,70vh)] object-contain rounded-lg"
+          />
+        </div>
+      </div>
     </div>
   );
 }
