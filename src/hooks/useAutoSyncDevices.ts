@@ -16,6 +16,7 @@ const AUTO_SYNC_STARTUP_GRACE_MS = 60_000;
 const AUTO_SYNC_VISIBILITY_GRACE_MS = 45_000;
 const AUTO_SYNC_ONLINE_GRACE_MS = 60_000;
 const AUTO_SYNC_MIN_GAP_MS = 15_000;
+const AUTO_SYNC_POST_RESUME_INTERVAL_HOLD_MS = 75_000;
 
 // Track recently deleted device IDs to filter from query results
 const recentlyDeletedIds = new Set<string>();
@@ -70,6 +71,7 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const autoSyncBlockedUntilRef = useRef(Date.now() + AUTO_SYNC_STARTUP_GRACE_MS);
+  const intervalBlockedUntilRef = useRef(Date.now() + AUTO_SYNC_STARTUP_GRACE_MS);
   const scheduledSyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSyncStartedAtRef = useRef(0);
 
@@ -85,6 +87,10 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
       || Date.now() < keepAlivePausedUntil
       || Date.now() < autoSyncBlockedUntilRef.current;
   }, []);
+
+  const shouldSkipIntervalSync = useCallback(() => {
+    return shouldSkipSync() || Date.now() < intervalBlockedUntilRef.current;
+  }, [shouldSkipSync]);
 
   // ── Realtime subscription for instant status changes ──
   useEffect(() => {
@@ -134,7 +140,8 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
 
   // ── Shared sync function exposed for manual trigger ──
   const doSync = useCallback(async (trigger: "interval" | "startup" | "visibility" | "online" = "interval") => {
-    if (document.hidden || shouldSkipSync()) {
+    const skipBecauseBlocked = trigger === "interval" ? shouldSkipIntervalSync() : shouldSkipSync();
+    if (document.hidden || skipBecauseBlocked) {
       queuedSync = false;
       return;
     }
@@ -191,7 +198,7 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
     } finally {
       _isSyncing = false;
 
-      const shouldRunFollowUp = queuedSync && !document.hidden && !shouldSkipSync();
+      const shouldRunFollowUp = queuedSync && !document.hidden && !shouldSkipIntervalSync();
       queuedSync = false;
 
       if (shouldRunFollowUp) {
@@ -209,9 +216,15 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
     if (!session?.access_token) return;
 
     autoSyncBlockedUntilRef.current = Date.now() + AUTO_SYNC_STARTUP_GRACE_MS;
+    intervalBlockedUntilRef.current = Date.now() + AUTO_SYNC_STARTUP_GRACE_MS + AUTO_SYNC_POST_RESUME_INTERVAL_HOLD_MS;
 
     const scheduleProtectedSync = (trigger: "startup" | "visibility" | "online", blockMs: number) => {
-      autoSyncBlockedUntilRef.current = Math.max(autoSyncBlockedUntilRef.current, Date.now() + blockMs);
+      const now = Date.now();
+      autoSyncBlockedUntilRef.current = Math.max(autoSyncBlockedUntilRef.current, now + blockMs);
+      intervalBlockedUntilRef.current = Math.max(
+        intervalBlockedUntilRef.current,
+        now + blockMs + AUTO_SYNC_POST_RESUME_INTERVAL_HOLD_MS,
+      );
       clearScheduledSync();
       scheduledSyncRef.current = setTimeout(() => {
         scheduledSyncRef.current = null;
