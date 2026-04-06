@@ -26,7 +26,7 @@ export function useSendMessage({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // ── Reply quote ──
-  const [replyTo, setReplyTo] = useState<{ whatsappMessageId?: string; content?: string } | null>(null);
+  const [replyTo, setReplyTo] = useState<{ whatsappMessageId?: string; content?: string; type?: string; mediaType?: string } | null>(null);
 
   // ── File attachment ──
   const [pendingFile, setPendingFile] = useState<File | null>(null);

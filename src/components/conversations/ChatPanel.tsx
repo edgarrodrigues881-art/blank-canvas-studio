@@ -1030,7 +1030,7 @@ export function ChatPanel({
               {replyTo.type === "sent" ? "Você" : conversation.name}
             </p>
             <p className="text-[11px] text-muted-foreground truncate">
-              {getReplyPreview(replyTo)}
+              {replyTo.content?.substring(0, 80) || "💬 Mensagem"}
             </p>
           </div>
           <Button variant="ghost" size="icon" className="w-7 h-7 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => setReplyTo(null)}>
