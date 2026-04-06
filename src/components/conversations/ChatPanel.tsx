@@ -437,7 +437,15 @@ export function ChatPanel({
     setReplyTo(null);
   };
 
-  const handleQuickReply = (text: string) => { setInput(text); setShowQuickReplies(false); textareaRef.current?.focus(); };
+  const handleQuickReply = (text: string) => {
+    const resolved = resolveVariables(text, {
+      nome: conversation.name || "",
+      telefone: conversation.phone || "",
+    });
+    setInput(resolved);
+    setShowQuickReplies(false);
+    textareaRef.current?.focus();
+  };
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } };
 
   const handleFileSelected = useCallback((file: File) => {
