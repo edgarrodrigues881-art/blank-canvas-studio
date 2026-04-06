@@ -1027,17 +1027,31 @@ export function ChatPanel({
             </div>
           );
         })}
+
+        {/* Typing indicator */}
+        {conversation.status === "typing" && (
+          <div className="flex justify-start mb-2 ml-1 animate-fade-in">
+            <div className="bg-card border border-border rounded-2xl rounded-bl-md px-4 py-2.5 flex items-center gap-1.5">
+              <div className="flex items-center gap-[3px]">
+                <span className="w-[6px] h-[6px] bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-[6px] h-[6px] bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-[6px] h-[6px] bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+              <span className="text-[10px] text-muted-foreground/60 ml-1">digitando...</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Scroll to bottom FAB with unread count */}
       {!isNearBottom && (
         <button
           onClick={() => scrollToBottom(true)}
-          className="absolute bottom-4 right-4 z-10 flex items-center justify-center w-10 h-10 rounded-full bg-card border border-border shadow-lg hover:bg-muted transition-colors"
+          className="absolute bottom-4 right-4 z-10 flex items-center justify-center w-10 h-10 rounded-full bg-card border border-border shadow-lg hover:bg-muted transition-all duration-200 animate-scale-in hover:scale-110"
         >
           <ChevronDown className="w-5 h-5 text-foreground" />
           {newMsgCount > 0 && (
-            <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+            <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1 animate-in zoom-in-50 shadow-sm shadow-red-500/30">
               {newMsgCount > 99 ? "99+" : newMsgCount}
             </span>
           )}
