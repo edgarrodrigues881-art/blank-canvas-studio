@@ -561,6 +561,12 @@ export function ChatPanel({
   const sendPendingFile = async () => {
     if (!pendingFile) return;
     setSendingFile(true);
+    // Send caption first if there's text, then the file
+    const caption = input.trim();
+    if (caption) {
+      onSendMessage?.(conversation.id, caption);
+      setInput("");
+    }
     onSendFile?.(conversation.id, pendingFile);
     cancelPendingFile();
     setSendingFile(false);
