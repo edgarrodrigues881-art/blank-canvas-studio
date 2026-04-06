@@ -409,6 +409,21 @@ export function ChatPanel({
     }
   }, [messages.length, isNearBottom, scrollToBottom]);
 
+  // Mark messages as read when conversation is open and near bottom
+  useEffect(() => {
+    if (!isNearBottom || !conversation.id) return;
+    const unreadReceived = messages.filter((m) => m.type === "received" && !m.status);
+    if (unreadReceived.length > 0) {
+      supabase
+        .from("conversation_messages")
+        .update({ status: "read" } as any)
+        .eq("conversation_id", conversation.id)
+        .eq("direction", "received")
+        .is("status", null)
+        .then(() => {});
+    }
+  }, [isNearBottom, conversation.id, messages]);
+
   // Always scroll on conversation change
   useEffect(() => {
     setNewMsgCount(0);
