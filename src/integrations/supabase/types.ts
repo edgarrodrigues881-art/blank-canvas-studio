@@ -661,6 +661,72 @@ export type Database = {
           },
         ]
       }
+      autoreply_queue: {
+        Row: {
+          button_response_id: string | null
+          created_at: string
+          device_header_id: string | null
+          device_id: string
+          error_message: string | null
+          from_phone: string
+          has_button_response: boolean | null
+          id: string
+          instance_token: string | null
+          message_text: string
+          processed_at: string | null
+          raw_payload: Json | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          button_response_id?: string | null
+          created_at?: string
+          device_header_id?: string | null
+          device_id: string
+          error_message?: string | null
+          from_phone: string
+          has_button_response?: boolean | null
+          id?: string
+          instance_token?: string | null
+          message_text?: string
+          processed_at?: string | null
+          raw_payload?: Json | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          button_response_id?: string | null
+          created_at?: string
+          device_header_id?: string | null
+          device_id?: string
+          error_message?: string | null
+          from_phone?: string
+          has_button_response?: boolean | null
+          id?: string
+          instance_token?: string | null
+          message_text?: string
+          processed_at?: string | null
+          raw_payload?: Json | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "autoreply_queue_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoreply_queue_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       autoreply_sessions: {
         Row: {
           contact_phone: string
