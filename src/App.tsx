@@ -66,6 +66,7 @@ const CustomModule = lazyWithPreload(() => import("@/pages/dashboard/CustomModul
 const Prospeccao = lazyWithPreload(() => import("@/pages/dashboard/Prospeccao"));
 const Conversations = lazyWithPreload(() => import("@/pages/dashboard/Conversations"));
 const AISettings = lazyWithPreload(() => import("@/pages/dashboard/AISettings"));
+const TeamManagement = lazyWithPreload(() => import("@/pages/dashboard/TeamManagement"));
 
 // Backoffice pages
 const BOCampaigns = lazyWithPreload(() => import("@/pages/backoffice/BOCampaigns"));
