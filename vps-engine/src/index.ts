@@ -23,7 +23,7 @@ import { verifyTick, getVerifyStatus, lastVerifyTickAt } from "./verify-worker";
 import { backoffMinutes } from "./lib/retry";
 import { validateUazapiCredentials } from "./lib/uazapi";
 import { processJob, batchPreload, flushAuditLogs, ProcessJobContext } from "./warmup-processor";
-import { CONNECTED_STATUSES } from "./lib/warmup-rules";
+// CONNECTED_STATUSES is used from warmup-rules via warmup-processor
 
 const log = createLogger("main");
 // Global semaphore is now in lib/global-semaphore.ts (shared across all workers)

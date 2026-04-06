@@ -47,7 +47,7 @@ async function getAudioPool(db: any): Promise<string[]> {
       if (audios.length > 0) { _audioPoolCache = audios; return _audioPoolCache; }
     }
   } catch {}
-  _audioPoolCache = FALLBACK_AUDIOS;
+  _audioPoolCache = [...FALLBACK_AUDIOS];
   return _audioPoolCache;
 }
 
