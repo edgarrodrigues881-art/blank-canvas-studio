@@ -361,7 +361,7 @@ async function phaseFormPairs(db: SupabaseClient): Promise<{
     db.from("community_pairs").select("instance_id_b").in("instance_id_b", allDeviceIds).eq("status", "active"),
   ]);
   const pairedDevices = new Set<string>();
-  for (const p of [...(pairsA || []), ...(pairsB || [])]) pairedDevices.add(p.instance_id_a || p.instance_id_b);
+  for (const p of [...(pairsA || []), ...(pairsB || [])] as any[]) pairedDevices.add(p.instance_id_a || p.instance_id_b);
 
   const now = Date.now();
   const spacingMs = MIN_SPACING_BETWEEN_PAIRS_MINUTES * 60 * 1000;
