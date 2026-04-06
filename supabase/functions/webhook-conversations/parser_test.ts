@@ -74,3 +74,30 @@ Deno.test("isApiSentMessage detecta mensagens enviadas pela API", () => {
   assertEquals(isApiSentMessage({ message: { wasSentByApi: true } }), true);
   assertEquals(isApiSentMessage({ text: "oi" }), false);
 });
+
+Deno.test("extractConversationEvent lê mídia aninhada em message.message", () => {
+  const result = extractConversationEvent({
+    event: "messages.upsert",
+    data: {
+      key: {
+        remoteJid: "5511912345678@s.whatsapp.net",
+        fromMe: false,
+        id: "img-789",
+      },
+      message: {
+        message: {
+          imageMessage: {
+            url: "https://example.com/foto.jpg",
+            caption: "Foto recebida",
+          },
+        },
+      },
+      messageTimestamp: 1712345678,
+    },
+  });
+
+  assertExists(result);
+  assertEquals(result.mediaType, "image");
+  assertEquals(result.mediaUrl, "https://example.com/foto.jpg");
+  assertEquals(result.content, "Foto recebida");
+});

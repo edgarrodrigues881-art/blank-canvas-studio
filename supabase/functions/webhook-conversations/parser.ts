@@ -18,12 +18,74 @@ type JsonObject = Record<string, any>;
 
 const PRIVATE_JID_SUFFIX = "@s.whatsapp.net";
 
+function asObject(value: unknown): JsonObject {
+  return value && typeof value === "object" ? value as JsonObject : {};
+}
+
 function firstString(...values: unknown[]): string {
   for (const value of values) {
     if (typeof value === "string" && value.trim()) return value.trim();
     if (typeof value === "number" && Number.isFinite(value)) return String(value);
   }
   return "";
+}
+
+function firstBoolean(...values: unknown[]): boolean | null {
+  for (const value of values) {
+    if (typeof value === "boolean") return value;
+  }
+  return null;
+}
+
+function collectMessageNodes(body: JsonObject, payload: JsonObject, nestedMessage: JsonObject): JsonObject[] {
+  const candidates = [
+    nestedMessage,
+    asObject(nestedMessage.message),
+    asObject(body.message),
+    asObject(asObject(body.message).message),
+    asObject(payload.message),
+    asObject(asObject(payload.message).message),
+    asObject(body.data),
+    asObject(asObject(body.data).message),
+    asObject(asObject(asObject(body.data).message).message),
+  ];
+
+  const unique: JsonObject[] = [];
+  const seen = new Set<JsonObject>();
+
+  for (const candidate of candidates) {
+    if (!candidate || Object.keys(candidate).length === 0 || seen.has(candidate)) continue;
+    seen.add(candidate);
+    unique.push(candidate);
+  }
+
+  return unique;
+}
+
+function inferMediaType(typeValue: string, mimeValue: string, urlValue: string): string | null {
+  const typeStr = typeValue.toLowerCase();
+  const mime = mimeValue.toLowerCase();
+  const url = urlValue.toLowerCase();
+
+  if (typeStr === "ptt" || typeStr === "audio" || typeStr === "voice") return "audio";
+  if (typeStr === "image" || typeStr === "photo") return "image";
+  if (typeStr === "video") return "video";
+  if (typeStr === "document" || typeStr === "file") return "document";
+  if (typeStr === "sticker") return "sticker";
+  if (typeStr === "contact" || typeStr === "vcard") return "contact";
+  if (typeStr === "location" || typeStr === "live_location") return "location";
+
+  if (mime.startsWith("audio/")) return "audio";
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("video/")) return "video";
+  if (mime.includes("pdf") || mime.includes("document") || mime.includes("sheet") || mime.includes("presentation") || mime.includes("application/")) return "document";
+
+  if (/\.(jpg|jpeg|png|gif|webp|bmp)(\?|$)/.test(url)) return "image";
+  if (/\.(mp3|ogg|wav|aac|m4a|opus|webm)(\?|$)/.test(url)) return "audio";
+  if (/\.(mp4|mov|avi|mkv|webm)(\?|$)/.test(url)) return "video";
+  if (/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|txt|csv)(\?|$)/.test(url)) return "document";
+
+  return null;
 }
 
 function normalizePhone(value: unknown): string {
@@ -82,89 +144,143 @@ export function isApiSentMessage(body: JsonObject): boolean {
  * UAZAPI-GO uses `body.type` or `message.type` with values like "ptt", "audio", "image", etc.
  * Baileys uses `message.audioMessage`, `message.imageMessage`, etc.
  */
-function resolveMediaType(body: JsonObject, nestedMessage: JsonObject): string | null {
-  // Check Baileys-style nested message objects first
-  if (nestedMessage.audioMessage || nestedMessage.pttMessage) return "audio";
-  if (nestedMessage.imageMessage) return "image";
-  if (nestedMessage.videoMessage) return "video";
-  if (nestedMessage.documentMessage || nestedMessage.documentWithCaptionMessage) return "document";
-  if (nestedMessage.stickerMessage) return "sticker";
-  if (nestedMessage.contactMessage || nestedMessage.contactsArrayMessage) return "contact";
-  if (nestedMessage.locationMessage || nestedMessage.liveLocationMessage) return "location";
+function resolveMediaType(body: JsonObject, messageNodes: JsonObject[]): string | null {
+  for (const node of messageNodes) {
+    if (node.audioMessage || node.pttMessage || node.voiceMessage) return "audio";
+    if (node.imageMessage) return "image";
+    if (node.videoMessage) return "video";
+    if (node.documentMessage || node.documentWithCaptionMessage) return "document";
+    if (node.stickerMessage) return "sticker";
+    if (node.contactMessage || node.contactsArrayMessage) return "contact";
+    if (node.locationMessage || node.liveLocationMessage) return "location";
+  }
 
-  // Check UAZAPI-GO style type field (can be on body, message, or data)
   const typeStr = firstString(
     body.type,
-    nestedMessage.type,
     body.messageType,
-    nestedMessage.messageType,
     body.TypeMessage,
     body.data?.type,
-  ).toLowerCase();
+    body.data?.message?.type,
+    ...messageNodes.flatMap((node) => [node.type, node.messageType, node.TypeMessage]),
+  );
 
-  if (!typeStr || typeStr === "text" || typeStr === "messages" || typeStr === "chat") return null;
+  if (["", "text", "messages", "chat"].includes(typeStr.toLowerCase())) {
+    const mimeStr = firstString(
+      body.mimetype,
+      body.mimeType,
+      body.data?.mimetype,
+      ...messageNodes.flatMap((node) => [
+        node.mimetype,
+        node.mimeType,
+        node.audioMessage?.mimetype,
+        node.pttMessage?.mimetype,
+        node.imageMessage?.mimetype,
+        node.videoMessage?.mimetype,
+        node.documentMessage?.mimetype,
+      ]),
+    );
 
-  if (typeStr === "ptt" || typeStr === "audio" || typeStr === "voice") return "audio";
-  if (typeStr === "image" || typeStr === "photo") return "image";
-  if (typeStr === "video") return "video";
-  if (typeStr === "document" || typeStr === "file") return "document";
-  if (typeStr === "sticker") return "sticker";
-  if (typeStr === "contact" || typeStr === "vcard") return "contact";
-  if (typeStr === "location" || typeStr === "live_location") return "location";
+    const urlStr = firstString(
+      body.mediaUrl,
+      body.media_url,
+      body.file,
+      body.fileUrl,
+      body.file_url,
+      body.url,
+      body.data?.mediaUrl,
+      body.data?.media_url,
+      body.data?.file,
+      body.data?.fileUrl,
+      body.data?.file_url,
+      body.data?.url,
+      ...messageNodes.flatMap((node) => [
+        node.mediaUrl,
+        node.media_url,
+        node.file,
+        node.fileUrl,
+        node.file_url,
+        node.url,
+        node.link,
+        node.audioMessage?.url,
+        node.pttMessage?.url,
+        node.imageMessage?.url,
+        node.videoMessage?.url,
+        node.documentMessage?.url,
+      ]),
+    );
 
-  return null;
+    return inferMediaType(typeStr, mimeStr, urlStr);
+  }
+
+  return inferMediaType(typeStr, "", "");
 }
 
-function resolveMediaUrl(body: JsonObject, nestedMessage: JsonObject, mediaType: string | null): string | null {
+function resolveMediaUrl(body: JsonObject, messageNodes: JsonObject[], mediaType: string | null): string | null {
   if (!mediaType) return null;
 
   const url = firstString(
-    // Direct body fields (UAZAPI-GO)
     body.mediaUrl,
     body.media_url,
     body.file,
     body.fileUrl,
     body.file_url,
-    // Nested message fields
-    nestedMessage.mediaUrl,
-    nestedMessage.media_url,
-    nestedMessage.file,
-    nestedMessage.fileUrl,
-    // Baileys-style nested
-    nestedMessage.audioMessage?.url,
-    nestedMessage.pttMessage?.url,
-    nestedMessage.imageMessage?.url,
-    nestedMessage.videoMessage?.url,
-    nestedMessage.documentMessage?.url,
-    // Data wrapper
+    body.url,
+    body.link,
     body.data?.mediaUrl,
     body.data?.media_url,
+    body.data?.file,
+    body.data?.fileUrl,
+    body.data?.file_url,
+    body.data?.url,
+    ...messageNodes.flatMap((node) => [
+      node.mediaUrl,
+      node.media_url,
+      node.file,
+      node.fileUrl,
+      node.file_url,
+      node.url,
+      node.link,
+      node.audioMessage?.url,
+      node.pttMessage?.url,
+      node.imageMessage?.url,
+      node.videoMessage?.url,
+      node.documentMessage?.url,
+      node.image?.url,
+      node.audio?.url,
+      node.video?.url,
+      node.document?.url,
+    ]),
   );
 
   return url || null;
 }
 
-function resolveAudioDuration(body: JsonObject, nestedMessage: JsonObject): number | null {
+function resolveAudioDuration(body: JsonObject, messageNodes: JsonObject[]): number | null {
   const val =
-    nestedMessage.audioMessage?.seconds ||
-    nestedMessage.pttMessage?.seconds ||
     body.duration ||
     body.seconds ||
-    nestedMessage.duration ||
-    nestedMessage.seconds ||
     body.data?.duration ||
+    body.data?.seconds ||
+    messageNodes.map((node) =>
+      node.audioMessage?.seconds ||
+      node.pttMessage?.seconds ||
+      node.duration ||
+      node.seconds ||
+      node.audio?.seconds ||
+      null
+    ).find((value) => typeof value === "number" && value > 0) ||
     null;
   return typeof val === "number" && val > 0 ? val : null;
 }
 
-function resolveQuotedMessage(body: JsonObject, nestedMessage: JsonObject): { id: string | null; content: string | null } {
-  const ctx =
-    nestedMessage.contextInfo ||
-    nestedMessage.quotedMessage ||
-    body.contextInfo ||
-    body.quotedMsg ||
-    body.quoted ||
-    null;
+function resolveQuotedMessage(body: JsonObject, messageNodes: JsonObject[]): { id: string | null; content: string | null } {
+  const ctx = messageNodes
+    .flatMap((node) => [node.contextInfo, node.quotedMessage])
+    .find((value) => value && typeof value === "object")
+    || body.contextInfo
+    || body.quotedMsg
+    || body.quoted
+    || null;
 
   if (!ctx || typeof ctx !== "object") return { id: null, content: null };
 
@@ -200,6 +316,7 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
       : body.key && typeof body.key === "object"
         ? body.key
         : {};
+  const messageNodes = collectMessageNodes(body, payload, nestedMessage);
 
   const isMessageEvent = event.includes("message")
     || event.includes("msg")
@@ -223,6 +340,7 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
     nestedMessage.sender_pn,
     payload.phone,
     payload.number,
+    ...messageNodes.flatMap((node) => [node.sender_pn, node.remoteJid, node.chatId, node.from]),
   );
 
   const remoteJid = normalizeRemoteJid(rawRemoteJid);
@@ -244,40 +362,40 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
   ).substring(0, 255);
 
   // Resolve media first so we can generate a better content fallback
-  const mediaType = resolveMediaType(body, nestedMessage);
-  const mediaUrl = resolveMediaUrl(body, nestedMessage, mediaType);
-  const audioDuration = mediaType === "audio" ? resolveAudioDuration(body, nestedMessage) : null;
+  const mediaType = resolveMediaType(body, messageNodes);
+  const mediaUrl = resolveMediaUrl(body, messageNodes, mediaType);
+  const audioDuration = mediaType === "audio" ? resolveAudioDuration(body, messageNodes) : null;
 
   const content = firstString(
     body.text,
     body.messageBody,
     body.body,
     body.caption,
-    nestedMessage.conversation,
-    nestedMessage.text,
-    nestedMessage.body,
-    typeof nestedMessage.content === "string" ? nestedMessage.content : "",
-    nestedMessage.content?.text,
-    nestedMessage.extendedTextMessage?.text,
-    nestedMessage.imageMessage?.caption,
-    nestedMessage.videoMessage?.caption,
-    nestedMessage.documentMessage?.caption,
-    nestedMessage.documentMessage?.fileName,
-    body.buttonsResponseMessage?.selectedDisplayText,
-    body.templateButtonReplyMessage?.selectedDisplayText,
-    nestedMessage.buttonsResponseMessage?.selectedDisplayText,
-    nestedMessage.templateButtonReplyMessage?.selectedDisplayText,
-    nestedMessage.listResponseMessage?.title,
+    ...messageNodes.flatMap((node) => [
+      node.conversation,
+      node.text,
+      node.body,
+      typeof node.content === "string" ? node.content : "",
+      node.content?.text,
+      node.extendedTextMessage?.text,
+      node.imageMessage?.caption,
+      node.videoMessage?.caption,
+      node.documentMessage?.caption,
+      node.documentMessage?.fileName,
+      node.buttonsResponseMessage?.selectedDisplayText,
+      node.templateButtonReplyMessage?.selectedDisplayText,
+      node.listResponseMessage?.title,
+    ]),
   );
 
-  const fromMe = Boolean(
-    key.fromMe
-    ?? payload.fromMe
-    ?? body.fromMe
-    ?? body.isFromMe
-    ?? body.wa_fromMe
-    ?? nestedMessage.fromMe,
-  );
+  const fromMe = Boolean(firstBoolean(
+    key.fromMe,
+    payload.fromMe,
+    body.fromMe,
+    body.isFromMe,
+    body.wa_fromMe,
+    ...messageNodes.map((node) => node.fromMe),
+  ));
 
   const waId = firstString(
     key.id,
@@ -306,7 +424,7 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
     chat.profilePicUrl,
   ) || null;
 
-  const quoted = resolveQuotedMessage(body, nestedMessage);
+  const quoted = resolveQuotedMessage(body, messageNodes);
 
   return {
     remoteJid,
