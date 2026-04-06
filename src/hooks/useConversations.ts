@@ -47,6 +47,7 @@ export interface RealMessage {
   quoted_message_id?: string | null;
   quoted_content?: string | null;
   created_at: string;
+  deviceName?: string;
 }
 
 export function useConversations() {
