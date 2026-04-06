@@ -35,6 +35,8 @@ const Conversations = () => {
     retryMessage,
     assignConversation,
     releaseConversation,
+    archiveConversation,
+    markAsUnread,
   } = useConversations();
 
   const [showDetails, setShowDetails] = useState(true);
