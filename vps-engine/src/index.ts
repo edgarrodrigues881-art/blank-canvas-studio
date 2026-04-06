@@ -430,12 +430,6 @@ async function resolveDeviceCredentialsBatch(deviceIds: string[]): Promise<Recor
   return resolved;
 }
 
-async function resolveDeviceCredentials(deviceId: string): Promise<DeviceCredentials | null> {
-  const devices = await resolveDeviceCredentialsBatch([deviceId]);
-  const resolved = devices[deviceId] || null;
-  if (!resolved) log.warn(`Device not found: ${deviceId}`);
-  return resolved;
-}
 
 // ══════════════════════════════════════════════════════════
 // WARMUP TICK — Continuous loop (replaces pg_cron)
