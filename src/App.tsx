@@ -71,6 +71,7 @@ const ServiceContacts = lazyWithPreload(() => import("@/pages/dashboard/ServiceC
 const Schedules = lazyWithPreload(() => import("@/pages/dashboard/Schedules"));
 const ActivityHistory = lazyWithPreload(() => import("@/pages/dashboard/ActivityHistory"));
 const ConversationQueue = lazyWithPreload(() => import("@/pages/dashboard/ConversationQueue"));
+const ServiceReports = lazyWithPreload(() => import("@/pages/dashboard/ServiceReports"));
 
 // Backoffice pages
 const BOCampaigns = lazyWithPreload(() => import("@/pages/backoffice/BOCampaigns"));
