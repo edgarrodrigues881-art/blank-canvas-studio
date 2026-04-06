@@ -740,44 +740,28 @@ export function useConversations() {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
+  // Light polling fallback — only conversations list (messages are handled by RT)
   useEffect(() => {
     if (!user) return;
-
     let isActive = true;
 
-    const refresh = async () => {
-      if (!isActive) return;
-      await fetchConversations();
-
-      const currentConversationId = selectedConvIdRef.current;
-      if (currentConversationId) {
-        await fetchMessages(currentConversationId);
-      }
-    };
-
     const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") {
-        void refresh();
+      if (isActive && document.visibilityState === "visible") {
+        fetchConversations();
       }
-    }, 15000);
+    }, 30000);
 
-    const handleFocus = () => { void refresh(); };
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        void refresh();
-      }
+      if (document.visibilityState === "visible") fetchConversations();
     };
-
-    window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       isActive = false;
       window.clearInterval(interval);
-      window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [user, fetchConversations, fetchMessages]);
+  }, [user, fetchConversations]);
 
   const selectedConversation = selectedConvId
     ? conversations.find((c) => c.id === selectedConvId) || null
