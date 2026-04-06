@@ -471,6 +471,7 @@ export function AppSidebar() {
               {renderNavItem({ title: "Base de Atendimento", url: "/dashboard/service-contacts", icon: Headset })}
               {renderNavItem({ title: "Agendamentos", url: "/dashboard/schedules", icon: CalendarClock })}
               {renderNavItem({ title: "Equipe", url: "/dashboard/team", icon: Users })}
+              {renderNavItem({ title: "Histórico", url: "/dashboard/history", icon: History })}
               {renderNavItem({ title: "IA", url: "/dashboard/ai-settings", icon: BotMessageSquare })}
             </SidebarMenu>
           </SidebarGroupContent>
