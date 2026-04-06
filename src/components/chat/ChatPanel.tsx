@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
+import { formatDuration, formatFileSize } from "@/utils/formatters";
+import { getFileIcon } from "@/utils/fileHelpers";
 import { useQuickReplies, resolveVariables, QUICK_REPLY_CATEGORIES } from "@/hooks/chat/useQuickReplies";
 import { QuickRepliesManager } from "./QuickRepliesManager";
 import { useSendMessage } from "@/hooks/chat/useSendMessage";
