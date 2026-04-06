@@ -98,12 +98,50 @@ export function useConversations() {
     });
   }, []);
 
+  const normalizePhone = useCallback((phone: string) => phone.replace(/\D/g, ""), []);
+
+  const getConversationContactKey = useCallback((conversation: { phone?: string | null; remote_jid?: string | null }) => {
+    const raw = conversation.phone || conversation.remote_jid?.split("@")[0] || "";
+    return normalizePhone(raw);
+  }, [normalizePhone]);
+
+  const getConversationIdsForSameContact = useCallback((convId: string) => {
+    const target = conversationsRef.current.find((conversation) => conversation.id === convId);
+    if (!target) return [convId];
+
+    const targetKey = getConversationContactKey(target);
+    if (!targetKey) return [convId];
+
+    return conversationsRef.current
+      .filter((conversation) => getConversationContactKey(conversation) === targetKey)
+      .map((conversation) => conversation.id);
+  }, [getConversationContactKey]);
+
+  const markConversationGroupAsRead = useCallback(async (convId: string) => {
+    const ids = getConversationIdsForSameContact(convId);
+
+    setConversations((prev) =>
+      prev.map((conversation) =>
+        ids.includes(conversation.id)
+          ? { ...conversation, unread_count: 0 }
+          : conversation
+      )
+    );
+
+    const { error } = await supabase
+      .from("conversations")
+      .update({ unread_count: 0 })
+      .in("id", ids);
+
+    if (error) {
+      console.error("Error clearing unread count:", error);
+    }
+  }, [getConversationIdsForSameContact]);
+
   const upsertConversationInState = useCallback((items: RealConversation[], row: any) => {
     const mapped = mapConversationRow(row);
     return sortConversations([mapped, ...items.filter((item) => item.id !== mapped.id)]);
   }, [mapConversationRow, sortConversations]);
-
-  const normalizePhone = useCallback((phone: string) => phone.replace(/\D/g, ""), []);
 
   // Fetch conversations from DB
   const fetchConversations = useCallback(async () => {
