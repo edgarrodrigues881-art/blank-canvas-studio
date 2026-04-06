@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAutoSyncDevices } from "@/hooks/useAutoSyncDevices";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
 import { Bell, Info, CheckCircle2, AlertTriangle, XCircle, CheckCheck, Trash2, Sun, Moon } from "lucide-react";
@@ -44,12 +46,22 @@ const typeColors = {
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead, clearAll } = useNotifications();
   const { resolvedTheme, setTheme } = useTheme();
   const { isFeatureBlocked } = useFeatureControls();
 
   // Auto-sync devices every 15s with global semaphore protection
   useAutoSyncDevices();
+
+  // Presence heartbeat — update last_seen_at every 60s
+  useEffect(() => {
+    if (!user) return;
+    const update = () => supabase.from("profiles").update({ last_seen_at: new Date().toISOString() } as any).eq("id", user.id).then(() => {});
+    update();
+    const interval = setInterval(update, 60_000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Realtime device status change notifications — REMOVED
   // This was a duplicate of the realtime subscription in useAutoSyncDevices.

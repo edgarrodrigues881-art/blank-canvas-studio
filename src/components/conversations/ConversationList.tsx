@@ -15,12 +15,14 @@ interface ConversationListProps {
   onSearchChange: (q: string) => void;
   onSelect: (c: Conversation) => void;
   onNewConversationClick?: () => void;
+  currentUserId?: string;
 }
 
-type StatusTab = "all" | "new" | "attending" | "waiting";
+type StatusTab = "all" | "mine" | "new" | "attending" | "waiting";
 
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "all", label: "Todas" },
+  { key: "mine", label: "Minhas" },
   { key: "new", label: "Novas" },
   { key: "attending", label: "Em Atendimento" },
   { key: "waiting", label: "Aguardando" },
@@ -100,11 +102,13 @@ export function ConversationList({
   onSearchChange,
   onSelect,
   onNewConversationClick,
+  currentUserId,
 }: ConversationListProps) {
   const [activeStatus, setActiveStatus] = useState<StatusTab>("all");
 
   const filtered = conversations.filter((c) => {
     if (activeStatus === "all") return true;
+    if (activeStatus === "mine") return c.assignedTo === currentUserId;
     if (activeStatus === "new") return c.unreadCount > 0;
     if (activeStatus === "attending") return c.attendingStatus === "em_atendimento";
     if (activeStatus === "waiting") return c.attendingStatus === "aguardando";
@@ -113,6 +117,7 @@ export function ConversationList({
 
   const statusCount = (tab: StatusTab) => {
     if (tab === "all") return conversations.length;
+    if (tab === "mine") return conversations.filter((c) => c.assignedTo === currentUserId).length;
     if (tab === "new") return conversations.filter((c) => c.unreadCount > 0).length;
     if (tab === "attending") return conversations.filter((c) => c.attendingStatus === "em_atendimento").length;
     if (tab === "waiting") return conversations.filter((c) => c.attendingStatus === "aguardando").length;
