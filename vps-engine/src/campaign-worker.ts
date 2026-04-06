@@ -1074,12 +1074,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 }
 
 // ══════════════════════════════════════════════════════════
-// TICK: finds active campaigns and processes them IN PARALLEL
-// Up to MAX_PARALLEL campaigns concurrently, respecting device conflicts.
+// TICK: finds active campaigns and FIRES them as background tasks.
+// Non-blocking: returns immediately so new campaigns are picked up fast.
 // ══════════════════════════════════════════════════════════
-
-// ── NO LIMIT: all campaigns run freely in parallel ──
-const MAX_PARALLEL_CAMPAIGNS = 999;
 
 export async function campaignWorkerTick(isRunningRef: { value: boolean }) {
   const db = getDb();
@@ -1096,16 +1093,13 @@ export async function campaignWorkerTick(isRunningRef: { value: boolean }) {
     .select("*")
     .eq("status", "running")
     .order("started_at", { ascending: true })
-    .limit(10);
+    .limit(20);
 
   if (!campaigns?.length) return;
 
-  // Filter: skip campaigns already being processed in a previous tick
+  // Filter: skip campaigns already being processed
   const eligible = campaigns.filter(c => !activeCampaigns.has(c.id));
-  if (eligible.length === 0) {
-    log.info(`All ${campaigns.length} campaigns already active — waiting`);
-    return;
-  }
+  if (eligible.length === 0) return;
 
   // Pre-check: complete campaigns with zero pending contacts quickly
   const toProcess: typeof eligible = [];
@@ -1126,46 +1120,27 @@ export async function campaignWorkerTick(isRunningRef: { value: boolean }) {
 
   if (toProcess.length === 0) return;
 
-  // Determine which campaigns can run in parallel (device conflict check)
-  const devicesInUse = new Set<string>();
-  const batch: typeof toProcess = [];
+  log.info(`▶▶ Launching ${toProcess.length} campaigns (${campaigns!.length - eligible.length} already active)`);
 
+  // Fire-and-forget: launch campaigns as background tasks (non-blocking)
   for (const campaign of toProcess) {
-    if (batch.length >= MAX_PARALLEL_CAMPAIGNS) {
-      log.info(`Campaign ${campaign.id.slice(0, 8)}: ⏳ waiting slot (max ${MAX_PARALLEL_CAMPAIGNS} parallel)`);
-      break;
-    }
+    const campaignId = campaign.id;
 
-    // ── NO DEVICE CONFLICT CHECK: allow same device in multiple campaigns ──
-    const deviceIds = getCampaignDeviceIds(campaign);
+    // Mark as active immediately to prevent re-pickup on next tick
+    activeCampaigns.add(campaignId);
 
-    // Reserve devices for this batch
-    deviceIds.forEach(did => devicesInUse.add(did));
-    batch.push(campaign);
+    // Launch in background — do NOT await
+    processOneCampaign(db, campaign, isRunningRef)
+      .then(() => {
+        log.info(`■ Campaign ${campaignId.slice(0, 8)} finished`);
+      })
+      .catch((err: any) => {
+        log.error(`Campaign ${campaignId.slice(0, 8)} crashed: ${err.message}`);
+      })
+      .finally(() => {
+        activeCampaigns.delete(campaignId);
+      });
   }
-
-  if (batch.length === 0) return;
-
-  log.info(`▶▶ Processing ${batch.length} campaigns in parallel (of ${toProcess.length} eligible, ${campaigns!.length - eligible.length} already active)`);
-
-  // Execute batch in parallel with per-task timing
-  const results = await Promise.allSettled(
-    batch.map(async (campaign) => {
-      if (!isRunningRef.value) return;
-      const t0 = Date.now();
-      try {
-        await processOneCampaign(db, campaign, isRunningRef);
-        log.info(`■ Campaign ${campaign.id.slice(0, 8)} completed in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-      } catch (err: any) {
-        log.error(`Campaign ${campaign.id.slice(0, 8)} failed after ${((Date.now() - t0) / 1000).toFixed(1)}s: ${err.message}`);
-      }
-    })
-  );
-
-  // Log results
-  const fulfilled = results.filter(r => r.status === "fulfilled").length;
-  const rejected = results.filter(r => r.status === "rejected").length;
-  if (rejected > 0) log.warn(`Batch result: ${fulfilled} ok, ${rejected} failed`);
 
   lastCampaignWorkerTickAt = new Date();
 }

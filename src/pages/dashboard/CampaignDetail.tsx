@@ -479,13 +479,18 @@ const CampaignDetail = () => {
   const remainingTime = useMemo(() => {
     if (!campaign || !["running", "processing"].includes(campaign.status)) return null;
     if (stats.pending === 0) return null;
-    const avgDelay = (minDelay + maxDelay) / 2;
-    const totalSeconds = stats.pending * avgDelay;
+    // Account for real overhead: configured delay + ~3s per message for number validation & API
+    const avgDelay = (minDelay + maxDelay) / 2 + 3;
+    // Account for block pauses: avg msgs between pauses * pause duration
+    const avgPauseMsgs = (pauseEveryMin + pauseEveryMax) / 2;
+    const avgPauseDur = (pauseDurationMin + pauseDurationMax) / 2;
+    const pauseOverheadPerMsg = avgPauseDur / avgPauseMsgs;
+    const totalSeconds = stats.pending * (avgDelay + pauseOverheadPerMsg);
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     if (hours > 0) return `≈ ${hours}h ${minutes}min restantes`;
     return `≈ ${minutes}min restantes`;
-  }, [campaign, stats.pending, minDelay, maxDelay]);
+  }, [campaign, stats.pending, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax]);
 
   const isActive = campaign && ["running", "processing"].includes(campaign.status);
   const isPaused = campaign?.status === "paused";
