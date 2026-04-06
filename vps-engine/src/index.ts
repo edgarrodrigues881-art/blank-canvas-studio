@@ -56,6 +56,8 @@ app.get("/health", (_req: Request, res: Response) => {
     lastVerifyTick: lastVerifyTickAt?.toISOString() || null,
     lastCommunityTick: lastCommunityTickAt?.toISOString() || null,
     lastAutoreplyTick: lastAutoreplyTickAt?.toISOString() || null,
+    lastScheduledMsgTick: lastScheduledMsgTickAt?.toISOString() || null,
+    lastSyncDevicesTick: lastSyncDevicesTickAt?.toISOString() || null,
     activeMassInjectCampaigns: massInjectStatus.activeCampaigns,
     activeCampaignWorker: campaignWorkerStatus.activeCampaigns,
     tickCount,
