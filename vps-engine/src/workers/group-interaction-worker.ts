@@ -123,7 +123,7 @@ async function uazapiSendAudio(baseUrl: string, token: string, number: string, a
     headers: { "Content-Type": "application/json", token, Accept: "application/json" },
     body: JSON.stringify({ number, file: audioUrl, type: "audio", ptt: true }),
   });
-  const raw = await res.text();
+  await res.text();
   if (res.ok) return;
   throw new Error(`Audio send failed: ${res.status}`);
 }
