@@ -28,6 +28,7 @@ export interface RealConversation {
   last_message_direction?: string;
   assigned_to?: string | null;
   assigned_name?: string | null;
+  status_changed_at?: string;
   // joined
   deviceName?: string;
 }
@@ -89,6 +90,7 @@ export function useConversations() {
     last_message_at: row.last_message_at || row.updated_at || row.created_at || new Date().toISOString(),
     unread_count: row.unread_count ?? 0,
     status: row.status || "offline",
+    status_changed_at: row.status_changed_at || row.created_at || new Date().toISOString(),
     deviceName: row.devices?.name || row.deviceName || undefined,
   }), []);
 
@@ -246,14 +248,29 @@ export function useConversations() {
 
   // Update conversation status
   const updateStatus = useCallback(async (convId: string, newStatus: string) => {
+    const conv = conversationsRef.current.find((c) => c.id === convId);
+    const oldStatus = conv?.attending_status || "nova";
+    const now = new Date().toISOString();
+
     setConversations((prev) =>
-      prev.map((c) => (c.id === convId ? { ...c, attending_status: newStatus } : c))
+      prev.map((c) => (c.id === convId ? { ...c, attending_status: newStatus, status_changed_at: now } : c))
     );
-    await supabase.from("conversations").update({ attending_status: newStatus }).eq("id", convId);
+    await supabase.from("conversations").update({ attending_status: newStatus, status_changed_at: now } as any).eq("id", convId);
+
+    // Log status change history
+    if (user && oldStatus !== newStatus) {
+      const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
+      supabase.from("conversation_status_history").insert({
+        conversation_id: convId,
+        user_id: user.id,
+        old_status: oldStatus,
+        new_status: newStatus,
+        changed_by_name: profile?.full_name || user.email?.split("@")[0] || "Sistema",
+      } as any).then(() => {});
+    }
 
     // Trigger awaiting automation when status changes to "aguardando"
     if (newStatus === "aguardando" && user) {
-      const conv = conversationsRef.current.find((c) => c.id === convId);
       if (conv) {
         const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "amizwispkprvyrnwypws";
         const token = await getToken();
@@ -811,6 +828,13 @@ export function useConversations() {
               return [...prev, newMsg];
             });
           }
+          // Auto-transition: received message → "em_atendimento" if currently "nova" or "aguardando"
+          if (newMsg.direction === "received") {
+            const conv = conversationsRef.current.find((c) => c.id === newMsg.conversation_id);
+            if (conv && (conv.attending_status === "nova" || conv.attending_status === "aguardando")) {
+              updateStatus(newMsg.conversation_id, "em_atendimento");
+            }
+          }
         }
       )
       .on(
@@ -828,7 +852,7 @@ export function useConversations() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user]);
+  }, [user, updateStatus]);
 
   // Light polling fallback — only conversations list (messages are handled by RT)
   useEffect(() => {

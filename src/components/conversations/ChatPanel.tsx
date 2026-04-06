@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuickReplies } from "@/hooks/useQuickReplies";
 import { QuickRepliesManager } from "./QuickRepliesManager";
+import { supabase } from "@/integrations/supabase/client";
 import {
   ArrowLeft,
   MoreVertical,
@@ -29,6 +30,8 @@ import {
   User,
   UserCheck,
   UserX,
+  Clock,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,12 +61,12 @@ interface ChatPanelProps {
   onRelease?: (conversationId: string) => void;
 }
 
-const attendingStatusConfig: Record<AttendingStatus, { label: string; color: string; bg: string; dot: string }> = {
-  nova: { label: "Nova", color: "text-blue-400", bg: "bg-blue-500/10 border-blue-500/20", dot: "bg-blue-400" },
-  em_atendimento: { label: "Em Atendimento", color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400" },
-  aguardando: { label: "Aguardando", color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20", dot: "bg-amber-400" },
-  finalizado: { label: "Finalizado", color: "text-muted-foreground", bg: "bg-muted/50 border-border/50", dot: "bg-muted-foreground/50" },
-  pausado: { label: "Pausado", color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/20", dot: "bg-orange-400" },
+const attendingStatusConfig: Record<AttendingStatus, { label: string; color: string; bg: string; dot: string; textStrong: string }> = {
+  nova: { label: "Nova", color: "text-blue-400", bg: "bg-blue-600/20 border-blue-500/40", dot: "bg-blue-500", textStrong: "text-blue-300" },
+  em_atendimento: { label: "Em Atendimento", color: "text-emerald-400", bg: "bg-emerald-600/20 border-emerald-500/40", dot: "bg-emerald-500", textStrong: "text-emerald-300" },
+  aguardando: { label: "Aguardando", color: "text-amber-400", bg: "bg-amber-600/20 border-amber-500/40", dot: "bg-amber-500 animate-pulse", textStrong: "text-amber-300" },
+  finalizado: { label: "Finalizado", color: "text-gray-400", bg: "bg-gray-600/20 border-gray-500/30", dot: "bg-gray-500", textStrong: "text-gray-400" },
+  pausado: { label: "Pausado", color: "text-orange-400", bg: "bg-orange-600/20 border-orange-500/40", dot: "bg-orange-500", textStrong: "text-orange-300" },
 };
 
 /* ─────────── Image Lightbox ─────────── */
@@ -318,6 +321,8 @@ export function ChatPanel({
   const [currentStatus, setCurrentStatus] = useState<AttendingStatus>(conversation.attendingStatus);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [showStatusHistory, setShowStatusHistory] = useState(false);
+  const [statusHistory, setStatusHistory] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -338,6 +343,34 @@ export function ChatPanel({
   const allQuickReplies = dbReplies.length > 0 ? dbReplies : defaultQuickReplies;
 
   useEffect(() => { setCurrentStatus(conversation.attendingStatus); }, [conversation.id]);
+
+  // Time in current status
+  const [timeInStatus, setTimeInStatus] = useState("");
+  useEffect(() => {
+    const computeTime = () => {
+      const changedAt = conversation.statusChangedAt ? new Date(conversation.statusChangedAt) : new Date();
+      const diff = Math.max(0, Math.floor((Date.now() - changedAt.getTime()) / 1000));
+      if (diff < 60) { setTimeInStatus(`${diff}s`); return; }
+      if (diff < 3600) { setTimeInStatus(`${Math.floor(diff / 60)} min`); return; }
+      if (diff < 86400) { setTimeInStatus(`${Math.floor(diff / 3600)}h ${Math.floor((diff % 3600) / 60)}min`); return; }
+      setTimeInStatus(`${Math.floor(diff / 86400)}d`);
+    };
+    computeTime();
+    const interval = setInterval(computeTime, 10000);
+    return () => clearInterval(interval);
+  }, [conversation.statusChangedAt, currentStatus]);
+
+  // Fetch status history when toggled
+  useEffect(() => {
+    if (!showStatusHistory) return;
+    supabase
+      .from("conversation_status_history")
+      .select("*")
+      .eq("conversation_id", conversation.id)
+      .order("created_at", { ascending: false })
+      .limit(20)
+      .then(({ data }) => setStatusHistory(data || []));
+  }, [showStatusHistory, conversation.id]);
 
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [newMsgCount, setNewMsgCount] = useState(0);
@@ -779,8 +812,20 @@ export function ChatPanel({
             )}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className={cn("w-1.5 h-1.5 rounded-full", currentStatusCfg.dot)} />
-            <span className={cn("text-[11px] font-medium", currentStatusCfg.color)}>{currentStatusCfg.label}</span>
+            <span className={cn("w-2 h-2 rounded-full", currentStatusCfg.dot)} />
+            <span className={cn("text-[11px] font-bold", currentStatusCfg.textStrong)}>{currentStatusCfg.label}</span>
+            <span className="text-[10px] text-muted-foreground/50">•</span>
+            <span className="text-[10px] text-muted-foreground/60 flex items-center gap-0.5">
+              <Clock className="w-3 h-3" />
+              há {timeInStatus}
+            </span>
+            <button
+              onClick={() => setShowStatusHistory(!showStatusHistory)}
+              className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground transition-colors ml-1"
+              title="Histórico de status"
+            >
+              <History className="w-3 h-3" />
+            </button>
           </div>
           {/* Assignment badge */}
           <div className="flex items-center gap-1 mt-0.5">
@@ -802,17 +847,17 @@ export function ChatPanel({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className={cn("flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors", currentStatusCfg.bg, currentStatusCfg.color)}>
-              <span className={cn("w-1.5 h-1.5 rounded-full", currentStatusCfg.dot)} />
+            <button className={cn("flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-colors shadow-sm", currentStatusCfg.bg, currentStatusCfg.textStrong)}>
+              <span className={cn("w-2 h-2 rounded-full", currentStatusCfg.dot)} />
               {currentStatusCfg.label}
               <ChevronDown className="w-3 h-3" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[160px]">
+          <DropdownMenuContent align="end" className="min-w-[180px]">
             {(Object.entries(attendingStatusConfig) as [AttendingStatus, typeof currentStatusCfg][]).map(([key, cfg]) => (
-              <DropdownMenuItem key={key} onClick={() => { setCurrentStatus(key); onStatusChange?.(conversation.id, key); }} className={cn("gap-2 text-xs cursor-pointer", currentStatus === key && "bg-muted")}>
-                <span className={cn("w-2 h-2 rounded-full shrink-0", cfg.dot)} />
-                <span className={cfg.color}>{cfg.label}</span>
+              <DropdownMenuItem key={key} onClick={() => { setCurrentStatus(key); onStatusChange?.(conversation.id, key); }} className={cn("gap-2 text-xs cursor-pointer", currentStatus === key && "bg-muted font-bold")}>
+                <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", cfg.dot)} />
+                <span className={cn("font-semibold", cfg.textStrong)}>{cfg.label}</span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -849,6 +894,53 @@ export function ChatPanel({
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Status History Panel */}
+      {showStatusHistory && (
+        <div className="border-b border-border bg-muted/20 px-4 py-2 max-h-[180px] overflow-y-auto animate-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
+              <History className="w-3.5 h-3.5" /> Histórico de Status
+            </span>
+            <button onClick={() => setShowStatusHistory(false)} className="text-muted-foreground/50 hover:text-foreground">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          {statusHistory.length === 0 ? (
+            <p className="text-[10px] text-muted-foreground">Nenhuma mudança registrada</p>
+          ) : (
+            <div className="space-y-1">
+              {statusHistory.map((h: any) => {
+                const oldCfg = h.old_status ? attendingStatusConfig[h.old_status as AttendingStatus] : null;
+                const newCfg = attendingStatusConfig[h.new_status as AttendingStatus] || attendingStatusConfig.nova;
+                return (
+                  <div key={h.id} className="flex items-center gap-2 text-[10px]">
+                    <span className="text-muted-foreground/50 shrink-0 w-[70px]">
+                      {format(new Date(h.created_at), "dd/MM HH:mm")}
+                    </span>
+                    {oldCfg && (
+                      <>
+                        <span className={cn("flex items-center gap-1", oldCfg.color)}>
+                          <span className={cn("w-1.5 h-1.5 rounded-full", oldCfg.dot)} />
+                          {oldCfg.label}
+                        </span>
+                        <span className="text-muted-foreground/30">→</span>
+                      </>
+                    )}
+                    <span className={cn("flex items-center gap-1 font-semibold", newCfg.color)}>
+                      <span className={cn("w-1.5 h-1.5 rounded-full", newCfg.dot)} />
+                      {newCfg.label}
+                    </span>
+                    <span className="text-muted-foreground/40 ml-auto truncate max-w-[100px]">
+                      {h.changed_by_name || "Sistema"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Messages Area */}
       <div className="flex-1 relative overflow-hidden">
