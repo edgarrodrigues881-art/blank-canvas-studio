@@ -427,7 +427,7 @@ export function useConversations() {
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, status: "failed" } : m));
       toast.error(err.message || "Erro ao enviar áudio");
     }
-  }, [user, conversations, sortConversations]);
+  }, [user, sortConversations, getToken, projectId]);
 
   // Send file message (image or document)
   const sendFileMessage = useCallback(async (conversationId: string, file: File) => {
