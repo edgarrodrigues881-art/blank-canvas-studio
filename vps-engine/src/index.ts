@@ -953,6 +953,7 @@ async function mainLoop() {
     groupJoin: false,
     welcome: false,
     verify: false,
+    community: false,
   };
 
   function guardedLoop(
