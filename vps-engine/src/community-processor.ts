@@ -1024,6 +1024,7 @@ export async function communityTick(db: SupabaseClient): Promise<any> {
     log.info(`Community tick: eligible=${results.eligibility.eligible}, pairs=${results.pairing.pairs_formed}, sessions=${results.sessions.started}, resumed=${results.monitor.resumed}, ${results.duration_ms}ms`);
   }
 
+  lastCommunityTickAt = new Date();
   return results;
 }
 
