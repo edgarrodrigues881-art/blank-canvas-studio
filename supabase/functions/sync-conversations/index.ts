@@ -371,3 +371,162 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+// ── Single conversation sync: fetch messages from UAZAPI for a specific contact ──
+async function syncSingleConversation(
+  admin: any,
+  userId: string,
+  devices: any[],
+  conversationId: string | null,
+  remoteJid: string | null,
+) {
+  const json = (data: unknown, status = 200) =>
+    new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  // Find the conversation(s) to sync
+  let conversations: any[] = [];
+
+  if (conversationId) {
+    const { data: conv } = await admin.from("conversations")
+      .select("id, device_id, remote_jid")
+      .eq("id", conversationId)
+      .eq("user_id", userId);
+    conversations = conv || [];
+
+    // Also find same contact on other devices
+    if (conversations.length > 0) {
+      const phone = conversations[0].remote_jid.replace(/@.*$/, "");
+      const { data: others } = await admin.from("conversations")
+        .select("id, device_id, remote_jid")
+        .eq("user_id", userId)
+        .like("remote_jid", `%${phone}%`)
+        .neq("id", conversationId);
+      if (others) conversations.push(...others);
+    }
+  } else if (remoteJid) {
+    const phone = remoteJid.replace(/@.*$/, "");
+    const { data: convs } = await admin.from("conversations")
+      .select("id, device_id, remote_jid")
+      .eq("user_id", userId)
+      .like("remote_jid", `%${phone}%`);
+    conversations = convs || [];
+  }
+
+  if (conversations.length === 0) {
+    return json({ synced: 0, message: "Conversa não encontrada" });
+  }
+
+  let totalSynced = 0;
+
+  for (const conv of conversations) {
+    const device = devices.find((d: any) => d.id === conv.device_id);
+    if (!device?.uazapi_base_url || !device?.uazapi_token) continue;
+    if (!["Ready", "Connected", "authenticated"].includes(device.status)) continue;
+
+    const baseUrl = device.uazapi_base_url.replace(/\/$/, "");
+    const apiHeaders = { token: device.uazapi_token, Accept: "application/json", "Content-Type": "application/json" };
+
+    const fetchSafe = async (url: string, method = "GET", body?: any): Promise<any> => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const opts: RequestInit = { method, headers: apiHeaders, signal: controller.signal };
+        if (body && method === "POST") opts.body = JSON.stringify(body);
+        const res = await fetch(url, opts);
+        clearTimeout(timeoutId);
+        if (!res.ok) return null;
+        return await res.json();
+      } catch { return null; }
+    };
+
+    try {
+      let messages: any[] = [];
+
+      // Try multiple endpoints - fetch more messages (50)
+      const endpoints = [
+        { url: `${baseUrl}/chat/fetchMessages`, method: "POST", body: { chatId: conv.remote_jid, count: 50 } },
+        { url: `${baseUrl}/chat/messages?chatId=${encodeURIComponent(conv.remote_jid)}&count=50`, method: "GET" },
+        { url: `${baseUrl}/message/list?chatId=${encodeURIComponent(conv.remote_jid)}&count=50`, method: "GET" },
+        { url: `${baseUrl}/chat/getMessages?chatId=${encodeURIComponent(conv.remote_jid)}&count=50`, method: "GET" },
+      ];
+
+      for (const ep of endpoints) {
+        if (messages.length > 0) break;
+        const data = await fetchSafe(ep.url, ep.method, ep.body);
+        if (data) {
+          messages = Array.isArray(data.messages || data.data || data) ? (data.messages || data.data || data) : [];
+        }
+      }
+
+      console.log(`[single-sync][${device.name}] ${conv.remote_jid}: ${messages.length} messages`);
+
+      for (const msg of messages) {
+        const msgNodes = collectMessageNodes(msg);
+        const waId = msg.key?.id || msg.id?._serialized || msg.id?.id || msg.messageId || `sync-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+        const content = firstString(
+          msg.body, msg.text, msg.caption, msg.content,
+          ...msgNodes.flatMap((node) => [
+            node.conversation, node.text, node.body,
+            node.extendedTextMessage?.text,
+            node.imageMessage?.caption,
+            node.videoMessage?.caption,
+            node.documentMessage?.caption,
+            node.documentMessage?.fileName,
+            typeof node.content === "string" ? node.content : "",
+            node.content?.text,
+          ]),
+        );
+        const fromMe = msg.key?.fromMe ?? msg.fromMe ?? false;
+        const rawTs = msg.messageTimestamp || msg.timestamp || msg.t;
+        const timestamp = rawTs
+          ? new Date(typeof rawTs === "number" && rawTs < 1e12 ? rawTs * 1000 : Number(rawTs)).toISOString()
+          : new Date().toISOString();
+
+        const mediaUrl = firstString(
+          msg.mediaUrl, msg.media_url, msg.file, msg.fileUrl, msg.url,
+          ...msgNodes.flatMap((node) => [
+            node.mediaUrl, node.media_url, node.file, node.fileUrl, node.url, node.link,
+            node.imageMessage?.url, node.audioMessage?.url, node.pttMessage?.url,
+            node.videoMessage?.url, node.documentMessage?.url,
+          ]),
+        ) || null;
+
+        const mediaType = inferMediaType(
+          firstString(msg.type, msg.messageType, msg.TypeMessage, ...msgNodes.flatMap((n) => [n.type, n.messageType, n.TypeMessage])),
+          firstString(msg.mimetype, msg.mimeType, ...msgNodes.flatMap((n) => [n.mimetype, n.mimeType, n.audioMessage?.mimetype, n.imageMessage?.mimetype, n.videoMessage?.mimetype, n.documentMessage?.mimetype])),
+          mediaUrl || "",
+        );
+
+        const mediaLabel = mediaType ? ({ audio: "🎧 Áudio", image: "📷 Foto", video: "🎬 Vídeo", document: "📎 Arquivo", sticker: "🏷️ Figurinha" } as Record<string, string>)[mediaType] || `[${mediaType}]` : "";
+        const displayContent = content || mediaLabel || "[mensagem]";
+
+        const audioDuration = mediaType === "audio"
+          ? Number(msg.duration || msg.seconds || msgNodes.map((n) => n.audioMessage?.seconds || n.pttMessage?.seconds || n.duration || null).find((v) => typeof v === "number" && v > 0) || 0) || null
+          : null;
+
+        const { error: upsertErr } = await admin.from("conversation_messages").upsert(
+          {
+            conversation_id: conv.id,
+            user_id: userId,
+            remote_jid: conv.remote_jid,
+            content: displayContent.substring(0, 5000),
+            direction: fromMe ? "sent" : "received",
+            status: fromMe ? (msg.ack >= 3 ? "read" : msg.ack >= 2 ? "delivered" : "sent") : "received",
+            media_type: mediaType,
+            media_url: mediaUrl,
+            audio_duration: audioDuration,
+            whatsapp_message_id: waId,
+            created_at: timestamp,
+          },
+          { onConflict: "whatsapp_message_id" }
+        );
+
+        if (!upsertErr) totalSynced++;
+      }
+    } catch (e: any) {
+      console.error(`[single-sync][${device.name}] error:`, e.message);
+    }
+  }
+
+  return json({ synced: totalSynced, mode: "single_conversation" });
+}
