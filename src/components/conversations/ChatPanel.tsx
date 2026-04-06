@@ -18,7 +18,6 @@ import {
   Pause,
   ChevronDown,
   Zap,
-  Bot,
   Mic,
   Settings,
   Trash2,
@@ -383,36 +382,58 @@ export function ChatPanel({
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [newMsgCount, setNewMsgCount] = useState(0);
   const prevMsgCountRef = useRef(messages.length);
+  const scrollPositionsRef = useRef<Record<string, number>>({});
+  const pendingRestoreRef = useRef<string | null>(null);
+  const forceScrollOnNextMessageRef = useRef(false);
 
   const scrollToBottom = useCallback((smooth?: boolean) => {
-    if (scrollRef.current) {
-      if (smooth) {
-        scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-      } else {
-        requestAnimationFrame(() => {
-          scrollRef.current!.scrollTop = scrollRef.current!.scrollHeight;
-        });
-      }
-      setNewMsgCount(0);
+    const el = scrollRef.current;
+    if (!el) return;
+    if (smooth) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    } else {
+      el.scrollTop = el.scrollHeight;
     }
-  }, []);
+    scrollPositionsRef.current[conversation.id] = el.scrollTop;
+    setNewMsgCount(0);
+  }, [conversation.id]);
+
+  const restoreScrollPosition = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const savedTop = scrollPositionsRef.current[conversation.id];
+    if (typeof savedTop === "number") {
+      el.scrollTop = Math.min(savedTop, Math.max(0, el.scrollHeight - el.clientHeight));
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+      setIsNearBottom(nearBottom);
+      return;
+    }
+    if (messages.length > 0) {
+      el.scrollTop = el.scrollHeight;
+      setIsNearBottom(true);
+    }
+  }, [conversation.id, messages.length]);
 
   // Track scroll position
   const handleScroll = useCallback(() => {
-    if (!scrollRef.current) return;
     const el = scrollRef.current;
+    if (!el) return;
+    scrollPositionsRef.current[conversation.id] = el.scrollTop;
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
     setIsNearBottom(nearBottom);
     if (nearBottom) setNewMsgCount(0);
-  }, []);
+  }, [conversation.id]);
 
-  // Only auto-scroll if near bottom; otherwise increment badge
+  // Auto-scroll only when appropriate
   useEffect(() => {
     const diff = messages.length - prevMsgCountRef.current;
     prevMsgCountRef.current = messages.length;
-    if (isNearBottom) {
-      scrollToBottom();
-    } else if (diff > 0) {
+    if (diff <= 0) return;
+
+    if (forceScrollOnNextMessageRef.current || isNearBottom) {
+      forceScrollOnNextMessageRef.current = false;
+      requestAnimationFrame(() => scrollToBottom());
+    } else {
       setNewMsgCount((c) => c + diff);
     }
   }, [messages.length, isNearBottom, scrollToBottom]);
@@ -420,32 +441,32 @@ export function ChatPanel({
   // Mark messages as read when conversation is open and near bottom
   useEffect(() => {
     if (!isNearBottom || !conversation.id) return;
-    const unreadReceived = messages.filter((m) => m.type === "received" && !m.status);
+    const activeConversationIds = instances?.map((instance) => instance.id) ?? [conversation.id];
+    const unreadReceived = messages.filter((m) => m.type === "received" && m.status !== "read");
     if (unreadReceived.length > 0) {
       supabase
         .from("conversation_messages")
         .update({ status: "read" } as any)
-        .eq("conversation_id", conversation.id)
+        .in("conversation_id", activeConversationIds)
         .eq("direction", "received")
-        .is("status", null)
+        .or("status.eq.received,status.is.null")
         .then(() => {});
     }
-  }, [isNearBottom, conversation.id, messages]);
+  }, [isNearBottom, conversation.id, instances, messages]);
 
-  // Always scroll on conversation change — use rAF to wait for render
+  // Restore previous position when returning to a conversation; default to latest for first open
   useEffect(() => {
+    pendingRestoreRef.current = conversation.id;
     setNewMsgCount(0);
-    setIsNearBottom(true);
-    // Immediate attempt
-    scrollToBottom();
-    // Retry after paint so DOM has rendered messages
-    const raf = requestAnimationFrame(() => {
-      scrollToBottom();
-      // Final fallback for slow renders
-      setTimeout(() => scrollToBottom(), 150);
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [conversation.id, scrollToBottom]);
+  }, [conversation.id]);
+
+  useLayoutEffect(() => {
+    if (pendingRestoreRef.current !== conversation.id) return;
+    restoreScrollPosition();
+    if (messages.length > 0) {
+      pendingRestoreRef.current = null;
+    }
+  }, [conversation.id, messages.length, restoreScrollPosition]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -472,8 +493,8 @@ export function ChatPanel({
     setInput("");
     setShowQuickReplies(false);
     setReplyTo(null);
-    // Force scroll to bottom after sending
     setIsNearBottom(true);
+    forceScrollOnNextMessageRef.current = true;
     requestAnimationFrame(() => scrollToBottom());
   };
 
@@ -539,6 +560,7 @@ export function ChatPanel({
     cancelPendingFile();
     setSendingFile(false);
     setIsNearBottom(true);
+    forceScrollOnNextMessageRef.current = true;
     requestAnimationFrame(() => scrollToBottom());
   };
 
@@ -586,6 +608,7 @@ export function ChatPanel({
     setSendingAudio(false);
     mediaRecorderRef.current = null;
     setIsNearBottom(true);
+    forceScrollOnNextMessageRef.current = true;
     requestAnimationFrame(() => scrollToBottom());
   }, [recordingTime, conversation.id, onSendAudio, scrollToBottom]);
 
@@ -616,12 +639,6 @@ export function ChatPanel({
   };
 
   const currentStatusCfg = attendingStatusConfig[currentStatus];
-  const categoryTag = conversation.category ? conversation.category.charAt(0).toUpperCase() + conversation.category.slice(1) : null;
-  const categoryColor: Record<string, string> = {
-    vendas: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
-    financeiro: "bg-amber-500/15 text-amber-400 border-amber-500/20",
-    suporte: "bg-blue-500/15 text-blue-400 border-blue-500/20",
-  };
 
   const waveformCache = useRef<Record<string, number[]>>({});
   const getWaveform = (id: string) => {
@@ -643,18 +660,8 @@ export function ChatPanel({
 
   /* ── Timestamp + status footer ── */
   const MsgFooter = ({ msg }: { msg: Message }) => (
-    <div className={cn("flex items-center gap-1 mt-0.5", msg.type === "sent" ? "justify-end" : "justify-start")}>
-      {msg.type === "sent" && msg.isAiResponse && (
-        <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-300 mr-1" title="Respondido automaticamente pela IA">
-          <Bot className="w-3 h-3" /> IA
-        </span>
-      )}
-      {msg.type === "sent" && !msg.isAiResponse && (
-        <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/60 mr-1" title="Respondido por atendente humano">
-          <User className="w-3 h-3" /> Atendente
-        </span>
-      )}
-      <span className={cn("text-[10px]", msg.type === "sent" ? "text-white/50" : "text-muted-foreground/60")}>
+    <div className={cn("flex items-center gap-1 mt-1", msg.type === "sent" ? "justify-end" : "justify-start")}>
+      <span className={cn("text-[10px]", msg.type === "sent" ? "text-white/60" : "text-muted-foreground/60")}>
         {format(new Date(msg.timestamp), "HH:mm")}
       </span>
       {msg.type === "sent" && statusIcon(msg.status)}
@@ -851,11 +858,11 @@ export function ChatPanel({
       <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,.txt" className="hidden" onChange={handleDocInput} />
 
       {/* Chat Header */}
-      <div className="border-b border-border flex items-center px-4 py-2.5 gap-3 shrink-0 bg-card/50">
+      <div className="border-b border-border flex items-start px-4 py-2 gap-3 shrink-0 bg-card/50">
         <Button variant="ghost" size="icon" className="md:hidden w-8 h-8 shrink-0" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 mt-0.5">
           {conversation.avatar_url ? (
             <img src={conversation.avatar_url} alt={conversation.name} className="w-9 h-9 rounded-full object-cover" />
           ) : (
@@ -867,82 +874,70 @@ export function ChatPanel({
             <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-card" />
           )}
         </div>
+
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-foreground truncate">{conversation.name}</p>
-            {categoryTag && (
-              <span className={cn("text-[9px] font-semibold px-1.5 py-0.5 rounded border", categoryColor[conversation.category!] || "bg-muted text-muted-foreground")}>{categoryTag}</span>
+          <p className="text-sm font-semibold text-foreground truncate">{conversation.name}</p>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5 text-[10px] text-muted-foreground">
+            <span className="truncate">{conversation.phone}</span>
+            {conversation.statusChangedAt && (
+              <span className="inline-flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                Status há {timeInStatus}
+              </span>
             )}
-          </div>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className={cn("w-2 h-2 rounded-full", currentStatusCfg.dot)} />
-            <span className={cn("text-[11px] font-bold", currentStatusCfg.textStrong)}>{currentStatusCfg.label}</span>
-            <span className="text-[10px] text-muted-foreground/50">•</span>
-            <span className="text-[10px] text-muted-foreground/60 flex items-center gap-0.5">
-              <Clock className="w-3 h-3" />
-              há {timeInStatus}
-            </span>
             <button
               onClick={() => setShowStatusHistory(!showStatusHistory)}
-              className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground transition-colors ml-1"
+              className="inline-flex items-center gap-1 text-muted-foreground/70 hover:text-muted-foreground transition-colors"
               title="Histórico de status"
             >
               <History className="w-3 h-3" />
+              Histórico
             </button>
           </div>
-          {/* Assignment badge */}
-          <div className="flex items-center gap-1 mt-0.5">
-            {conversation.assignedTo ? (
-              <span className={cn(
-                "text-[10px] font-medium px-1.5 py-0.5 rounded-md border inline-flex items-center gap-1",
-                conversation.assignedTo === currentUserId
-                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                  : "bg-muted/60 text-muted-foreground border-border/40"
-              )}>
-                <UserCheck className="w-3 h-3" />
-                {conversation.assignedTo === currentUserId ? "Você está atendendo" : `Atendido por: ${conversation.assignedName || "..."}`}
-              </span>
-            ) : (
-              <span className="text-[10px] text-muted-foreground/50">Sem responsável</span>
-            )}
+          <div className="mt-1 text-[10px] text-muted-foreground">
+            {conversation.assignedTo
+              ? conversation.assignedTo === currentUserId
+                ? "Atendido por você"
+                : `Responsável: ${conversation.assignedName || "..."}`
+              : "Sem responsável"}
           </div>
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className={cn("flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-colors shadow-sm", currentStatusCfg.bg, currentStatusCfg.textStrong)}>
-              <span className={cn("w-2 h-2 rounded-full", currentStatusCfg.dot)} />
-              {currentStatusCfg.label}
-              <ChevronDown className="w-3 h-3" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[180px]">
-            {(Object.entries(attendingStatusConfig) as [AttendingStatus, typeof currentStatusCfg][]).map(([key, cfg]) => (
-              <DropdownMenuItem key={key} onClick={() => { setCurrentStatus(key); onStatusChange?.(conversation.id, key); }} className={cn("gap-2 text-xs cursor-pointer", currentStatus === key && "bg-muted font-bold")}>
-                <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", cfg.dot)} />
-                <span className={cn("font-semibold", cfg.textStrong)}>{cfg.label}</span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className={cn("flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-semibold transition-colors", currentStatusCfg.bg, currentStatusCfg.textStrong)}>
+                <span className={cn("w-2 h-2 rounded-full", currentStatusCfg.dot)} />
+                {currentStatusCfg.label}
+                <ChevronDown className="w-3 h-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[180px]">
+              {(Object.entries(attendingStatusConfig) as [AttendingStatus, typeof currentStatusCfg][]).map(([key, cfg]) => (
+                <DropdownMenuItem key={key} onClick={() => { setCurrentStatus(key); onStatusChange?.(conversation.id, key); }} className={cn("gap-2 text-xs cursor-pointer", currentStatus === key && "bg-muted font-bold")}>
+                  <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", cfg.dot)} />
+                  <span className={cn("font-semibold", cfg.textStrong)}>{cfg.label}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-        {/* Assign/Release button */}
-        {conversation.assignedTo === currentUserId ? (
-          <Button variant="ghost" size="sm" className="text-[11px] h-7 px-2 text-muted-foreground hover:text-destructive gap-1" onClick={() => onRelease?.(conversation.id)}>
-            <UserX className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Liberar</span>
-          </Button>
-        ) : !conversation.assignedTo ? (
-          <Button variant="ghost" size="sm" className="text-[11px] h-7 px-2 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 gap-1" onClick={() => onAssign?.(conversation.id)}>
-            <UserCheck className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Assumir</span>
-          </Button>
-        ) : null}
+          {conversation.assignedTo === currentUserId ? (
+            <Button variant="ghost" size="sm" className="text-[11px] h-7 px-2 text-muted-foreground hover:text-destructive gap-1" onClick={() => onRelease?.(conversation.id)}>
+              <UserX className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Liberar</span>
+            </Button>
+          ) : !conversation.assignedTo ? (
+            <Button variant="ghost" size="sm" className="text-[11px] h-7 px-2 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 gap-1" onClick={() => onAssign?.(conversation.id)}>
+              <UserCheck className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Assumir</span>
+            </Button>
+          ) : null}
 
-        <div className="flex items-center gap-1 shrink-0">
           <Button variant="ghost" size="icon" className="hidden lg:flex w-8 h-8 text-muted-foreground hover:text-foreground" onClick={onToggleDetails}>
             {showDetails ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
           </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-foreground"><MoreVertical className="w-4 h-4" /></Button>
@@ -964,7 +959,7 @@ export function ChatPanel({
 
       {/* Status History Panel */}
       {showStatusHistory && (
-        <div className="border-b border-border bg-muted/20 px-4 py-2 max-h-[180px] overflow-y-auto animate-in slide-in-from-top-2 duration-200">
+        <div className="border-b border-border bg-muted/10 px-4 py-2 max-h-[160px] overflow-y-auto animate-in slide-in-from-top-2 duration-200">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
               <History className="w-3.5 h-3.5" /> Histórico de Status
@@ -974,7 +969,22 @@ export function ChatPanel({
             </button>
           </div>
           {statusHistory.length === 0 ? (
-            <p className="text-[10px] text-muted-foreground">Nenhuma mudança registrada</p>
+            conversation.statusChangedAt ? (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-[10px]">
+                  <span className="text-muted-foreground/50 shrink-0 w-[70px]">
+                    {format(new Date(conversation.statusChangedAt), "dd/MM HH:mm")}
+                  </span>
+                  <span className={cn("flex items-center gap-1 font-semibold", currentStatusCfg.color)}>
+                    <span className={cn("w-1.5 h-1.5 rounded-full", currentStatusCfg.dot)} />
+                    {currentStatusCfg.label}
+                  </span>
+                  <span className="text-muted-foreground/40 ml-auto">Status atual</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[10px] text-muted-foreground">Nenhum histórico registrado ainda</p>
+            )
           ) : (
             <div className="space-y-1">
               {statusHistory.map((h: any) => {
@@ -998,7 +1008,7 @@ export function ChatPanel({
                       <span className={cn("w-1.5 h-1.5 rounded-full", newCfg.dot)} />
                       {newCfg.label}
                     </span>
-                    <span className="text-muted-foreground/40 ml-auto truncate max-w-[100px]">
+                    <span className="text-muted-foreground/40 ml-auto truncate max-w-[120px]">
                       {h.changed_by_name || "Sistema"}
                     </span>
                   </div>
@@ -1042,7 +1052,7 @@ export function ChatPanel({
                   </button>
                 )}
 
-                <div className="flex flex-col">
+                <div className={cn("flex flex-col", msg.type === "sent" ? "items-end" : "items-start")}>
                   {/* Device label for multi-instance */}
                   {instances && instances.length > 1 && msg.deviceName && (
                     <span className={cn(
@@ -1055,8 +1065,8 @@ export function ChatPanel({
                   )}
                   <div
                     className={cn(
-                      "max-w-[75%] sm:max-w-[65%] rounded-2xl relative",
-                      msg.mediaType === "image" && msg.mediaUrl ? "p-1" : isMedia ? "px-3 py-2" : "px-3.5 py-2",
+                      "w-fit min-w-[72px] max-w-[78%] sm:max-w-[68%] rounded-2xl relative",
+                      msg.mediaType === "image" && msg.mediaUrl ? "p-1" : isMedia ? "px-3 py-2" : "px-3 py-2",
                       msg.type === "sent" ? "bg-blue-600 text-white rounded-br-md" : "bg-card border border-border text-foreground rounded-bl-md",
                       msg.status === "failed" && "opacity-70"
                     )}

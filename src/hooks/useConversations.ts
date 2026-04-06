@@ -136,13 +136,33 @@ export function useConversations() {
       )
     );
 
-    const { error } = await supabase
-      .from("conversations")
-      .update({ unread_count: 0 })
-      .in("id", ids);
+    setMessages((prev) =>
+      prev.map((message) =>
+        ids.includes(message.conversation_id) && message.direction === "received"
+          ? { ...message, status: "read" }
+          : message
+      )
+    );
 
-    if (error) {
-      console.error("Error clearing unread count:", error);
+    const [conversationUpdate, messageUpdate] = await Promise.all([
+      supabase
+        .from("conversations")
+        .update({ unread_count: 0 })
+        .in("id", ids),
+      supabase
+        .from("conversation_messages")
+        .update({ status: "read" } as any)
+        .in("conversation_id", ids)
+        .eq("direction", "received")
+        .or("status.eq.received,status.is.null"),
+    ]);
+
+    if (conversationUpdate.error) {
+      console.error("Error clearing unread count:", conversationUpdate.error);
+    }
+
+    if (messageUpdate.error) {
+      console.error("Error marking messages as read:", messageUpdate.error);
     }
   }, [getConversationIdsForSameContact]);
 
@@ -664,11 +684,10 @@ export function useConversations() {
 
   const selectConversation = useCallback((convId: string | null) => {
     setSelectedConvId(convId);
+    setMessages([]);
     if (convId) {
       fetchMessages(convId);
       void markConversationGroupAsRead(convId);
-    } else {
-      setMessages([]);
     }
   }, [fetchMessages, markConversationGroupAsRead]);
 
@@ -860,16 +879,20 @@ export function useConversations() {
         { event: "INSERT", schema: "public", table: "conversation_messages", filter: `user_id=eq.${user.id}` },
         (payload) => {
           const newMsg = payload.new as RealMessage;
-          if (newMsg.conversation_id === selectedConvIdRef.current || 
-              (selectedConvIdRef.current && getConversationIdsForSameContact(selectedConvIdRef.current).includes(newMsg.conversation_id))) {
-            // Enrich with device name
+          const selectedId = selectedConvIdRef.current;
+          const isOpenConversation = Boolean(
+            selectedId && (
+              newMsg.conversation_id === selectedId ||
+              getConversationIdsForSameContact(selectedId).includes(newMsg.conversation_id)
+            )
+          );
+
+          if (isOpenConversation) {
             const deviceName = conversationsRef.current.find((c) => c.id === newMsg.conversation_id)?.deviceName;
             const enrichedMsg = { ...newMsg, deviceName };
 
             setMessages((prev) => {
-              // Skip if already exists by ID
               if (prev.some((m) => m.id === enrichedMsg.id)) return prev;
-              // Skip if it's an optimistic duplicate (sent message with same content within 30s)
               if (enrichedMsg.direction === "sent") {
                 const newTime = new Date(enrichedMsg.created_at).getTime();
                 const isDuplicate = prev.some((m) =>
@@ -879,7 +902,6 @@ export function useConversations() {
                   Math.abs(new Date(m.created_at).getTime() - newTime) < 30000
                 );
                 if (isDuplicate) {
-                  // Replace the optimistic entry's ID with the real one
                   return prev.map((m) =>
                     m.direction === "sent" &&
                     m.content === enrichedMsg.content &&
@@ -894,28 +916,28 @@ export function useConversations() {
             });
           }
 
-          // Sound + browser notification for received messages
           if (newMsg.direction === "received") {
-            // Play notification sound
-            notifAudio.currentTime = 0;
-            notifAudio.play().catch(() => {});
+            if (!isOpenConversation) {
+              notifAudio.currentTime = 0;
+              notifAudio.play().catch(() => {});
 
-            // Browser push notification (if permitted)
-            if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-              const conv = conversationsRef.current.find((c) => c.id === newMsg.conversation_id);
-              const title = conv?.name || "Nova mensagem";
-              const body = newMsg.content?.substring(0, 100) || "📩 Nova mensagem recebida";
-              try {
-                new Notification(title, {
-                  body,
-                  icon: conv?.avatar_url || "/placeholder.svg",
-                  tag: `msg-${newMsg.conversation_id}`,
-                  silent: true,
-                });
-              } catch {}
+              if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+                const conv = conversationsRef.current.find((c) => c.id === newMsg.conversation_id);
+                const title = conv?.name || "Nova mensagem";
+                const body = newMsg.content?.substring(0, 100) || "📩 Nova mensagem recebida";
+                try {
+                  new Notification(title, {
+                    body,
+                    icon: conv?.avatar_url || "/placeholder.svg",
+                    tag: `msg-${newMsg.conversation_id}`,
+                    silent: true,
+                  });
+                } catch {}
+              }
+            } else {
+              void markConversationGroupAsRead(newMsg.conversation_id);
             }
 
-            // Auto-transition: received message → "em_atendimento" if currently "nova" or "aguardando"
             const conv = conversationsRef.current.find((c) => c.id === newMsg.conversation_id);
             if (conv && (conv.attending_status === "nova" || conv.attending_status === "aguardando")) {
               updateStatus(newMsg.conversation_id, "em_atendimento");
@@ -939,7 +961,7 @@ export function useConversations() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user, updateStatus]);
+  }, [user, updateStatus, getConversationIdsForSameContact, markConversationGroupAsRead]);
 
   // Light polling fallback — only conversations list (messages are handled by RT)
   useEffect(() => {
