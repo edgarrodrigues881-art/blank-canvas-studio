@@ -98,12 +98,50 @@ export function useConversations() {
     });
   }, []);
 
+  const normalizePhone = useCallback((phone: string) => phone.replace(/\D/g, ""), []);
+
+  const getConversationContactKey = useCallback((conversation: { phone?: string | null; remote_jid?: string | null }) => {
+    const raw = conversation.phone || conversation.remote_jid?.split("@")[0] || "";
+    return normalizePhone(raw);
+  }, [normalizePhone]);
+
+  const getConversationIdsForSameContact = useCallback((convId: string) => {
+    const target = conversationsRef.current.find((conversation) => conversation.id === convId);
+    if (!target) return [convId];
+
+    const targetKey = getConversationContactKey(target);
+    if (!targetKey) return [convId];
+
+    return conversationsRef.current
+      .filter((conversation) => getConversationContactKey(conversation) === targetKey)
+      .map((conversation) => conversation.id);
+  }, [getConversationContactKey]);
+
+  const markConversationGroupAsRead = useCallback(async (convId: string) => {
+    const ids = getConversationIdsForSameContact(convId);
+
+    setConversations((prev) =>
+      prev.map((conversation) =>
+        ids.includes(conversation.id)
+          ? { ...conversation, unread_count: 0 }
+          : conversation
+      )
+    );
+
+    const { error } = await supabase
+      .from("conversations")
+      .update({ unread_count: 0 })
+      .in("id", ids);
+
+    if (error) {
+      console.error("Error clearing unread count:", error);
+    }
+  }, [getConversationIdsForSameContact]);
+
   const upsertConversationInState = useCallback((items: RealConversation[], row: any) => {
     const mapped = mapConversationRow(row);
     return sortConversations([mapped, ...items.filter((item) => item.id !== mapped.id)]);
   }, [mapConversationRow, sortConversations]);
-
-  const normalizePhone = useCallback((phone: string) => phone.replace(/\D/g, ""), []);
 
   // Fetch conversations from DB
   const fetchConversations = useCallback(async () => {
@@ -531,14 +569,11 @@ export function useConversations() {
     setSelectedConvId(convId);
     if (convId) {
       fetchMessages(convId);
-      setConversations((prev) =>
-        prev.map((c) => (c.id === convId ? { ...c, unread_count: 0 } : c))
-      );
-      supabase.from("conversations").update({ unread_count: 0 }).eq("id", convId);
+      void markConversationGroupAsRead(convId);
     } else {
       setMessages([]);
     }
-  }, [fetchMessages]);
+  }, [fetchMessages, markConversationGroupAsRead]);
 
   const createConversation = useCallback(async ({ deviceId, phone, name }: { deviceId: string; phone: string; name?: string }) => {
     if (!user) return null;
@@ -674,13 +709,25 @@ export function useConversations() {
           const row = payload.new as any;
           setConversations((prev) => {
             const exists = prev.some((c) => c.id === row.id);
-            if (!exists) return upsertConversationInState(prev, row);
+            const isSelectedConversation = row.id === selectedConvIdRef.current;
+            const selectedConversation = prev.find((c) => c.id === selectedConvIdRef.current);
+            const selectedKey = selectedConversation ? getConversationContactKey(selectedConversation) : "";
+            const rowKey = getConversationContactKey(row);
+            const shouldKeepRead = Boolean(selectedKey && rowKey && selectedKey === rowKey);
+
+            if (!exists) {
+              return upsertConversationInState(prev, {
+                ...row,
+                unread_count: isSelectedConversation || shouldKeepRead ? 0 : row.unread_count,
+              });
+            }
+
             return sortConversations(
               prev.map((c) => c.id === row.id ? {
                 ...c,
                 last_message: row.last_message ?? c.last_message,
                 last_message_at: row.last_message_at ?? c.last_message_at,
-                unread_count: row.unread_count ?? c.unread_count,
+                unread_count: isSelectedConversation || shouldKeepRead ? 0 : (row.unread_count ?? c.unread_count),
                 name: row.name ?? c.name,
                 avatar_url: row.avatar_url ?? c.avatar_url,
                 attending_status: row.attending_status ?? c.attending_status,
@@ -696,7 +743,7 @@ export function useConversations() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user, upsertConversationInState, sortConversations]);
+  }, [user, upsertConversationInState, sortConversations, getConversationContactKey]);
 
   // Real-time subscription — messages (INSERT + UPDATE for status changes)
   const selectedConvIdRef = useRef(selectedConvId);
