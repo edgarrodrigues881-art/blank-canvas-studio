@@ -339,7 +339,7 @@ export function useConversations() {
   // Send audio message
   const sendAudioMessage = useCallback(async (conversationId: string, blob: Blob, duration: number) => {
     if (!user) return;
-    const conv = conversations.find((c) => c.id === conversationId);
+    const conv = conversationsRef.current.find((c) => c.id === conversationId);
     if (!conv) return;
 
     const tempId = crypto.randomUUID();
