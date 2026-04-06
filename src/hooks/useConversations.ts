@@ -44,6 +44,8 @@ export interface RealMessage {
   audio_duration: number | null;
   is_ai_response: boolean;
   whatsapp_message_id: string | null;
+  quoted_message_id?: string | null;
+  quoted_content?: string | null;
   created_at: string;
 }
 
