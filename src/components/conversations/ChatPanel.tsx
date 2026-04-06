@@ -181,6 +181,8 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
           style={{
             transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
             transformOrigin: "center center",
+            borderRadius: "16px",
+            boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
           }}
         />
       </div>
@@ -703,8 +705,8 @@ export function ChatPanel({
           <img
             src={msg.mediaUrl}
             alt="Figurinha"
-            className="max-w-[140px] max-h-[140px] object-contain cursor-pointer drop-shadow-md"
-            onClick={() => setLightboxUrl(msg.mediaUrl!)}
+            className="max-w-[100px] max-h-[100px] object-contain cursor-pointer drop-shadow-md"
+          onClick={() => setLightboxUrl(msg.mediaUrl!)}
           />
           <MsgFooter msg={msg} />
         </div>
@@ -718,7 +720,7 @@ export function ChatPanel({
           <img
             src={msg.mediaUrl}
             alt="Imagem"
-            className="rounded-lg max-w-full max-h-[360px] object-cover cursor-pointer"
+            className="rounded-xl max-w-full max-h-[320px] object-cover cursor-pointer shadow-md"
             onClick={() => setLightboxUrl(msg.mediaUrl!)}
           />
           {msg.content && !isMediaPlaceholder(msg.content) && (
@@ -736,7 +738,7 @@ export function ChatPanel({
           <video
             src={msg.mediaUrl}
             controls
-            className="rounded-lg max-w-full max-h-[360px] cursor-pointer"
+            className="rounded-xl max-w-full max-h-[320px] cursor-pointer shadow-md"
           />
           {msg.content && !isMediaPlaceholder(msg.content) && (
             <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5">{msg.content}</p>
