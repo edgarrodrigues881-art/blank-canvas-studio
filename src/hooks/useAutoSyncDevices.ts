@@ -198,7 +198,7 @@ export function useAutoSyncDevices(intervalMs = 8_000) {
     } finally {
       _isSyncing = false;
 
-      const shouldRunFollowUp = queuedSync && !document.hidden && !shouldSkipSync();
+      const shouldRunFollowUp = queuedSync && !document.hidden && !shouldSkipIntervalSync();
       queuedSync = false;
 
       if (shouldRunFollowUp) {
