@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuickReplies, resolveVariables, QUICK_REPLY_CATEGORIES } from "@/hooks/useQuickReplies";
 import { QuickRepliesManager } from "./QuickRepliesManager";
 import { supabase } from "@/integrations/supabase/client";
+import { Smartphone } from "lucide-react";
 import {
   ArrowLeft,
   MoreVertical,
