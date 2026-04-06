@@ -316,9 +316,12 @@ async function handleSetupWebhooks(req: Request, admin: any, _body: any) {
       url: webhookUrl,
       enabled: true,
       events: ["messages"],
-      excludeMessages: ["wasSentByApi", "isGroupYes"],
+      excludeMessages: ["isGroupYes"],
       addUrlEvents: true,
       addUrlTypesMessages: true,
+      fromMe: true,
+      sendFromMe: true,
+      allMessages: true,
       headers: webhookHeaders,
     };
 
