@@ -179,6 +179,9 @@ const Conversations = () => {
                 onSendAudio={sendAudioMessage}
                 onSendFile={sendFileMessage}
                 onRetryMessage={retryMessage}
+                currentUserId={user?.id}
+                onAssign={assignConversation}
+                onRelease={releaseConversation}
               />
             </div>
           )}
