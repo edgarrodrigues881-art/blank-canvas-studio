@@ -1,11 +1,12 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useAuth } from "@/lib/auth";
+import { useSearchParams } from "react-router-dom";
 import { ConversationList } from "@/components/conversations/ConversationList";
 import { ChatPanel } from "@/components/conversations/ChatPanel";
 import { ContactDetails } from "@/components/conversations/ContactDetails";
 import { NewConversationDialog } from "@/components/conversations/NewConversationDialog";
 import { AutomationFlows } from "@/components/conversations/AutomationFlows";
-import { type Conversation, type AttendingStatus, type Message } from "@/components/conversations/types";
+import { type Conversation, type AttendingStatus, type Message, type ConversationInstance } from "@/components/conversations/types";
 import { useConversations } from "@/hooks/useConversations";
 import { Button } from "@/components/ui/button";
 import { Zap, Bell } from "lucide-react";
@@ -15,8 +16,13 @@ const MIN_SIDEBAR_W = 240;
 const MAX_SIDEBAR_W = 600;
 const DEFAULT_SIDEBAR_W = 340;
 
+function normalizePhoneKey(phone: string) {
+  return phone.replace(/\D/g, "");
+}
+
 const Conversations = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const {
     conversations: realConvs,
     archivedConversations: realArchivedConvs,
@@ -39,6 +45,8 @@ const Conversations = () => {
     archiveConversation,
     unarchiveConversation,
     markAsUnread,
+    getConversationIdsForSameContact,
+    getConversationContactKey,
   } = useConversations();
 
   const [showDetails, setShowDetails] = useState(true);
@@ -46,8 +54,17 @@ const Conversations = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_W);
   const [newConversationOpen, setNewConversationOpen] = useState(false);
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Handle ?open=convId from queue
+  useEffect(() => {
+    const openId = searchParams.get("open");
+    if (openId && realConvs.length > 0) {
+      selectConversation(openId);
+    }
+  }, [searchParams, realConvs.length]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -78,80 +95,171 @@ const Conversations = () => {
     };
   }, []);
 
-  const conversations: Conversation[] = realConvs.map((c) => ({
-    id: c.id,
-    name: c.name,
-    phone: c.phone,
-    avatar_url: c.avatar_url || undefined,
-    lastMessage: c.last_message,
-    lastMessageAt: c.last_message_at,
-    lastMessageStatus: (c.last_message_status as "sent" | "delivered" | "read") || undefined,
-    lastMessageDirection: (c.last_message_direction as "sent" | "received") || undefined,
-    unreadCount: c.unread_count,
-    status: (c.status as "online" | "offline" | "typing") || "offline",
-    attendingStatus: (c.attending_status as AttendingStatus) || "nova",
-    tags: c.tags || [],
-    category: c.category as any,
-    email: c.email || undefined,
-    notes: c.notes || undefined,
-    deviceName: c.deviceName,
-    assignedTo: c.assigned_to || undefined,
-    assignedName: c.assigned_name || undefined,
-    statusChangedAt: c.status_changed_at || c.created_at,
-  }));
+  // Map raw conversations to UI type
+  const allConversations: (Conversation & { _rawId: string })[] = useMemo(() =>
+    realConvs.map((c) => ({
+      id: c.id,
+      _rawId: c.id,
+      name: c.name,
+      phone: c.phone,
+      avatar_url: c.avatar_url || undefined,
+      lastMessage: c.last_message,
+      lastMessageAt: c.last_message_at,
+      lastMessageStatus: (c.last_message_status as "sent" | "delivered" | "read") || undefined,
+      lastMessageDirection: (c.last_message_direction as "sent" | "received") || undefined,
+      unreadCount: c.unread_count,
+      status: (c.status as "online" | "offline" | "typing") || "offline",
+      attendingStatus: (c.attending_status as AttendingStatus) || "nova",
+      tags: c.tags || [],
+      category: c.category as any,
+      email: c.email || undefined,
+      notes: c.notes || undefined,
+      deviceName: c.deviceName,
+      assignedTo: c.assigned_to || undefined,
+      assignedName: c.assigned_name || undefined,
+      statusChangedAt: c.status_changed_at || c.created_at,
+    }))
+  , [realConvs]);
 
-  const archivedConversations: Conversation[] = realArchivedConvs.map((c) => ({
-    id: c.id,
-    name: c.name,
-    phone: c.phone,
-    avatar_url: c.avatar_url || undefined,
-    lastMessage: c.last_message,
-    lastMessageAt: c.last_message_at,
-    lastMessageStatus: (c.last_message_status as "sent" | "delivered" | "read") || undefined,
-    lastMessageDirection: (c.last_message_direction as "sent" | "received") || undefined,
-    unreadCount: c.unread_count,
-    status: "offline" as const,
-    attendingStatus: (c.attending_status as AttendingStatus) || "nova",
-    tags: c.tags || [],
-    category: c.category as any,
-    email: c.email || undefined,
-    notes: c.notes || undefined,
-    deviceName: c.deviceName,
-    assignedTo: c.assigned_to || undefined,
-    assignedName: c.assigned_name || undefined,
-    statusChangedAt: c.status_changed_at || c.created_at,
-  }));
-  const selectedConversation = selectedReal
-    ? conversations.find((c) => c.id === selectedReal.id) || null
-    : null;
+  // Group conversations by phone number
+  const groupedConversations: Conversation[] = useMemo(() => {
+    const phoneMap = new Map<string, typeof allConversations>();
+    allConversations.forEach((c) => {
+      const key = normalizePhoneKey(c.phone);
+      if (!key) return;
+      const group = phoneMap.get(key) || [];
+      group.push(c);
+      phoneMap.set(key, group);
+    });
 
-  const filteredConversations = conversations.filter((c) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      c.name.toLowerCase().includes(q) ||
-      c.phone.replace(/\D/g, "").includes(q.replace(/\D/g, "")) ||
-      c.phone.includes(q) ||
-      (c.lastMessage && c.lastMessage.toLowerCase().includes(q)) ||
-      (c.tags && c.tags.some((t) => t.toLowerCase().includes(q)))
-    );
-  });
+    return Array.from(phoneMap.values()).map((group) => {
+      // Sort by last message time, pick latest as representative
+      group.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+      const rep = group[0];
+      return {
+        ...rep,
+        // Aggregate unread count from all instances
+        unreadCount: group.reduce((sum, c) => sum + c.unreadCount, 0),
+        // Use latest last message across all instances
+        lastMessage: group[0].lastMessage,
+        lastMessageAt: group[0].lastMessageAt,
+        lastMessageStatus: group[0].lastMessageStatus,
+        lastMessageDirection: group[0].lastMessageDirection,
+        // Show device count badge
+        deviceName: group.length > 1 ? `${group.length} instâncias` : rep.deviceName,
+      };
+    }).sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+  }, [allConversations]);
 
-  const messages: Message[] = realMsgs.map((m) => ({
-    id: m.id,
-    conversationId: m.conversation_id,
-    content: m.content,
-    type: m.direction === "sent" ? "sent" : "received",
-    timestamp: m.created_at,
-    status: m.direction === "sent" ? (m.status as any) || "sent" : undefined,
-    mediaUrl: m.media_url || undefined,
-    mediaType: m.media_type as any,
-    audioDuration: m.audio_duration || undefined,
-    isAiResponse: m.is_ai_response,
-    whatsappMessageId: m.whatsapp_message_id || undefined,
-    quotedMessageId: m.quoted_message_id || undefined,
-    quotedContent: m.quoted_content || undefined,
-  }));
+  const archivedConversations: Conversation[] = useMemo(() =>
+    realArchivedConvs.map((c) => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      avatar_url: c.avatar_url || undefined,
+      lastMessage: c.last_message,
+      lastMessageAt: c.last_message_at,
+      lastMessageStatus: (c.last_message_status as "sent" | "delivered" | "read") || undefined,
+      lastMessageDirection: (c.last_message_direction as "sent" | "received") || undefined,
+      unreadCount: c.unread_count,
+      status: "offline" as const,
+      attendingStatus: (c.attending_status as AttendingStatus) || "nova",
+      tags: c.tags || [],
+      category: c.category as any,
+      email: c.email || undefined,
+      notes: c.notes || undefined,
+      deviceName: c.deviceName,
+      assignedTo: c.assigned_to || undefined,
+      assignedName: c.assigned_name || undefined,
+      statusChangedAt: c.status_changed_at || c.created_at,
+    }))
+  , [realArchivedConvs]);
+
+  // Find selected conversation in grouped list
+  const selectedConversation = useMemo(() => {
+    if (!selectedReal) return null;
+    const selectedKey = normalizePhoneKey(selectedReal.phone);
+    return groupedConversations.find((c) => normalizePhoneKey(c.phone) === selectedKey) || null;
+  }, [selectedReal, groupedConversations]);
+
+  // Get instances for the selected conversation
+  const selectedInstances: ConversationInstance[] = useMemo(() => {
+    if (!selectedConversation) return [];
+    const key = normalizePhoneKey(selectedConversation.phone);
+    return allConversations
+      .filter((c) => normalizePhoneKey(c.phone) === key)
+      .map((c) => ({
+        id: c._rawId,
+        deviceName: realConvs.find((r) => r.id === c._rawId)?.deviceName,
+        lastMessageAt: c.lastMessageAt,
+      }))
+      .sort((a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime());
+  }, [selectedConversation, allConversations, realConvs]);
+
+  // Auto-select the latest instance when conversation changes
+  useEffect(() => {
+    if (selectedInstances.length > 0 && !selectedInstances.find((i) => i.id === selectedInstanceId)) {
+      setSelectedInstanceId(selectedInstances[0].id);
+    }
+  }, [selectedInstances, selectedInstanceId]);
+
+  const filteredConversations = useMemo(() =>
+    groupedConversations.filter((c) => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        c.name.toLowerCase().includes(q) ||
+        c.phone.replace(/\D/g, "").includes(q.replace(/\D/g, "")) ||
+        c.phone.includes(q) ||
+        (c.lastMessage && c.lastMessage.toLowerCase().includes(q)) ||
+        (c.tags && c.tags.some((t) => t.toLowerCase().includes(q)))
+      );
+    })
+  , [groupedConversations, searchQuery]);
+
+  const messages: Message[] = useMemo(() =>
+    realMsgs.map((m) => ({
+      id: m.id,
+      conversationId: m.conversation_id,
+      content: m.content,
+      type: m.direction === "sent" ? "sent" as const : "received" as const,
+      timestamp: m.created_at,
+      status: m.direction === "sent" ? (m.status as any) || "sent" : undefined,
+      mediaUrl: m.media_url || undefined,
+      mediaType: m.media_type as any,
+      audioDuration: m.audio_duration || undefined,
+      isAiResponse: m.is_ai_response,
+      whatsappMessageId: m.whatsapp_message_id || undefined,
+      quotedMessageId: m.quoted_message_id || undefined,
+      quotedContent: m.quoted_content || undefined,
+      deviceName: m.deviceName,
+    }))
+  , [realMsgs]);
+
+  // Send handlers that use the selected instance
+  const handleSendMessage = useCallback(
+    (conversationId: string, content: string, quotedMessageId?: string, quotedContent?: string) => {
+      const targetId = selectedInstanceId || conversationId;
+      sendMessage(targetId, content, quotedMessageId, quotedContent);
+    },
+    [sendMessage, selectedInstanceId]
+  );
+
+  const handleSendAudio = useCallback(
+    (conversationId: string, blob: Blob, duration: number) => {
+      const targetId = selectedInstanceId || conversationId;
+      sendAudioMessage(targetId, blob, duration);
+    },
+    [sendAudioMessage, selectedInstanceId]
+  );
+
+  const handleSendFile = useCallback(
+    (conversationId: string, file: File) => {
+      const targetId = selectedInstanceId || conversationId;
+      sendFileMessage(targetId, file);
+    },
+    [sendFileMessage, selectedInstanceId]
+  );
 
   const handleStatusChange = useCallback(
     (conversationId: string, newStatus: AttendingStatus) => {
@@ -201,7 +309,6 @@ const Conversations = () => {
             }`}
             style={selectedConversation ? { width: sidebarWidth } : undefined}
           >
-            {/* Flows & notifications buttons */}
             <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/30 shrink-0">
               <Button
                 variant="ghost"
@@ -257,15 +364,18 @@ const Conversations = () => {
                 onToggleDetails={() => setShowDetails(!showDetails)}
                 onBack={() => selectConversation(null)}
                 onStatusChange={handleStatusChange}
-                onSendMessage={sendMessage}
-                onSendAudio={sendAudioMessage}
-                onSendFile={sendFileMessage}
+                onSendMessage={handleSendMessage}
+                onSendAudio={handleSendAudio}
+                onSendFile={handleSendFile}
                 onRetryMessage={retryMessage}
                 currentUserId={user?.id}
                 onAssign={assignConversation}
                 onRelease={releaseConversation}
                 onArchive={archiveConversation}
                 onMarkUnread={markAsUnread}
+                instances={selectedInstances}
+                selectedInstanceId={selectedInstanceId}
+                onInstanceChange={setSelectedInstanceId}
               />
             </div>
           )}
@@ -292,4 +402,3 @@ const Conversations = () => {
 };
 
 export default Conversations;
-

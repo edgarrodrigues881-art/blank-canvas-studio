@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuickReplies, resolveVariables, QUICK_REPLY_CATEGORIES } from "@/hooks/useQuickReplies";
 import { QuickRepliesManager } from "./QuickRepliesManager";
 import { supabase } from "@/integrations/supabase/client";
+import { Smartphone } from "lucide-react";
 import {
   ArrowLeft,
   MoreVertical,
@@ -42,7 +43,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { type Conversation, type Message, type AttendingStatus } from "./types";
+import { type Conversation, type Message, type AttendingStatus, type ConversationInstance } from "./types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -63,6 +64,9 @@ interface ChatPanelProps {
   currentUserId?: string;
   onAssign?: (conversationId: string) => void;
   onRelease?: (conversationId: string) => void;
+  instances?: ConversationInstance[];
+  selectedInstanceId?: string | null;
+  onInstanceChange?: (id: string) => void;
 }
 
 const attendingStatusConfig: Record<AttendingStatus, { label: string; color: string; bg: string; dot: string; textStrong: string }> = {
@@ -317,6 +321,7 @@ export function ChatPanel({
   onStatusChange, onSendMessage, onSendAudio, onSendFile, onRetryMessage,
   onArchive, onMarkUnread,
   currentUserId, onAssign, onRelease,
+  instances, selectedInstanceId, onInstanceChange,
 }: ChatPanelProps) {
   const { replies: dbReplies } = useQuickReplies();
   const [showQRManager, setShowQRManager] = useState(false);
@@ -1022,15 +1027,27 @@ export function ChatPanel({
                   </button>
                 )}
 
-                <div
-                  className={cn(
-                    "max-w-[75%] sm:max-w-[65%] rounded-2xl relative",
-                    msg.mediaType === "image" && msg.mediaUrl ? "p-1" : isMedia ? "px-3 py-2" : "px-3.5 py-2",
-                    msg.type === "sent" ? "bg-blue-600 text-white rounded-br-md" : "bg-card border border-border text-foreground rounded-bl-md",
-                    msg.status === "failed" && "opacity-70"
+                <div className="flex flex-col">
+                  {/* Device label for multi-instance */}
+                  {instances && instances.length > 1 && msg.deviceName && (
+                    <span className={cn(
+                      "text-[9px] font-medium mb-0.5 flex items-center gap-0.5",
+                      msg.type === "sent" ? "self-end text-muted-foreground/60" : "self-start text-muted-foreground/60"
+                    )}>
+                      <Smartphone className="w-2.5 h-2.5" />
+                      {msg.deviceName}
+                    </span>
                   )}
-                >
-                  {renderBubbleContent(msg)}
+                  <div
+                    className={cn(
+                      "max-w-[75%] sm:max-w-[65%] rounded-2xl relative",
+                      msg.mediaType === "image" && msg.mediaUrl ? "p-1" : isMedia ? "px-3 py-2" : "px-3.5 py-2",
+                      msg.type === "sent" ? "bg-blue-600 text-white rounded-br-md" : "bg-card border border-border text-foreground rounded-bl-md",
+                      msg.status === "failed" && "opacity-70"
+                    )}
+                  >
+                    {renderBubbleContent(msg)}
+                  </div>
                 </div>
 
                 {/* Reply button for sent messages (appears on hover) */}
@@ -1161,8 +1178,32 @@ export function ChatPanel({
         </div>
       )}
 
-      {/* Input Area */}
-      <div className="border-t border-border p-3 bg-card/50 shrink-0">
+      {/* Instance Selector + Input Area */}
+      <div className="border-t border-border bg-card/50 shrink-0">
+        {/* Instance selector for multi-instance conversations */}
+        {instances && instances.length > 1 && (
+          <div className="flex items-center gap-2 px-3 pt-2 pb-0">
+            <Smartphone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <span className="text-[10px] text-muted-foreground shrink-0">Responder como:</span>
+            <div className="flex gap-1 overflow-x-auto scrollbar-none">
+              {instances.map((inst) => (
+                <button
+                  key={inst.id}
+                  onClick={() => onInstanceChange?.(inst.id)}
+                  className={cn(
+                    "text-[10px] px-2 py-0.5 rounded-md border whitespace-nowrap transition-colors",
+                    selectedInstanceId === inst.id
+                      ? "bg-primary/10 border-primary/30 text-primary font-semibold"
+                      : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/50"
+                  )}
+                >
+                  {inst.deviceName || `Instância ${inst.id.slice(0, 6)}`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      <div className="p-3">
         {isRecording ? (
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" className="w-9 h-9 shrink-0 text-red-400 hover:text-red-300" onClick={cancelRecording}>
@@ -1224,6 +1265,7 @@ export function ChatPanel({
             )}
           </div>
         )}
+      </div>
       </div>
 
       <QuickRepliesManager open={showQRManager} onOpenChange={setShowQRManager} />

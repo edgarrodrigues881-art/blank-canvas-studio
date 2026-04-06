@@ -47,6 +47,7 @@ export interface RealMessage {
   quoted_message_id?: string | null;
   quoted_content?: string | null;
   created_at: string;
+  deviceName?: string;
 }
 
 export function useConversations() {
@@ -180,12 +181,14 @@ export function useConversations() {
     setLoading(false);
   }, [user, mapConversationRow, sortConversations]);
 
-  // Fetch messages for a conversation
+  // Fetch messages for a conversation (grouped by phone)
   const fetchMessages = useCallback(async (conversationId: string) => {
+    const groupIds = getConversationIdsForSameContact(conversationId);
+
     const { data, error } = await supabase
       .from("conversation_messages")
       .select("*")
-      .eq("conversation_id", conversationId)
+      .in("conversation_id", groupIds)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -193,18 +196,28 @@ export function useConversations() {
       return;
     }
 
-    const nextMessages = (data || []).map((m: any) => ({ ...m, direction: m.direction as "sent" | "received" }));
+    // Build device name lookup from conversations
+    const deviceMap = new Map<string, string>();
+    conversationsRef.current.forEach((c) => {
+      if (c.deviceName) deviceMap.set(c.id, c.deviceName);
+    });
+
+    const nextMessages = (data || []).map((m: any) => ({
+      ...m,
+      direction: m.direction as "sent" | "received",
+      deviceName: deviceMap.get(m.conversation_id),
+    }));
 
     setMessages((prev) => {
       const pendingMessages = prev.filter(
-        (m) => m.conversation_id === conversationId && m.status === "sending" && !nextMessages.some((next) => next.id === m.id)
+        (m) => groupIds.includes(m.conversation_id) && m.status === "sending" && !nextMessages.some((next) => next.id === m.id)
       );
 
       return [...nextMessages, ...pendingMessages].sort(
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       );
     });
-  }, []);
+  }, [getConversationIdsForSameContact]);
 
   // Sync from UAZAPI
   const syncConversations = useCallback(async () => {
@@ -847,32 +860,37 @@ export function useConversations() {
         { event: "INSERT", schema: "public", table: "conversation_messages", filter: `user_id=eq.${user.id}` },
         (payload) => {
           const newMsg = payload.new as RealMessage;
-          if (newMsg.conversation_id === selectedConvIdRef.current) {
+          if (newMsg.conversation_id === selectedConvIdRef.current || 
+              (selectedConvIdRef.current && getConversationIdsForSameContact(selectedConvIdRef.current).includes(newMsg.conversation_id))) {
+            // Enrich with device name
+            const deviceName = conversationsRef.current.find((c) => c.id === newMsg.conversation_id)?.deviceName;
+            const enrichedMsg = { ...newMsg, deviceName };
+
             setMessages((prev) => {
               // Skip if already exists by ID
-              if (prev.some((m) => m.id === newMsg.id)) return prev;
+              if (prev.some((m) => m.id === enrichedMsg.id)) return prev;
               // Skip if it's an optimistic duplicate (sent message with same content within 30s)
-              if (newMsg.direction === "sent") {
-                const newTime = new Date(newMsg.created_at).getTime();
+              if (enrichedMsg.direction === "sent") {
+                const newTime = new Date(enrichedMsg.created_at).getTime();
                 const isDuplicate = prev.some((m) =>
                   m.direction === "sent" &&
-                  m.content === newMsg.content &&
-                  m.conversation_id === newMsg.conversation_id &&
+                  m.content === enrichedMsg.content &&
+                  m.conversation_id === enrichedMsg.conversation_id &&
                   Math.abs(new Date(m.created_at).getTime() - newTime) < 30000
                 );
                 if (isDuplicate) {
                   // Replace the optimistic entry's ID with the real one
                   return prev.map((m) =>
                     m.direction === "sent" &&
-                    m.content === newMsg.content &&
-                    m.conversation_id === newMsg.conversation_id &&
+                    m.content === enrichedMsg.content &&
+                    m.conversation_id === enrichedMsg.conversation_id &&
                     Math.abs(new Date(m.created_at).getTime() - newTime) < 30000
-                      ? { ...m, id: newMsg.id, status: newMsg.status || m.status }
+                      ? { ...m, id: enrichedMsg.id, status: enrichedMsg.status || m.status }
                       : m
                   );
                 }
               }
-              return [...prev, newMsg];
+              return [...prev, enrichedMsg];
             });
           }
 
@@ -910,7 +928,8 @@ export function useConversations() {
         { event: "UPDATE", schema: "public", table: "conversation_messages", filter: `user_id=eq.${user.id}` },
         (payload) => {
           const updated = payload.new as RealMessage;
-          if (updated.conversation_id === selectedConvIdRef.current) {
+          const selectedId = selectedConvIdRef.current;
+          if (selectedId && (updated.conversation_id === selectedId || getConversationIdsForSameContact(selectedId).includes(updated.conversation_id))) {
             setMessages((prev) =>
               prev.map((m) => (m.id === updated.id ? { ...m, ...updated, direction: updated.direction as "sent" | "received" } : m))
             );
@@ -1000,5 +1019,7 @@ export function useConversations() {
     archiveConversation,
     unarchiveConversation,
     markAsUnread,
+    getConversationIdsForSameContact,
+    getConversationContactKey,
   };
 }
