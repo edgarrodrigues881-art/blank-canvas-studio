@@ -755,14 +755,21 @@ export function ChatPanel({
 
     if (isImage && msg.mediaUrl) {
       return (
-        <div>
+        <div className="w-full">
           <QuotedBlock msg={msg} />
-          <img
-            src={msg.mediaUrl}
-            alt="Imagem"
-            className="rounded-xl max-w-[260px] max-h-[260px] object-cover cursor-pointer shadow-sm border border-border/20"
+          <button
+            type="button"
             onClick={() => setLightboxUrl(msg.mediaUrl!)}
-          />
+            className="block w-full overflow-hidden rounded-[18px] border border-border/20 bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          >
+            <div className="aspect-square w-full">
+              <img
+                src={msg.mediaUrl}
+                alt="Imagem"
+                className="h-full w-full object-cover"
+              />
+            </div>
+          </button>
           {msg.content && !isMediaPlaceholder(msg.content) && (
             <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5">{msg.content}</p>
           )}
@@ -1076,8 +1083,10 @@ export function ChatPanel({
                   )}
                   <div
                     className={cn(
-                      "w-fit min-w-[72px] max-w-[78%] sm:max-w-[68%] rounded-2xl relative",
-                      msg.mediaType === "image" && msg.mediaUrl ? "p-1" : isMedia ? "px-3 py-2" : "px-3 py-2",
+                      "min-w-[72px] rounded-2xl relative",
+                      msg.mediaType === "image" && msg.mediaUrl
+                        ? "w-[min(240px,72vw)] p-1.5"
+                        : "w-fit max-w-[78%] sm:max-w-[68%] px-3 py-2",
                       msg.type === "sent" ? "bg-blue-600 text-white rounded-br-md" : "bg-card border border-border text-foreground rounded-bl-md",
                       msg.status === "failed" && "opacity-70"
                     )}
