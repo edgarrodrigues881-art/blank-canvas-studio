@@ -868,6 +868,22 @@ export function ChatPanel({
         })}
       </div>
 
+      {/* Scroll to bottom FAB with unread count */}
+      {!isNearBottom && (
+        <button
+          onClick={() => scrollToBottom(true)}
+          className="absolute bottom-4 right-4 z-10 flex items-center justify-center w-10 h-10 rounded-full bg-card border border-border shadow-lg hover:bg-muted transition-colors"
+        >
+          <ChevronDown className="w-5 h-5 text-foreground" />
+          {newMsgCount > 0 && (
+            <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+              {newMsgCount > 99 ? "99+" : newMsgCount}
+            </span>
+          )}
+        </button>
+      )}
+      </div>
+
       {/* Quick Replies */}
       {showQuickReplies && (
         <div className="border-t border-border bg-card/90 backdrop-blur-sm">
