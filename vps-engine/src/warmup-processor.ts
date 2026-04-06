@@ -30,10 +30,10 @@ async function getImagePool(db: any): Promise<string[]> {
     if (!error && files?.length > 0) {
       const base = `${config.supabaseUrl}/storage/v1/object/public/media/warmup-media`;
       const imgs = files.filter((f: any) => f.name && !f.name.startsWith(".") && !f.name.startsWith("Captura") && /\.(jpg|jpeg|png|webp|gif)$/i.test(f.name)).map((f: any) => `${base}/${encodeURIComponent(f.name)}`);
-      if (imgs.length > 0) { _imagePoolCache = imgs; return _imagePoolCache; }
+      if (imgs.length > 0) { _imagePoolCache = imgs; return imgs; }
     }
   } catch {}
-  _imagePoolCache = FALLBACK_IMAGES;
+  _imagePoolCache = [...FALLBACK_IMAGES];
   return _imagePoolCache;
 }
 
@@ -44,10 +44,10 @@ async function getAudioPool(db: any): Promise<string[]> {
     if (!error && files?.length > 0) {
       const base = `${config.supabaseUrl}/storage/v1/object/public/media/warmup-audio`;
       const audios = files.filter((f: any) => f.name && !f.name.startsWith(".") && /\.(mp3|ogg|wav|m4a|opus)$/i.test(f.name)).map((f: any) => `${base}/${encodeURIComponent(f.name)}`);
-      if (audios.length > 0) { _audioPoolCache = audios; return _audioPoolCache; }
+      if (audios.length > 0) { _audioPoolCache = audios; return audios; }
     }
   } catch {}
-  _audioPoolCache = FALLBACK_AUDIOS;
+  _audioPoolCache = [...FALLBACK_AUDIOS];
   return _audioPoolCache;
 }
 
@@ -190,7 +190,8 @@ async function reconcileCommunityPairs(db: any, params: { deviceId: string; user
   if (validPairs.length < targetPeers) {
     const { data: eligible } = await db.from("warmup_community_membership")
       .select("device_id, user_id, community_day").eq("is_enabled", true).eq("is_eligible", true).gte("community_day", 1).neq("device_id", params.deviceId).limit(200);
-    const candidateIds = [...new Set((eligible || []).map((r: any) => String(r.device_id || "")).filter((id: string) => id.length > 0))].filter((id) => !usedDevices.has(id));
+    const allCandidateIds: string[] = (eligible || []).map((r: any) => String(r.device_id || "")).filter((id: string) => id.length > 0);
+    const candidateIds = Array.from(new Set<string>(allCandidateIds)).filter((id: string) => !usedDevices.has(id));
 
     if (candidateIds.length > 0) {
       const [candidateDevicesRes, candidateCyclesRes] = await Promise.all([
