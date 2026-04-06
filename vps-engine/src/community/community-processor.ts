@@ -247,7 +247,7 @@ async function phaseUpdateEligibility(db: SupabaseClient): Promise<{ updated: nu
 
   const { data: cycles } = await db.from("warmup_cycles")
     .select("device_id, chip_state, day_index, is_running").in("device_id", deviceIds).eq("is_running", true);
-  const cycleMap = Object.fromEntries((cycles || []).map((c: any) => [c.device_id, c]));
+  
 
   const reasons: Record<string, number> = {};
   let eligibleCount = 0;
