@@ -17,6 +17,8 @@ export interface Conversation {
   email?: string;
   notes?: string;
   deviceName?: string;
+  assignedTo?: string;
+  assignedName?: string;
 }
 
 export interface Message {

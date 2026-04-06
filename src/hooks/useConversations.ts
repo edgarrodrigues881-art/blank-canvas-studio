@@ -26,6 +26,8 @@ export interface RealConversation {
   updated_at: string;
   last_message_status?: string;
   last_message_direction?: string;
+  assigned_to?: string | null;
+  assigned_name?: string | null;
   // joined
   deviceName?: string;
 }
