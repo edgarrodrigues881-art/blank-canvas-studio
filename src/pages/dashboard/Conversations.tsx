@@ -55,6 +55,7 @@ const Conversations = () => {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_W);
   const [newConversationOpen, setNewConversationOpen] = useState(false);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
+  const [filterInstanceIds, setFilterInstanceIds] = useState<string[]>([]);
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
