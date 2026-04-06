@@ -10,9 +10,9 @@ import { isWithinOperatingWindow, getBrtTodayAt, getBrtDateKey } from "../utils/
 import { randInt, pickRandom, generateNaturalMessage, pickMediaTypeGroup, pickMediaTypeCommunity, IMAGE_CAPTIONS, LOCATION_CAPTIONS, FALLBACK_IMAGES, FALLBACK_AUDIOS, pickFakeLocation } from "../utils/message-generator";
 import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiCheckPhone, fetchLiveGroups } from "../integrations/uazapi";
 import {
-  getPhaseForDay, isCommunityPhase, hasWarmupAccess, getVolumes, getGroupMsgsForDay,
+  getPhaseForDay, isCommunityPhase, hasWarmupAccess,
   getAutosaveContactsForDay, getAutosaveRoundsPerContact, getCommunityStartDayForChip,
-  getCommunityPeers, getCommunityPeersFromCommunityDay, getMaxPairsForChip,
+  getCommunityPeers, getMaxPairsForChip,
   CONNECTED_STATUSES, INTERACTION_JOB_TYPES,
 } from "./warmup-rules";
 import { scheduleDayJobs, ensureJoinGroupJobs, ensureNextDailyResetJob } from "./warmup-scheduling";

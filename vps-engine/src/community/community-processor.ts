@@ -5,7 +5,7 @@
 
 import { SupabaseClient } from "@supabase/supabase-js";
 import { createLogger } from "../core/logger";
-import { isWithinOperatingWindow, getBrtHourMinute, getBrtDayOfWeek } from "../utils/brt";
+import { getBrtHourMinute, getBrtDayOfWeek } from "../utils/brt";
 
 const log = createLogger("community");
 

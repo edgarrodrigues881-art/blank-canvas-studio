@@ -17,7 +17,6 @@ export function getChipConvStatus() {
   return { lastTick: lastChipConvTickAt };
 }
 
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 const randomBetween = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 function pickRandom<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 function cleanNumber(num: string): string { return num.replace(/[^0-9]/g, ""); }

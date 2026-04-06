@@ -25,10 +25,8 @@ import { autoreplyTick, getAutoreplyStatus, lastAutoreplyTickAt } from "./autore
 import { backoffMinutes } from "./core/retry";
 import { validateUazapiCredentials } from "./integrations/uazapi";
 import { processJob, batchPreload, flushAuditLogs, ProcessJobContext } from "./warmup/warmup-processor";
-// CONNECTED_STATUSES is used from warmup-rules via warmup-processor
 
 const log = createLogger("main");
-// Global semaphore is now in lib/global-semaphore.ts (shared across all workers)
 
 // ── Health check & status ──
 const app = express();
