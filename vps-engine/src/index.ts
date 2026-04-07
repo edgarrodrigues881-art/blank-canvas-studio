@@ -489,9 +489,12 @@ async function warmupTick() {
   // Fetch each priority type separately, then merge & interleave
   const jobTypeBuckets = [
     { types: ["daily_reset"], limit: 200 },           // Highest priority — resets must happen first
+    { types: ["join_group"], limit: 200 },             // Must join groups before interactions work
+    { types: ["phase_transition", "enable_autosave", "enable_community"], limit: 100 }, // Phase management
     { types: ["autosave_interaction"], limit: 400 },   // Auto save needs guaranteed slots
     { types: ["community_interaction"], limit: 400 },  // Community needs guaranteed slots
     { types: ["group_interaction"], limit: 1000 },     // Groups get the largest share but capped
+    { types: ["health_check"], limit: 50 },            // Periodic health checks
   ];
 
   const allJobs: any[] = [];
