@@ -313,47 +313,47 @@ async function processOneConversation(sb: any, conv: any) {
   // ── Fair rotation: pick the device that sent the LEAST recently ──
   const totalDevices = activeDevices.length;
 
-  // Query recent logs to find how many messages each device sent
-  const { data: sendCounts } = await sb
+  // ── True mesh rotation: generate all possible directed pairs and pick the least-used one ──
+  type DevicePair = { sender: any; receiver: any; key: string };
+  const allPairs: DevicePair[] = [];
+  for (const s of activeDevices) {
+    for (const r of activeDevices) {
+      if (s.id !== r.id) allPairs.push({ sender: s, receiver: r, key: `${s.id}→${r.id}` });
+    }
+  }
+
+  // Query recent logs to find how many messages each pair exchanged
+  const { data: recentLogs } = await sb
     .from("chip_conversation_logs")
     .select("sender_device_id, receiver_device_id")
     .eq("conversation_id", conversationId)
-    .in("sender_device_id", activeDevices.map((d: any) => d.id))
     .order("sent_at", { ascending: false })
-    .limit(totalDevices * 50); // last N messages per device
+    .limit(allPairs.length * 40);
 
-  // Count messages per device
-  const countMap = new Map<string, number>();
-  for (const d of activeDevices) countMap.set(d.id, 0);
-  for (const row of sendCounts || []) {
-    const cur = countMap.get(row.sender_device_id) || 0;
-    countMap.set(row.sender_device_id, cur + 1);
-  }
-
-  // Sort by least messages sent (ascending), break ties randomly
-  const sortedDevices = [...activeDevices].sort((a: any, b: any) => {
-    const diff = (countMap.get(a.id) || 0) - (countMap.get(b.id) || 0);
-    return diff !== 0 ? diff : (Math.random() - 0.5);
-  });
-
-  const sender = sortedDevices[0]; // device that sent the least
-  // Pick a random receiver that is NOT the sender
-  const possibleReceivers = activeDevices.filter((d: any) => d.id !== sender.id);
-
-  // Also pick receiver fairly: who received least from this sender?
-  const receiveCounts = new Map<string, number>();
-  for (const d of possibleReceivers) receiveCounts.set(d.id, 0);
-  for (const row of sendCounts || []) {
-    if (row.sender_device_id === sender.id && receiveCounts.has(row.receiver_device_id)) {
-      receiveCounts.set(row.receiver_device_id, (receiveCounts.get(row.receiver_device_id) || 0) + 1);
+  // Count messages per directed pair
+  const pairCounts = new Map<string, number>();
+  for (const pair of allPairs) pairCounts.set(pair.key, 0);
+  for (const row of recentLogs || []) {
+    const key = `${row.sender_device_id}→${row.receiver_device_id}`;
+    if (pairCounts.has(key)) {
+      pairCounts.set(key, (pairCounts.get(key) || 0) + 1);
     }
   }
-  // Sort receivers by least received, break ties randomly
-  const sortedReceivers = [...possibleReceivers].sort((a: any, b: any) => {
-    const diff = (receiveCounts.get(a.id) || 0) - (receiveCounts.get(b.id) || 0);
-    return diff !== 0 ? diff : (Math.random() - 0.5);
+
+  // Sort pairs by least used (ascending), break ties randomly for true randomization
+  const sortedPairs = shuffleArray(allPairs).sort((a, b) => {
+    return (pairCounts.get(a.key) || 0) - (pairCounts.get(b.key) || 0);
   });
-  const receiver = sortedReceivers[0];
+
+  // Pick from the least-used tier (all pairs with the minimum count)
+  const minCount = pairCounts.get(sortedPairs[0].key) || 0;
+  const leastUsedPairs = sortedPairs.filter(p => (pairCounts.get(p.key) || 0) === minCount);
+  const chosenPair = pickRandom(leastUsedPairs);
+
+  const sender = chosenPair.sender;
+  const receiver = chosenPair.receiver;
+
+  log.info(`Chip conv ${conversationId.slice(0, 8)}: mesh pair ${sender.name} → ${receiver.name} (${leastUsedPairs.length} candidates at count ${minCount}, ${allPairs.length} total pairs)`);
 
   let messageText = "";
   let messageCategory: "text" | "audio" | "sticker" | "image" = contentType;
@@ -406,9 +406,10 @@ async function processOneConversation(sb: any, conv: any) {
     result = await sendTextMessage(sender.uazapi_base_url, sender.uazapi_token, receiver.number, messageText);
   }
 
-  log.info(`Turn #${turnIndex}: ${sender.name} → ${receiver.name} [${messageCategory}] (${totalDevices} devices rotating)`);
+  const currentTotal = conv.total_messages_sent || 0;
+  log.info(`Turn #${currentTotal}: ${sender.name} → ${receiver.name} [${messageCategory}] (${totalDevices} devices, ${allPairs.length} pairs)`);
 
-  const newTotal = turnIndex + (result.ok ? 1 : 0);
+  const newTotal = currentTotal + (result.ok ? 1 : 0);
 
   // Fire-and-forget log insert
   sb.from("chip_conversation_logs").insert({
