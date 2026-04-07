@@ -1610,7 +1610,10 @@ const Devices = () => {
   // Poll connection status
   const startPolling = (deviceId: string, proxyId: string | null) => {
     stopPolling();
+    let inFlight = false;
     const interval = setInterval(async () => {
+      if (inFlight) return;
+      inFlight = true;
       try {
         const result = await callApi({ action: "status", deviceId });
         // Check for duplicate phone error
@@ -1646,7 +1649,7 @@ const Devices = () => {
           // Sync in background for full data refresh
           try {
             if (session?.access_token || (await supabase.auth.getSession()).data.session?.access_token) {
-              await callSyncDevices();
+              void callSyncDevices();
               queryClient.invalidateQueries({ queryKey: ["devices"] });
             }
           } catch (syncErr) {
@@ -1655,8 +1658,10 @@ const Devices = () => {
         }
       } catch (err: any) {
         console.error("Polling error:", err);
+      } finally {
+        inFlight = false;
       }
-    }, 2000);
+    }, 1200);
     setPollingInterval(interval);
   };
 
