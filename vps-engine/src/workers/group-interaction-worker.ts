@@ -109,30 +109,28 @@ async function pauseInteraction(sb: any, interactionId: string, lastError: strin
     .eq("id", interactionId);
 }
 
-async function loadWarmupGroupNameFallbacks(sb: any, identifiers: string[]): Promise<Map<string, string>> {
-  const fallbackMap = new Map<string, string>();
+async function loadAllowedGroupJids(sb: any, identifiers: string[]): Promise<Map<string, string>> {
+  const allowedMap = new Map<string, string>();
   const validIds = identifiers.filter((value) => typeof value === "string" && value.trim().length > 0);
-  const linkIds = Array.from(new Set(validIds.filter((value) => /^https?:\/\/chat\.whatsapp\.com\//i.test(value))));
   const uuidIds = Array.from(new Set(validIds.filter((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))));
 
-  const appendRows = (rows: any[] | null | undefined) => {
-    for (const row of rows || []) {
-      if (row?.id && row?.name) fallbackMap.set(row.id, row.name);
-      if (row?.link && row?.name) fallbackMap.set(row.link, row.name);
+  if (uuidIds.length === 0) return allowedMap;
+
+  const { data } = await sb
+    .from("warmup_instance_groups")
+    .select("group_id, group_jid")
+    .in("group_id", uuidIds)
+    .not("group_jid", "is", null);
+
+  for (const row of data || []) {
+    const groupId = String(row?.group_id || "").trim();
+    const groupJid = String(row?.group_jid || "").trim();
+    if (groupId && groupJid && groupJid.includes("@g.us")) {
+      allowedMap.set(groupId, groupJid);
     }
-  };
-
-  if (linkIds.length > 0) {
-    const { data } = await sb.from("warmup_groups").select("id, name, link").in("link", linkIds);
-    appendRows(data);
   }
 
-  if (uuidIds.length > 0) {
-    const { data } = await sb.from("warmup_groups").select("id, name, link").in("id", uuidIds);
-    appendRows(data);
-  }
-
-  return fallbackMap;
+  return allowedMap;
 }
 
 // ── Group Map Cache (avoid calling API every tick) ──
