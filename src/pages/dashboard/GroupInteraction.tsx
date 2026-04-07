@@ -101,7 +101,7 @@ export default function GroupInteractionPage() {
   const [bulkDeviceIds, setBulkDeviceIds] = useState<string[]>([]);
   const [usePeriod2, setUsePeriod2] = useState(false);
   const [groupSource, setGroupSource] = useState<"system" | "custom">("system");
-  const autoPausedInteractionIdsRef = useRef<Set<string>>(new Set());
+  
 
   const { data: devices = [] } = useQuery({
     queryKey: ["devices-gi", user?.id],
