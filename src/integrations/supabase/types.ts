@@ -5700,6 +5700,14 @@ export type Database = {
         Args: { p_community_day: number }
         Returns: number[]
       }
+      get_daily_log_counts: {
+        Args: { p_end: string; p_start: string; p_user_id: string }
+        Returns: {
+          cnt: number
+          dt: string
+          source: string
+        }[]
+      }
       get_profile_safe: {
         Args: { profile_row: Database["public"]["Tables"]["profiles"]["Row"] }
         Returns: {
