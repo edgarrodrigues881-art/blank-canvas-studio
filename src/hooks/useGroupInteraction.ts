@@ -23,9 +23,19 @@ export interface GroupInteraction {
   duration_minutes: number;
   start_hour: string;
   end_hour: string;
+  start_hour_2?: string | null;
+  end_hour_2?: string | null;
   active_days: string[];
   daily_limit_per_group: number;
   daily_limit_total: number;
+  next_action_at?: string | null;
+  content_types?: {
+    text: boolean;
+    image: boolean;
+    audio: boolean;
+    sticker: boolean;
+  } | null;
+  preset_name?: string | null;
   total_messages_sent: number;
   today_count: number;
   last_sent_at: string | null;
@@ -53,6 +63,12 @@ export function useGroupInteraction() {
   const { user } = useAuth();
   const qc = useQueryClient();
 
+  const normalizeOptionalTime = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
   const normalizeInteractionPayload = (data: Partial<GroupInteraction>) => {
     const cycleMin = Number(data.messages_per_cycle_min);
     const cycleMax = Number(data.messages_per_cycle_max);
@@ -73,7 +89,7 @@ export function useGroupInteraction() {
       if (!user) return [];
       const { data, error } = await supabase
         .from("group_interactions" as any)
-        .select("id, user_id, name, status, group_ids, device_id, min_delay_seconds, max_delay_seconds, pause_after_messages_min, pause_after_messages_max, pause_duration_min, pause_duration_max, messages_per_cycle_min, messages_per_cycle_max, duration_hours, duration_minutes, start_hour, end_hour, start_hour_2, end_hour_2, active_days, daily_limit_per_group, daily_limit_total, total_messages_sent, today_count, last_sent_at, started_at, completed_at, last_error, created_at, updated_at")
+        .select("id, user_id, name, status, group_ids, device_id, min_delay_seconds, max_delay_seconds, pause_after_messages_min, pause_after_messages_max, pause_duration_min, pause_duration_max, messages_per_cycle_min, messages_per_cycle_max, duration_hours, duration_minutes, start_hour, end_hour, start_hour_2, end_hour_2, active_days, daily_limit_per_group, daily_limit_total, content_types, preset_name, next_action_at, total_messages_sent, today_count, last_sent_at, started_at, completed_at, last_error, created_at, updated_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -123,6 +139,8 @@ export function useGroupInteraction() {
       if (!user) throw new Error("Não autenticado");
       const payload = {
         ...normalizeInteractionPayload(data),
+        start_hour_2: normalizeOptionalTime((data as any).start_hour_2),
+        end_hour_2: normalizeOptionalTime((data as any).end_hour_2),
         user_id: user.id,
         status: "idle",
       };
@@ -154,11 +172,10 @@ export function useGroupInteraction() {
   const updateInteraction = useMutation({
     mutationFn: async ({ id, ...data }: Partial<GroupInteraction> & { id: string }) => {
       const normalized = normalizeInteractionPayload(data);
-      // Ensure null instead of undefined for nullable text fields
       const payload: Record<string, any> = {
         ...normalized,
-        start_hour_2: (normalized as any).start_hour_2 ?? (data as any).start_hour_2 ?? null,
-        end_hour_2: (normalized as any).end_hour_2 ?? (data as any).end_hour_2 ?? null,
+        start_hour_2: normalizeOptionalTime((normalized as any).start_hour_2 ?? (data as any).start_hour_2),
+        end_hour_2: normalizeOptionalTime((normalized as any).end_hour_2 ?? (data as any).end_hour_2),
         status: data.status === "active" ? "idle" : data.status,
         updated_at: new Date().toISOString(),
       };
