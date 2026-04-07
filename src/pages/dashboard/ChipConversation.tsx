@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -157,56 +157,29 @@ export default function ChipConversation() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingConv, setEditingConv] = useState<ChipConversation | null>(null);
-  const autoPausedConversationIdsRef = useRef<Set<string>>(new Set());
   const deviceMap = useMemo(() => new Map(devices.map((device: any) => [device.id, device])), [devices]);
 
-  // Chips already in active/running/paused conversations are busy
-  const busyDeviceIds = new Set(
-    conversations
-      .filter((c) => {
-        const s = normalizeConversationStatus(c.status);
-        return s === "running" || s === "paused";
-      })
-      .flatMap((c) => c.device_ids || [])
+  const busyDeviceIds = useMemo(
+    () => new Set(
+      conversations
+        .filter((c) => {
+          const s = normalizeConversationStatus(c.status);
+          return s === "running" || s === "paused";
+        })
+        .flatMap((c) => c.device_ids || []),
+    ),
+    [conversations],
   );
 
-  // Available devices = not busy (for creating new conversations)
-  // Available = connected + not busy
-  const availableDevices = devices.filter((d: any) => isConversationDeviceConnected(d) && !busyDeviceIds.has(d.id));
+  const availableDevices = useMemo(
+    () => devices.filter((d: any) => isConversationDeviceConnected(d) && !busyDeviceIds.has(d.id)),
+    [devices, busyDeviceIds],
+  );
 
-  // For editing, include the conversation's own devices (even if offline, so user can see/remove them) + available connected ones
   const getEditDevices = (conv: ChipConversation) => {
     const ownIds = new Set(conv.device_ids || []);
     return devices.filter((d: any) => ownIds.has(d.id) || (isConversationDeviceConnected(d) && !busyDeviceIds.has(d.id)));
   };
-
-  useEffect(() => {
-    const invalidRunningConversations = conversations.filter((conversation) => {
-      const normalizedStatus = normalizeConversationStatus(conversation.status);
-      return normalizedStatus === "running" && Boolean(getConversationInvalidReason(conversation, deviceMap));
-    });
-
-    const activeInvalidIds = new Set(invalidRunningConversations.map((conversation) => conversation.id));
-    autoPausedConversationIdsRef.current.forEach((conversationId) => {
-      if (!activeInvalidIds.has(conversationId)) {
-        autoPausedConversationIdsRef.current.delete(conversationId);
-      }
-    });
-
-    if (invalidRunningConversations.length === 0) return;
-
-    void Promise.allSettled(
-      invalidRunningConversations.map(async (conversation) => {
-        if (autoPausedConversationIdsRef.current.has(conversation.id)) return;
-        autoPausedConversationIdsRef.current.add(conversation.id);
-        try {
-          await actions.pause.mutateAsync(conversation.id);
-        } catch {
-          autoPausedConversationIdsRef.current.delete(conversation.id);
-        }
-      })
-    );
-  }, [actions.pause, conversations, deviceMap]);
 
   const handleDelete = async (id: string) => {
     try {
@@ -355,7 +328,7 @@ function ConversationCard({
   onDelete: () => void;
 }) {
   const normalizedStatus = normalizeConversationStatus(conv.status);
-  const displayStatus = invalidReason && normalizedStatus === "running" ? "paused" : normalizedStatus;
+  const displayStatus = normalizedStatus;
   const status = STATUS_MAP[displayStatus];
   const deviceNames = (conv.device_ids || [])
     .map((id) => devices.find((d) => d.id === id)?.name || "???")
