@@ -92,7 +92,6 @@ function isConfirmedConnected(check: ProviderStatusCheck | null | undefined): bo
   return Boolean(
     check?.valid &&
     check?.status === "connected" &&
-    !check?.qrcode &&
     getOwnerDigits(check?.owner).length >= 10,
   );
 }
@@ -1126,6 +1125,12 @@ Deno.serve(async (req) => {
       const isDisconnected = effectiveCheck.status === "disconnected" && !hasQrCode;
 
       if (isConnected) {
+        const dup = await checkDuplicatePhone(svc, user.id, deviceId, effectiveCheck.owner || "");
+        if (dup.isDuplicate) {
+          await uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
+          return json({ success: false, error: `Este número já está conectado na instância "${dup.existingDeviceName}". Desconecte lá primeiro.`, code: "DUPLICATE_PHONE" });
+        }
+
         const fmt = formatBrPhone(effectiveCheck.owner || "");
 
         // Check if status actually changed
