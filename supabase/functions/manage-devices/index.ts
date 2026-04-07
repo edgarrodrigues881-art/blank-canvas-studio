@@ -273,8 +273,101 @@ Deno.serve(async (req) => {
         .single();
       if (insertErr) throw insertErr;
 
+      // ── Pre-provision API token in background so connect is instant ──
+      const BASE_URL = (Deno.env.get("UAZAPI_BASE_URL") || "").replace(/\/+$/, "");
+      const ADMIN_TOKEN_VAL = Deno.env.get("UAZAPI_TOKEN") || "";
+
       runInBackground(
-        oplog(admin, user.id, "instance_created", `Instância "${newDevice.name}" criada (token será gerado ao conectar)`, newDevice.id),
+        (async () => {
+          try {
+            // 1. Try pool token first
+            let assignedToken: string | null = null;
+            for (const st of ["available", "blocked"]) {
+              const { data: poolToken } = await admin.from("user_api_tokens")
+                .select("id, token")
+                .eq("user_id", user.id).eq("status", st).is("device_id", null)
+                .limit(1).maybeSingle();
+              if (poolToken) {
+                await Promise.all([
+                  admin.from("user_api_tokens").update({
+                    device_id: newDevice.id, status: "in_use", assigned_at: new Date().toISOString(),
+                  }).eq("id", poolToken.id),
+                  admin.from("devices").update({
+                    uazapi_token: poolToken.token, uazapi_base_url: BASE_URL,
+                  }).eq("id", newDevice.id),
+                ]);
+                assignedToken = poolToken.token;
+                console.log(`[manage-devices] pre-provision pool token for ${newDevice.id.substring(0, 8)}`);
+                break;
+              }
+            }
+
+            // 2. If no pool token, create on-demand
+            if (!assignedToken && BASE_URL && ADMIN_TOKEN_VAL) {
+              const clientLabel = (profile?.full_name || user.email || "cliente").replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 20);
+              const { count: tokenCount } = await admin.from("user_api_tokens")
+                .select("id", { count: "exact", head: true }).eq("user_id", user.id);
+              const instName = `${clientLabel}_${(tokenCount ?? 0) + 1}`;
+
+              // Call UAZAPI to create instance
+              const controller = new AbortController();
+              const tid = setTimeout(() => controller.abort(), 12000);
+              const headerVariants = [
+                { admintoken: ADMIN_TOKEN_VAL },
+                { token: ADMIN_TOKEN_VAL },
+                { Authorization: `Bearer ${ADMIN_TOKEN_VAL}` },
+              ];
+              let createdToken: string | null = null;
+              for (const authHeaders of headerVariants) {
+                try {
+                  const res = await fetch(`${BASE_URL}/instance/init`, {
+                    method: "POST",
+                    headers: { ...authHeaders, Accept: "application/json", "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: instName }),
+                    signal: controller.signal,
+                  });
+                  if (res.status === 401) continue;
+                  const data = await res.json().catch(() => ({}));
+                  if (res.ok) {
+                    createdToken = data.token || data.instance?.token || null;
+                    break;
+                  }
+                } catch (e: any) {
+                  if (e?.name === "AbortError") continue;
+                }
+              }
+              clearTimeout(tid);
+
+              if (createdToken) {
+                const { data: dup } = await admin.from("user_api_tokens")
+                  .select("id").eq("token", createdToken).maybeSingle();
+                if (dup) {
+                  await admin.from("user_api_tokens").update({
+                    status: "in_use", device_id: newDevice.id, assigned_at: new Date().toISOString(),
+                  }).eq("id", dup.id);
+                } else {
+                  await admin.from("user_api_tokens").insert({
+                    user_id: user.id, token: createdToken, admin_id: user.id,
+                    device_id: newDevice.id, status: "in_use", healthy: true,
+                    label: instName, assigned_at: new Date().toISOString(),
+                    last_checked_at: new Date().toISOString(),
+                  });
+                }
+                await admin.from("devices").update({
+                  uazapi_token: createdToken, uazapi_base_url: BASE_URL,
+                }).eq("id", newDevice.id);
+                console.log(`[manage-devices] pre-provision on-demand token for ${newDevice.id.substring(0, 8)}: ${instName}`);
+              } else {
+                console.warn(`[manage-devices] pre-provision failed for ${newDevice.id.substring(0, 8)}`);
+              }
+            }
+
+            await oplog(admin, user.id, "instance_created", `Instância "${newDevice.name}" criada (token pré-provisionado)`, newDevice.id);
+          } catch (err: any) {
+            console.error(`[manage-devices] pre-provision error:`, err?.message || err);
+            await oplog(admin, user.id, "instance_created", `Instância "${newDevice.name}" criada (token será gerado ao conectar)`, newDevice.id);
+          }
+        })(),
       );
 
       return new Response(
