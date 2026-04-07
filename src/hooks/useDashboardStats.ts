@@ -142,11 +142,17 @@ export function useDashboardStats() {
         dayStatsMap[dateKey].total += s.messages_total || 0;
       });
 
-      const totalMessages = totalSent + totalFailed;
-
-      // Build chips
-      const chips: ChipInfo[] = devices.map((d) => {
-        const cycle = cycles.find((c) => c.device_id === d.id && c.is_running);
+      // Aggregate chip + group logs by Brazil date
+      const chipByDay: Record<string, number> = {};
+      const groupByDay: Record<string, number> = {};
+      ((chipLogsRes.data as any[]) || []).forEach((r: any) => {
+        const dk = getBrazilDateKey(r.sent_at);
+        chipByDay[dk] = (chipByDay[dk] || 0) + 1;
+      });
+      ((groupLogsRes.data as any[]) || []).forEach((r: any) => {
+        const dk = getBrazilDateKey(r.sent_at);
+        groupByDay[dk] = (groupByDay[dk] || 0) + 1;
+      });
         const activeCycle = cycle || cycles.find((c) => c.device_id === d.id && c.phase === "paused");
         const normalizedStatus = normalizeDeviceStatus(d.status, !!d.number);
 
