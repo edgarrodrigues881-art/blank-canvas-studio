@@ -509,8 +509,8 @@ export default function GroupInteractionPage() {
           {renderFormFields()}
 
           <div className="flex gap-2 pt-2">
-            <Button onClick={handleBulkCreate} className="flex-1 gap-2" disabled={!bulkDeviceIds.length}>
-              <Layers className="w-4 h-4" /> Criar {bulkDeviceIds.length} automações
+             <Button onClick={handleBulkCreate} className="flex-1 gap-2" disabled={!bulkDeviceIds.length || createInteraction.isPending}>
+              <Layers className="w-4 h-4" /> {createInteraction.isPending ? "Criando..." : `Criar ${bulkDeviceIds.length} automações`}
             </Button>
             <Button variant="outline" onClick={() => { setShowBulkCreate(false); setBulkDeviceIds([]); }}>
               Cancelar
