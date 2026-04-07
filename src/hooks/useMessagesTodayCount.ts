@@ -3,25 +3,46 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
 /**
- * Lightweight hook that reads today's message count from the
- * pre-aggregated warmup_daily_stats table (populated by DB trigger).
+ * Aggregates today's message count from:
+ * 1. warmup_daily_stats (aquecimento)
+ * 2. chip_conversation_logs (conversa entre chips)
+ * 3. group_interaction_logs (interação de grupos)
  */
 export function useMessagesTodayCount() {
   const { user } = useAuth();
 
   return useQuery({
     queryKey: ["messages-today-count", user?.id],
-    queryFn: async (): Promise<number> => {
+    queryFn: async (): Promise<{ total: number; warmup: number; chip: number; group: number }> => {
       const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local
+      const todayStart = `${today}T00:00:00`;
+      const todayEnd = `${today}T23:59:59`;
 
-      const { data } = await supabase
-        .from("warmup_daily_stats")
-        .select("messages_sent")
-        .eq("user_id", user!.id)
-        .eq("stat_date", today);
+      const [warmupRes, chipRes, groupRes] = await Promise.all([
+        supabase
+          .from("warmup_daily_stats")
+          .select("messages_sent")
+          .eq("user_id", user!.id)
+          .eq("stat_date", today),
+        supabase
+          .from("chip_conversation_logs" as any)
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user!.id)
+          .gte("sent_at", todayStart)
+          .lte("sent_at", todayEnd),
+        supabase
+          .from("group_interaction_logs" as any)
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user!.id)
+          .gte("sent_at", todayStart)
+          .lte("sent_at", todayEnd),
+      ]);
 
-      if (!data || data.length === 0) return 0;
-      return data.reduce((sum, row) => sum + (row.messages_sent || 0), 0);
+      const warmup = (warmupRes.data || []).reduce((s, r) => s + (r.messages_sent || 0), 0);
+      const chip = chipRes.count ?? 0;
+      const group = groupRes.count ?? 0;
+
+      return { total: warmup + chip + group, warmup, chip, group };
     },
     enabled: !!user?.id,
     refetchInterval: 120_000,
