@@ -106,12 +106,12 @@
 
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 220 26% 11%;
-    --sidebar-primary: 142 72% 36%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 13% 95%;
+    --sidebar-primary: 40 90% 50%;
+    --sidebar-primary-foreground: 220 20% 6%;
+    --sidebar-accent: 40 30% 95%;
     --sidebar-accent-foreground: 220 26% 11%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 142 72% 36%;
+    --sidebar-ring: 40 90% 50%;
 
     --success: 142 71% 45%;
     --warning: 38 92% 50%;
