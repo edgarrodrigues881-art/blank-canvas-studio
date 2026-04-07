@@ -24,13 +24,13 @@ export function useMessagesTodayCount() {
           .eq("user_id", user!.id)
           .eq("stat_date", today),
         supabase
-          .from("chip_conversation_logs" as any)
+          .from("chip_conversation_logs")
           .select("id", { count: "exact", head: true })
           .eq("user_id", user!.id)
           .gte("sent_at", todayStart)
           .lte("sent_at", todayEnd),
         supabase
-          .from("group_interaction_logs" as any)
+          .from("group_interaction_logs")
           .select("id", { count: "exact", head: true })
           .eq("user_id", user!.id)
           .gte("sent_at", todayStart)
