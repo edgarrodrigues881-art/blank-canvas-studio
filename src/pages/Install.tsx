@@ -31,6 +31,8 @@ export default function Install() {
     };
   }, []);
 
+  const [showPCSteps, setShowPCSteps] = useState(false);
+
   const handleInstallPC = async () => {
     if (deferredPrompt) {
       await deferredPrompt.prompt();
@@ -38,7 +40,9 @@ export default function Install() {
       if (outcome === "accepted") setIsInstalled(true);
       setDeferredPrompt(null);
     } else {
-      toast.info("No Chrome, clique no ícone de instalação (⊕) na barra de endereço e depois em \"Instalar\".");
+      setShowPCSteps(true);
+      setShowIOSSteps(false);
+      setShowAndroidSteps(false);
     }
   };
 
@@ -51,12 +55,14 @@ export default function Install() {
     } else {
       setShowAndroidSteps(true);
       setShowIOSSteps(false);
+      setShowPCSteps(false);
     }
   };
 
   const handleInstallIOS = () => {
     setShowIOSSteps(true);
     setShowAndroidSteps(false);
+    setShowPCSteps(false);
   };
 
   if (isInstalled) {
@@ -129,6 +135,33 @@ export default function Install() {
             </div>
           </Button>
         </div>
+
+        {/* PC Steps */}
+        {showPCSteps && (
+          <Card className="animate-fade-in border-primary/20">
+            <CardContent className="p-5 space-y-3">
+              <h3 className="font-semibold text-foreground text-sm">💻 Como instalar no Computador:</h3>
+              <ol className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex gap-2">
+                  <span className="text-primary font-bold">1.</span>
+                  Abra este site no <strong className="text-foreground">Google Chrome</strong>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-primary font-bold">2.</span>
+                  Clique no ícone <strong className="text-foreground">⊕</strong> na barra de endereço (canto direito)
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-primary font-bold">3.</span>
+                  Clique em <strong className="text-foreground">"Instalar"</strong>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-primary font-bold">4.</span>
+                  Pronto! O app vai aparecer na <strong className="text-foreground">área de trabalho</strong>
+                </li>
+              </ol>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Android Steps */}
         {showAndroidSteps && (
