@@ -41,6 +41,8 @@ const GROUP_JID_RE = /@g\.us$/i;
 type AllowedGroupSelection = {
   selectionKey: string;
   groupId: string | null;
+  groupIds: string[];
+  inviteCode: string | null;
   link: string | null;
   name: string;
   joinedJid: string | null;
@@ -98,6 +100,19 @@ function uniqueGroups(groups: Array<{ jid: string; name: string }>): Array<{ jid
   });
 }
 
+function pickNextResolvedGroup(
+  groups: Array<{ jid: string; name: string }>,
+  lastGroupUsed: string | null | undefined,
+): { jid: string; name: string } | null {
+  if (groups.length === 0) return null;
+  if (groups.length === 1) return groups[0];
+
+  const lastIndex = groups.findIndex((group) => group.jid === lastGroupUsed);
+  if (lastIndex === -1) return groups[0];
+
+  return groups[(lastIndex + 1) % groups.length];
+}
+
 function dedupeStrings(values: unknown[]): string[] {
   return Array.from(new Set(
     values
@@ -153,16 +168,28 @@ async function loadAllowedGroupSelections(
 ): Promise<AllowedGroupSelection[]> {
   const selectionKeys = dedupeStrings(identifiers);
   const selections = new Map<string, AllowedGroupSelection>(
-    selectionKeys.map((selectionKey) => [
-      selectionKey,
-      {
+    selectionKeys.map((selectionKey) => {
+      const directGroupId = UUID_RE.test(selectionKey) ? selectionKey : null;
+      const joinedJid = GROUP_JID_RE.test(selectionKey) ? selectionKey : null;
+      const inviteCode = joinedJid ? null : extractInviteCode(selectionKey);
+
+      return [
         selectionKey,
-        groupId: UUID_RE.test(selectionKey) ? selectionKey : null,
-        link: !UUID_RE.test(selectionKey) && !GROUP_JID_RE.test(selectionKey) ? selectionKey : null,
-        name: "",
-        joinedJid: GROUP_JID_RE.test(selectionKey) ? selectionKey : null,
-      },
-    ]),
+        {
+          selectionKey,
+          groupId: directGroupId,
+          groupIds: directGroupId ? [directGroupId] : [],
+          inviteCode,
+          link: inviteCode
+            ? `https://chat.whatsapp.com/${inviteCode}`
+            : !directGroupId && !joinedJid
+                ? selectionKey
+                : null,
+          name: "",
+          joinedJid,
+        },
+      ];
+    }),
   );
 
   if (selections.size === 0) return [];
@@ -182,87 +209,115 @@ async function loadAllowedGroupSelections(
       const key = String(row?.id || "").trim();
       const selection = selections.get(key);
       if (!selection) continue;
+      selection.groupIds = dedupeStrings([...selection.groupIds, key]);
       selection.groupId = key || selection.groupId;
       selection.link = String(row?.link || "").trim() || null;
+      selection.inviteCode = selection.inviteCode || extractInviteCode(row?.link);
       selection.name = String(row?.name || "").trim();
     }
   }
 
   if (inviteLinks.length > 0) {
+    const canonicalInviteLinks = dedupeStrings(inviteLinks.map((value) => {
+      const inviteCode = extractInviteCode(value);
+      return inviteCode ? `https://chat.whatsapp.com/${inviteCode}` : value;
+    }));
+
     const { data } = await sb
       .from("warmup_groups")
       .select("id, name, link, is_custom, user_id")
-      .in("link", inviteLinks)
+      .in("link", canonicalInviteLinks)
       .or(`user_id.eq.${userId},and(is_custom.eq.false,user_id.is.null)`);
 
-    const rowsByLink = new Map<string, any[]>();
+    const rowsByInviteCode = new Map<string, any[]>();
     for (const row of data || []) {
-      const link = String(row?.link || "").trim();
-      if (!link) continue;
-      const current = rowsByLink.get(link) ?? [];
+      const inviteCode = extractInviteCode(row?.link);
+      if (!inviteCode) continue;
+      const current = rowsByInviteCode.get(inviteCode) ?? [];
       current.push(row);
-      rowsByLink.set(link, current);
+      rowsByInviteCode.set(inviteCode, current);
     }
 
     for (const inviteLink of inviteLinks) {
       const selection = selections.get(inviteLink);
       if (!selection) continue;
-      const picked = pickPreferredWarmupGroupRow(rowsByLink.get(inviteLink) ?? [], userId);
+      const inviteCode = selection.inviteCode || extractInviteCode(inviteLink);
+      const rows = inviteCode ? rowsByInviteCode.get(inviteCode) ?? [] : [];
+      const picked = pickPreferredWarmupGroupRow(rows, userId);
       if (!picked) continue;
+      selection.groupIds = dedupeStrings([
+        ...selection.groupIds,
+        ...rows.map((row) => String(row?.id || "").trim()),
+      ]);
       selection.groupId = String(picked?.id || "").trim() || selection.groupId;
       selection.link = String(picked?.link || "").trim() || selection.link;
       selection.name = String(picked?.name || "").trim() || selection.name;
+      selection.inviteCode = inviteCode || selection.inviteCode;
     }
   }
 
-  const resolvedGroupIds = dedupeStrings(Array.from(selections.values()).map((selection) => selection.groupId));
+  const { data: joinedRows } = await sb
+    .from("warmup_instance_groups")
+    .select("group_id, group_jid, group_name, invite_link")
+    .eq("user_id", userId)
+    .eq("device_id", deviceId)
+    .eq("join_status", "joined")
+    .not("group_jid", "is", null);
 
-  const [joinedByGroupIdResult, joinedByJidResult] = await Promise.all([
-    resolvedGroupIds.length > 0
-      ? sb
-          .from("warmup_instance_groups")
-          .select("group_id, group_jid, group_name, invite_link")
-          .eq("user_id", userId)
-          .eq("device_id", deviceId)
-          .eq("join_status", "joined")
-          .in("group_id", resolvedGroupIds)
-          .not("group_jid", "is", null)
-      : Promise.resolve({ data: [] as any[] }),
-    directJids.length > 0
-      ? sb
-          .from("warmup_instance_groups")
-          .select("group_id, group_jid, group_name, invite_link")
-          .eq("user_id", userId)
-          .eq("device_id", deviceId)
-          .eq("join_status", "joined")
-          .in("group_jid", directJids)
-      : Promise.resolve({ data: [] as any[] }),
-  ]);
+  const joinedByGroupId = new Map<string, any[]>();
+  const joinedByInviteCode = new Map<string, any[]>();
+  const joinedByJid = new Map<string, any>();
 
-  const joinedByGroupId = new Map<string, any>();
-  for (const row of joinedByGroupIdResult.data || []) {
+  for (const row of joinedRows || []) {
     const groupId = String(row?.group_id || "").trim();
-    if (groupId) joinedByGroupId.set(groupId, row);
+    if (groupId) {
+      const current = joinedByGroupId.get(groupId) ?? [];
+      current.push(row);
+      joinedByGroupId.set(groupId, current);
+    }
+
+    const inviteCode = extractInviteCode(row?.invite_link);
+    if (inviteCode) {
+      const current = joinedByInviteCode.get(inviteCode) ?? [];
+      current.push(row);
+      joinedByInviteCode.set(inviteCode, current);
+    }
+
+    const joinedJid = String(row?.group_jid || "").trim();
+    if (joinedJid) joinedByJid.set(joinedJid, row);
   }
 
   for (const selection of selections.values()) {
-    if (!selection.groupId) continue;
-    const joinedRow = joinedByGroupId.get(selection.groupId);
+    let joinedRow: any | null = null;
+
+    for (const candidateGroupId of selection.groupIds) {
+      const match = (joinedByGroupId.get(candidateGroupId) ?? [])[0];
+      if (match) {
+        joinedRow = match;
+        break;
+      }
+    }
+
+    if (!joinedRow && selection.inviteCode) {
+      joinedRow = (joinedByInviteCode.get(selection.inviteCode) ?? [])[0] ?? null;
+    }
+
+    if (!joinedRow && selection.joinedJid) {
+      joinedRow = joinedByJid.get(selection.joinedJid) ?? null;
+    }
+
     if (!joinedRow) continue;
+
+    const joinedGroupId = String(joinedRow?.group_id || "").trim();
+    if (joinedGroupId) {
+      selection.groupIds = dedupeStrings([...selection.groupIds, joinedGroupId]);
+      selection.groupId = joinedGroupId;
+    }
+
     selection.joinedJid = String(joinedRow?.group_jid || "").trim() || selection.joinedJid;
     selection.name = selection.name || String(joinedRow?.group_name || "").trim();
     selection.link = selection.link || String(joinedRow?.invite_link || "").trim() || null;
-  }
-
-  for (const row of joinedByJidResult.data || []) {
-    const joinedJid = String(row?.group_jid || "").trim();
-    if (!joinedJid) continue;
-    const selection = selections.get(joinedJid);
-    if (!selection) continue;
-    selection.groupId = String(row?.group_id || "").trim() || selection.groupId;
-    selection.joinedJid = joinedJid;
-    selection.name = selection.name || String(row?.group_name || "").trim();
-    selection.link = selection.link || String(row?.invite_link || "").trim() || null;
+    selection.inviteCode = selection.inviteCode || extractInviteCode(joinedRow?.invite_link);
   }
 
   return Array.from(selections.values());
@@ -503,6 +558,7 @@ async function processOneInteraction(sb: any, interaction: any) {
       if (selection.joinedJid) {
         const byJoinedJid = map.get(selection.joinedJid);
         if (byJoinedJid?.jid) resolvedGroup = byJoinedJid;
+        else resolvedGroup = { jid: selection.joinedJid, name: selection.name || "" };
       }
 
       if (!resolvedGroup && selection.link) {
@@ -558,9 +614,13 @@ async function processOneInteraction(sb: any, interaction: any) {
   const mediaByType: Record<string, any[]> = {};
   for (const m of userMedia || []) (mediaByType[m.media_type] ??= []).push(m);
 
-  // Pick group (avoid last used)
-  const rotated = resolved.filter(g => g.jid !== interaction.last_group_used);
-  const group = pickRandom(rotated.length > 0 ? rotated : resolved);
+  // Pick next group in deterministic rotation so every allowed group enters the cycle
+  const group = pickNextResolvedGroup(resolved, interaction.last_group_used);
+  if (!group) {
+    await pauseInteraction(sb, interaction.id, "Nenhum grupo permitido disponível para envio");
+    return;
+  }
+
   const category = getCategoryForIndex(todayCount % 5, 5);
 
   // ── All media types always enabled ──
