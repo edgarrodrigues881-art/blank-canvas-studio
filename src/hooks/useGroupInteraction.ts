@@ -150,6 +150,7 @@ export function useGroupInteraction(selectedInteractionId: string | null = null)
         end_hour_2: normalizeOptionalTime((rest as any).end_hour_2),
         user_id: user.id,
         status: "idle",
+        content_types: { text: true, image: true, audio: true, sticker: true },
       };
       const { data: inserted, error } = await (supabase
         .from("group_interactions" as any)

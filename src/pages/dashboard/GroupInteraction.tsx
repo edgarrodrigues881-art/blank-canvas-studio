@@ -51,7 +51,7 @@ const defaultForm: Partial<GroupInteraction> & Record<string, any> = {
   active_days: ["mon", "tue", "wed", "thu", "fri"],
   daily_limit_per_group: 10,
   daily_limit_total: 50,
-  content_types: { text: true, image: false, audio: false, sticker: false },
+  content_types: { text: true, image: true, audio: true, sticker: true },
   preset_name: "moderate",
 };
 
@@ -69,7 +69,7 @@ const statusLabels: Record<string, string> = {
   completed: "Concluído",
 };
 
-const defaultContentTypes = { text: true, image: false, audio: false, sticker: false };
+const defaultContentTypes = { text: true, image: true, audio: true, sticker: true };
 const defaultPeriod2 = { start_hour_2: "13:00", end_hour_2: "19:00" };
 
 function isGroupInteractionDeviceEligible(device: any): boolean {
@@ -850,23 +850,6 @@ export default function GroupInteractionPage() {
           </CardContent>
         </Card>
 
-        {/* Content Types */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-1.5">
-              <Settings className="w-3.5 h-3.5" /> Tipos de Conteúdo
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-[11px] text-muted-foreground mb-3">
-              Selecione os tipos de mídia que serão enviados nos grupos. Para imagem, figurinha e áudio funcionar, adicione mídias na biblioteca (Interação de Grupos &gt; Mídia).
-            </p>
-            <GIContentConfig
-              contentTypes={form.content_types || defaultContentTypes}
-              onChange={(types) => updateForm({ content_types: types })}
-            />
-          </CardContent>
-        </Card>
 
         {/* Delays & Limits */}
         <Card>
