@@ -388,7 +388,7 @@ async function processOneInteraction(sb: any, interaction: any) {
   if (resolved.length === 0) {
     await sb.from("group_interactions")
       .update({
-        last_error: `Nenhum grupo resolvido (${groupIds.length} links, ${groupMap.size} grupos)`,
+        last_error: `Nenhum grupo permitido foi encontrado no dispositivo (${groupIds.length} configurados, ${allowedGroupJids.size} com JID salvo, ${groupMap.size} grupos no aparelho)`,
         next_action_at: new Date(Date.now() + 300_000).toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -397,9 +397,9 @@ async function processOneInteraction(sb: any, interaction: any) {
     return;
   }
 
-  if (resolved.length < groupIds.length) {
+  if (unresolved.length > 0) {
     const missingCount = groupIds.length - resolved.length;
-    log.warn(`Interaction ${interaction.id.slice(0, 8)}: ${missingCount} grupos não resolvidos (${resolved.length}/${groupIds.length})`);
+    log.warn(`Interaction ${interaction.id.slice(0, 8)}: ${missingCount} grupos fora da allowlist ou sem JID salvo (${resolved.length}/${groupIds.length})`);
   }
 
   // Get messages
