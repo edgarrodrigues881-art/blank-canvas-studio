@@ -174,7 +174,7 @@ export async function syncDevicesTick() {
               user_id: device.user_id,
               device_id: device.id,
               event: "instance_disconnected",
-              details: `[vps] "${device.name}" confirmado desconectado após ${strikes} verificações`,
+              details: `[vps] "${device.name}" confirmado desconectado após ${strikes} verificações (${Math.round(timeSpread / 1000)}s)`,
             });
 
             // Auto-pause warmup
