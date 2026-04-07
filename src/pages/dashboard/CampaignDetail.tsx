@@ -167,7 +167,7 @@ const CampaignDetail = () => {
         updates.device_id = newDeviceIds[0];
       }
 
-      const { error } = await supabase.from("campaigns").update(updates).eq("id", id);
+      const { error } = await supabase.from("campaigns").update(updates as any).eq("id", id);
       if (error) throw error;
 
       queryClient.invalidateQueries({ queryKey: ["campaign", id] });
