@@ -354,52 +354,35 @@ async function processOneInteraction(sb: any, interaction: any) {
 
   const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
 
-  // Resolve groups (cached per device)
+  // Resolve groups strictly from explicit allowlist/JIDs already linked to this interaction
   let groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
-  const fallbackNameMap = await loadWarmupGroupNameFallbacks(sb, groupIds);
+  const allowedGroupJids = await loadAllowedGroupJids(sb, groupIds);
 
-  const resolveWithMap = (map: Map<string, ResolvedGroup>) => {
+  const resolveStrict = (map: Map<string, ResolvedGroup>) => {
     const found: Array<{ jid: string; name: string }> = [];
     const unresolved: string[] = [];
+
     for (const gid of groupIds) {
-      const aliases = dedupeStrings([fallbackNameMap.get(gid)]);
-      const resolvedGroup = resolveGroupJid(gid, map, aliases);
-      if (resolvedGroup) found.push(resolvedGroup);
-      else unresolved.push(gid);
-    }
-    return { resolved: uniqueGroups(found), unresolved };
-  };
-
-  let { resolved, unresolved } = resolveWithMap(groupMap);
-
-  if (resolved.length === 0) {
-    groupMapCache.delete(device.id);
-    groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
-    ({ resolved, unresolved } = resolveWithMap(groupMap));
-  }
-
-  if (unresolved.length > 0) {
-    groupMapCache.delete(device.id);
-    groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
-    ({ resolved, unresolved } = resolveWithMap(groupMap));
-  }
-
-  if (unresolved.length > 0) {
-    for (const identifier of unresolved) {
-      const fallbackName = fallbackNameMap.get(identifier);
-      const aliases = dedupeStrings([fallbackName]);
-      const resolvedByName = resolveGroupJid(identifier, groupMap, aliases);
-      if (resolvedByName) {
-        resolved.push(resolvedByName);
+      const explicitJid = allowedGroupJids.get(gid);
+      if (!explicitJid) {
+        unresolved.push(gid);
         continue;
       }
 
-      const resolvedByInvite = await resolveGroupFromInvite(baseUrl, device.uazapi_token, identifier);
-      if (resolvedByInvite) {
-        resolved.push(resolvedByInvite);
-      }
+      const resolvedGroup = map.get(explicitJid);
+      if (resolvedGroup?.jid) found.push(resolvedGroup);
+      else unresolved.push(gid);
     }
-    resolved = uniqueGroups(resolved);
+
+    return { resolved: uniqueGroups(found), unresolved };
+  };
+
+  let { resolved, unresolved } = resolveStrict(groupMap);
+
+  if (resolved.length === 0 || unresolved.length > 0) {
+    groupMapCache.delete(device.id);
+    groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
+    ({ resolved, unresolved } = resolveStrict(groupMap));
   }
 
   if (resolved.length === 0) {
