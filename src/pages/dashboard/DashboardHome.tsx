@@ -19,7 +19,23 @@ const DashboardHome = () => {
   const disconnectedCount = chips.filter((c) => !c.connected).length;
   const messagesToday = liveMessagesToday?.total ?? chips.reduce((a, c) => a + c.volumeToday, 0);
 
-  const topCards = [
+  const messageBreakdown = liveMessagesToday
+    ? [
+        liveMessagesToday.warmup > 0 && `🔥 ${liveMessagesToday.warmup}`,
+        liveMessagesToday.chip > 0 && `💬 ${liveMessagesToday.chip}`,
+        liveMessagesToday.group > 0 && `👥 ${liveMessagesToday.group}`,
+      ].filter(Boolean).join(" · ") || undefined
+    : undefined;
+
+  const topCards: Array<{
+    label: string;
+    value: number;
+    icon: any;
+    dotColor: string;
+    iconClass: string;
+    bgClass: string;
+    breakdown?: string;
+  }> = [
     {
       label: "Conectadas",
       value: connectedCount,
@@ -51,6 +67,7 @@ const DashboardHome = () => {
       dotColor: "bg-teal-400",
       iconClass: "text-teal-400",
       bgClass: "bg-teal-500/10",
+      breakdown: messageBreakdown,
     },
   ];
 
@@ -80,7 +97,12 @@ const DashboardHome = () => {
                   <AnimatedCounter value={s.value} />
                 )}
               </div>
-              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">{s.label}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
+                {s.label}
+                {s.breakdown && (
+                  <span className="block text-[9px] text-muted-foreground/60 mt-0.5">{s.breakdown}</span>
+                )}
+              </p>
             </CardContent>
           </Card>
         ))}

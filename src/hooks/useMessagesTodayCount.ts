@@ -44,7 +44,7 @@ export function useMessagesTodayCount() {
       return { total: warmup + chip + group, warmup, chip, group };
     },
     enabled: !!user?.id,
-    refetchInterval: 120_000,
-    staleTime: 60_000,
+    refetchInterval: 30_000,
+    staleTime: 15_000,
   });
 }
