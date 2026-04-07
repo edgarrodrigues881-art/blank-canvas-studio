@@ -253,8 +253,8 @@ export function AppSidebar() {
             )}
             <div className="relative shrink-0">
               <item.icon
-                className={`w-[18px] h-[18px] shrink-0 transition-colors duration-150 ${isLocked ? 'text-muted-foreground/30' : active ? 'text-primary' : ''}`}
-                strokeWidth={active ? 2.2 : 1.5}
+                className={`w-[17px] h-[17px] shrink-0 transition-colors duration-150 ${isLocked ? 'text-muted-foreground/30' : active ? 'text-primary' : ''}`}
+                strokeWidth={active ? 2 : 1.4}
               />
               {isLocked && (
                 <Lock className="absolute -bottom-1 -right-1 w-[10px] h-[10px] text-amber-500/70" strokeWidth={2.5} />
