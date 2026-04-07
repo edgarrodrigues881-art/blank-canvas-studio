@@ -8,7 +8,7 @@ import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
-import { fetchDeviceGroups, normalizeGroupName, resolveGroupJid, type ResolvedGroup } from "../group-interaction/group-resolution";
+import { extractInviteCode, fetchDeviceGroups, type ResolvedGroup } from "../group-interaction/group-resolution";
 
 const log = createLogger("group-interaction");
 
@@ -126,10 +126,23 @@ function pickPreferredWarmupGroupRow(rows: any[], userId: string): any | null {
     || null;
 }
 
-function getExactGroupNameMatch(groupMap: Map<string, ResolvedGroup>, name: string): ResolvedGroup | null {
-  const normalized = normalizeGroupName(name);
-  if (!normalized) return null;
-  return groupMap.get(`name:${normalized}`) || null;
+function resolveGroupByInviteOnly(groupMap: Map<string, ResolvedGroup>, identifier: string | null | undefined): ResolvedGroup | null {
+  const raw = String(identifier ?? "").trim();
+  if (!raw) return null;
+
+  const exact = groupMap.get(raw);
+  if (exact?.jid) return exact;
+
+  const inviteCode = extractInviteCode(raw);
+  if (!inviteCode) return null;
+
+  const byCode = groupMap.get(inviteCode);
+  if (byCode?.jid) return byCode;
+
+  const byLink = groupMap.get(`https://chat.whatsapp.com/${inviteCode}`);
+  if (byLink?.jid) return byLink;
+
+  return null;
 }
 
 async function loadAllowedGroupSelections(
@@ -145,9 +158,9 @@ async function loadAllowedGroupSelections(
       {
         selectionKey,
         groupId: UUID_RE.test(selectionKey) ? selectionKey : null,
-        link: null,
+        link: !UUID_RE.test(selectionKey) && !GROUP_JID_RE.test(selectionKey) ? selectionKey : null,
         name: "",
-        joinedJid: null,
+        joinedJid: GROUP_JID_RE.test(selectionKey) ? selectionKey : null,
       },
     ]),
   );
@@ -493,15 +506,10 @@ async function processOneInteraction(sb: any, interaction: any) {
       }
 
       if (!resolvedGroup && selection.link) {
-        const byInviteLink = resolveGroupJid(selection.link, map);
-        if (byInviteLink?.jid && map.has(byInviteLink.jid)) {
+        const byInviteLink = resolveGroupByInviteOnly(map, selection.link);
+        if (byInviteLink?.jid) {
           resolvedGroup = byInviteLink;
         }
-      }
-
-      if (!resolvedGroup && !selection.link && selection.name) {
-        const byExactName = getExactGroupNameMatch(map, selection.name);
-        if (byExactName?.jid) resolvedGroup = byExactName;
       }
 
       if (resolvedGroup?.jid) {
