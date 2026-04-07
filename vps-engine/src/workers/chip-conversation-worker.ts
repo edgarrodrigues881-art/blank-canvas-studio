@@ -310,13 +310,14 @@ async function processOneConversation(sb: any, conv: any) {
   // Distribuição solicitada: 52% texto, 35% áudio, 10% figurinha, 3% imagem
   const contentType = pickChipContentType();
 
-  // Rotate through ALL devices, not just first 2
+  // Rotate sender through ALL devices, pick random receiver from the rest
   const totalDevices = activeDevices.length;
   const turnIndex = (conv.total_messages_sent || 0);
   const senderIndex = turnIndex % totalDevices;
-  const receiverIndex = (senderIndex + 1) % totalDevices;
   const sender = activeDevices[senderIndex];
-  const receiver = activeDevices[receiverIndex];
+  // Pick a random receiver that is NOT the sender
+  const possibleReceivers = activeDevices.filter((_: any, i: number) => i !== senderIndex);
+  const receiver = possibleReceivers[Math.floor(Math.random() * possibleReceivers.length)];
 
   let messageText = "";
   let messageCategory: "text" | "audio" | "sticker" | "image" = contentType;
