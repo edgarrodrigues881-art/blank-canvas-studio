@@ -570,7 +570,7 @@ async function processOneInteraction(sb: any, interaction: any) {
     const recognizedSelections = allowedSelections.filter((selection) => selection.groupId || selection.link || selection.joinedJid || selection.name);
     await sb.from("group_interactions")
       .update({
-        last_error: `Nenhum grupo permitido foi encontrado no dispositivo (${groupIds.length} configurados, ${recognizedSelections.length} reconhecidos na allowlist, ${groupMap.size} grupos no aparelho)`,
+        last_error: `Nenhum grupo permitido foi encontrado (${groupIds.length} configurados, ${recognizedSelections.length} reconhecidos na allowlist, nenhum com JID registrado)`,
         next_action_at: new Date(Date.now() + 300_000).toISOString(),
         updated_at: new Date().toISOString(),
       })
