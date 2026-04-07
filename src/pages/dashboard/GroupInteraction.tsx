@@ -154,39 +154,11 @@ export default function GroupInteractionPage() {
     [selected, deviceMap]
   );
 
-  const selectedDisplayStatus = selectedInvalidReason && selected?.status === "running" ? "paused" : selected?.status;
+  const selectedDisplayStatus = selected?.status;
   const selectedPresentation = useMemo(() => {
     if (!selected) return null;
-    if (!selectedDisplayStatus || selectedDisplayStatus === selected.status) return selected;
-    return { ...selected, status: selectedDisplayStatus, last_error: selected.last_error || selectedInvalidReason };
-  }, [selected, selectedDisplayStatus, selectedInvalidReason]);
-
-  useEffect(() => {
-    const invalidRunningInteractions = interactions.filter((interaction) => {
-      return interaction.status === "running" && Boolean(getInteractionInvalidReason(interaction, deviceMap));
-    });
-
-    const activeInvalidIds = new Set(invalidRunningInteractions.map((interaction) => interaction.id));
-    autoPausedInteractionIdsRef.current.forEach((interactionId) => {
-      if (!activeInvalidIds.has(interactionId)) autoPausedInteractionIdsRef.current.delete(interactionId);
-    });
-
-    if (invalidRunningInteractions.length === 0) return;
-
-    void Promise.allSettled(
-      invalidRunningInteractions.map(async (interaction) => {
-        if (autoPausedInteractionIdsRef.current.has(interaction.id)) return;
-        autoPausedInteractionIdsRef.current.add(interaction.id);
-        try {
-          await supabase.functions.invoke("group-interaction", {
-            body: { interactionId: interaction.id, action: "pause" },
-          });
-        } catch {
-          autoPausedInteractionIdsRef.current.delete(interaction.id);
-        }
-      })
-    );
-  }, [interactions, deviceMap]);
+    return selected;
+  }, [selected]);
 
   useEffect(() => {
     if (selected) {
