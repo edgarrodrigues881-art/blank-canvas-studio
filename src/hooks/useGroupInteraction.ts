@@ -182,12 +182,25 @@ export function useGroupInteraction(selectedInteractionId: string | null = null)
         ...normalized,
         start_hour_2: normalizeOptionalTime((normalized as any).start_hour_2 ?? (data as any).start_hour_2),
         end_hour_2: normalizeOptionalTime((normalized as any).end_hour_2 ?? (data as any).end_hour_2),
-        status: data.status === "active" ? "idle" : data.status,
         updated_at: new Date().toISOString(),
       };
+      // Fix status: never send null, and normalize "active" → "idle"
+      if (data.status != null) {
+        payload.status = data.status === "active" ? "idle" : data.status;
+      } else {
+        delete payload.status; // don't touch status if not provided
+      }
+      // Auto-correct delay: min should never exceed max
+      if (payload.min_delay_seconds != null && payload.max_delay_seconds != null) {
+        const minD = Number(payload.min_delay_seconds);
+        const maxD = Number(payload.max_delay_seconds);
+        if (minD > maxD) {
+          payload.max_delay_seconds = minD;
+        }
+      }
       // Remove undefined keys (Supabase ignores them but be safe)
       for (const k of Object.keys(payload)) {
-        if (payload[k] === undefined) payload[k] = null;
+        if (payload[k] === undefined) delete payload[k];
       }
       const { error } = await supabase
         .from("group_interactions" as any)
