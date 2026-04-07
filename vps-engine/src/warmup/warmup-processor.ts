@@ -521,6 +521,10 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
       const imgUrl = pickRandom(ctx.imagePool);
       await uazapiSendSticker(baseUrl, token, groupJid, imgUrl);
       message = "[STICKER] 🎭";
+    } else if (mediaType === "audio") {
+      const audioUrl = pickRandom(ctx.audioPool);
+      await uazapiSendAudio(baseUrl, token, groupJid, audioUrl);
+      message = "[AUDIO] 🎤";
     } else {
       await uazapiSendText(baseUrl, token, groupJid, message, true);
     }
