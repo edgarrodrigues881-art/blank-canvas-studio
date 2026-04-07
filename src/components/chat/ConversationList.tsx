@@ -1,8 +1,9 @@
-import { Search, Check, CheckCheck, MessageSquarePlus, Tag, X, ArchiveRestore, Smartphone } from "lucide-react";
+import { Search, Check, CheckCheck, MessageSquarePlus, Tag, X, ArchiveRestore, Smartphone, CheckSquare, Square, Trash2, Archive, XCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { type Conversation } from "./types";
 import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -30,6 +31,8 @@ interface ConversationListProps {
   availableInstances?: InstanceFilter[];
   filterInstanceIds?: string[];
   onFilterInstancesChange?: (ids: string[]) => void;
+  onBulkArchive?: (ids: string[]) => void;
+  onBulkDelete?: (ids: string[]) => void;
 }
 
 type StatusTab = "all" | "mine" | "new" | "attending" | "waiting" | "archived";
@@ -116,8 +119,12 @@ export function ConversationList({
   availableInstances = [],
   filterInstanceIds = [],
   onFilterInstancesChange,
+  onBulkArchive,
+  onBulkDelete,
 }: ConversationListProps) {
   const [activeStatus, setActiveStatus] = useState<StatusTab>("all");
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const toggleInstance = (id: string) => {
     if (!onFilterInstancesChange) return;
@@ -151,6 +158,24 @@ export function ConversationList({
 
   const trimmedQuery = searchQuery.trim();
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllVisible = () => {
+    setSelectedIds(new Set(filtered.map((c) => c.id)));
+  };
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
   return (
     <div className="flex flex-col h-full bg-background">
       <div className="px-3 pt-2 pb-1.5 space-y-1.5 border-b border-border">
@@ -159,19 +184,74 @@ export function ConversationList({
             <h2 className="text-sm font-bold text-foreground">Atendimento</h2>
             <span className="text-[10px] text-muted-foreground">{conversations.length} conversas</span>
           </div>
-          {onNewConversationClick && (
+          <div className="flex items-center gap-1">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 rounded-lg px-2.5 text-[10px] shrink-0"
-              onClick={onNewConversationClick}
+              className="h-7 rounded-lg px-2 text-[10px] shrink-0"
+              onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
             >
-              <MessageSquarePlus className="w-3.5 h-3.5" />
-              Nova conversa
+              {selectionMode ? <XCircle className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
+              {selectionMode ? "Cancelar" : "Selecionar"}
             </Button>
-          )}
+            {onNewConversationClick && !selectionMode && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 rounded-lg px-2.5 text-[10px] shrink-0"
+                onClick={onNewConversationClick}
+              >
+                <MessageSquarePlus className="w-3.5 h-3.5" />
+                Nova conversa
+              </Button>
+            )}
+          </div>
         </div>
+
+        {/* Bulk action bar */}
+        {selectionMode && (
+          <div className="flex items-center gap-1.5 py-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[10px] gap-1"
+              onClick={selectedIds.size === filtered.length ? () => setSelectedIds(new Set()) : selectAllVisible}
+            >
+              {selectedIds.size === filtered.length ? <Square className="w-3 h-3" /> : <CheckSquare className="w-3 h-3" />}
+              {selectedIds.size === filtered.length ? "Desmarcar" : "Selecionar"} todas ({filtered.length})
+            </Button>
+            <div className="flex-1" />
+            {selectedIds.size > 0 && (
+              <>
+                <span className="text-[10px] text-muted-foreground">{selectedIds.size} selecionada{selectedIds.size > 1 ? "s" : ""}</span>
+                {onBulkArchive && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] gap-1"
+                    onClick={() => { onBulkArchive(Array.from(selectedIds)); exitSelectionMode(); }}
+                  >
+                    <Archive className="w-3 h-3" />
+                    Arquivar
+                  </Button>
+                )}
+                {onBulkDelete && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] gap-1 text-destructive hover:text-destructive"
+                    onClick={() => { onBulkDelete(Array.from(selectedIds)); exitSelectionMode(); }}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Apagar
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -283,16 +363,25 @@ export function ConversationList({
               return (
                 <button
                   key={c.id}
-                  onClick={() => onSelect(c)}
+                  onClick={() => selectionMode ? toggleSelect(c.id) : onSelect(c)}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all border-l-2",
                     isSelected
                       ? "bg-primary/8 border-l-primary"
                       : hasUnread
                         ? "border-l-primary/70 bg-primary/[0.03] hover:bg-primary/[0.06]"
-                        : "border-l-transparent hover:bg-muted/20"
+                        : "border-l-transparent hover:bg-muted/20",
+                    selectionMode && selectedIds.has(c.id) && "bg-primary/10 border-l-primary/50"
                   )}
                 >
+                  {selectionMode && (
+                    <div className="shrink-0" onClick={(e) => { e.stopPropagation(); toggleSelect(c.id); }}>
+                      <Checkbox
+                        checked={selectedIds.has(c.id)}
+                        className="w-4 h-4"
+                      />
+                    </div>
+                  )}
                   <div className="relative shrink-0">
                     {c.avatar_url ? (
                       <img src={c.avatar_url} alt={avatarLabel} className="w-11 h-11 rounded-full object-cover" />
