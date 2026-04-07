@@ -209,20 +209,22 @@ export function generateNaturalMessage(context: "group" | "autosave" | "communit
 }
 
 // Media type selectors
-export function pickMediaTypeGroup(budgetUsed: number): "text" | "image" | "sticker" {
+export function pickMediaTypeGroup(budgetUsed: number): "text" | "image" | "sticker" | "audio" {
   if (budgetUsed < 3) return "text";
   const r = Math.random();
-  if (r < 0.70) return "text";
-  if (r < 0.85) return "image";
-  return "sticker";
+  if (r < 0.50) return "text";
+  if (r < 0.70) return "image";
+  if (r < 0.85) return "sticker";
+  return "audio";
 }
 
-export function pickMediaTypeCommunity(budgetUsed: number): "text" | "image" | "audio" | "location" {
+export function pickMediaTypeCommunity(budgetUsed: number): "text" | "image" | "audio" | "sticker" | "location" {
   if (budgetUsed < 3) return "text";
   const r = Math.random();
-  if (r < 0.85) return "text";
-  if (r < 0.93) return "image";
-  if (r < 0.98) return "audio";
+  if (r < 0.55) return "text";
+  if (r < 0.72) return "image";
+  if (r < 0.85) return "audio";
+  if (r < 0.95) return "sticker";
   return "location";
 }
 
