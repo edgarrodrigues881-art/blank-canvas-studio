@@ -17,7 +17,7 @@ const DashboardHome = () => {
   const connectedCount = chips.filter((c) => c.connected).length;
   const warmingCount = chips.filter((c) => c.warmupStatus === "running").length;
   const disconnectedCount = chips.filter((c) => !c.connected).length;
-  const messagesToday = liveMessagesToday ?? chips.reduce((a, c) => a + c.volumeToday, 0);
+  const messagesToday = liveMessagesToday?.total ?? chips.reduce((a, c) => a + c.volumeToday, 0);
 
   const topCards = [
     {
