@@ -33,6 +33,7 @@ export function useConversationRealtime({
   getConversationIdsForSameContact,
   markConversationGroupAsRead,
   updateStatus,
+  isOwnDevice,
 }: UseConversationRealtimeParams) {
 
   // Real-time — conversations table
