@@ -1777,13 +1777,29 @@ const Devices = () => {
         type: selectedProxyData.type,
       } : undefined;
 
-      // Single connect call — edge function handles everything
-      const connectResult = await callApi({
-        action: "connect",
-        deviceId: connectingDevice.id,
-        proxyConfig: proxyPayload,
-        proxyId: proxyId || undefined,
-      });
+      let connectResult: any;
+
+      // If no proxy selected and we have a pre-fetched result, use it
+      if (!proxyId && prefetchQrPromiseRef.current) {
+        connectResult = await prefetchQrPromiseRef.current;
+        prefetchQrPromiseRef.current = null;
+        if (!connectResult) {
+          // Prefetch failed, make a fresh call
+          connectResult = await callApi({
+            action: "connect",
+            deviceId: connectingDevice.id,
+          });
+        }
+      } else {
+        // Cancel any prefetch since we need a different call (with proxy)
+        prefetchQrPromiseRef.current = null;
+        connectResult = await callApi({
+          action: "connect",
+          deviceId: connectingDevice.id,
+          proxyConfig: proxyPayload,
+          proxyId: proxyId || undefined,
+        });
+      }
 
       // Check for any error returned by the edge function
       if (connectResult?.error) {
@@ -1797,7 +1813,6 @@ const Devices = () => {
       }
 
       if (connectResult.alreadyConnected) {
-        // Optimistic cache: mark device as Ready immediately
         queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
           old ? old.map(d => d.id === connectingDevice.id ? {
             ...d,
@@ -1808,7 +1823,6 @@ const Devices = () => {
         queryClient.invalidateQueries({ queryKey: ["devices"] });
         queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
         setConnectStep("done");
-        const phoneMsg = connectResult.phone ? ` Número: ${connectResult.phone}` : "";
         setConnectOpen(false); resumeKeepAlive();
         return;
       }
@@ -1823,7 +1837,6 @@ const Devices = () => {
           if (statusResult?.alreadyConnected || statusResult?.status === "authenticated") {
             queryClient.invalidateQueries({ queryKey: ["devices"] });
             setConnectStep("done");
-            // Toast removido — trigger do banco já notifica
             setConnectOpen(false); resumeKeepAlive();
             return;
           }
