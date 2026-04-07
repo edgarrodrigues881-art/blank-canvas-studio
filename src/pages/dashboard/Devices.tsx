@@ -200,6 +200,7 @@ const Devices = () => {
   const [qrCountdown, setQrCountdown] = useState(30);
   const qrCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingConnectDeviceNameRef = useRef<string | null>(null);
+  const prefetchQrPromiseRef = useRef<Promise<any> | null>(null);
 
   // Fetch devices from database
   const { data: devices = [], isLoading: devicesLoading, isError: devicesError } = useQuery({
@@ -590,7 +591,7 @@ const Devices = () => {
             updated_at: data.device.updated_at || new Date().toISOString(),
             has_api_config: data.device.has_api_config || false,
           });
-          setConnectStep("choose");
+          setConnectStep("proxy");
           setQrCodeBase64("");
           setPairingCode("");
           setConnectError("");
@@ -1671,25 +1672,68 @@ const Devices = () => {
       setPlanGateOpen(true);
       return;
     }
-    // Block connection attempts on optimistic (temp) devices that haven't been persisted yet
     if (device.id.startsWith("temp-")) {
       pendingConnectDeviceNameRef.current = device.name;
       toast({ title: "Preparando conexão", description: "Vou abrir o QR code automaticamente assim que a instância terminar de criar." });
       return;
     }
     setConnectingDevice(device);
-    setConnectStep("choose");
     setQrCodeBase64("");
     setPairingCode("");
     setConnectError("");
+    setConnectMethod("qr");
+    setSelectedProxy(device.proxy_id || "none");
     stopPolling();
-    pauseKeepAlive(); // Pause keepAlive pings to free concurrency for connection
-    setConnectOpen(true);
+    pauseKeepAlive();
+
+    // Pre-fire QR API call in background (no proxy) so QR is ready instantly
+    prefetchQrPromiseRef.current = callApi({
+      action: "connect",
+      deviceId: device.id,
+    }).catch(() => null);
+
+    // If no proxies and device has no proxy, skip proxy step → go straight to QR
+    const hasProxies = dbProxies.length > 0 || !!device.proxy_id;
+    if (!hasProxies) {
+      setConnectStep("qr");
+      setConnectOpen(true);
+      // Use pre-fetched result
+      try {
+        const result = await prefetchQrPromiseRef.current;
+        prefetchQrPromiseRef.current = null;
+        if (!result) throw new Error("Falha ao conectar");
+        if (result.error) {
+          setConnectError(result.error);
+          if (result.code === "DUPLICATE_PHONE") setConnectStep("proxy");
+          queryClient.invalidateQueries({ queryKey: ["devices"] });
+          return;
+        }
+        if (result.alreadyConnected) {
+          queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
+            old ? old.map(d => d.id === device.id ? { ...d, status: "Ready" as const, number: result.phone || d.number } : d) : old
+          );
+          queryClient.invalidateQueries({ queryKey: ["devices"] });
+          queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
+          setConnectStep("done");
+          setConnectOpen(false); resumeKeepAlive();
+          return;
+        }
+        const b64 = result.base64 || result.qr;
+        if (b64) {
+          setQrCodeBase64(b64.startsWith("data:") ? b64 : `data:image/png;base64,${b64}`);
+        }
+        startPolling(device.id, null);
+      } catch (err: any) {
+        setConnectError(err?.message || "Erro ao conectar");
+      }
+    } else {
+      setConnectStep("proxy");
+      setConnectOpen(true);
+    }
   };
 
   const handleConnect = (method: "qr" | "code") => {
     setConnectMethod(method);
-    // Pre-select the proxy already assigned to the device
     setSelectedProxy(connectingDevice?.proxy_id || "none");
     setConnectStep("proxy");
   };
@@ -1733,13 +1777,29 @@ const Devices = () => {
         type: selectedProxyData.type,
       } : undefined;
 
-      // Single connect call — edge function handles everything
-      const connectResult = await callApi({
-        action: "connect",
-        deviceId: connectingDevice.id,
-        proxyConfig: proxyPayload,
-        proxyId: proxyId || undefined,
-      });
+      let connectResult: any;
+
+      // If no proxy selected and we have a pre-fetched result, use it
+      if (!proxyId && prefetchQrPromiseRef.current) {
+        connectResult = await prefetchQrPromiseRef.current;
+        prefetchQrPromiseRef.current = null;
+        if (!connectResult) {
+          // Prefetch failed, make a fresh call
+          connectResult = await callApi({
+            action: "connect",
+            deviceId: connectingDevice.id,
+          });
+        }
+      } else {
+        // Cancel any prefetch since we need a different call (with proxy)
+        prefetchQrPromiseRef.current = null;
+        connectResult = await callApi({
+          action: "connect",
+          deviceId: connectingDevice.id,
+          proxyConfig: proxyPayload,
+          proxyId: proxyId || undefined,
+        });
+      }
 
       // Check for any error returned by the edge function
       if (connectResult?.error) {
@@ -1753,7 +1813,6 @@ const Devices = () => {
       }
 
       if (connectResult.alreadyConnected) {
-        // Optimistic cache: mark device as Ready immediately
         queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
           old ? old.map(d => d.id === connectingDevice.id ? {
             ...d,
@@ -1764,7 +1823,6 @@ const Devices = () => {
         queryClient.invalidateQueries({ queryKey: ["devices"] });
         queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
         setConnectStep("done");
-        const phoneMsg = connectResult.phone ? ` Número: ${connectResult.phone}` : "";
         setConnectOpen(false); resumeKeepAlive();
         return;
       }
@@ -1779,7 +1837,6 @@ const Devices = () => {
           if (statusResult?.alreadyConnected || statusResult?.status === "authenticated") {
             queryClient.invalidateQueries({ queryKey: ["devices"] });
             setConnectStep("done");
-            // Toast removido — trigger do banco já notifica
             setConnectOpen(false); resumeKeepAlive();
             return;
           }
@@ -2460,12 +2517,15 @@ const Devices = () => {
                 </div>
 
                 {/* Buttons */}
-                <div className="flex items-center gap-3">
-                  <Button variant="outline" className="flex-1 h-11 text-sm" onClick={() => { stopPolling(); setConnectStep("proxy"); setConnectOpen(false); resumeKeepAlive(); }}>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" className="h-11 text-sm px-4" onClick={() => { stopPolling(); setConnectOpen(false); resumeKeepAlive(); prefetchQrPromiseRef.current = null; }}>
                     Cancelar
                   </Button>
-                  <Button className="flex-1 h-11 text-sm font-semibold" onClick={handleConfirmProxy}>
-                    Conectar
+                  <Button variant="outline" className="h-11 text-sm px-4 gap-1.5" onClick={() => { setConnectMethod("code"); handleConfirmProxy(); }}>
+                    <Key className="w-4 h-4" /> Código
+                  </Button>
+                  <Button className="flex-1 h-11 text-sm font-semibold gap-1.5" onClick={() => { setConnectMethod("qr"); handleConfirmProxy(); }}>
+                    <QrCode className="w-4 h-4" /> QR Code
                   </Button>
                 </div>
               </motion.div>
