@@ -179,7 +179,7 @@ async function loadUserDeviceQuotaData(admin: any, userId: string) {
       .maybeSingle(),
     admin
       .from("profiles")
-      .select("instance_override, status")
+      .select("instance_override, status, full_name")
       .eq("id", userId)
       .maybeSingle(),
     admin
