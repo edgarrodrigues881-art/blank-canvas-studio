@@ -88,7 +88,7 @@ export function useDashboardStats() {
       const weekStartISO = `${mondayStr}T00:00:00-03:00`;
       const weekEndISO = `${sundayStr}T23:59:59.999-03:00`;
 
-      const [devicesRes, cyclesRes, dailyStatsRes, proxiesRes, chipLogsRes, groupLogsRes] = await Promise.all([
+      const [devicesRes, cyclesRes, dailyStatsRes, proxiesRes, logCountsRes] = await Promise.all([
         supabase
           .from("devices")
           .select("id, name, number, status, proxy_id, profile_picture")
@@ -135,16 +135,16 @@ export function useDashboardStats() {
         dayStatsMap[dateKey].total += s.messages_total || 0;
       });
 
-      // Aggregate chip + group logs by Brazil date
+      // Aggregate chip + group log counts by date (from RPC)
       const chipByDay: Record<string, number> = {};
       const groupByDay: Record<string, number> = {};
-      ((chipLogsRes.data as any[]) || []).forEach((r: any) => {
-        const dk = getBrazilDateKey(r.sent_at);
-        chipByDay[dk] = (chipByDay[dk] || 0) + 1;
-      });
-      ((groupLogsRes.data as any[]) || []).forEach((r: any) => {
-        const dk = getBrazilDateKey(r.sent_at);
-        groupByDay[dk] = (groupByDay[dk] || 0) + 1;
+      ((logCountsRes.data as any[]) || []).forEach((r: any) => {
+        const dateStr = typeof r.dt === 'string' ? r.dt.slice(0, 10) : String(r.dt);
+        if (r.source === 'chip') {
+          chipByDay[dateStr] = (chipByDay[dateStr] || 0) + Number(r.cnt);
+        } else {
+          groupByDay[dateStr] = (groupByDay[dateStr] || 0) + Number(r.cnt);
+        }
       });
 
       const totalMessages = totalSent + totalFailed;
