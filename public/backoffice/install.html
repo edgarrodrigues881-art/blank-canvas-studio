@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Instalar DG BackOffice</title>
+    <meta name="theme-color" content="#0a0f14" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="DG BackOffice" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="/manifest-backoffice.json" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/bo-icon-512.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/bo-icon-512.png" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0f14; color: #fff; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+      .container { max-width: 400px; width: 100%; padding: 24px; text-align: center; }
+      .icon { width: 96px; height: 96px; margin: 0 auto 24px; border-radius: 24px; }
+      h1 { font-size: 22px; margin-bottom: 8px; }
+      p { color: #888; font-size: 14px; margin-bottom: 32px; }
+      .btn { display: block; width: 100%; padding: 16px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; margin-bottom: 12px; }
+      .btn-primary { background: #d4a843; color: #000; }
+      .steps { background: #111; border: 1px solid #222; border-radius: 12px; padding: 20px; margin-top: 20px; text-align: left; display: none; }
+      .steps.show { display: block; }
+      .steps h3 { font-size: 14px; margin-bottom: 12px; }
+      .steps li { color: #aaa; font-size: 13px; margin-bottom: 8px; list-style: none; }
+      .steps strong { color: #fff; }
+      .note { color: #555; font-size: 12px; margin-top: 24px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <img src="/bo-icon-512.png" alt="DG BackOffice" class="icon" />
+      <h1>Baixar DG BackOffice</h1>
+      <p>App exclusivo para administradores.<br/>Abre sempre direto no painel admin.</p>
+      <button class="btn btn-primary" id="installBtn" onclick="doInstall()">📱 Instalar App</button>
+      <div class="steps" id="androidSteps">
+        <h3>📱 Como instalar:</h3>
+        <ol>
+          <li><strong>1.</strong> Toque nos <strong>⋮ 3 pontinhos</strong> do Chrome</li>
+          <li><strong>2.</strong> Toque em <strong>"Instalar aplicativo"</strong></li>
+          <li><strong>3.</strong> O app <strong>"DG BackOffice"</strong> vai abrir sempre no BackOffice</li>
+        </ol>
+      </div>
+      <div class="steps" id="iosSteps">
+        <h3>🍎 Como instalar no iPhone:</h3>
+        <ol>
+          <li><strong>1.</strong> Abra este link no <strong>Safari</strong></li>
+          <li><strong>2.</strong> Toque em <strong>Compartilhar</strong> (⬆️)</li>
+          <li><strong>3.</strong> Toque em <strong>"Adicionar à Tela de Início"</strong></li>
+        </ol>
+      </div>
+      <p class="note">Instale por esta página do BackOffice, não pela home normal.</p>
+    </div>
+    <script>
+      let deferredPrompt = null;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        document.getElementById('installBtn').textContent = '📱 Instalar Agora';
+      });
+      window.addEventListener('appinstalled', () => {
+        document.querySelector('.container').innerHTML = '<img src="/bo-icon-512.png" class="icon" /><h1>✅ BackOffice instalado!</h1><p>Agora ele abre sempre no BackOffice.</p>';
+      });
+      async function doInstall() {
+        if (deferredPrompt) {
+          await deferredPrompt.prompt();
+          await deferredPrompt.userChoice;
+          deferredPrompt = null;
+          return;
+        }
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        document.getElementById(isIOS ? 'iosSteps' : 'androidSteps').classList.add('show');
+        document.getElementById(isIOS ? 'androidSteps' : 'iosSteps').classList.remove('show');
+      }
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        window.location.replace('/backoffice');
+      }
+    </script>
+  </body>
+</html>
