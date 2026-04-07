@@ -453,7 +453,7 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   let allIGs = ctx.instanceGroupsMap[job.cycle_id] || [];
   let joinedGroups = allIGs.filter((ig: any) => ig.join_status === "joined" && ig.device_id === job.device_id);
 
-  // Auto-sync if no joined groups
+  // Auto-sync only for groups that already have an explicit saved JID in the allowlist
   if (joinedGroups.length === 0 && allIGs.length > 0) {
     try {
       const liveGroups = await fetchLiveGroups(baseUrl, token);
@@ -462,7 +462,8 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
         for (const ig of allIGs) {
           if (ig.join_status === "joined" || ig.device_id !== job.device_id) continue;
           const igJid = String(ig.group_jid || "").toLowerCase().trim();
-          if (igJid && liveJids.has(igJid)) {
+          if (!igJid || !igJid.includes("@g.us")) continue;
+          if (liveJids.has(igJid)) {
             await db.from("warmup_instance_groups").update({ join_status: "joined", joined_at: new Date().toISOString() }).eq("id", ig.id);
             ig.join_status = "joined";
           }
