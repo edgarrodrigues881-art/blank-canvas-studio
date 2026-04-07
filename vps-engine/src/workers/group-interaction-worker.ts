@@ -33,10 +33,101 @@ const FALLBACK_MESSAGES: Record<string, string[]> = {
   encerramento: ["Bom, vou indo pessoal! Até mais 👋", "Até mais pessoal!"],
 };
 
+const DAY_MAP = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+
 function getCategoryForIndex(i: number, total: number): string {
   if (i === 0) return "abertura";
   if (i === total - 1) return "encerramento";
   return pickRandom(["continuacao", "pergunta", "resposta_curta", "engajamento"]);
+}
+
+function getBrazilNow(): Date {
+  return new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+}
+
+function normalizeGroupName(value: string): string {
+  return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+function parseTimeToMinutes(value: string | null | undefined): number | null {
+  if (!value || typeof value !== "string") return null;
+  const [hoursRaw, minutesRaw = "0"] = value.split(":");
+  const hours = Number(hoursRaw);
+  const minutes = Number(minutesRaw);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return null;
+  }
+  return hours * 60 + minutes;
+}
+
+function isTimeWithinWindow(currentMinutes: number, start: string, end: string): boolean {
+  const startMinutes = parseTimeToMinutes(start);
+  const endMinutes = parseTimeToMinutes(end);
+  if (startMinutes === null || endMinutes === null) return false;
+  if (startMinutes <= endMinutes) {
+    return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+  }
+  return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
+}
+
+function getWindowDayKey(now: Date, currentMinutes: number, start: string, end: string): string {
+  const startMinutes = parseTimeToMinutes(start);
+  const endMinutes = parseTimeToMinutes(end);
+  const currentDay = now.getDay();
+
+  if (startMinutes !== null && endMinutes !== null && startMinutes > endMinutes && currentMinutes <= endMinutes) {
+    return DAY_MAP[(currentDay + 6) % 7];
+  }
+
+  return DAY_MAP[currentDay];
+}
+
+function uniqueGroups(groups: Array<{ jid: string; name: string }>): Array<{ jid: string; name: string }> {
+  const seen = new Set<string>();
+  return groups.filter((group) => {
+    if (!group?.jid || seen.has(group.jid)) return false;
+    seen.add(group.jid);
+    return true;
+  });
+}
+
+async function rescheduleInteraction(sb: any, interactionId: string, delaySeconds: number, extra: Record<string, any> = {}) {
+  await sb.from("group_interactions")
+    .update({ next_action_at: new Date(Date.now() + delaySeconds * 1000).toISOString(), ...extra })
+    .eq("id", interactionId)
+    .in("status", ["running", "active"]);
+}
+
+async function pauseInteraction(sb: any, interactionId: string, lastError: string) {
+  await sb.from("group_interactions")
+    .update({ status: "paused", last_error: lastError, next_action_at: null, updated_at: new Date().toISOString() })
+    .eq("id", interactionId);
+}
+
+async function loadWarmupGroupNameFallbacks(sb: any, identifiers: string[]): Promise<Map<string, string>> {
+  const fallbackMap = new Map<string, string>();
+  const validIds = identifiers.filter((value) => typeof value === "string" && value.trim().length > 0);
+  const linkIds = Array.from(new Set(validIds.filter((value) => /^https?:\/\/chat\.whatsapp\.com\//i.test(value))));
+  const uuidIds = Array.from(new Set(validIds.filter((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))));
+
+  const appendRows = (rows: any[] | null | undefined) => {
+    for (const row of rows || []) {
+      if (row?.id && row?.name) fallbackMap.set(row.id, row.name);
+      if (row?.link && row?.name) fallbackMap.set(row.link, row.name);
+    }
+  };
+
+  if (linkIds.length > 0) {
+    const { data } = await sb.from("warmup_groups").select("id, name, link").in("link", linkIds);
+    appendRows(data);
+  }
+
+  if (uuidIds.length > 0) {
+    const { data } = await sb.from("warmup_groups").select("id, name, link").in("id", uuidIds);
+    appendRows(data);
+  }
+
+  return fallbackMap;
 }
 
 // ── Group Map Cache (avoid calling API every tick) ──
@@ -191,29 +282,32 @@ async function processOneInteraction(sb: any, interaction: any) {
   const userId = interaction.user_id;
   const groupIds: string[] = Array.isArray(interaction.group_ids) ? interaction.group_ids : [];
   if (groupIds.length === 0) {
-    await sb.from("group_interactions").update({ last_error: "Nenhum grupo selecionado", next_action_at: null }).eq("id", interaction.id);
+    await pauseInteraction(sb, interaction.id, "Nenhum grupo selecionado");
     return;
   }
 
   // Time window check (supports Period 1 + optional Period 2)
-  const brNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-  const currentHour = `${String(brNow.getHours()).padStart(2, "0")}:${String(brNow.getMinutes()).padStart(2, "0")}`;
+  const brNow = getBrazilNow();
+  const currentMinutes = brNow.getHours() * 60 + brNow.getMinutes();
   const period2Start = interaction.start_hour_2 || (interaction.end_hour_2 ? "13:00" : null);
   const period2End = interaction.end_hour_2 || (interaction.start_hour_2 ? "19:00" : null);
-  const inPeriod1 = currentHour >= interaction.start_hour && currentHour <= interaction.end_hour;
+  const inPeriod1 = isTimeWithinWindow(currentMinutes, interaction.start_hour, interaction.end_hour);
   const inPeriod2 = period2Start && period2End
-    ? currentHour >= period2Start && currentHour <= period2End
+    ? isTimeWithinWindow(currentMinutes, period2Start, period2End)
     : false;
   if (!inPeriod1 && !inPeriod2) {
-    // Schedule retry in 60s so it doesn't get stuck
-    const retryAt = new Date(Date.now() + 60_000).toISOString();
-    await sb.from("group_interactions").update({ next_action_at: retryAt }).eq("id", interaction.id).in("status", ["running", "active"]);
+    await rescheduleInteraction(sb, interaction.id, 60);
     return;
   }
 
-  const dayMap = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
   const activeDays: string[] = interaction.active_days || [];
-  if (activeDays.length > 0 && !activeDays.includes(dayMap[brNow.getDay()])) return;
+  const validDayKeys = new Set<string>();
+  if (inPeriod1) validDayKeys.add(getWindowDayKey(brNow, currentMinutes, interaction.start_hour, interaction.end_hour));
+  if (inPeriod2 && period2Start && period2End) validDayKeys.add(getWindowDayKey(brNow, currentMinutes, period2Start, period2End));
+  if (activeDays.length > 0 && !Array.from(validDayKeys).some((dayKey) => activeDays.includes(dayKey))) {
+    await rescheduleInteraction(sb, interaction.id, 300);
+    return;
+  }
 
   // Duration check
   if (interaction.started_at) {
@@ -238,38 +332,65 @@ async function processOneInteraction(sb: any, interaction: any) {
   const dailyLimit = interaction.daily_limit_total || 0;
   if (dailyLimit > 0 && todayCount >= dailyLimit) {
     log.info(`Interaction ${interaction.id.slice(0, 8)}: daily limit reached (${todayCount}/${dailyLimit})`);
-    return; // Will retry next tick, naturally respecting the limit
+    await rescheduleInteraction(sb, interaction.id, 900);
+    return;
   }
 
   // Device
-  if (!interaction.device_id) return;
+  if (!interaction.device_id) {
+    await pauseInteraction(sb, interaction.id, "Nenhuma instância vinculada");
+    return;
+  }
   const { data: device } = await sb.from("devices").select("id, name, uazapi_token, uazapi_base_url, status").eq("id", interaction.device_id).single();
   if (!device?.uazapi_token || !device?.uazapi_base_url) {
-    await sb.from("group_interactions").update({ last_error: "Dispositivo sem API configurada" }).eq("id", interaction.id);
+    await pauseInteraction(sb, interaction.id, "Dispositivo sem API configurada");
     return;
   }
 
   const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
 
   // Resolve groups (cached per device)
-  const groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
-  const resolved: { jid: string; name: string }[] = [];
-  for (const gid of groupIds) {
-    const r = resolveGroupIdentifier(gid, groupMap);
-    if (r) resolved.push(r);
-  }
-  if (resolved.length === 0) {
-    // Invalidate cache and try once more
-    groupMapCache.delete(device.id);
-    const freshMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
+  let groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
+  const resolveWithMap = (map: Map<string, { jid: string; name: string }>) => {
+    const found: Array<{ jid: string; name: string }> = [];
+    const unresolved: string[] = [];
     for (const gid of groupIds) {
-      const r = resolveGroupIdentifier(gid, freshMap);
-      if (r) resolved.push(r);
+      const resolvedGroup = resolveGroupIdentifier(gid, map);
+      if (resolvedGroup) found.push(resolvedGroup);
+      else unresolved.push(gid);
     }
-    if (resolved.length === 0) {
-      await sb.from("group_interactions").update({ last_error: `Nenhum grupo resolvido (${groupIds.length} links, ${groupMap.size} grupos)`, updated_at: new Date().toISOString() }).eq("id", interaction.id);
-      return;
+    return { resolved: uniqueGroups(found), unresolved };
+  };
+
+  let { resolved, unresolved } = resolveWithMap(groupMap);
+
+  if (resolved.length === 0) {
+    groupMapCache.delete(device.id);
+    groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
+    ({ resolved, unresolved } = resolveWithMap(groupMap));
+  }
+
+  if (unresolved.length > 0) {
+    const fallbackNameMap = await loadWarmupGroupNameFallbacks(sb, unresolved);
+    for (const identifier of unresolved) {
+      const fallbackName = fallbackNameMap.get(identifier);
+      if (!fallbackName) continue;
+      const resolvedByName = groupMap.get(`name:${normalizeGroupName(fallbackName)}`);
+      if (resolvedByName) resolved.push(resolvedByName);
     }
+    resolved = uniqueGroups(resolved);
+  }
+
+  if (resolved.length === 0) {
+    await sb.from("group_interactions")
+      .update({
+        last_error: `Nenhum grupo resolvido (${groupIds.length} selecionados, ${groupMap.size} grupos carregados)`,
+        next_action_at: new Date(Date.now() + 300_000).toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", interaction.id)
+      .in("status", ["running", "active"]);
+    return;
   }
 
   // Get messages
