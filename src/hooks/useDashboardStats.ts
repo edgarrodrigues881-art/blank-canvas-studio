@@ -152,6 +152,7 @@ export function useDashboardStats() {
       ((groupLogsRes.data as any[]) || []).forEach((r: any) => {
         const dk = getBrazilDateKey(r.sent_at);
         groupByDay[dk] = (groupByDay[dk] || 0) + 1;
+      });
 
       const totalMessages = totalSent + totalFailed;
 
@@ -233,7 +234,7 @@ export function useDashboardStats() {
         warmupEvolution,
       };
     },
-    refetchInterval: 300_000,  // 5min — economia máxima
-    staleTime: 180_000,       // 3min
+    refetchInterval: 300000,
+    staleTime: 180000,
   });
 }
