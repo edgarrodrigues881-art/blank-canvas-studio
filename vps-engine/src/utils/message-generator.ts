@@ -215,8 +215,8 @@ export function pickMediaTypeGroup(budgetUsed: number): "text" | "image" | "stic
   if (r < 0.40) return "text";
   if (r < 0.75) return "audio";
   if (r < 0.88) return "sticker";
-  return "audio";
-  // distribution: 40% text, 35% audio, 13% sticker, 12% image — kept as fallback
+  return "image";
+  // distribution: 40% text, 35% audio, 13% sticker, 12% image
 }
 
 export function pickMediaTypeCommunity(budgetUsed: number): "text" | "image" | "audio" | "sticker" | "location" {
