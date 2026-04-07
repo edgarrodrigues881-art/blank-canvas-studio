@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Activity, Clock, MessageCircle, Users, Zap } from "lucide-react";
 import type { GroupInteraction } from "@/hooks/useGroupInteraction";
+import { formatBrazilTime, getBrazilNow } from "@/lib/brazilTime";
 
 const statusConfig: Record<string, { color: string; label: string }> = {
   idle: { color: "bg-muted text-muted-foreground", label: "Inativo" },
@@ -12,7 +13,7 @@ const statusConfig: Record<string, { color: string; label: string }> = {
 };
 
 function isWithinSchedule(startHour: string, endHour: string): boolean {
-  const now = new Date();
+  const now = getBrazilNow();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   const [startH, startM] = startHour.split(":").map(Number);
   const [endH, endM] = endHour.split(":").map(Number);
@@ -30,7 +31,7 @@ function isWithinSchedule(startHour: string, endHour: string): boolean {
 }
 
 function getTimeRemaining(endHour: string): string {
-  const now = new Date();
+  const now = getBrazilNow();
   const [h, m] = endHour.split(":").map(Number);
   const end = new Date(now);
   end.setHours(h, m, 0, 0);
@@ -81,7 +82,7 @@ export default function GIStatusPanel({ interaction }: { interaction: GroupInter
       value: (
         <span className="text-xs text-muted-foreground">
           {interaction.last_sent_at
-            ? new Date(interaction.last_sent_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+            ? formatBrazilTime(interaction.last_sent_at)
             : "—"}
         </span>
       ),

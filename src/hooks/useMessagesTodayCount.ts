@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { getBrazilDayBounds } from "@/lib/brazilTime";
 
 /**
  * Aggregates today's message count from:
@@ -14,9 +15,7 @@ export function useMessagesTodayCount() {
   return useQuery({
     queryKey: ["messages-today-count", user?.id],
     queryFn: async (): Promise<{ total: number; warmup: number; chip: number; group: number }> => {
-      const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local
-      const todayStart = `${today}T00:00:00`;
-      const todayEnd = `${today}T23:59:59`;
+      const { day: today, start: todayStart, end: todayEnd } = getBrazilDayBounds();
 
       const [warmupRes, chipRes, groupRes] = await Promise.all([
         supabase

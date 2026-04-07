@@ -29,7 +29,7 @@ const typeBg = {
 };
 
 const Notifications = () => {
-  const { notifications, unreadCount, loading, markAsRead, markAllAsRead, clearAll } = useNotifications();
+  const { notifications, unreadCount, loading, markAsRead, markAllAsRead, clearAll, systemNotificationsCount } = useNotifications();
   const [filter, setFilter] = useState<"all" | "unread">("all");
 
   const filtered = filter === "unread" ? notifications.filter((n) => !n.read) : notifications;
@@ -50,7 +50,7 @@ const Notifications = () => {
               Marcar todas como lidas
             </Button>
           )}
-          {notifications.length > 0 && (
+          {systemNotificationsCount > 0 && (
             <Button variant="outline" size="sm" className="gap-1.5 text-xs text-destructive hover:text-destructive" onClick={clearAll}>
               <Trash2 className="w-3.5 h-3.5" />
               Limpar todas
@@ -104,7 +104,7 @@ const Notifications = () => {
               <Card
                 key={n.id}
                 className={`border-border/50 cursor-pointer transition-colors duration-100 hover:border-border ${!n.read ? "bg-muted/20 border-l-2 border-l-sidebar-primary" : ""}`}
-                onClick={() => { if (!n.read) markAsRead(n.id); }}
+                onClick={() => { if (!n.read && !n.synthetic) markAsRead(n.id); }}
               >
                 <CardContent className="p-4 flex items-start gap-4">
                   <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}>

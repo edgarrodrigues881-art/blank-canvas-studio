@@ -18,7 +18,7 @@ import {
 import logo from "@/assets/logo-new.png";
 
 import { useNavigate, useLocation } from "react-router-dom";
-import { useNotifications, type Notification } from "@/hooks/useNotifications";
+import { useNotifications } from "@/hooks/useNotifications";
 import { AnnouncementManager } from "@/components/AnnouncementManager";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -47,7 +47,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { notifications, unreadCount, loading, markAsRead, markAllAsRead, clearAll } = useNotifications();
+  const { notifications, unreadCount, loading, markAsRead, markAllAsRead, clearAll, systemNotificationsCount } = useNotifications();
   const { resolvedTheme, setTheme } = useTheme();
   const { isFeatureBlocked } = useFeatureControls();
 
@@ -137,7 +137,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                       <DropdownMenuItem
                         key={n.id}
                         className={`flex items-start gap-3 py-3 cursor-pointer ${!n.read ? "bg-muted/30" : ""}`}
-                        onClick={() => { if (!n.read) markAsRead(n.id); }}
+                        onClick={() => { if (!n.read && !n.synthetic) markAsRead(n.id); }}
                       >
                         <Icon className={`w-4 h-4 ${color} mt-0.5 shrink-0`} />
                         <div className="min-w-0 flex-1">
@@ -154,7 +154,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                     );
                   })
                 )}
-                {notifications.length > 0 && (
+                {systemNotificationsCount > 0 && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem

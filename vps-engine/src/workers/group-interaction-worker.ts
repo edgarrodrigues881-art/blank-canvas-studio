@@ -334,6 +334,12 @@ async function processOneInteraction(sb: any, interaction: any) {
   }
 
   if (unresolved.length > 0) {
+    groupMapCache.delete(device.id);
+    groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
+    ({ resolved, unresolved } = resolveWithMap(groupMap));
+  }
+
+  if (unresolved.length > 0) {
     for (const identifier of unresolved) {
       const fallbackName = fallbackNameMap.get(identifier);
       const aliases = dedupeStrings([fallbackName]);
