@@ -19,6 +19,14 @@ export function getChipConvStatus() {
 
 const randomBetween = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 function pickRandom<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffleArray<T>(arr: T[]): T[] {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 function cleanNumber(num: string): string { return num.replace(/[^0-9]/g, ""); }
 
 const FALLBACK_MESSAGES = [
@@ -75,20 +83,53 @@ const FALLBACK_IMAGES = [
   "https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=800&q=80",
 ];
 const FALLBACK_AUDIOS = [
-  "https://cdn.freesound.org/previews/531/531947_4397472-lq.mp3",
-  "https://cdn.freesound.org/previews/456/456058_5765826-lq.mp3",
+  "https://samplelib.com/lib/preview/mp3/sample-3s.mp3",
+  "https://samplelib.com/lib/preview/mp3/sample-6s.mp3",
+  "https://samplelib.com/lib/preview/mp3/sample-9s.mp3",
+  "https://samplelib.com/lib/preview/mp3/sample-12s.mp3",
+  "https://samplelib.com/lib/preview/mp3/sample-15s.mp3",
   "https://cdn.freesound.org/previews/462/462808_8386274-lq.mp3",
-  "https://cdn.freesound.org/previews/523/523746_10717283-lq.mp3",
-  "https://cdn.freesound.org/previews/527/527087_10717283-lq.mp3",
-  "https://cdn.freesound.org/previews/514/514742_1648170-lq.mp3",
-  "https://cdn.freesound.org/previews/459/459145_5765826-lq.mp3",
-  "https://cdn.freesound.org/previews/467/467049_9655975-lq.mp3",
-  "https://cdn.freesound.org/previews/511/511484_10717283-lq.mp3",
-  "https://cdn.freesound.org/previews/516/516565_10717283-lq.mp3",
-  "https://cdn.freesound.org/previews/530/530110_10717283-lq.mp3",
-  "https://cdn.freesound.org/previews/415/415079_5121236-lq.mp3",
   "https://cdn.freesound.org/previews/462/462807_8386274-lq.mp3",
 ];
+
+const KNOWN_BROKEN_AUDIO_HINTS = [
+  "531947_4397472",
+  "456058_5765826",
+  "523746_10717283",
+  "527087_10717283",
+  "514742_1648170",
+  "459145_5765826",
+  "467049_9655975",
+  "511484_10717283",
+  "516565_10717283",
+  "530110_10717283",
+  "415079_5121236",
+];
+
+function isKnownBrokenAudioUrl(url: string | null | undefined): boolean {
+  if (!url) return true;
+  return KNOWN_BROKEN_AUDIO_HINTS.some((hint) => url.includes(hint));
+}
+
+function getAudioCandidates(userAudio: any[]): Array<{ url: string; label: string }> {
+  const candidates: Array<{ url: string; label: string }> = [];
+  const seen = new Set<string>();
+
+  for (const item of userAudio || []) {
+    const url = String(item?.file_url || "").trim();
+    if (!url || seen.has(url) || isKnownBrokenAudioUrl(url)) continue;
+    seen.add(url);
+    candidates.push({ url, label: String(item?.content || "🎤").trim() || "🎤" });
+  }
+
+  for (const url of FALLBACK_AUDIOS) {
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    candidates.push({ url, label: "🎤" });
+  }
+
+  return candidates;
+}
 
 async function sendImage(baseUrl: string, token: string, number: string, imageUrl: string, caption: string): Promise<{ ok: boolean; error?: string }> {
   const cleanNum = cleanNumber(number);
@@ -123,6 +164,8 @@ async function sendAudio(baseUrl: string, token: string, number: string, audioUr
     { path: "/send/media", body: { number: cleanNum, file: audioUrl, type: "ptt" } },
     { path: "/send/media", body: { number: cleanNum, media: audioUrl, type: "ptt" } },
     { path: "/send/media", body: { number: cleanNum, file: audioUrl, type: "audio", ptt: true } },
+    { path: "/send/media", body: { number: cleanNum, media: audioUrl, type: "audio", ptt: true } },
+    { path: "/send/media", body: { number: cleanNum, url: audioUrl, type: "audio", ptt: true } },
     { path: "/send/media", body: { number: cleanNum, file: audioUrl, type: "audio" } },
   ];
 
@@ -228,6 +271,7 @@ async function processOneConversation(sb: any, conv: any) {
   const receiver = activeDevices[receiverIndex];
 
   let messageText = "";
+  let messageCategory: "text" | "audio" | "sticker" | "image" = contentType;
   let result: { ok: boolean; error?: string };
 
   if (contentType === "image") {
@@ -242,16 +286,42 @@ async function processOneConversation(sb: any, conv: any) {
     result = await sendSticker(sender.uazapi_base_url, sender.uazapi_token, receiver.number, stickerUrl);
     messageText = `[STICKER] ${picked?.content || "🎭"}`;
   } else if (contentType === "audio") {
-    const picked = hasUserAudio ? pickRandom(mediaByType.audio) : null;
-    const audioUrl = picked?.file_url || pickRandom(FALLBACK_AUDIOS);
-    result = await sendAudio(sender.uazapi_base_url, sender.uazapi_token, receiver.number, audioUrl);
-    messageText = `[AUDIO] ${picked?.content || "🎤"}`;
+    const audioCandidates = shuffleArray(getAudioCandidates(hasUserAudio ? mediaByType.audio : []));
+    const audioErrors: string[] = [];
+
+    result = { ok: false, error: "Nenhum áudio disponível" };
+    for (const candidate of audioCandidates.slice(0, 4)) {
+      const attempt = await sendAudio(sender.uazapi_base_url, sender.uazapi_token, receiver.number, candidate.url);
+      if (attempt.ok) {
+        result = attempt;
+        messageText = `[AUDIO] ${candidate.label}`;
+        break;
+      }
+      if (attempt.error) audioErrors.push(attempt.error);
+    }
+
+    if (!result.ok) {
+      const fallbackText = pickRandom(userMessages);
+      const textFallback = await sendTextMessage(sender.uazapi_base_url, sender.uazapi_token, receiver.number, fallbackText);
+      if (textFallback.ok) {
+        result = textFallback;
+        messageCategory = "text";
+        messageText = fallbackText;
+        log.info(`Chip conv ${conversationId.slice(0, 8)}: audio falhou, fallback para texto (${audioErrors.length} tentativas)`);
+      } else {
+        result = {
+          ok: false,
+          error: `Audio failed: ${(audioErrors.join(" | ") || result.error || "unknown").substring(0, 500)} | Text fallback failed: ${textFallback.error}`,
+        };
+        messageText = `[AUDIO-FAILED] ${fallbackText}`;
+      }
+    }
   } else {
     messageText = pickRandom(userMessages);
     result = await sendTextMessage(sender.uazapi_base_url, sender.uazapi_token, receiver.number, messageText);
   }
 
-  log.info(`Turn #${turnIndex}: ${sender.name} → ${receiver.name} [${contentType}] (${totalDevices} devices rotating)`);
+  log.info(`Turn #${turnIndex}: ${sender.name} → ${receiver.name} [${messageCategory}] (${totalDevices} devices rotating)`);
 
   const newTotal = turnIndex + (result.ok ? 1 : 0);
 
@@ -260,7 +330,7 @@ async function processOneConversation(sb: any, conv: any) {
     conversation_id: conversationId, user_id: conv.user_id,
     sender_device_id: sender.id, receiver_device_id: receiver.id,
     sender_name: sender.name, receiver_name: receiver.name,
-    message_content: messageText, message_category: contentType,
+    message_content: messageText, message_category: messageCategory,
     status: result.ok ? "sent" : "failed", error_message: result.ok ? null : result.error,
     sent_at: new Date().toISOString(),
   }).then(() => {}, () => {});
