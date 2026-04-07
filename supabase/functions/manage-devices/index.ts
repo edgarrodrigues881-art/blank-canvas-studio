@@ -100,9 +100,9 @@ async function deleteDevices(admin: any, userId: string, deviceIds: string[]): P
         );
         console.log(`[bulk-delete] ${device.id}: provider=${providerDeleted ? "ok" : "skip"}`);
 
-        const requiresProviderDelete = Boolean(device.uazapi_token || providerLabel);
-        if (requiresProviderDelete && !providerDeleted) {
-          throw new Error("Falha ao excluir instância na UAZAPI.");
+        // If provider delete failed, log warning but continue with DB cleanup
+        if (!providerDeleted && (device.uazapi_token || providerLabel)) {
+          console.warn(`[bulk-delete] ${device.id}: UAZAPI delete failed, proceeding with DB cleanup`);
         }
 
         // 2-5. DB cleanup in parallel
