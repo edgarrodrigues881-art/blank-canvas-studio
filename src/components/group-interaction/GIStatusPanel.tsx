@@ -58,8 +58,8 @@ export default function GIStatusPanel({ interaction }: { interaction: GroupInter
     },
     {
       icon: MessageCircle,
-      label: "Interações hoje",
-      value: <span className="font-mono text-sm">{interaction.today_count ?? 0}</span>,
+      label: "Mensagens totais",
+      value: <span className="font-mono text-sm">{interaction.total_messages_sent ?? 0}</span>,
     },
     {
       icon: Users,

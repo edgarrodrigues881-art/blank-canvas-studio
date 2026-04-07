@@ -89,10 +89,11 @@ function getInteractionInvalidReason(interaction: GroupInteraction, deviceMap: M
 
 export default function GroupInteractionPage() {
   const { user } = useAuth();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const {
     interactions, isLoading, logs,
     createInteraction, updateInteraction, deleteInteraction, invokeAction,
-  } = useGroupInteraction();
+  } = useGroupInteraction(selectedId);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showConfig, setShowConfig] = useState(false);

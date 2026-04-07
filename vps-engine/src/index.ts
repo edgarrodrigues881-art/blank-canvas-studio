@@ -1013,7 +1013,7 @@ async function mainLoop() {
 
     guardedLoop("groupInteraction", async () => {
       await groupInteractionTick();
-    }, 20_000)(),
+    }, 5_000)(),
 
     guardedLoop("chipConv", async () => {
       await chipConversationTick();
