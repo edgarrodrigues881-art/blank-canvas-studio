@@ -3,10 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
 /**
- * Aggregates accumulated message totals from:
+ * Aggregates accumulated historical message totals from:
  * 1. warmup_daily_stats (aquecimento automático)
- * 2. chip_conversations (conversa entre chips)
- * 3. group_interactions (interação de grupos)
+ * 2. chip_conversation_logs (conversa entre chips)
+ * 3. group_interaction_logs (interação de grupos)
+ *
+ * Important: chip/group totals must come from logs, not automation rows,
+ * so deleting an automation does not erase the historical counters.
  */
 export function useMessagesTodayCount() {
   const { user } = useAuth();
@@ -20,18 +23,20 @@ export function useMessagesTodayCount() {
           .select("messages_sent")
           .eq("user_id", user!.id),
         supabase
-          .from("chip_conversations")
-          .select("total_messages_sent")
-          .eq("user_id", user!.id),
+          .from("chip_conversation_logs")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user!.id)
+          .eq("status", "sent"),
         supabase
-          .from("group_interactions")
-          .select("total_messages_sent")
-          .eq("user_id", user!.id),
+          .from("group_interaction_logs")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user!.id)
+          .eq("status", "sent"),
       ]);
 
       const warmup = (warmupRes.data || []).reduce((sum, row) => sum + (row.messages_sent || 0), 0);
-      const chip = (chipRes.data || []).reduce((sum, row) => sum + (row.total_messages_sent || 0), 0);
-      const group = (groupRes.data || []).reduce((sum, row) => sum + (row.total_messages_sent || 0), 0);
+      const chip = chipRes.count || 0;
+      const group = groupRes.count || 0;
 
       return {
         total: warmup + chip + group,
