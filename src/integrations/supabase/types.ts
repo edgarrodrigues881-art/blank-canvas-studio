@@ -1071,7 +1071,7 @@ export type Database = {
       }
       chip_conversation_logs: {
         Row: {
-          conversation_id: string
+          conversation_id: string | null
           created_at: string
           error_message: string | null
           id: string
@@ -1086,7 +1086,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          conversation_id: string
+          conversation_id?: string | null
           created_at?: string
           error_message?: string | null
           id?: string
@@ -1101,7 +1101,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          conversation_id?: string
+          conversation_id?: string | null
           created_at?: string
           error_message?: string | null
           id?: string
@@ -2338,7 +2338,7 @@ export type Database = {
           group_id: string
           group_name: string | null
           id: string
-          interaction_id: string
+          interaction_id: string | null
           message_category: string
           message_content: string
           pause_applied_seconds: number | null
@@ -2353,7 +2353,7 @@ export type Database = {
           group_id: string
           group_name?: string | null
           id?: string
-          interaction_id: string
+          interaction_id?: string | null
           message_category: string
           message_content: string
           pause_applied_seconds?: number | null
@@ -2368,7 +2368,7 @@ export type Database = {
           group_id?: string
           group_name?: string | null
           id?: string
-          interaction_id?: string
+          interaction_id?: string | null
           message_category?: string
           message_content?: string
           pause_applied_seconds?: number | null
