@@ -159,6 +159,28 @@ export default function ChipConversation() {
   const [editingConv, setEditingConv] = useState<ChipConversation | null>(null);
   const deviceMap = useMemo(() => new Map(devices.map((device: any) => [device.id, device])), [devices]);
 
+  const busyDeviceIds = useMemo(
+    () => new Set(
+      conversations
+        .filter((c) => {
+          const s = normalizeConversationStatus(c.status);
+          return s === "running" || s === "paused";
+        })
+        .flatMap((c) => c.device_ids || []),
+    ),
+    [conversations],
+  );
+
+  const availableDevices = useMemo(
+    () => devices.filter((d: any) => isConversationDeviceConnected(d) && !busyDeviceIds.has(d.id)),
+    [devices, busyDeviceIds],
+  );
+
+  const getEditDevices = (conv: ChipConversation) => {
+    const ownIds = new Set(conv.device_ids || []);
+    return devices.filter((d: any) => ownIds.has(d.id) || (isConversationDeviceConnected(d) && !busyDeviceIds.has(d.id)));
+  };
+
   const handleDelete = async (id: string) => {
     try {
       await actions.remove.mutateAsync(id);
