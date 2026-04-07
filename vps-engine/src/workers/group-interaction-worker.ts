@@ -8,7 +8,7 @@ import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
-import { extractInviteCode, fetchDeviceGroups, type ResolvedGroup } from "../group-interaction/group-resolution";
+import { extractInviteCode, type ResolvedGroup } from "../group-interaction/group-resolution";
 
 const log = createLogger("group-interaction");
 
@@ -139,25 +139,6 @@ function pickPreferredWarmupGroupRow(rows: any[], userId: string): any | null {
     || rows.find((row) => !row?.user_id && row?.is_custom === false)
     || rows[0]
     || null;
-}
-
-function resolveGroupByInviteOnly(groupMap: Map<string, ResolvedGroup>, identifier: string | null | undefined): ResolvedGroup | null {
-  const raw = String(identifier ?? "").trim();
-  if (!raw) return null;
-
-  const exact = groupMap.get(raw);
-  if (exact?.jid) return exact;
-
-  const inviteCode = extractInviteCode(raw);
-  if (!inviteCode) return null;
-
-  const byCode = groupMap.get(inviteCode);
-  if (byCode?.jid) return byCode;
-
-  const byLink = groupMap.get(`https://chat.whatsapp.com/${inviteCode}`);
-  if (byLink?.jid) return byLink;
-
-  return null;
 }
 
 async function loadAllowedGroupSelections(
@@ -321,30 +302,6 @@ async function loadAllowedGroupSelections(
   }
 
   return Array.from(selections.values());
-}
-
-// ── Group Map Cache (avoid calling API every tick) ──
-const groupMapCache = new Map<string, { map: Map<string, ResolvedGroup>; fetchedAt: number }>();
-const GROUP_MAP_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-async function getDeviceGroupMap(baseUrl: string, token: string, deviceId: string): Promise<Map<string, ResolvedGroup>> {
-  const cached = groupMapCache.get(deviceId);
-  if (cached && Date.now() - cached.fetchedAt < GROUP_MAP_TTL_MS) {
-    return cached.map;
-  }
-
-  const groups = await fetchDeviceGroups(baseUrl, token);
-  groupMapCache.set(deviceId, { map: groups, fetchedAt: Date.now() });
-
-  // Evict old entries
-  if (groupMapCache.size > 50) {
-    const now = Date.now();
-    for (const [key, val] of groupMapCache) {
-      if (now - val.fetchedAt > GROUP_MAP_TTL_MS * 2) groupMapCache.delete(key);
-    }
-  }
-
-  return groups;
 }
 
 async function uazapiSendText(baseUrl: string, token: string, number: string, text: string) {
@@ -545,31 +502,17 @@ async function processOneInteraction(sb: any, interaction: any) {
   const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
 
   // Resolve groups strictly from explicit allowlist/JIDs already linked to this interaction
-  let groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
   const allowedSelections = await loadAllowedGroupSelections(sb, userId, device.id, groupIds);
 
-  const resolveStrict = (map: Map<string, ResolvedGroup>) => {
+  // Build allowed group list ONLY from warmup_instance_groups joined JIDs — never from the device API
+  const resolveFromAllowlist = () => {
     const found: Array<{ jid: string; name: string }> = [];
     const unresolved: string[] = [];
 
     for (const selection of allowedSelections) {
-      let resolvedGroup: ResolvedGroup | null = null;
-
+      // ONLY use the JID that was saved when the device joined the group via warmup
       if (selection.joinedJid) {
-        const byJoinedJid = map.get(selection.joinedJid);
-        if (byJoinedJid?.jid) resolvedGroup = byJoinedJid;
-        else resolvedGroup = { jid: selection.joinedJid, name: selection.name || "" };
-      }
-
-      if (!resolvedGroup && selection.link) {
-        const byInviteLink = resolveGroupByInviteOnly(map, selection.link);
-        if (byInviteLink?.jid) {
-          resolvedGroup = byInviteLink;
-        }
-      }
-
-      if (resolvedGroup?.jid) {
-        found.push({ jid: resolvedGroup.jid, name: resolvedGroup.name || selection.name });
+        found.push({ jid: selection.joinedJid, name: selection.name || "" });
       } else {
         unresolved.push(selection.selectionKey);
       }
@@ -578,19 +521,13 @@ async function processOneInteraction(sb: any, interaction: any) {
     return { resolved: uniqueGroups(found), unresolved };
   };
 
-  let { resolved, unresolved } = resolveStrict(groupMap);
-
-  if (resolved.length === 0 || unresolved.length > 0) {
-    groupMapCache.delete(device.id);
-    groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
-    ({ resolved, unresolved } = resolveStrict(groupMap));
-  }
+  const { resolved, unresolved } = resolveFromAllowlist();
 
   if (resolved.length === 0) {
     const recognizedSelections = allowedSelections.filter((selection) => selection.groupId || selection.link || selection.joinedJid || selection.name);
     await sb.from("group_interactions")
       .update({
-        last_error: `Nenhum grupo permitido foi encontrado no dispositivo (${groupIds.length} configurados, ${recognizedSelections.length} reconhecidos na allowlist, ${groupMap.size} grupos no aparelho)`,
+        last_error: `Nenhum grupo permitido foi encontrado (${groupIds.length} configurados, ${recognizedSelections.length} reconhecidos na allowlist, nenhum com JID registrado)`,
         next_action_at: new Date(Date.now() + 300_000).toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -601,7 +538,7 @@ async function processOneInteraction(sb: any, interaction: any) {
 
   if (unresolved.length > 0) {
     const missingCount = groupIds.length - resolved.length;
-    log.warn(`Interaction ${interaction.id.slice(0, 8)}: ${missingCount} grupos fora da allowlist ou sem JID salvo (${resolved.length}/${groupIds.length})`);
+    log.warn(`Interaction ${interaction.id.slice(0, 8)}: ${missingCount} grupos sem JID registrado em warmup_instance_groups (${resolved.length}/${groupIds.length} usáveis)`);
   }
 
   // Get messages
