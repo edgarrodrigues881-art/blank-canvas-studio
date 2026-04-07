@@ -24,7 +24,7 @@ const ResetPassword = lazyWithPreload(() => import("@/pages/ResetPassword"));
 const WelcomeSplash = lazyWithPreload(() => import("@/pages/WelcomeSplash"));
 const NotFound = lazyWithPreload(() => import("@/pages/NotFound"));
 const BackOffice = lazyWithPreload(() => import("@/pages/BackOffice"));
-
+const InstallBackoffice = lazyWithPreload(() => import("@/pages/InstallBackoffice"));
 
 // Dashboard pages
 const DashboardHome = lazyWithPreload(() => import("@/pages/dashboard/DashboardHome"));
@@ -189,6 +189,7 @@ const App = () => (
                 <Route path="/" element={<PublicOnlyRoute><Landing /></PublicOnlyRoute>} />
                 <Route path="/auth" element={<PublicOnlyRoute><Auth /></PublicOnlyRoute>} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/install-backoffice" element={<InstallBackoffice />} />
                 
                 <Route path="/welcome" element={<ProtectedRoute><WelcomeSplash /></ProtectedRoute>} />
 
