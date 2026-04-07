@@ -166,7 +166,13 @@ async function processOneConversation(sb: any, conv: any) {
   const hasUserAudio = (mediaByType.audio?.length || 0) > 0;
 
   // Always include media in the bag — use fallbacks if user has no uploads
-  const bag = ["text", "text", "text", "text", "text", "image", "image", "sticker", "sticker", "audio"];
+  // Distribution: ~40% text, ~35% audio, ~15% sticker, ~10% image
+  const bag = [
+    "text", "text", "text", "text", "text", "text", "text", "text",  // 8 = 40%
+    "audio", "audio", "audio", "audio", "audio", "audio", "audio",   // 7 = 35%
+    "sticker", "sticker", "sticker",                                   // 3 = 15%
+    "image", "image",                                                  // 2 = 10%
+  ];
   const contentType = pickRandom(bag);
 
   // Rotate through ALL devices, not just first 2
