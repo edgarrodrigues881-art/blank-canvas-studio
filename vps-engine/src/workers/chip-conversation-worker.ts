@@ -310,14 +310,50 @@ async function processOneConversation(sb: any, conv: any) {
   // Distribuição solicitada: 52% texto, 35% áudio, 10% figurinha, 3% imagem
   const contentType = pickChipContentType();
 
-  // Rotate sender through ALL devices, pick random receiver from the rest
+  // ── Fair rotation: pick the device that sent the LEAST recently ──
   const totalDevices = activeDevices.length;
-  const turnIndex = (conv.total_messages_sent || 0);
-  const senderIndex = turnIndex % totalDevices;
-  const sender = activeDevices[senderIndex];
+
+  // Query recent logs to find how many messages each device sent
+  const { data: sendCounts } = await sb
+    .from("chip_conversation_logs")
+    .select("sender_device_id, receiver_device_id")
+    .eq("conversation_id", conversationId)
+    .in("sender_device_id", activeDevices.map((d: any) => d.id))
+    .order("sent_at", { ascending: false })
+    .limit(totalDevices * 50); // last N messages per device
+
+  // Count messages per device
+  const countMap = new Map<string, number>();
+  for (const d of activeDevices) countMap.set(d.id, 0);
+  for (const row of sendCounts || []) {
+    const cur = countMap.get(row.sender_device_id) || 0;
+    countMap.set(row.sender_device_id, cur + 1);
+  }
+
+  // Sort by least messages sent (ascending), break ties randomly
+  const sortedDevices = [...activeDevices].sort((a: any, b: any) => {
+    const diff = (countMap.get(a.id) || 0) - (countMap.get(b.id) || 0);
+    return diff !== 0 ? diff : (Math.random() - 0.5);
+  });
+
+  const sender = sortedDevices[0]; // device that sent the least
   // Pick a random receiver that is NOT the sender
-  const possibleReceivers = activeDevices.filter((_: any, i: number) => i !== senderIndex);
-  const receiver = possibleReceivers[Math.floor(Math.random() * possibleReceivers.length)];
+  const possibleReceivers = activeDevices.filter((d: any) => d.id !== sender.id);
+
+  // Also pick receiver fairly: who received least from this sender?
+  const receiveCounts = new Map<string, number>();
+  for (const d of possibleReceivers) receiveCounts.set(d.id, 0);
+  for (const row of sendCounts || []) {
+    if (row.sender_device_id === sender.id && receiveCounts.has(row.receiver_device_id)) {
+      receiveCounts.set(row.receiver_device_id, (receiveCounts.get(row.receiver_device_id) || 0) + 1);
+    }
+  }
+  // Sort receivers by least received, break ties randomly
+  const sortedReceivers = [...possibleReceivers].sort((a: any, b: any) => {
+    const diff = (receiveCounts.get(a.id) || 0) - (receiveCounts.get(b.id) || 0);
+    return diff !== 0 ? diff : (Math.random() - 0.5);
+  });
+  const receiver = sortedReceivers[0];
 
   let messageText = "";
   let messageCategory: "text" | "audio" | "sticker" | "image" = contentType;
