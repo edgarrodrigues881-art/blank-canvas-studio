@@ -196,8 +196,12 @@ export function useDashboardStats() {
         const dayLabel = d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
 
         const dayData = dayStatsMap[dateStr] || { sent: 0, failed: 0, total: 0 };
+        const chipCount = chipByDay[dateStr] || 0;
+        const groupCount = groupByDay[dateStr] || 0;
+        const totalEntregas = dayData.sent + chipCount + groupCount;
+        const totalVol = dayData.total + chipCount + groupCount;
 
-        return { label: dayLabel, volume: dayData.total, entregas: dayData.sent, crescimento: 0 };
+        return { label: dayLabel, volume: totalVol, entregas: totalEntregas, crescimento: 0 };
       });
 
       for (let i = 1; i < warmupEvolution.length; i++) {
