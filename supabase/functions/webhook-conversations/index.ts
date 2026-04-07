@@ -5,6 +5,13 @@ import { persistIncomingMedia } from "./media.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+function extractUuid(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const match = String(value).match(UUID_RE);
+  return match?.[0] ?? null;
+}
 
 function getMediaLabel(mediaType: string | null): string {
   if (!mediaType) return "";
@@ -52,28 +59,46 @@ Deno.serve(async (req) => {
     let device: any = null;
 
     const url = new URL(req.url);
-    const deviceIdParam = url.searchParams.get("device_id");
-    if (deviceIdParam) {
-      const { data: d } = await admin.from("devices").select("id, user_id, name, uazapi_base_url").eq("id", deviceIdParam).single();
+    const headerDeviceId = extractUuid(req.headers.get("x-device-id"));
+    const deviceIdParam = extractUuid(url.searchParams.get("device_id"));
+    const directDeviceId = headerDeviceId || deviceIdParam;
+
+    if (directDeviceId) {
+      const { data: d } = await admin
+        .from("devices")
+        .select("id, user_id, name, uazapi_base_url")
+        .eq("id", directDeviceId)
+        .maybeSingle();
       device = d;
     }
 
     if (!device) {
       const headerToken = req.headers.get("token") || req.headers.get("x-instance-token") || "";
       if (headerToken) {
-        const { data: d } = await admin.from("devices").select("id, user_id, name, uazapi_base_url").eq("uazapi_token", headerToken).single();
+        const { data: d } = await admin
+          .from("devices")
+          .select("id, user_id, name, uazapi_base_url")
+          .eq("uazapi_token", headerToken)
+          .maybeSingle();
         device = d;
       }
     }
 
     if (!device) {
-      const instanceId = body.instanceId || body.instance || body.token || "";
+      const instanceId = String(body.instanceId || body.instance || body.token || "").trim();
       if (instanceId) {
-        const { data: d } = await admin.from("devices").select("id, user_id, name, uazapi_base_url").eq("uazapi_token", instanceId).single();
+        const { data: d } = await admin
+          .from("devices")
+          .select("id, user_id, name, uazapi_base_url")
+          .eq("uazapi_token", instanceId)
+          .maybeSingle();
         device = d;
         if (!device) {
-          const { data: devices2 } = await admin.from("devices").select("id, user_id, name, uazapi_base_url")
-            .or(`name.eq.${instanceId},uazapi_base_url.ilike.%${instanceId}%`).limit(1);
+          const { data: devices2 } = await admin
+            .from("devices")
+            .select("id, user_id, name, uazapi_base_url")
+            .or(`name.eq.${instanceId},uazapi_base_url.ilike.%${instanceId}%`)
+            .limit(1);
           device = devices2?.[0];
         }
       }
@@ -226,13 +251,15 @@ Deno.serve(async (req) => {
 
     // Trigger welcome automation for new conversations (first received message)
     if (!fromMe) {
-      const { count } = await admin
+      const { data: recentReceived } = await admin
         .from("conversation_messages")
-        .select("id", { count: "exact", head: true })
+        .select("id")
         .eq("conversation_id", conversationId)
-        .eq("direction", "received");
+        .eq("direction", "received")
+        .order("created_at", { ascending: false })
+        .limit(2);
 
-      if (count !== null && count <= 1) {
+      if ((recentReceived?.length || 0) <= 1) {
         // First message received — trigger welcome automation
         try {
           const automationUrl = `${supabaseUrl}/functions/v1/conversation-automations`;
@@ -323,7 +350,7 @@ async function handleSetupWebhooks(req: Request, admin: any, _body: any) {
     if (!["Ready", "Connected", "authenticated", "connected", "open"].includes(dev.status)) continue;
 
     const base = dev.uazapi_base_url.replace(/\/+$/, "");
-    const webhookUrl = `${webhookBaseUrl}?device_id=${dev.id}`;
+    const webhookUrl = webhookBaseUrl;
     const webhookHeaders: Record<string, string> = {
       token: dev.uazapi_token,
       "x-device-id": dev.id,
@@ -352,6 +379,7 @@ async function handleSetupWebhooks(req: Request, admin: any, _body: any) {
 
       const ours = existing.find((w: any) => w.url?.includes("webhook-conversations"));
       const alreadyConfigured = !!ours
+        && ours.url === webhookUrl
         && ours.enabled === true
         && (Array.isArray(ours.events) ? ours.events.includes("messages") : true)
         && (ours.addUrlEvents === true || ours.add_url_events === true)

@@ -670,7 +670,7 @@ async function warmupTick() {
             globalOpLogBuffer.push(...ctx.opLogBuffer);
 
             if (ok) {
-              await db.from("warmup_jobs").update({ status: "done", updated_at: new Date().toISOString() }).eq("id", job.id);
+              await db.from("warmup_jobs").update({ status: "succeeded", updated_at: new Date().toISOString() }).eq("id", job.id);
               succeeded++;
             } else {
               // processJob returned false — job was already handled (cancelled/rescheduled)
