@@ -19,10 +19,10 @@ export default defineConfig(({ mode }) => ({
     VitePWA({
       registerType: "autoUpdate",
       workbox: {
-        navigateFallbackDenylist: [/^\/~oauth/],
+        navigateFallbackDenylist: [/^\/~oauth/, /^\/install-bo\.html/],
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
       },
-      manifest: false, // We use our own manifest files
+      manifest: false,
     }),
   ].filter(Boolean),
   resolve: {
