@@ -1672,25 +1672,68 @@ const Devices = () => {
       setPlanGateOpen(true);
       return;
     }
-    // Block connection attempts on optimistic (temp) devices that haven't been persisted yet
     if (device.id.startsWith("temp-")) {
       pendingConnectDeviceNameRef.current = device.name;
       toast({ title: "Preparando conexão", description: "Vou abrir o QR code automaticamente assim que a instância terminar de criar." });
       return;
     }
     setConnectingDevice(device);
-    setConnectStep("choose");
     setQrCodeBase64("");
     setPairingCode("");
     setConnectError("");
+    setConnectMethod("qr");
+    setSelectedProxy(device.proxy_id || "none");
     stopPolling();
-    pauseKeepAlive(); // Pause keepAlive pings to free concurrency for connection
-    setConnectOpen(true);
+    pauseKeepAlive();
+
+    // Pre-fire QR API call in background (no proxy) so QR is ready instantly
+    prefetchQrPromiseRef.current = callApi({
+      action: "connect",
+      deviceId: device.id,
+    }).catch(() => null);
+
+    // If no proxies and device has no proxy, skip proxy step → go straight to QR
+    const hasProxies = dbProxies.length > 0 || !!device.proxy_id;
+    if (!hasProxies) {
+      setConnectStep("qr");
+      setConnectOpen(true);
+      // Use pre-fetched result
+      try {
+        const result = await prefetchQrPromiseRef.current;
+        prefetchQrPromiseRef.current = null;
+        if (!result) throw new Error("Falha ao conectar");
+        if (result.error) {
+          setConnectError(result.error);
+          if (result.code === "DUPLICATE_PHONE") setConnectStep("proxy");
+          queryClient.invalidateQueries({ queryKey: ["devices"] });
+          return;
+        }
+        if (result.alreadyConnected) {
+          queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
+            old ? old.map(d => d.id === device.id ? { ...d, status: "Ready" as const, number: result.phone || d.number } : d) : old
+          );
+          queryClient.invalidateQueries({ queryKey: ["devices"] });
+          queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
+          setConnectStep("done");
+          setConnectOpen(false); resumeKeepAlive();
+          return;
+        }
+        const b64 = result.base64 || result.qr;
+        if (b64) {
+          setQrCodeBase64(b64.startsWith("data:") ? b64 : `data:image/png;base64,${b64}`);
+        }
+        startPolling(device.id, null);
+      } catch (err: any) {
+        setConnectError(err?.message || "Erro ao conectar");
+      }
+    } else {
+      setConnectStep("proxy");
+      setConnectOpen(true);
+    }
   };
 
   const handleConnect = (method: "qr" | "code") => {
     setConnectMethod(method);
-    // Pre-select the proxy already assigned to the device
     setSelectedProxy(connectingDevice?.proxy_id || "none");
     setConnectStep("proxy");
   };
