@@ -85,6 +85,8 @@ const dedupeNotifications = (items: Notification[]) => {
   return unique.slice(0, 20);
 };
 
+const COMBINED_LIMIT = 40;
+
 export function useNotifications() {
   const { user } = useAuth();
 
@@ -149,7 +151,7 @@ export function useNotifications() {
     ]);
 
     const systemNotifications = dedupeNotifications(
-      ((data as Notification[] | null) || []).map((item) => ({ ...item, source: "system" })),
+      ((data as Notification[] | null) || []).map((item) => ({ ...item, source: "system" as const })),
     );
 
     for (const n of systemNotifications) {
@@ -163,17 +165,10 @@ export function useNotifications() {
       [...systemNotifications, ...activityNotifications].sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       ),
-    );
+    ).slice(0, COMBINED_LIMIT);
 
     setNotifications(combined);
     setUnreadCount(systemNotifications.filter((n) => !n.read).length);
-
-    if (data) {
-      for (const n of systemNotifications) {
-        globalKnownIds.add(n.id);
-        globalToastedIds.add(n.id);
-      }
-    }
 
     setLoading(false);
   }, [user]);
