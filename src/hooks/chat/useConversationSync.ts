@@ -92,6 +92,7 @@ export function useConversationSync() {
 
   // ─── Fetch user device numbers to filter self-conversations ───
   const [ownPhones, setOwnPhones] = useState<Set<string>>(new Set());
+  const [ownPhonesLoaded, setOwnPhonesLoaded] = useState(false);
   useEffect(() => {
     if (!user) return;
     supabase
@@ -104,6 +105,7 @@ export function useConversationSync() {
           (data || []).map((d: any) => (d.number || "").replace(/\D/g, "")).filter(Boolean)
         );
         setOwnPhones(phones);
+        setOwnPhonesLoaded(true);
       });
   }, [user]);
 
@@ -124,7 +126,7 @@ export function useConversationSync() {
 
   // ─── Fetch ───
   const fetchConversations = useCallback(async () => {
-    if (!user) return;
+    if (!user || !ownPhonesLoaded) return;
     const [activeRes, archivedRes] = await Promise.all([
       supabase
         .from("conversations")
@@ -153,7 +155,7 @@ export function useConversationSync() {
     setConversations(mapped);
     setArchivedConversations(filterSelf(archivedRes.data || []).map(mapConversationRow));
     setLoading(false);
-  }, [user, mapConversationRow, sortConversations, isOwnDevice]);
+  }, [user, mapConversationRow, sortConversations, isOwnDevice, ownPhonesLoaded]);
 
   const fetchMessages = useCallback(async (conversationId: string) => {
     const groupIds = getConversationIdsForSameContact(conversationId);
