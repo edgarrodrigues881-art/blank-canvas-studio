@@ -1,7 +1,7 @@
-import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { getBrazilDateKey } from "@/lib/brazilTime";
 
 export interface ChipInfo {
   id: string;
@@ -71,16 +71,24 @@ export function useDashboardStats() {
   return useQuery({
     queryKey: ["dashboard-stats", user?.id],
     queryFn: async (): Promise<DashboardStats> => {
-      // Calculate date range for the week (Monday-Sunday)
+      // Calculate date range for the week (Monday-Sunday) in Brazil time
       const now = new Date();
-      const todayDow = now.getDay();
+      const brazilToday = getBrazilDateKey(now);
+      const todayDate = new Date(brazilToday + "T12:00:00");
+      const todayDow = todayDate.getDay();
       const mondayOffset = todayDow === 0 ? -6 : 1 - todayDow;
-      const monday = new Date(now);
-      monday.setDate(now.getDate() + mondayOffset);
-      monday.setHours(0, 0, 0, 0);
+      const monday = new Date(todayDate);
+      monday.setDate(todayDate.getDate() + mondayOffset);
       const mondayStr = monday.toLocaleDateString("en-CA"); // YYYY-MM-DD
 
-      const [devicesRes, cyclesRes, dailyStatsRes, proxiesRes] = await Promise.all([
+      // Build Sunday date for chip/group queries
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const sundayStr = sunday.toLocaleDateString("en-CA");
+      const weekStartISO = `${mondayStr}T00:00:00-03:00`;
+      const weekEndISO = `${sundayStr}T23:59:59.999-03:00`;
+
+      const [devicesRes, cyclesRes, dailyStatsRes, proxiesRes, chipLogsRes, groupLogsRes] = await Promise.all([
         supabase
           .from("devices")
           .select("id, name, number, status, proxy_id, profile_picture")
@@ -91,6 +99,18 @@ export function useDashboardStats() {
         supabase.from("warmup_cycles").select("id, device_id, is_running, phase, day_index, days_total, daily_interaction_budget_used, daily_interaction_budget_target, updated_at").eq("user_id", user!.id),
         supabase.from("warmup_daily_stats").select("device_id, stat_date, messages_sent, messages_failed, messages_total").eq("user_id", user!.id).gte("stat_date", mondayStr),
         supabase.from("proxies").select("id, host").eq("user_id", user!.id),
+        supabase
+          .from("chip_conversation_logs" as any)
+          .select("sent_at")
+          .eq("user_id", user!.id)
+          .gte("sent_at", weekStartISO)
+          .lte("sent_at", weekEndISO),
+        supabase
+          .from("group_interaction_logs" as any)
+          .select("sent_at")
+          .eq("user_id", user!.id)
+          .gte("sent_at", weekStartISO)
+          .lte("sent_at", weekEndISO),
       ]);
 
       const devices = devicesRes.data || [];
@@ -121,6 +141,17 @@ export function useDashboardStats() {
         dayStatsMap[dateKey].failed += s.messages_failed || 0;
         dayStatsMap[dateKey].total += s.messages_total || 0;
       });
+
+      // Aggregate chip + group logs by Brazil date
+      const chipByDay: Record<string, number> = {};
+      const groupByDay: Record<string, number> = {};
+      ((chipLogsRes.data as any[]) || []).forEach((r: any) => {
+        const dk = getBrazilDateKey(r.sent_at);
+        chipByDay[dk] = (chipByDay[dk] || 0) + 1;
+      });
+      ((groupLogsRes.data as any[]) || []).forEach((r: any) => {
+        const dk = getBrazilDateKey(r.sent_at);
+        groupByDay[dk] = (groupByDay[dk] || 0) + 1;
 
       const totalMessages = totalSent + totalFailed;
 
@@ -165,8 +196,12 @@ export function useDashboardStats() {
         const dayLabel = d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
 
         const dayData = dayStatsMap[dateStr] || { sent: 0, failed: 0, total: 0 };
+        const chipCount = chipByDay[dateStr] || 0;
+        const groupCount = groupByDay[dateStr] || 0;
+        const totalEntregas = dayData.sent + chipCount + groupCount;
+        const totalVol = dayData.total + chipCount + groupCount;
 
-        return { label: dayLabel, volume: dayData.total, entregas: dayData.sent, crescimento: 0 };
+        return { label: dayLabel, volume: totalVol, entregas: totalEntregas, crescimento: 0 };
       });
 
       for (let i = 1; i < warmupEvolution.length; i++) {
