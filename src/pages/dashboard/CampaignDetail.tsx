@@ -167,7 +167,7 @@ const CampaignDetail = () => {
         updates.device_id = newDeviceIds[0];
       }
 
-      const { error } = await supabase.from("campaigns").update(updates).eq("id", id);
+      const { error } = await supabase.from("campaigns").update(updates as any).eq("id", id);
       if (error) throw error;
 
       queryClient.invalidateQueries({ queryKey: ["campaign", id] });
@@ -995,7 +995,7 @@ const CampaignDetail = () => {
                     if (newIds.length > 0 && !newIds.includes(campaign?.device_id as string)) {
                       updates.device_id = newIds[0];
                     }
-                    await supabase.from("campaigns").update(updates).eq("id", id);
+                    await supabase.from("campaigns").update(updates as any).eq("id", id);
                     queryClient.invalidateQueries({ queryKey: ["campaign", id] });
                     const dev = devices.find(d => d.id === deviceId);
                     toast({ title: `🗑 ${dev?.name || "Conta"} removida`, description: newIds.length === 0 ? "Campanha será pausada automaticamente." : `${newIds.length} instância(s) ativa(s)` });

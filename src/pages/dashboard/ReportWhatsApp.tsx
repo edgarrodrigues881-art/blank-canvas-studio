@@ -401,7 +401,7 @@ export default function ReportWhatsApp() {
       if (needsDeviceSync) updates.device_id = reportDevice.id;
       if (needsStatusSync) updates.connection_status = currentStatus;
       if (needsPhoneSync) updates.connected_phone = reportDevice.number;
-      supabase.from("report_wa_configs").update(updates).eq("id", config.id).then(({ error }) => {
+      supabase.from("report_wa_configs").update(updates as any).eq("id", config.id).then(({ error }) => {
         if (!error) queryClient.invalidateQueries({ queryKey: ["report-wa-config"] });
       });
     }
@@ -410,7 +410,7 @@ export default function ReportWhatsApp() {
   const upsertConfig = useMutation({
     mutationFn: async (updates: Record<string, any>) => {
       if (config?.id) {
-        const { error } = await supabase.from("report_wa_configs").update(updates).eq("id", config.id);
+        const { error } = await supabase.from("report_wa_configs").update(updates as any).eq("id", config.id);
         if (error) throw error;
       } else {
         // First insert: set all toggles to false, then apply the specific update
