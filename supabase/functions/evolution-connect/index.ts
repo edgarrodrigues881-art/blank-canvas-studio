@@ -894,9 +894,9 @@ Deno.serve(async (req) => {
       // CRITICAL FIX: Poll for QR with more attempts and longer delays
       // Uazapi sometimes takes 5-8 seconds to generate QR after connect
       if (!qr) {
-        for (let attempt = 0; attempt < 5 && !qr; attempt++) {
-          await new Promise(r => setTimeout(r, 800));
-          const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 5000, retries: 0 });
+        for (let attempt = 0; attempt < 4 && !qr; attempt++) {
+          await new Promise(r => setTimeout(r, 500));
+          const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 3000, retries: 0 });
           const pi = poll.data?.instance || poll.data || {};
           const pollState = normalizeProviderConnectionState(poll.data);
           qr = pollState.qrcode || pi.qrcode || poll.data?.qrcode;
