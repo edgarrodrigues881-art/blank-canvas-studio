@@ -545,31 +545,17 @@ async function processOneInteraction(sb: any, interaction: any) {
   const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
 
   // Resolve groups strictly from explicit allowlist/JIDs already linked to this interaction
-  let groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
   const allowedSelections = await loadAllowedGroupSelections(sb, userId, device.id, groupIds);
 
-  const resolveStrict = (map: Map<string, ResolvedGroup>) => {
+  // Build allowed group list ONLY from warmup_instance_groups joined JIDs — never from the device API
+  const resolveFromAllowlist = () => {
     const found: Array<{ jid: string; name: string }> = [];
     const unresolved: string[] = [];
 
     for (const selection of allowedSelections) {
-      let resolvedGroup: ResolvedGroup | null = null;
-
+      // ONLY use the JID that was saved when the device joined the group via warmup
       if (selection.joinedJid) {
-        const byJoinedJid = map.get(selection.joinedJid);
-        if (byJoinedJid?.jid) resolvedGroup = byJoinedJid;
-        else resolvedGroup = { jid: selection.joinedJid, name: selection.name || "" };
-      }
-
-      if (!resolvedGroup && selection.link) {
-        const byInviteLink = resolveGroupByInviteOnly(map, selection.link);
-        if (byInviteLink?.jid) {
-          resolvedGroup = byInviteLink;
-        }
-      }
-
-      if (resolvedGroup?.jid) {
-        found.push({ jid: resolvedGroup.jid, name: resolvedGroup.name || selection.name });
+        found.push({ jid: selection.joinedJid, name: selection.name || "" });
       } else {
         unresolved.push(selection.selectionKey);
       }
@@ -578,13 +564,7 @@ async function processOneInteraction(sb: any, interaction: any) {
     return { resolved: uniqueGroups(found), unresolved };
   };
 
-  let { resolved, unresolved } = resolveStrict(groupMap);
-
-  if (resolved.length === 0 || unresolved.length > 0) {
-    groupMapCache.delete(device.id);
-    groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
-    ({ resolved, unresolved } = resolveStrict(groupMap));
-  }
+  const { resolved, unresolved } = resolveFromAllowlist();
 
   if (resolved.length === 0) {
     const recognizedSelections = allowedSelections.filter((selection) => selection.groupId || selection.link || selection.joinedJid || selection.name);
@@ -601,7 +581,7 @@ async function processOneInteraction(sb: any, interaction: any) {
 
   if (unresolved.length > 0) {
     const missingCount = groupIds.length - resolved.length;
-    log.warn(`Interaction ${interaction.id.slice(0, 8)}: ${missingCount} grupos fora da allowlist ou sem JID salvo (${resolved.length}/${groupIds.length})`);
+    log.warn(`Interaction ${interaction.id.slice(0, 8)}: ${missingCount} grupos sem JID registrado em warmup_instance_groups (${resolved.length}/${groupIds.length} usáveis)`);
   }
 
   // Get messages
