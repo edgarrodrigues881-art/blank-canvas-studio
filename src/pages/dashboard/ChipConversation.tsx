@@ -229,8 +229,18 @@ export default function ChipConversation() {
               devices={availableDevices}
               onSubmit={async (data) => {
                 try {
-                  await actions.create.mutateAsync(data);
-                  toast.success("Conversa criada com sucesso!");
+                  const result = await actions.create.mutateAsync(data);
+                  const newId = result?.id || result?.conversation_id;
+                  if (newId) {
+                    try {
+                      await actions.start.mutateAsync(newId);
+                      toast.success("Conversa criada e iniciada!");
+                    } catch {
+                      toast.success("Conversa criada! Inicie manualmente.");
+                    }
+                  } else {
+                    toast.success("Conversa criada com sucesso!");
+                  }
                   setShowCreateDialog(false);
                 } catch (e: any) {
                   toast.error(e.message || "Erro ao criar conversa");
