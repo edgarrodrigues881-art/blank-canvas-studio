@@ -239,12 +239,12 @@ export function AppSidebar() {
             onMouseEnter={() => !isLocked && handlePreload(item.url)}
             className={`sidebar-nav-item flex items-center rounded-[10px] text-[13px] relative
               transition-[background-color,color,opacity] duration-[120ms] ease-out
-              ${collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : `gap-[11px] ${indent ? 'pl-8' : 'px-3.5'} pr-3.5 py-[10px]`}
+              ${collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : `gap-[11px] ${indent ? 'pl-8' : 'px-3.5'} pr-3.5 py-[9px]`}
               ${isLocked
-                ? 'text-muted-foreground/40 font-medium cursor-not-allowed'
+                ? 'text-muted-foreground/40 font-normal cursor-not-allowed'
                 : active
                   ? 'bg-primary/10 text-foreground font-semibold'
-                  : 'text-muted-foreground font-medium hover:text-foreground hover:bg-muted/40'
+                  : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/30'
               }`}
             activeClassName=""
           >
