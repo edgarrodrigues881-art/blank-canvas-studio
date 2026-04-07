@@ -7,7 +7,6 @@
 import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
 import { DeviceLockManager } from "../core/device-lock-manager";
-// chip-conversation is lightweight — does NOT use global semaphore
 
 const log = createLogger("chip-conv");
 
@@ -28,6 +27,10 @@ function shuffleArray<T>(arr: T[]): T[] {
   return copy;
 }
 function cleanNumber(num: string): string { return num.replace(/[^0-9]/g, ""); }
+
+// ── Per-conversation delay enforcement ──
+// Maps conversation ID → timestamp (ms) when the next message is allowed
+const nextAllowedAt = new Map<string, number>();
 
 const FALLBACK_MESSAGES = [
   "Opa, tudo certo?", "Bom dia, como você tá?", "E aí, tranquilo?",
@@ -141,17 +144,9 @@ const FALLBACK_STICKERS = [
 ];
 
 const KNOWN_BROKEN_AUDIO_HINTS = [
-  "531947_4397472",
-  "456058_5765826",
-  "523746_10717283",
-  "527087_10717283",
-  "514742_1648170",
-  "459145_5765826",
-  "467049_9655975",
-  "511484_10717283",
-  "516565_10717283",
-  "530110_10717283",
-  "415079_5121236",
+  "531947_4397472", "456058_5765826", "523746_10717283", "527087_10717283",
+  "514742_1648170", "459145_5765826", "467049_9655975", "511484_10717283",
+  "516565_10717283", "530110_10717283", "415079_5121236",
 ];
 
 function isKnownBrokenAudioUrl(url: string | null | undefined): boolean {
@@ -265,8 +260,55 @@ function pickChipContentType(): "text" | "audio" | "sticker" | "image" {
   return "image";
 }
 
+// ── Round-robin pair index tracker per conversation ──
+// Ensures every pair gets an equal turn before any pair repeats
+const pairRoundRobin = new Map<string, { queue: string[]; pairMap: Map<string, { sender: any; receiver: any }> }>();
+
+function getNextPairRoundRobin(conversationId: string, activeDevices: any[]): { sender: any; receiver: any } {
+  let state = pairRoundRobin.get(conversationId);
+
+  // Build all directed pairs
+  const allPairKeys: string[] = [];
+  const pairMap = new Map<string, { sender: any; receiver: any }>();
+  for (const s of activeDevices) {
+    for (const r of activeDevices) {
+      if (s.id !== r.id) {
+        const key = `${s.id}→${r.id}`;
+        allPairKeys.push(key);
+        pairMap.set(key, { sender: s, receiver: r });
+      }
+    }
+  }
+
+  // If no state or queue is empty or device set changed, reshuffle
+  if (!state || state.queue.length === 0 || state.pairMap.size !== pairMap.size) {
+    const shuffled = shuffleArray(allPairKeys);
+    state = { queue: shuffled, pairMap };
+    pairRoundRobin.set(conversationId, state);
+  }
+
+  // Pop the next pair from the queue
+  const nextKey = state.queue.shift()!;
+  const pair = pairMap.get(nextKey) || state.pairMap.get(nextKey);
+
+  // If pair not found (shouldn't happen), fallback to random
+  if (!pair) {
+    const fallbackKey = pickRandom(allPairKeys);
+    return pairMap.get(fallbackKey)!;
+  }
+
+  return pair;
+}
+
 async function processOneConversation(sb: any, conv: any) {
   const conversationId = conv.id;
+
+  // ── Delay enforcement: skip if not enough time has passed ──
+  const now = Date.now();
+  const allowedAt = nextAllowedAt.get(conversationId) || 0;
+  if (now < allowedAt) {
+    return 0; // Signal: skipped, not ready yet
+  }
 
   // Time window check
   const brNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
@@ -282,23 +324,36 @@ async function processOneConversation(sb: any, conv: any) {
     const [eH, eM] = (endParts[i] || endParts[0]).split(":").map(Number);
     if (currentTime >= sH * 60 + (sM || 0) && currentTime < eH * 60 + (eM || 0)) { insideWindow = true; break; }
   }
-  if (!insideWindow) return 60; // Retry in 60s
+  if (!insideWindow) {
+    nextAllowedAt.set(conversationId, now + 60_000);
+    return 60;
+  }
 
   const dayMap = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
   const activeDays = conv.active_days as string[];
-  if (activeDays?.length && !activeDays.includes(dayMap[brNow.getDay()])) return 300;
+  if (activeDays?.length && !activeDays.includes(dayMap[brNow.getDay()])) {
+    nextAllowedAt.set(conversationId, now + 300_000);
+    return 300;
+  }
 
+  // Re-read conversation settings from DB to pick up any live changes
+  const { data: freshConv } = await sb.from("chip_conversations")
+    .select("min_delay_seconds, max_delay_seconds, messages_per_cycle_min, messages_per_cycle_max, pause_duration_min, pause_duration_max, pause_after_messages_min, pause_after_messages_max, device_ids, total_messages_sent")
+    .eq("id", conversationId)
+    .single();
+
+  const settings = freshConv || conv;
   const userMessages = await getUserMessages(sb, conv.user_id);
-  const deviceIds = conv.device_ids as string[];
+  const deviceIds = settings.device_ids as string[];
   const { data: devices } = await sb.from("devices").select("id, name, number, uazapi_base_url, uazapi_token").in("id", deviceIds);
-  const activeDevices = (devices || []).filter((d: any) => d.uazapi_base_url && d.uazapi_token && d.number).sort((a: any, b: any) => a.id.localeCompare(b.id));
+  const activeDevices = (devices || []).filter((d: any) => d.uazapi_base_url && d.uazapi_token && d.number);
 
   if (activeDevices.length < 2) {
     await sb.from("chip_conversations").update({ status: "paused", last_error: "Pelo menos 2 dispositivos precisam ter API configurada" }).eq("id", conversationId);
     return -1;
   }
 
-  // Load user media for chip conversations (reuse group_interaction_media table)
+  // Load user media
   const { data: userMedia } = await sb.from("group_interaction_media").select("*").eq("user_id", conv.user_id).eq("is_active", true);
   const mediaByType: Record<string, any[]> = {};
   for (const m of userMedia || []) (mediaByType[m.media_type] ??= []).push(m);
@@ -307,53 +362,14 @@ async function processOneConversation(sb: any, conv: any) {
   const hasUserSticker = (mediaByType.sticker?.length || 0) > 0;
   const hasUserAudio = (mediaByType.audio?.length || 0) > 0;
 
-  // Distribuição solicitada: 52% texto, 35% áudio, 10% figurinha, 3% imagem
   const contentType = pickChipContentType();
 
-  // ── Fair rotation: pick the device that sent the LEAST recently ──
+  // ── Round-robin pair selection: guarantees ALL pairs get equal turns ──
+  const { sender, receiver } = getNextPairRoundRobin(conversationId, activeDevices);
   const totalDevices = activeDevices.length;
+  const totalPairs = totalDevices * (totalDevices - 1);
 
-  // ── True mesh rotation: generate all possible directed pairs and pick the least-used one ──
-  type DevicePair = { sender: any; receiver: any; key: string };
-  const allPairs: DevicePair[] = [];
-  for (const s of activeDevices) {
-    for (const r of activeDevices) {
-      if (s.id !== r.id) allPairs.push({ sender: s, receiver: r, key: `${s.id}→${r.id}` });
-    }
-  }
-
-  // Query recent logs to find how many messages each pair exchanged
-  const { data: recentLogs } = await sb
-    .from("chip_conversation_logs")
-    .select("sender_device_id, receiver_device_id")
-    .eq("conversation_id", conversationId)
-    .order("sent_at", { ascending: false })
-    .limit(allPairs.length * 40);
-
-  // Count messages per directed pair
-  const pairCounts = new Map<string, number>();
-  for (const pair of allPairs) pairCounts.set(pair.key, 0);
-  for (const row of recentLogs || []) {
-    const key = `${row.sender_device_id}→${row.receiver_device_id}`;
-    if (pairCounts.has(key)) {
-      pairCounts.set(key, (pairCounts.get(key) || 0) + 1);
-    }
-  }
-
-  // Sort pairs by least used (ascending), break ties randomly for true randomization
-  const sortedPairs = shuffleArray(allPairs).sort((a, b) => {
-    return (pairCounts.get(a.key) || 0) - (pairCounts.get(b.key) || 0);
-  });
-
-  // Pick from the least-used tier (all pairs with the minimum count)
-  const minCount = pairCounts.get(sortedPairs[0].key) || 0;
-  const leastUsedPairs = sortedPairs.filter(p => (pairCounts.get(p.key) || 0) === minCount);
-  const chosenPair = pickRandom(leastUsedPairs);
-
-  const sender = chosenPair.sender;
-  const receiver = chosenPair.receiver;
-
-  log.info(`Chip conv ${conversationId.slice(0, 8)}: mesh pair ${sender.name} → ${receiver.name} (${leastUsedPairs.length} candidates at count ${minCount}, ${allPairs.length} total pairs)`);
+  log.info(`Chip conv ${conversationId.slice(0, 8)}: ${sender.name} → ${receiver.name} (${totalPairs} pairs, round-robin)`);
 
   let messageText = "";
   let messageCategory: "text" | "audio" | "sticker" | "image" = contentType;
@@ -392,7 +408,6 @@ async function processOneConversation(sb: any, conv: any) {
         result = textFallback;
         messageCategory = "text";
         messageText = fallbackText;
-        log.info(`Chip conv ${conversationId.slice(0, 8)}: audio falhou, fallback para texto (${audioErrors.length} tentativas)`);
       } else {
         result = {
           ok: false,
@@ -406,10 +421,10 @@ async function processOneConversation(sb: any, conv: any) {
     result = await sendTextMessage(sender.uazapi_base_url, sender.uazapi_token, receiver.number, messageText);
   }
 
-  const currentTotal = conv.total_messages_sent || 0;
-  log.info(`Turn #${currentTotal}: ${sender.name} → ${receiver.name} [${messageCategory}] (${totalDevices} devices, ${allPairs.length} pairs)`);
-
+  const currentTotal = settings.total_messages_sent || 0;
   const newTotal = currentTotal + (result.ok ? 1 : 0);
+
+  log.info(`Turn #${newTotal}: ${sender.name} → ${receiver.name} [${messageCategory}] (${totalDevices} devices)`);
 
   // Fire-and-forget log insert
   sb.from("chip_conversation_logs").insert({
@@ -423,13 +438,35 @@ async function processOneConversation(sb: any, conv: any) {
 
   await sb.from("chip_conversations").update({ total_messages_sent: newTotal, last_error: result.ok ? null : result.error, status: "active" }).eq("id", conversationId);
 
-  // Use randomized delays instead of fixed values
-  const cycleTarget = safeRange(conv.messages_per_cycle_min, conv.messages_per_cycle_max, 10, 30);
-  const normalDelay = safeRange(conv.min_delay_seconds, conv.max_delay_seconds, 15, 60);
-  const pauseDelay = safeRange(conv.pause_duration_min, conv.pause_duration_max, 120, 300);
-  const reachedPause = newTotal > 0 && newTotal % cycleTarget === 0;
+  // ── Calculate and ENFORCE delay ──
+  const minDelay = Number(settings.min_delay_seconds) || 15;
+  const maxDelay = Number(settings.max_delay_seconds) || 60;
+  const safeMinDelay = Math.max(5, Math.min(minDelay, maxDelay));
+  const safeMaxDelay = Math.max(safeMinDelay, Math.max(minDelay, maxDelay));
 
-  return reachedPause ? pauseDelay : normalDelay;
+  const pauseEveryMin = Number(settings.pause_after_messages_min) || Number(settings.messages_per_cycle_min) || 10;
+  const pauseEveryMax = Number(settings.pause_after_messages_max) || Number(settings.messages_per_cycle_max) || 30;
+  const pauseTarget = randomBetween(Math.min(pauseEveryMin, pauseEveryMax), Math.max(pauseEveryMin, pauseEveryMax));
+
+  const pauseDurMin = Number(settings.pause_duration_min) || 120;
+  const pauseDurMax = Number(settings.pause_duration_max) || 300;
+
+  const reachedPause = newTotal > 0 && newTotal % pauseTarget === 0;
+
+  let delaySec: number;
+  if (reachedPause) {
+    delaySec = randomBetween(Math.min(pauseDurMin, pauseDurMax), Math.max(pauseDurMin, pauseDurMax));
+    log.info(`Chip conv ${conversationId.slice(0, 8)}: PAUSE ${delaySec}s after ${newTotal} msgs (target was ${pauseTarget})`);
+  } else {
+    delaySec = randomBetween(safeMinDelay, safeMaxDelay);
+  }
+
+  // Store the timestamp when this conversation is allowed to send again
+  nextAllowedAt.set(conversationId, Date.now() + delaySec * 1000);
+
+  log.info(`Chip conv ${conversationId.slice(0, 8)}: next msg in ${delaySec}s (delay range ${safeMinDelay}-${safeMaxDelay}s)`);
+
+  return delaySec;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -446,18 +483,16 @@ export async function chipConversationTick() {
   if (!activeConvs?.length) return;
 
   for (const conv of activeConvs) {
-    // Only lock the conversation ID as a logical lock — individual device locks
-    // are acquired per-pair inside processOneConversation to avoid blocking
-    // the entire conversation when just one device is busy.
     const convLockKey = `chip_conv_${conv.id}`;
     if (!DeviceLockManager.tryAcquire(convLockKey, "chip_conversation", conv.id)) {
-      continue; // Another tick is already processing this conversation
+      continue;
     }
 
     try {
       const nextDelay = await processOneConversation(db, conv);
-      if (nextDelay === -1) continue;
-      log.info(`Chip conv ${conv.id.slice(0, 8)}: next in ${nextDelay}s`);
+      if (nextDelay === -1) continue; // paused due to error
+      if (nextDelay === 0) continue;  // skipped, delay not yet elapsed
+      // Delay is now enforced via nextAllowedAt map — no need to sleep here
     } catch (err: any) {
       log.error(`Chip conv ${conv.id.slice(0, 8)} error: ${err.message}`);
       await db.from("chip_conversations").update({ last_error: err.message }).eq("id", conv.id).then(() => {}, () => {});
