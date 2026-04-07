@@ -251,23 +251,30 @@ export default function GroupInteractionPage() {
     setShowConfig(false);
   };
 
+  const bulkCreatingRef = useRef(false);
   const handleBulkCreate = async () => {
+    if (bulkCreatingRef.current) return;
     if (!bulkDeviceIds.length) return toast.error("Selecione pelo menos um dispositivo");
     const err = validate();
     if (err) return toast.error(err);
-    for (const deviceId of bulkDeviceIds) {
-      const device = eligibleDevices.find((d: any) => d.id === deviceId);
-      const deviceName = device ? device.name : "Dispositivo";
-      await createInteraction.mutateAsync({
-        ...form,
-        device_id: deviceId,
-        name: `${form.name} - ${deviceName}`,
-      } as any);
+    bulkCreatingRef.current = true;
+    try {
+      for (const deviceId of bulkDeviceIds) {
+        const device = eligibleDevices.find((d: any) => d.id === deviceId);
+        const deviceName = device ? device.name : "Dispositivo";
+        await createInteraction.mutateAsync({
+          ...form,
+          device_id: deviceId,
+          name: `${form.name} - ${deviceName}`,
+        } as any);
+      }
+      toast.success(`${bulkDeviceIds.length} automações criadas e iniciadas`);
+      setShowBulkCreate(false);
+      setBulkDeviceIds([]);
+      setForm({ ...defaultForm });
+    } finally {
+      bulkCreatingRef.current = false;
     }
-    toast.success(`${bulkDeviceIds.length} automações criadas e iniciadas`);
-    setShowBulkCreate(false);
-    setBulkDeviceIds([]);
-    setForm({ ...defaultForm });
   };
 
   const handleSave = async () => {
