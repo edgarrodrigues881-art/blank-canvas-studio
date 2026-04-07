@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollText, ChevronDown, CheckCircle2, XCircle } from "lucide-react";
 import type { GroupInteractionLog } from "@/hooks/useGroupInteraction";
+import { formatBrazilTime } from "@/lib/brazilTime";
 
 const PAGE_SIZE = 20;
 
@@ -45,7 +46,7 @@ export default function GILogs({ logs }: { logs: GroupInteractionLog[] }) {
                       <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
                     )}
                     <span className="text-[11px] text-muted-foreground font-mono shrink-0">
-                      {new Date(log.sent_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                      {formatBrazilTime(log.sent_at)}
                     </span>
                     <span className="text-xs text-muted-foreground truncate">
                       {log.group_name || log.group_id?.slice(0, 8)}

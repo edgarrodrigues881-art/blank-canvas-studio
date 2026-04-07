@@ -171,3 +171,131 @@ export function resolveGroupJid(
 
   return null;
 }
+
+function extractGroupJidFromPayload(parsed: any): string | null {
+  const candidates = [
+    parsed?.group?.JID,
+    parsed?.group?.jid,
+    parsed?.group?.id,
+    parsed?.data?.group?.JID,
+    parsed?.data?.group?.jid,
+    parsed?.data?.group?.id,
+    parsed?.data?.JID,
+    parsed?.data?.jid,
+    parsed?.data?.id,
+    parsed?.data?.gid,
+    parsed?.data?.groupId,
+    parsed?.data?.chatId,
+    parsed?.gid,
+    parsed?.groupId,
+    parsed?.jid,
+    parsed?.id,
+    parsed?.chatId,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.includes("@g.us")) {
+      return candidate.trim();
+    }
+  }
+
+  const raw = JSON.stringify(parsed ?? {});
+  return raw.match(/(\d+@g\.us)/)?.[1] ?? null;
+}
+
+function extractGroupNameFromPayload(parsed: any): string {
+  const candidates = [
+    parsed?.group?.subject,
+    parsed?.group?.name,
+    parsed?.data?.group?.subject,
+    parsed?.data?.group?.name,
+    parsed?.data?.subject,
+    parsed?.data?.name,
+    parsed?.subject,
+    parsed?.name,
+    parsed?.title,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return "";
+}
+
+export async function resolveGroupFromInvite(
+  baseUrl: string,
+  token: string,
+  identifier: string,
+): Promise<ResolvedGroup | null> {
+  const inviteCode = extractInviteCode(identifier);
+  if (!inviteCode) return null;
+
+  const inviteLink = `https://chat.whatsapp.com/${inviteCode}`;
+  const headers = {
+    token,
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "Cache-Control": "no-cache",
+  };
+
+  const aliases = new Set<string>();
+  let shouldRefreshMap = false;
+
+  const attempts: Array<{ method: "GET" | "POST" | "PUT"; url: string; body?: string }> = [
+    { method: "GET", url: `${baseUrl}/group/inviteInfo/${inviteCode}` },
+    { method: "POST", url: `${baseUrl}/group/inviteInfo`, body: JSON.stringify({ inviteCode }) },
+    { method: "POST", url: `${baseUrl}/group/inviteInfo`, body: JSON.stringify({ invitecode: inviteCode }) },
+    { method: "POST", url: `${baseUrl}/group/join`, body: JSON.stringify({ invitecode: inviteCode }) },
+    { method: "POST", url: `${baseUrl}/group/join`, body: JSON.stringify({ inviteCode }) },
+    { method: "POST", url: `${baseUrl}/group/join`, body: JSON.stringify({ invitecode: inviteLink }) },
+    { method: "PUT", url: `${baseUrl}/group/acceptInviteGroup`, body: JSON.stringify({ inviteCode }) },
+    { method: "POST", url: `${baseUrl}/group/acceptInvite`, body: JSON.stringify({ invitecode: inviteCode }) },
+    { method: "GET", url: `${baseUrl}/group/join/${inviteCode}` },
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const response = await fetch(attempt.url, {
+        method: attempt.method,
+        headers,
+        ...(attempt.body ? { body: attempt.body } : {}),
+      });
+
+      const raw = await response.text();
+      let parsed: any = null;
+
+      try {
+        parsed = raw ? JSON.parse(raw) : null;
+      } catch {
+        parsed = raw ? { raw } : null;
+      }
+
+      const name = extractGroupNameFromPayload(parsed);
+      if (name) aliases.add(name);
+
+      const jid = extractGroupJidFromPayload(parsed);
+      if (jid) {
+        return { jid, name };
+      }
+
+      const payloadText = JSON.stringify(parsed ?? raw ?? "").toLowerCase();
+      if (response.ok || response.status === 409 || payloadText.includes("already") || payloadText.includes("já")) {
+        shouldRefreshMap = true;
+      }
+    } catch {
+      // tenta próximo endpoint
+    }
+  }
+
+  if (!shouldRefreshMap && aliases.size === 0) return null;
+
+  try {
+    const refreshedGroupMap = await fetchDeviceGroups(baseUrl, token);
+    return resolveGroupJid(inviteLink, refreshedGroupMap, Array.from(aliases));
+  } catch {
+    return null;
+  }
+}

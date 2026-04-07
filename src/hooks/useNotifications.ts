@@ -2,6 +2,10 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import { fetchActivityNotifications } from "./notifications/activityFeed";
+import type { NotificationItem } from "./notifications/types";
+
+export type { NotificationItem as Notification } from "./notifications/types";
 
 const NOTIFICATION_DEDUP_WINDOW_MS = 8_000;
 const globalKnownIds = new Set<string>();
@@ -52,20 +56,13 @@ const playChime = () => {
   }
 };
 
-export interface Notification {
-  id: string;
-  user_id: string;
-  title: string;
-  message: string;
-  type: "info" | "success" | "warning" | "error";
-  read: boolean;
-  created_at: string;
-}
+type Notification = NotificationItem;
 
 const getNotificationDedupKey = (n: Pick<Notification, "title" | "message" | "type">) =>
   `${n.type}::${n.title}::${n.message}`;
 
 const isEquivalentNotification = (a: Notification, b: Notification) => {
+  if (a.synthetic || b.synthetic) return false;
   if (getNotificationDedupKey(a) !== getNotificationDedupKey(b)) return false;
   const timeA = new Date(a.created_at).getTime();
   const timeB = new Date(b.created_at).getTime();
@@ -142,22 +139,40 @@ export function useNotifications() {
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
 
-    const { data } = await supabase
-      .from("notifications")
-      .select("id, title, message, type, read, created_at, user_id")
-      .order("created_at", { ascending: false })
-      .limit(20);
+    const [{ data }, activityNotifications] = await Promise.all([
+      supabase
+        .from("notifications")
+        .select("id, title, message, type, read, created_at, user_id")
+        .order("created_at", { ascending: false })
+        .limit(20),
+      fetchActivityNotifications(user.id).catch(() => []),
+    ]);
+
+    const systemNotifications = dedupeNotifications(
+      ((data as Notification[] | null) || []).map((item) => ({ ...item, source: "system" })),
+    );
+
+    for (const n of systemNotifications) {
+      globalKnownIds.add(n.id);
+      globalToastedIds.add(n.id);
+    }
+
+    initialLoadDoneRef.current = true;
+
+    const combined = dedupeNotifications(
+      [...systemNotifications, ...activityNotifications].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      ),
+    );
+
+    setNotifications(combined);
+    setUnreadCount(systemNotifications.filter((n) => !n.read).length);
 
     if (data) {
-      const deduped = dedupeNotifications(data as Notification[]);
-      for (const n of deduped) {
+      for (const n of systemNotifications) {
         globalKnownIds.add(n.id);
         globalToastedIds.add(n.id);
       }
-
-      initialLoadDoneRef.current = true;
-      setNotifications(deduped);
-      setUnreadCount(deduped.filter((n) => !n.read).length);
     }
 
     setLoading(false);
@@ -165,6 +180,7 @@ export function useNotifications() {
 
   // Mark single as read
   const markAsRead = useCallback(async (id: string) => {
+    if (id.startsWith("activity-")) return;
     await supabase.from("notifications").update({ read: true }).eq("id", id);
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
@@ -188,16 +204,16 @@ export function useNotifications() {
   const clearAll = useCallback(async () => {
     if (!user) return;
     await supabase.from("notifications").delete().eq("user_id", user.id);
-    setNotifications([]);
+    setNotifications((prev) => prev.filter((n) => n.synthetic));
     setUnreadCount(0);
   }, [user]);
 
-  // Initial fetch + light polling (only when tab visible, realtime handles instant delivery)
+  // Initial fetch + light polling (activity feed is poll-based, system alerts stay realtime)
   useEffect(() => {
     fetchNotifications();
     const interval = setInterval(() => {
       if (!document.hidden) fetchNotifications();
-    }, 300_000);
+    }, 60_000);
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
@@ -240,5 +256,13 @@ export function useNotifications() {
     };
   }, [user, showToastForNotif]);
 
-  return { notifications, unreadCount, loading, markAsRead, markAllAsRead, clearAll };
+  return {
+    notifications,
+    unreadCount,
+    loading,
+    markAsRead,
+    markAllAsRead,
+    clearAll,
+    systemNotificationsCount: notifications.filter((n) => !n.synthetic).length,
+  };
 }
