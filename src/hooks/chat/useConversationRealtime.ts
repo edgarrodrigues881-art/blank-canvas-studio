@@ -14,6 +14,7 @@ interface UseConversationRealtimeParams {
   getConversationIdsForSameContact: (convId: string) => string[];
   markConversationGroupAsRead: (convId: string) => Promise<void>;
   updateStatus: (convId: string, newStatus: string) => Promise<void>;
+  isOwnDevice: (phone: string | null | undefined) => boolean;
 }
 
 /**
