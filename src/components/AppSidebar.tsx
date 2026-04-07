@@ -280,11 +280,11 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="sidebar-premium">
       {/* Header / Brand */}
-      <div className={`flex items-center border-b border-sidebar-border ${collapsed ? 'justify-center py-4 px-2' : 'gap-3 px-5 py-5'}`}>
-        <img src={logo} alt="Logo" className="w-8 min-w-[32px] h-8 min-h-[32px] rounded-lg shrink-0 object-cover mx-auto" />
+      <div className={`flex items-center border-b border-sidebar-border ${collapsed ? 'justify-center py-4 px-2' : 'gap-2 px-4 py-5'}`}>
+        <img src={logo} alt="Logo" className="w-8 min-w-[32px] h-8 min-h-[32px] rounded-lg shrink-0 object-cover" />
         {!collapsed && (
-          <span className="text-[15px] font-bold tracking-tight text-sidebar-foreground truncate">
-            <span className="text-primary">DG</span> Contingência <span className="text-primary">PRO</span>
+          <span className="text-[16px] font-bold tracking-tight text-sidebar-foreground truncate">
+            <span className="text-emerald-400">DG</span> Contingência <span className="text-emerald-400">PRO</span>
           </span>
         )}
       </div>
