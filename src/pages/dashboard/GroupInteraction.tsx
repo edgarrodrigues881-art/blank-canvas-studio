@@ -189,6 +189,7 @@ export default function GroupInteractionPage() {
 
   useEffect(() => {
     if (selected) {
+      const s = selected as any;
       setForm({
         name: selected.name,
         group_ids: selected.group_ids,
@@ -201,12 +202,15 @@ export default function GroupInteractionPage() {
         pause_duration_max: selected.pause_duration_max,
         start_hour: selected.start_hour,
         end_hour: selected.end_hour,
+        start_hour_2: s.start_hour_2 || undefined,
+        end_hour_2: s.end_hour_2 || undefined,
         active_days: selected.active_days,
         daily_limit_per_group: selected.daily_limit_per_group,
         daily_limit_total: selected.daily_limit_total,
-        content_types: (selected as any).content_types || defaultContentTypes,
-        preset_name: (selected as any).preset_name || "custom",
+        content_types: s.content_types || defaultContentTypes,
+        preset_name: s.preset_name || "custom",
       });
+      setUsePeriod2(!!s.start_hour_2 && !!s.end_hour_2);
     }
   }, [selected]);
 
