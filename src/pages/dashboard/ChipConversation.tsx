@@ -328,7 +328,7 @@ function ConversationCard({
   onDelete: () => void;
 }) {
   const normalizedStatus = normalizeConversationStatus(conv.status);
-  const displayStatus = invalidReason && normalizedStatus === "running" ? "paused" : normalizedStatus;
+  const displayStatus = normalizedStatus;
   const status = STATUS_MAP[displayStatus];
   const deviceNames = (conv.device_ids || [])
     .map((id) => devices.find((d) => d.id === id)?.name || "???")
