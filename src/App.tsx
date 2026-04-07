@@ -24,7 +24,7 @@ const ResetPassword = lazyWithPreload(() => import("@/pages/ResetPassword"));
 const WelcomeSplash = lazyWithPreload(() => import("@/pages/WelcomeSplash"));
 const NotFound = lazyWithPreload(() => import("@/pages/NotFound"));
 const BackOffice = lazyWithPreload(() => import("@/pages/BackOffice"));
-const Install = lazyWithPreload(() => import("@/pages/Install"));
+
 
 // Dashboard pages
 const DashboardHome = lazyWithPreload(() => import("@/pages/dashboard/DashboardHome"));
