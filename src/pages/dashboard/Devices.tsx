@@ -899,7 +899,7 @@ const Devices = () => {
     }
 
     try {
-      console.log("[edit-save] deviceId:", editingDevice.id, "wpPhotoBase64 length:", wpPhotoBase64?.length, "wpRemovePhoto:", wpRemovePhoto, "wpName:", wpName);
+      void 0;
 
       // 1. Prepare DB updates for photo/name BEFORE calling API
       if (wpName.trim()) {
@@ -1191,8 +1191,8 @@ const Devices = () => {
         ? devices.filter(d => connectedStatuses.includes(d.status))
         : profileDevice ? [profileDevice] : [];
       
-      console.log("[profile-update] targetDevices:", targetDevices.length, "wpApplyAll:", wpApplyAll, "profileDevice:", profileDevice?.id, profileDevice?.status);
-      console.log("[profile-update] wpPhotoBase64 length:", wpPhotoBase64?.length, "wpRemovePhoto:", wpRemovePhoto, "wpName:", wpName);
+      void 0;
+      void 0;
 
       const profilePictureDbValue = wpPhotoBase64 && !wpRemovePhoto
         ? (wpPhotoBase64.startsWith("data:image/") ? await uploadProfilePhotoDraft(wpPhotoBase64) : wpPhotoBase64)
@@ -2633,7 +2633,7 @@ const Devices = () => {
                   const pd = connectingDevice.proxy_id ? availableProxies.find(p => p.id === connectingDevice.proxy_id) : null;
                   const pp = pd ? { host: pd.host, port: pd.port, username: pd.username, password: pd.password, type: pd.type } : undefined;
                   const result = await callApi({ action: "requestPairingCode", deviceId: connectingDevice.id, phoneNumber: rawDigits, proxyConfig: pp, proxyId: connectingDevice.proxy_id || undefined });
-                  console.log("[PairingCode] Result:", JSON.stringify(result));
+                  void 0;
                   if (result?.error && result?.code === "PROXY_FAILED") {
                     setConnectError(result.error);
                     setConnectStep("proxy");

@@ -63,7 +63,7 @@ export function useWelcomeAutomations() {
       return (data || []) as unknown as WelcomeAutomation[];
     },
     enabled: !!user,
-    refetchInterval: 10_000,
+    refetchInterval: () => document.hidden ? false : 30_000,
   });
 }
 
@@ -82,7 +82,7 @@ export function useWelcomeAutomation(id: string | undefined) {
       return data as unknown as WelcomeAutomation;
     },
     enabled: !!user && !!id,
-    refetchInterval: 5_000,
+    refetchInterval: () => document.hidden ? false : 30_000,
   });
 }
 
@@ -102,7 +102,7 @@ export function useWelcomeQueue(automationId: string | undefined) {
       return (data || []) as unknown as WelcomeQueueItem[];
     },
     enabled: !!user && !!automationId,
-    refetchInterval: 5_000,
+    refetchInterval: () => document.hidden ? false : 30_000,
   });
 }
 

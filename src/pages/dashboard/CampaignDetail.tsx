@@ -607,7 +607,6 @@ const CampaignDetail = () => {
       from += PAGE;
     }
 
-    console.log(`[Export] Total fetched: ${allContacts.length} | Filters: ${statusFilters.join(", ")}`);
 
     if (allContacts.length === 0) {
       toast({ title: "Nenhum contato encontrado", variant: "destructive" });
@@ -659,7 +658,6 @@ const CampaignDetail = () => {
 
     XLSX.writeFile(wb, `${campaign?.name || "campanha"}_export.xlsx`);
     setExportOpen(false);
-    console.log(`[Export] Exported: ${total} contacts in ${wb.SheetNames.length} sheet(s)`);
     toast({ title: `✅ ${total} contatos exportados em ${wb.SheetNames.length} planilha(s)` });
     } catch (err: any) {
       toast({ title: "Erro ao exportar", description: err.message, variant: "destructive" });
