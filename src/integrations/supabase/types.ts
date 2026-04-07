@@ -2455,6 +2455,7 @@ export type Database = {
           duration_hours: number
           duration_minutes: number
           end_hour: string
+          end_hour_2: string | null
           group_ids: Json
           id: string
           last_content_sent: string | null
@@ -2474,6 +2475,7 @@ export type Database = {
           pause_duration_min: number
           preset_name: string | null
           start_hour: string
+          start_hour_2: string | null
           started_at: string | null
           status: string
           today_count: number | null
@@ -2493,6 +2495,7 @@ export type Database = {
           duration_hours?: number
           duration_minutes?: number
           end_hour: string
+          end_hour_2?: string | null
           group_ids?: Json
           id?: string
           last_content_sent?: string | null
@@ -2512,6 +2515,7 @@ export type Database = {
           pause_duration_min?: number
           preset_name?: string | null
           start_hour: string
+          start_hour_2?: string | null
           started_at?: string | null
           status?: string
           today_count?: number | null
@@ -2531,6 +2535,7 @@ export type Database = {
           duration_hours?: number
           duration_minutes?: number
           end_hour?: string
+          end_hour_2?: string | null
           group_ids?: Json
           id?: string
           last_content_sent?: string | null
@@ -2550,6 +2555,7 @@ export type Database = {
           pause_duration_min?: number
           preset_name?: string | null
           start_hour?: string
+          start_hour_2?: string | null
           started_at?: string | null
           status?: string
           today_count?: number | null
