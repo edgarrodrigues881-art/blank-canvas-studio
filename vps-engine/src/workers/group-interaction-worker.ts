@@ -8,7 +8,7 @@ import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
-import { extractInviteCode, fetchDeviceGroups, type ResolvedGroup } from "../group-interaction/group-resolution";
+import { extractInviteCode, type ResolvedGroup } from "../group-interaction/group-resolution";
 
 const log = createLogger("group-interaction");
 
@@ -139,25 +139,6 @@ function pickPreferredWarmupGroupRow(rows: any[], userId: string): any | null {
     || rows.find((row) => !row?.user_id && row?.is_custom === false)
     || rows[0]
     || null;
-}
-
-function resolveGroupByInviteOnly(groupMap: Map<string, ResolvedGroup>, identifier: string | null | undefined): ResolvedGroup | null {
-  const raw = String(identifier ?? "").trim();
-  if (!raw) return null;
-
-  const exact = groupMap.get(raw);
-  if (exact?.jid) return exact;
-
-  const inviteCode = extractInviteCode(raw);
-  if (!inviteCode) return null;
-
-  const byCode = groupMap.get(inviteCode);
-  if (byCode?.jid) return byCode;
-
-  const byLink = groupMap.get(`https://chat.whatsapp.com/${inviteCode}`);
-  if (byLink?.jid) return byLink;
-
-  return null;
 }
 
 async function loadAllowedGroupSelections(
@@ -321,30 +302,6 @@ async function loadAllowedGroupSelections(
   }
 
   return Array.from(selections.values());
-}
-
-// ── Group Map Cache (avoid calling API every tick) ──
-const groupMapCache = new Map<string, { map: Map<string, ResolvedGroup>; fetchedAt: number }>();
-const GROUP_MAP_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-async function getDeviceGroupMap(baseUrl: string, token: string, deviceId: string): Promise<Map<string, ResolvedGroup>> {
-  const cached = groupMapCache.get(deviceId);
-  if (cached && Date.now() - cached.fetchedAt < GROUP_MAP_TTL_MS) {
-    return cached.map;
-  }
-
-  const groups = await fetchDeviceGroups(baseUrl, token);
-  groupMapCache.set(deviceId, { map: groups, fetchedAt: Date.now() });
-
-  // Evict old entries
-  if (groupMapCache.size > 50) {
-    const now = Date.now();
-    for (const [key, val] of groupMapCache) {
-      if (now - val.fetchedAt > GROUP_MAP_TTL_MS * 2) groupMapCache.delete(key);
-    }
-  }
-
-  return groups;
 }
 
 async function uazapiSendText(baseUrl: string, token: string, number: string, text: string) {
