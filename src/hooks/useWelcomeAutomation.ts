@@ -82,7 +82,7 @@ export function useWelcomeAutomation(id: string | undefined) {
       return data as unknown as WelcomeAutomation;
     },
     enabled: !!user && !!id,
-    refetchInterval: 5_000,
+    refetchInterval: () => document.hidden ? false : 30_000,
   });
 }
 
