@@ -1686,21 +1686,17 @@ const Devices = () => {
     stopPolling();
     pauseKeepAlive();
 
-    // Pre-fire QR API call in background (no proxy) so QR is ready instantly
-    prefetchQrPromiseRef.current = callApi({
-      action: "connect",
-      deviceId: device.id,
-    }).catch(() => null);
-
     // If no proxies and device has no proxy, skip proxy step → go straight to QR
     const hasProxies = dbProxies.length > 0 || !!device.proxy_id;
     if (!hasProxies) {
       setConnectStep("qr");
       setConnectOpen(true);
-      // Use pre-fetched result
       try {
-        const result = await prefetchQrPromiseRef.current;
-        prefetchQrPromiseRef.current = null;
+        const result = await callApi({
+          action: "connect",
+          deviceId: device.id,
+          forceReconnect: true,
+        });
         if (!result) throw new Error("Falha ao conectar");
         if (result.error) {
           setConnectError(result.error);
@@ -1780,27 +1776,14 @@ const Devices = () => {
 
       let connectResult: any;
 
-      // If no proxy selected and we have a pre-fetched result, use it
-      if (!proxyId && prefetchQrPromiseRef.current) {
-        connectResult = await prefetchQrPromiseRef.current;
-        prefetchQrPromiseRef.current = null;
-        if (!connectResult) {
-          // Prefetch failed, make a fresh call
-          connectResult = await callApi({
-            action: "connect",
-            deviceId: connectingDevice.id,
-          });
-        }
-      } else {
-        // Cancel any prefetch since we need a different call (with proxy)
-        prefetchQrPromiseRef.current = null;
-        connectResult = await callApi({
-          action: "connect",
-          deviceId: connectingDevice.id,
-          proxyConfig: proxyPayload,
-          proxyId: proxyId || undefined,
-        });
-      }
+      prefetchQrPromiseRef.current = null;
+      connectResult = await callApi({
+        action: "connect",
+        deviceId: connectingDevice.id,
+        proxyConfig: proxyPayload,
+        proxyId: proxyId || undefined,
+        forceReconnect: true,
+      });
 
       // Check for any error returned by the edge function
       if (connectResult?.error) {
