@@ -8,7 +8,7 @@ import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
-import { fetchDeviceGroups, normalizeGroupName, resolveGroupFromInvite, resolveGroupJid, type ResolvedGroup } from "../group-interaction/group-resolution";
+import { fetchDeviceGroups, type ResolvedGroup } from "../group-interaction/group-resolution";
 
 const log = createLogger("group-interaction");
 
@@ -109,30 +109,28 @@ async function pauseInteraction(sb: any, interactionId: string, lastError: strin
     .eq("id", interactionId);
 }
 
-async function loadWarmupGroupNameFallbacks(sb: any, identifiers: string[]): Promise<Map<string, string>> {
-  const fallbackMap = new Map<string, string>();
+async function loadAllowedGroupJids(sb: any, identifiers: string[]): Promise<Map<string, string>> {
+  const allowedMap = new Map<string, string>();
   const validIds = identifiers.filter((value) => typeof value === "string" && value.trim().length > 0);
-  const linkIds = Array.from(new Set(validIds.filter((value) => /^https?:\/\/chat\.whatsapp\.com\//i.test(value))));
   const uuidIds = Array.from(new Set(validIds.filter((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))));
 
-  const appendRows = (rows: any[] | null | undefined) => {
-    for (const row of rows || []) {
-      if (row?.id && row?.name) fallbackMap.set(row.id, row.name);
-      if (row?.link && row?.name) fallbackMap.set(row.link, row.name);
+  if (uuidIds.length === 0) return allowedMap;
+
+  const { data } = await sb
+    .from("warmup_instance_groups")
+    .select("group_id, group_jid")
+    .in("group_id", uuidIds)
+    .not("group_jid", "is", null);
+
+  for (const row of data || []) {
+    const groupId = String(row?.group_id || "").trim();
+    const groupJid = String(row?.group_jid || "").trim();
+    if (groupId && groupJid && groupJid.includes("@g.us")) {
+      allowedMap.set(groupId, groupJid);
     }
-  };
-
-  if (linkIds.length > 0) {
-    const { data } = await sb.from("warmup_groups").select("id, name, link").in("link", linkIds);
-    appendRows(data);
   }
 
-  if (uuidIds.length > 0) {
-    const { data } = await sb.from("warmup_groups").select("id, name, link").in("id", uuidIds);
-    appendRows(data);
-  }
-
-  return fallbackMap;
+  return allowedMap;
 }
 
 // ── Group Map Cache (avoid calling API every tick) ──
@@ -356,58 +354,41 @@ async function processOneInteraction(sb: any, interaction: any) {
 
   const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
 
-  // Resolve groups (cached per device)
+  // Resolve groups strictly from explicit allowlist/JIDs already linked to this interaction
   let groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
-  const fallbackNameMap = await loadWarmupGroupNameFallbacks(sb, groupIds);
+  const allowedGroupJids = await loadAllowedGroupJids(sb, groupIds);
 
-  const resolveWithMap = (map: Map<string, ResolvedGroup>) => {
+  const resolveStrict = (map: Map<string, ResolvedGroup>) => {
     const found: Array<{ jid: string; name: string }> = [];
     const unresolved: string[] = [];
+
     for (const gid of groupIds) {
-      const aliases = dedupeStrings([fallbackNameMap.get(gid)]);
-      const resolvedGroup = resolveGroupJid(gid, map, aliases);
-      if (resolvedGroup) found.push(resolvedGroup);
-      else unresolved.push(gid);
-    }
-    return { resolved: uniqueGroups(found), unresolved };
-  };
-
-  let { resolved, unresolved } = resolveWithMap(groupMap);
-
-  if (resolved.length === 0) {
-    groupMapCache.delete(device.id);
-    groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
-    ({ resolved, unresolved } = resolveWithMap(groupMap));
-  }
-
-  if (unresolved.length > 0) {
-    groupMapCache.delete(device.id);
-    groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
-    ({ resolved, unresolved } = resolveWithMap(groupMap));
-  }
-
-  if (unresolved.length > 0) {
-    for (const identifier of unresolved) {
-      const fallbackName = fallbackNameMap.get(identifier);
-      const aliases = dedupeStrings([fallbackName]);
-      const resolvedByName = resolveGroupJid(identifier, groupMap, aliases);
-      if (resolvedByName) {
-        resolved.push(resolvedByName);
+      const explicitJid = allowedGroupJids.get(gid);
+      if (!explicitJid) {
+        unresolved.push(gid);
         continue;
       }
 
-      const resolvedByInvite = await resolveGroupFromInvite(baseUrl, device.uazapi_token, identifier);
-      if (resolvedByInvite) {
-        resolved.push(resolvedByInvite);
-      }
+      const resolvedGroup = map.get(explicitJid);
+      if (resolvedGroup?.jid) found.push(resolvedGroup);
+      else unresolved.push(gid);
     }
-    resolved = uniqueGroups(resolved);
+
+    return { resolved: uniqueGroups(found), unresolved };
+  };
+
+  let { resolved, unresolved } = resolveStrict(groupMap);
+
+  if (resolved.length === 0 || unresolved.length > 0) {
+    groupMapCache.delete(device.id);
+    groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
+    ({ resolved, unresolved } = resolveStrict(groupMap));
   }
 
   if (resolved.length === 0) {
     await sb.from("group_interactions")
       .update({
-        last_error: `Nenhum grupo resolvido (${groupIds.length} links, ${groupMap.size} grupos)`,
+        last_error: `Nenhum grupo permitido foi encontrado no dispositivo (${groupIds.length} configurados, ${allowedGroupJids.size} com JID salvo, ${groupMap.size} grupos no aparelho)`,
         next_action_at: new Date(Date.now() + 300_000).toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -416,9 +397,9 @@ async function processOneInteraction(sb: any, interaction: any) {
     return;
   }
 
-  if (resolved.length < groupIds.length) {
+  if (unresolved.length > 0) {
     const missingCount = groupIds.length - resolved.length;
-    log.warn(`Interaction ${interaction.id.slice(0, 8)}: ${missingCount} grupos não resolvidos (${resolved.length}/${groupIds.length})`);
+    log.warn(`Interaction ${interaction.id.slice(0, 8)}: ${missingCount} grupos fora da allowlist ou sem JID salvo (${resolved.length}/${groupIds.length})`);
   }
 
   // Get messages
