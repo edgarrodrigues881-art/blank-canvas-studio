@@ -1738,7 +1738,7 @@ const Devices = () => {
     setConnectStep("proxy");
   };
 
-  const handleConfirmProxy = async () => {
+  const handleConfirmProxy = async (methodOverride?: "qr" | "code") => {
     if (!connectingDevice) return;
     const proxyId = selectedProxy && selectedProxy !== "none" ? selectedProxy : null;
 
@@ -1760,11 +1760,12 @@ const Devices = () => {
     runDbUpdates();
 
     setConnectError("");
-    if (connectMethod === "code") {
+    const method = methodOverride || connectMethod;
+    if (method === "code") {
       setConnectStep("code_phone");
       return;
     }
-    setConnectStep(connectMethod);
+    setConnectStep(method);
 
     try {
       // Build proxy config: use newly selected proxy; do NOT fallback to old proxy when user chose "none"
@@ -2521,10 +2522,10 @@ const Devices = () => {
                   <Button variant="outline" className="h-11 text-sm px-4" onClick={() => { stopPolling(); setConnectOpen(false); resumeKeepAlive(); prefetchQrPromiseRef.current = null; }}>
                     Cancelar
                   </Button>
-                  <Button variant="outline" className="h-11 text-sm px-4 gap-1.5" onClick={() => { setConnectMethod("code"); handleConfirmProxy(); }}>
+                  <Button variant="outline" className="h-11 text-sm px-4 gap-1.5" onClick={() => { setConnectMethod("code"); handleConfirmProxy("code"); }}>
                     <Key className="w-4 h-4" /> Código
                   </Button>
-                  <Button className="flex-1 h-11 text-sm font-semibold gap-1.5" onClick={() => { setConnectMethod("qr"); handleConfirmProxy(); }}>
+                  <Button className="flex-1 h-11 text-sm font-semibold gap-1.5" onClick={() => { setConnectMethod("qr"); handleConfirmProxy("qr"); }}>
                     <QrCode className="w-4 h-4" /> QR Code
                   </Button>
                 </div>
