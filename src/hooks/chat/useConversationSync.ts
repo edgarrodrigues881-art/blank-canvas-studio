@@ -112,6 +112,7 @@ export function useConversationSync() {
   const isOwnDevice = useCallback((phone: string | null | undefined) => {
     if (!phone || ownPhones.size === 0) return false;
     const normalized = phone.replace(/\D/g, "");
+    if (!normalized) return false;
     // Check exact match or suffix match (last 10-11 digits)
     if (ownPhones.has(normalized)) return true;
     for (const own of ownPhones) {
@@ -148,14 +149,24 @@ export function useConversationSync() {
       return;
     }
 
-    // Filter out conversations with own devices (chip-to-chip warmup)
-    const filterSelf = (rows: any[]) => rows.filter((r) => !isOwnDevice(r.phone));
+    const isSelfConversation = (row: any) => {
+      const candidates = [
+        row.phone || "",
+        row.remote_jid?.split("@")[0] || "",
+      ]
+        .map((value: string) => normalizePhone(value))
+        .filter(Boolean);
+
+      return candidates.some((candidate) => isOwnDevice(candidate));
+    };
+
+    const filterSelf = (rows: any[]) => rows.filter((r) => !isSelfConversation(r));
 
     const mapped = sortConversations(filterSelf(activeRes.data || []).map(mapConversationRow));
     setConversations(mapped);
     setArchivedConversations(filterSelf(archivedRes.data || []).map(mapConversationRow));
     setLoading(false);
-  }, [user, mapConversationRow, sortConversations, isOwnDevice, ownPhonesLoaded]);
+  }, [user, mapConversationRow, sortConversations, isOwnDevice, ownPhonesLoaded, normalizePhone]);
 
   const fetchMessages = useCallback(async (conversationId: string) => {
     const groupIds = getConversationIdsForSameContact(conversationId);
@@ -164,7 +175,6 @@ export function useConversationSync() {
       .from("conversation_messages")
       .select("*")
       .in("conversation_id", groupIds)
-      .neq("origin", "warmup")
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -177,11 +187,13 @@ export function useConversationSync() {
       if (c.deviceName) deviceMap.set(c.id, c.deviceName);
     });
 
-    const nextMessages = (data || []).map((m: any) => ({
-      ...m,
-      direction: m.direction as "sent" | "received",
-      deviceName: deviceMap.get(m.conversation_id),
-    }));
+    const nextMessages = (data || [])
+      .filter((m: any) => m.origin !== "warmup")
+      .map((m: any) => ({
+        ...m,
+        direction: m.direction as "sent" | "received",
+        deviceName: deviceMap.get(m.conversation_id),
+      }));
 
     setMessages((prev) => {
       const pendingMessages = prev.filter(
