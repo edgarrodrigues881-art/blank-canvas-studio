@@ -27,7 +27,7 @@ const DashboardHome = () => {
     dotColor: string;
     iconClass: string;
     bgClass: string;
-    breakdown?: string;
+    
   }> = [
     {
       label: "Conectadas",
