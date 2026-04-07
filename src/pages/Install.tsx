@@ -62,6 +62,7 @@ export default function Install() {
   const handleInstallIOS = () => {
     setShowIOSSteps(true);
     setShowAndroidSteps(false);
+    setShowPCSteps(false);
   };
 
   if (isInstalled) {
