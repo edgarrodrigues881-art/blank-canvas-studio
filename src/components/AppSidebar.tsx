@@ -508,7 +508,7 @@ export function AppSidebar() {
               {renderNavItem({ title: "Prospecção", url: "/dashboard/prospeccao", icon: Building2 })}
               {renderNavItem({ title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn })}
               {renderNavItem({ title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus })}
-              {renderNavItem({ title: "Boas-vindas", url: "/dashboard/welcome", icon: Heart })}
+              {/* Boas-vindas oculto */}
               {renderNavItem({ title: "Grupos", url: "/dashboard/groups", icon: UsersRound })}
               {renderNavItem({ title: "Auto Save", url: "/dashboard/autosave", icon: SaveAll })}
               {renderNavItem({ title: "Relatório Via WhatsApp", url: "/dashboard/reports/whatsapp", icon: ScrollText })}
