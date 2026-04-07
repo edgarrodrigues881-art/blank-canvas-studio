@@ -1050,7 +1050,7 @@ async function mainLoop() {
 
     guardedLoop("syncDevices", async () => {
       await syncDevicesTick();
-    }, 30_000)(),
+    }, 10_000)(),
   ]);
 }
 
