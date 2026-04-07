@@ -161,15 +161,12 @@ async function processOneConversation(sb: any, conv: any) {
   const mediaByType: Record<string, any[]> = {};
   for (const m of userMedia || []) (mediaByType[m.media_type] ??= []).push(m);
 
-  const hasImage = (mediaByType.image?.length || 0) > 0;
-  const hasSticker = (mediaByType.sticker?.length || 0) > 0;
-  const hasAudio = (mediaByType.audio?.length || 0) > 0;
+  const hasUserImage = (mediaByType.image?.length || 0) > 0;
+  const hasUserSticker = (mediaByType.sticker?.length || 0) > 0;
+  const hasUserAudio = (mediaByType.audio?.length || 0) > 0;
 
-  // Build weighted content bag (text-heavy but includes media)
-  const bag = ["text", "text", "text", "text", "text"];
-  if (hasImage) bag.push("image", "image");
-  if (hasSticker) bag.push("sticker", "sticker");
-  if (hasAudio) bag.push("audio");
+  // Always include media in the bag — use fallbacks if user has no uploads
+  const bag = ["text", "text", "text", "text", "text", "image", "image", "sticker", "sticker", "audio"];
   const contentType = pickRandom(bag);
 
   // Rotate through ALL devices, not just first 2
@@ -183,19 +180,19 @@ async function processOneConversation(sb: any, conv: any) {
   let messageText = "";
   let result: { ok: boolean; error?: string };
 
-  if (contentType === "image" && hasImage) {
-    const picked = pickRandom(mediaByType.image);
+  if (contentType === "image") {
+    const picked = hasUserImage ? pickRandom(mediaByType.image) : null;
     const imgUrl = picked?.file_url || pickRandom(FALLBACK_IMAGES);
     const caption = picked?.content?.trim() || pickRandom(userMessages);
     result = await sendImage(sender.uazapi_base_url, sender.uazapi_token, receiver.number, imgUrl, caption);
     messageText = `[IMG] ${caption}`;
-  } else if (contentType === "sticker" && hasSticker) {
-    const picked = pickRandom(mediaByType.sticker);
+  } else if (contentType === "sticker") {
+    const picked = hasUserSticker ? pickRandom(mediaByType.sticker) : null;
     const stickerUrl = picked?.file_url || pickRandom(FALLBACK_IMAGES);
     result = await sendSticker(sender.uazapi_base_url, sender.uazapi_token, receiver.number, stickerUrl);
     messageText = `[STICKER] ${picked?.content || "🎭"}`;
-  } else if (contentType === "audio" && hasAudio) {
-    const picked = pickRandom(mediaByType.audio);
+  } else if (contentType === "audio") {
+    const picked = hasUserAudio ? pickRandom(mediaByType.audio) : null;
     const audioUrl = picked?.file_url || pickRandom(FALLBACK_AUDIOS);
     result = await sendAudio(sender.uazapi_base_url, sender.uazapi_token, receiver.number, audioUrl);
     messageText = `[AUDIO] ${picked?.content || "🎤"}`;

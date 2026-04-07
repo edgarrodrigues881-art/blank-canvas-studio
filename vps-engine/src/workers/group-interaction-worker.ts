@@ -389,19 +389,14 @@ async function processOneInteraction(sb: any, interaction: any) {
   const group = pickRandom(rotated.length > 0 ? rotated : resolved);
   const category = getCategoryForIndex(todayCount % 5, 5);
 
-  // ── Respect content_types config from user ──
-  const contentTypes: Record<string, boolean> = interaction.content_types || { text: true };
-  const hasImage = contentTypes.image && ((mediaByType.image?.length || 0) > 0);
-  const hasAudio = contentTypes.audio && ((mediaByType.audio?.length || 0) > 0);
-  const hasSticker = contentTypes.sticker && ((mediaByType.sticker?.length || 0) > 0);
+  // ── All media types always enabled ──
+  const hasUserImage = (mediaByType.image?.length || 0) > 0;
+  const hasUserAudio = (mediaByType.audio?.length || 0) > 0;
+  const hasUserSticker = (mediaByType.sticker?.length || 0) > 0;
 
-  const bag = ["text", "text", "text", "text", "text"];
-  if (hasImage) bag.push("image", "image");
-  if (hasSticker) bag.push("sticker", "sticker");
-  if (hasAudio) bag.push("audio");
-  const contentType = contentTypes.text === false && bag.length > 5
-    ? pickRandom(bag.filter(t => t !== "text"))
-    : pickRandom(bag);
+  // Always include media in the bag — use fallbacks if user has no uploads
+  const bag = ["text", "text", "text", "text", "text", "image", "image", "sticker", "sticker", "audio"]
+  const contentType = pickRandom(bag);
 
   let messageText = "";
   let sentOk = false;
@@ -409,7 +404,7 @@ async function processOneInteraction(sb: any, interaction: any) {
 
   try {
     if (contentType === "image") {
-      const picked = mediaByType.image?.length ? pickRandom(mediaByType.image) : null;
+      const picked = hasUserImage ? pickRandom(mediaByType.image) : null;
       const imgUrl = picked?.file_url || pickRandom(FALLBACK_IMAGES);
       const caption = picked?.content?.trim() || pickRandom(messages);
       await uazapiSendImage(baseUrl, device.uazapi_token, group.jid, imgUrl, "");
@@ -417,12 +412,12 @@ async function processOneInteraction(sb: any, interaction: any) {
       await uazapiSendText(baseUrl, device.uazapi_token, group.jid, caption);
       messageText = `[IMG+TXT] ${caption}`;
     } else if (contentType === "sticker") {
-      const picked = mediaByType.sticker?.length ? pickRandom(mediaByType.sticker) : null;
+      const picked = hasUserSticker ? pickRandom(mediaByType.sticker) : null;
       const stickerUrl = picked?.file_url || pickRandom(FALLBACK_IMAGES);
       await uazapiSendSticker(baseUrl, device.uazapi_token, group.jid, stickerUrl);
       messageText = `[STICKER] ${picked?.content || "🎭"}`;
     } else if (contentType === "audio") {
-      const picked = mediaByType.audio?.length ? pickRandom(mediaByType.audio) : null;
+      const picked = hasUserAudio ? pickRandom(mediaByType.audio) : null;
       const audioUrl = picked?.file_url || pickRandom(FALLBACK_AUDIOS);
       await uazapiSendAudio(baseUrl, device.uazapi_token, group.jid, audioUrl);
       messageText = `[AUDIO] ${picked?.content || "🎤"}`;
