@@ -92,9 +92,6 @@ const DashboardHome = () => {
               </div>
               <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
                 {s.label}
-                {s.breakdown && (
-                  <span className="block text-[9px] text-muted-foreground/60 mt-0.5">{s.breakdown}</span>
-                )}
               </p>
             </CardContent>
           </Card>
