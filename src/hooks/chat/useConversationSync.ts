@@ -227,7 +227,6 @@ export function useConversationSync() {
         }
       );
       const webhookResult = await webhookResp.json();
-      console.log("Webhook setup result:", webhookResult);
 
       try {
         const resp = await fetch(
@@ -238,9 +237,7 @@ export function useConversationSync() {
           }
         );
         const result = await resp.json();
-        console.log("Sync result:", result);
       } catch (e) {
-        console.log("Sync-conversations skipped:", e);
       }
 
       const configuredCount = webhookResult.configured || 0;
@@ -280,11 +277,9 @@ export function useConversationSync() {
           );
           const result = await resp.json();
           if (result.synced > 0) {
-            console.log(`[conv-sync] ${result.synced} new messages synced`);
             fetchMessages(convId);
           }
         } catch (e) {
-          console.log("[conv-sync] skipped:", e);
         }
       })();
     }
@@ -314,12 +309,10 @@ export function useConversationSync() {
               headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
             });
             const result = await resp.json();
-            console.log("[auto-sync] background sync result:", result);
             if (result.synced > 0) {
               fetchConversations();
             }
           } catch (e) {
-            console.log("[auto-sync] background sync skipped:", e);
           }
         })();
       }
