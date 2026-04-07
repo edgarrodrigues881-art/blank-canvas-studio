@@ -380,90 +380,116 @@ export default function GroupInteractionPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
-              {interactions.map((inter) => (
-                (() => {
-                  const invalidReason = getInteractionInvalidReason(inter, deviceMap);
-                  const displayStatus = invalidReason && inter.status === "running" ? "paused" : inter.status;
-                  const deviceName = inter.device_id
-                    ? deviceMap.get(inter.device_id)?.name || "Instância removida"
-                    : "Sem instância";
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
+              {interactions.map((inter) => {
+                const invalidReason = getInteractionInvalidReason(inter, deviceMap);
+                const displayStatus = invalidReason && inter.status === "running" ? "paused" : inter.status;
+                const deviceName = inter.device_id
+                  ? deviceMap.get(inter.device_id)?.name || "Instância removida"
+                  : "Sem instância";
 
-                  return (
-                    <div
-                      key={inter.id}
-                      className={`rounded-2xl border p-4 cursor-pointer transition-all hover:border-primary/30 hover:bg-muted/20 aspect-square flex flex-col justify-between ${
-                        selectedId === inter.id ? "bg-muted/40 border-primary/30" : "border-border/50"
-                      }`}
-                      onClick={() => {
-                        setSelectedId(inter.id);
-                        setShowConfig(true);
-                      }}
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="font-semibold text-sm line-clamp-2">{inter.name}</p>
-                            <p className="text-[11px] text-muted-foreground mt-1 truncate">{deviceName}</p>
-                          </div>
-                          <Badge variant="outline" className={`text-[10px] shrink-0 ${statusColors[displayStatus] || ""}`}>
-                            {statusLabels[displayStatus] || displayStatus}
-                          </Badge>
-                        </div>
+                const isRunning = displayStatus === "running";
+                const isPaused = displayStatus === "paused";
+                const isActive = isRunning || isPaused;
 
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="rounded-lg border border-border/50 bg-muted/20 p-2">
-                            <p className="text-[10px] text-muted-foreground">Grupos</p>
-                            <p className="font-semibold text-sm">{(inter.group_ids || []).length}</p>
-                          </div>
-                          <div className="rounded-lg border border-border/50 bg-muted/20 p-2">
-                            <p className="text-[10px] text-muted-foreground">Mensagens</p>
-                            <p className="font-semibold text-sm">{inter.total_messages_sent}</p>
-                          </div>
-                        </div>
+                const statusAccent = isRunning
+                  ? "border-l-emerald-500"
+                  : isPaused
+                  ? "border-l-amber-500"
+                  : "border-l-muted-foreground/30";
 
-                        {invalidReason && (
-                          <p className="text-[11px] text-destructive line-clamp-2">{invalidReason}</p>
-                        )}
+                return (
+                  <div
+                    key={inter.id}
+                    className={`group relative rounded-xl border border-border/40 border-l-[3px] ${statusAccent} bg-card p-4 cursor-pointer transition-all duration-200 hover:shadow-md hover:border-border/60 ${
+                      selectedId === inter.id ? "ring-1 ring-primary/30 bg-primary/5" : ""
+                    }`}
+                    onClick={() => {
+                      setSelectedId(inter.id);
+                      setShowConfig(true);
+                    }}
+                  >
+                    {/* Top row: device + status */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md truncate max-w-[60%]">
+                        {deviceName}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] font-semibold border ${statusColors[displayStatus] || ""}`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isRunning ? "bg-emerald-400 animate-pulse" : isPaused ? "bg-amber-400" : "bg-muted-foreground/40"}`} />
+                        {statusLabels[displayStatus] || displayStatus}
+                      </Badge>
+                    </div>
+
+                    {/* Title */}
+                    <p className="font-semibold text-sm text-foreground line-clamp-1 mb-3">{inter.name}</p>
+
+                    {/* Metrics row */}
+                    <div className="flex items-center gap-4 mb-3">
+                      <div className="flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-primary/60" />
+                        <span className="text-xs text-muted-foreground">{(inter.group_ids || []).length} grupos</span>
                       </div>
-
-                      <div className="flex items-center gap-2 pt-3" onClick={(e) => e.stopPropagation()}>
-                        {displayStatus === "running" ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 h-8 px-2 text-xs gap-1"
-                            onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "pause" })}
-                          >
-                            <Pause className="w-3 h-3" /> Pausar
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={Boolean(invalidReason)}
-                            className="flex-1 h-8 px-2 text-xs gap-1"
-                            onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "start" })}
-                          >
-                            <Play className="w-3 h-3" /> {displayStatus === "paused" ? "Retomar" : "Iniciar"}
-                          </Button>
-                        )}
-
-                        {(displayStatus === "running" || displayStatus === "paused") && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 px-2 text-xs gap-1 text-destructive hover:text-destructive"
-                            onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "stop" })}
-                          >
-                            <Square className="w-3 h-3" /> Parar
-                          </Button>
-                        )}
+                      <div className="flex items-center gap-1.5">
+                        <MessageCircle className="w-3.5 h-3.5 text-primary/60" />
+                        <span className="text-xs font-medium text-foreground">{inter.total_messages_sent} msgs</span>
                       </div>
                     </div>
-                  );
-                })()
-              ))}
+
+                    {invalidReason && (
+                      <p className="text-[11px] text-destructive mb-3 line-clamp-1">{invalidReason}</p>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1.5 pt-2 border-t border-border/30" onClick={(e) => e.stopPropagation()}>
+                      {isRunning ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 h-7 text-[11px] gap-1.5 rounded-lg border-amber-500/30 text-amber-600 hover:bg-amber-500/10 hover:text-amber-600"
+                          onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "pause" })}
+                        >
+                          <Pause className="w-3 h-3" /> Pausar
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          disabled={Boolean(invalidReason)}
+                          className="flex-1 h-7 text-[11px] gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white"
+                          onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "start" })}
+                        >
+                          <Play className="w-3 h-3" /> {isPaused ? "Retomar" : "Iniciar"}
+                        </Button>
+                      )}
+
+                      {isActive && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-[11px] gap-1 rounded-lg text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "stop" })}
+                        >
+                          <Square className="w-3 h-3" /> Parar
+                        </Button>
+                      )}
+
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 ml-auto rounded-lg text-muted-foreground hover:text-foreground"
+                        onClick={() => {
+                          setSelectedId(inter.id);
+                          setShowConfig(true);
+                        }}
+                      >
+                        <Settings className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
