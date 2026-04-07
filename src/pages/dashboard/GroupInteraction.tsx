@@ -95,7 +95,6 @@ export default function GroupInteractionPage() {
     createInteraction, updateInteraction, deleteInteraction, invokeAction,
   } = useGroupInteraction(selectedId);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showConfig, setShowConfig] = useState(false);
   const [showBulkCreate, setShowBulkCreate] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({ ...defaultForm });
