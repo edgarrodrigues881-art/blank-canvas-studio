@@ -157,8 +157,8 @@ export function useGroupInteraction() {
       // Ensure null instead of undefined for nullable text fields
       const payload: Record<string, any> = {
         ...normalized,
-        start_hour_2: normalized.start_hour_2 ?? (data as any).start_hour_2 ?? null,
-        end_hour_2: normalized.end_hour_2 ?? (data as any).end_hour_2 ?? null,
+        start_hour_2: (normalized as any).start_hour_2 ?? (data as any).start_hour_2 ?? null,
+        end_hour_2: (normalized as any).end_hour_2 ?? (data as any).end_hour_2 ?? null,
         status: data.status === "active" ? "idle" : data.status,
         updated_at: new Date().toISOString(),
       };
