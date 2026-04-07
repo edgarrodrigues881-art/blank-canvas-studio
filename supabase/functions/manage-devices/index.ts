@@ -446,6 +446,9 @@ Deno.serve(async (req) => {
         .map((d: any) => d.proxy_id)
         .filter(Boolean);
 
+      const BULK_BASE_URL = (Deno.env.get("UAZAPI_BASE_URL") || "").replace(/\/+$/, "");
+      const BULK_ADMIN_TOKEN = Deno.env.get("UAZAPI_TOKEN") || "";
+
       runInBackground(
         (async () => {
           const backgroundOps: Promise<unknown>[] = [];
@@ -456,15 +459,80 @@ Deno.serve(async (req) => {
             );
           }
 
+          // Pre-provision tokens for each device
           for (const d of newDevices || []) {
             backgroundOps.push(
-              oplog(admin, user.id, "instance_created", `Instância "${d.name}" criada (bulk, token lazy)`, d.id, { proxy_id: d.proxy_id }),
+              (async () => {
+                try {
+                  // Try pool token
+                  let assigned = false;
+                  for (const st of ["available", "blocked"]) {
+                    const { data: poolToken } = await admin.from("user_api_tokens")
+                      .select("id, token")
+                      .eq("user_id", user.id).eq("status", st).is("device_id", null)
+                      .limit(1).maybeSingle();
+                    if (poolToken) {
+                      await Promise.all([
+                        admin.from("user_api_tokens").update({
+                          device_id: d.id, status: "in_use", assigned_at: new Date().toISOString(),
+                        }).eq("id", poolToken.id),
+                        admin.from("devices").update({
+                          uazapi_token: poolToken.token, uazapi_base_url: BULK_BASE_URL,
+                        }).eq("id", d.id),
+                      ]);
+                      assigned = true;
+                      console.log(`[bulk-create] pre-provision pool token for ${d.id.substring(0, 8)}`);
+                      break;
+                    }
+                  }
+                  // On-demand creation if no pool
+                  if (!assigned && BULK_BASE_URL && BULK_ADMIN_TOKEN) {
+                    const clientLabel = (user.email || "cliente").replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 20);
+                    const instName = `${clientLabel}_${d.name.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+                    const headerVariants = [
+                      { admintoken: BULK_ADMIN_TOKEN },
+                      { token: BULK_ADMIN_TOKEN },
+                    ];
+                    let createdToken: string | null = null;
+                    for (const authHeaders of headerVariants) {
+                      try {
+                        const c = new AbortController();
+                        const t = setTimeout(() => c.abort(), 12000);
+                        const res = await fetch(`${BULK_BASE_URL}/instance/init`, {
+                          method: "POST",
+                          headers: { ...authHeaders, Accept: "application/json", "Content-Type": "application/json" },
+                          body: JSON.stringify({ name: instName }),
+                          signal: c.signal,
+                        });
+                        clearTimeout(t);
+                        if (res.status === 401) continue;
+                        const data = await res.json().catch(() => ({}));
+                        if (res.ok) { createdToken = data.token || data.instance?.token || null; break; }
+                      } catch { continue; }
+                    }
+                    if (createdToken) {
+                      await admin.from("user_api_tokens").insert({
+                        user_id: user.id, token: createdToken, admin_id: user.id,
+                        device_id: d.id, status: "in_use", healthy: true,
+                        label: instName, assigned_at: new Date().toISOString(),
+                        last_checked_at: new Date().toISOString(),
+                      });
+                      await admin.from("devices").update({
+                        uazapi_token: createdToken, uazapi_base_url: BULK_BASE_URL,
+                      }).eq("id", d.id);
+                      console.log(`[bulk-create] pre-provision on-demand for ${d.id.substring(0, 8)}: ${instName}`);
+                    }
+                  }
+                  await oplog(admin, user.id, "instance_created", `Instância "${d.name}" criada (bulk)`, d.id, { proxy_id: d.proxy_id });
+                } catch (err: any) {
+                  console.error(`[bulk-create] pre-provision error for ${d.id}:`, err?.message);
+                  await oplog(admin, user.id, "instance_created", `Instância "${d.name}" criada (bulk, token lazy)`, d.id, { proxy_id: d.proxy_id });
+                }
+                if (d.proxy_id) {
+                  await oplog(admin, user.id, "proxy_assigned", `Proxy atribuída → USANDO`, d.id, { proxy_id: d.proxy_id });
+                }
+              })(),
             );
-            if (d.proxy_id) {
-              backgroundOps.push(
-                oplog(admin, user.id, "proxy_assigned", `Proxy atribuída → USANDO`, d.id, { proxy_id: d.proxy_id }),
-              );
-            }
           }
 
           await Promise.allSettled(backgroundOps);
