@@ -55,14 +55,14 @@ function formatDate(dateStr: string) {
 
 
 const avatarColors = [
-  "bg-emerald-500/15 text-emerald-400",
-  "bg-blue-500/15 text-blue-400",
-  "bg-violet-500/15 text-violet-400",
-  "bg-amber-500/15 text-amber-400",
-  "bg-pink-500/15 text-pink-400",
-  "bg-cyan-500/15 text-cyan-400",
-  "bg-red-500/15 text-red-400",
-  "bg-orange-500/15 text-orange-400",
+  "bg-emerald-600/20 text-emerald-300",
+  "bg-blue-600/20 text-blue-300",
+  "bg-violet-600/20 text-violet-300",
+  "bg-amber-600/20 text-amber-300",
+  "bg-pink-600/20 text-pink-300",
+  "bg-cyan-600/20 text-cyan-300",
+  "bg-teal-600/20 text-teal-300",
+  "bg-indigo-600/20 text-indigo-300",
 ];
 
 function getAvatarColor(name: string) {
