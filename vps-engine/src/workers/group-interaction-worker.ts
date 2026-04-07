@@ -338,7 +338,15 @@ async function processOneInteraction(sb: any, interaction: any) {
       const fallbackName = fallbackNameMap.get(identifier);
       const aliases = dedupeStrings([fallbackName]);
       const resolvedByName = resolveGroupJid(identifier, groupMap, aliases);
-      if (resolvedByName) resolved.push(resolvedByName);
+      if (resolvedByName) {
+        resolved.push(resolvedByName);
+        continue;
+      }
+
+      const resolvedByInvite = await resolveGroupFromInvite(baseUrl, device.uazapi_token, identifier);
+      if (resolvedByInvite) {
+        resolved.push(resolvedByInvite);
+      }
     }
     resolved = uniqueGroups(resolved);
   }
@@ -346,13 +354,18 @@ async function processOneInteraction(sb: any, interaction: any) {
   if (resolved.length === 0) {
     await sb.from("group_interactions")
       .update({
-        last_error: `Nenhum grupo resolvido (${groupIds.length} links, ${groupMap.size} grupos)` ,
+        last_error: `Nenhum grupo resolvido (${groupIds.length} links, ${groupMap.size} grupos)`,
         next_action_at: new Date(Date.now() + 300_000).toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", interaction.id)
       .in("status", ["running", "active"]);
     return;
+  }
+
+  if (resolved.length < groupIds.length) {
+    const missingCount = groupIds.length - resolved.length;
+    log.warn(`Interaction ${interaction.id.slice(0, 8)}: ${missingCount} grupos não resolvidos (${resolved.length}/${groupIds.length})`);
   }
 
   // Get messages
