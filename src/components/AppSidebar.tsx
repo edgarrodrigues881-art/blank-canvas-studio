@@ -474,12 +474,8 @@ export function AppSidebar() {
                 return (
                   <>
                     {renderNavItem({ title: "Conversas", url: "/dashboard/conversations", icon: MessageSquare, locked: lk })}
-                    {renderNavItem({ title: "Fila", url: "/dashboard/queue", icon: ListOrdered, locked: lk })}
-                    {renderNavItem({ title: "Fluxos", url: "/dashboard/flows", icon: GitBranch, locked: lk })}
                     {renderNavItem({ title: "Base de Dados", url: "/dashboard/service-contacts", icon: Headset, locked: lk })}
                     {renderNavItem({ title: "Agendamentos", url: "/dashboard/schedules", icon: CalendarClock, locked: lk })}
-                    {renderNavItem({ title: "Equipe", url: "/dashboard/team", icon: Users, locked: lk })}
-                    {renderNavItem({ title: "Histórico", url: "/dashboard/history", icon: History, locked: lk })}
                     {renderNavItem({ title: "IA", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: lk })}
                     {renderNavItem({ title: "Relatório", url: "/dashboard/service-reports", icon: BarChart3, locked: lk })}
                   </>
