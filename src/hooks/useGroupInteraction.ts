@@ -73,7 +73,7 @@ export function useGroupInteraction() {
       if (!user) return [];
       const { data, error } = await supabase
         .from("group_interactions" as any)
-        .select("id, user_id, name, status, group_ids, device_id, min_delay_seconds, max_delay_seconds, pause_after_messages_min, pause_after_messages_max, pause_duration_min, pause_duration_max, messages_per_cycle_min, messages_per_cycle_max, duration_hours, duration_minutes, start_hour, end_hour, active_days, daily_limit_per_group, daily_limit_total, total_messages_sent, today_count, last_sent_at, started_at, completed_at, last_error, created_at, updated_at")
+        .select("id, user_id, name, status, group_ids, device_id, min_delay_seconds, max_delay_seconds, pause_after_messages_min, pause_after_messages_max, pause_duration_min, pause_duration_max, messages_per_cycle_min, messages_per_cycle_max, duration_hours, duration_minutes, start_hour, end_hour, start_hour_2, end_hour_2, active_days, daily_limit_per_group, daily_limit_total, total_messages_sent, today_count, last_sent_at, started_at, completed_at, last_error, created_at, updated_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
