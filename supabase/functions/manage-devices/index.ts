@@ -155,6 +155,51 @@ async function deleteDevices(admin: any, userId: string, deviceIds: string[]): P
   return results;
 }
 
+function runInBackground(work: Promise<unknown>) {
+  const safeWork = work.catch((error) => {
+    console.error("[manage-devices background]", error);
+  });
+
+  if (typeof (globalThis as any).EdgeRuntime?.waitUntil === "function") {
+    (globalThis as any).EdgeRuntime.waitUntil(safeWork);
+    return;
+  }
+
+  void safeWork;
+}
+
+async function loadUserDeviceQuotaData(admin: any, userId: string) {
+  const [subResult, profileResult, countResult] = await Promise.all([
+    admin
+      .from("subscriptions")
+      .select("max_instances, expires_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("profiles")
+      .select("instance_override, status")
+      .eq("id", userId)
+      .maybeSingle(),
+    admin
+      .from("devices")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .neq("login_type", "report_wa"),
+  ]);
+
+  if (subResult.error) throw subResult.error;
+  if (profileResult.error) throw profileResult.error;
+  if (countResult.error) throw countResult.error;
+
+  return {
+    sub: subResult.data,
+    profile: profileResult.data,
+    currentCount: countResult.count ?? 0,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -198,47 +243,28 @@ Deno.serve(async (req) => {
     // ─── CREATE SINGLE DEVICE ──────────────────────────────────
     if (action === "create") {
       const { name, login_type = "qr" } = body;
-      if (!name?.trim()) throw new Error("Nome é obrigatório.");
+      const trimmedName = name?.trim();
+      if (!trimmedName) throw new Error("Nome é obrigatório.");
 
-      // 1. Check plan limits
-      const { data: sub } = await admin
-        .from("subscriptions")
-        .select("max_instances, expires_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const { sub, profile, currentCount } = await loadUserDeviceQuotaData(admin, user.id);
 
       if (!sub || new Date(sub.expires_at) < new Date()) {
         throw new Error("Você não possui um plano ativo.");
       }
 
-      const { data: profile } = await admin
-        .from("profiles")
-        .select("instance_override, status")
-        .eq("id", user.id)
-        .maybeSingle();
-
       if (profile?.status === "suspended" || profile?.status === "cancelled") {
         throw new Error("Conta suspensa/cancelada.");
       }
 
-      const { count: currentCount } = await admin
-        .from("devices")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .neq("login_type", "report_wa");
-
       const maxAllowed = (sub.max_instances ?? 0) + (profile?.instance_override ?? 0);
-      if ((currentCount ?? 0) >= maxAllowed) {
+      if (currentCount >= maxAllowed) {
         throw new Error(`Limite de instâncias atingido (${currentCount} de ${maxAllowed}).`);
       }
 
-      // 2. Create device record WITHOUT token — token will be generated on-demand at connect/QR time
       const { data: newDevice, error: insertErr } = await admin
         .from("devices")
         .insert({
-          name: name.trim(),
+          name: trimmedName,
           login_type,
           instance_type: login_type === "contingencia" ? "contingencia" : login_type === "report_wa" ? "notificacao" : "principal",
           user_id: user.id,
@@ -247,7 +273,9 @@ Deno.serve(async (req) => {
         .single();
       if (insertErr) throw insertErr;
 
-      await oplog(admin, user.id, "instance_created", `Instância "${newDevice.name}" criada (token será gerado ao conectar)`, newDevice.id);
+      runInBackground(
+        oplog(admin, user.id, "instance_created", `Instância "${newDevice.name}" criada (token será gerado ao conectar)`, newDevice.id),
+      );
 
       return new Response(
         JSON.stringify({ device: { ...newDevice, has_api_config: false } }),
@@ -261,45 +289,27 @@ Deno.serve(async (req) => {
       const totalCount = (proxyIds?.length || 0) + (noProxyCount || 0);
       if (totalCount === 0) throw new Error("Nenhuma instância para criar.");
 
-      // Check plan limits
-      const { data: sub } = await admin
-        .from("subscriptions")
-        .select("max_instances, expires_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const [quotaData, usedProxyDevicesResult] = await Promise.all([
+        loadUserDeviceQuotaData(admin, user.id),
+        admin
+          .from("devices")
+          .select("proxy_id")
+          .eq("user_id", user.id)
+          .not("proxy_id", "is", null),
+      ]);
 
+      const { sub, profile, currentCount } = quotaData;
       if (!sub || new Date(sub.expires_at) < new Date()) {
         throw new Error("Sem plano ativo.");
       }
-
-      const { data: profile } = await admin
-        .from("profiles")
-        .select("instance_override")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      const { count: currentCount } = await admin
-        .from("devices")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .neq("login_type", "report_wa");
+      if (usedProxyDevicesResult.error) throw usedProxyDevicesResult.error;
 
       const maxAllowed = (sub.max_instances ?? 0) + (profile?.instance_override ?? 0);
-      if ((currentCount ?? 0) + totalCount > maxAllowed) {
-        throw new Error(`Limite excedido. Disponível: ${maxAllowed - (currentCount ?? 0)}.`);
+      if (currentCount + totalCount > maxAllowed) {
+        throw new Error(`Limite excedido. Disponível: ${maxAllowed - currentCount}.`);
       }
 
-      // Build inserts WITHOUT tokens — tokens will be generated on-demand at connect/QR time
-      // CRITICAL: Filter out proxies already assigned to other devices to prevent duplication
-      const { data: usedProxyDevices } = await admin
-        .from("devices")
-        .select("proxy_id")
-        .eq("user_id", user.id)
-        .not("proxy_id", "is", null);
-      const usedProxyIds = new Set((usedProxyDevices || []).map((d: any) => d.proxy_id));
-
+      const usedProxyIds = new Set((usedProxyDevicesResult.data || []).map((d: any) => d.proxy_id));
       const inserts: any[] = [];
       let idx = startIndex;
       let skippedProxies = 0;
@@ -317,7 +327,7 @@ Deno.serve(async (req) => {
           user_id: user.id,
           proxy_id: proxyId,
         });
-        usedProxyIds.add(proxyId); // prevent within-batch duplication
+        usedProxyIds.add(proxyId);
         idx++;
       }
 
@@ -339,22 +349,34 @@ Deno.serve(async (req) => {
 
       if (bulkErr) throw bulkErr;
 
-      // Mark assigned proxies as USANDO in parallel
-      const parallelOps: Promise<any>[] = [];
       const assignedProxyIds = (newDevices || [])
         .map((d: any) => d.proxy_id)
         .filter(Boolean);
-      if (assignedProxyIds.length > 0) {
-        parallelOps.push(admin.from("proxies").update({ status: "USANDO" }).in("id", assignedProxyIds));
-      }
-      await Promise.allSettled(parallelOps);
 
-      // Log bulk creation in background
-      Promise.allSettled((newDevices || []).map((d: any) => {
-        const ops = [oplog(admin, user.id, "instance_created", `Instância "${d.name}" criada (bulk, token lazy)`, d.id, { proxy_id: d.proxy_id })];
-        if (d.proxy_id) ops.push(oplog(admin, user.id, "proxy_assigned", `Proxy atribuída → USANDO`, d.id, { proxy_id: d.proxy_id }));
-        return Promise.all(ops);
-      })).catch(() => {});
+      runInBackground(
+        (async () => {
+          const backgroundOps: Promise<unknown>[] = [];
+
+          if (assignedProxyIds.length > 0) {
+            backgroundOps.push(
+              admin.from("proxies").update({ status: "USANDO" }).in("id", assignedProxyIds),
+            );
+          }
+
+          for (const d of newDevices || []) {
+            backgroundOps.push(
+              oplog(admin, user.id, "instance_created", `Instância "${d.name}" criada (bulk, token lazy)`, d.id, { proxy_id: d.proxy_id }),
+            );
+            if (d.proxy_id) {
+              backgroundOps.push(
+                oplog(admin, user.id, "proxy_assigned", `Proxy atribuída → USANDO`, d.id, { proxy_id: d.proxy_id }),
+              );
+            }
+          }
+
+          await Promise.allSettled(backgroundOps);
+        })(),
+      );
 
       const safeDevices = (newDevices || []).map((d: any) => ({
         ...d,
