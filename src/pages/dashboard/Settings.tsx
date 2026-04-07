@@ -304,23 +304,28 @@ const Settings = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-2">
+              <div className="flex gap-1 p-1 rounded-xl bg-muted/50 border border-border/30">
                 {([
                   { value: "light", label: "Claro", icon: Sun },
                   { value: "dark", label: "Escuro", icon: Moon },
                   { value: "system", label: "Sistema", icon: Monitor },
-                ] as const).map(({ value, label, icon: Icon }) => (
-                  <Button
-                    key={value}
-                    variant={theme === value ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setTheme(value)}
-                    className="flex-1 gap-1.5"
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {label}
-                  </Button>
-                ))}
+                ] as const).map(({ value, label, icon: Icon }) => {
+                  const isActive = theme === value;
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => setTheme(value)}
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 ${
+                        isActive
+                          ? "bg-background text-foreground shadow-sm border border-border/40"
+                          : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" strokeWidth={isActive ? 2 : 1.5} />
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
