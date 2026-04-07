@@ -60,7 +60,7 @@ const DashboardHome = () => {
       dotColor: "bg-teal-400",
       iconClass: "text-teal-400",
       bgClass: "bg-teal-500/10",
-      breakdown: messageBreakdown,
+      
     },
   ];
 
