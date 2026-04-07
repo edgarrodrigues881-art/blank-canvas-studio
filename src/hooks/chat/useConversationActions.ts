@@ -421,6 +421,25 @@ export function useConversationActions({
     toast.success("Marcada como não lida");
   }, [setConversations]);
 
+  const bulkArchiveConversations = useCallback(async (convIds: string[]) => {
+    if (convIds.length === 0) return;
+    const convs = conversations.filter((c) => convIds.includes(c.id));
+    setConversations((prev) => prev.filter((c) => !convIds.includes(c.id)));
+    setArchivedConversations((prev) => [...convs, ...prev]);
+    await supabase.from("conversations").update({ status: "archived" } as any).in("id", convIds);
+    toast.success(`${convIds.length} conversa${convIds.length > 1 ? "s" : ""} arquivada${convIds.length > 1 ? "s" : ""}`);
+  }, [conversations, setConversations, setArchivedConversations]);
+
+  const bulkDeleteConversations = useCallback(async (convIds: string[]) => {
+    if (convIds.length === 0) return;
+    setConversations((prev) => prev.filter((c) => !convIds.includes(c.id)));
+    setArchivedConversations((prev) => prev.filter((c) => !convIds.includes(c.id)));
+    // Delete messages first, then conversations
+    await supabase.from("conversation_messages").delete().in("conversation_id", convIds);
+    await supabase.from("conversations").delete().in("id", convIds);
+    toast.success(`${convIds.length} conversa${convIds.length > 1 ? "s" : ""} apagada${convIds.length > 1 ? "s" : ""}`);
+  }, [setConversations, setArchivedConversations]);
+
   return {
     markConversationGroupAsRead,
     updateStatus,
@@ -436,5 +455,7 @@ export function useConversationActions({
     archiveConversation,
     unarchiveConversation,
     markAsUnread,
+    bulkArchiveConversations,
+    bulkDeleteConversations,
   };
 }
