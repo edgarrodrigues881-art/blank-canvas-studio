@@ -119,15 +119,43 @@ async function sendSticker(baseUrl: string, token: string, number: string, image
 
 async function sendAudio(baseUrl: string, token: string, number: string, audioUrl: string): Promise<{ ok: boolean; error?: string }> {
   const cleanNum = cleanNumber(number);
-  try {
-    const res = await fetch(`${baseUrl}/send/media`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", token, Accept: "application/json" },
-      body: JSON.stringify({ number: cleanNum, file: audioUrl, type: "audio", ptt: true }),
-    });
-    if (res.ok) return { ok: true };
-    return { ok: false, error: `Audio: ${res.status}` };
-  } catch (e: any) { return { ok: false, error: e.message }; }
+  const attempts = [
+    { path: "/send/media", body: { number: cleanNum, file: audioUrl, type: "ptt" } },
+    { path: "/send/media", body: { number: cleanNum, media: audioUrl, type: "ptt" } },
+    { path: "/send/media", body: { number: cleanNum, file: audioUrl, type: "audio", ptt: true } },
+    { path: "/send/media", body: { number: cleanNum, file: audioUrl, type: "audio" } },
+  ];
+
+  let lastErr = "";
+  for (const at of attempts) {
+    try {
+      const res = await fetch(`${baseUrl}${at.path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+        body: JSON.stringify(at.body),
+      });
+      const raw = await res.text();
+      if (res.ok) {
+        try {
+          const parsed = raw ? JSON.parse(raw) : {};
+          if (parsed?.error || parsed?.code === 404 || parsed?.status === "error") {
+            lastErr = `${at.path}: ${raw.substring(0, 200)}`;
+            continue;
+          }
+        } catch {}
+        return { ok: true };
+      }
+      if (res.status === 405 || res.status === 404) {
+        lastErr = `${res.status} @ ${at.path}`;
+        continue;
+      }
+      lastErr = `${res.status} @ ${at.path}: ${raw.substring(0, 200)}`;
+    } catch (e: any) {
+      lastErr = `${at.path}: ${e?.message || String(e)}`;
+    }
+  }
+
+  return { ok: false, error: lastErr };
 }
 
 function safeRange(min: unknown, max: unknown, defaultMin: number, defaultMax?: number): number {
@@ -136,6 +164,14 @@ function safeRange(min: unknown, max: unknown, defaultMin: number, defaultMax?: 
   const safeMin = Number.isFinite(minN) && minN > 0 ? Math.floor(minN) : defaultMin;
   const safeMax = Number.isFinite(maxN) && maxN > safeMin ? Math.floor(maxN) : (defaultMax ?? safeMin);
   return randomBetween(safeMin, safeMax);
+}
+
+function pickChipContentType(): "text" | "audio" | "sticker" | "image" {
+  const roll = randomBetween(1, 100);
+  if (roll <= 52) return "text";
+  if (roll <= 87) return "audio";
+  if (roll <= 97) return "sticker";
+  return "image";
 }
 
 async function processOneConversation(sb: any, conv: any) {
@@ -180,15 +216,8 @@ async function processOneConversation(sb: any, conv: any) {
   const hasUserSticker = (mediaByType.sticker?.length || 0) > 0;
   const hasUserAudio = (mediaByType.audio?.length || 0) > 0;
 
-  // Always include media in the bag — use fallbacks if user has no uploads
-  // Distribution: ~40% text, ~35% audio, ~15% sticker, ~10% image
-  const bag = [
-    "text", "text", "text", "text", "text", "text", "text", "text",  // 8 = 40%
-    "audio", "audio", "audio", "audio", "audio", "audio", "audio",   // 7 = 35%
-    "sticker", "sticker", "sticker",                                   // 3 = 15%
-    "image", "image",                                                  // 2 = 10%
-  ];
-  const contentType = pickRandom(bag);
+  // Distribuição solicitada: 52% texto, 35% áudio, 10% figurinha, 3% imagem
+  const contentType = pickChipContentType();
 
   // Rotate through ALL devices, not just first 2
   const totalDevices = activeDevices.length;
