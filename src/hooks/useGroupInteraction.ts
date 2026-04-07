@@ -135,12 +135,13 @@ export function useGroupInteraction() {
   });
 
   const createInteraction = useMutation({
-    mutationFn: async (data: Partial<GroupInteraction>) => {
+    mutationFn: async (data: Partial<GroupInteraction> & { _silent?: boolean }) => {
       if (!user) throw new Error("Não autenticado");
+      const { _silent, ...rest } = data;
       const payload = {
-        ...normalizeInteractionPayload(data),
-        start_hour_2: normalizeOptionalTime((data as any).start_hour_2),
-        end_hour_2: normalizeOptionalTime((data as any).end_hour_2),
+        ...normalizeInteractionPayload(rest),
+        start_hour_2: normalizeOptionalTime((rest as any).start_hour_2),
+        end_hour_2: normalizeOptionalTime((rest as any).end_hour_2),
         user_id: user.id,
         status: "idle",
       };
@@ -150,19 +151,18 @@ export function useGroupInteraction() {
         .select("id")
         .single() as any);
       if (error) throw error;
-      return inserted as { id: string };
+      return { id: (inserted as any).id, _silent } as { id: string; _silent?: boolean };
     },
     onSuccess: async (inserted) => {
       qc.invalidateQueries({ queryKey: ["group-interactions"] });
-      toast.success("Interação criada");
-      // Auto-start: invoke start action right away (edge function checks schedule)
+      if (!inserted?._silent) toast.success("Interação criada");
       if (inserted?.id) {
         try {
           await supabase.functions.invoke("group-interaction", {
             body: { interactionId: inserted.id, action: "start" },
           });
           qc.invalidateQueries({ queryKey: ["group-interactions"] });
-          toast.success("Automação iniciada automaticamente");
+          if (!inserted._silent) toast.success("Automação iniciada automaticamente");
         } catch { /* silent - user can start manually */ }
       }
     },

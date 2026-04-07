@@ -272,6 +272,7 @@ export default function GroupInteractionPage() {
           ...form,
           device_id: deviceId,
           name: `${form.name} - ${deviceName}`,
+          _silent: true,
         } as any);
       }
       toast.success(`${bulkDeviceIds.length} automações criadas e iniciadas`);
