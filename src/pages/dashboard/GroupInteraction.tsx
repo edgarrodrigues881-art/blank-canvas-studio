@@ -74,6 +74,31 @@ const statusLabels: Record<string, string> = {
 const defaultContentTypes = { text: true, image: true, audio: true, sticker: true };
 const defaultPeriod2 = { start_hour_2: "13:00", end_hour_2: "19:00" };
 
+function normalizeWarmupGroupLink(value: unknown): string {
+  return String(value ?? "").trim();
+}
+
+function pickPreferredWarmupGroup(
+  groups: any[],
+  userId: string | null | undefined,
+  preferredSource?: "system" | "custom",
+) {
+  if (preferredSource === "custom") {
+    const customMatch = groups.find((group) => group?.user_id === userId);
+    if (customMatch) return customMatch;
+  }
+
+  if (preferredSource === "system") {
+    const systemMatch = groups.find((group) => !group?.user_id && !group?.is_custom);
+    if (systemMatch) return systemMatch;
+  }
+
+  return groups.find((group) => group?.user_id === userId)
+    || groups.find((group) => !group?.user_id && !group?.is_custom)
+    || groups[0]
+    || null;
+}
+
 function isGroupInteractionDeviceEligible(device: any): boolean {
   const normalizedStatus = String(device?.status || "").trim().toLowerCase();
   const normalizedType = String(device?.instance_type || "").trim().toLowerCase();
@@ -126,7 +151,7 @@ export default function GroupInteractionPage() {
 
   const deviceMap = useMemo(() => new Map(devices.map((device: any) => [device.id, device])), [devices]);
 
-  const { data: allWarmupGroups = [] } = useQuery({
+  const { data: allWarmupGroups = [], isLoading: warmupGroupsLoading } = useQuery({
     queryKey: ["warmup-groups-gi", user?.id],
     queryFn: async () => {
       if (!user) return [];
@@ -139,6 +164,60 @@ export default function GroupInteractionPage() {
     },
     enabled: !!user,
   });
+
+  const warmupGroupsById = useMemo(() => {
+    return new Map(allWarmupGroups.map((group: any) => [String(group.id), group]));
+  }, [allWarmupGroups]);
+
+  const warmupGroupsByLink = useMemo(() => {
+    const map = new Map<string, any[]>();
+
+    for (const group of allWarmupGroups as any[]) {
+      const link = normalizeWarmupGroupLink(group?.link);
+      if (!link) continue;
+      const current = map.get(link) ?? [];
+      current.push(group);
+      map.set(link, current);
+    }
+
+    return map;
+  }, [allWarmupGroups]);
+
+  const resolveInteractionGroupSource = useCallback((rawGroupIds: string[] = []): "system" | "custom" => {
+    let systemCount = 0;
+    let customCount = 0;
+
+    for (const rawGroupId of rawGroupIds) {
+      const value = String(rawGroupId ?? "").trim();
+      if (!value) continue;
+
+      const directMatch = warmupGroupsById.get(value);
+      const linkMatches = warmupGroupsByLink.get(value) ?? [];
+      const match = directMatch || pickPreferredWarmupGroup(linkMatches, user?.id);
+
+      if (!match) continue;
+      if (match.user_id === user?.id) customCount += 1;
+      else if (!match.user_id && !match.is_custom) systemCount += 1;
+    }
+
+    return customCount > systemCount ? "custom" : "system";
+  }, [warmupGroupsById, warmupGroupsByLink, user?.id]);
+
+  const normalizeInteractionGroupIds = useCallback((rawGroupIds: string[] = [], preferredSource?: "system" | "custom") => {
+    return Array.from(new Set(
+      rawGroupIds
+        .map((rawGroupId) => {
+          const value = String(rawGroupId ?? "").trim();
+          if (!value) return null;
+          if (warmupGroupsById.has(value)) return value;
+
+          const linkMatches = warmupGroupsByLink.get(value) ?? [];
+          const match = pickPreferredWarmupGroup(linkMatches, user?.id, preferredSource);
+          return match?.id ? String(match.id) : null;
+        })
+        .filter((value): value is string => Boolean(value)),
+    ));
+  }, [warmupGroupsById, warmupGroupsByLink, user?.id]);
 
   const warmupGroups = useMemo(() => {
     if (groupSource === "system") {
@@ -166,9 +245,15 @@ export default function GroupInteractionPage() {
   useEffect(() => {
     if (selected) {
       const s = selected as any;
+      if (warmupGroupsLoading && (selected.group_ids?.length || 0) > 0) return;
+
+      const selectedSource = resolveInteractionGroupSource(selected.group_ids || []);
+      const normalizedGroupIds = normalizeInteractionGroupIds(selected.group_ids || [], selectedSource);
+
+      setGroupSource(selectedSource);
       setForm({
         name: selected.name,
-        group_ids: selected.group_ids,
+        group_ids: normalizedGroupIds,
         device_id: selected.device_id,
         min_delay_seconds: selected.min_delay_seconds,
         max_delay_seconds: selected.max_delay_seconds,
@@ -188,11 +273,18 @@ export default function GroupInteractionPage() {
       });
       setUsePeriod2(!!s.start_hour_2 && !!s.end_hour_2);
     }
-  }, [selected]);
+  }, [selected, warmupGroupsLoading, resolveInteractionGroupSource, normalizeInteractionGroupIds]);
 
   const updateForm = useCallback((patch: Record<string, any>) => {
     setForm((f) => ({ ...f, ...patch }));
   }, []);
+
+  const buildInteractionPayload = useCallback((base: Record<string, any>, preferredSource = groupSource) => {
+    return {
+      ...base,
+      group_ids: normalizeInteractionGroupIds(Array.isArray(base.group_ids) ? base.group_ids : [], preferredSource),
+    };
+  }, [groupSource, normalizeInteractionGroupIds]);
 
   const toggleDay = useCallback((day: string) => {
     setForm((f) => {
@@ -215,9 +307,10 @@ export default function GroupInteractionPage() {
   }, []);
 
   const validate = (): string | null => {
+    const normalizedGroupIds = normalizeInteractionGroupIds(Array.isArray(form.group_ids) ? form.group_ids : [], groupSource);
     if (!form.device_id && !showBulkCreate) return "Selecione um dispositivo";
     if (!showBulkCreate && form.device_id && !eligibleDevices.some((device: any) => device.id === form.device_id)) return "A instância selecionada está desconectada";
-    if (!form.group_ids?.length) return "Selecione pelo menos um grupo";
+    if (!normalizedGroupIds.length) return "Selecione pelo menos um grupo válido";
     if (!form.start_hour || !form.end_hour) return "Defina os horários";
     if (usePeriod2 && (!form.start_hour_2 || !form.end_hour_2)) return "Defina início e término do 2º período";
     // Auto-correct delays instead of blocking
@@ -233,7 +326,9 @@ export default function GroupInteractionPage() {
   const handleCreate = async () => {
     const err = validate();
     if (err) return toast.error(err);
-    await createInteraction.mutateAsync(form as any);
+    const payload = buildInteractionPayload(form);
+    if (!(payload.group_ids || []).length) return toast.error("Selecione pelo menos um grupo válido");
+    await createInteraction.mutateAsync(payload as any);
     setShowConfig(false);
   };
 
@@ -243,13 +338,15 @@ export default function GroupInteractionPage() {
     if (!bulkDeviceIds.length) return toast.error("Selecione pelo menos um dispositivo");
     const err = validate();
     if (err) return toast.error(err);
+    const payload = buildInteractionPayload(form);
+    if (!(payload.group_ids || []).length) return toast.error("Selecione pelo menos um grupo válido");
     bulkCreatingRef.current = true;
     try {
       for (const deviceId of bulkDeviceIds) {
         const device = eligibleDevices.find((d: any) => d.id === deviceId);
         const deviceName = device ? device.name : "Dispositivo";
         await createInteraction.mutateAsync({
-          ...form,
+          ...payload,
           device_id: deviceId,
           name: `${form.name} - ${deviceName}`,
           _silent: true,
@@ -268,14 +365,18 @@ export default function GroupInteractionPage() {
     if (!selectedId) return;
     const err = validate();
     if (err) return toast.error(err);
-    await updateInteraction.mutateAsync({ id: selectedId, ...form } as any);
+    const payload = buildInteractionPayload(form);
+    if (!(payload.group_ids || []).length) return toast.error("Selecione pelo menos um grupo válido");
+    await updateInteraction.mutateAsync({ id: selectedId, ...payload } as any);
     toast.success("Configuração salva");
   };
 
   const handleDuplicate = async () => {
     if (!selectedId) return;
     const { id, created_at, updated_at, started_at, completed_at, total_messages_sent, status, ...rest } = form;
-    await createInteraction.mutateAsync({ ...rest, name: `${form.name} (cópia)`, status: "idle" } as any);
+    const payload = buildInteractionPayload(rest);
+    if (!(payload.group_ids || []).length) return toast.error("Selecione pelo menos um grupo válido");
+    await createInteraction.mutateAsync({ ...payload, name: `${form.name} (cópia)`, status: "idle" } as any);
     toast.success("Automação duplicada");
   };
 
@@ -328,6 +429,7 @@ export default function GroupInteractionPage() {
                   setForm({ ...defaultForm });
                   setShowBulkCreate(true);
                   setBulkDeviceIds([]);
+                  setGroupSource("system");
                 }}
                 className="gap-2"
               >
@@ -339,6 +441,7 @@ export default function GroupInteractionPage() {
                   setSelectedId(null);
                   setForm({ ...defaultForm });
                   setShowConfig(true);
+                    setGroupSource("system");
                 }}
                 className="gap-2"
               >
@@ -837,8 +940,8 @@ export default function GroupInteractionPage() {
                 warmupGroups.map((g: any) => (
                   <label key={g.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/40 cursor-pointer">
                     <Checkbox
-                      checked={(form.group_ids || []).includes(g.link || g.id)}
-                      onCheckedChange={() => toggleGroup(g.link || g.id)}
+                      checked={(form.group_ids || []).includes(g.id)}
+                      onCheckedChange={() => toggleGroup(g.id)}
                     />
                     <span className="text-xs truncate">{g.name}</span>
                   </label>

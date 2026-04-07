@@ -8,7 +8,7 @@ import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
-import { fetchDeviceGroups, type ResolvedGroup } from "../group-interaction/group-resolution";
+import { fetchDeviceGroups, normalizeGroupName, resolveGroupJid, type ResolvedGroup } from "../group-interaction/group-resolution";
 
 const log = createLogger("group-interaction");
 
@@ -35,6 +35,16 @@ const FALLBACK_MESSAGES: Record<string, string[]> = {
 };
 
 const DAY_MAP = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const GROUP_JID_RE = /@g\.us$/i;
+
+type AllowedGroupSelection = {
+  selectionKey: string;
+  groupId: string | null;
+  link: string | null;
+  name: string;
+  joinedJid: string | null;
+};
 
 function getCategoryForIndex(i: number, total: number): string {
   if (i === 0) return "abertura";
@@ -109,28 +119,140 @@ async function pauseInteraction(sb: any, interactionId: string, lastError: strin
     .eq("id", interactionId);
 }
 
-async function loadAllowedGroupJids(sb: any, identifiers: string[]): Promise<Map<string, string>> {
-  const allowedMap = new Map<string, string>();
-  const validIds = identifiers.filter((value) => typeof value === "string" && value.trim().length > 0);
-  const uuidIds = Array.from(new Set(validIds.filter((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))));
+function pickPreferredWarmupGroupRow(rows: any[], userId: string): any | null {
+  return rows.find((row) => row?.user_id === userId)
+    || rows.find((row) => !row?.user_id && row?.is_custom === false)
+    || rows[0]
+    || null;
+}
 
-  if (uuidIds.length === 0) return allowedMap;
+function getExactGroupNameMatch(groupMap: Map<string, ResolvedGroup>, name: string): ResolvedGroup | null {
+  const normalized = normalizeGroupName(name);
+  if (!normalized) return null;
+  return groupMap.get(`name:${normalized}`) || null;
+}
 
-  const { data } = await sb
-    .from("warmup_instance_groups")
-    .select("group_id, group_jid")
-    .in("group_id", uuidIds)
-    .not("group_jid", "is", null);
+async function loadAllowedGroupSelections(
+  sb: any,
+  userId: string,
+  deviceId: string,
+  identifiers: string[],
+): Promise<AllowedGroupSelection[]> {
+  const selectionKeys = dedupeStrings(identifiers);
+  const selections = new Map<string, AllowedGroupSelection>(
+    selectionKeys.map((selectionKey) => [
+      selectionKey,
+      {
+        selectionKey,
+        groupId: UUID_RE.test(selectionKey) ? selectionKey : null,
+        link: null,
+        name: "",
+        joinedJid: null,
+      },
+    ]),
+  );
 
-  for (const row of data || []) {
-    const groupId = String(row?.group_id || "").trim();
-    const groupJid = String(row?.group_jid || "").trim();
-    if (groupId && groupJid && groupJid.includes("@g.us")) {
-      allowedMap.set(groupId, groupJid);
+  if (selections.size === 0) return [];
+
+  const uuidIds = selectionKeys.filter((value) => UUID_RE.test(value));
+  const inviteLinks = selectionKeys.filter((value) => !UUID_RE.test(value) && !GROUP_JID_RE.test(value));
+  const directJids = selectionKeys.filter((value) => GROUP_JID_RE.test(value));
+
+  if (uuidIds.length > 0) {
+    const { data } = await sb
+      .from("warmup_groups")
+      .select("id, name, link, is_custom, user_id")
+      .in("id", uuidIds)
+      .or(`user_id.eq.${userId},and(is_custom.eq.false,user_id.is.null)`);
+
+    for (const row of data || []) {
+      const key = String(row?.id || "").trim();
+      const selection = selections.get(key);
+      if (!selection) continue;
+      selection.groupId = key || selection.groupId;
+      selection.link = String(row?.link || "").trim() || null;
+      selection.name = String(row?.name || "").trim();
     }
   }
 
-  return allowedMap;
+  if (inviteLinks.length > 0) {
+    const { data } = await sb
+      .from("warmup_groups")
+      .select("id, name, link, is_custom, user_id")
+      .in("link", inviteLinks)
+      .or(`user_id.eq.${userId},and(is_custom.eq.false,user_id.is.null)`);
+
+    const rowsByLink = new Map<string, any[]>();
+    for (const row of data || []) {
+      const link = String(row?.link || "").trim();
+      if (!link) continue;
+      const current = rowsByLink.get(link) ?? [];
+      current.push(row);
+      rowsByLink.set(link, current);
+    }
+
+    for (const inviteLink of inviteLinks) {
+      const selection = selections.get(inviteLink);
+      if (!selection) continue;
+      const picked = pickPreferredWarmupGroupRow(rowsByLink.get(inviteLink) ?? [], userId);
+      if (!picked) continue;
+      selection.groupId = String(picked?.id || "").trim() || selection.groupId;
+      selection.link = String(picked?.link || "").trim() || selection.link;
+      selection.name = String(picked?.name || "").trim() || selection.name;
+    }
+  }
+
+  const resolvedGroupIds = dedupeStrings(Array.from(selections.values()).map((selection) => selection.groupId));
+
+  const [joinedByGroupIdResult, joinedByJidResult] = await Promise.all([
+    resolvedGroupIds.length > 0
+      ? sb
+          .from("warmup_instance_groups")
+          .select("group_id, group_jid, group_name, invite_link")
+          .eq("user_id", userId)
+          .eq("device_id", deviceId)
+          .eq("join_status", "joined")
+          .in("group_id", resolvedGroupIds)
+          .not("group_jid", "is", null)
+      : Promise.resolve({ data: [] as any[] }),
+    directJids.length > 0
+      ? sb
+          .from("warmup_instance_groups")
+          .select("group_id, group_jid, group_name, invite_link")
+          .eq("user_id", userId)
+          .eq("device_id", deviceId)
+          .eq("join_status", "joined")
+          .in("group_jid", directJids)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+
+  const joinedByGroupId = new Map<string, any>();
+  for (const row of joinedByGroupIdResult.data || []) {
+    const groupId = String(row?.group_id || "").trim();
+    if (groupId) joinedByGroupId.set(groupId, row);
+  }
+
+  for (const selection of selections.values()) {
+    if (!selection.groupId) continue;
+    const joinedRow = joinedByGroupId.get(selection.groupId);
+    if (!joinedRow) continue;
+    selection.joinedJid = String(joinedRow?.group_jid || "").trim() || selection.joinedJid;
+    selection.name = selection.name || String(joinedRow?.group_name || "").trim();
+    selection.link = selection.link || String(joinedRow?.invite_link || "").trim() || null;
+  }
+
+  for (const row of joinedByJidResult.data || []) {
+    const joinedJid = String(row?.group_jid || "").trim();
+    if (!joinedJid) continue;
+    const selection = selections.get(joinedJid);
+    if (!selection) continue;
+    selection.groupId = String(row?.group_id || "").trim() || selection.groupId;
+    selection.joinedJid = joinedJid;
+    selection.name = selection.name || String(row?.group_name || "").trim();
+    selection.link = selection.link || String(row?.invite_link || "").trim() || null;
+  }
+
+  return Array.from(selections.values());
 }
 
 // ── Group Map Cache (avoid calling API every tick) ──
@@ -356,22 +478,37 @@ async function processOneInteraction(sb: any, interaction: any) {
 
   // Resolve groups strictly from explicit allowlist/JIDs already linked to this interaction
   let groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
-  const allowedGroupJids = await loadAllowedGroupJids(sb, groupIds);
+  const allowedSelections = await loadAllowedGroupSelections(sb, userId, device.id, groupIds);
 
   const resolveStrict = (map: Map<string, ResolvedGroup>) => {
     const found: Array<{ jid: string; name: string }> = [];
     const unresolved: string[] = [];
 
-    for (const gid of groupIds) {
-      const explicitJid = allowedGroupJids.get(gid);
-      if (!explicitJid) {
-        unresolved.push(gid);
-        continue;
+    for (const selection of allowedSelections) {
+      let resolvedGroup: ResolvedGroup | null = null;
+
+      if (selection.joinedJid) {
+        const byJoinedJid = map.get(selection.joinedJid);
+        if (byJoinedJid?.jid) resolvedGroup = byJoinedJid;
       }
 
-      const resolvedGroup = map.get(explicitJid);
-      if (resolvedGroup?.jid) found.push(resolvedGroup);
-      else unresolved.push(gid);
+      if (!resolvedGroup && selection.link) {
+        const byInviteLink = resolveGroupJid(selection.link, map);
+        if (byInviteLink?.jid && map.has(byInviteLink.jid)) {
+          resolvedGroup = byInviteLink;
+        }
+      }
+
+      if (!resolvedGroup && !selection.link && selection.name) {
+        const byExactName = getExactGroupNameMatch(map, selection.name);
+        if (byExactName?.jid) resolvedGroup = byExactName;
+      }
+
+      if (resolvedGroup?.jid) {
+        found.push({ jid: resolvedGroup.jid, name: resolvedGroup.name || selection.name });
+      } else {
+        unresolved.push(selection.selectionKey);
+      }
     }
 
     return { resolved: uniqueGroups(found), unresolved };
@@ -386,9 +523,10 @@ async function processOneInteraction(sb: any, interaction: any) {
   }
 
   if (resolved.length === 0) {
+    const recognizedSelections = allowedSelections.filter((selection) => selection.groupId || selection.link || selection.joinedJid || selection.name);
     await sb.from("group_interactions")
       .update({
-        last_error: `Nenhum grupo permitido foi encontrado no dispositivo (${groupIds.length} configurados, ${allowedGroupJids.size} com JID salvo, ${groupMap.size} grupos no aparelho)`,
+        last_error: `Nenhum grupo permitido foi encontrado no dispositivo (${groupIds.length} configurados, ${recognizedSelections.length} reconhecidos na allowlist, ${groupMap.size} grupos no aparelho)`,
         next_action_at: new Date(Date.now() + 300_000).toISOString(),
         updated_at: new Date().toISOString(),
       })
