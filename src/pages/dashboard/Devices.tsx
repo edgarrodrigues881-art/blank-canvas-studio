@@ -1409,13 +1409,7 @@ const Devices = () => {
     queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
       old ? old.map(d => d.id === device.id ? { ...d, status: "Disconnected" as const, number: "", proxy_id: null, profile_picture: null, profile_name: null } : d) : old
     );
-    // Suppress DB trigger toast for this device (manual action already shows feedback)
-    const suppressKey = `warning::Instância desconectou::${device.name}`;
-    (window as any).__suppressNotifKeys = (window as any).__suppressNotifKeys || new Set();
-    (window as any).__suppressNotifKeys.add(suppressKey);
-    setTimeout(() => (window as any).__suppressNotifKeys?.delete(suppressKey), 15_000);
-
-    toast({ title: "Desconectado", description: `${device.name} foi desconectado.` });
+    // DB trigger will fire the notification with chime — no manual toast needed
 
     // Fire DB update + API logout in background, then confirm real state
     supabase.from("devices").update({ status: "Disconnected", number: "", proxy_id: null, profile_picture: null, profile_name: null } as any).eq("id", device.id)

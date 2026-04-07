@@ -115,17 +115,6 @@ export function useNotifications() {
   }, []);
 
   const showToastForNotif = useCallback((n: Notification) => {
-    // Check if this notification was suppressed by a manual UI action
-    const suppressKeys = (window as any).__suppressNotifKeys as Set<string> | undefined;
-    if (suppressKeys) {
-      // Match by type + title + device name in message
-      for (const key of suppressKeys) {
-        const [type, title] = key.split("::");
-        if (n.type === type && n.title === title && n.message.includes(key.split("::")[2] || "")) {
-          return; // Suppressed — manual toast already shown
-        }
-      }
-    }
 
     const dedupKey = getNotificationDedupKey(n);
     const lastShown = globalRecentToastTimestamps.get(dedupKey) || 0;
