@@ -404,7 +404,7 @@ async function processOneInteraction(sb: any, interaction: any) {
 
   try {
     if (contentType === "image") {
-      const picked = mediaByType.image?.length ? pickRandom(mediaByType.image) : null;
+      const picked = hasUserImage ? pickRandom(mediaByType.image) : null;
       const imgUrl = picked?.file_url || pickRandom(FALLBACK_IMAGES);
       const caption = picked?.content?.trim() || pickRandom(messages);
       await uazapiSendImage(baseUrl, device.uazapi_token, group.jid, imgUrl, "");
@@ -412,12 +412,12 @@ async function processOneInteraction(sb: any, interaction: any) {
       await uazapiSendText(baseUrl, device.uazapi_token, group.jid, caption);
       messageText = `[IMG+TXT] ${caption}`;
     } else if (contentType === "sticker") {
-      const picked = mediaByType.sticker?.length ? pickRandom(mediaByType.sticker) : null;
+      const picked = hasUserSticker ? pickRandom(mediaByType.sticker) : null;
       const stickerUrl = picked?.file_url || pickRandom(FALLBACK_IMAGES);
       await uazapiSendSticker(baseUrl, device.uazapi_token, group.jid, stickerUrl);
       messageText = `[STICKER] ${picked?.content || "🎭"}`;
     } else if (contentType === "audio") {
-      const picked = mediaByType.audio?.length ? pickRandom(mediaByType.audio) : null;
+      const picked = hasUserAudio ? pickRandom(mediaByType.audio) : null;
       const audioUrl = picked?.file_url || pickRandom(FALLBACK_AUDIOS);
       await uazapiSendAudio(baseUrl, device.uazapi_token, group.jid, audioUrl);
       messageText = `[AUDIO] ${picked?.content || "🎤"}`;
