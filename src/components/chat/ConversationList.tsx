@@ -342,7 +342,7 @@ export function ConversationList({
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="pb-14">
+        <div className="pb-14 divide-y divide-border/30">
           {filtered.length === 0 ? (
             <div className="py-12 text-center text-xs text-muted-foreground">
               Nenhuma conversa encontrada
@@ -365,13 +365,13 @@ export function ConversationList({
                   key={c.id}
                   onClick={() => selectionMode ? toggleSelect(c.id) : onSelect(c)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all border-l-2",
+                    "w-full flex items-center gap-3 px-3 py-3 text-left transition-all",
                     isSelected
-                      ? "bg-primary/8 border-l-primary"
+                      ? "bg-primary/10"
                       : hasUnread
-                        ? "border-l-primary/70 bg-primary/[0.03] hover:bg-primary/[0.06]"
-                        : "border-l-transparent hover:bg-muted/20",
-                    selectionMode && selectedIds.has(c.id) && "bg-primary/10 border-l-primary/50"
+                        ? "bg-muted/10 hover:bg-muted/20"
+                        : "hover:bg-muted/15",
+                    selectionMode && selectedIds.has(c.id) && "bg-primary/10"
                   )}
                 >
                   {selectionMode && (
@@ -384,22 +384,22 @@ export function ConversationList({
                   )}
                   <div className="relative shrink-0">
                     {c.avatar_url ? (
-                      <img src={c.avatar_url} alt={avatarLabel} className="w-11 h-11 rounded-full object-cover" />
+                      <img src={c.avatar_url} alt={avatarLabel} className="w-12 h-12 rounded-full object-cover" />
                     ) : (
-                      <div className={cn("w-11 h-11 rounded-full flex items-center justify-center", avatarCls)}>
-                        <span className="text-sm font-bold">{avatarLabel.slice(0, 2).toUpperCase()}</span>
+                      <div className={cn("w-12 h-12 rounded-full flex items-center justify-center text-base font-bold", avatarCls)}>
+                        {avatarLabel.slice(0, 2).toUpperCase()}
                       </div>
                     )}
                     {c.status === "online" && (
-                      <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-background" />
+                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-background" />
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <span className={cn(
-                        "text-[13px] truncate",
-                        hasUnread ? "font-bold text-foreground" : "font-medium text-foreground"
+                        "text-sm truncate",
+                        hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/90"
                       )}>
                         {trimmedQuery ? (
                           <HighlightText text={displayName || formatPhone(c.phone)} query={trimmedQuery} />
@@ -408,30 +408,19 @@ export function ConversationList({
                         )}
                       </span>
                       <span className={cn(
-                        "text-[10px] shrink-0",
-                        hasUnread ? "text-primary font-semibold" : "text-muted-foreground/60 font-medium"
+                        "text-[11px] shrink-0",
+                        hasUnread ? "text-emerald-400 font-semibold" : "text-muted-foreground/50"
                       )}>
                         {c.lastMessageAt ? formatDate(c.lastMessageAt) : ""}
                       </span>
                     </div>
 
-                    {displayName && (
-                      <p className="text-[10px] text-muted-foreground/50 truncate leading-tight">
-                        {trimmedQuery ? (
-                          <HighlightText text={formatPhone(c.phone)} query={trimmedQuery} />
-                        ) : (
-                          formatPhone(c.phone)
-                        )}
-                      </p>
-                    )}
-
-                    <div className="flex items-center justify-between gap-1.5 mt-0.5">
+                    <div className="flex items-center justify-between gap-2 mt-1">
                       <div className="flex items-center gap-1 min-w-0 flex-1">
                         {c.lastMessageStatus && <MessageTicks status={c.lastMessageStatus} />}
                         <p className={cn(
-                          "text-[11px] truncate",
-                          hasUnread ? "text-foreground font-semibold" : "text-muted-foreground",
-                          matchCtx === "mensagem" && "text-primary/80"
+                          "text-xs truncate",
+                          hasUnread ? "text-foreground/80 font-medium" : "text-muted-foreground/60"
                         )}>
                           {c.status === "typing" ? (
                             <span className="text-emerald-400 italic">digitando...</span>
@@ -445,7 +434,7 @@ export function ConversationList({
                         </p>
                       </div>
                       {hasUnread && (
-                        <span className="min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-red-500 text-white rounded-full flex items-center justify-center shrink-0 animate-in zoom-in-50 duration-200 shadow-sm shadow-red-500/30">
+                        <span className="min-w-[20px] h-[20px] px-1.5 text-[11px] font-bold bg-emerald-500 text-white rounded-full flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/30">
                           {c.unreadCount}
                         </span>
                       )}
