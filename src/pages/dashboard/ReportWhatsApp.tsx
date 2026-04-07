@@ -401,7 +401,7 @@ export default function ReportWhatsApp() {
       if (needsDeviceSync) updates.device_id = reportDevice.id;
       if (needsStatusSync) updates.connection_status = currentStatus;
       if (needsPhoneSync) updates.connected_phone = reportDevice.number;
-      supabase.from("report_wa_configs").update(updates).eq("id", config.id).then(({ error }) => {
+      supabase.from("report_wa_configs").update(updates as any).eq("id", config.id).then(({ error }) => {
         if (!error) queryClient.invalidateQueries({ queryKey: ["report-wa-config"] });
       });
     }
