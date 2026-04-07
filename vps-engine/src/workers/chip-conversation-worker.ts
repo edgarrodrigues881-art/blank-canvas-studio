@@ -339,7 +339,21 @@ async function processOneConversation(sb: any, conv: any) {
   const sender = sortedDevices[0]; // device that sent the least
   // Pick a random receiver that is NOT the sender
   const possibleReceivers = activeDevices.filter((d: any) => d.id !== sender.id);
-  const receiver = possibleReceivers[Math.floor(Math.random() * possibleReceivers.length)];
+
+  // Also pick receiver fairly: who received least from this sender?
+  const receiveCounts = new Map<string, number>();
+  for (const d of possibleReceivers) receiveCounts.set(d.id, 0);
+  for (const row of sendCounts || []) {
+    if (row.sender_device_id === sender.id && receiveCounts.has(row.receiver_device_id)) {
+      receiveCounts.set(row.receiver_device_id, (receiveCounts.get(row.receiver_device_id) || 0) + 1);
+    }
+  }
+  // Sort receivers by least received, break ties randomly
+  const sortedReceivers = [...possibleReceivers].sort((a: any, b: any) => {
+    const diff = (receiveCounts.get(a.id) || 0) - (receiveCounts.get(b.id) || 0);
+    return diff !== 0 ? diff : (Math.random() - 0.5);
+  });
+  const receiver = sortedReceivers[0];
 
   let messageText = "";
   let messageCategory: "text" | "audio" | "sticker" | "image" = contentType;
