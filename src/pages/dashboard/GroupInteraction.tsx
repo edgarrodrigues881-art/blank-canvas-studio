@@ -483,7 +483,23 @@ export default function GroupInteractionPage() {
                 Selecione os dispositivos que receberão a mesma automação. Cada dispositivo terá sua própria campanha com delays variados automaticamente.
               </p>
               <div>
-                <Label className="text-xs font-medium">Dispositivos ({bulkDeviceIds.length} selecionados)</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium">Dispositivos ({bulkDeviceIds.length} selecionados)</Label>
+                  {eligibleDevices.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allIds = eligibleDevices.map((d: any) => d.id);
+                        setBulkDeviceIds((prev) =>
+                          prev.length === allIds.length ? [] : allIds
+                        );
+                      }}
+                      className="text-[11px] text-primary hover:underline"
+                    >
+                      {bulkDeviceIds.length === eligibleDevices.length ? "Desmarcar todas" : "Selecionar todas"}
+                    </button>
+                  )}
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 max-h-48 overflow-y-auto border border-border/50 rounded-lg p-2 mt-2">
                   {eligibleDevices.length === 0 ? (
                     <p className="text-xs text-muted-foreground p-2 col-span-full">
