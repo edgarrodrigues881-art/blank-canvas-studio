@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { fetchActivityNotifications } from "./notifications/activityFeed";
 import type { NotificationItem } from "./notifications/types";
 
 export type { NotificationItem as Notification } from "./notifications/types";
@@ -141,14 +140,11 @@ export function useNotifications() {
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
 
-    const [{ data }, activityNotifications] = await Promise.all([
-      supabase
-        .from("notifications")
-        .select("id, title, message, type, read, created_at, user_id")
-        .order("created_at", { ascending: false })
-        .limit(20),
-      fetchActivityNotifications(user.id).catch(() => []),
-    ]);
+    const { data } = await supabase
+      .from("notifications")
+      .select("id, title, message, type, read, created_at, user_id")
+      .order("created_at", { ascending: false })
+      .limit(20);
 
     const systemNotifications = dedupeNotifications(
       ((data as Notification[] | null) || []).map((item) => ({ ...item, source: "system" as const })),
@@ -161,13 +157,7 @@ export function useNotifications() {
 
     initialLoadDoneRef.current = true;
 
-    const combined = dedupeNotifications(
-      [...systemNotifications, ...activityNotifications].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      ),
-    ).slice(0, COMBINED_LIMIT);
-
-    setNotifications(combined);
+    setNotifications(systemNotifications.slice(0, COMBINED_LIMIT));
     setUnreadCount(systemNotifications.filter((n) => !n.read).length);
 
     setLoading(false);
@@ -199,7 +189,7 @@ export function useNotifications() {
   const clearAll = useCallback(async () => {
     if (!user) return;
     await supabase.from("notifications").delete().eq("user_id", user.id);
-    setNotifications((prev) => prev.filter((n) => n.synthetic));
+    setNotifications([]);
     setUnreadCount(0);
   }, [user]);
 
