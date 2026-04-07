@@ -156,19 +156,55 @@ async function processOneConversation(sb: any, conv: any) {
     return -1;
   }
 
+  // Load user media for chip conversations (reuse group_interaction_media table)
+  const { data: userMedia } = await sb.from("group_interaction_media").select("*").eq("user_id", conv.user_id).eq("is_active", true);
+  const mediaByType: Record<string, any[]> = {};
+  for (const m of userMedia || []) (mediaByType[m.media_type] ??= []).push(m);
+
+  const hasImage = (mediaByType.image?.length || 0) > 0;
+  const hasSticker = (mediaByType.sticker?.length || 0) > 0;
+  const hasAudio = (mediaByType.audio?.length || 0) > 0;
+
+  // Build weighted content bag (text-heavy but includes media)
+  const bag = ["text", "text", "text", "text", "text"];
+  if (hasImage) bag.push("image", "image");
+  if (hasSticker) bag.push("sticker", "sticker");
+  if (hasAudio) bag.push("audio");
+  const contentType = pickRandom(bag);
+
   // Rotate through ALL devices, not just first 2
   const totalDevices = activeDevices.length;
   const turnIndex = (conv.total_messages_sent || 0);
   const senderIndex = turnIndex % totalDevices;
-  // Receiver: next device in rotation (wraps around)
   const receiverIndex = (senderIndex + 1) % totalDevices;
   const sender = activeDevices[senderIndex];
   const receiver = activeDevices[receiverIndex];
 
-  const messageText = pickRandom(userMessages);
-  log.info(`Turn #${turnIndex}: ${sender.name} → ${receiver.name} (${totalDevices} devices rotating)`);
+  let messageText = "";
+  let result: { ok: boolean; error?: string };
 
-  const result = await sendTextMessage(sender.uazapi_base_url, sender.uazapi_token, receiver.number, messageText);
+  if (contentType === "image" && hasImage) {
+    const picked = pickRandom(mediaByType.image);
+    const imgUrl = picked?.file_url || pickRandom(FALLBACK_IMAGES);
+    const caption = picked?.content?.trim() || pickRandom(userMessages);
+    result = await sendImage(sender.uazapi_base_url, sender.uazapi_token, receiver.number, imgUrl, caption);
+    messageText = `[IMG] ${caption}`;
+  } else if (contentType === "sticker" && hasSticker) {
+    const picked = pickRandom(mediaByType.sticker);
+    const stickerUrl = picked?.file_url || pickRandom(FALLBACK_IMAGES);
+    result = await sendSticker(sender.uazapi_base_url, sender.uazapi_token, receiver.number, stickerUrl);
+    messageText = `[STICKER] ${picked?.content || "🎭"}`;
+  } else if (contentType === "audio" && hasAudio) {
+    const picked = pickRandom(mediaByType.audio);
+    const audioUrl = picked?.file_url || pickRandom(FALLBACK_AUDIOS);
+    result = await sendAudio(sender.uazapi_base_url, sender.uazapi_token, receiver.number, audioUrl);
+    messageText = `[AUDIO] ${picked?.content || "🎤"}`;
+  } else {
+    messageText = pickRandom(userMessages);
+    result = await sendTextMessage(sender.uazapi_base_url, sender.uazapi_token, receiver.number, messageText);
+  }
+
+  log.info(`Turn #${turnIndex}: ${sender.name} → ${receiver.name} [${contentType}] (${totalDevices} devices rotating)`);
 
   const newTotal = turnIndex + (result.ok ? 1 : 0);
 
@@ -177,7 +213,7 @@ async function processOneConversation(sb: any, conv: any) {
     conversation_id: conversationId, user_id: conv.user_id,
     sender_device_id: sender.id, receiver_device_id: receiver.id,
     sender_name: sender.name, receiver_name: receiver.name,
-    message_content: messageText, message_category: "general",
+    message_content: messageText, message_category: contentType,
     status: result.ok ? "sent" : "failed", error_message: result.ok ? null : result.error,
     sent_at: new Date().toISOString(),
   }).then(() => {}, () => {});
