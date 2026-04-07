@@ -316,7 +316,7 @@ async function processOneConversation(sb: any, conv: any) {
   // Query recent logs to find how many messages each device sent
   const { data: sendCounts } = await sb
     .from("chip_conversation_logs")
-    .select("sender_device_id")
+    .select("sender_device_id, receiver_device_id")
     .eq("conversation_id", conversationId)
     .in("sender_device_id", activeDevices.map((d: any) => d.id))
     .order("sent_at", { ascending: false })
