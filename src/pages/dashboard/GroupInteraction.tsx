@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import GIStatusPanel from "@/components/group-interaction/GIStatusPanel";
 import GILogs from "@/components/group-interaction/GILogs";
 import GIPresets from "@/components/group-interaction/GIPresets";
+import GIContentConfig from "@/components/group-interaction/GIContentConfig";
 
 const DAYS = [
   { key: "mon", label: "Seg" },
@@ -841,6 +842,24 @@ export default function GroupInteractionPage() {
                 ))
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Content Types */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-1.5">
+              <Settings className="w-3.5 h-3.5" /> Tipos de Conteúdo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-[11px] text-muted-foreground mb-3">
+              Selecione os tipos de mídia que serão enviados nos grupos. Para imagem, figurinha e áudio funcionar, adicione mídias na biblioteca (Interação de Grupos &gt; Mídia).
+            </p>
+            <GIContentConfig
+              contentTypes={form.content_types || defaultContentTypes}
+              onChange={(types) => updateForm({ content_types: types })}
+            />
           </CardContent>
         </Card>
 

@@ -66,6 +66,55 @@ async function getUserMessages(sb: any, userId: string): Promise<string[]> {
   return msgs.length > 0 ? msgs : FALLBACK_MESSAGES;
 }
 
+// ── Media helpers ──
+const FALLBACK_IMAGES = [
+  "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=80",
+  "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80",
+];
+const FALLBACK_AUDIOS = [
+  "https://cdn.freesound.org/previews/531/531947_4397472-lq.mp3",
+];
+
+async function sendImage(baseUrl: string, token: string, number: string, imageUrl: string, caption: string): Promise<{ ok: boolean; error?: string }> {
+  const cleanNum = cleanNumber(number);
+  try {
+    const res = await fetch(`${baseUrl}/send/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+      body: JSON.stringify({ number: cleanNum, file: imageUrl, type: "image", caption }),
+    });
+    if (res.ok) return { ok: true };
+    const raw = await res.text();
+    return { ok: false, error: `Image: ${res.status} — ${raw.substring(0, 200)}` };
+  } catch (e: any) { return { ok: false, error: e.message }; }
+}
+
+async function sendSticker(baseUrl: string, token: string, number: string, imageUrl: string): Promise<{ ok: boolean; error?: string }> {
+  const cleanNum = cleanNumber(number);
+  try {
+    const res = await fetch(`${baseUrl}/send/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+      body: JSON.stringify({ number: cleanNum, file: imageUrl, type: "sticker" }),
+    });
+    if (res.ok) return { ok: true };
+    return { ok: false, error: `Sticker: ${res.status}` };
+  } catch (e: any) { return { ok: false, error: e.message }; }
+}
+
+async function sendAudio(baseUrl: string, token: string, number: string, audioUrl: string): Promise<{ ok: boolean; error?: string }> {
+  const cleanNum = cleanNumber(number);
+  try {
+    const res = await fetch(`${baseUrl}/send/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+      body: JSON.stringify({ number: cleanNum, file: audioUrl, type: "audio", ptt: true }),
+    });
+    if (res.ok) return { ok: true };
+    return { ok: false, error: `Audio: ${res.status}` };
+  } catch (e: any) { return { ok: false, error: e.message }; }
+}
+
 function safeRange(min: unknown, max: unknown, defaultMin: number, defaultMax?: number): number {
   const minN = Number(min);
   const maxN = Number(max);
@@ -107,19 +156,55 @@ async function processOneConversation(sb: any, conv: any) {
     return -1;
   }
 
+  // Load user media for chip conversations (reuse group_interaction_media table)
+  const { data: userMedia } = await sb.from("group_interaction_media").select("*").eq("user_id", conv.user_id).eq("is_active", true);
+  const mediaByType: Record<string, any[]> = {};
+  for (const m of userMedia || []) (mediaByType[m.media_type] ??= []).push(m);
+
+  const hasImage = (mediaByType.image?.length || 0) > 0;
+  const hasSticker = (mediaByType.sticker?.length || 0) > 0;
+  const hasAudio = (mediaByType.audio?.length || 0) > 0;
+
+  // Build weighted content bag (text-heavy but includes media)
+  const bag = ["text", "text", "text", "text", "text"];
+  if (hasImage) bag.push("image", "image");
+  if (hasSticker) bag.push("sticker", "sticker");
+  if (hasAudio) bag.push("audio");
+  const contentType = pickRandom(bag);
+
   // Rotate through ALL devices, not just first 2
   const totalDevices = activeDevices.length;
   const turnIndex = (conv.total_messages_sent || 0);
   const senderIndex = turnIndex % totalDevices;
-  // Receiver: next device in rotation (wraps around)
   const receiverIndex = (senderIndex + 1) % totalDevices;
   const sender = activeDevices[senderIndex];
   const receiver = activeDevices[receiverIndex];
 
-  const messageText = pickRandom(userMessages);
-  log.info(`Turn #${turnIndex}: ${sender.name} → ${receiver.name} (${totalDevices} devices rotating)`);
+  let messageText = "";
+  let result: { ok: boolean; error?: string };
 
-  const result = await sendTextMessage(sender.uazapi_base_url, sender.uazapi_token, receiver.number, messageText);
+  if (contentType === "image" && hasImage) {
+    const picked = pickRandom(mediaByType.image);
+    const imgUrl = picked?.file_url || pickRandom(FALLBACK_IMAGES);
+    const caption = picked?.content?.trim() || pickRandom(userMessages);
+    result = await sendImage(sender.uazapi_base_url, sender.uazapi_token, receiver.number, imgUrl, caption);
+    messageText = `[IMG] ${caption}`;
+  } else if (contentType === "sticker" && hasSticker) {
+    const picked = pickRandom(mediaByType.sticker);
+    const stickerUrl = picked?.file_url || pickRandom(FALLBACK_IMAGES);
+    result = await sendSticker(sender.uazapi_base_url, sender.uazapi_token, receiver.number, stickerUrl);
+    messageText = `[STICKER] ${picked?.content || "🎭"}`;
+  } else if (contentType === "audio" && hasAudio) {
+    const picked = pickRandom(mediaByType.audio);
+    const audioUrl = picked?.file_url || pickRandom(FALLBACK_AUDIOS);
+    result = await sendAudio(sender.uazapi_base_url, sender.uazapi_token, receiver.number, audioUrl);
+    messageText = `[AUDIO] ${picked?.content || "🎤"}`;
+  } else {
+    messageText = pickRandom(userMessages);
+    result = await sendTextMessage(sender.uazapi_base_url, sender.uazapi_token, receiver.number, messageText);
+  }
+
+  log.info(`Turn #${turnIndex}: ${sender.name} → ${receiver.name} [${contentType}] (${totalDevices} devices rotating)`);
 
   const newTotal = turnIndex + (result.ok ? 1 : 0);
 
@@ -128,7 +213,7 @@ async function processOneConversation(sb: any, conv: any) {
     conversation_id: conversationId, user_id: conv.user_id,
     sender_device_id: sender.id, receiver_device_id: receiver.id,
     sender_name: sender.name, receiver_name: receiver.name,
-    message_content: messageText, message_category: "general",
+    message_content: messageText, message_category: contentType,
     status: result.ok ? "sent" : "failed", error_message: result.ok ? null : result.error,
     sent_at: new Date().toISOString(),
   }).then(() => {}, () => {});
