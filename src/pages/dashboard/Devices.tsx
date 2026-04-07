@@ -2517,12 +2517,15 @@ const Devices = () => {
                 </div>
 
                 {/* Buttons */}
-                <div className="flex items-center gap-3">
-                  <Button variant="outline" className="flex-1 h-11 text-sm" onClick={() => { stopPolling(); setConnectStep("proxy"); setConnectOpen(false); resumeKeepAlive(); }}>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" className="h-11 text-sm px-4" onClick={() => { stopPolling(); setConnectOpen(false); resumeKeepAlive(); prefetchQrPromiseRef.current = null; }}>
                     Cancelar
                   </Button>
-                  <Button className="flex-1 h-11 text-sm font-semibold" onClick={handleConfirmProxy}>
-                    Conectar
+                  <Button variant="outline" className="h-11 text-sm px-4 gap-1.5" onClick={() => { setConnectMethod("code"); handleConfirmProxy(); }}>
+                    <Key className="w-4 h-4" /> Código
+                  </Button>
+                  <Button className="flex-1 h-11 text-sm font-semibold gap-1.5" onClick={() => { setConnectMethod("qr"); handleConfirmProxy(); }}>
+                    <QrCode className="w-4 h-4" /> QR Code
                   </Button>
                 </div>
               </motion.div>
