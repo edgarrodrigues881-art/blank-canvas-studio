@@ -69,7 +69,7 @@ const statusLabels: Record<string, string> = {
   completed: "Concluído",
 };
 
-const defaultContentTypes = { text: true, image: false, audio: false, sticker: false };
+const defaultContentTypes = { text: true, image: true, audio: true, sticker: true };
 const defaultPeriod2 = { start_hour_2: "13:00", end_hour_2: "19:00" };
 
 function isGroupInteractionDeviceEligible(device: any): boolean {
