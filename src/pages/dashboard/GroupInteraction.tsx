@@ -352,7 +352,7 @@ export default function GroupInteractionPage() {
           <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
             {interactions.map((inter) => {
               const invalidReason = getInteractionInvalidReason(inter, deviceMap);
-              const displayStatus = invalidReason && inter.status === "running" ? "paused" : inter.status;
+              const displayStatus = inter.status;
               const deviceName = inter.device_id
                 ? deviceMap.get(inter.device_id)?.name || "Instância removida"
                 : "Sem instância";
@@ -436,12 +436,12 @@ export default function GroupInteractionPage() {
                       <p className="text-[11px] text-destructive mb-3 line-clamp-1 font-medium">{invalidReason}</p>
                     )}
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 pt-3 border-t border-border/20" onClick={(e) => e.stopPropagation()}>
+                    {/* Actions — both buttons same size */}
+                    <div className="grid grid-cols-2 gap-2 pt-3 border-t border-border/20" onClick={(e) => e.stopPropagation()}>
                       {isRunning ? (
                         <Button
                           size="sm"
-                          className="flex-1 h-8 text-[11px] font-semibold gap-1.5 rounded-xl bg-amber-500/15 text-amber-500 border border-amber-500/20 hover:bg-amber-500/25 hover:text-amber-400 transition-colors"
+                          className="h-9 text-[11px] font-semibold gap-1.5 rounded-xl bg-amber-500/15 text-amber-500 border border-amber-500/20 hover:bg-amber-500/25 hover:text-amber-400 transition-colors"
                           onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "pause" })}
                         >
                           <Pause className="w-3.5 h-3.5" /> Pausar
@@ -450,22 +450,23 @@ export default function GroupInteractionPage() {
                         <Button
                           size="sm"
                           disabled={Boolean(invalidReason)}
-                          className="flex-1 h-8 text-[11px] font-semibold gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white shadow-sm shadow-emerald-500/25 transition-colors"
+                          className="h-9 text-[11px] font-semibold gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white shadow-sm shadow-emerald-500/25 transition-colors"
                           onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "start" })}
                         >
                           <Play className="w-3.5 h-3.5" /> {isPaused ? "Retomar" : "Iniciar"}
                         </Button>
                       )}
 
-                      {isActive && (
+                      {isActive ? (
                         <Button
                           size="sm"
-                          variant="ghost"
-                          className="h-8 px-3 text-[11px] font-medium gap-1.5 rounded-xl text-destructive/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          className="h-9 text-[11px] font-semibold gap-1.5 rounded-xl bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 transition-colors"
                           onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "stop" })}
                         >
                           <Square className="w-3 h-3" /> Parar
                         </Button>
+                      ) : (
+                        <div />
                       )}
                     </div>
                   </div>
