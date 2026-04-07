@@ -410,7 +410,7 @@ export default function ReportWhatsApp() {
   const upsertConfig = useMutation({
     mutationFn: async (updates: Record<string, any>) => {
       if (config?.id) {
-        const { error } = await supabase.from("report_wa_configs").update(updates).eq("id", config.id);
+        const { error } = await supabase.from("report_wa_configs").update(updates as any).eq("id", config.id);
         if (error) throw error;
       } else {
         // First insert: set all toggles to false, then apply the specific update

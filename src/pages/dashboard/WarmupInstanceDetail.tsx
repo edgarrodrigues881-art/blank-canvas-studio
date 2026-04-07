@@ -987,7 +987,7 @@ const WarmupInstanceDetail = () => {
 
           return supabase
             .from("warmup_instance_groups")
-            .update(payload)
+            .update(payload as any)
             .eq("id", row.id)
             .neq("join_status", "joined");
         })
