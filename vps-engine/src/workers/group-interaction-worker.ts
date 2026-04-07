@@ -198,9 +198,11 @@ async function processOneInteraction(sb: any, interaction: any) {
   // Time window check (supports Period 1 + optional Period 2)
   const brNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
   const currentHour = `${String(brNow.getHours()).padStart(2, "0")}:${String(brNow.getMinutes()).padStart(2, "0")}`;
+  const period2Start = interaction.start_hour_2 || (interaction.end_hour_2 ? "13:00" : null);
+  const period2End = interaction.end_hour_2 || (interaction.start_hour_2 ? "19:00" : null);
   const inPeriod1 = currentHour >= interaction.start_hour && currentHour <= interaction.end_hour;
-  const inPeriod2 = interaction.start_hour_2 && interaction.end_hour_2
-    ? currentHour >= interaction.start_hour_2 && currentHour <= interaction.end_hour_2
+  const inPeriod2 = period2Start && period2End
+    ? currentHour >= period2Start && currentHour <= period2End
     : false;
   if (!inPeriod1 && !inPeriod2) {
     // Schedule retry in 60s so it doesn't get stuck
