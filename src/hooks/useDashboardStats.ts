@@ -152,6 +152,7 @@ export function useDashboardStats() {
       ((groupLogsRes.data as any[]) || []).forEach((r: any) => {
         const dk = getBrazilDateKey(r.sent_at);
         groupByDay[dk] = (groupByDay[dk] || 0) + 1;
+      });
 
       const totalMessages = totalSent + totalFailed;
 
