@@ -53,7 +53,7 @@ const defaultForm: Partial<GroupInteraction> & Record<string, any> = {
   daily_limit_total: 50,
   duration_hours: 0,
   duration_minutes: 0,
-  content_types: { text: true, image: true, audio: true, sticker: true },
+  content_types: { text: true, image: true, audio: true, sticker: true },  
   preset_name: "moderate",
 };
 
