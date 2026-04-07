@@ -389,19 +389,14 @@ async function processOneInteraction(sb: any, interaction: any) {
   const group = pickRandom(rotated.length > 0 ? rotated : resolved);
   const category = getCategoryForIndex(todayCount % 5, 5);
 
-  // ── Respect content_types config from user ──
-  const contentTypes: Record<string, boolean> = interaction.content_types || { text: true };
-  const hasImage = contentTypes.image && ((mediaByType.image?.length || 0) > 0);
-  const hasAudio = contentTypes.audio && ((mediaByType.audio?.length || 0) > 0);
-  const hasSticker = contentTypes.sticker && ((mediaByType.sticker?.length || 0) > 0);
+  // ── All media types always enabled ──
+  const hasUserImage = (mediaByType.image?.length || 0) > 0;
+  const hasUserAudio = (mediaByType.audio?.length || 0) > 0;
+  const hasUserSticker = (mediaByType.sticker?.length || 0) > 0;
 
-  const bag = ["text", "text", "text", "text", "text"];
-  if (hasImage) bag.push("image", "image");
-  if (hasSticker) bag.push("sticker", "sticker");
-  if (hasAudio) bag.push("audio");
-  const contentType = contentTypes.text === false && bag.length > 5
-    ? pickRandom(bag.filter(t => t !== "text"))
-    : pickRandom(bag);
+  // Always include media in the bag — use fallbacks if user has no uploads
+  const bag = ["text", "text", "text", "text", "text", "image", "image", "sticker", "sticker", "audio"]
+  const contentType = pickRandom(bag);
 
   let messageText = "";
   let sentOk = false;
