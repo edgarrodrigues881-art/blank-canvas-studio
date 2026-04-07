@@ -2502,14 +2502,11 @@ const Devices = () => {
 
                 {/* Buttons */}
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" className="h-11 text-sm px-4" onClick={() => { stopPolling(); setConnectOpen(false); resumeKeepAlive(); prefetchQrPromiseRef.current = null; }}>
-                    Cancelar
-                  </Button>
-                  <Button variant="outline" className="h-11 text-sm px-4 gap-1.5" onClick={() => { setConnectMethod("code"); handleConfirmProxy("code"); }}>
-                    <Key className="w-4 h-4" /> Código
-                  </Button>
                   <Button className="flex-1 h-11 text-sm font-semibold gap-1.5" onClick={() => { setConnectMethod("qr"); handleConfirmProxy("qr"); }}>
                     <QrCode className="w-4 h-4" /> QR Code
+                  </Button>
+                  <Button variant="outline" className="flex-1 h-11 text-sm px-4 gap-1.5" onClick={() => { setConnectMethod("code"); handleConfirmProxy("code"); }}>
+                    <Key className="w-4 h-4" /> Código
                   </Button>
                 </div>
               </motion.div>
