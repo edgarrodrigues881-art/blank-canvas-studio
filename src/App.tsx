@@ -189,7 +189,7 @@ const App = () => (
                 <Route path="/" element={<PublicOnlyRoute><Landing /></PublicOnlyRoute>} />
                 <Route path="/auth" element={<PublicOnlyRoute><Auth /></PublicOnlyRoute>} />
                 <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/install" element={<Install />} />
+                
                 <Route path="/welcome" element={<ProtectedRoute><WelcomeSplash /></ProtectedRoute>} />
 
                 {/* Dashboard */}

@@ -564,7 +564,7 @@ export function AppSidebar() {
                 );
               })()}
               {renderNavItem({ title: "Comunidade", url: "/dashboard/community", icon: UsersRound })}
-              {renderNavItem({ title: "Download", url: "/install", icon: Download })}
+              
               {renderNavItem({ title: "Ajuda", url: "/dashboard/custom-module", icon: HelpCircle })}
             </SidebarMenu>
           </SidebarGroupContent>
