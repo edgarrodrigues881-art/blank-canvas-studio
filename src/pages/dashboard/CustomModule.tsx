@@ -53,7 +53,7 @@ const CustomModule = () => {
         <StatusIndicator color="red" label="Conta Crítica" description="Risco alto — foque em estabilizar antes de qualquer envio" />
       </div>
 
-      <Accordion type="multiple" className="space-y-4">
+      <Accordion type="single" collapsible className="space-y-4">
         {/* ───── 0. Antes de QR Code — Chip novo ───── */}
         <AccordionItem value="before-qr" className="border-0">
           <Card className="border-border/60 bg-card overflow-hidden rounded-xl shadow-sm">
