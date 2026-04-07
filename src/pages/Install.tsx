@@ -55,6 +55,7 @@ export default function Install() {
     } else {
       setShowAndroidSteps(true);
       setShowIOSSteps(false);
+      setShowPCSteps(false);
     }
   };
 
