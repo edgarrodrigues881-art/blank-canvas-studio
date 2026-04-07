@@ -363,16 +363,25 @@ export function ConversationList({
               return (
                 <button
                   key={c.id}
-                  onClick={() => onSelect(c)}
+                  onClick={() => selectionMode ? toggleSelect(c.id) : onSelect(c)}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all border-l-2",
                     isSelected
                       ? "bg-primary/8 border-l-primary"
                       : hasUnread
                         ? "border-l-primary/70 bg-primary/[0.03] hover:bg-primary/[0.06]"
-                        : "border-l-transparent hover:bg-muted/20"
+                        : "border-l-transparent hover:bg-muted/20",
+                    selectionMode && selectedIds.has(c.id) && "bg-primary/10 border-l-primary/50"
                   )}
                 >
+                  {selectionMode && (
+                    <div className="shrink-0" onClick={(e) => { e.stopPropagation(); toggleSelect(c.id); }}>
+                      <Checkbox
+                        checked={selectedIds.has(c.id)}
+                        className="w-4 h-4"
+                      />
+                    </div>
+                  )}
                   <div className="relative shrink-0">
                     {c.avatar_url ? (
                       <img src={c.avatar_url} alt={avatarLabel} className="w-11 h-11 rounded-full object-cover" />
