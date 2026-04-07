@@ -212,20 +212,22 @@ export function generateNaturalMessage(context: "group" | "autosave" | "communit
 export function pickMediaTypeGroup(budgetUsed: number): "text" | "image" | "sticker" | "audio" {
   if (budgetUsed < 3) return "text";
   const r = Math.random();
-  if (r < 0.50) return "text";
-  if (r < 0.70) return "image";
-  if (r < 0.85) return "sticker";
-  return "audio";
+  if (r < 0.40) return "text";
+  if (r < 0.75) return "audio";
+  if (r < 0.88) return "sticker";
+  return "image";
+  // distribution: 40% text, 35% audio, 13% sticker, 12% image
 }
 
 export function pickMediaTypeCommunity(budgetUsed: number): "text" | "image" | "audio" | "sticker" | "location" {
   if (budgetUsed < 3) return "text";
   const r = Math.random();
-  if (r < 0.55) return "text";
-  if (r < 0.72) return "image";
-  if (r < 0.85) return "audio";
-  if (r < 0.95) return "sticker";
+  if (r < 0.40) return "text";
+  if (r < 0.75) return "audio";
+  if (r < 0.87) return "sticker";
+  if (r < 0.94) return "image";
   return "location";
+  // distribution: 40% text, 35% audio, 12% sticker, 7% image, 6% location
 }
 
 export const IMAGE_CAPTIONS = [
