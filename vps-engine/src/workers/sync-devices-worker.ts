@@ -140,29 +140,15 @@ export async function syncDevicesTick() {
             }
           } catch { return; }
 
-          // Strike system: 2 strikes in 2 min (fast detection)
-          const { data: recentStrikes } = await db
-            .from("operation_logs")
-            .select("id, created_at")
-            .eq("device_id", device.id)
-            .eq("event", "cron_disconnect_strike")
-            .gte("created_at", new Date(Date.now() - 2 * 60 * 1000).toISOString())
-            .order("created_at", { ascending: true });
-
-          const strikes = (recentStrikes?.length || 0) + 1;
-          const firstStrikeTime = recentStrikes?.[0]?.created_at
-            ? new Date(recentStrikes[0].created_at).getTime()
-            : Date.now();
-          const timeSpread = Date.now() - firstStrikeTime;
-
+          // Strike system: instant — single confirmed double-check
           await db.from("operation_logs").insert({
             user_id: device.user_id,
             device_id: device.id,
             event: "cron_disconnect_strike",
-            details: `[vps] Desconexão detectada "${device.name}" (${strikes}/2, spread=${Math.round(timeSpread / 1000)}s)`,
+            details: `[vps] Desconexão confirmada "${device.name}" (double-check passed)`,
           });
 
-          if (strikes >= 2 && timeSpread >= 20_000) {
+          {
             await db.from("devices").update({
               status: "Disconnected",
               updated_at: new Date().toISOString(),
