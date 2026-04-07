@@ -8,6 +8,7 @@ import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
+import { fetchDeviceGroups, normalizeGroupName, resolveGroupJid, type ResolvedGroup } from "../group-interaction/group-resolution";
 
 const log = createLogger("group-interaction");
 
@@ -43,10 +44,6 @@ function getCategoryForIndex(i: number, total: number): string {
 
 function getBrazilNow(): Date {
   return new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-}
-
-function normalizeGroupName(value: string): string {
-  return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 }
 
 function parseTimeToMinutes(value: string | null | undefined): number | null {
@@ -91,6 +88,14 @@ function uniqueGroups(groups: Array<{ jid: string; name: string }>): Array<{ jid
   });
 }
 
+function dedupeStrings(values: unknown[]): string[] {
+  return Array.from(new Set(
+    values
+      .map((value) => String(value ?? "").trim())
+      .filter(Boolean),
+  ));
+}
+
 async function rescheduleInteraction(sb: any, interactionId: string, delaySeconds: number, extra: Record<string, any> = {}) {
   await sb.from("group_interactions")
     .update({ next_action_at: new Date(Date.now() + delaySeconds * 1000).toISOString(), ...extra })
@@ -131,16 +136,16 @@ async function loadWarmupGroupNameFallbacks(sb: any, identifiers: string[]): Pro
 }
 
 // ── Group Map Cache (avoid calling API every tick) ──
-const groupMapCache = new Map<string, { map: Map<string, { jid: string; name: string }>; fetchedAt: number }>();
+const groupMapCache = new Map<string, { map: Map<string, ResolvedGroup>; fetchedAt: number }>();
 const GROUP_MAP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-async function getDeviceGroupMap(baseUrl: string, token: string, deviceId: string): Promise<Map<string, { jid: string; name: string }>> {
+async function getDeviceGroupMap(baseUrl: string, token: string, deviceId: string): Promise<Map<string, ResolvedGroup>> {
   const cached = groupMapCache.get(deviceId);
   if (cached && Date.now() - cached.fetchedAt < GROUP_MAP_TTL_MS) {
     return cached.map;
   }
 
-  const groups = await fetchDeviceGroupJids(baseUrl, token);
+  const groups = await fetchDeviceGroups(baseUrl, token);
   groupMapCache.set(deviceId, { map: groups, fetchedAt: Date.now() });
 
   // Evict old entries
@@ -217,51 +222,6 @@ async function uazapiSendAudio(baseUrl: string, token: string, number: string, a
   await res.text();
   if (res.ok) return;
   throw new Error(`Audio send failed: ${res.status}`);
-}
-
-// ── Group resolution (simplified) ──
-async function fetchDeviceGroupJids(baseUrl: string, token: string): Promise<Map<string, { jid: string; name: string }>> {
-  const groups = new Map<string, { jid: string; name: string }>();
-  const endpoints = [
-    `${baseUrl}/group/fetchAllGroups`,
-    `${baseUrl}/group/list?GetParticipants=false&count=500`,
-  ];
-
-  for (const url of endpoints) {
-    try {
-      const res = await fetch(url, { method: "GET", headers: { token, Accept: "application/json" } });
-      if (!res.ok) continue;
-      const body: any = await res.json();
-      const rows = Array.isArray(body) ? body : body?.groups || body?.data || [];
-      for (const row of rows) {
-        const jid = row?.JID || row?.jid || row?.id || "";
-        const name = row?.subject || row?.name || row?.Name || "";
-        if (jid.includes("@g.us")) {
-          groups.set(jid, { jid, name });
-          if (row?.inviteCode || row?.invite) {
-            const code = row.inviteCode || row.invite;
-            groups.set(code, { jid, name });
-            groups.set(`https://chat.whatsapp.com/${code}`, { jid, name });
-          }
-          if (name) groups.set(`name:${name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()}`, { jid, name });
-        }
-      }
-      if (groups.size > 0) break;
-    } catch {}
-  }
-  return groups;
-}
-
-function resolveGroupIdentifier(id: string, groupMap: Map<string, { jid: string; name: string }>): { jid: string; name: string } | null {
-  if (id.includes("@g.us")) return groupMap.get(id) || { jid: id, name: "" };
-  const direct = groupMap.get(id);
-  if (direct) return direct;
-  const code = id.replace(/^https?:\/\/chat\.whatsapp\.com\//i, "").split(/[/?#]/)[0]?.trim();
-  if (code && code.length >= 10) {
-    const byCode = groupMap.get(code) || groupMap.get(`https://chat.whatsapp.com/${code}`);
-    if (byCode) return byCode;
-  }
-  return null;
 }
 
 // ── Media pools ──
@@ -351,11 +311,23 @@ async function processOneInteraction(sb: any, interaction: any) {
 
   // Resolve groups (cached per device)
   let groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
-  const resolveWithMap = (map: Map<string, { jid: string; name: string }>) => {
+  const warmupRows = groupIds.length > 0
+    ? await sb.from("warmup_groups").select("id, name, link").or(groupIds.map((groupId) => `id.eq.${groupId},link.eq.${groupId}`).join(","))
+    : { data: [] };
+  const warmupGroupRows = Array.isArray(warmupRows.data) ? warmupRows.data : [];
+  const warmupGroupMeta = new Map<string, { name: string; link: string | null }>();
+  for (const row of warmupGroupRows) {
+    if (row?.id) warmupGroupMeta.set(String(row.id), { name: String(row.name || "").trim(), link: row.link ? String(row.link).trim() : null });
+    if (row?.link) warmupGroupMeta.set(String(row.link), { name: String(row.name || "").trim(), link: String(row.link).trim() });
+  }
+
+  const resolveWithMap = (map: Map<string, ResolvedGroup>) => {
     const found: Array<{ jid: string; name: string }> = [];
     const unresolved: string[] = [];
     for (const gid of groupIds) {
-      const resolvedGroup = resolveGroupIdentifier(gid, map);
+      const meta = warmupGroupMeta.get(gid);
+      const aliases = dedupeStrings([meta?.name, meta?.link]);
+      const resolvedGroup = resolveGroupJid(gid, map, aliases);
       if (resolvedGroup) found.push(resolvedGroup);
       else unresolved.push(gid);
     }
@@ -373,9 +345,10 @@ async function processOneInteraction(sb: any, interaction: any) {
   if (unresolved.length > 0) {
     const fallbackNameMap = await loadWarmupGroupNameFallbacks(sb, unresolved);
     for (const identifier of unresolved) {
+      const meta = warmupGroupMeta.get(identifier);
       const fallbackName = fallbackNameMap.get(identifier);
-      if (!fallbackName) continue;
-      const resolvedByName = groupMap.get(`name:${normalizeGroupName(fallbackName)}`);
+      const aliases = dedupeStrings([meta?.name, meta?.link, fallbackName]);
+      const resolvedByName = resolveGroupJid(identifier, groupMap, aliases);
       if (resolvedByName) resolved.push(resolvedByName);
     }
     resolved = uniqueGroups(resolved);
@@ -384,7 +357,7 @@ async function processOneInteraction(sb: any, interaction: any) {
   if (resolved.length === 0) {
     await sb.from("group_interactions")
       .update({
-        last_error: `Nenhum grupo resolvido (${groupIds.length} selecionados, ${groupMap.size} grupos carregados)`,
+        last_error: `Nenhum grupo resolvido (${groupIds.length} links, ${groupMap.size} grupos)` ,
         next_action_at: new Date(Date.now() + 300_000).toISOString(),
         updated_at: new Date().toISOString(),
       })
