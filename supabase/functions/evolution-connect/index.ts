@@ -575,15 +575,15 @@ Deno.serve(async (req) => {
 
     const confirmStableConnected = async (
       initialCheck: ProviderStatusCheck,
-      confirmations = 2,
+      confirmations = 1,
     ): Promise<{ confirmed: boolean; latest: ProviderStatusCheck; sawQr: boolean }> => {
       let latest = initialCheck;
       let sawQr = Boolean(initialCheck.qrcode);
       let consecutive = isConfirmedConnected(initialCheck) ? 1 : 0;
 
-      for (let attempt = 0; attempt < 3 && consecutive < confirmations; attempt++) {
-        await sleep(900);
-        latest = await checkStatus(4000);
+      for (let attempt = 0; attempt < 2 && consecutive < confirmations; attempt++) {
+        await sleep(400);
+        latest = await checkStatus(3000);
         sawQr = sawQr || Boolean(latest.qrcode);
         if (isConfirmedConnected(latest)) {
           consecutive += 1;
