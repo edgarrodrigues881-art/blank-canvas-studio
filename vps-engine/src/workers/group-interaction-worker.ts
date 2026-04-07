@@ -8,7 +8,7 @@ import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
-import { fetchDeviceGroups, normalizeGroupName, resolveGroupFromInvite, resolveGroupJid, type ResolvedGroup } from "../group-interaction/group-resolution";
+import { fetchDeviceGroups, type ResolvedGroup } from "../group-interaction/group-resolution";
 
 const log = createLogger("group-interaction");
 
