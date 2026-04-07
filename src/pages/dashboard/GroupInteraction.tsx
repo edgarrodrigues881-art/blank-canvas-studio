@@ -218,8 +218,13 @@ export default function GroupInteractionPage() {
     if (!form.group_ids?.length) return "Selecione pelo menos um grupo";
     if (!form.start_hour || !form.end_hour) return "Defina os horários";
     if (usePeriod2 && (!form.start_hour_2 || !form.end_hour_2)) return "Defina início e término do 2º período";
-    if (form.min_delay_seconds != null && form.max_delay_seconds != null && form.min_delay_seconds > form.max_delay_seconds) return "Delay mínimo não pode ser maior que o máximo";
-    if (form.pause_duration_min > form.pause_duration_max) return "Pausa mínima não pode ser maior que a máxima";
+    // Auto-correct delays instead of blocking
+    if (form.min_delay_seconds != null && form.max_delay_seconds != null && form.min_delay_seconds > form.max_delay_seconds) {
+      setForm(f => ({ ...f, max_delay_seconds: f.min_delay_seconds }));
+    }
+    if (form.pause_duration_min > form.pause_duration_max) {
+      setForm(f => ({ ...f, pause_duration_max: f.pause_duration_min }));
+    }
     return null;
   };
 
