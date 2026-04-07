@@ -372,114 +372,64 @@ export default function GroupInteractionPage() {
 
       {/* Campaign list */}
       {!showConfig && !showBulkCreate && interactions.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Users className="w-4 h-4 text-primary" />
-              Campanhas ({interactions.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
-              {interactions.map((inter) => {
-                const invalidReason = getInteractionInvalidReason(inter, deviceMap);
-                const displayStatus = invalidReason && inter.status === "running" ? "paused" : inter.status;
-                const deviceName = inter.device_id
-                  ? deviceMap.get(inter.device_id)?.name || "Instância removida"
-                  : "Sem instância";
+        <div>
+          <p className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+            <Users className="w-4 h-4 text-primary" />
+            Campanhas ({interactions.length})
+          </p>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
+            {interactions.map((inter) => {
+              const invalidReason = getInteractionInvalidReason(inter, deviceMap);
+              const displayStatus = invalidReason && inter.status === "running" ? "paused" : inter.status;
+              const deviceName = inter.device_id
+                ? deviceMap.get(inter.device_id)?.name || "Instância removida"
+                : "Sem instância";
 
-                const isRunning = displayStatus === "running";
-                const isPaused = displayStatus === "paused";
-                const isActive = isRunning || isPaused;
+              const isRunning = displayStatus === "running";
+              const isPaused = displayStatus === "paused";
+              const isActive = isRunning || isPaused;
 
-                const statusAccent = isRunning
-                  ? "border-l-emerald-500"
-                  : isPaused
-                  ? "border-l-amber-500"
-                  : "border-l-muted-foreground/30";
+              const glowColor = isRunning
+                ? "shadow-emerald-500/10 hover:shadow-emerald-500/20"
+                : isPaused
+                ? "shadow-amber-500/10 hover:shadow-amber-500/15"
+                : "hover:shadow-primary/10";
 
-                return (
-                  <div
-                    key={inter.id}
-                    className={`group relative rounded-xl border border-border/40 border-l-[3px] ${statusAccent} bg-card p-4 cursor-pointer transition-all duration-200 hover:shadow-md hover:border-border/60 ${
-                      selectedId === inter.id ? "ring-1 ring-primary/30 bg-primary/5" : ""
-                    }`}
-                    onClick={() => {
-                      setSelectedId(inter.id);
-                      setShowConfig(true);
-                    }}
-                  >
-                    {/* Top row: device + status */}
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md truncate max-w-[60%]">
-                        {deviceName}
-                      </span>
+              const topGradient = isRunning
+                ? "from-emerald-500/15 via-emerald-500/5 to-transparent"
+                : isPaused
+                ? "from-amber-500/15 via-amber-500/5 to-transparent"
+                : "from-muted/30 via-muted/10 to-transparent";
+
+              return (
+                <div
+                  key={inter.id}
+                  className={`group relative overflow-hidden rounded-2xl border border-border/30 bg-gradient-to-b from-card to-background/80 cursor-pointer transition-all duration-300 shadow-lg ${glowColor} hover:scale-[1.01] hover:border-border/50 ${
+                    selectedId === inter.id ? "ring-2 ring-primary/40" : ""
+                  }`}
+                  onClick={() => {
+                    setSelectedId(inter.id);
+                    setShowConfig(true);
+                  }}
+                >
+                  {/* Top accent gradient */}
+                  <div className={`absolute inset-x-0 top-0 h-20 bg-gradient-to-b ${topGradient} pointer-events-none`} />
+
+                  <div className="relative p-5">
+                    {/* Header: status badge + settings */}
+                    <div className="flex items-center justify-between mb-4">
                       <Badge
-                        variant="outline"
-                        className={`text-[10px] font-semibold border ${statusColors[displayStatus] || ""}`}
+                        className={`text-[10px] font-bold tracking-wider uppercase border px-2.5 py-1 ${statusColors[displayStatus] || ""}`}
                       >
-                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isRunning ? "bg-emerald-400 animate-pulse" : isPaused ? "bg-amber-400" : "bg-muted-foreground/40"}`} />
+                        <span className={`w-2 h-2 rounded-full mr-2 ${isRunning ? "bg-emerald-400 animate-pulse" : isPaused ? "bg-amber-400" : "bg-muted-foreground/40"}`} />
                         {statusLabels[displayStatus] || displayStatus}
                       </Badge>
-                    </div>
-
-                    {/* Title */}
-                    <p className="font-semibold text-sm text-foreground line-clamp-1 mb-3">{inter.name}</p>
-
-                    {/* Metrics row */}
-                    <div className="flex items-center gap-4 mb-3">
-                      <div className="flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-primary/60" />
-                        <span className="text-xs text-muted-foreground">{(inter.group_ids || []).length} grupos</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <MessageCircle className="w-3.5 h-3.5 text-primary/60" />
-                        <span className="text-xs font-medium text-foreground">{inter.total_messages_sent} msgs</span>
-                      </div>
-                    </div>
-
-                    {invalidReason && (
-                      <p className="text-[11px] text-destructive mb-3 line-clamp-1">{invalidReason}</p>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-1.5 pt-2 border-t border-border/30" onClick={(e) => e.stopPropagation()}>
-                      {isRunning ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 h-7 text-[11px] gap-1.5 rounded-lg border-amber-500/30 text-amber-600 hover:bg-amber-500/10 hover:text-amber-600"
-                          onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "pause" })}
-                        >
-                          <Pause className="w-3 h-3" /> Pausar
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          disabled={Boolean(invalidReason)}
-                          className="flex-1 h-7 text-[11px] gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white"
-                          onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "start" })}
-                        >
-                          <Play className="w-3 h-3" /> {isPaused ? "Retomar" : "Iniciar"}
-                        </Button>
-                      )}
-
-                      {isActive && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-[11px] gap-1 rounded-lg text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "stop" })}
-                        >
-                          <Square className="w-3 h-3" /> Parar
-                        </Button>
-                      )}
-
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 w-7 p-0 ml-auto rounded-lg text-muted-foreground hover:text-foreground"
-                        onClick={() => {
+                        className="h-7 w-7 p-0 rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-muted/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setSelectedId(inter.id);
                           setShowConfig(true);
                         }}
@@ -487,12 +437,71 @@ export default function GroupInteractionPage() {
                         <Settings className="w-3.5 h-3.5" />
                       </Button>
                     </div>
+
+                    {/* Device chip */}
+                    <div className="inline-flex items-center gap-1.5 bg-muted/40 backdrop-blur-sm border border-border/20 rounded-full px-2.5 py-1 mb-3">
+                      <div className={`w-1.5 h-1.5 rounded-full ${isRunning ? "bg-emerald-400" : isPaused ? "bg-amber-400" : "bg-muted-foreground/40"}`} />
+                      <span className="text-[10px] font-medium text-muted-foreground tracking-wide">{deviceName}</span>
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="font-bold text-[15px] text-foreground line-clamp-1 mb-4 tracking-tight">{inter.name}</h3>
+
+                    {/* Metrics */}
+                    <div className="flex items-center gap-6 mb-4">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium">Grupos</span>
+                        <span className="text-lg font-bold text-foreground tabular-nums">{(inter.group_ids || []).length}</span>
+                      </div>
+                      <div className="w-px h-8 bg-border/30" />
+                      <div className="flex flex-col">
+                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium">Mensagens</span>
+                        <span className="text-lg font-bold text-foreground tabular-nums">{inter.total_messages_sent}</span>
+                      </div>
+                    </div>
+
+                    {invalidReason && (
+                      <p className="text-[11px] text-destructive mb-3 line-clamp-1 font-medium">{invalidReason}</p>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 pt-3 border-t border-border/20" onClick={(e) => e.stopPropagation()}>
+                      {isRunning ? (
+                        <Button
+                          size="sm"
+                          className="flex-1 h-8 text-[11px] font-semibold gap-1.5 rounded-xl bg-amber-500/15 text-amber-500 border border-amber-500/20 hover:bg-amber-500/25 hover:text-amber-400 transition-colors"
+                          onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "pause" })}
+                        >
+                          <Pause className="w-3.5 h-3.5" /> Pausar
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          disabled={Boolean(invalidReason)}
+                          className="flex-1 h-8 text-[11px] font-semibold gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white shadow-sm shadow-emerald-500/25 transition-colors"
+                          onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "start" })}
+                        >
+                          <Play className="w-3.5 h-3.5" /> {isPaused ? "Retomar" : "Iniciar"}
+                        </Button>
+                      )}
+
+                      {isActive && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 px-3 text-[11px] font-medium gap-1.5 rounded-xl text-destructive/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "stop" })}
+                        >
+                          <Square className="w-3 h-3" /> Parar
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {/* Bulk creation mode */}
