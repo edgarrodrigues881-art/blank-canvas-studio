@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import GIStatusPanel from "@/components/group-interaction/GIStatusPanel";
 import GILogs from "@/components/group-interaction/GILogs";
 import GIPresets from "@/components/group-interaction/GIPresets";
+import GIContentConfig from "@/components/group-interaction/GIContentConfig";
 
 const DAYS = [
   { key: "mon", label: "Seg" },
