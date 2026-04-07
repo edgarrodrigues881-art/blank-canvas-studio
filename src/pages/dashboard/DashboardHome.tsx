@@ -1,11 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wifi, WifiOff, Flame, MessageSquare, BarChart3 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Wifi, WifiOff, Flame, MessagesSquare, Users } from "lucide-react";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useMessagesTodayCount } from "@/hooks/useMessagesTodayCount";
 import { AnimatedCounter } from "@/components/dashboard/AnimatedCounter";
 import { GreetingHeader } from "@/components/dashboard/GreetingHeader";
 import { QuickActions } from "@/components/dashboard/QuickActions";
-import { PerformanceBlock } from "@/components/dashboard/DeliveryRateCard";
 import { ActivityChart } from "@/components/dashboard/ActivityChart";
 
 
@@ -17,18 +16,8 @@ const DashboardHome = () => {
   const connectedCount = chips.filter((c) => c.connected).length;
   const warmingCount = chips.filter((c) => c.warmupStatus === "running").length;
   const disconnectedCount = chips.filter((c) => !c.connected).length;
-  const messagesToday = liveMessagesToday?.total ?? chips.reduce((a, c) => a + c.volumeToday, 0);
 
-
-  const topCards: Array<{
-    label: string;
-    value: number;
-    icon: any;
-    dotColor: string;
-    iconClass: string;
-    bgClass: string;
-    
-  }> = [
+  const topCards = [
     {
       label: "Conectadas",
       value: connectedCount,
@@ -53,29 +42,45 @@ const DashboardHome = () => {
       iconClass: "text-red-400",
       bgClass: "bg-red-500/10",
     },
+  ];
+
+  const messageCards = [
     {
-      label: "Mensagens Hoje",
-      value: messagesToday,
-      icon: MessageSquare,
-      dotColor: "bg-teal-400",
-      iconClass: "text-teal-400",
-      bgClass: "bg-teal-500/10",
-      
+      label: "Conversa entre Chips",
+      value: liveMessagesToday?.chip ?? 0,
+      icon: MessagesSquare,
+      iconClass: "text-blue-400",
+      bgClass: "bg-blue-500/10",
+      dotColor: "bg-blue-400",
+    },
+    {
+      label: "Interação de Grupos",
+      value: liveMessagesToday?.group ?? 0,
+      icon: Users,
+      iconClass: "text-violet-400",
+      bgClass: "bg-violet-500/10",
+      dotColor: "bg-violet-400",
+    },
+    {
+      label: "Aquecimento Automático",
+      value: liveMessagesToday?.warmup ?? 0,
+      icon: Flame,
+      iconClass: "text-orange-400",
+      bgClass: "bg-orange-500/10",
+      dotColor: "bg-orange-400",
     },
   ];
 
   return (
     <div className="space-y-5 sm:space-y-8">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-4">
         <GreetingHeader />
         <QuickActions />
       </div>
 
-      {/* Top Status Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {topCards.map((s) => (
-          <Card key={s.label} className="border-border bg-card shadow-sm hover:shadow-md hover:border-border transition-all">
+          <Card key={s.label} className="border-border bg-card shadow-sm hover:shadow-md transition-all">
             <CardContent className="p-3 sm:p-5">
               <div className="flex items-center justify-between mb-2 sm:mb-3">
                 <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full ${s.bgClass} flex items-center justify-center`}>
@@ -98,8 +103,27 @@ const DashboardHome = () => {
         ))}
       </div>
 
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        {messageCards.map((s) => (
+          <Card key={s.label} className="border-border bg-card shadow-sm hover:shadow-md transition-all">
+            <CardContent className="p-3 sm:p-5">
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full ${s.bgClass} flex items-center justify-center`}>
+                  <s.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${s.iconClass}`} />
+                </div>
+                <span className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${s.dotColor}`} />
+              </div>
+              <div className="text-xl sm:text-2xl font-bold text-foreground">
+                <AnimatedCounter value={s.value} />
+              </div>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
+                {s.label}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-      {/* Gráfico + Desempenho */}
       <ActivityChart data={stats?.warmupEvolution || []} />
     </div>
   );
