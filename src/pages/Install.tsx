@@ -31,6 +31,8 @@ export default function Install() {
     };
   }, []);
 
+  const [showPCSteps, setShowPCSteps] = useState(false);
+
   const handleInstallPC = async () => {
     if (deferredPrompt) {
       await deferredPrompt.prompt();
@@ -38,7 +40,9 @@ export default function Install() {
       if (outcome === "accepted") setIsInstalled(true);
       setDeferredPrompt(null);
     } else {
-      toast.info("No Chrome, clique no ícone de instalação (⊕) na barra de endereço e depois em \"Instalar\".");
+      setShowPCSteps(true);
+      setShowIOSSteps(false);
+      setShowAndroidSteps(false);
     }
   };
 
