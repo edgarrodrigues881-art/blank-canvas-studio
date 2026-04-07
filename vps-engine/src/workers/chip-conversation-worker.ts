@@ -330,7 +330,7 @@ async function processOneConversation(sb: any, conv: any) {
     messageText = `[IMG] ${caption}`;
   } else if (contentType === "sticker") {
     const picked = hasUserSticker ? pickRandom(mediaByType.sticker) : null;
-    const stickerUrl = picked?.file_url || pickRandom(FALLBACK_IMAGES);
+    const stickerUrl = picked?.file_url || pickRandom(FALLBACK_STICKERS);
     result = await sendSticker(sender.uazapi_base_url, sender.uazapi_token, receiver.number, stickerUrl);
     messageText = `[STICKER] ${picked?.content || "🎭"}`;
   } else if (contentType === "audio") {

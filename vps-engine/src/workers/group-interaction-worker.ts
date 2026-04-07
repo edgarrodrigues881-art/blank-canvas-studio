@@ -460,7 +460,7 @@ async function processOneInteraction(sb: any, interaction: any) {
       messageText = `[IMG+TXT] ${caption}`;
     } else if (contentType === "sticker") {
       const picked = hasUserSticker ? pickRandom(mediaByType.sticker) : null;
-      const stickerUrl = picked?.file_url || pickRandom(FALLBACK_IMAGES);
+      const stickerUrl = picked?.file_url || pickRandom(FALLBACK_STICKERS);
       await uazapiSendSticker(baseUrl, device.uazapi_token, group.jid, stickerUrl);
       messageText = `[STICKER] ${picked?.content || "🎭"}`;
     } else if (contentType === "audio") {
