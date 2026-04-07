@@ -1656,7 +1656,7 @@ const Devices = () => {
       } catch (err: any) {
         console.error("Polling error:", err);
       }
-    }, 3000);
+    }, 2000);
     setPollingInterval(interval);
   };
 
