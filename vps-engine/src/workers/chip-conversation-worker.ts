@@ -446,25 +446,12 @@ export async function chipConversationTick() {
   if (!activeConvs?.length) return;
 
   for (const conv of activeConvs) {
-    // Lock ALL devices used in this conversation
-    const deviceIds = (conv.device_ids as string[]) || [];
-    const lockedIds: string[] = [];
-    let allLocked = true;
-    for (const did of deviceIds) {
-      if (DeviceLockManager.tryAcquire(did, "chip_conversation", conv.id)) {
-        lockedIds.push(did);
-      } else {
-        allLocked = false;
-        const blockReason = DeviceLockManager.getBlockingReason(did, "chip_conversation");
-        log.info(`Chip conv ${conv.id.slice(0, 8)}: device ${did.slice(0, 8)} blocked by: ${blockReason} — skipping`);
-        break;
-      }
-    }
-
-    if (!allLocked) {
-      // Release any locks we acquired
-      for (const did of lockedIds) DeviceLockManager.release(did, conv.id);
-      continue;
+    // Only lock the conversation ID as a logical lock — individual device locks
+    // are acquired per-pair inside processOneConversation to avoid blocking
+    // the entire conversation when just one device is busy.
+    const convLockKey = `chip_conv_${conv.id}`;
+    if (!DeviceLockManager.tryAcquire(convLockKey, "chip_conversation", conv.id)) {
+      continue; // Another tick is already processing this conversation
     }
 
     try {
@@ -475,7 +462,7 @@ export async function chipConversationTick() {
       log.error(`Chip conv ${conv.id.slice(0, 8)} error: ${err.message}`);
       await db.from("chip_conversations").update({ last_error: err.message }).eq("id", conv.id).then(() => {}, () => {});
     } finally {
-      for (const did of lockedIds) DeviceLockManager.release(did, conv.id);
+      DeviceLockManager.release(convLockKey, conv.id);
     }
   }
 
