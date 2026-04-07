@@ -44,10 +44,17 @@ const WORKER_CATEGORY: Record<WorkerType, ResourceCategory> = {
 };
 
 // ── Light categories that NEVER block and are NEVER blocked ──
-const LIGHT_CATEGORIES = new Set<ResourceCategory>(["monitoring", "sync_light", "welcome", "warmup"]);
+// warmup, group_interaction, chip_conversation are independent modules — they
+// must NEVER block each other so each user feature runs solo.
+const LIGHT_CATEGORIES = new Set<ResourceCategory>([
+  "monitoring", "sync_light", "welcome", "warmup",
+  "group_interaction", "chip_conversation",
+]);
 
 // ── Conflict matrix ──
 // Only listed pairs are BLOCKED from running together on the same device.
+// IMPORTANT: warmup, group_interaction and chip_conversation are independent
+// modules and must NOT appear here — they run solo without interfering.
 const CONFLICTS: Array<[ResourceCategory, ResourceCategory]> = [
   // Two heavy messaging tasks conflict
   ["messaging_heavy", "messaging_heavy"],
@@ -55,12 +62,6 @@ const CONFLICTS: Array<[ResourceCategory, ResourceCategory]> = [
   ["group_heavy", "group_heavy"],
   // Heavy messaging + heavy group = too much API load
   ["messaging_heavy", "group_heavy"],
-  // Campaign + chip conversation = both send messages aggressively
-  ["messaging_heavy", "chip_conversation"],
-  // Group heavy + group interaction = both hit group APIs
-  ["group_heavy", "group_interaction"],
-  // Group heavy + chip conversation
-  ["group_heavy", "chip_conversation"],
 ];
 
 // Build a fast lookup set
