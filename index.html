@@ -18,12 +18,28 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="DG Pro" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <script>
+      (() => {
+        const isBackofficePath =
+          window.location.pathname === "/backoffice" ||
+          window.location.pathname.startsWith("/backoffice/");
+        const manifestLink = document.createElement("link");
+        manifestLink.rel = "manifest";
+        manifestLink.href = isBackofficePath ? "/manifest-backoffice.json" : "/manifest.json";
+        document.head.appendChild(manifestLink);
+
+        if (isBackofficePath) {
+          document.title = "DG BackOffice";
+          const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+          if (appleTitle) appleTitle.setAttribute("content", "DG BackOffice");
+        }
+      })();
+    </script>
 
     <link rel="icon" type="image/png" sizes="512x512" href="/favicon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="manifest" href="/manifest.json">
 
     <meta property="og:title" content="DG Contingência Pro | Instâncias e Aquecimento" />
     <meta property="og:description" content="Gerencie instâncias WhatsApp, aquecimento de chips e disparos em massa com segurança e automação profissional." />
