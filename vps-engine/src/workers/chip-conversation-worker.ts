@@ -310,13 +310,35 @@ async function processOneConversation(sb: any, conv: any) {
   // Distribuição solicitada: 52% texto, 35% áudio, 10% figurinha, 3% imagem
   const contentType = pickChipContentType();
 
-  // Rotate sender through ALL devices, pick random receiver from the rest
+  // ── Fair rotation: pick the device that sent the LEAST recently ──
   const totalDevices = activeDevices.length;
-  const turnIndex = (conv.total_messages_sent || 0);
-  const senderIndex = turnIndex % totalDevices;
-  const sender = activeDevices[senderIndex];
+
+  // Query recent logs to find how many messages each device sent
+  const { data: sendCounts } = await sb
+    .from("chip_conversation_logs")
+    .select("sender_device_id")
+    .eq("conversation_id", conversationId)
+    .in("sender_device_id", activeDevices.map((d: any) => d.id))
+    .order("sent_at", { ascending: false })
+    .limit(totalDevices * 50); // last N messages per device
+
+  // Count messages per device
+  const countMap = new Map<string, number>();
+  for (const d of activeDevices) countMap.set(d.id, 0);
+  for (const row of sendCounts || []) {
+    const cur = countMap.get(row.sender_device_id) || 0;
+    countMap.set(row.sender_device_id, cur + 1);
+  }
+
+  // Sort by least messages sent (ascending), break ties randomly
+  const sortedDevices = [...activeDevices].sort((a: any, b: any) => {
+    const diff = (countMap.get(a.id) || 0) - (countMap.get(b.id) || 0);
+    return diff !== 0 ? diff : (Math.random() - 0.5);
+  });
+
+  const sender = sortedDevices[0]; // device that sent the least
   // Pick a random receiver that is NOT the sender
-  const possibleReceivers = activeDevices.filter((_: any, i: number) => i !== senderIndex);
+  const possibleReceivers = activeDevices.filter((d: any) => d.id !== sender.id);
   const receiver = possibleReceivers[Math.floor(Math.random() * possibleReceivers.length)];
 
   let messageText = "";
