@@ -1769,7 +1769,7 @@ const Devices = () => {
       // Auto-retry: se o QR não veio na primeira resposta, tenta buscar via status até 4x
       if (!b64) {
         for (let retry = 0; retry < 4 && !b64; retry++) {
-          await new Promise(r => setTimeout(r, 1200));
+          await new Promise(r => setTimeout(r, 600));
           const statusResult = await callApi({ action: "status", deviceId: connectingDevice.id });
           if (statusResult?.alreadyConnected || statusResult?.status === "authenticated") {
             queryClient.invalidateQueries({ queryKey: ["devices"] });
