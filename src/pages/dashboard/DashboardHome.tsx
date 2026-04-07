@@ -19,13 +19,6 @@ const DashboardHome = () => {
   const disconnectedCount = chips.filter((c) => !c.connected).length;
   const messagesToday = liveMessagesToday?.total ?? chips.reduce((a, c) => a + c.volumeToday, 0);
 
-  const messageBreakdown = liveMessagesToday
-    ? [
-        liveMessagesToday.warmup > 0 && `🔥 ${liveMessagesToday.warmup}`,
-        liveMessagesToday.chip > 0 && `💬 ${liveMessagesToday.chip}`,
-        liveMessagesToday.group > 0 && `👥 ${liveMessagesToday.group}`,
-      ].filter(Boolean).join(" · ") || undefined
-    : undefined;
 
   const topCards: Array<{
     label: string;
