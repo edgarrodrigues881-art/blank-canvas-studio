@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Download, Smartphone, Monitor, Share2, MoreVertical, Plus } from "lucide-react";
+import { Download, Smartphone, Monitor, Apple, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -11,12 +12,10 @@ interface BeforeInstallPromptEvent extends Event {
 export default function Install() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
+  const [showIOSSteps, setShowIOSSteps] = useState(false);
+  const [showAndroidSteps, setShowAndroidSteps] = useState(false);
 
   useEffect(() => {
-    const ua = navigator.userAgent;
-    setIsIOS(/iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream);
-
     if (window.matchMedia("(display-mode: standalone)").matches) {
       setIsInstalled(true);
     }
@@ -26,123 +25,163 @@ export default function Install() {
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
     window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+    window.addEventListener("appinstalled", () => setIsInstalled(true));
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+    };
   }, []);
 
-  const handleInstall = async () => {
-    if (!deferredPrompt) return;
-    await deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === "accepted") setIsInstalled(true);
-    setDeferredPrompt(null);
+  const handleInstallPC = async () => {
+    if (deferredPrompt) {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") setIsInstalled(true);
+      setDeferredPrompt(null);
+    } else {
+      toast.info("No Chrome, clique no ícone de instalação (⊕) na barra de endereço e depois em \"Instalar\".");
+    }
   };
+
+  const handleInstallAndroid = async () => {
+    if (deferredPrompt) {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") setIsInstalled(true);
+      setDeferredPrompt(null);
+    } else {
+      setShowAndroidSteps(true);
+      setShowIOSSteps(false);
+    }
+  };
+
+  const handleInstallIOS = () => {
+    setShowIOSSteps(true);
+    setShowAndroidSteps(false);
+  };
+
+  if (isInstalled) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full border-primary/30">
+          <CardContent className="p-8 text-center space-y-4">
+            <CheckCircle2 className="w-16 h-16 text-primary mx-auto" />
+            <h1 className="text-2xl font-bold text-foreground">App instalado!</h1>
+            <p className="text-muted-foreground">
+              Procure o ícone <strong className="text-foreground">"DG Pro"</strong> na tela inicial do seu dispositivo.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="max-w-lg w-full space-y-6">
+      <div className="max-w-md w-full space-y-6">
+        {/* Header */}
         <div className="text-center space-y-2">
           <div className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
             <Download className="w-10 h-10 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Instalar DG Contingência Pro</h1>
-          <p className="text-muted-foreground">
-            Use o app direto na tela inicial do seu celular, sem precisar abrir o navegador.
+          <h1 className="text-2xl font-bold text-foreground">Baixar DG Contingência Pro</h1>
+          <p className="text-muted-foreground text-sm">
+            Escolha seu dispositivo e instale com um clique.
           </p>
         </div>
 
-        {isInstalled ? (
-          <Card className="border-green-500/30 bg-green-500/5">
-            <CardContent className="p-6 text-center space-y-2">
-              <div className="text-3xl">✅</div>
-              <p className="font-semibold text-foreground">App já instalado!</p>
-              <p className="text-sm text-muted-foreground">
-                Procure o ícone "DG Pro" na tela inicial do seu dispositivo.
-              </p>
-            </CardContent>
-          </Card>
-        ) : deferredPrompt ? (
-          <Card>
-            <CardContent className="p-6 text-center space-y-4">
-              <p className="text-foreground font-medium">Pronto para instalar!</p>
-              <Button size="lg" className="w-full text-lg py-6" onClick={handleInstall}>
-                <Download className="w-5 h-5 mr-2" />
-                Instalar agora
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {isIOS ? (
-              <Card>
-                <CardContent className="p-6 space-y-4">
-                  <div className="flex items-center gap-3">
-                    <Smartphone className="w-6 h-6 text-primary" />
-                    <h2 className="font-semibold text-foreground">iPhone / iPad</h2>
-                  </div>
-                  <ol className="space-y-3 text-sm text-muted-foreground">
-                    <li className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">1</span>
-                      <span>Toque no ícone <Share2 className="inline w-4 h-4 mx-1 text-primary" /> <strong className="text-foreground">Compartilhar</strong> na barra inferior do Safari</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">2</span>
-                      <span>Role para baixo e toque em <Plus className="inline w-4 h-4 mx-1 text-primary" /> <strong className="text-foreground">Adicionar à Tela de Início</strong></span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">3</span>
-                      <span>Toque em <strong className="text-foreground">Adicionar</strong> no canto superior direito</span>
-                    </li>
-                  </ol>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="p-6 space-y-4">
-                  <div className="flex items-center gap-3">
-                    <Smartphone className="w-6 h-6 text-primary" />
-                    <h2 className="font-semibold text-foreground">Android</h2>
-                  </div>
-                  <ol className="space-y-3 text-sm text-muted-foreground">
-                    <li className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">1</span>
-                      <span>Abra este site no <strong className="text-foreground">Chrome</strong></span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">2</span>
-                      <span>Toque nos <MoreVertical className="inline w-4 h-4 mx-1 text-primary" /> <strong className="text-foreground">3 pontinhos</strong> no canto superior direito</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">3</span>
-                      <span>Toque em <strong className="text-foreground">Instalar aplicativo</strong> ou <strong className="text-foreground">Adicionar à tela inicial</strong></span>
-                    </li>
-                  </ol>
-                </CardContent>
-              </Card>
-            )}
+        {/* Buttons */}
+        <div className="space-y-3">
+          <Button
+            size="lg"
+            className="w-full py-6 text-base gap-3 justify-start"
+            onClick={handleInstallPC}
+          >
+            <Monitor className="w-6 h-6 flex-shrink-0" />
+            <div className="text-left">
+              <div className="font-semibold">Instalar no Computador</div>
+              <div className="text-xs opacity-70 font-normal">Windows, Mac ou Linux</div>
+            </div>
+          </Button>
 
-            <Card>
-              <CardContent className="p-6 space-y-4">
-                <div className="flex items-center gap-3">
-                  <Monitor className="w-6 h-6 text-primary" />
-                  <h2 className="font-semibold text-foreground">Computador</h2>
-                </div>
-                <ol className="space-y-3 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">1</span>
-                    <span>No Chrome, clique no ícone de <strong className="text-foreground">instalação</strong> na barra de endereço (à direita)</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">2</span>
-                    <span>Clique em <strong className="text-foreground">Instalar</strong></span>
-                  </li>
-                </ol>
-              </CardContent>
-            </Card>
-          </div>
+          <Button
+            size="lg"
+            variant="outline"
+            className="w-full py-6 text-base gap-3 justify-start border-primary/30 hover:bg-primary/5"
+            onClick={handleInstallAndroid}
+          >
+            <Smartphone className="w-6 h-6 flex-shrink-0 text-primary" />
+            <div className="text-left">
+              <div className="font-semibold">Instalar no Android</div>
+              <div className="text-xs text-muted-foreground font-normal">Samsung, Motorola, Xiaomi...</div>
+            </div>
+          </Button>
+
+          <Button
+            size="lg"
+            variant="outline"
+            className="w-full py-6 text-base gap-3 justify-start border-primary/30 hover:bg-primary/5"
+            onClick={handleInstallIOS}
+          >
+            <Apple className="w-6 h-6 flex-shrink-0 text-primary" />
+            <div className="text-left">
+              <div className="font-semibold">Instalar no iPhone / iPad</div>
+              <div className="text-xs text-muted-foreground font-normal">iOS 16.4 ou superior</div>
+            </div>
+          </Button>
+        </div>
+
+        {/* Android Steps */}
+        {showAndroidSteps && (
+          <Card className="animate-fade-in border-primary/20">
+            <CardContent className="p-5 space-y-3">
+              <h3 className="font-semibold text-foreground text-sm">📱 Como instalar no Android:</h3>
+              <ol className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex gap-2">
+                  <span className="text-primary font-bold">1.</span>
+                  Abra este site no <strong className="text-foreground">Chrome</strong>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-primary font-bold">2.</span>
+                  Toque nos <strong className="text-foreground">⋮ 3 pontinhos</strong> (canto superior direito)
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-primary font-bold">3.</span>
+                  Toque em <strong className="text-foreground">"Instalar aplicativo"</strong>
+                </li>
+              </ol>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* iOS Steps */}
+        {showIOSSteps && (
+          <Card className="animate-fade-in border-primary/20">
+            <CardContent className="p-5 space-y-3">
+              <h3 className="font-semibold text-foreground text-sm">🍎 Como instalar no iPhone:</h3>
+              <ol className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex gap-2">
+                  <span className="text-primary font-bold">1.</span>
+                  Abra este site no <strong className="text-foreground">Safari</strong>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-primary font-bold">2.</span>
+                  Toque no ícone <strong className="text-foreground">Compartilhar</strong> (⬆️) na barra inferior
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-primary font-bold">3.</span>
+                  Toque em <strong className="text-foreground">"Adicionar à Tela de Início"</strong>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-primary font-bold">4.</span>
+                  Toque em <strong className="text-foreground">"Adicionar"</strong>
+                </li>
+              </ol>
+            </CardContent>
+          </Card>
         )}
 
         <p className="text-center text-xs text-muted-foreground">
-          O app funciona offline e ocupa pouquíssimo espaço no seu dispositivo.
+          100% gratuito • Sem loja de apps • Ocupa pouquíssimo espaço
         </p>
       </div>
     </div>
