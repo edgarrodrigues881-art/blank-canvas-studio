@@ -46,7 +46,7 @@ export function useMessagesTodayCount() {
       };
     },
     enabled: !!user?.id,
-    refetchInterval: 30_000,
-    staleTime: 15_000,
+    refetchInterval: () => document.hidden ? false : 60_000,
+    staleTime: 30_000,
   });
 }

@@ -102,7 +102,7 @@ export function useWelcomeQueue(automationId: string | undefined) {
       return (data || []) as unknown as WelcomeQueueItem[];
     },
     enabled: !!user && !!automationId,
-    refetchInterval: 5_000,
+    refetchInterval: () => document.hidden ? false : 30_000,
   });
 }
 
