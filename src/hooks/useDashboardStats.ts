@@ -152,7 +152,12 @@ export function useDashboardStats() {
       ((groupLogsRes.data as any[]) || []).forEach((r: any) => {
         const dk = getBrazilDateKey(r.sent_at);
         groupByDay[dk] = (groupByDay[dk] || 0) + 1;
-      });
+
+      const totalMessages = totalSent + totalFailed;
+
+      // Build chips
+      const chips: ChipInfo[] = devices.map((d) => {
+        const cycle = cycles.find((c) => c.device_id === d.id && c.is_running);
         const activeCycle = cycle || cycles.find((c) => c.device_id === d.id && c.phase === "paused");
         const normalizedStatus = normalizeDeviceStatus(d.status, !!d.number);
 
