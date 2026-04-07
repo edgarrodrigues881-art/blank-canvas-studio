@@ -356,6 +356,7 @@ export function useConversationSync() {
     getConversationContactKey,
     getConversationIdsForSameContact,
     upsertConversationInState,
+    isOwnDevice,
     getToken,
     // Operations
     fetchConversations,

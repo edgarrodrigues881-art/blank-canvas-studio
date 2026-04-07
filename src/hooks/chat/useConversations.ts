@@ -98,6 +98,7 @@ export function useConversations() {
     getConversationIdsForSameContact: sync.getConversationIdsForSameContact,
     markConversationGroupAsRead: actions.markConversationGroupAsRead,
     updateStatus: actions.updateStatus,
+    isOwnDevice: sync.isOwnDevice,
   });
 
   const selectedConversation = sync.selectedConvId

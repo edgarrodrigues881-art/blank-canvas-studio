@@ -14,6 +14,7 @@ interface UseConversationRealtimeParams {
   getConversationIdsForSameContact: (convId: string) => string[];
   markConversationGroupAsRead: (convId: string) => Promise<void>;
   updateStatus: (convId: string, newStatus: string) => Promise<void>;
+  isOwnDevice: (phone: string | null | undefined) => boolean;
 }
 
 /**
@@ -32,6 +33,7 @@ export function useConversationRealtime({
   getConversationIdsForSameContact,
   markConversationGroupAsRead,
   updateStatus,
+  isOwnDevice,
 }: UseConversationRealtimeParams) {
 
   // Real-time — conversations table
@@ -45,6 +47,8 @@ export function useConversationRealtime({
         { event: "INSERT", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
         (payload) => {
           const row = payload.new as any;
+          // Skip self-conversations (chip-to-chip warmup)
+          if (isOwnDevice(row.phone)) return;
           setConversations((prev) => upsertConversationInState(prev, row));
         }
       )
@@ -53,6 +57,8 @@ export function useConversationRealtime({
         { event: "UPDATE", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
         (payload) => {
           const row = payload.new as any;
+          // Skip self-conversations (chip-to-chip warmup)
+          if (isOwnDevice(row.phone)) return;
           setConversations((prev) => {
             const exists = prev.some((c) => c.id === row.id);
             const isSelectedConversation = row.id === selectedConvIdRef.current;
