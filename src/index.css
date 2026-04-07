@@ -83,7 +83,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 26% 11%;
 
-    --primary: 220 14% 46%;
+    --primary: 142 72% 36%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 13% 95%;
@@ -100,25 +100,25 @@
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 220 14% 46%;
+    --ring: 142 72% 36%;
 
     --radius: 0.625rem;
 
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 220 26% 11%;
-    --sidebar-primary: 220 14% 46%;
+    --sidebar-primary: 142 72% 36%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 13% 95%;
     --sidebar-accent-foreground: 220 26% 11%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 220 14% 46%;
+    --sidebar-ring: 142 72% 36%;
 
     --success: 142 71% 45%;
     --warning: 38 92% 50%;
     --info: 218 11% 46%;
 
-    --chart-1: 220 14% 46%;
-    --chart-2: 220 10% 38%;
+    --chart-1: 142 72% 36%;
+    --chart-2: 142 50% 28%;
     --chart-3: 218 11% 46%;
     --chart-4: 220 13% 65%;
     --chart-5: 220 13% 80%;
@@ -149,7 +149,7 @@
     --card-foreground: 40 20% 96%;
     --popover: 220 18% 12%;
     --popover-foreground: 40 20% 96%;
-    --primary: 215 15% 50%;
+    --primary: 142 72% 36%;
     --primary-foreground: 0 0% 100%;
     --secondary: 220 14% 12%;
     --secondary-foreground: 220 10% 88%;
@@ -161,24 +161,24 @@
     --destructive-foreground: 0 85% 97%;
     --border: 220 14% 15%;
     --input: 220 14% 15%;
-    --ring: 215 15% 50%;
+    --ring: 142 72% 36%;
     --success: 142 71% 45%;
     --warning: 38 92% 50%;
     --info: 218 11% 46%;
-    --chart-1: 215 15% 55%;
-    --chart-2: 215 12% 45%;
+    --chart-1: 142 72% 44%;
+    --chart-2: 142 50% 55%;
     --chart-3: 220 10% 65%;
     --chart-4: 218 11% 46%;
     --chart-5: 220 16% 16%;
     --sidebar: 220 18% 7%;
     --sidebar-background: 220 18% 7%;
     --sidebar-foreground: 220 10% 96%;
-    --sidebar-primary: 215 15% 50%;
+    --sidebar-primary: 142 72% 36%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 15% 50% / 0.1;
-    --sidebar-accent-foreground: 215 15% 70%;
+    --sidebar-accent: 142 72% 36% / 0.1;
+    --sidebar-accent-foreground: 142 72% 50%;
     --sidebar-border: 220 14% 15%;
-    --sidebar-ring: 215 15% 50%;
+    --sidebar-ring: 142 72% 36%;
     --shadow-2xs: 0 1px 2px 0px hsl(0 0% 0% / 0.3);
     --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.35);
     --shadow-sm: 0 2px 6px 0px hsl(0 0% 0% / 0.3), 0 1px 2px -1px hsl(0 0% 0% / 0.25);
@@ -407,7 +407,7 @@
   }
   .card-hover-lift:hover {
     transform: translateY(-4px) scale(1.02);
-    border-color: rgba(140, 155, 180, 0.3);
+    border-color: rgba(7, 193, 96, 0.3);
   }
 }
 
