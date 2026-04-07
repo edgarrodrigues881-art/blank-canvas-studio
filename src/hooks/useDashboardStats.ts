@@ -71,16 +71,24 @@ export function useDashboardStats() {
   return useQuery({
     queryKey: ["dashboard-stats", user?.id],
     queryFn: async (): Promise<DashboardStats> => {
-      // Calculate date range for the week (Monday-Sunday)
+      // Calculate date range for the week (Monday-Sunday) in Brazil time
       const now = new Date();
-      const todayDow = now.getDay();
+      const brazilToday = getBrazilDateKey(now);
+      const todayDate = new Date(brazilToday + "T12:00:00");
+      const todayDow = todayDate.getDay();
       const mondayOffset = todayDow === 0 ? -6 : 1 - todayDow;
-      const monday = new Date(now);
-      monday.setDate(now.getDate() + mondayOffset);
-      monday.setHours(0, 0, 0, 0);
+      const monday = new Date(todayDate);
+      monday.setDate(todayDate.getDate() + mondayOffset);
       const mondayStr = monday.toLocaleDateString("en-CA"); // YYYY-MM-DD
 
-      const [devicesRes, cyclesRes, dailyStatsRes, proxiesRes] = await Promise.all([
+      // Build Sunday date for chip/group queries
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const sundayStr = sunday.toLocaleDateString("en-CA");
+      const weekStartISO = `${mondayStr}T00:00:00-03:00`;
+      const weekEndISO = `${sundayStr}T23:59:59.999-03:00`;
+
+      const [devicesRes, cyclesRes, dailyStatsRes, proxiesRes, chipLogsRes, groupLogsRes] = await Promise.all([
         supabase
           .from("devices")
           .select("id, name, number, status, proxy_id, profile_picture")
@@ -91,6 +99,18 @@ export function useDashboardStats() {
         supabase.from("warmup_cycles").select("id, device_id, is_running, phase, day_index, days_total, daily_interaction_budget_used, daily_interaction_budget_target, updated_at").eq("user_id", user!.id),
         supabase.from("warmup_daily_stats").select("device_id, stat_date, messages_sent, messages_failed, messages_total").eq("user_id", user!.id).gte("stat_date", mondayStr),
         supabase.from("proxies").select("id, host").eq("user_id", user!.id),
+        supabase
+          .from("chip_conversation_logs" as any)
+          .select("sent_at")
+          .eq("user_id", user!.id)
+          .gte("sent_at", weekStartISO)
+          .lte("sent_at", weekEndISO),
+        supabase
+          .from("group_interaction_logs" as any)
+          .select("sent_at")
+          .eq("user_id", user!.id)
+          .gte("sent_at", weekStartISO)
+          .lte("sent_at", weekEndISO),
       ]);
 
       const devices = devicesRes.data || [];
