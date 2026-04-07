@@ -57,6 +57,8 @@ export function useConversationRealtime({
         { event: "UPDATE", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
         (payload) => {
           const row = payload.new as any;
+          // Skip self-conversations (chip-to-chip warmup)
+          if (isOwnDevice(row.phone)) return;
           setConversations((prev) => {
             const exists = prev.some((c) => c.id === row.id);
             const isSelectedConversation = row.id === selectedConvIdRef.current;
