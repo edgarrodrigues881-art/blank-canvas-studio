@@ -90,6 +90,38 @@ export function useConversationSync() {
     return sortConversations([mapped, ...items.filter((item) => item.id !== mapped.id)]);
   }, [mapConversationRow, sortConversations]);
 
+  // ─── Fetch user device numbers to filter self-conversations ───
+  const [ownPhones, setOwnPhones] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("devices")
+      .select("number")
+      .eq("user_id", user.id)
+      .not("number", "is", null)
+      .then(({ data }) => {
+        const phones = new Set(
+          (data || []).map((d: any) => (d.number || "").replace(/\D/g, "")).filter(Boolean)
+        );
+        setOwnPhones(phones);
+      });
+  }, [user]);
+
+  const isOwnDevice = useCallback((phone: string | null | undefined) => {
+    if (!phone || ownPhones.size === 0) return false;
+    const normalized = phone.replace(/\D/g, "");
+    // Check exact match or suffix match (last 10-11 digits)
+    if (ownPhones.has(normalized)) return true;
+    for (const own of ownPhones) {
+      if (own.length >= 10 && normalized.length >= 10) {
+        const ownSuffix = own.slice(-10);
+        const phoneSuffix = normalized.slice(-10);
+        if (ownSuffix === phoneSuffix) return true;
+      }
+    }
+    return false;
+  }, [ownPhones]);
+
   // ─── Fetch ───
   const fetchConversations = useCallback(async () => {
     if (!user) return;
@@ -114,11 +146,14 @@ export function useConversationSync() {
       return;
     }
 
-    const mapped = sortConversations((activeRes.data || []).map(mapConversationRow));
+    // Filter out conversations with own devices (chip-to-chip warmup)
+    const filterSelf = (rows: any[]) => rows.filter((r) => !isOwnDevice(r.phone));
+
+    const mapped = sortConversations(filterSelf(activeRes.data || []).map(mapConversationRow));
     setConversations(mapped);
-    setArchivedConversations((archivedRes.data || []).map(mapConversationRow));
+    setArchivedConversations(filterSelf(archivedRes.data || []).map(mapConversationRow));
     setLoading(false);
-  }, [user, mapConversationRow, sortConversations]);
+  }, [user, mapConversationRow, sortConversations, isOwnDevice]);
 
   const fetchMessages = useCallback(async (conversationId: string) => {
     const groupIds = getConversationIdsForSameContact(conversationId);
