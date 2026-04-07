@@ -153,11 +153,19 @@ export function useGroupInteraction() {
 
   const updateInteraction = useMutation({
     mutationFn: async ({ id, ...data }: Partial<GroupInteraction> & { id: string }) => {
-      const payload = {
-        ...normalizeInteractionPayload(data),
+      const normalized = normalizeInteractionPayload(data);
+      // Ensure null instead of undefined for nullable text fields
+      const payload: Record<string, any> = {
+        ...normalized,
+        start_hour_2: (normalized as any).start_hour_2 ?? (data as any).start_hour_2 ?? null,
+        end_hour_2: (normalized as any).end_hour_2 ?? (data as any).end_hour_2 ?? null,
         status: data.status === "active" ? "idle" : data.status,
         updated_at: new Date().toISOString(),
       };
+      // Remove undefined keys (Supabase ignores them but be safe)
+      for (const k of Object.keys(payload)) {
+        if (payload[k] === undefined) payload[k] = null;
+      }
       const { error } = await supabase
         .from("group_interactions" as any)
         .update(payload as any)

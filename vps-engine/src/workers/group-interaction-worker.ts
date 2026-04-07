@@ -371,6 +371,26 @@ export async function groupInteractionTick() {
   const db = getDb();
   const now = new Date().toISOString();
 
+  // ── Recover stuck interactions (running but no next_action_at) ──
+  const { data: stuckInteractions } = await db.from("group_interactions")
+    .select("id")
+    .in("status", ["running", "active"])
+    .is("next_action_at", null)
+    .limit(20);
+
+  if (stuckInteractions?.length) {
+    const retryAt = new Date(Date.now() + 5_000).toISOString();
+    for (const stuck of stuckInteractions) {
+      await db.from("group_interactions")
+        .update({ next_action_at: retryAt })
+        .eq("id", stuck.id)
+        .is("next_action_at", null)
+        .in("status", ["running", "active"])
+        .then(() => {}, () => {});
+    }
+    log.info(`Recovered ${stuckInteractions.length} stuck interaction(s)`);
+  }
+
   const { data: dueInteractions } = await db.from("group_interactions")
     .select("*")
     .in("status", ["running", "active"])
