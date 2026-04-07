@@ -49,9 +49,11 @@ const defaultForm: Partial<GroupInteraction> & Record<string, any> = {
   start_hour: "07:00",
   end_hour: "21:00",
   active_days: ["mon", "tue", "wed", "thu", "fri"],
-  daily_limit_per_group: 10,
-  daily_limit_total: 50,
-  content_types: { text: true, image: true, audio: true, sticker: true },
+  daily_limit_per_group: 0,
+  daily_limit_total: 0,
+  duration_hours: 0,
+  duration_minutes: 0,
+  content_types: { text: true, image: true, audio: true, sticker: true },  
   preset_name: "moderate",
 };
 
