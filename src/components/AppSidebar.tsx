@@ -38,6 +38,7 @@ import {
   History,
   ListOrdered,
   BarChart3,
+  Download,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -563,6 +564,7 @@ export function AppSidebar() {
                 );
               })()}
               {renderNavItem({ title: "Comunidade", url: "/dashboard/community", icon: UsersRound })}
+              {renderNavItem({ title: "Download", url: "/install", icon: Download })}
               {renderNavItem({ title: "Ajuda", url: "/dashboard/custom-module", icon: HelpCircle })}
             </SidebarMenu>
           </SidebarGroupContent>
