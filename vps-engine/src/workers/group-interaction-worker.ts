@@ -311,22 +311,13 @@ async function processOneInteraction(sb: any, interaction: any) {
 
   // Resolve groups (cached per device)
   let groupMap = await getDeviceGroupMap(baseUrl, device.uazapi_token, device.id);
-  const warmupRows = groupIds.length > 0
-    ? await sb.from("warmup_groups").select("id, name, link").or(groupIds.map((groupId) => `id.eq.${groupId},link.eq.${groupId}`).join(","))
-    : { data: [] };
-  const warmupGroupRows = Array.isArray(warmupRows.data) ? warmupRows.data : [];
-  const warmupGroupMeta = new Map<string, { name: string; link: string | null }>();
-  for (const row of warmupGroupRows) {
-    if (row?.id) warmupGroupMeta.set(String(row.id), { name: String(row.name || "").trim(), link: row.link ? String(row.link).trim() : null });
-    if (row?.link) warmupGroupMeta.set(String(row.link), { name: String(row.name || "").trim(), link: String(row.link).trim() });
-  }
+  const fallbackNameMap = await loadWarmupGroupNameFallbacks(sb, groupIds);
 
   const resolveWithMap = (map: Map<string, ResolvedGroup>) => {
     const found: Array<{ jid: string; name: string }> = [];
     const unresolved: string[] = [];
     for (const gid of groupIds) {
-      const meta = warmupGroupMeta.get(gid);
-      const aliases = dedupeStrings([meta?.name, meta?.link]);
+      const aliases = dedupeStrings([fallbackNameMap.get(gid)]);
       const resolvedGroup = resolveGroupJid(gid, map, aliases);
       if (resolvedGroup) found.push(resolvedGroup);
       else unresolved.push(gid);
@@ -343,11 +334,9 @@ async function processOneInteraction(sb: any, interaction: any) {
   }
 
   if (unresolved.length > 0) {
-    const fallbackNameMap = await loadWarmupGroupNameFallbacks(sb, unresolved);
     for (const identifier of unresolved) {
-      const meta = warmupGroupMeta.get(identifier);
       const fallbackName = fallbackNameMap.get(identifier);
-      const aliases = dedupeStrings([meta?.name, meta?.link, fallbackName]);
+      const aliases = dedupeStrings([fallbackName]);
       const resolvedByName = resolveGroupJid(identifier, groupMap, aliases);
       if (resolvedByName) resolved.push(resolvedByName);
     }
