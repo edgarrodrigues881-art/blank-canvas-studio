@@ -195,10 +195,19 @@ async function processOneInteraction(sb: any, interaction: any) {
     return;
   }
 
-  // Time window check
+  // Time window check (supports Period 1 + optional Period 2)
   const brNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
   const currentHour = `${String(brNow.getHours()).padStart(2, "0")}:${String(brNow.getMinutes()).padStart(2, "0")}`;
-  if (currentHour < interaction.start_hour || currentHour > interaction.end_hour) return;
+  const inPeriod1 = currentHour >= interaction.start_hour && currentHour <= interaction.end_hour;
+  const inPeriod2 = interaction.start_hour_2 && interaction.end_hour_2
+    ? currentHour >= interaction.start_hour_2 && currentHour <= interaction.end_hour_2
+    : false;
+  if (!inPeriod1 && !inPeriod2) {
+    // Schedule retry in 60s so it doesn't get stuck
+    const retryAt = new Date(Date.now() + 60_000).toISOString();
+    await sb.from("group_interactions").update({ next_action_at: retryAt }).eq("id", interaction.id).in("status", ["running", "active"]);
+    return;
+  }
 
   const dayMap = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
   const activeDays: string[] = interaction.active_days || [];
