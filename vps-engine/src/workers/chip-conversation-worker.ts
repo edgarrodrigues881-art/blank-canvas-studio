@@ -180,19 +180,19 @@ async function processOneConversation(sb: any, conv: any) {
   let messageText = "";
   let result: { ok: boolean; error?: string };
 
-  if (contentType === "image" && hasImage) {
-    const picked = pickRandom(mediaByType.image);
+  if (contentType === "image") {
+    const picked = hasUserImage ? pickRandom(mediaByType.image) : null;
     const imgUrl = picked?.file_url || pickRandom(FALLBACK_IMAGES);
     const caption = picked?.content?.trim() || pickRandom(userMessages);
     result = await sendImage(sender.uazapi_base_url, sender.uazapi_token, receiver.number, imgUrl, caption);
     messageText = `[IMG] ${caption}`;
-  } else if (contentType === "sticker" && hasSticker) {
-    const picked = pickRandom(mediaByType.sticker);
+  } else if (contentType === "sticker") {
+    const picked = hasUserSticker ? pickRandom(mediaByType.sticker) : null;
     const stickerUrl = picked?.file_url || pickRandom(FALLBACK_IMAGES);
     result = await sendSticker(sender.uazapi_base_url, sender.uazapi_token, receiver.number, stickerUrl);
     messageText = `[STICKER] ${picked?.content || "🎭"}`;
-  } else if (contentType === "audio" && hasAudio) {
-    const picked = pickRandom(mediaByType.audio);
+  } else if (contentType === "audio") {
+    const picked = hasUserAudio ? pickRandom(mediaByType.audio) : null;
     const audioUrl = picked?.file_url || pickRandom(FALLBACK_AUDIOS);
     result = await sendAudio(sender.uazapi_base_url, sender.uazapi_token, receiver.number, audioUrl);
     messageText = `[AUDIO] ${picked?.content || "🎤"}`;
