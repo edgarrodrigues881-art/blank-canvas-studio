@@ -157,7 +157,12 @@ export function useConversationSync() {
         .map((value: string) => normalizePhone(value))
         .filter(Boolean);
 
-      return candidates.some((candidate) => isOwnDevice(candidate));
+      // Check if remote phone matches any own device
+      if (candidates.some((candidate) => isOwnDevice(candidate))) return true;
+      // Fallback: filter known internal conversation names
+      const name = (row.name || "").toLowerCase();
+      if (name.includes("blessed company") || name.includes("blessed campany")) return true;
+      return false;
     };
 
     const filterSelf = (rows: any[]) => rows.filter((r) => !isSelfConversation(r));

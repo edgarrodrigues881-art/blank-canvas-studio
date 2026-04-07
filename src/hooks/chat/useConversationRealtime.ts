@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealConversation, RealMessage } from "./useConversations";
 
@@ -41,10 +41,10 @@ export function useConversationRealtime({
     if (!user) return;
 
     const isInternalConversation = (row: any) =>
-      isOwnDevice(row.phone || row.remote_jid?.split("@")[0] || null);
+      isOwnDevice(row.phone) || isOwnDevice(row.remote_jid?.split("@")[0]);
 
     const channel = supabase
-      .channel("conv-list-rt")
+      .channel(`conv-list-rt-${Date.now()}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
@@ -112,7 +112,7 @@ export function useConversationRealtime({
     notifAudio.volume = 0.3;
 
     const channel = supabase
-      .channel("conv-msgs-rt")
+      .channel(`conv-msgs-rt-${Date.now()}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "conversation_messages", filter: `user_id=eq.${user.id}` },
