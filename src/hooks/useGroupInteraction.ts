@@ -59,7 +59,7 @@ export interface GroupInteractionLog {
   sent_at: string;
 }
 
-export function useGroupInteraction() {
+export function useGroupInteraction(selectedInteractionId: string | null = null) {
   const { user } = useAuth();
   const qc = useQueryClient();
 
@@ -96,10 +96,10 @@ export function useGroupInteraction() {
       return (data || []) as unknown as GroupInteraction[];
     },
     enabled: !!user,
-    staleTime: 10_000,
+    staleTime: 5_000,
+    refetchInterval: () => document.hidden ? false : 5_000,
   });
 
-  // Realtime subscription for live updates
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -116,22 +116,28 @@ export function useGroupInteraction() {
   }, [user?.id, qc]);
 
   const { data: logs = [], isLoading: logsLoading } = useQuery({
-    queryKey: ["group-interaction-logs", user?.id],
+    queryKey: ["group-interaction-logs", user?.id, selectedInteractionId],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase
+      let query: any = supabase
         .from("group_interaction_logs" as any)
         .select("id, interaction_id, group_id, group_name, message_content, message_category, status, error_message, pause_applied_seconds, sent_at")
-        .eq("user_id", user.id)
+        .eq("user_id", user.id);
+
+      if (selectedInteractionId) {
+        query = query.eq("interaction_id", selectedInteractionId);
+      }
+
+      const { data, error } = await query
         .order("sent_at", { ascending: false })
         .limit(200);
+
       if (error) throw error;
-      // Reverse so UI shows oldest→newest but we fetched the latest 200
-      return ((data || []) as unknown as GroupInteractionLog[]).reverse();
+      return (data || []) as unknown as GroupInteractionLog[];
     },
     enabled: !!user,
-    staleTime: 120_000,
-    refetchInterval: () => document.hidden ? false : 120_000,
+    staleTime: 5_000,
+    refetchInterval: () => document.hidden ? false : 5_000,
   });
 
   const createInteraction = useMutation({
