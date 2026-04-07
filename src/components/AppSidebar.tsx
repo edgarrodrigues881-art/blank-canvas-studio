@@ -239,12 +239,12 @@ export function AppSidebar() {
             onMouseEnter={() => !isLocked && handlePreload(item.url)}
             className={`sidebar-nav-item flex items-center rounded-[10px] text-[13px] relative
               transition-[background-color,color,opacity] duration-[120ms] ease-out
-              ${collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : `gap-[11px] ${indent ? 'pl-8' : 'px-3.5'} pr-3.5 py-[10px]`}
+              ${collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : `gap-[11px] ${indent ? 'pl-8' : 'px-3.5'} pr-3.5 py-[9px]`}
               ${isLocked
-                ? 'text-muted-foreground/40 font-medium cursor-not-allowed'
+                ? 'text-muted-foreground/40 font-normal cursor-not-allowed'
                 : active
                   ? 'bg-primary/10 text-foreground font-semibold'
-                  : 'text-muted-foreground font-medium hover:text-foreground hover:bg-muted/40'
+                  : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/30'
               }`}
             activeClassName=""
           >
@@ -253,15 +253,15 @@ export function AppSidebar() {
             )}
             <div className="relative shrink-0">
               <item.icon
-                className={`w-[18px] h-[18px] shrink-0 transition-colors duration-150 ${isLocked ? 'text-muted-foreground/30' : active ? 'text-primary' : ''}`}
-                strokeWidth={active ? 2.2 : 1.5}
+                className={`w-[17px] h-[17px] shrink-0 transition-colors duration-150 ${isLocked ? 'text-muted-foreground/30' : active ? 'text-primary' : ''}`}
+                strokeWidth={active ? 2 : 1.4}
               />
               {isLocked && (
                 <Lock className="absolute -bottom-1 -right-1 w-[10px] h-[10px] text-amber-500/70" strokeWidth={2.5} />
               )}
             </div>
             {!collapsed && (
-              <span className={`truncate flex-1 font-extrabold ${isLocked ? 'opacity-50' : ''}`}>{item.title}</span>
+              <span className={`truncate flex-1 ${isLocked ? 'opacity-50' : ''}`}>{item.title}</span>
             )}
             {!collapsed && isLocked && (
               <Lock className="ml-auto w-3.5 h-3.5 text-amber-500/60 shrink-0" />
@@ -342,14 +342,14 @@ export function AppSidebar() {
                         <NavLink
                           to={warmupBlocked ? "#" : "/dashboard/warmup-v2"}
                           onClick={handleWarmupClick}
-                          className={`sidebar-nav-item flex items-center rounded-[10px] text-[13px] relative
+                         className={`sidebar-nav-item flex items-center rounded-[10px] text-[13px] relative
                             transition-[background-color,color,opacity] duration-[120ms] ease-out
-                            ${collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 py-[10px]'}
+                            ${collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 py-[9px]'}
                             ${warmupBlocked
-                              ? 'text-muted-foreground/40 font-medium cursor-not-allowed'
+                              ? 'text-muted-foreground/40 font-normal cursor-not-allowed'
                               : isActive("/dashboard/warmup-v2")
                                 ? 'bg-primary/10 text-foreground font-semibold'
-                                : 'text-muted-foreground font-medium hover:text-foreground hover:bg-muted/40'
+                                : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/30'
                             }`}
                           activeClassName=""
                         >
