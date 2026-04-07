@@ -66,6 +66,55 @@ async function getUserMessages(sb: any, userId: string): Promise<string[]> {
   return msgs.length > 0 ? msgs : FALLBACK_MESSAGES;
 }
 
+// ── Media helpers ──
+const FALLBACK_IMAGES = [
+  "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=80",
+  "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80",
+];
+const FALLBACK_AUDIOS = [
+  "https://cdn.freesound.org/previews/531/531947_4397472-lq.mp3",
+];
+
+async function sendImage(baseUrl: string, token: string, number: string, imageUrl: string, caption: string): Promise<{ ok: boolean; error?: string }> {
+  const cleanNum = cleanNumber(number);
+  try {
+    const res = await fetch(`${baseUrl}/send/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+      body: JSON.stringify({ number: cleanNum, file: imageUrl, type: "image", caption }),
+    });
+    if (res.ok) return { ok: true };
+    const raw = await res.text();
+    return { ok: false, error: `Image: ${res.status} — ${raw.substring(0, 200)}` };
+  } catch (e: any) { return { ok: false, error: e.message }; }
+}
+
+async function sendSticker(baseUrl: string, token: string, number: string, imageUrl: string): Promise<{ ok: boolean; error?: string }> {
+  const cleanNum = cleanNumber(number);
+  try {
+    const res = await fetch(`${baseUrl}/send/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+      body: JSON.stringify({ number: cleanNum, file: imageUrl, type: "sticker" }),
+    });
+    if (res.ok) return { ok: true };
+    return { ok: false, error: `Sticker: ${res.status}` };
+  } catch (e: any) { return { ok: false, error: e.message }; }
+}
+
+async function sendAudio(baseUrl: string, token: string, number: string, audioUrl: string): Promise<{ ok: boolean; error?: string }> {
+  const cleanNum = cleanNumber(number);
+  try {
+    const res = await fetch(`${baseUrl}/send/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+      body: JSON.stringify({ number: cleanNum, file: audioUrl, type: "audio", ptt: true }),
+    });
+    if (res.ok) return { ok: true };
+    return { ok: false, error: `Audio: ${res.status}` };
+  } catch (e: any) { return { ok: false, error: e.message }; }
+}
+
 function safeRange(min: unknown, max: unknown, defaultMin: number, defaultMax?: number): number {
   const minN = Number(min);
   const maxN = Number(max);
