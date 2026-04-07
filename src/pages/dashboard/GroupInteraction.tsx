@@ -669,10 +669,6 @@ export default function GroupInteractionPage() {
                 </Button>
               </div>
 
-              {/* Logs */}
-              {selectedId && selectedLogs.length > 0 && (
-                <GILogs logs={selectedLogs} />
-              )}
             </>
           ) : !showBulkCreate && !showConfig ? (
             interactions.length === 0 && <Card className="border-dashed">
