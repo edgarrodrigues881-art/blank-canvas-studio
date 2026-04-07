@@ -13,8 +13,20 @@ const statusConfig: Record<string, { color: string; label: string }> = {
 
 function isWithinSchedule(startHour: string, endHour: string): boolean {
   const now = new Date();
-  const current = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  return current >= startHour && current <= endHour;
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const [startH, startM] = startHour.split(":").map(Number);
+  const [endH, endM] = endHour.split(":").map(Number);
+
+  if (![startH, startM, endH, endM].every(Number.isFinite)) return false;
+
+  const startMinutes = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
+
+  if (startMinutes <= endMinutes) {
+    return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+  }
+
+  return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
 }
 
 function getTimeRemaining(endHour: string): string {
