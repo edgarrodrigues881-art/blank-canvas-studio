@@ -591,7 +591,7 @@ const Devices = () => {
             updated_at: data.device.updated_at || new Date().toISOString(),
             has_api_config: data.device.has_api_config || false,
           });
-          setConnectStep("choose");
+          setConnectStep("proxy");
           setQrCodeBase64("");
           setPairingCode("");
           setConnectError("");
