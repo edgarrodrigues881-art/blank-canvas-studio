@@ -161,15 +161,12 @@ async function processOneConversation(sb: any, conv: any) {
   const mediaByType: Record<string, any[]> = {};
   for (const m of userMedia || []) (mediaByType[m.media_type] ??= []).push(m);
 
-  const hasImage = (mediaByType.image?.length || 0) > 0;
-  const hasSticker = (mediaByType.sticker?.length || 0) > 0;
-  const hasAudio = (mediaByType.audio?.length || 0) > 0;
+  const hasUserImage = (mediaByType.image?.length || 0) > 0;
+  const hasUserSticker = (mediaByType.sticker?.length || 0) > 0;
+  const hasUserAudio = (mediaByType.audio?.length || 0) > 0;
 
-  // Build weighted content bag (text-heavy but includes media)
-  const bag = ["text", "text", "text", "text", "text"];
-  if (hasImage) bag.push("image", "image");
-  if (hasSticker) bag.push("sticker", "sticker");
-  if (hasAudio) bag.push("audio");
+  // Always include media in the bag — use fallbacks if user has no uploads
+  const bag = ["text", "text", "text", "text", "text", "image", "image", "sticker", "sticker", "audio"];
   const contentType = pickRandom(bag);
 
   // Rotate through ALL devices, not just first 2
