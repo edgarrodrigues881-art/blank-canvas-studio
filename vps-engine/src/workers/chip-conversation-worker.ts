@@ -70,9 +70,24 @@ async function getUserMessages(sb: any, userId: string): Promise<string[]> {
 const FALLBACK_IMAGES = [
   "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=80",
   "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80",
+  "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80",
+  "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&q=80",
+  "https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=800&q=80",
 ];
 const FALLBACK_AUDIOS = [
   "https://cdn.freesound.org/previews/531/531947_4397472-lq.mp3",
+  "https://cdn.freesound.org/previews/456/456058_5765826-lq.mp3",
+  "https://cdn.freesound.org/previews/462/462808_8386274-lq.mp3",
+  "https://cdn.freesound.org/previews/523/523746_10717283-lq.mp3",
+  "https://cdn.freesound.org/previews/527/527087_10717283-lq.mp3",
+  "https://cdn.freesound.org/previews/514/514742_1648170-lq.mp3",
+  "https://cdn.freesound.org/previews/459/459145_5765826-lq.mp3",
+  "https://cdn.freesound.org/previews/467/467049_9655975-lq.mp3",
+  "https://cdn.freesound.org/previews/511/511484_10717283-lq.mp3",
+  "https://cdn.freesound.org/previews/516/516565_10717283-lq.mp3",
+  "https://cdn.freesound.org/previews/530/530110_10717283-lq.mp3",
+  "https://cdn.freesound.org/previews/415/415079_5121236-lq.mp3",
+  "https://cdn.freesound.org/previews/462/462807_8386274-lq.mp3",
 ];
 
 async function sendImage(baseUrl: string, token: string, number: string, imageUrl: string, caption: string): Promise<{ ok: boolean; error?: string }> {
@@ -166,7 +181,13 @@ async function processOneConversation(sb: any, conv: any) {
   const hasUserAudio = (mediaByType.audio?.length || 0) > 0;
 
   // Always include media in the bag — use fallbacks if user has no uploads
-  const bag = ["text", "text", "text", "text", "text", "image", "image", "sticker", "sticker", "audio"];
+  // Distribution: ~40% text, ~35% audio, ~15% sticker, ~10% image
+  const bag = [
+    "text", "text", "text", "text", "text", "text", "text", "text",  // 8 = 40%
+    "audio", "audio", "audio", "audio", "audio", "audio", "audio",   // 7 = 35%
+    "sticker", "sticker", "sticker",                                   // 3 = 15%
+    "image", "image",                                                  // 2 = 10%
+  ];
   const contentType = pickRandom(bag);
 
   // Rotate through ALL devices, not just first 2
