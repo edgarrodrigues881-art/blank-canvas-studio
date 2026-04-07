@@ -69,6 +69,7 @@ const statusLabels: Record<string, string> = {
 };
 
 const defaultContentTypes = { text: true, image: false, audio: false, sticker: false };
+const defaultPeriod2 = { start_hour_2: "13:00", end_hour_2: "19:00" };
 
 function isGroupInteractionDeviceEligible(device: any): boolean {
   const normalizedStatus = String(device?.status || "").trim().toLowerCase();
@@ -243,6 +244,7 @@ export default function GroupInteractionPage() {
     if (!showBulkCreate && form.device_id && !eligibleDevices.some((device: any) => device.id === form.device_id)) return "A instância selecionada está desconectada";
     if (!form.group_ids?.length) return "Selecione pelo menos um grupo";
     if (!form.start_hour || !form.end_hour) return "Defina os horários";
+    if (usePeriod2 && (!form.start_hour_2 || !form.end_hour_2)) return "Defina início e término do 2º período";
     if (form.min_delay_seconds != null && form.max_delay_seconds != null && form.min_delay_seconds > form.max_delay_seconds) return "Delay mínimo não pode ser maior que o máximo";
     if (form.pause_duration_min > form.pause_duration_max) return "Pausa mínima não pode ser maior que a máxima";
     return null;
@@ -705,7 +707,14 @@ export default function GroupInteractionPage() {
               <div className="flex items-center gap-3 pt-1">
                 <Switch checked={usePeriod2} onCheckedChange={(v) => {
                   setUsePeriod2(v);
-                  if (!v) updateForm({ start_hour_2: undefined, end_hour_2: undefined });
+                  if (v) {
+                    updateForm({
+                      start_hour_2: form.start_hour_2 || defaultPeriod2.start_hour_2,
+                      end_hour_2: form.end_hour_2 || defaultPeriod2.end_hour_2,
+                    });
+                  } else {
+                    updateForm({ start_hour_2: undefined, end_hour_2: undefined });
+                  }
                 }} />
                 <Label className="text-xs">Adicionar 2º período (ex: tarde)</Label>
               </div>
@@ -718,7 +727,7 @@ export default function GroupInteractionPage() {
                       <Label className="text-[11px] text-muted-foreground">Início</Label>
                       <Input
                         type="time"
-                        value={form.start_hour_2 || "13:00"}
+                        value={form.start_hour_2 || defaultPeriod2.start_hour_2}
                         onChange={(e) => updateForm({ start_hour_2: e.target.value })}
                         className="mt-1"
                       />
@@ -727,7 +736,7 @@ export default function GroupInteractionPage() {
                       <Label className="text-[11px] text-muted-foreground">Término</Label>
                       <Input
                         type="time"
-                        value={form.end_hour_2 || "19:00"}
+                        value={form.end_hour_2 || defaultPeriod2.end_hour_2}
                         onChange={(e) => updateForm({ end_hour_2: e.target.value })}
                         className="mt-1"
                       />
