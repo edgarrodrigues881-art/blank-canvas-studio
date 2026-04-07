@@ -40,6 +40,9 @@ export function useConversationRealtime({
   useEffect(() => {
     if (!user) return;
 
+    const isInternalConversation = (row: any) =>
+      isOwnDevice(row.phone || row.remote_jid?.split("@")[0] || null);
+
     const channel = supabase
       .channel("conv-list-rt")
       .on(
@@ -47,9 +50,11 @@ export function useConversationRealtime({
         { event: "INSERT", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
         (payload) => {
           const row = payload.new as any;
-          // Skip self-conversations (chip-to-chip warmup)
-          if (isOwnDevice(row.phone)) return;
-          setConversations((prev) => upsertConversationInState(prev, row));
+          if (isInternalConversation(row)) {
+            setConversations((prev) => prev.filter((c) => c.id !== row.id));
+            return;
+          }
+          setConversations((prev) => upsertConversationInState(prev.filter((c) => c.id !== row.id), row));
         }
       )
       .on(
@@ -57,8 +62,10 @@ export function useConversationRealtime({
         { event: "UPDATE", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
         (payload) => {
           const row = payload.new as any;
-          // Skip self-conversations (chip-to-chip warmup)
-          if (isOwnDevice(row.phone)) return;
+          if (isInternalConversation(row)) {
+            setConversations((prev) => prev.filter((c) => c.id !== row.id));
+            return;
+          }
           setConversations((prev) => {
             const exists = prev.some((c) => c.id === row.id);
             const isSelectedConversation = row.id === selectedConvIdRef.current;
@@ -95,7 +102,7 @@ export function useConversationRealtime({
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user, upsertConversationInState, sortConversations, getConversationContactKey, setConversations, selectedConvIdRef]);
+  }, [user, upsertConversationInState, sortConversations, getConversationContactKey, setConversations, selectedConvIdRef, isOwnDevice]);
 
   // Real-time — messages table
   useEffect(() => {
@@ -120,6 +127,28 @@ export function useConversationRealtime({
               getConversationIdsForSameContact(selectedId).includes(newMsg.conversation_id)
             )
           );
+
+          setConversations((prev) => {
+            const target = prev.find((c) => c.id === newMsg.conversation_id);
+            if (!target) return prev;
+
+            const nextUnreadCount = newMsg.direction === "received"
+              ? (isOpenConversation ? 0 : (target.unread_count ?? 0) + 1)
+              : target.unread_count;
+
+            return sortConversations(
+              prev.map((c) =>
+                c.id === newMsg.conversation_id
+                  ? {
+                      ...c,
+                      last_message: newMsg.content ?? c.last_message,
+                      last_message_at: newMsg.created_at ?? c.last_message_at,
+                      unread_count: nextUnreadCount,
+                    }
+                  : c
+              )
+            );
+          });
 
           if (isOpenConversation) {
             const deviceName = conversationsRef.current.find((c) => c.id === newMsg.conversation_id)?.deviceName;
@@ -195,5 +224,5 @@ export function useConversationRealtime({
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user, updateStatus, getConversationIdsForSameContact, markConversationGroupAsRead, conversationsRef, selectedConvIdRef, setMessages]);
+  }, [user, updateStatus, getConversationIdsForSameContact, markConversationGroupAsRead, conversationsRef, selectedConvIdRef, setMessages, setConversations, sortConversations]);
 }
