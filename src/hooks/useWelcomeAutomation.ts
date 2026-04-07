@@ -63,7 +63,7 @@ export function useWelcomeAutomations() {
       return (data || []) as unknown as WelcomeAutomation[];
     },
     enabled: !!user,
-    refetchInterval: 10_000,
+    refetchInterval: () => document.hidden ? false : 30_000,
   });
 }
 
