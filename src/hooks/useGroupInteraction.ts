@@ -96,8 +96,8 @@ export function useGroupInteraction(selectedInteractionId: string | null = null)
       return (data || []) as unknown as GroupInteraction[];
     },
     enabled: !!user,
-    staleTime: 5_000,
-    refetchInterval: () => document.hidden ? false : 5_000,
+    staleTime: 15_000,
+    refetchInterval: () => document.hidden ? false : 30_000,
   });
 
   useEffect(() => {
