@@ -540,10 +540,11 @@ Deno.serve(async (req) => {
 
     // ── Plan check ──
     if (!["deleteInstance", "status", "getBaseUrl", "logout", "listGroups", "sendText"].includes(action) && !isReportDevice) {
-      const { data: activeSub } = await svc
-        .from("subscriptions").select("expires_at")
-        .eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
-      const { data: userProfile } = await svc.from("profiles").select("status").eq("id", user.id).maybeSingle();
+      const [{ data: activeSub }, { data: userProfile }] = await Promise.all([
+        svc.from("subscriptions").select("expires_at")
+          .eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+        svc.from("profiles").select("status").eq("id", user.id).maybeSingle(),
+      ]);
       const planExpired = !activeSub || new Date(activeSub.expires_at) < new Date();
       const accountBlocked = userProfile?.status === "suspended" || userProfile?.status === "cancelled";
       if (planExpired || accountBlocked) {
