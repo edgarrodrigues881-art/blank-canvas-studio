@@ -1038,6 +1038,7 @@ Deno.serve(async (req) => {
       }
 
       // Request new QR with retry
+      await clearProviderSessionForQr(true);
       const connectRes = await uazapi(instanceUrl, "/instance/connect", instanceToken, "POST", {}, { timeoutMs: 8000, retries: 1 });
       const connInst = connectRes.data?.instance || connectRes.data || {};
       let qr = connInst.qrcode || connectRes.data?.qrcode;
@@ -1066,6 +1067,9 @@ Deno.serve(async (req) => {
         }
       }
 
+      if (!qr) {
+        await svc.from("devices").update({ status: "Loading", updated_at: new Date().toISOString() }).eq("id", deviceId);
+      }
       return json({ success: true, base64: qr || null, qr: qr || null, status: qr ? "connecting" : "waiting" });
     }
 
@@ -1151,6 +1155,24 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         }).eq("id", deviceId);
       } else if (isDisconnected) {
+        const recentlyConnecting = device?.status === "Loading";
+        if (recentlyConnecting) {
+          const reconnect = await uazapi(instanceUrl, "/instance/connect", instanceToken, "POST", {}, { timeoutMs: 8000, retries: 0 });
+          const reconnectState = normalizeProviderConnectionState(reconnect.data);
+          const reconnectQr = reconnectState.qrcode || reconnect.data?.instance?.qrcode || reconnect.data?.qrcode;
+          if (reconnectQr) {
+            await svc.from("devices").update({ status: "Loading", updated_at: new Date().toISOString() }).eq("id", deviceId);
+            return json({
+              success: true,
+              status: "connecting",
+              phone: "",
+              base64: reconnectQr,
+              qr: reconnectQr,
+              profileName: reconnectState.profileName || check.profileName || "",
+              profilePicUrl: reconnectState.profilePicUrl || check.profilePicUrl || "",
+            });
+          }
+        }
         await svc.from("devices").update({ status: "Disconnected", updated_at: new Date().toISOString() }).eq("id", deviceId);
       }
 
