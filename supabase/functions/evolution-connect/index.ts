@@ -637,7 +637,7 @@ Deno.serve(async (req) => {
             instanceToken = prof.whatsapp_monitor_token;
             instanceUrl = BASE_URL;
             console.log(`[evolution-connect] monitor_token_assigned for report_wa ${deviceId.substring(0, 8)}`);
-            await oplog(svc, user.id, "monitor_token_assigned", `Token monitor atribuído para "${deviceName}"`, deviceId);
+            oplog(svc, user.id, "monitor_token_assigned", `Token monitor atribuído para "${deviceName}"`, deviceId);
           }
         }
 
@@ -666,7 +666,7 @@ Deno.serve(async (req) => {
             instanceUrl = BASE_URL;
             autoAssignedTokenId = poolToken.id;
             console.log(`[evolution-connect] token_auto_assigned for ${deviceId.substring(0, 8)}`);
-            await oplog(svc, user.id, "token_auto_assigned", `Token atribuído para "${deviceName}"`, deviceId, { tokenId: poolToken.id });
+            oplog(svc, user.id, "token_auto_assigned", `Token atribuído para "${deviceName}"`, deviceId, { tokenId: poolToken.id });
           }
         }
       }
@@ -715,10 +715,10 @@ Deno.serve(async (req) => {
             instanceUrl = BASE_URL;
             autoAssignedTokenId = newTokenId;
             console.log(`[evolution-connect] on-demand token created: ${instName} for ${deviceId.substring(0, 8)}`);
-            await oplog(svc, user.id, "token_on_demand", `Token gerado sob demanda: ${instName}`, deviceId, { label: instName });
+            oplog(svc, user.id, "token_on_demand", `Token gerado sob demanda: ${instName}`, deviceId, { label: instName });
           } else {
             console.log(`[evolution-connect] on-demand creation FAILED: ${createResult.error}`);
-            await oplog(svc, user.id, "token_on_demand_failed", `Falha ao criar token sob demanda: ${createResult.error}`, deviceId);
+            oplog(svc, user.id, "token_on_demand_failed", `Falha ao criar token sob demanda: ${createResult.error}`, deviceId);
           }
         } else {
           console.log(`[evolution-connect] cannot create on-demand: BASE_URL=${BASE_URL ? 'set' : 'MISSING'} ADMIN_TOKEN=${ADMIN_TOKEN ? 'set' : 'MISSING'}`);
@@ -733,7 +733,7 @@ Deno.serve(async (req) => {
       // Set proxy if provided — BLOCKING
       if (body.proxyConfig?.host) {
         const proxyResult = await setProxy(instanceUrl, instanceToken, body.proxyConfig);
-        await oplog(svc, user.id, proxyResult.ok ? "proxy_configured" : "proxy_failed",
+        oplog(svc, user.id, proxyResult.ok ? "proxy_configured" : "proxy_failed",
           `Proxy ${proxyResult.ok ? "OK" : "FALHA"} para "${deviceName}"`, deviceId,
           { host: body.proxyConfig.host, success: proxyResult.ok, error: proxyResult.error });
         if (!proxyResult.ok) {
@@ -781,7 +781,7 @@ Deno.serve(async (req) => {
             uazapi_token: null, uazapi_base_url: null,
           }).eq("id", deviceId),
         ]);
-        await oplog(svc, user.id, "token_invalid_rollback", `Token inválido revertido para "${deviceName}" (tentativa ${tokenAttempt})`, deviceId);
+        oplog(svc, user.id, "token_invalid_rollback", `Token inválido revertido para "${deviceName}" (tentativa ${tokenAttempt})`, deviceId);
 
         // ── Find next available token ──
         let nextToken: any = null;
@@ -811,7 +811,7 @@ Deno.serve(async (req) => {
               instanceToken = createResult.token;
               instanceUrl = BASE_URL;
               console.log(`[evolution-connect] report_wa new token created: ${instName}`);
-              await oplog(svc, user.id, "monitor_token_regenerated", `Token monitor regenerado: ${instName}`, deviceId);
+              oplog(svc, user.id, "monitor_token_regenerated", `Token monitor regenerado: ${instName}`, deviceId);
               continue; // retry connect with new token
             }
             console.log(`[evolution-connect] report_wa on-demand failed: ${createResult.error}`);
@@ -837,7 +837,7 @@ Deno.serve(async (req) => {
               instanceToken = createResult.token;
               instanceUrl = BASE_URL;
               console.log(`[evolution-connect] on-demand token created in retry: ${instName}`);
-              await oplog(svc, user.id, "token_on_demand_retry", `Token gerado sob demanda (retry): ${instName}`, deviceId);
+              oplog(svc, user.id, "token_on_demand_retry", `Token gerado sob demanda (retry): ${instName}`, deviceId);
               continue; // retry connect with new token
             }
             console.log(`[evolution-connect] on-demand retry failed: ${createResult.error}`);
