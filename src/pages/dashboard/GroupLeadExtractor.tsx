@@ -290,9 +290,13 @@ export default function GroupLeadExtractor() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <p className="text-sm font-medium truncate">{g.name}</p>
-                        {g.is_community && (
-                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0 border-blue-500/40 text-blue-400">
-                            Comunidade
+                        {g.is_community ? (
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0 border-blue-500/40 text-blue-400 bg-blue-500/10">
+                            👥 Comunidade
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0 border-emerald-500/40 text-emerald-400 bg-emerald-500/10">
+                            Grupo
                           </Badge>
                         )}
                       </div>
