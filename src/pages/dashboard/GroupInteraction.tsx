@@ -661,73 +661,21 @@ export default function GroupInteractionPage() {
                   <GIStatusPanel
                     interaction={(selectedPresentation || selected)!}
                     deviceName={selected?.device_id ? (deviceMap.get(selected.device_id)?.name || "Instância removida") : "Sem instância"}
+                    eligibleDevices={eligibleDevices}
+                    selectedDeviceId={form.device_id}
+                    onDeviceChange={(v) => updateForm({ device_id: v })}
+                    displayStatus={selectedDisplayStatus}
+                    onAction={handleAction}
+                    actionPending={invokeAction.isPending}
+                    onDelete={() => {
+                      if (confirm("Excluir esta automação?")) {
+                        deleteInteraction.mutate(selectedId);
+                        setSelectedId(null);
+                        setShowConfig(false);
+                      }
+                    }}
                   />
-
-                  <div className="flex items-center gap-3">
-                    {selectedDisplayStatus === "running" ? (
-                      <button
-                        onClick={() => handleAction("pause")}
-                        disabled={invokeAction.isPending}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-amber-500/20 bg-amber-500/5 text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 disabled:opacity-40 text-xs font-medium transition-all"
-                      >
-                        <Pause className="w-3.5 h-3.5" strokeWidth={1.8} /> Pausar
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleAction("start")}
-                        disabled={invokeAction.isPending || Boolean(selectedInvalidReason)}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-all"
-                      >
-                        <Play className="w-3.5 h-3.5" strokeWidth={1.8} /> {selectedDisplayStatus === "paused" ? "Retomar" : "Iniciar"}
-                      </button>
-                    )}
-
-                    <div className="ml-auto">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-muted-foreground/40 hover:text-destructive"
-                        onClick={() => {
-                          if (confirm("Excluir esta automação?")) {
-                            deleteInteraction.mutate(selectedId);
-                            setSelectedId(null);
-                            setShowConfig(false);
-                          }
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
                 </>
-              )}
-
-              {/* Device selector for single mode */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">Dispositivo</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Select
-                    value={form.device_id || ""}
-                    onValueChange={(v) => updateForm({ device_id: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecionar dispositivo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {eligibleDevices.map((d: any) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {d.name} {d.number ? `(${d.number})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {eligibleDevices.length === 0 && (
-                    <p className="text-xs text-muted-foreground mt-2">Nenhum dispositivo encontrado.</p>
-                  )}
-                </CardContent>
-              </Card>
 
               {renderFormFields()}
 
