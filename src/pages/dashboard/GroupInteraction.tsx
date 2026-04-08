@@ -734,19 +734,15 @@ export default function GroupInteractionPage() {
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="Selecionar instância" />
                 </SelectTrigger>
-                <SelectContent>
-                  {(filteredDevices || []).map((d: any) => {
-                    const isEligible = eligibleDevices.some((e: any) => e.id === d.id);
-                    return (
-                      <SelectItem key={d.id} value={d.id}>
-                        <span className="flex items-center gap-2">
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isEligible ? "bg-emerald-500" : "bg-destructive"}`} />
-                          {d.name} {d.number ? `(${d.number})` : ""}
-                          {!isEligible && <span className="text-[10px] text-destructive">(offline)</span>}
-                        </span>
-                      </SelectItem>
-                    );
-                  })}
+                <SelectContent position="popper" sideOffset={4} className="max-h-[200px]">
+                  {eligibleDevices.map((d: any) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      <span className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500" />
+                        {d.name} {d.number ? `(${d.number})` : ""}
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
