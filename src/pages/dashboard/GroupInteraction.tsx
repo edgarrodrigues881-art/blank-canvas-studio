@@ -735,7 +735,7 @@ export default function GroupInteractionPage() {
                   <SelectValue placeholder="Selecionar instância" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(devices || []).map((d: any) => {
+                  {(filteredDevices || []).map((d: any) => {
                     const isEligible = eligibleDevices.some((e: any) => e.id === d.id);
                     return (
                       <SelectItem key={d.id} value={d.id}>
