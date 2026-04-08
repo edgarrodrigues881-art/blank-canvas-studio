@@ -35,6 +35,7 @@ const nodeTypes = {
   startNode: StartNode,
   messageNode: MessageNode,
   delayNode: DelayNode,
+  conditionNode: ConditionNode,
   endNode: EndNode,
 };
 
