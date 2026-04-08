@@ -372,16 +372,14 @@ const Conversations = () => {
                 >
                   <Zap className="w-4 h-4" />
                 </Button>
-                {onNewConversationClick => (
-                  <Button
-                    size="sm"
-                    className="h-8 rounded-lg px-3 text-xs gap-1.5 ml-1"
-                    onClick={() => setNewConversationOpen(true)}
-                  >
-                    <MessageSquarePlus className="w-3.5 h-3.5" />
-                    Nova
-                  </Button>
-                )}
+                <Button
+                  size="sm"
+                  className="h-8 rounded-lg px-3 text-xs gap-1.5 ml-1"
+                  onClick={() => setNewConversationOpen(true)}
+                >
+                  <MessageSquarePlus className="w-3.5 h-3.5" />
+                  Nova
+                </Button>
               </div>
             </div>
             <ConversationList
