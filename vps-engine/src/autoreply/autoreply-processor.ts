@@ -345,16 +345,7 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
               return;
             }
           }
-          if (!clickedButton) {
-            const labelMatch = currentNode.data.buttons.find(b => b.label.toLowerCase() === messageText.toLowerCase().trim());
-            if (labelMatch) {
-              const target = findNextNodeForButton(currentNode.id, labelMatch.id, edges) || labelMatch.targetNodeId;
-              if (target) {
-                await processNodeChain(db, baseUrl, deviceToken, fromPhone, target, nodes, edges, session.id, flow.id, deviceId, userId);
-                return;
-              }
-            }
-          }
+          // Label fallback disabled — only real button clicks advance the flow
         }
 
         const nextNodes = findNextNodes(session.current_node_id, edges);
