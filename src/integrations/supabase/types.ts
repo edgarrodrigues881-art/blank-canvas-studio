@@ -2593,6 +2593,7 @@ export type Database = {
           error_count: number
           group_links: Json
           id: string
+          limit_per_instance: number | null
           max_delay: number
           min_delay: number
           name: string
@@ -2614,6 +2615,7 @@ export type Database = {
           error_count?: number
           group_links?: Json
           id?: string
+          limit_per_instance?: number | null
           max_delay?: number
           min_delay?: number
           name: string
@@ -2635,6 +2637,7 @@ export type Database = {
           error_count?: number
           group_links?: Json
           id?: string
+          limit_per_instance?: number | null
           max_delay?: number
           min_delay?: number
           name?: string
