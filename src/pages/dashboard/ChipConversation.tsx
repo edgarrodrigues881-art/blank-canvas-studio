@@ -465,9 +465,6 @@ function ConversationCard({
                 Iniciar
               </button>
               <div className="flex-1" />
-              <button onClick={onToggleExpand} className="text-muted-foreground/40 hover:text-muted-foreground transition-colors p-1">
-                {expanded ? <ChevronUp className="w-4 h-4" strokeWidth={1.5} /> : <ChevronDown className="w-4 h-4" strokeWidth={1.5} />}
-              </button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <button className="text-muted-foreground/30 hover:text-destructive transition-colors p-1">
