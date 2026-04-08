@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import {
   useChipConversations,
   useChipConversationLogs,
@@ -150,6 +151,7 @@ function useDevices() {
 }
 
 export default function ChipConversation() {
+  const { user } = useAuth();
   const { data: conversations = [], isLoading } = useChipConversations();
   const { data: devices = [] } = useDevices();
   const actions = useChipConversationActions();
@@ -158,6 +160,22 @@ export default function ChipConversation() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingConv, setEditingConv] = useState<ChipConversation | null>(null);
   const deviceMap = useMemo(() => new Map(devices.map((device: any) => [device.id, device])), [devices]);
+
+  // Persistent cumulative stats from log tables (never lost on deletion)
+  const { data: cumulativeStats } = useQuery({
+    queryKey: ["chip-cumulative-stats", user?.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("chip_conversation_logs")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user!.id)
+        .eq("status", "sent");
+      return { totalMessages: count ?? 0 };
+    },
+    enabled: !!user?.id,
+    refetchInterval: () => document.hidden ? false : 60_000,
+    staleTime: 30_000,
+  });
 
   const busyDeviceIds = useMemo(
     () => new Set(
@@ -252,7 +270,31 @@ export default function ChipConversation() {
         </Dialog>
       </div>
 
-      {/* Edit Dialog */}
+      {/* Persistent cumulative stats */}
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="border-border/50 bg-card p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-blue-500/10 flex items-center justify-center">
+              <MessageCircle className="w-4 h-4 text-blue-400" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Mensagens Entregues</p>
+              <p className="text-xl font-bold text-foreground tabular-nums">{(cumulativeStats?.totalMessages ?? 0).toLocaleString("pt-BR")}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="border-border/50 bg-card p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+              <ArrowRightLeft className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Automações Ativas</p>
+              <p className="text-xl font-bold text-foreground tabular-nums">{conversations.filter(c => normalizeConversationStatus(c.status) === "running").length}</p>
+            </div>
+          </div>
+        </Card>
+      </div>
       <Dialog open={!!editingConv} onOpenChange={(open) => !open && setEditingConv(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>

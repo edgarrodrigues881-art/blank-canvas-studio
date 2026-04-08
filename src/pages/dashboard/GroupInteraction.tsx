@@ -129,7 +129,23 @@ export default function GroupInteractionPage() {
   const [bulkDeviceIds, setBulkDeviceIds] = useState<string[]>([]);
   const [usePeriod2, setUsePeriod2] = useState(false);
   const [groupSource, setGroupSource] = useState<"system" | "custom">("system");
-  
+
+  // Persistent cumulative stats from log tables (never lost on deletion)
+  const { data: groupCumulativeStats } = useQuery({
+    queryKey: ["group-cumulative-stats", user?.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("group_interaction_logs" as any)
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user!.id)
+        .eq("status", "sent");
+      return { totalMessages: (count as number) ?? 0 };
+    },
+    enabled: !!user?.id,
+    refetchInterval: () => document.hidden ? false : 60_000,
+    staleTime: 30_000,
+  });
+
 
   const { data: devices = [] } = useQuery({
     queryKey: ["devices-gi", user?.id],
@@ -456,6 +472,38 @@ export default function GroupInteractionPage() {
           </>
         )}
       </div>
+
+      {/* Persistent cumulative stats */}
+      {!showConfig && !showBulkCreate && (
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="border-border/50 bg-card">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-violet-500/10 flex items-center justify-center">
+                  <MessageCircle className="w-4 h-4 text-violet-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Mensagens Entregues</p>
+                  <p className="text-xl font-bold text-foreground tabular-nums">{(groupCumulativeStats?.totalMessages ?? 0).toLocaleString("pt-BR")}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 bg-card">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Users className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Automações Ativas</p>
+                  <p className="text-xl font-bold text-foreground tabular-nums">{interactions.filter(i => i.status === "running").length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Campaign list */}
       {!showConfig && !showBulkCreate && interactions.length > 0 && (
