@@ -180,10 +180,19 @@ export function ConversationList({
     setSelectedIds(new Set());
   };
 
+  const selectedCountLabel = `${selectedIds.size} selecionada${selectedIds.size > 1 ? "s" : ""}`;
+  const contextMenuLeft =
+    typeof window === "undefined"
+      ? contextPos.x
+      : Math.max(8, Math.min(contextPos.x + 6, window.innerWidth - 192));
+  const contextMenuTop =
+    typeof window === "undefined"
+      ? contextPos.y
+      : Math.max(8, Math.min(contextPos.y + 6, window.innerHeight - 220));
+
   return (
     <div className="flex flex-col h-full bg-background">
-      <div className="px-3 pt-2.5 pb-2 space-y-2.5">
-        {/* Search bar — full width */}
+      <div className="px-3 pt-2.5 pb-2 space-y-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
           <Input
@@ -208,41 +217,61 @@ export function ConversationList({
           </div>
         )}
 
-        {/* Bulk action bar — only when selection mode is on */}
         {selectionMode && (
-          <div className="flex items-center gap-1.5 py-1 px-0.5">
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-border/50 bg-muted/20 px-2 py-1.5">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
+                <CheckSquare className="w-3.5 h-3.5" />
+                {selectedCountLabel}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 rounded-lg px-2 text-[11px] gap-1.5"
+                onClick={selectedIds.size === filtered.length ? () => setSelectedIds(new Set()) : selectAllVisible}
+              >
+                {selectedIds.size === filtered.length ? <Square className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
+                {selectedIds.size === filtered.length ? "Desmarcar" : "Todas"}
+              </Button>
+              {selectedIds.size > 0 && onBulkArchive && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 rounded-lg px-2 text-[11px] gap-1.5"
+                  onClick={() => {
+                    onBulkArchive(Array.from(selectedIds));
+                    exitSelectionMode();
+                  }}
+                >
+                  <Archive className="w-3.5 h-3.5" /> Arquivar
+                </Button>
+              )}
+              {selectedIds.size > 0 && onBulkDelete && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 rounded-lg px-2 text-[11px] gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => {
+                    onBulkDelete(Array.from(selectedIds));
+                    exitSelectionMode();
+                  }}
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Apagar
+                </Button>
+              )}
+            </div>
+
             <Button
               variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-[11px] gap-1"
-              onClick={selectedIds.size === filtered.length ? () => setSelectedIds(new Set()) : selectAllVisible}
+              size="icon"
+              className="h-7 w-7 shrink-0 rounded-lg text-muted-foreground hover:text-foreground"
+              onClick={exitSelectionMode}
             >
-              {selectedIds.size === filtered.length ? <Square className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
-              {selectedIds.size === filtered.length ? "Desmarcar" : "Todas"} ({filtered.length})
-            </Button>
-            <div className="flex-1" />
-            {selectedIds.size > 0 && (
-              <>
-                <span className="text-[10px] text-muted-foreground">{selectedIds.size} selecionada{selectedIds.size > 1 ? "s" : ""}</span>
-                {onBulkArchive && (
-                  <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] gap-1" onClick={() => { onBulkArchive(Array.from(selectedIds)); exitSelectionMode(); }}>
-                    <Archive className="w-3 h-3" /> Arquivar
-                  </Button>
-                )}
-                {onBulkDelete && (
-                  <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] gap-1 text-destructive hover:text-destructive" onClick={() => { onBulkDelete(Array.from(selectedIds)); exitSelectionMode(); }}>
-                    <Trash2 className="w-3 h-3" /> Apagar
-                  </Button>
-                )}
-              </>
-            )}
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] gap-1 text-muted-foreground" onClick={exitSelectionMode}>
-              <XCircle className="w-3.5 h-3.5" /> Cancelar
+              <XCircle className="w-3.5 h-3.5" />
             </Button>
           </div>
         )}
 
-        {/* Pill tabs — modern style with scroll */}
         <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-0.5 pb-0.5">
           {statusTabs.map((tab) => {
             const count = statusCount(tab.key);
@@ -272,7 +301,6 @@ export function ConversationList({
           })}
         </div>
 
-        {/* Instance filter chips */}
         {availableInstances.length > 1 && (
           <div className="flex items-center gap-1 overflow-x-auto scrollbar-none text-[10px]">
             <Smartphone className="w-3 h-3 shrink-0 text-muted-foreground/50" />
@@ -308,7 +336,6 @@ export function ConversationList({
         )}
       </div>
 
-      {/* Subtle divider */}
       <div className="h-px bg-border/30" />
 
       <ScrollArea className="flex-1">
@@ -325,7 +352,6 @@ export function ConversationList({
               const avatarLabel = displayName || c.phone;
               const avatarCls = getAvatarColor(avatarLabel);
               const mediaPreview = getMessagePreview(c.lastMessage);
-              const matchCtx = getMatchContext(c, trimmedQuery);
               const matchedTags = trimmedQuery
                 ? (c.tags || []).filter((t) => t.toLowerCase().includes(trimmedQuery.toLowerCase()))
                 : [];
@@ -340,9 +366,10 @@ export function ConversationList({
                   }}
                 >
                   <button
-                    onClick={() => selectionMode ? toggleSelect(c.id) : onSelect(c)}
+                    onClick={() => (selectionMode ? toggleSelect(c.id) : onSelect(c))}
                     className={cn(
-                      "w-full flex items-center gap-3 px-3 py-3 text-left transition-all",
+                      "w-full flex items-center text-left transition-all",
+                      selectionMode ? "gap-2.5 px-2.5 py-2.5" : "gap-3 px-3 py-3",
                       isSelected
                         ? "bg-primary/10"
                         : hasUnread
@@ -361,9 +388,19 @@ export function ConversationList({
                     )}
                     <div className="relative shrink-0">
                       {c.avatar_url ? (
-                        <img src={c.avatar_url} alt={avatarLabel} className="w-12 h-12 rounded-full object-cover" />
+                        <img
+                          src={c.avatar_url}
+                          alt={avatarLabel}
+                          className={cn("rounded-full object-cover", selectionMode ? "w-10 h-10" : "w-12 h-12")}
+                        />
                       ) : (
-                        <div className={cn("w-12 h-12 rounded-full flex items-center justify-center text-base font-bold", avatarCls)}>
+                        <div
+                          className={cn(
+                            "rounded-full flex items-center justify-center font-bold",
+                            selectionMode ? "w-10 h-10 text-sm" : "w-12 h-12 text-base",
+                            avatarCls,
+                          )}
+                        >
                           {avatarLabel.slice(0, 2).toUpperCase()}
                         </div>
                       )}
@@ -375,7 +412,8 @@ export function ConversationList({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <span className={cn(
-                          "text-sm truncate",
+                          "truncate",
+                          selectionMode ? "text-[15px]" : "text-sm",
                           hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/90"
                         )}>
                           {trimmedQuery ? (
@@ -385,7 +423,8 @@ export function ConversationList({
                           )}
                         </span>
                         <span className={cn(
-                          "text-[11px] shrink-0",
+                          "shrink-0",
+                          selectionMode ? "text-[10px]" : "text-[11px]",
                           hasUnread ? "text-emerald-400 font-semibold" : "text-muted-foreground/50"
                         )}>
                           {c.lastMessageAt ? formatDate(c.lastMessageAt) : ""}
@@ -396,7 +435,8 @@ export function ConversationList({
                         <div className="flex items-center gap-1 min-w-0 flex-1">
                           {c.lastMessageStatus && <MessageTicks status={c.lastMessageStatus} />}
                           <p className={cn(
-                            "text-xs truncate",
+                            "truncate",
+                            selectionMode ? "text-[12px]" : "text-xs",
                             hasUnread ? "text-foreground/80 font-medium" : "text-muted-foreground/60"
                           )}>
                             {c.status === "typing" ? (
@@ -446,7 +486,6 @@ export function ConversationList({
         </div>
       </ScrollArea>
 
-      {/* Context menu (right-click) */}
       {contextMenuId && createPortal(
         <div
           className="fixed inset-0 z-[9999]"
@@ -454,15 +493,15 @@ export function ConversationList({
           onContextMenu={(e) => { e.preventDefault(); setContextMenuId(null); }}
         >
           <div
-            className="fixed bg-popover border border-border rounded-lg shadow-xl py-0.5 min-w-[160px] animate-in fade-in-0 zoom-in-95 z-[51]"
+            className="fixed z-[51] w-[176px] rounded-xl border border-border/60 bg-popover/95 p-1 shadow-2xl backdrop-blur-md animate-in fade-in-0 zoom-in-95"
             style={{
-              left: Math.min(contextPos.x, window.innerWidth - 180),
-              top: Math.min(contextPos.y, window.innerHeight - 200),
+              left: contextMenuLeft,
+              top: contextMenuTop,
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted/50 transition-colors"
+              className="flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[12px] font-medium text-foreground transition-colors hover:bg-muted/60"
               onClick={() => {
                 setSelectionMode(true);
                 setSelectedIds(new Set([contextMenuId]));
@@ -475,7 +514,7 @@ export function ConversationList({
 
             {onBulkArchive && (
               <button
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted/50 transition-colors"
+                className="flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[12px] font-medium text-foreground transition-colors hover:bg-muted/60"
                 onClick={() => {
                   onBulkArchive([contextMenuId]);
                   setContextMenuId(null);
@@ -487,7 +526,7 @@ export function ConversationList({
             )}
 
             <button
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted/50 transition-colors"
+              className="flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[12px] font-medium text-foreground transition-colors hover:bg-muted/60"
               onClick={() => {
                 const conv = filtered.find((c) => c.id === contextMenuId);
                 if (conv) onSelect(conv);
@@ -498,11 +537,11 @@ export function ConversationList({
               Marcar com tag
             </button>
 
-            <div className="h-px bg-border/50 my-0.5" />
+            <div className="my-1 h-px bg-border/50" />
 
             {onBulkDelete && (
               <button
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors"
+                className="flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[12px] font-medium text-destructive transition-colors hover:bg-destructive/10"
                 onClick={() => {
                   onBulkDelete([contextMenuId]);
                   setContextMenuId(null);
