@@ -77,7 +77,7 @@ const ContactRow = memo(function ContactRow({ contact, index, selectMode, isSele
         {selectMode ? (
           <Checkbox checked={isSelected} onCheckedChange={() => onToggleSelect(contact.id, index, false)} onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleSelect(contact.id, index, e.shiftKey); }} />
         ) : (
-          <span className="text-xs text-muted-foreground tabular-nums">{index}</span>
+          <span className="text-xs text-muted-foreground tabular-nums">{index + 1}</span>
         )}
       </div>
       <div className="p-2 font-medium text-foreground truncate">{contact.name}</div>
