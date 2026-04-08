@@ -1,6 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Activity, Clock, MessageCircle, Users, Zap } from "lucide-react";
+import { Activity, Clock, MessageCircle, Users, Zap, Smartphone } from "lucide-react";
 import type { GroupInteraction } from "@/hooks/useGroupInteraction";
 import { formatBrazilTime, getBrazilNow } from "@/lib/brazilTime";
 
@@ -42,73 +41,73 @@ function getTimeRemaining(endHour: string): string {
   return hrs > 0 ? `${hrs}h ${mins % 60}m restantes` : `${mins}m restantes`;
 }
 
-export default function GIStatusPanel({ interaction }: { interaction: GroupInteraction }) {
+interface GIStatusPanelProps {
+  interaction: GroupInteraction;
+  deviceName?: string;
+}
+
+export default function GIStatusPanel({ interaction, deviceName }: GIStatusPanelProps) {
   const cfg = statusConfig[interaction.status] || statusConfig.idle;
   const inSchedule = isWithinSchedule(interaction.start_hour, interaction.end_hour);
 
-  const stats = [
-    {
-      icon: Activity,
-      label: "Status",
-      value: (
-        <Badge variant="outline" className={`text-[10px] ${cfg.color}`}>
-          {cfg.label}
-        </Badge>
-      ),
-    },
-    {
-      icon: MessageCircle,
-      label: "Mensagens totais",
-      value: <span className="font-mono text-sm">{interaction.total_messages_sent ?? 0}</span>,
-    },
-    {
-      icon: Users,
-      label: "Grupos",
-      value: <span className="text-sm">{(interaction.group_ids || []).length}</span>,
-    },
-    {
-      icon: Clock,
-      label: "Janela",
-      value: (
-        <div className="flex items-center gap-1.5">
-          <div className={`w-2 h-2 rounded-full ${inSchedule ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/40"}`} />
-          <span className="text-xs">{inSchedule ? getTimeRemaining(interaction.end_hour) : "Fora do horário"}</span>
-        </div>
-      ),
-    },
-    {
-      icon: Zap,
-      label: "Último envio",
-      value: (
-        <span className="text-xs text-muted-foreground">
-          {interaction.last_sent_at
-            ? formatBrazilTime(interaction.last_sent_at)
-            : "—"}
-        </span>
-      ),
-    },
-  ];
-
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-          {stats.map((s) => (
-            <div key={s.label} className="flex flex-col gap-1">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <s.icon className="w-3.5 h-3.5" />
-                <span className="text-[11px] uppercase tracking-wider font-medium">{s.label}</span>
-              </div>
-              {s.value}
-            </div>
-          ))}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Status Card */}
+      <div className="rounded-2xl border border-border/30 bg-card p-5 space-y-4">
+        <div className="flex items-center gap-2 text-muted-foreground mb-1">
+          <Activity className="w-4 h-4" />
+          <span className="text-xs font-semibold uppercase tracking-wider">Resumo</span>
         </div>
-        {interaction.last_error && !/502|503|504|Bad Gateway|Service Unavailable|Gateway Timeout|ECONNREFUSED|ECONNRESET|ETIMEDOUT|socket hang up/i.test(interaction.last_error) && (
-          <div className="mt-3 p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
-            {interaction.last_error}
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium">Status</span>
+            <Badge variant="outline" className={`text-[10px] w-fit ${cfg.color}`}>
+              {cfg.label}
+            </Badge>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium">Mensagens</span>
+            <span className="font-mono text-lg font-bold text-foreground">{interaction.total_messages_sent ?? 0}</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium">Grupos</span>
+            <span className="text-lg font-bold text-foreground">{(interaction.group_ids || []).length}</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium">Último envio</span>
+            <span className="text-xs text-muted-foreground mt-0.5">
+              {interaction.last_sent_at ? formatBrazilTime(interaction.last_sent_at) : "—"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Instance + Schedule Card */}
+      <div className="rounded-2xl border border-border/30 bg-card p-5 space-y-4">
+        <div className="flex items-center gap-2 text-muted-foreground mb-1">
+          <Smartphone className="w-4 h-4" />
+          <span className="text-xs font-semibold uppercase tracking-wider">Instância & Horário</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1 col-span-2">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium">Dispositivo</span>
+            <span className="text-sm font-semibold text-foreground truncate">{deviceName || "Sem instância"}</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium">Janela</span>
+            <div className="flex items-center gap-1.5">
+              <div className={`w-2 h-2 rounded-full ${inSchedule ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/40"}`} />
+              <span className="text-xs">{inSchedule ? getTimeRemaining(interaction.end_hour) : "Encerrado"}</span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium">Horário</span>
+            <span className="text-xs text-muted-foreground">{interaction.start_hour} – {interaction.end_hour}</span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
