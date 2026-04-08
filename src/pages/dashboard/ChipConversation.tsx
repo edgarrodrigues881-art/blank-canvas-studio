@@ -486,16 +486,15 @@ function ConversationCard({
               <button
                 onClick={() => handleAction("pause")}
                 disabled={isActionLoading}
-                className="flex items-center gap-1.5 text-amber-400 hover:text-amber-300 disabled:opacity-40 text-xs font-medium transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 disabled:opacity-40 text-xs font-medium transition-all"
               >
                 <Pause className="w-3.5 h-3.5" strokeWidth={1.8} /> Pausar
               </button>
-              <span className="text-border/30 select-none">·</span>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <button
                     disabled={isActionLoading}
-                    className="flex items-center gap-1.5 text-muted-foreground/50 hover:text-destructive disabled:opacity-40 text-xs font-medium transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/20 bg-muted/5 text-muted-foreground/60 hover:border-destructive/30 hover:text-destructive/80 hover:bg-destructive/5 disabled:opacity-40 text-xs font-medium transition-all"
                   >
                     <XCircle className="w-3.5 h-3.5" strokeWidth={1.8} /> Parar
                   </button>
