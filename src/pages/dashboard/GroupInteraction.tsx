@@ -145,9 +145,13 @@ export default function GroupInteractionPage() {
     enabled: !!user,
   });
 
-  const eligibleDevices = useMemo(() => {
-    return devices.filter((device: any) => isGroupInteractionDeviceEligible(device));
+  const filteredDevices = useMemo(() => {
+    return devices.filter((d: any) => !BLOCKED_GROUP_DEVICE_TYPES.has(String(d.instance_type || "").trim().toLowerCase()));
   }, [devices]);
+
+  const eligibleDevices = useMemo(() => {
+    return filteredDevices.filter((device: any) => isGroupInteractionDeviceEligible(device));
+  }, [filteredDevices]);
 
   const deviceMap = useMemo(() => new Map(devices.map((device: any) => [device.id, device])), [devices]);
 
