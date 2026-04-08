@@ -44,3 +44,8 @@ let _btnIdCounter = Date.now() + 1000;
 export function nextBtnId(): string {
   return `btn-${++_btnIdCounter}`;
 }
+
+let _condIdCounter = Date.now() + 2000;
+export function nextCondId(): string {
+  return `cond-${++_condIdCounter}`;
+}
