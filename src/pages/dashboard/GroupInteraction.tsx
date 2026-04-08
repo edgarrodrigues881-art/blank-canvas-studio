@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import {
   Play, Pause, Plus, Save, MessageCircle, Clock,
-  Users, Settings, ArrowLeft, Layers,
+  Users, Settings, ArrowLeft, Layers, Smartphone,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
