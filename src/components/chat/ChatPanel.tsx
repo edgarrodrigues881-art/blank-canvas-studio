@@ -184,6 +184,8 @@ export function ChatPanel({
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedMsgIds, setSelectedMsgIds] = useState<Set<string>>(new Set());
 
   const scrollToBottomAfterSend = useCallback(() => {
     setIsNearBottom(true);
