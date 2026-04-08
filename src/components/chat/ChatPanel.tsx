@@ -439,12 +439,12 @@ export function ChatPanel({
       >
         {messages.map((msg, i) => {
           const showDate = i === 0 || format(new Date(messages[i - 1].timestamp), "dd/MM/yyyy") !== format(new Date(msg.timestamp), "dd/MM/yyyy");
-          // Only show device label when it changes from previous message
           const prevMsg = i > 0 ? messages[i - 1] : null;
           const showDevice = !!(instances && instances.length > 1) && msg.deviceName !== prevMsg?.deviceName;
+          const directionChanged = prevMsg && prevMsg.type !== msg.type;
 
           return (
-            <div key={msg.id} id={`msg-${msg.id}`} className={cn("animate-fade-in transition-colors duration-500", highlightedMsgId === msg.id && "bg-primary/10 rounded-lg")}>
+            <div key={msg.id} id={`msg-${msg.id}`} className={cn("animate-fade-in transition-colors duration-500", directionChanged && !showDate && "mt-3", highlightedMsgId === msg.id && "bg-primary/10 rounded-lg")}>
               {showDate && (
                 <div className="flex justify-center my-4">
                   <span className="text-[10px] font-medium text-muted-foreground/70 bg-muted/60 px-3 py-1 rounded-full">
