@@ -27,6 +27,44 @@ function getMediaLabel(mediaType: string | null): string {
   }
 }
 
+interface FlowButtonConfig {
+  id?: string;
+  label?: string;
+  targetNodeId?: string;
+}
+
+interface FlowNodeConfig {
+  id?: string;
+  type?: string;
+  data?: {
+    buttons?: FlowButtonConfig[];
+  };
+}
+
+interface ActiveFlowConfig {
+  id: string;
+  device_id: string | null;
+  nodes: unknown;
+}
+
+function findFlowButtonOrigin(flows: ActiveFlowConfig[], buttonResponseId: string, deviceId: string) {
+  const matches: Array<{ flowId: string; nodeId: string; deviceId: string | null }> = [];
+
+  for (const flow of flows) {
+    const nodes = Array.isArray(flow.nodes) ? flow.nodes as FlowNodeConfig[] : [];
+    for (const node of nodes) {
+      if (!node?.id) continue;
+      const buttons = Array.isArray(node.data?.buttons) ? node.data.buttons : [];
+      if (buttons.some((button) => button?.id === buttonResponseId)) {
+        matches.push({ flowId: flow.id, nodeId: node.id, deviceId: flow.device_id ?? null });
+      }
+    }
+  }
+
+  matches.sort((a, b) => Number(b.deviceId === deviceId) - Number(a.deviceId === deviceId));
+  return matches[0] ?? null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -292,13 +330,48 @@ Deno.serve(async (req) => {
       try {
         const { data: activeFlows } = await admin
           .from("autoreply_flows")
-          .select("id")
+          .select("id, device_id, nodes")
           .eq("user_id", device.user_id)
           .eq("is_active", true)
           .or(`device_id.eq.${device.id},device_id.is.null`)
           .limit(1);
 
         if (activeFlows && activeFlows.length > 0) {
+          if (buttonResponseId) {
+            const { data: activeSession } = await admin
+              .from("autoreply_sessions")
+              .select("id")
+              .eq("device_id", device.id)
+              .eq("contact_phone", phone)
+              .in("status", ["active", "paused", "waiting_response"])
+              .order("updated_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (!activeSession) {
+              const recovered = findFlowButtonOrigin(activeFlows as ActiveFlowConfig[], buttonResponseId, device.id);
+              if (recovered) {
+                const { error: sessionErr } = await admin.from("autoreply_sessions").upsert({
+                  flow_id: recovered.flowId,
+                  device_id: device.id,
+                  user_id: device.user_id,
+                  contact_phone: phone,
+                  current_node_id: recovered.nodeId,
+                  status: "active",
+                  last_message_at: new Date().toISOString(),
+                }, { onConflict: "flow_id,device_id,contact_phone" });
+
+                if (sessionErr) {
+                  console.error("autoreply session recovery error:", sessionErr);
+                } else {
+                  console.log(`Recovered autoreply session for button ${buttonResponseId} on flow ${recovered.flowId}`);
+                }
+              } else {
+                console.log(`No autoreply node matched button ${buttonResponseId} on ${device.name}`);
+              }
+            }
+          }
+
           const { error: queueErr } = await admin.from("autoreply_queue").insert({
             device_id: device.id,
             user_id: device.user_id,
