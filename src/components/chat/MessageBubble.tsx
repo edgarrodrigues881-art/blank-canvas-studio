@@ -393,7 +393,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
           onTouchEnd={handleTouchEnd}
           onContextMenu={(e) => { e.preventDefault(); setShowActions(true); }}
           className={cn(
-            "min-w-[48px] rounded-xl relative",
+            "min-w-[48px] max-w-full rounded-xl relative overflow-hidden",
             msg.mediaType === "image" && msg.mediaUrl
               ? "w-full max-w-[260px] p-1.5"
               : "w-fit px-2.5 py-1.5",
