@@ -504,14 +504,8 @@ const Conversations = () => {
             />
           </div>
 
-          {selectedConversation && (
-            <div
-              onMouseDown={handleMouseDown}
-              className="hidden md:flex items-center justify-center w-1.5 cursor-col-resize group hover:bg-primary/20 active:bg-primary/30 transition-colors shrink-0 relative"
-            >
-              <div className="w-0.5 h-8 rounded-full bg-border group-hover:bg-primary/50 group-active:bg-primary transition-colors" />
-            </div>
-          )}
+          {/* Fixed divider */}
+          <div className="hidden md:block w-px bg-border/50 shrink-0" />
 
           {selectedConversation ? (
             <div className="flex flex-col flex-1 min-w-0">
