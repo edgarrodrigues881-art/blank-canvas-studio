@@ -72,13 +72,15 @@ interface ContactRowProps {
   getTagColor: (tag: string) => string;
 }
 
-const ContactRow = memo(function ContactRow({ contact, index, selectMode, isSelected, onToggleSelect, onRemoveTag, onDelete, onEdit, getTagColor }: ContactRowProps): ReactElement {
+const ContactRow = memo(function ContactRow({ contact, index, selectMode, isSelected, onToggleSelect, onDragStart, onDragEnter, onRemoveTag, onDelete, onEdit, getTagColor }: ContactRowProps): ReactElement {
   return (
-    <div className="grid items-center border-b border-primary/5 hover:bg-primary/[0.02] text-sm transition-colors" style={{ minWidth: TABLE_MIN_WIDTH, gridTemplateColumns: TABLE_GRID_COLS }}>
-      <div
-        className="p-2 flex items-center justify-center cursor-pointer"
-        onClick={(e: React.MouseEvent) => { if (selectMode) onToggleSelect(contact.id, index, e.shiftKey); }}
-      >
+    <div
+      className="grid items-center border-b border-primary/5 hover:bg-primary/[0.02] text-sm transition-colors select-none"
+      style={{ minWidth: TABLE_MIN_WIDTH, gridTemplateColumns: TABLE_GRID_COLS }}
+      onMouseDown={() => { if (selectMode) { onToggleSelect(contact.id); onDragStart(index); } }}
+      onMouseEnter={() => { if (selectMode) onDragEnter(index); }}
+    >
+      <div className="p-2 flex items-center justify-center cursor-pointer">
         {selectMode ? (
           <Checkbox checked={isSelected} tabIndex={-1} className="pointer-events-none" />
         ) : (
