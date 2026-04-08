@@ -13,7 +13,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Zap, Bell, MessageSquarePlus, Trash2, Pencil } from "lucide-react";
+import { Zap, Bell, MessageSquarePlus, Trash2, Pencil, Smartphone, ChevronDown, Check } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";

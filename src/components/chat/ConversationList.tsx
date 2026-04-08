@@ -303,44 +303,6 @@ export function ConversationList({
           })}
         </div>
 
-        {availableInstances.length > 1 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-7 rounded-lg text-[11px] gap-1.5 border-border/40 text-muted-foreground hover:text-foreground">
-                <Smartphone className="w-3 h-3" />
-                {filterInstanceIds.length === 0
-                  ? "Instância"
-                  : filterInstanceIds.length === 1
-                    ? availableInstances.find((i) => i.id === filterInstanceIds[0])?.name || "Instância"
-                    : `${filterInstanceIds.length} instâncias`}
-                <ChevronDown className="w-3 h-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-[180px]">
-              <DropdownMenuItem
-                onSelect={(e) => { e.preventDefault(); onFilterInstancesChange?.([]); }}
-                className="gap-2 text-xs cursor-pointer"
-              >
-                <Check className={cn("w-3.5 h-3.5", filterInstanceIds.length === 0 ? "opacity-100" : "opacity-0")} />
-                Todas
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {availableInstances.map((inst) => {
-                const isActive = filterInstanceIds.includes(inst.id);
-                return (
-                  <DropdownMenuItem
-                    key={inst.id}
-                    onSelect={(e) => { e.preventDefault(); toggleInstance(inst.id); }}
-                    className="gap-2 text-xs cursor-pointer"
-                  >
-                    <Check className={cn("w-3.5 h-3.5", isActive ? "opacity-100" : "opacity-0")} />
-                    {inst.name}
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
       </div>
 
       <div className="h-px bg-border/30" />
