@@ -349,11 +349,11 @@ export function ConversationList({
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 min-w-0 py-0.5">
+                    <div className="flex-1 min-w-0 py-0.5 overflow-hidden">
                       {/* Row 1: Name + Time */}
-                      <div className="flex items-baseline justify-between gap-1.5 overflow-hidden">
+                      <div className="flex items-baseline gap-1.5">
                         <span className={cn(
-                          "truncate text-[13.5px] leading-tight min-w-0",
+                          "truncate text-[13.5px] leading-tight flex-1 min-w-0",
                           hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/85"
                         )}>
                           {trimmedQuery ? (
@@ -363,7 +363,7 @@ export function ConversationList({
                           )}
                         </span>
                         <span className={cn(
-                          "shrink-0 text-[10.5px] leading-tight whitespace-nowrap",
+                          "shrink-0 text-[10.5px] leading-tight whitespace-nowrap ml-auto",
                           hasNewMessages ? "text-emerald-500 font-semibold" : "text-muted-foreground/50"
                         )}>
                           {c.lastMessageAt ? formatDate(c.lastMessageAt) : ""}
@@ -371,8 +371,8 @@ export function ConversationList({
                       </div>
 
                       {/* Row 2: Last message + Badge */}
-                      <div className="flex items-center justify-between gap-2 mt-0.5">
-                        <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-1 min-w-0 flex-1">
                           {c.lastMessageStatus && <MessageTicks status={c.lastMessageStatus} />}
                           <p className={cn(
                             "truncate text-[12.5px] leading-snug",
