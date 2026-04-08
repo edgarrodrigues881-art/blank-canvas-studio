@@ -442,10 +442,10 @@ function FlowCanvas() {
             className="bg-background"
             proOptions={{ hideAttribution: true }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={24} size={0.8} className="!bg-background" color="hsl(var(--muted-foreground) / 0.08)" />
+            <Background variant={BackgroundVariant.Dots} gap={28} size={0.6} className="!bg-background" color="hsl(var(--muted-foreground) / 0.06)" />
             <Controls
               showInteractive={false}
-              className="!bg-card/90 !backdrop-blur-sm !border-border/50 !shadow-xl !rounded-2xl !overflow-hidden [&>button]:!bg-transparent [&>button]:!border-b [&>button]:!border-border/30 [&>button]:!text-muted-foreground [&>button:hover]:!bg-muted/50 [&>button:hover]:!text-foreground [&>button]:!transition-colors [&>button]:!duration-150 [&>button:last-child]:!border-b-0"
+              className="!bg-card/80 !backdrop-blur-sm !border-border/30 !shadow-lg !rounded-xl !overflow-hidden [&>button]:!bg-transparent [&>button]:!border-b [&>button]:!border-border/20 [&>button]:!text-muted-foreground/60 [&>button:hover]:!bg-muted/30 [&>button:hover]:!text-foreground [&>button]:!transition-colors [&>button]:!duration-150 [&>button:last-child]:!border-b-0 [&>button]:!w-7 [&>button]:!h-7"
             />
           </ReactFlow>
 
