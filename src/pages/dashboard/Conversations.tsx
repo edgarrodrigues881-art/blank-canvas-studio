@@ -396,7 +396,7 @@ const Conversations = () => {
             className={`${
               selectedConversation
                 ? "hidden md:flex flex-col shrink-0"
-                : "flex flex-col w-full"
+                : "flex flex-col w-full max-w-[600px]"
             }`}
             style={selectedConversation ? { width: sidebarWidth } : undefined}
           >
