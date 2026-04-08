@@ -429,17 +429,63 @@ export default function WhatsAppVerifierCampaigns() {
               <Input placeholder="Ex: Leads Goiás Abril" value={jobName} onChange={(e) => setJobName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Instância</label>
-              <Select value={selectedDevice} onValueChange={setSelectedDevice}>
-                <SelectTrigger className="bg-background/50"><SelectValue placeholder="Selecione uma instância conectada" /></SelectTrigger>
-                <SelectContent>
-                  {onlineDevices.map((device: any) => (
-                    <SelectItem key={device.id} value={device.id}>
-                      <span className="flex items-center gap-2"><Smartphone className="w-3.5 h-3.5" />{device.name} {device.number ? `(${device.number})` : ""}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Instâncias</label>
+                <span className="text-xs text-muted-foreground">
+                  {selectedDevices.length > 0 ? `${selectedDevices.length} selecionada(s)` : "Selecione ao menos uma"}
+                  {selectedDevices.length > 1 && ` — ${selectedDevices.length * BATCH_SIZE} números/lote`}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Selecione múltiplas instâncias para verificar mais rápido. Cada chip verifica {BATCH_SIZE} números por lote.
+                Se um chip desconectar, a campanha pausa automaticamente para você trocar.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[200px] overflow-y-auto rounded-lg border border-border/30 p-2 bg-background/30">
+                {onlineDevices.length === 0 ? (
+                  <p className="text-xs text-muted-foreground col-span-2 text-center py-4">Nenhuma instância conectada</p>
+                ) : (
+                  onlineDevices.map((device: any) => {
+                    const isSelected = selectedDevices.includes(device.id);
+                    return (
+                      <button
+                        key={device.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedDevices(prev =>
+                            isSelected ? prev.filter(id => id !== device.id) : [...prev, device.id]
+                          );
+                          if (!selectedDevice) setSelectedDevice(device.id);
+                        }}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-sm transition-all ${
+                          isSelected
+                            ? "border-primary bg-primary/10 text-foreground"
+                            : "border-border/50 bg-background/50 text-muted-foreground hover:border-primary/50"
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                          isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"
+                        }`}>
+                          {isSelected && <CheckCircle2 className="w-3 h-3 text-primary-foreground" />}
+                        </div>
+                        <Smartphone className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{device.name} {device.number ? `(${device.number})` : ""}</span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+              {onlineDevices.length > 2 && (
+                <div className="flex gap-2">
+                  <Button type="button" variant="ghost" size="sm" className="text-xs h-7" onClick={() => setSelectedDevices(onlineDevices.map((d: any) => d.id))}>
+                    Selecionar todas
+                  </Button>
+                  {selectedDevices.length > 0 && (
+                    <Button type="button" variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground" onClick={() => setSelectedDevices([])}>
+                      Limpar seleção
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Import mode toggle */}
