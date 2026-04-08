@@ -854,36 +854,38 @@ export default function WhatsAppVerifierCampaigns() {
             <CardContent>
               <div className="rounded-lg border border-border/50 overflow-hidden">
                 <ScrollArea className="h-[400px]">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/30 sticky top-0">
-                      <tr>
-                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Número</th>
-                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Status</th>
-                        {activeVars.map((n) => (
-                          <th key={n} className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Var {n}</th>
-                        ))}
-                        {activeVars.length === 0 && (
-                          <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Detalhe</th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/30">
-                      {sortedResults.map((result: any, i: number) => (
-                        <tr key={i} className="hover:bg-muted/10 transition-colors">
-                          <td className="px-4 py-2.5 font-mono text-foreground">{result.phone}</td>
-                          <td className="px-4 py-2.5">{statusBadge(result.status)}</td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm table-fixed" style={{ minWidth: `${300 + activeVars.length * 200}px` }}>
+                      <thead className="bg-muted/30 sticky top-0 z-10">
+                        <tr>
+                          <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-[160px]">Número</th>
+                          <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-[120px]">Status</th>
                           {activeVars.map((n) => (
-                            <td key={n} className="px-4 py-2.5 text-muted-foreground hidden md:table-cell truncate max-w-[150px]" title={result[`var${n}`] || ""}>
-                              {result[`var${n}`] || "-"}
-                            </td>
+                            <th key={n} className="text-left px-4 py-2.5 font-medium text-muted-foreground w-[200px]">Var {n}</th>
                           ))}
                           {activeVars.length === 0 && (
-                            <td className="px-4 py-2.5 text-muted-foreground hidden md:table-cell">{result.detail || "-"}</td>
+                            <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Detalhe</th>
                           )}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-border/30">
+                        {sortedResults.map((result: any, i: number) => (
+                          <tr key={i} className="hover:bg-muted/10 transition-colors">
+                            <td className="px-4 py-2.5 font-mono text-foreground">{result.phone}</td>
+                            <td className="px-4 py-2.5">{statusBadge(result.status)}</td>
+                            {activeVars.map((n) => (
+                              <td key={n} className="px-4 py-2.5 text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap" title={result[`var${n}`] || ""}>
+                                {result[`var${n}`] || "—"}
+                              </td>
+                            ))}
+                            {activeVars.length === 0 && (
+                              <td className="px-4 py-2.5 text-muted-foreground">{result.detail || "—"}</td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </ScrollArea>
               </div>
             </CardContent>
