@@ -234,10 +234,10 @@ async function processJob(jobId: string) {
         }
 
         // Bulk updates by status — much faster than individual updates
-        const bulkOps: Promise<any>[] = [];
-        if (successIds.length > 0) bulkOps.push(db.from("verify_results").update({ status: "success", detail: "Tem WhatsApp", checked_at: now }).in("id", successIds).then());
-        if (noWaIds.length > 0) bulkOps.push(db.from("verify_results").update({ status: "no_whatsapp", detail: "Sem WhatsApp", checked_at: now }).in("id", noWaIds).then());
-        if (errorIds.length > 0) bulkOps.push(db.from("verify_results").update({ status: "error", detail: "Erro", checked_at: now }).in("id", errorIds).then());
+        const bulkOps: PromiseLike<any>[] = [];
+        if (successIds.length > 0) bulkOps.push(db.from("verify_results").update({ status: "success", detail: "Tem WhatsApp", checked_at: now }).in("id", successIds));
+        if (noWaIds.length > 0) bulkOps.push(db.from("verify_results").update({ status: "no_whatsapp", detail: "Sem WhatsApp", checked_at: now }).in("id", noWaIds));
+        if (errorIds.length > 0) bulkOps.push(db.from("verify_results").update({ status: "error", detail: "Erro", checked_at: now }).in("id", errorIds));
         await Promise.all(bulkOps);
 
         return { batchSuccess, batchNoWa, batchError };
