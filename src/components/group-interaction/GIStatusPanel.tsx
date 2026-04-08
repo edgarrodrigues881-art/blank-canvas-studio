@@ -86,8 +86,8 @@ export default function GIStatusPanel({
         <Badge variant="outline" className={`text-[10px] shrink-0 ${cfg.color}`}>{cfg.label}</Badge>
       </div>
 
-      {/* Main content: 3 columns */}
-      <div className="grid grid-cols-[1fr_1px_1fr_1px_auto] items-stretch">
+      {/* Main content — stacks on mobile, 3 cols on desktop */}
+      <div className="flex flex-col md:grid md:grid-cols-[1fr_1px_1fr_1px_auto] md:items-stretch">
         {/* Col 1: Metrics */}
         <div className="px-5 py-4">
           <div className="grid grid-cols-2 gap-x-6 gap-y-3">
