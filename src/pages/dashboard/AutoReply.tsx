@@ -107,7 +107,7 @@ function FlowCanvas() {
         .single();
       if (error || !data) {
         toast.error("Fluxo não encontrado");
-        navigate("/dashboard/auto-reply");
+        navigate("/dashboard/conversations");
         return;
       }
       setFlowName(data.name);
