@@ -87,16 +87,14 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <div className="flex-1" />
 
             {/* Theme toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
+            <button
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-              className="text-muted-foreground hover:text-foreground shrink-0 w-8 h-8 sm:w-9 sm:h-9"
+              className="relative shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-muted/40 border border-border/30 hover:bg-muted/70 hover:border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all duration-150"
             >
-              <Sun className="w-4 h-4 sm:w-[18px] sm:h-[18px] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute w-4 h-4 sm:w-[18px] sm:h-[18px] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+              <Sun className="w-4 h-4 sm:w-[17px] sm:h-[17px] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" strokeWidth={1.6} />
+              <Moon className="absolute w-4 h-4 sm:w-[17px] sm:h-[17px] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" strokeWidth={1.6} />
               <span className="sr-only">Alternar tema</span>
-            </Button>
+            </button>
 
             {/* Notifications */}
             <DropdownMenu>
