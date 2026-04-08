@@ -131,7 +131,7 @@ export function FlowHeader({ flowId, name, onNameChange, isActive, onToggleActiv
         size="icon"
         variant="ghost"
         className="h-8 w-8 text-muted-foreground/50 hover:text-foreground shrink-0"
-        onClick={() => navigate("/dashboard/conversations")}
+        onClick={() => navigate("/dashboard/auto-reply")}
       >
         <ArrowLeft className="w-4 h-4" />
       </Button>
