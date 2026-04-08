@@ -576,21 +576,22 @@ export default function WhatsAppVerifierCampaigns() {
 
         {/* Column Mapping Dialog */}
         <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-          <DialogContent className="max-w-lg">
+           <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2"><Variable className="w-5 h-5 text-primary" /> Mapear Colunas</DialogTitle>
             </DialogHeader>
             <p className="text-sm text-muted-foreground">Indique qual coluna corresponde a cada campo. Pelo menos "Telefone" é obrigatório.</p>
-            <div className="space-y-2.5 max-h-[300px] overflow-y-auto">
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[200px] overflow-y-auto pr-1">
               {importHeaders.map((header, idx) => (
-                <div key={idx} className="flex items-center gap-3">
-                  <span className="text-sm font-medium min-w-[120px] truncate" title={header}>{header || `Coluna ${idx + 1}`}</span>
+                <div key={idx} className="flex items-center gap-2">
+                  <span className="text-sm font-medium min-w-[100px] truncate" title={header}>{header || `Coluna ${idx + 1}`}</span>
                   <Select value={columnMappings[idx] || "ignorar"} onValueChange={(v) => {
                     const newMaps = [...columnMappings];
                     newMaps[idx] = v as ColMapping;
                     setColumnMappings(newMaps);
                   }}>
-                    <SelectTrigger className="flex-1 h-9"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="flex-1 h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {MAPPING_OPTIONS.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
@@ -601,30 +602,39 @@ export default function WhatsAppVerifierCampaigns() {
               ))}
             </div>
 
-            {/* Preview */}
+            {/* Preview — show more rows with scroll */}
             {importRows.length > 0 && (
-              <div className="rounded-md border border-border/30 overflow-hidden">
-                <p className="text-[10px] text-muted-foreground px-3 py-1.5 bg-muted/20">Prévia ({Math.min(3, importRows.length)} primeiras linhas)</p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[11px]">
-                    <thead className="bg-muted/30">
-                      <tr>
-                        {importHeaders.map((h, i) => (
-                          <th key={i} className="text-left px-2 py-1 font-medium text-muted-foreground truncate max-w-[100px]">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/20">
-                      {importRows.slice(0, 3).map((row, ri) => (
-                        <tr key={ri}>
-                          {row.map((cell: any, ci: number) => (
-                            <td key={ci} className="px-2 py-1 text-foreground/80 truncate max-w-[100px]">{String(cell || "")}</td>
+              <div className="rounded-lg border border-border/30 overflow-hidden flex-1 min-h-0">
+                <div className="flex items-center justify-between px-3 py-2 bg-muted/20 border-b border-border/20">
+                  <span className="text-xs font-medium text-muted-foreground">Prévia dos dados</span>
+                  <span className="text-[10px] text-muted-foreground">{importRows.length} linhas total</span>
+                </div>
+                <ScrollArea className="h-[260px]">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs" style={{ minWidth: `${importHeaders.length * 140}px` }}>
+                      <thead className="bg-muted/30 sticky top-0 z-10">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-medium text-muted-foreground w-[40px]">#</th>
+                          {importHeaders.map((h, i) => (
+                            <th key={i} className="text-left px-3 py-2 font-medium text-muted-foreground whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-border/20">
+                        {importRows.map((row, ri) => (
+                          <tr key={ri} className="hover:bg-muted/10 transition-colors">
+                            <td className="px-3 py-1.5 text-muted-foreground/50 text-[10px]">{ri + 1}</td>
+                            {row.map((cell: any, ci: number) => (
+                              <td key={ci} className="px-3 py-1.5 text-foreground/80 whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px]" title={String(cell || "")}>
+                                {String(cell || "—")}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </ScrollArea>
               </div>
             )}
 
