@@ -20,6 +20,7 @@ import { MessageNode } from "@/components/autoreply/MessageNode";
 import { EndNode } from "@/components/autoreply/EndNode";
 import { DelayNode } from "@/components/autoreply/DelayNode";
 import { ConditionNode } from "@/components/autoreply/ConditionNode";
+import { AINode } from "@/components/autoreply/AINode";
 import { FlowSidebar } from "@/components/autoreply/FlowSidebar";
 import { EditPanel } from "@/components/autoreply/EditPanel";
 import { FlowHeader } from "@/components/autoreply/FlowHeader";
