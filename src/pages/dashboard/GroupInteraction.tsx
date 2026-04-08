@@ -569,14 +569,6 @@ export default function GroupInteractionPage() {
                         </button>
                       )}
 
-                      {isActive && (
-                        <button
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/20 bg-muted/5 text-muted-foreground/60 hover:border-destructive/30 hover:text-destructive/80 hover:bg-destructive/5 text-xs font-medium transition-all"
-                          onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "stop" })}
-                        >
-                          <Square className="w-3 h-3" strokeWidth={1.8} /> Parar
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>
