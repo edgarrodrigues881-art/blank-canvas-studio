@@ -41,6 +41,7 @@ interface GIStatusPanelProps {
   interaction: GroupInteraction;
   deviceName?: string;
   eligibleDevices?: any[];
+  allDevices?: any[];
   selectedDeviceId?: string | null;
   onDeviceChange?: (id: string) => void;
   onNameChange?: (name: string) => void;
