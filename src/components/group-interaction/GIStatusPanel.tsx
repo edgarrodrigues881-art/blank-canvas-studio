@@ -122,7 +122,7 @@ export default function GIStatusPanel({
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-medium mb-2">Dispositivo</span>
           {onDeviceChange ? (
             <Select value={selectedDeviceId || ""} onValueChange={onDeviceChange}>
-              <SelectTrigger className="h-9 text-sm">
+              <SelectTrigger className="h-9 text-sm [&>span]:truncate">
                 <SelectValue placeholder="Selecionar" />
               </SelectTrigger>
               <SelectContent position="popper" sideOffset={4}>
