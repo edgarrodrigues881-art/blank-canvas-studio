@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -11,30 +11,72 @@ import { toast } from "sonner";
 import {
   Search, Download, Loader2, Smartphone, Copy, Plus, CheckCircle2,
   XCircle, AlertTriangle, Phone, Upload, ArrowLeft, Trash2, StopCircle,
-  Clock, Play, History, Pause, RefreshCw,
+  Clock, Play, History, Pause, RefreshCw, FileSpreadsheet, Variable,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+
+// ── Types ──
+type ViewMode = "list" | "create" | "detail";
+type ImportMode = "plain" | "spreadsheet";
+type ColMapping = "telefone" | "var1" | "var2" | "var3" | "var4" | "var5" | "ignorar";
+
+interface ImportedRow {
+  phone: string;
+  var1?: string;
+  var2?: string;
+  var3?: string;
+  var4?: string;
+  var5?: string;
+}
+
+const ACTIVE_DEVICE_STATUSES = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"];
+
+const MAPPING_OPTIONS: { value: ColMapping; label: string }[] = [
+  { value: "ignorar", label: "Ignorar" },
+  { value: "telefone", label: "Telefone" },
+  { value: "var1", label: "Variável 1 (ex: Nome)" },
+  { value: "var2", label: "Variável 2 (ex: Endereço)" },
+  { value: "var3", label: "Variável 3 (ex: Comércio)" },
+  { value: "var4", label: "Variável 4" },
+  { value: "var5", label: "Variável 5" },
+];
+
+function cleanPhone(raw: string): string {
+  let cleaned = raw.replace(/[^0-9]/g, "");
+  if (cleaned.length >= 10 && cleaned.length <= 11 && !cleaned.startsWith("55")) cleaned = `55${cleaned}`;
+  return cleaned.length >= 8 ? cleaned : "";
+}
 
 function cleanAndDeduplicatePhones(raw: string): string[] {
   const lines = raw.split(/[\n,;]+/);
   const seen = new Set<string>();
   const result: string[] = [];
   for (const line of lines) {
-    let cleaned = line.replace(/[^0-9]/g, "");
-    if (!cleaned || cleaned.length < 8) continue;
-    if (cleaned.length >= 10 && cleaned.length <= 11 && !cleaned.startsWith("55")) cleaned = `55${cleaned}`;
-    if (seen.has(cleaned)) continue;
+    const cleaned = cleanPhone(line);
+    if (!cleaned || seen.has(cleaned)) continue;
     seen.add(cleaned);
     result.push(cleaned);
   }
   return result;
 }
 
-type ViewMode = "list" | "create" | "detail";
-
-const ACTIVE_DEVICE_STATUSES = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"];
+function autoDetectMapping(headers: string[]): ColMapping[] {
+  return headers.map((h) => {
+    const low = h.toLowerCase().trim();
+    if (/tel|phone|número|numero|celular|whats|fone/.test(low)) return "telefone";
+    if (/^nome$|^name$|^cliente$/.test(low)) return "var1";
+    if (/endere[cç]o|address|rua|logradouro|cep/.test(low)) return "var2";
+    if (/com[eé]rcio|empresa|company|loja|negócio|negocio/.test(low)) return "var3";
+    if (/email|e-mail/.test(low)) return "var4";
+    if (/cidade|city|bairro/.test(low)) return "var5";
+    return "ignorar";
+  });
+}
 
 export default function WhatsAppVerifierCampaigns() {
   const { user } = useAuth();
@@ -47,7 +89,16 @@ export default function WhatsAppVerifierCampaigns() {
   const [swapDeviceId, setSwapDeviceId] = useState("");
   const [showSwapPanel, setShowSwapPanel] = useState(false);
 
-  // All devices (for swap panel)
+  // Spreadsheet import state
+  const [importMode, setImportMode] = useState<ImportMode>("plain");
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importHeaders, setImportHeaders] = useState<string[]>([]);
+  const [importRows, setImportRows] = useState<any[][]>([]);
+  const [columnMappings, setColumnMappings] = useState<ColMapping[]>([]);
+  const [importedContacts, setImportedContacts] = useState<ImportedRow[]>([]);
+  const [varLabels, setVarLabels] = useState<string[]>(["Var 1", "Var 2", "Var 3", "Var 4", "Var 5"]);
+  const fileRef = useRef<HTMLInputElement>(null);
+
   const { data: allDevices = [] } = useQuery({
     queryKey: ["all-devices-verifier"],
     queryFn: async () => {
@@ -64,7 +115,10 @@ export default function WhatsAppVerifierCampaigns() {
 
   const onlineDevices = useMemo(() => allDevices.filter((d: any) => ACTIVE_DEVICE_STATUSES.includes(d.status)), [allDevices]);
 
-  const phones = useMemo(() => cleanAndDeduplicatePhones(rawInput), [rawInput]);
+  const phones = useMemo(() => {
+    if (importMode === "spreadsheet") return importedContacts.map((c) => c.phone);
+    return cleanAndDeduplicatePhones(rawInput);
+  }, [rawInput, importMode, importedContacts]);
 
   const { data: jobs = [], isLoading: jobsLoading } = useQuery({
     queryKey: ["verify-jobs", user?.id],
@@ -117,11 +171,73 @@ export default function WhatsAppVerifierCampaigns() {
     refetchInterval: selectedJob?.status === "running" ? 3_000 : false,
   });
 
-  // Get device info for a job
   const getDeviceInfo = useCallback((deviceId: string) => {
     return allDevices.find((d: any) => d.id === deviceId);
   }, [allDevices]);
 
+  // ── Spreadsheet import handler ──
+  const handleSpreadsheetImport = useCallback(async (file: File) => {
+    try {
+      const XLSX = await import("xlsx");
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: "array" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const json: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+      if (json.length < 2) { toast.warning("Planilha vazia ou sem dados"); return; }
+
+      const headers = json[0].map((h: any) => String(h || "").trim());
+      const rows = json.slice(1).filter((row: any[]) => row.some((c) => c !== ""));
+      const mappings = autoDetectMapping(headers);
+
+      setImportHeaders(headers);
+      setImportRows(rows);
+      setColumnMappings(mappings);
+      setImportDialogOpen(true);
+    } catch (err: any) {
+      toast.error("Erro ao ler planilha: " + (err?.message || ""));
+    }
+  }, []);
+
+  const confirmImport = useCallback(() => {
+    const phoneIdx = columnMappings.indexOf("telefone");
+    if (phoneIdx < 0) { toast.error("Mapeie ao menos a coluna de Telefone"); return; }
+
+    const varIdxMap: Record<string, number> = {};
+    const labels = ["Var 1", "Var 2", "Var 3", "Var 4", "Var 5"];
+    (["var1", "var2", "var3", "var4", "var5"] as const).forEach((key, i) => {
+      const idx = columnMappings.indexOf(key);
+      if (idx >= 0) {
+        varIdxMap[key] = idx;
+        labels[i] = importHeaders[idx] || `Var ${i + 1}`;
+      }
+    });
+
+    const seen = new Set<string>();
+    const contacts: ImportedRow[] = [];
+    for (const row of importRows) {
+      const phone = cleanPhone(String(row[phoneIdx] || ""));
+      if (!phone || seen.has(phone)) continue;
+      seen.add(phone);
+      const entry: ImportedRow = { phone };
+      if (varIdxMap.var1 !== undefined) entry.var1 = String(row[varIdxMap.var1] || "").trim();
+      if (varIdxMap.var2 !== undefined) entry.var2 = String(row[varIdxMap.var2] || "").trim();
+      if (varIdxMap.var3 !== undefined) entry.var3 = String(row[varIdxMap.var3] || "").trim();
+      if (varIdxMap.var4 !== undefined) entry.var4 = String(row[varIdxMap.var4] || "").trim();
+      if (varIdxMap.var5 !== undefined) entry.var5 = String(row[varIdxMap.var5] || "").trim();
+      contacts.push(entry);
+    }
+
+    if (contacts.length === 0) { toast.warning("Nenhum número válido encontrado"); return; }
+    setImportedContacts(contacts);
+    setVarLabels(labels);
+    setImportMode("spreadsheet");
+    setImportDialogOpen(false);
+    toast.success(`${contacts.length} contatos importados com variáveis`);
+  }, [columnMappings, importHeaders, importRows]);
+
+  const hasVars = importMode === "spreadsheet" && importedContacts.some((c) => c.var1 || c.var2 || c.var3 || c.var4 || c.var5);
+
+  // ── Mutations ──
   const createJob = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Não autenticado");
@@ -137,10 +253,24 @@ export default function WhatsAppVerifierCampaigns() {
         .single();
       if (jobErr || !job) throw new Error(jobErr?.message || "Erro ao criar campanha");
 
+      // Build contacts with vars
+      const contactMap = new Map<string, ImportedRow>();
+      if (importMode === "spreadsheet") {
+        for (const c of importedContacts) contactMap.set(c.phone, c);
+      }
+
       for (let i = 0; i < phones.length; i += 500) {
-        const batch = phones.slice(i, i + 500).map((phone) => ({
-          job_id: (job as any).id, user_id: user.id, phone, status: "pending",
-        }));
+        const batch = phones.slice(i, i + 500).map((phone) => {
+          const vars = contactMap.get(phone);
+          return {
+            job_id: (job as any).id, user_id: user.id, phone, status: "pending",
+            ...(vars?.var1 ? { var1: vars.var1 } : {}),
+            ...(vars?.var2 ? { var2: vars.var2 } : {}),
+            ...(vars?.var3 ? { var3: vars.var3 } : {}),
+            ...(vars?.var4 ? { var4: vars.var4 } : {}),
+            ...(vars?.var5 ? { var5: vars.var5 } : {}),
+          };
+        });
         const { error } = await supabase.from("verify_results").insert(batch as any);
         if (error) throw new Error(error.message);
       }
@@ -150,6 +280,7 @@ export default function WhatsAppVerifierCampaigns() {
       toast.success("Campanha criada!");
       queryClient.invalidateQueries({ queryKey: ["verify-jobs", user?.id] });
       setRawInput(""); setJobName(""); setSelectedDevice("");
+      setImportedContacts([]); setImportMode("plain");
       setSelectedJobId(job.id); setView("detail");
     },
     onError: (err: any) => toast.error(err?.message || "Erro ao criar campanha"),
@@ -160,10 +291,7 @@ export default function WhatsAppVerifierCampaigns() {
       const { error } = await supabase.from("verify_jobs").update({ status: "paused" } as any).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      toast.success("Campanha pausada");
-      queryClient.invalidateQueries({ queryKey: ["verify-jobs", user?.id] });
-    },
+    onSuccess: () => { toast.success("Campanha pausada"); queryClient.invalidateQueries({ queryKey: ["verify-jobs", user?.id] }); },
     onError: (err: any) => toast.error(err?.message || "Erro ao pausar"),
   });
 
@@ -172,10 +300,7 @@ export default function WhatsAppVerifierCampaigns() {
       const { error } = await supabase.from("verify_jobs").update({ status: "pending" } as any).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      toast.success("Campanha retomada");
-      queryClient.invalidateQueries({ queryKey: ["verify-jobs", user?.id] });
-    },
+    onSuccess: () => { toast.success("Campanha retomada"); queryClient.invalidateQueries({ queryKey: ["verify-jobs", user?.id] }); },
     onError: (err: any) => toast.error(err?.message || "Erro ao retomar"),
   });
 
@@ -185,10 +310,9 @@ export default function WhatsAppVerifierCampaigns() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Instância trocada! A campanha continuará de onde parou.");
+      toast.success("Instância trocada!");
       queryClient.invalidateQueries({ queryKey: ["verify-jobs", user?.id] });
-      setShowSwapPanel(false);
-      setSwapDeviceId("");
+      setShowSwapPanel(false); setSwapDeviceId("");
     },
     onError: (err: any) => toast.error(err?.message || "Erro ao trocar instância"),
   });
@@ -215,7 +339,7 @@ export default function WhatsAppVerifierCampaigns() {
     onError: (error: any) => toast.error(error?.message || "Erro ao excluir"),
   });
 
-  const handleFileImport = useCallback(() => {
+  const handleFileImportPlain = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file"; input.accept = ".txt,.csv";
     input.onchange = async (event: any) => {
@@ -257,7 +381,19 @@ export default function WhatsAppVerifierCampaigns() {
     }
   };
 
-  // ─── CREATE VIEW ───
+  // ── Detect if results have vars ──
+  const resultsHaveVars = useMemo(() => {
+    return jobResults.some((r: any) => r.var1 || r.var2 || r.var3 || r.var4 || r.var5);
+  }, [jobResults]);
+
+  // Hidden file input for xlsx
+  const handleSpreadsheetClick = () => {
+    if (fileRef.current) fileRef.current.click();
+  };
+
+  // ═══════════════════════════════════════════
+  // ─── CREATE VIEW ──────────────────────────
+  // ═══════════════════════════════════════════
   if (view === "create") {
     return (
       <div className="space-y-6 p-4 md:p-6 max-w-4xl mx-auto">
@@ -292,27 +428,165 @@ export default function WhatsAppVerifierCampaigns() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
+
+            {/* Import mode toggle */}
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium">Números para verificar</label>
                 <span className="text-xs text-muted-foreground">{phones.length} válido{phones.length !== 1 ? "s" : ""}</span>
               </div>
-              <Textarea placeholder={"Cole os números aqui, um por linha:\n5511999999999\n5521988888888"} value={rawInput} onChange={(e) => setRawInput(e.target.value)} className="min-h-[180px] bg-background/50 font-mono text-sm" />
+
+              {importMode === "plain" ? (
+                <>
+                  <Textarea placeholder={"Cole os números aqui, um por linha:\n5511999999999\n5521988888888"} value={rawInput} onChange={(e) => setRawInput(e.target.value)} className="min-h-[180px] bg-background/50 font-mono text-sm" />
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={handleFileImportPlain}><Upload className="w-4 h-4 mr-1.5" /> Importar TXT/CSV</Button>
+                    <Button variant="outline" size="sm" onClick={handleSpreadsheetClick} className="gap-1.5">
+                      <FileSpreadsheet className="w-4 h-4" /> Importar Planilha com Variáveis
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <FileSpreadsheet className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium">{importedContacts.length} contatos importados com variáveis</span>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => { setImportMode("plain"); setImportedContacts([]); }}>
+                        <XCircle className="w-4 h-4 mr-1" /> Limpar
+                      </Button>
+                    </div>
+
+                    {/* Preview first 5 rows */}
+                    <div className="rounded-md border border-border/30 overflow-hidden">
+                      <ScrollArea className="max-h-[200px]">
+                        <table className="w-full text-xs">
+                          <thead className="bg-muted/30 sticky top-0">
+                            <tr>
+                              <th className="text-left px-3 py-1.5 font-medium text-muted-foreground">Telefone</th>
+                              {varLabels.map((label, i) => {
+                                const key = `var${i + 1}` as keyof ImportedRow;
+                                if (!importedContacts.some((c) => c[key])) return null;
+                                return <th key={i} className="text-left px-3 py-1.5 font-medium text-muted-foreground">{label}</th>;
+                              })}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/20">
+                            {importedContacts.slice(0, 5).map((c, i) => (
+                              <tr key={i} className="hover:bg-muted/10">
+                                <td className="px-3 py-1.5 font-mono text-foreground">{c.phone}</td>
+                                {varLabels.map((_, vi) => {
+                                  const key = `var${vi + 1}` as keyof ImportedRow;
+                                  if (!importedContacts.some((cc) => cc[key])) return null;
+                                  return <td key={vi} className="px-3 py-1.5 text-muted-foreground truncate max-w-[120px]">{c[key] || "-"}</td>;
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </ScrollArea>
+                    </div>
+                    {importedContacts.length > 5 && (
+                      <p className="text-[10px] text-muted-foreground mt-1.5 text-center">... e mais {importedContacts.length - 5} contatos</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={handleFileImport}><Upload className="w-4 h-4 mr-1.5" /> Importar Lista</Button>
-              <Button onClick={() => createJob.mutate()} disabled={createJob.isPending || phones.length === 0 || !selectedDevice} className="ml-auto">
+
+            <div className="flex flex-wrap gap-2 justify-end">
+              <Button onClick={() => createJob.mutate()} disabled={createJob.isPending || phones.length === 0 || !selectedDevice}>
                 {createJob.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Play className="w-4 h-4 mr-1.5" />}
                 {createJob.isPending ? "Criando..." : `Criar Campanha (${phones.length})`}
               </Button>
             </div>
           </CardContent>
         </Card>
+
+        {/* Hidden file input */}
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleSpreadsheetImport(file);
+            e.target.value = "";
+          }}
+        />
+
+        {/* Column Mapping Dialog */}
+        <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2"><Variable className="w-5 h-5 text-primary" /> Mapear Colunas</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">Indique qual coluna corresponde a cada campo. Pelo menos "Telefone" é obrigatório.</p>
+            <div className="space-y-2.5 max-h-[300px] overflow-y-auto">
+              {importHeaders.map((header, idx) => (
+                <div key={idx} className="flex items-center gap-3">
+                  <span className="text-sm font-medium min-w-[120px] truncate" title={header}>{header || `Coluna ${idx + 1}`}</span>
+                  <Select value={columnMappings[idx] || "ignorar"} onValueChange={(v) => {
+                    const newMaps = [...columnMappings];
+                    newMaps[idx] = v as ColMapping;
+                    setColumnMappings(newMaps);
+                  }}>
+                    <SelectTrigger className="flex-1 h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MAPPING_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+
+            {/* Preview */}
+            {importRows.length > 0 && (
+              <div className="rounded-md border border-border/30 overflow-hidden">
+                <p className="text-[10px] text-muted-foreground px-3 py-1.5 bg-muted/20">Prévia ({Math.min(3, importRows.length)} primeiras linhas)</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[11px]">
+                    <thead className="bg-muted/30">
+                      <tr>
+                        {importHeaders.map((h, i) => (
+                          <th key={i} className="text-left px-2 py-1 font-medium text-muted-foreground truncate max-w-[100px]">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/20">
+                      {importRows.slice(0, 3).map((row, ri) => (
+                        <tr key={ri}>
+                          {row.map((cell: any, ci: number) => (
+                            <td key={ci} className="px-2 py-1 text-foreground/80 truncate max-w-[100px]">{String(cell || "")}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setImportDialogOpen(false)}>Cancelar</Button>
+              <Button onClick={confirmImport} disabled={!columnMappings.includes("telefone")}>
+                Confirmar Importação
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
 
-  // ─── DETAIL VIEW ───
+  // ═══════════════════════════════════════════
+  // ─── DETAIL VIEW ──────────────────────────
+  // ═══════════════════════════════════════════
   if (view === "detail" && selectedJob) {
     const job = selectedJob as any;
     const total = job.total_phones || 0;
@@ -325,6 +599,9 @@ export default function WhatsAppVerifierCampaigns() {
     const deviceInfo = getDeviceInfo(job.device_id);
     const deviceIsOnline = deviceInfo && ACTIVE_DEVICE_STATUSES.includes(deviceInfo.status);
 
+    // Detect which var columns have data
+    const activeVars = [1, 2, 3, 4, 5].filter((n) => jobResults.some((r: any) => r[`var${n}`]));
+
     return (
       <div className="space-y-6 p-4 md:p-6 max-w-6xl mx-auto">
         {/* Header */}
@@ -336,6 +613,7 @@ export default function WhatsAppVerifierCampaigns() {
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-bold text-foreground">{job.name}</h1>
               {jobStatusBadge(job.status)}
+              {resultsHaveVars && <Badge variant="outline" className="text-[10px] border-primary/30 text-primary"><Variable className="w-3 h-3 mr-1" /> Com variáveis</Badge>}
             </div>
             <p className="text-muted-foreground text-sm mt-0.5">Criada em {new Date(job.created_at).toLocaleString("pt-BR")}</p>
           </div>
@@ -428,17 +706,40 @@ export default function WhatsAppVerifierCampaigns() {
         {jobResults.length > 0 && (
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" disabled={validResults.length === 0} onClick={() => {
-              navigator.clipboard.writeText(validResults.map((r: any) => r.phone).join("\n"));
+              const lines = validResults.map((r: any) => {
+                const parts = [r.phone];
+                if (r.var1) parts.push(r.var1);
+                if (r.var2) parts.push(r.var2);
+                if (r.var3) parts.push(r.var3);
+                return parts.join(" | ");
+              });
+              navigator.clipboard.writeText(lines.join("\n"));
               toast.success(`${validResults.length} números copiados!`);
             }}><Copy className="w-3.5 h-3.5 mr-1.5" /> Copiar válidos ({validResults.length})</Button>
+
             <Button variant="outline" size="sm" disabled={validResults.length === 0} onClick={() => {
-              const blob = new Blob(["\uFEFFNúmero\n" + validResults.map((r: any) => r.phone).join("\n")], { type: "text/csv;charset=utf-8" });
+              const headerCols = ["Número"];
+              if (activeVars.length > 0) activeVars.forEach((n) => headerCols.push(`Var${n}`));
+              const header = "\uFEFF" + headerCols.join(";") + "\n";
+              const rows = validResults.map((r: any) => {
+                const cols = [r.phone];
+                if (activeVars.length > 0) activeVars.forEach((n) => cols.push(r[`var${n}`] || ""));
+                return cols.join(";");
+              }).join("\n");
+              const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8" });
               triggerDownload(blob, `validos_${job.name.replace(/\s+/g, "_")}.csv`);
             }}><Download className="w-3.5 h-3.5 mr-1.5" /> Exportar válidos</Button>
+
             <Button variant="outline" size="sm" onClick={() => {
-              const header = "Número,Status,Detalhe\n";
-              const rows = jobResults.map((r: any) => `${r.phone},${r.status},${r.detail || ""}`).join("\n");
-              const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8" });
+              const headerCols = ["Número", "Status"];
+              if (activeVars.length > 0) activeVars.forEach((n) => headerCols.push(`Var${n}`));
+              const header = "\uFEFF" + headerCols.join(";") + "\n";
+              const rows = jobResults.map((r: any) => {
+                const cols = [r.phone, r.status];
+                if (activeVars.length > 0) activeVars.forEach((n) => cols.push(r[`var${n}`] || ""));
+                return cols.join(";");
+              }).join("\n");
+              const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8" });
               triggerDownload(blob, `verificacao_${job.name.replace(/\s+/g, "_")}.csv`);
             }}><Download className="w-3.5 h-3.5 mr-1.5" /> Exportar tudo</Button>
           </div>
@@ -456,7 +757,12 @@ export default function WhatsAppVerifierCampaigns() {
                       <tr>
                         <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Número</th>
                         <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Status</th>
-                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Detalhe</th>
+                        {activeVars.map((n) => (
+                          <th key={n} className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Var {n}</th>
+                        ))}
+                        {activeVars.length === 0 && (
+                          <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Detalhe</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/30">
@@ -464,7 +770,14 @@ export default function WhatsAppVerifierCampaigns() {
                         <tr key={i} className="hover:bg-muted/10 transition-colors">
                           <td className="px-4 py-2.5 font-mono text-foreground">{result.phone}</td>
                           <td className="px-4 py-2.5">{statusBadge(result.status)}</td>
-                          <td className="px-4 py-2.5 text-muted-foreground hidden md:table-cell">{result.detail || "-"}</td>
+                          {activeVars.map((n) => (
+                            <td key={n} className="px-4 py-2.5 text-muted-foreground hidden md:table-cell truncate max-w-[150px]" title={result[`var${n}`] || ""}>
+                              {result[`var${n}`] || "-"}
+                            </td>
+                          ))}
+                          {activeVars.length === 0 && (
+                            <td className="px-4 py-2.5 text-muted-foreground hidden md:table-cell">{result.detail || "-"}</td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -478,7 +791,9 @@ export default function WhatsAppVerifierCampaigns() {
     );
   }
 
-  // ─── LIST VIEW ───
+  // ═══════════════════════════════════════════
+  // ─── LIST VIEW ────────────────────────────
+  // ═══════════════════════════════════════════
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between gap-3 flex-wrap">
