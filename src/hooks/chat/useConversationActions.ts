@@ -239,6 +239,34 @@ export function useConversationActions({
     }
   }, [getToken, projectId, setMessages]);
 
+  const editMessage = useCallback(async (messageId: string, conversationId: string, whatsappMessageId: string | undefined, newText: string) => {
+    // Optimistic update
+    setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, content: newText } : m));
+
+    const token = await getToken();
+    try {
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/chat-send`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "edit",
+          conversation_id: conversationId,
+          message_id: messageId,
+          whatsapp_message_id: whatsappMessageId || "",
+          new_text: newText,
+        }),
+      });
+      const result = await res.json();
+      if (result.edited) {
+        toast.success(result.editedOnWhatsApp ? "Mensagem editada" : "Mensagem editada localmente");
+      } else {
+        toast.error(result.error || "Erro ao editar mensagem");
+      }
+    } catch {
+      toast.error("Erro de conexão ao editar mensagem");
+    }
+  }, [getToken, projectId, setMessages]);
+
   const sendAudioMessage = useCallback(async (conversationId: string, blob: Blob, duration: number) => {
     if (!user) return;
     const conv = conversationsRef.current.find((c) => c.id === conversationId);
