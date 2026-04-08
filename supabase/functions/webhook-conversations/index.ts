@@ -333,6 +333,100 @@ Deno.serve(async (req) => {
 
     console.log(`Message saved: ${fromMe ? "sent" : "received"} from ${phone} on ${device.name}: media=${mediaType} "${displayContent.substring(0, 80)}"`);
 
+    // ── Auto Lead Capture: upsert into service_contacts ──
+    try {
+      const textForExtraction = content || "";
+
+      // Regex extraction
+      const emailMatch = textForExtraction.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+      const extractedEmail = emailMatch?.[0]?.toLowerCase() || null;
+
+      // Auto-tag generation
+      const autoTags: string[] = [];
+      const lowerText = textForExtraction.toLowerCase();
+      if (lowerText.includes("comprar") || lowerText.includes("preço") || lowerText.includes("valor") || lowerText.includes("orçamento") || lowerText.includes("orcamento")) {
+        autoTags.push("lead quente");
+      }
+      if (lowerText.includes("suporte") || lowerText.includes("problema") || lowerText.includes("erro") || lowerText.includes("ajuda")) {
+        autoTags.push("suporte");
+      }
+      if (lowerText.includes("dúvida") || lowerText.includes("duvida") || lowerText.includes("como funciona") || lowerText.includes("informação") || lowerText.includes("informacao")) {
+        autoTags.push("dúvida");
+      }
+
+      // Check if contact already exists
+      const normalizedPhone = phone.replace(/\D/g, "");
+      const phoneCandidatesLead = getPhoneVariants(normalizedPhone);
+
+      const { data: existingContact } = await admin
+        .from("service_contacts")
+        .select("id, name, email, tags, notes, company, phone")
+        .eq("user_id", device.user_id)
+        .in("phone", phoneCandidatesLead.length ? phoneCandidatesLead : [normalizedPhone])
+        .limit(1)
+        .maybeSingle();
+
+      if (existingContact) {
+        // Update existing contact — never overwrite with empty values
+        const updates: Record<string, unknown> = {
+          last_message_at: timestamp,
+          last_message_content: displayContent.substring(0, 500),
+          conversation_id: conversationId,
+          updated_at: new Date().toISOString(),
+        };
+
+        // Only update name if current is phone-like and new name is better
+        if (name && name !== phone && (!existingContact.name || existingContact.name === existingContact.phone)) {
+          updates.name = name.substring(0, 255);
+        }
+
+        if (extractedEmail && !existingContact.email) {
+          updates.email = extractedEmail;
+        }
+
+        // Merge tags without duplicates
+        if (autoTags.length > 0) {
+          const currentTags = Array.isArray(existingContact.tags) ? existingContact.tags : [];
+          const mergedTags = [...new Set([...currentTags, ...autoTags])];
+          if (mergedTags.length > currentTags.length) {
+            updates.tags = mergedTags;
+          }
+        }
+
+        await admin.from("service_contacts").update(updates).eq("id", existingContact.id);
+        console.log(`Lead updated: ${existingContact.id} (${normalizedPhone})`);
+      } else {
+        // Create new contact
+        const initialTags = autoTags.length > 0 ? autoTags : ["novo contato"];
+        const contactName = (name && name !== phone) ? name.substring(0, 255) : normalizedPhone;
+
+        const { error: insertErr } = await admin.from("service_contacts").insert({
+          user_id: device.user_id,
+          phone: normalizedPhone,
+          name: contactName,
+          email: extractedEmail,
+          origin: "WhatsApp",
+          tags: initialTags,
+          status: "active",
+          conversation_id: conversationId,
+          first_contact_at: timestamp,
+          last_message_at: timestamp,
+          last_message_content: displayContent.substring(0, 500),
+        });
+
+        if (insertErr) {
+          // May be a race condition duplicate — ignore
+          if (!insertErr.message?.includes("duplicate")) {
+            console.error("Lead insert error:", insertErr);
+          }
+        } else {
+          console.log(`New lead created: ${contactName} (${normalizedPhone})`);
+        }
+      }
+    } catch (leadErr) {
+      console.error("Auto lead capture error:", leadErr);
+    }
+
     // Trigger welcome automation for new conversations (first received message)
     if (!fromMe) {
       const { data: recentReceived } = await admin
