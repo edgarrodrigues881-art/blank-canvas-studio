@@ -477,14 +477,14 @@ export default function GroupInteractionPage() {
       {!showConfig && !showBulkCreate && (
         <div className="grid grid-cols-2 gap-3">
           <Card className="border-border/50 bg-card overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-full bg-violet-500/10 flex items-center justify-center shrink-0">
-                  <MessageCircle className="w-4 h-4 text-violet-400" />
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-violet-500/10 flex items-center justify-center shrink-0">
+                  <MessageCircle className="w-3.5 h-3.5 text-violet-400" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-medium truncate">Mensagens Entregues</p>
-                  <p className="text-lg font-bold text-foreground tabular-nums">{(groupCumulativeStats?.totalMessages ?? 0).toLocaleString("pt-BR")}</p>
+                  <p className="text-[7px] uppercase tracking-wider text-muted-foreground font-medium truncate leading-tight">Mensagens Entregues</p>
+                  <p className="text-base font-bold text-foreground tabular-nums leading-tight">{(groupCumulativeStats?.totalMessages ?? 0).toLocaleString("pt-BR")}</p>
                 </div>
               </div>
             </CardContent>
