@@ -133,5 +133,7 @@ export function useConversations() {
     markAsUnread: actions.markAsUnread,
     getConversationIdsForSameContact: sync.getConversationIdsForSameContact,
     getConversationContactKey: sync.getConversationContactKey,
+    bulkArchiveConversations: actions.bulkArchiveConversations,
+    bulkDeleteConversations: actions.bulkDeleteConversations,
   };
 }

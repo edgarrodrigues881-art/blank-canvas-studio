@@ -453,61 +453,61 @@ export function ConversationList({
           onContextMenu={(e) => { e.preventDefault(); setContextMenuId(null); }}
         >
           <div
-            className="absolute bg-popover border border-border rounded-lg shadow-xl py-1 min-w-[180px] animate-in fade-in-0 zoom-in-95"
+            className="absolute bg-popover border border-border rounded-lg shadow-xl py-0.5 min-w-[160px] animate-in fade-in-0 zoom-in-95"
             style={{
-              left: Math.min(contextPos.x, window.innerWidth - 200),
-              top: Math.min(contextPos.y, window.innerHeight - 280),
+              left: Math.min(contextPos.x, window.innerWidth - 180),
+              top: Math.min(contextPos.y, window.innerHeight - 200),
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted/50 transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted/50 transition-colors"
               onClick={() => {
                 setSelectionMode(true);
                 setSelectedIds(new Set([contextMenuId]));
                 setContextMenuId(null);
               }}
             >
-              <CheckSquare className="w-4 h-4 text-muted-foreground" />
+              <CheckSquare className="w-3.5 h-3.5 text-muted-foreground" />
               Selecionar
             </button>
 
             {onBulkArchive && (
               <button
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted/50 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted/50 transition-colors"
                 onClick={() => {
                   onBulkArchive([contextMenuId]);
                   setContextMenuId(null);
                 }}
               >
-                <Archive className="w-4 h-4 text-muted-foreground" />
+                <Archive className="w-3.5 h-3.5 text-muted-foreground" />
                 Arquivar
               </button>
             )}
 
             <button
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted/50 transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted/50 transition-colors"
               onClick={() => {
                 const conv = filtered.find((c) => c.id === contextMenuId);
                 if (conv) onSelect(conv);
                 setContextMenuId(null);
               }}
             >
-              <Tag className="w-4 h-4 text-muted-foreground" />
+              <Tag className="w-3.5 h-3.5 text-muted-foreground" />
               Marcar com tag
             </button>
 
-            <div className="h-px bg-border/50 my-1" />
+            <div className="h-px bg-border/50 my-0.5" />
 
             {onBulkDelete && (
               <button
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors"
                 onClick={() => {
                   onBulkDelete([contextMenuId]);
                   setContextMenuId(null);
                 }}
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
                 Apagar conversa
               </button>
             )}

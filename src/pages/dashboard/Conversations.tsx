@@ -55,6 +55,8 @@ const Conversations = () => {
     markAsUnread,
     getConversationIdsForSameContact,
     getConversationContactKey,
+    bulkArchiveConversations,
+    bulkDeleteConversations,
   } = useConversations();
 
   const [showDetails, setShowDetails] = useState(true);
@@ -446,6 +448,8 @@ const Conversations = () => {
               availableInstances={availableInstances}
               filterInstanceIds={filterInstanceIds}
               onFilterInstancesChange={setFilterInstanceIds}
+              onBulkArchive={bulkArchiveConversations}
+              onBulkDelete={bulkDeleteConversations}
             />
           </div>
 
