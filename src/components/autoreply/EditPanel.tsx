@@ -405,7 +405,7 @@ export function EditPanel({ node, onUpdate, onDelete, onDuplicate, onClose }: Pr
             </div>
           )}
 
-
+          {isEnd && (
             <div className="space-y-2">
               <Label className="text-[11px] uppercase tracking-wider text-muted-foreground/50 font-semibold">Ação final</Label>
               <Select value={d.action || "end_flow"} onValueChange={(v) => onUpdate(node.id, { action: v as any })}>
