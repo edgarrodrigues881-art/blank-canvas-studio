@@ -4185,6 +4185,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           device_id: string | null
+          device_ids: Json | null
           error_count: number
           id: string
           last_error: string | null
@@ -4202,6 +4203,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           device_id?: string | null
+          device_ids?: Json | null
           error_count?: number
           id?: string
           last_error?: string | null
@@ -4219,6 +4221,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           device_id?: string | null
+          device_ids?: Json | null
           error_count?: number
           id?: string
           last_error?: string | null

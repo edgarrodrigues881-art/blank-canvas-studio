@@ -34,6 +34,7 @@ interface ImportedRow {
   var5?: string;
 }
 
+const BATCH_SIZE = 5;
 const ACTIVE_DEVICE_STATUSES = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"];
 
 const MAPPING_OPTIONS: { value: ColMapping; label: string }[] = [
@@ -85,6 +86,7 @@ export default function WhatsAppVerifierCampaigns() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [jobName, setJobName] = useState("");
   const [selectedDevice, setSelectedDevice] = useState("");
+  const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [rawInput, setRawInput] = useState("");
   const [swapDeviceId, setSwapDeviceId] = useState("");
   const [showSwapPanel, setShowSwapPanel] = useState(false);
@@ -241,14 +243,16 @@ export default function WhatsAppVerifierCampaigns() {
   const createJob = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Não autenticado");
-      if (!selectedDevice) throw new Error("Selecione uma instância");
+      if (!selectedDevice && selectedDevices.length === 0) throw new Error("Selecione ao menos uma instância");
       if (phones.length === 0) throw new Error("Nenhum número válido");
       if (phones.length > 5000) throw new Error("Máximo de 5000 números por campanha");
 
+      const deviceIds = selectedDevices.length > 0 ? selectedDevices : [selectedDevice];
+      const primaryDeviceId = deviceIds[0];
       const name = jobName.trim() || `Campanha ${new Date().toLocaleDateString("pt-BR")}`;
       const { data: job, error: jobErr } = await supabase
         .from("verify_jobs")
-        .insert({ user_id: user.id, device_id: selectedDevice, name, total_phones: phones.length, status: "pending" } as any)
+        .insert({ user_id: user.id, device_id: primaryDeviceId, device_ids: deviceIds, name, total_phones: phones.length, status: "pending" } as any)
         .select()
         .single();
       if (jobErr || !job) throw new Error(jobErr?.message || "Erro ao criar campanha");
@@ -279,7 +283,7 @@ export default function WhatsAppVerifierCampaigns() {
     onSuccess: (job: any) => {
       toast.success("Campanha criada!");
       queryClient.invalidateQueries({ queryKey: ["verify-jobs", user?.id] });
-      setRawInput(""); setJobName(""); setSelectedDevice("");
+      setRawInput(""); setJobName(""); setSelectedDevice(""); setSelectedDevices([]);
       setImportedContacts([]); setImportMode("plain");
       setSelectedJobId(job.id); setView("detail");
     },
@@ -426,17 +430,63 @@ export default function WhatsAppVerifierCampaigns() {
               <Input placeholder="Ex: Leads Goiás Abril" value={jobName} onChange={(e) => setJobName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Instância</label>
-              <Select value={selectedDevice} onValueChange={setSelectedDevice}>
-                <SelectTrigger className="bg-background/50"><SelectValue placeholder="Selecione uma instância conectada" /></SelectTrigger>
-                <SelectContent>
-                  {onlineDevices.map((device: any) => (
-                    <SelectItem key={device.id} value={device.id}>
-                      <span className="flex items-center gap-2"><Smartphone className="w-3.5 h-3.5" />{device.name} {device.number ? `(${device.number})` : ""}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Instâncias</label>
+                <span className="text-xs text-muted-foreground">
+                  {selectedDevices.length > 0 ? `${selectedDevices.length} selecionada(s)` : "Selecione ao menos uma"}
+                  {selectedDevices.length > 1 && ` — ${selectedDevices.length * BATCH_SIZE} números/lote`}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Selecione múltiplas instâncias para verificar mais rápido. Cada chip verifica {BATCH_SIZE} números por lote.
+                Se um chip desconectar, a campanha pausa automaticamente para você trocar.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[200px] overflow-y-auto rounded-lg border border-border/30 p-2 bg-background/30">
+                {onlineDevices.length === 0 ? (
+                  <p className="text-xs text-muted-foreground col-span-2 text-center py-4">Nenhuma instância conectada</p>
+                ) : (
+                  onlineDevices.map((device: any) => {
+                    const isSelected = selectedDevices.includes(device.id);
+                    return (
+                      <button
+                        key={device.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedDevices(prev =>
+                            isSelected ? prev.filter(id => id !== device.id) : [...prev, device.id]
+                          );
+                          if (!selectedDevice) setSelectedDevice(device.id);
+                        }}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-sm transition-all ${
+                          isSelected
+                            ? "border-primary bg-primary/10 text-foreground"
+                            : "border-border/50 bg-background/50 text-muted-foreground hover:border-primary/50"
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                          isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"
+                        }`}>
+                          {isSelected && <CheckCircle2 className="w-3 h-3 text-primary-foreground" />}
+                        </div>
+                        <Smartphone className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{device.name} {device.number ? `(${device.number})` : ""}</span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+              {onlineDevices.length > 2 && (
+                <div className="flex gap-2">
+                  <Button type="button" variant="ghost" size="sm" className="text-xs h-7" onClick={() => setSelectedDevices(onlineDevices.map((d: any) => d.id))}>
+                    Selecionar todas
+                  </Button>
+                  {selectedDevices.length > 0 && (
+                    <Button type="button" variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground" onClick={() => setSelectedDevices([])}>
+                      Limpar seleção
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Import mode toggle */}
@@ -507,9 +557,10 @@ export default function WhatsAppVerifierCampaigns() {
             </div>
 
             <div className="flex flex-wrap gap-2 justify-end">
-              <Button onClick={() => createJob.mutate()} disabled={createJob.isPending || phones.length === 0 || !selectedDevice}>
+              <Button onClick={() => createJob.mutate()} disabled={createJob.isPending || phones.length === 0 || selectedDevices.length === 0}>
                 {createJob.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Play className="w-4 h-4 mr-1.5" />}
                 {createJob.isPending ? "Criando..." : `Criar Campanha (${phones.length})`}
+                {selectedDevices.length > 1 && ` · ${selectedDevices.length} chips`}
               </Button>
             </div>
           </CardContent>
@@ -606,6 +657,8 @@ export default function WhatsAppVerifierCampaigns() {
     const isActive = job.status === "running" || job.status === "pending";
     const isPaused = job.status === "paused";
     const canResume = isPaused || job.status === "failed";
+    const jobDeviceIds: string[] = Array.isArray(job.device_ids) && job.device_ids.length > 0 ? job.device_ids : job.device_id ? [job.device_id] : [];
+    const jobDevices = jobDeviceIds.map((id: string) => getDeviceInfo(id)).filter(Boolean);
     const deviceInfo = getDeviceInfo(job.device_id);
     const deviceIsOnline = deviceInfo && ACTIVE_DEVICE_STATUSES.includes(deviceInfo.status);
 
@@ -650,23 +703,37 @@ export default function WhatsAppVerifierCampaigns() {
         <Card className="border-border/50 bg-card/50">
           <CardContent className="py-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <Smartphone className="w-5 h-5 text-muted-foreground" />
-                <div>
-                  <span className="font-medium text-foreground">
-                    {deviceInfo ? `${deviceInfo.name}${deviceInfo.number ? ` (${deviceInfo.number})` : ""}` : "Instância removida"}
-                  </span>
-                  {deviceInfo && (
-                    <Badge className={`ml-2 text-xs ${deviceIsOnline ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-400 border-red-500/30"}`}>
-                      {deviceIsOnline ? "Online" : deviceInfo.status}
-                    </Badge>
-                  )}
-                </div>
+                {jobDevices.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {jobDevices.map((d: any) => {
+                      const isOn = ACTIVE_DEVICE_STATUSES.includes(d.status);
+                      return (
+                        <div key={d.id} className="flex items-center gap-1.5">
+                          <span className="text-sm font-medium text-foreground">{d.name}{d.number ? ` (${d.number})` : ""}</span>
+                          <Badge className={`text-[10px] ${isOn ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-400 border-red-500/30"}`}>
+                            {isOn ? "●" : "○"}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">Instância removida</span>
+                )}
               </div>
               <Button variant="outline" size="sm" onClick={() => { setShowSwapPanel(!showSwapPanel); setSwapDeviceId(""); }}>
                 <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Trocar instância
               </Button>
             </div>
+
+            {job.last_error && (isPaused || job.status === "failed") && (
+              <div className="mt-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                {job.last_error}
+              </div>
+            )}
 
             {showSwapPanel && (
               <div className="mt-4 pt-4 border-t border-border/50 flex items-end gap-3">
@@ -675,7 +742,7 @@ export default function WhatsAppVerifierCampaigns() {
                   <Select value={swapDeviceId} onValueChange={setSwapDeviceId}>
                     <SelectTrigger className="bg-background/50"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
-                      {onlineDevices.filter((d: any) => d.id !== job.device_id).map((d: any) => (
+                      {onlineDevices.filter((d: any) => !jobDeviceIds.includes(d.id)).map((d: any) => (
                         <SelectItem key={d.id} value={d.id}>
                           <span className="flex items-center gap-2"><Smartphone className="w-3.5 h-3.5" />{d.name} {d.number ? `(${d.number})` : ""}</span>
                         </SelectItem>
@@ -832,6 +899,7 @@ export default function WhatsAppVerifierCampaigns() {
             const pct = total > 0 ? (verified / total) * 100 : 0;
             const isActive = job.status === "running" || job.status === "pending";
             const isPaused = job.status === "paused";
+            const listDeviceIds: string[] = Array.isArray(job.device_ids) && job.device_ids.length > 0 ? job.device_ids : job.device_id ? [job.device_id] : [];
             const devInfo = getDeviceInfo(job.device_id);
 
             return (
@@ -867,9 +935,10 @@ export default function WhatsAppVerifierCampaigns() {
                   </div>
 
                   <div className="flex items-center gap-4 text-xs text-muted-foreground mb-2 flex-wrap">
-                    {devInfo && (
-                      <span className="flex items-center gap-1"><Smartphone className="w-3 h-3" />{devInfo.name}</span>
-                    )}
+                    <span className="flex items-center gap-1">
+                      <Smartphone className="w-3 h-3" />
+                      {listDeviceIds.length > 1 ? `${listDeviceIds.length} chips` : devInfo ? devInfo.name : "—"}
+                    </span>
                     <span>{total} números</span>
                     <span className="text-emerald-400">✓ {job.success_count || 0}</span>
                     <span className="text-red-400">✗ {job.no_whatsapp_count || 0}</span>

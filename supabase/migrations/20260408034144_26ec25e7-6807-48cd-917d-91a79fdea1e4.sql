@@ -1,0 +1,1 @@
+ALTER TABLE public.verify_jobs ADD COLUMN IF NOT EXISTS device_ids jsonb DEFAULT '[]'::jsonb;
