@@ -10,9 +10,9 @@ import { type Conversation, type AttendingStatus, type Message, type Conversatio
 import { useConversations } from "@/hooks/chat/useConversations";
 import { Button } from "@/components/ui/button";
 import {
-  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogCancel,
-} from "@/components/ui/alert-dialog";
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Zap, Bell, MessageSquarePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
