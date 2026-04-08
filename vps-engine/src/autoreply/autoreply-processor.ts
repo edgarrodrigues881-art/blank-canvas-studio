@@ -446,7 +446,7 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
         flow_id: flow.id, device_id: deviceId, user_id: userId,
         contact_phone: fromPhone, current_node_id: startNode.id,
         status: "active", last_message_at: new Date().toISOString(),
-      }, { onConflict: "flow_id,contact_phone" })
+      }, { onConflict: "flow_id,device_id,contact_phone" })
       .select("id").single();
 
     if (sessErr) { log.error(`Session create error: ${sessErr.message}`); continue; }
