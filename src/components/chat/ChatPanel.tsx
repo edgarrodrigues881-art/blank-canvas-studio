@@ -391,6 +391,29 @@ export function ChatPanel({
         onArchive={onArchive}
       />
 
+      {/* Selection toolbar */}
+      {selectionMode && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 border-b border-border/40">
+          <button onClick={exitSelectionMode} className="p-1 rounded hover:bg-muted/50">
+            <X className="w-4 h-4 text-foreground" />
+          </button>
+          <span className="text-xs font-medium text-foreground flex-1">
+            {selectedMsgIds.size} selecionada{selectedMsgIds.size !== 1 ? "s" : ""}
+          </span>
+          <button
+            onClick={() => { const all = new Set(messages.map(m => m.id)); setSelectedMsgIds(all); }}
+            className="text-[11px] text-primary hover:underline"
+          >
+            Selecionar tudo
+          </button>
+          {selectedMsgIds.size > 0 && onDeleteMessage && (
+            <button onClick={handleDeleteSelected} className="flex items-center gap-1 text-[11px] text-red-500 hover:text-red-400 px-2 py-1 rounded-md bg-red-500/10">
+              <Trash2 className="w-3 h-3" /> Apagar ({selectedMsgIds.size})
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Messages Area */}
       <div className="flex-1 relative overflow-hidden">
       <div
