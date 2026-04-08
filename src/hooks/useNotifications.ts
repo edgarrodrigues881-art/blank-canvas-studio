@@ -232,6 +232,7 @@ export function useNotifications() {
         (payload) => {
           const newNotif = payload.new as Notification;
           if (globalKnownIds.has(newNotif.id)) return;
+          if (isHiddenNotification(newNotif)) return;
 
           globalKnownIds.add(newNotif.id);
 
