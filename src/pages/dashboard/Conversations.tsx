@@ -412,7 +412,7 @@ const Conversations = () => {
             <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/30 shrink-0 bg-card/30">
               <h2 className="text-base font-bold text-foreground tracking-tight">Atendimento</h2>
               <div className="flex items-center gap-0.5">
-                {availableInstances.length > 1 && (
+                {availableInstances.length >= 1 && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm" className="!h-[28px] rounded-lg text-[11px] gap-1.5 border-border/40 text-muted-foreground hover:text-foreground px-2">
