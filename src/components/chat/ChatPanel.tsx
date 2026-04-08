@@ -510,7 +510,7 @@ export function ChatPanel({
       )}
 
       {/* Instance Selector + Input Area */}
-      <div className="border-t border-border/40 bg-card/30 shrink-0 min-w-0 max-w-full">
+      <div className="border-t border-border/40 bg-card/30 shrink-0 min-w-0 max-w-full pb-[env(safe-area-inset-bottom,0px)]">
         {instances && instances.filter(i => i.deviceName).length > 1 && (
           <div className="flex items-center gap-1.5 px-4 pt-1.5 pb-0">
             <span className="text-[9px] text-muted-foreground/50 shrink-0">via:</span>
@@ -532,7 +532,7 @@ export function ChatPanel({
             </div>
           </div>
         )}
-      <div className="px-3 py-2.5">
+      <div className="px-3 py-1.5">
         {isRecording ? (
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" className="w-9 h-9 shrink-0 text-red-400 hover:text-red-300" onClick={cancelRecording}>
