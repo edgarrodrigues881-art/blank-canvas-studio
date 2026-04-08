@@ -17,7 +17,7 @@ import {
   CheckCircle2, AlertCircle, RefreshCw, Copy, UserCheck, ShieldCheck, EyeOff
 } from "lucide-react";
 
-interface GroupInfo { jid: string; name: string; participants_count: number }
+interface GroupInfo { jid: string; name: string; participants_count: number; is_community?: boolean }
 interface ExtractedLead { phone: string; name: string; group_jid: string; group_name: string; is_admin: boolean }
 
 const ROW_HEIGHT = 40;

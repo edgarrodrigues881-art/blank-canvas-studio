@@ -224,7 +224,10 @@ Deno.serve(async (req) => {
         const name = g?.Name || g?.subject || g?.name || g?.title || "Grupo";
         const participants = g?.Participants || g?.participants || [];
         const pCount = participants.length || g?.size || g?.memberCount || g?.Size || 0;
-        return { jid, name, participants_count: pCount };
+        const isCommunity = g?.IsCommunity === true || g?.isCommunity === true ||
+          g?.is_community === true || g?.linkedParent != null || g?.LinkedParentJID != null ||
+          g?.IsParent === true || g?.isParent === true;
+        return { jid, name, participants_count: pCount, is_community: isCommunity };
       }).filter((g: any) => g.jid.includes("@g.us"));
 
       return new Response(JSON.stringify({ groups }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
