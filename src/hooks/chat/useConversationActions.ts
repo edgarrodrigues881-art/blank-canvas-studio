@@ -213,8 +213,7 @@ export function useConversationActions({
     }
   }, [messages, getToken, projectId, setMessages]);
 
-  const deleteMessage = useCallback(async (messageId: string, conversationId: string, whatsappMessageId?: string) => {
-    // Optimistically remove from state
+  const deleteMessage = useCallback(async (messageId: string, conversationId: string, whatsappMessageId?: string, forEveryone?: boolean) => {
     setMessages((prev) => prev.filter((m) => m.id !== messageId));
 
     const token = await getToken();
@@ -226,12 +225,12 @@ export function useConversationActions({
           action: "delete",
           conversation_id: conversationId,
           message_id: messageId,
-          whatsapp_message_id: whatsappMessageId || "",
+          whatsapp_message_id: forEveryone ? (whatsappMessageId || "") : "",
         }),
       });
       const result = await res.json();
       if (result.deleted) {
-        toast.success(result.deletedOnWhatsApp ? "Mensagem apagada para todos" : "Mensagem apagada localmente");
+        toast.success(forEveryone && result.deletedOnWhatsApp ? "Mensagem apagada para todos" : "Mensagem apagada para você");
       } else {
         toast.error(result.error || "Erro ao apagar mensagem");
       }
