@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Save, Play, BotMessageSquare, ArrowLeft, Loader2, Smartphone, Circle } from "lucide-react";
+import { Save, Play, BotMessageSquare, ArrowLeft, Loader2, Smartphone, Circle, Undo2, Redo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
