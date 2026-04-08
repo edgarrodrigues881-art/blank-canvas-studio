@@ -35,6 +35,7 @@ interface ConversationListProps {
   onFilterInstancesChange?: (ids: string[]) => void;
   onBulkArchive?: (ids: string[]) => void;
   onBulkDelete?: (ids: string[]) => void;
+  onMarkUnread?: (conversationId: string) => void;
 }
 
 type StatusTab = "all" | "mine" | "new" | "attending" | "waiting" | "archived";
