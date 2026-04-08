@@ -395,11 +395,17 @@ function FlowCanvas() {
       const clientX = "changedTouches" in event ? event.changedTouches[0].clientX : (event as MouseEvent).clientX;
       const clientY = "changedTouches" in event ? event.changedTouches[0].clientY : (event as MouseEvent).clientY;
       const flowPos = screenToFlowPosition({ x: clientX, y: clientY });
+      const sourceElement = document.querySelector(`[data-id="${pendingConnection.current.source}"]`) as HTMLElement | null;
+      const sourceRect = sourceElement?.getBoundingClientRect();
+      const menuWidth = 170;
+      const menuHeight = 220;
+      const preferredX = sourceRect ? sourceRect.right + 18 : clientX + 8;
+      const preferredY = sourceRect ? sourceRect.top + Math.max(0, sourceRect.height / 2 - 24) : clientY - 20;
 
       setEdgeMenu(null);
       setDropMenu({
-        x: clientX,
-        y: clientY,
+        x: Math.min(Math.max(12, preferredX), window.innerWidth - menuWidth - 12),
+        y: Math.min(Math.max(12, preferredY), window.innerHeight - menuHeight - 12),
         flowX: flowPos.x,
         flowY: flowPos.y,
         sourceNodeId: pendingConnection.current.source,
@@ -439,10 +445,19 @@ function FlowCanvas() {
         };
       }
 
+      const sourceNode = nodes.find((node) => node.id === dropMenu.sourceNodeId);
+      const menuRightFlow = screenToFlowPosition({ x: dropMenu.x + 190, y: dropMenu.y + 40 });
+      const nextX = Math.max(
+        dropMenu.flowX - 125,
+        menuRightFlow.x + 16,
+        sourceNode ? sourceNode.position.x + 250 : dropMenu.flowX - 125,
+      );
+      const nextY = dropMenu.flowY - 30;
+
       const newNode: Node<FlowNodeData> = {
         id,
         type,
-        position: { x: dropMenu.flowX - 125, y: dropMenu.flowY - 30 },
+        position: { x: nextX, y: nextY },
         data,
       };
 
