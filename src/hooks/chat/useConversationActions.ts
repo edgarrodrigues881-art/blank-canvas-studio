@@ -476,6 +476,7 @@ export function useConversationActions({
     releaseConversation,
     sendMessage,
     retryMessage,
+    deleteMessage,
     sendAudioMessage,
     sendFileMessage,
     createConversation,
