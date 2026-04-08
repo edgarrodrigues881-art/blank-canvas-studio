@@ -4259,6 +4259,11 @@ export type Database = {
           phone: string
           status: string
           user_id: string
+          var1: string | null
+          var2: string | null
+          var3: string | null
+          var4: string | null
+          var5: string | null
         }
         Insert: {
           checked_at?: string | null
@@ -4269,6 +4274,11 @@ export type Database = {
           phone: string
           status?: string
           user_id: string
+          var1?: string | null
+          var2?: string | null
+          var3?: string | null
+          var4?: string | null
+          var5?: string | null
         }
         Update: {
           checked_at?: string | null
@@ -4279,6 +4289,11 @@ export type Database = {
           phone?: string
           status?: string
           user_id?: string
+          var1?: string | null
+          var2?: string | null
+          var3?: string | null
+          var4?: string | null
+          var5?: string | null
         }
         Relationships: [
           {

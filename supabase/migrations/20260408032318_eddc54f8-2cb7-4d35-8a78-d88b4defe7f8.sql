@@ -1,0 +1,7 @@
+
+ALTER TABLE public.verify_results
+  ADD COLUMN IF NOT EXISTS var1 text,
+  ADD COLUMN IF NOT EXISTS var2 text,
+  ADD COLUMN IF NOT EXISTS var3 text,
+  ADD COLUMN IF NOT EXISTS var4 text,
+  ADD COLUMN IF NOT EXISTS var5 text;
