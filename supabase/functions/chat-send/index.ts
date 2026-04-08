@@ -50,17 +50,8 @@ function buildAttempts(
 ): SendAttempt[] {
   const target = destination.group ? destination.chatId : destination.number;
 
-  // Build quote fields for UAZAPI - multiple formats for compatibility
-  const quoteFields = quotedMessageId
-    ? {
-        quotedMsgId: quotedMessageId,
-        quotedMsg: quotedMessageId,
-        contextInfo: {
-          stanzaId: quotedMessageId,
-          quotedMessage: { conversation: "" },
-        },
-      }
-    : {};
+  // UAZAPI uses "replyid" field for quoting messages
+  const quoteFields = quotedMessageId ? { replyid: quotedMessageId } : {};
 
   if (type === "audio") {
     return [
