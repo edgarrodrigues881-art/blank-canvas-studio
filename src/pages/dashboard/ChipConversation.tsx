@@ -672,7 +672,7 @@ function CreateConversationForm({
                 const isConnected = isConversationDeviceConnected(device);
                 const isOffline = !isConnected;
                 return (
-                  <label
+                  <div
                     key={device.id}
                     className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border transition-all cursor-pointer ${
                       isOffline && !selected
@@ -681,8 +681,8 @@ function CreateConversationForm({
                           ? "border-primary/40 bg-primary/10"
                           : "border-border/30 hover:border-border/60 hover:bg-muted/30"
                     }`}
-                    onClick={(e) => {
-                      if (isOffline && !selected) { e.preventDefault(); return; }
+                    onClick={() => {
+                      if (isOffline && !selected) return;
                       toggleDevice(device.id);
                     }}
                   >
@@ -690,7 +690,7 @@ function CreateConversationForm({
                     <span className="text-[11px] font-medium text-foreground truncate flex-1">{device.name}</span>
                     {device.number && <span className="text-[10px] text-muted-foreground/60">{device.number}</span>}
                     <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isConnected ? "bg-emerald-500" : "bg-destructive/60"}`} />
-                  </label>
+                  </div>
                 );
               })
             )}
