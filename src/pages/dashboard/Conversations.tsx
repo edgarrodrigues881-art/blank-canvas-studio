@@ -40,6 +40,7 @@ const Conversations = () => {
     sendAudioMessage,
     sendFileMessage,
     retryMessage,
+    deleteMessage,
     assignConversation,
     releaseConversation,
     archiveConversation,
