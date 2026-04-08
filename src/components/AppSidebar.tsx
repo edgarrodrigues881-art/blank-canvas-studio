@@ -289,7 +289,18 @@ export function AppSidebar() {
         )}
       </div>
 
-      <SidebarContent className="py-2">
+      <SidebarContent
+        className="py-2"
+        ref={(el) => {
+          if (!el) return;
+          const saved = sessionStorage.getItem("sidebar-scroll");
+          if (saved && !el.dataset.scrollRestored) {
+            el.scrollTop = Number(saved);
+            el.dataset.scrollRestored = "1";
+          }
+          el.onscroll = () => sessionStorage.setItem("sidebar-scroll", String(el.scrollTop));
+        }}
+      >
         {menuGroups.map((group, gi) => {
           // Hide entire section if no items have permission
           const groupRoutes = group.items.map(i => i.url);
