@@ -3758,10 +3758,14 @@ export type Database = {
       }
       service_contacts: {
         Row: {
+          company: string | null
           conversation_id: string | null
           created_at: string
           email: string | null
+          first_contact_at: string | null
           id: string
+          last_message_at: string | null
+          last_message_content: string | null
           name: string
           notes: string | null
           origin: string | null
@@ -3772,10 +3776,14 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company?: string | null
           conversation_id?: string | null
           created_at?: string
           email?: string | null
+          first_contact_at?: string | null
           id?: string
+          last_message_at?: string | null
+          last_message_content?: string | null
           name?: string
           notes?: string | null
           origin?: string | null
@@ -3786,10 +3794,14 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company?: string | null
           conversation_id?: string | null
           created_at?: string
           email?: string | null
+          first_contact_at?: string | null
           id?: string
+          last_message_at?: string | null
+          last_message_content?: string | null
           name?: string
           notes?: string | null
           origin?: string | null
