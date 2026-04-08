@@ -10,50 +10,50 @@ export function MessageNode({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={`group rounded-2xl bg-card/95 backdrop-blur-sm min-w-[250px] max-w-[320px] transition-all duration-200 ease-out
+      className={`group rounded-xl bg-card border transition-all duration-200 ease-out min-w-[240px] max-w-[300px]
         ${selected
-          ? "shadow-[0_0_0_2px_hsl(var(--primary)),0_8px_32px_-8px_hsl(var(--primary)/0.25)] scale-[1.02]"
-          : "shadow-[0_2px_12px_-4px_hsl(var(--foreground)/0.08)] hover:shadow-[0_4px_20px_-6px_hsl(var(--foreground)/0.12)] hover:scale-[1.01] border border-border/40"
+          ? "border-primary/60 shadow-[0_0_20px_-4px_hsl(var(--primary)/0.2)] scale-[1.01]"
+          : "border-border/50 shadow-sm hover:shadow-md hover:border-border/70"
         }`}
     >
       <Handle
         type="target"
         position={Position.Left}
         id="in"
-        className="!w-5 !h-5 !bg-primary !border-[3px] !border-card !rounded-full !shadow-[0_0_8px_hsl(var(--primary)/0.35)] !-left-2.5"
+        className="!w-3 !h-3 !bg-primary !border-2 !border-card !rounded-full !shadow-[0_0_6px_hsl(var(--primary)/0.3)] !-left-1.5"
       />
 
       {/* Header */}
-      <div className="flex items-center gap-2.5 px-4 py-3.5">
-        <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center ring-1 ring-primary/20">
-          <MessageSquare className="w-4 h-4 text-primary" />
+      <div className={`flex items-center gap-2 px-3.5 py-2.5 border-b ${selected ? "border-primary/20" : "border-border/30"}`}>
+        <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
+          <MessageSquare className="w-3 h-3 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-foreground leading-tight truncate">{d.label}</p>
+          <p className="text-xs font-semibold text-foreground leading-tight truncate">{d.label}</p>
           {isUsingModel && (
             <div className="flex items-center gap-1 mt-0.5">
-              <FileText className="w-2.5 h-2.5 text-primary/50" />
-              <span className="text-[9px] text-primary/50 font-medium truncate">{d.templateName}</span>
+              <FileText className="w-2.5 h-2.5 text-primary/40" />
+              <span className="text-[9px] text-primary/40 font-medium truncate">{d.templateName}</span>
             </div>
           )}
         </div>
         {d.delay && d.delay > 0 ? (
-          <span className="flex items-center gap-1 text-[10px] text-muted-foreground/70 bg-muted/30 px-2 py-0.5 rounded-full">
-            <Clock className="w-3 h-3" /> {d.delay}s
+          <span className="flex items-center gap-0.5 text-[9px] text-muted-foreground/50 bg-muted/20 px-1.5 py-0.5 rounded">
+            <Clock className="w-2.5 h-2.5" /> {d.delay}s
           </span>
         ) : null}
       </div>
 
       {/* Body */}
-      <div className="px-4 pb-3 space-y-1.5">
+      <div className="px-3.5 py-2.5 space-y-1">
         {hasImage && (
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50">
             <Image className="w-3 h-3" />
             <span>Imagem anexada</span>
           </div>
         )}
         {d.text && (
-          <p className={`text-[11px] text-foreground/60 whitespace-pre-line leading-relaxed ${isUsingModel ? '' : 'line-clamp-2'}`}>
+          <p className={`text-[10px] text-foreground/50 whitespace-pre-line leading-relaxed ${isUsingModel ? '' : 'line-clamp-2'}`}>
             {d.text.replace(/\{(\w+)\}/g, (_, v) => `«${v}»`)}
           </p>
         )}
@@ -61,17 +61,17 @@ export function MessageNode({ data, selected }: NodeProps) {
 
       {/* Buttons */}
       {hasButtons && (
-        <div className="border-t border-border/30 px-3 py-2.5 space-y-1.5">
+        <div className="border-t border-border/20 px-3 py-2 space-y-1">
           {d.buttons!.map((btn) => (
             <div key={btn.id} className="relative flex items-center">
-              <div className="flex-1 text-[11px] font-medium text-center py-1.5 px-3 rounded-lg bg-primary/6 text-primary/80 border border-primary/10 transition-colors hover:bg-primary/10">
+              <div className="flex-1 text-[10px] font-medium text-center py-1 px-2 rounded-md bg-primary/5 text-primary/70 border border-primary/10 transition-colors hover:bg-primary/8">
                 {btn.label}
               </div>
               <Handle
                 type="source"
                 position={Position.Right}
                 id={`btn-${btn.id}`}
-                className="!w-5 !h-5 !bg-primary !border-[3px] !border-card !rounded-full !-right-2.5 !shadow-[0_0_8px_hsl(var(--primary)/0.35)]"
+                className="!w-3 !h-3 !bg-primary !border-2 !border-card !rounded-full !-right-1.5 !shadow-[0_0_6px_hsl(var(--primary)/0.3)]"
               />
             </div>
           ))}
@@ -84,7 +84,7 @@ export function MessageNode({ data, selected }: NodeProps) {
           type="source"
           position={Position.Right}
           id="out"
-          className="!w-5 !h-5 !bg-primary !border-[3px] !border-card !rounded-full !shadow-[0_0_8px_hsl(var(--primary)/0.35)] !-right-2.5"
+          className="!w-3 !h-3 !bg-primary !border-2 !border-card !rounded-full !shadow-[0_0_6px_hsl(var(--primary)/0.3)] !-right-1.5"
         />
       )}
     </div>

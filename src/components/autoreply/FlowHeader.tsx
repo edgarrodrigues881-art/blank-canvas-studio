@@ -126,23 +126,23 @@ export function FlowHeader({ flowId, name, onNameChange, isActive, onToggleActiv
   };
 
   return (
-    <div className="flex items-center gap-2 sm:gap-4 px-3 sm:px-5 py-3 border-b border-border/40 bg-card/50 backdrop-blur-sm shrink-0 overflow-x-auto">
+    <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 border-b border-border/30 bg-card/40 backdrop-blur-sm shrink-0 overflow-x-auto">
       <Button
         size="icon"
         variant="ghost"
-        className="h-8 w-8 text-muted-foreground/50 hover:text-foreground shrink-0"
+        className="h-7 w-7 text-muted-foreground/40 hover:text-foreground shrink-0"
         onClick={() => navigate("/dashboard/auto-reply")}
       >
-        <ArrowLeft className="w-4 h-4" />
+        <ArrowLeft className="w-3.5 h-3.5" />
       </Button>
-      <div className="flex items-center gap-2.5 shrink-0">
-        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-          <BotMessageSquare className="w-4 h-4 text-primary" />
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
+          <BotMessageSquare className="w-3 h-3 text-primary" />
         </div>
         <input
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
-          className="text-sm font-semibold bg-transparent border-none outline-none text-foreground w-36 sm:w-52 focus:ring-0 placeholder:text-muted-foreground/40"
+          className="text-xs font-semibold bg-transparent border-none outline-none text-foreground w-32 sm:w-44 focus:ring-0 placeholder:text-muted-foreground/30"
           placeholder="Nome da automação"
         />
       </div>
@@ -151,8 +151,8 @@ export function FlowHeader({ flowId, name, onNameChange, isActive, onToggleActiv
         value={deviceId || "none"}
         onValueChange={(value) => onDeviceChange(value === "none" ? null : value)}
       >
-        <SelectTrigger className="w-[160px] sm:w-[200px] h-8 text-xs bg-card/60 border-border/30 gap-2 shrink-0">
-          <Smartphone className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
+        <SelectTrigger className="w-[150px] sm:w-[180px] h-7 text-[11px] bg-card/40 border-border/20 gap-1.5 shrink-0">
+          <Smartphone className="w-3 h-3 text-muted-foreground/40 shrink-0" />
           <SelectValue placeholder="Selecionar instância" />
         </SelectTrigger>
         <SelectContent>
@@ -175,31 +175,31 @@ export function FlowHeader({ flowId, name, onNameChange, isActive, onToggleActiv
 
       <div className="flex-1" />
 
-      <div className="flex items-center gap-2 mr-2 shrink-0">
-        <Switch checked={isActive} onCheckedChange={onToggleActive} className="scale-[0.85]" />
-        <span className={`text-xs font-medium ${isActive ? "text-emerald-500" : "text-muted-foreground/50"}`}>
+      <div className="flex items-center gap-1.5 mr-1 shrink-0">
+        <Switch checked={isActive} onCheckedChange={onToggleActive} className="scale-[0.8]" />
+        <span className={`text-[11px] font-medium ${isActive ? "text-emerald-500/80" : "text-muted-foreground/40"}`}>
           {isActive ? "Ativo" : "Inativo"}
         </span>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-1.5 shrink-0">
         <Button
           size="sm"
           variant="outline"
-          className="h-8 text-xs border-border/50 hover:border-border"
+          className="h-7 text-[11px] px-3 border-border/30 hover:border-border/50"
           onClick={handleTest}
           disabled={testing}
         >
-          {testing ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Play className="w-3.5 h-3.5 mr-1.5" />}
+          {testing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Play className="w-3 h-3 mr-1" />}
           Testar
         </Button>
         <Button
           size="sm"
-          className="h-8 text-xs gap-1.5"
+          className="h-7 text-[11px] px-3 gap-1"
           onClick={onSave}
           disabled={saving}
         >
-          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+          {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
           Salvar
           {isDirty && (
             <Circle className="w-1.5 h-1.5 fill-current" />
