@@ -124,6 +124,7 @@ export function ConversationList({
   onFilterInstancesChange,
   onBulkArchive,
   onBulkDelete,
+  onMarkUnread,
 }: ConversationListProps) {
   const [activeStatus, setActiveStatus] = useState<StatusTab>("all");
   const [selectionMode, setSelectionMode] = useState(false);
