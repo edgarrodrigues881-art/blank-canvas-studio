@@ -447,9 +447,9 @@ export function ConversationList({
       </ScrollArea>
 
       {/* Context menu (right-click) */}
-      {contextMenuId && (
+      {contextMenuId && createPortal(
         <div
-          className="fixed inset-0 z-50"
+          className="fixed inset-0 z-[9999]"
           onClick={() => setContextMenuId(null)}
           onContextMenu={(e) => { e.preventDefault(); setContextMenuId(null); }}
         >
