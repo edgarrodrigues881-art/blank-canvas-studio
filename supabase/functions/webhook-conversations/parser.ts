@@ -15,6 +15,7 @@ export interface ParsedConversationEvent {
   avatarUrl: string | null;
   quotedMessageId: string | null;
   quotedContent: string | null;
+  buttonResponseId: string | null;
 }
 
 type JsonObject = Record<string, any>;
@@ -520,6 +521,28 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
 
   const quoted = resolveQuotedMessage(body, messageNodes);
 
+  // ── Extract button response ID (when user clicks a button) ──
+  const buttonResponseId = firstString(
+    // UaZapi / Baileys: buttonsResponseMessage.selectedButtonId
+    ...messageNodes.flatMap((node) => [
+      node.buttonsResponseMessage?.selectedButtonId,
+      node.templateButtonReplyMessage?.selectedId,
+      node.templateButtonReplyMessage?.selectedIndex != null ? String(node.templateButtonReplyMessage.selectedIndex) : "",
+      node.listResponseMessage?.singleSelectReply?.selectedRowId,
+      node.listResponseMessage?.selectedRowId,
+    ]),
+    // Top-level alternatives
+    body.selectedButtonId,
+    body.buttonId,
+    body.button_id,
+    body.selectedId,
+    body.data?.selectedButtonId,
+    body.data?.buttonId,
+    body.data?.button_id,
+    body.message?.selectedButtonId,
+    body.message?.buttonId,
+  ) || null;
+
   return {
     remoteJid,
     phone,
@@ -537,5 +560,6 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
     avatarUrl,
     quotedMessageId: quoted.id,
     quotedContent: quoted.content,
+    buttonResponseId,
   };
 }
