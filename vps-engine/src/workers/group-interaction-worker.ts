@@ -725,7 +725,10 @@ export async function groupInteractionTick() {
       log.info(`Interaction ${interaction.id.slice(0, 8)} processed in ${Date.now() - t0}ms`);
     } catch (err: any) {
       log.error(`Interaction ${interaction.id.slice(0, 8)} error: ${err.message}`);
-      await db.from("group_interactions").update({ last_error: err.message }).eq("id", interaction.id).then(() => {}, () => {});
+      const isTransient = /502|503|504|Bad Gateway|Service Unavailable|Gateway Timeout|ECONNREFUSED|ECONNRESET|ETIMEDOUT|socket hang up/i.test(err.message || "");
+      if (!isTransient) {
+        await db.from("group_interactions").update({ last_error: err.message }).eq("id", interaction.id).then(() => {}, () => {});
+      }
       const retryAt = new Date(Date.now() + 120_000).toISOString();
       await db.from("group_interactions").update({ next_action_at: retryAt }).eq("id", interaction.id).in("status", ["running", "active"]).then(() => {}, () => {});
     } finally {
