@@ -50,6 +50,7 @@ export interface ChatHeaderProps {
   onRelease?: (conversationId: string) => void;
   onMarkUnread?: (conversationId: string) => void;
   onArchive?: (conversationId: string) => void;
+  onSelectMessages?: () => void;
 }
 
 export const ChatHeader = memo(function ChatHeader({
