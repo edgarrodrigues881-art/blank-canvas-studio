@@ -467,10 +467,9 @@ export function useConversationActions({
 
   const markAsUnread = useCallback(async (convId: string) => {
     setConversations((prev) =>
-      prev.map((c) => c.id === convId ? { ...c, unread_count: Math.max(c.unread_count, 1) } : c)
+      prev.map((c) => c.id === convId ? { ...c, unread_count: c.unread_count > 0 ? c.unread_count : -1 } : c)
     );
     await supabase.from("conversations").update({ unread_count: 1 } as any).eq("id", convId);
-    toast.success("Marcada como não lida");
   }, [setConversations]);
 
   const bulkArchiveConversations = useCallback(async (convIds: string[]) => {
