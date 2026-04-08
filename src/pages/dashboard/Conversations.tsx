@@ -10,9 +10,9 @@ import { type Conversation, type AttendingStatus, type Message, type Conversatio
 import { useConversations } from "@/hooks/chat/useConversations";
 import { Button } from "@/components/ui/button";
 import {
-  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogCancel,
-} from "@/components/ui/alert-dialog";
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Zap, Bell, MessageSquarePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -479,17 +479,17 @@ const Conversations = () => {
       />
 
       {/* Delete message dialog */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
-        <AlertDialogContent className="max-w-[340px]">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base">Apagar mensagem</AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-muted-foreground">
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent className="max-w-[340px]">
+          <DialogHeader>
+            <DialogTitle className="text-base">Apagar mensagem</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
               {deleteTarget?.isSent
                 ? "Escolha como deseja apagar esta mensagem."
                 : "Você só pode apagar mensagens recebidas para você."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex flex-col gap-2 sm:flex-col">
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
             {deleteTarget?.isSent && (
               <Button
                 variant="destructive"
@@ -508,10 +508,9 @@ const Conversations = () => {
               <Trash2 className="w-4 h-4 mr-2" />
               Apagar para mim
             </Button>
-            <AlertDialogCancel className="w-full mt-0">Cancelar</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
