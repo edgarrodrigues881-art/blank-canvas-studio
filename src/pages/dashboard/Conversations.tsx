@@ -65,6 +65,8 @@ const Conversations = () => {
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; conversationId: string; whatsappMessageId?: string; isSent: boolean } | null>(null);
+  const [editTarget, setEditTarget] = useState<{ id: string; conversationId: string; whatsappMessageId?: string; content: string } | null>(null);
+  const [editText, setEditText] = useState("");
 
   // Handle ?open=convId from queue
   useEffect(() => {
