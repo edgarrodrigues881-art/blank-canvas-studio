@@ -307,7 +307,7 @@ Deno.serve(async (req) => {
             status: "pending",
             device_header_id: device.id,
             instance_token: null,
-            raw_payload: null,
+            raw_payload: buttonResponseId ? body : null,
             button_response_id: buttonResponseId || null,
             has_button_response: !!buttonResponseId,
           });
