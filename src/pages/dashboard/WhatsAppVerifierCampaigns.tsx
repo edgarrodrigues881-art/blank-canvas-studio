@@ -164,7 +164,7 @@ export default function WhatsAppVerifierCampaigns() {
         .select("*")
         .eq("job_id", selectedJobId)
         .order("created_at", { ascending: true })
-        .limit(500);
+        .limit(5000);
       if (error) throw error;
       return data || [];
     },
