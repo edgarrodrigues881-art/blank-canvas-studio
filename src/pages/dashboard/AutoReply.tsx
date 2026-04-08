@@ -23,7 +23,7 @@ import { ConditionNode } from "@/components/autoreply/ConditionNode";
 import { FlowSidebar } from "@/components/autoreply/FlowSidebar";
 import { EditPanel } from "@/components/autoreply/EditPanel";
 import { FlowHeader } from "@/components/autoreply/FlowHeader";
-import type { FlowNodeData } from "@/components/autoreply/types";
+import type { FlowNodeData, FlowCondition } from "@/components/autoreply/types";
 import { nextNodeId, nextBtnId } from "@/components/autoreply/types";
 import { MessageSquare, Square, Timer } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
