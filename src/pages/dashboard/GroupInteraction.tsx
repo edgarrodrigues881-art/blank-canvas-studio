@@ -475,29 +475,29 @@ export default function GroupInteractionPage() {
 
       {/* Persistent cumulative stats */}
       {!showConfig && !showBulkCreate && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <Card className="border-border/50 bg-card overflow-hidden">
-            <CardContent className="min-h-[96px] px-5 py-4 flex items-center justify-center">
-              <div className="grid w-full max-w-[260px] grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-violet-500/10 flex items-center justify-center shrink-0">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-violet-500/10 flex items-center justify-center shrink-0">
                   <MessageCircle className="w-4 h-4 text-violet-400" />
                 </div>
-                <div className="min-w-0 text-left">
-                  <p className="text-[10px] uppercase tracking-[0.12em] leading-none text-muted-foreground font-medium truncate">Mensagens Entregues</p>
-                  <p className="mt-2 text-2xl leading-none font-bold text-foreground tabular-nums">{(groupCumulativeStats?.totalMessages ?? 0).toLocaleString("pt-BR")}</p>
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">Mensagens Entregues</p>
+                  <p className="text-xl font-bold text-foreground tabular-nums">{(groupCumulativeStats?.totalMessages ?? 0).toLocaleString("pt-BR")}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card className="border-border/50 bg-card overflow-hidden">
-            <CardContent className="min-h-[96px] px-5 py-4 flex items-center justify-center">
-              <div className="grid w-full max-w-[260px] grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                   <Users className="w-4 h-4 text-primary" />
                 </div>
-                <div className="min-w-0 text-left">
-                  <p className="text-[10px] uppercase tracking-[0.12em] leading-none text-muted-foreground font-medium truncate">Automações Ativas</p>
-                  <p className="mt-2 text-2xl leading-none font-bold text-foreground tabular-nums">{interactions.filter(i => i.status === "running").length}</p>
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">Automações Ativas</p>
+                  <p className="text-xl font-bold text-foreground tabular-nums">{interactions.filter(i => i.status === "running").length}</p>
                 </div>
               </div>
             </CardContent>
