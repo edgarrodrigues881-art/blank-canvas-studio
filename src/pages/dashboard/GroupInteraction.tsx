@@ -666,59 +666,47 @@ export default function GroupInteractionPage() {
               {/* Controls bar */}
               {selectedId && (
                 <>
-                  <GIStatusPanel interaction={(selectedPresentation || selected)!} />
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Button
-                      size="sm"
-                      onClick={() => handleAction("start")}
-                      disabled={selectedDisplayStatus === "running" || invokeAction.isPending || Boolean(selectedInvalidReason)}
-                      className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
-                    >
-                      <Play className="w-3.5 h-3.5" /> Iniciar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleAction("pause")}
-                      disabled={selectedDisplayStatus !== "running" || invokeAction.isPending}
-                      className="gap-1.5"
-                    >
-                      <Pause className="w-3.5 h-3.5" /> Pausar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleAction(selectedDisplayStatus === "paused" ? "start" : "stop")}
-                      disabled={selectedDisplayStatus === "idle" || invokeAction.isPending || (selectedDisplayStatus === "paused" && Boolean(selectedInvalidReason))}
-                      className="gap-1.5"
-                    >
-                      {selectedDisplayStatus === "paused" ? (
-                        <><RotateCw className="w-3.5 h-3.5" /> Retomar</>
-                      ) : (
-                        <><Square className="w-3.5 h-3.5" /> Parar</>
-                      )}
-                    </Button>
-                    <div className="ml-auto flex items-center gap-2">
-                      <Button size="sm" variant="ghost" onClick={handleDuplicate} className="gap-1">
-                        <Copy className="w-3.5 h-3.5" /> Duplicar
-                      </Button>
+                  <GIStatusPanel
+                    interaction={(selectedPresentation || selected)!}
+                    deviceName={selected?.device_id ? (deviceMap.get(selected.device_id)?.name || "Instância removida") : "Sem instância"}
+                  />
+
+                  <div className="flex items-center gap-3">
+                    {selectedDisplayStatus === "running" ? (
+                      <button
+                        onClick={() => handleAction("pause")}
+                        disabled={invokeAction.isPending}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-amber-500/20 bg-amber-500/5 text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 disabled:opacity-40 text-xs font-medium transition-all"
+                      >
+                        <Pause className="w-3.5 h-3.5" strokeWidth={1.8} /> Pausar
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleAction("start")}
+                        disabled={invokeAction.isPending || Boolean(selectedInvalidReason)}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-all"
+                      >
+                        <Play className="w-3.5 h-3.5" strokeWidth={1.8} /> {selectedDisplayStatus === "paused" ? "Retomar" : "Iniciar"}
+                      </button>
+                    )}
+
+                    <div className="ml-auto">
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-destructive hover:text-destructive"
+                        className="text-muted-foreground/40 hover:text-destructive"
                         onClick={() => {
-                          deleteInteraction.mutate(selectedId);
-                          setSelectedId(null);
-                          setShowConfig(false);
+                          if (confirm("Excluir esta automação?")) {
+                            deleteInteraction.mutate(selectedId);
+                            setSelectedId(null);
+                            setShowConfig(false);
+                          }
                         }}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
-                  {selectedInvalidReason && (
-                    <p className="text-xs text-destructive">{selectedInvalidReason}</p>
-                  )}
                 </>
               )}
 
