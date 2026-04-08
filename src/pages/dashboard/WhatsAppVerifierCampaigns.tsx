@@ -34,7 +34,7 @@ interface ImportedRow {
   var5?: string;
 }
 
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 10;
 const ACTIVE_DEVICE_STATUSES = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"];
 
 const MAPPING_OPTIONS: { value: ColMapping; label: string }[] = [
