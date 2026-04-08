@@ -19,10 +19,22 @@ export function useWarmupEngine() {
       if (!checkRoute("/dashboard/warmup-v2")) {
         throw new Error("Funcionalidade em manutenção");
       }
+
       const { data, error } = await supabase.functions.invoke("warmup-engine", {
         body: params,
       });
-      if (error) throw error;
+
+      // supabase.functions.invoke wraps non-2xx as a generic error.
+      // Extract the real message from the response context when available.
+      if (error) {
+        // The SDK puts the parsed body into `data` even on error
+        if (data?.error) {
+          const err = new Error(data.error) as any;
+          err.code = data.code; // e.g. "NO_ACTIVE_PLAN"
+          throw err;
+        }
+        throw error;
+      }
       if (data?.error) throw new Error(data.error);
       return data;
     },

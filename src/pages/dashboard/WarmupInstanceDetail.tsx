@@ -257,6 +257,37 @@ const WarmupInstanceDetail = () => {
     staleTime: 60_000,
   });
 
+  // Plan status check — show alert if expired
+  const { data: planStatus } = useQuery({
+    queryKey: ["user_plan_status", user?.id],
+    queryFn: async () => {
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("expires_at")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("status, instance_override")
+        .eq("id", user!.id)
+        .maybeSingle();
+      const hasLegacyAccess = (profile?.instance_override ?? 0) > 0;
+      const hasActiveSub = sub && new Date(sub.expires_at) >= new Date();
+      const isSuspended = profile?.status === "suspended" || profile?.status === "cancelled";
+      return {
+        active: (hasActiveSub || hasLegacyAccess) && !isSuspended,
+        suspended: isSuspended,
+        expiresAt: sub?.expires_at || null,
+      };
+    },
+    enabled: !!user?.id,
+    staleTime: 60_000,
+    refetchInterval: 300_000,
+  });
+  const isPlanExpired = planStatus && !planStatus.active;
+
   // statusToday removed — UAZAPI v2 does not support status posting
 
   // Group audit logs by warmup day
@@ -1161,6 +1192,26 @@ const WarmupInstanceDetail = () => {
   return (
     <div className="w-full space-y-6 pb-8">
 
+      {/* Plan expired banner */}
+      {isPlanExpired && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive">
+          <AlertTriangle className="w-5 h-5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold">
+              {planStatus?.suspended ? "Conta suspensa" : "Plano expirado"}
+            </p>
+            <p className="text-xs opacity-80">
+              {planStatus?.suspended
+                ? "Sua conta está suspensa. Entre em contato com o suporte."
+                : "Seu plano está inativo. Ative um plano para usar o aquecimento."}
+            </p>
+          </div>
+          <Button size="sm" variant="destructive" className="shrink-0 text-xs" onClick={() => navigate("/dashboard/my-plan")}>
+            Ver Planos
+          </Button>
+        </div>
+      )}
+
       {/* ═══════════ HERO HEADER ═══════════ */}
       <div className="relative rounded-2xl border border-primary/20 bg-card/60 backdrop-blur-xl overflow-hidden shadow-[0_0_40px_-12px_hsl(var(--primary)/0.15)]">
         {/* ambient glow */}
@@ -1267,7 +1318,7 @@ const WarmupInstanceDetail = () => {
                   className="w-full gap-2 h-9 rounded-xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 text-[11px] font-medium transition-all"
                   variant="ghost"
                   onClick={handleResume}
-                  disabled={engine.isPending}
+                  disabled={engine.isPending || !!isPlanExpired}
                 >
                   {engine.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} Retomar
                 </Button>
@@ -1372,7 +1423,7 @@ const WarmupInstanceDetail = () => {
                 handleStartWarmup();
               }
             }}
-            disabled={!isConnected || engine.isPending}
+            disabled={!isConnected || engine.isPending || !!isPlanExpired}
           >
             {engine.isPending ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -1381,8 +1432,11 @@ const WarmupInstanceDetail = () => {
             )}
             {isTerminalCycle ? "Começar Novo Aquecimento" : "Começar Aquecimento"}
           </Button>
-          {!isConnected && (
+          {!isConnected && !isPlanExpired && (
             <p className="text-xs text-amber-400 text-center -mt-2 font-semibold">⚠ Conecte a instância primeiro para iniciar</p>
+          )}
+          {isPlanExpired && (
+            <p className="text-xs text-destructive text-center -mt-2 font-semibold">⚠ Ative seu plano para iniciar o aquecimento</p>
           )}
         </div>
       )}
