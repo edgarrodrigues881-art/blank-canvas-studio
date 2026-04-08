@@ -639,8 +639,10 @@ async function processOneInteraction(sb: any, interaction: any) {
     updatePayload.last_sent_at = new Date().toISOString();
     updatePayload.today_count = todayCount + 1;
     updatePayload.last_error = null;
+    updatePayload.consecutive_errors = 0; // Reset on success
   } else {
     updatePayload.last_error = sendError;
+    updatePayload.consecutive_errors = (interaction.consecutive_errors || 0) + 1;
   }
 
   // Schedule next delay
