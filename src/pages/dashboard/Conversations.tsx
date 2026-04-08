@@ -301,10 +301,23 @@ const Conversations = () => {
 
   const handleDeleteMessage = useCallback(
     (msg: any) => {
-      if (!confirm("Apagar esta mensagem para todos?")) return;
-      deleteMessage(msg.id, msg.conversationId, msg.whatsappMessageId);
+      setDeleteTarget({
+        id: msg.id,
+        conversationId: msg.conversationId,
+        whatsappMessageId: msg.whatsappMessageId,
+        isSent: msg.type === "sent",
+      });
     },
-    [deleteMessage]
+    []
+  );
+
+  const confirmDelete = useCallback(
+    (forEveryone: boolean) => {
+      if (!deleteTarget) return;
+      deleteMessage(deleteTarget.id, deleteTarget.conversationId, deleteTarget.whatsappMessageId, forEveryone);
+      setDeleteTarget(null);
+    },
+    [deleteTarget, deleteMessage]
   );
 
   const handleStatusChange = useCallback(
