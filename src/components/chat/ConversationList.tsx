@@ -330,113 +330,190 @@ export function ConversationList({
                 : [];
 
               return (
-                <button
+                <div
                   key={c.id}
-                  onClick={() => selectionMode ? toggleSelect(c.id) : onSelect(c)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-3 text-left transition-all",
-                    isSelected
-                      ? "bg-primary/10"
-                      : hasUnread
-                        ? "bg-muted/10 hover:bg-muted/20"
-                        : "hover:bg-muted/15",
-                    selectionMode && selectedIds.has(c.id) && "bg-primary/10"
-                  )}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setContextMenuId(c.id);
+                    setContextPos({ x: e.clientX, y: e.clientY });
+                  }}
                 >
-                  {selectionMode && (
-                    <div className="shrink-0" onClick={(e) => { e.stopPropagation(); toggleSelect(c.id); }}>
-                      <Checkbox
-                        checked={selectedIds.has(c.id)}
-                        className="w-4 h-4"
-                      />
-                    </div>
-                  )}
-                  <div className="relative shrink-0">
-                    {c.avatar_url ? (
-                      <img src={c.avatar_url} alt={avatarLabel} className="w-12 h-12 rounded-full object-cover" />
-                    ) : (
-                      <div className={cn("w-12 h-12 rounded-full flex items-center justify-center text-base font-bold", avatarCls)}>
-                        {avatarLabel.slice(0, 2).toUpperCase()}
+                  <button
+                    onClick={() => selectionMode ? toggleSelect(c.id) : onSelect(c)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-3 text-left transition-all",
+                      isSelected
+                        ? "bg-primary/10"
+                        : hasUnread
+                          ? "bg-muted/10 hover:bg-muted/20"
+                          : "hover:bg-muted/15",
+                      selectionMode && selectedIds.has(c.id) && "bg-primary/10"
+                    )}
+                  >
+                    {selectionMode && (
+                      <div className="shrink-0" onClick={(e) => { e.stopPropagation(); toggleSelect(c.id); }}>
+                        <Checkbox
+                          checked={selectedIds.has(c.id)}
+                          className="w-4 h-4"
+                        />
                       </div>
                     )}
-                    {c.status === "online" && (
-                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-background" />
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={cn(
-                        "text-sm truncate",
-                        hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/90"
-                      )}>
-                        {trimmedQuery ? (
-                          <HighlightText text={displayName || formatPhone(c.phone)} query={trimmedQuery} />
-                        ) : (
-                          displayName || formatPhone(c.phone)
-                        )}
-                      </span>
-                      <span className={cn(
-                        "text-[11px] shrink-0",
-                        hasUnread ? "text-emerald-400 font-semibold" : "text-muted-foreground/50"
-                      )}>
-                        {c.lastMessageAt ? formatDate(c.lastMessageAt) : ""}
-                      </span>
+                    <div className="relative shrink-0">
+                      {c.avatar_url ? (
+                        <img src={c.avatar_url} alt={avatarLabel} className="w-12 h-12 rounded-full object-cover" />
+                      ) : (
+                        <div className={cn("w-12 h-12 rounded-full flex items-center justify-center text-base font-bold", avatarCls)}>
+                          {avatarLabel.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      {c.status === "online" && (
+                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-background" />
+                      )}
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 mt-1">
-                      <div className="flex items-center gap-1 min-w-0 flex-1">
-                        {c.lastMessageStatus && <MessageTicks status={c.lastMessageStatus} />}
-                        <p className={cn(
-                          "text-xs truncate",
-                          hasUnread ? "text-foreground/80 font-medium" : "text-muted-foreground/60"
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={cn(
+                          "text-sm truncate",
+                          hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/90"
                         )}>
-                          {c.status === "typing" ? (
-                            <span className="text-emerald-400 italic">digitando...</span>
-                          ) : mediaPreview ? (
-                            <span>{mediaPreview.icon} {mediaPreview.text}</span>
-                          ) : trimmedQuery && c.lastMessage ? (
-                            <HighlightText text={c.lastMessage} query={trimmedQuery} />
+                          {trimmedQuery ? (
+                            <HighlightText text={displayName || formatPhone(c.phone)} query={trimmedQuery} />
                           ) : (
-                            c.lastMessage || "..."
+                            displayName || formatPhone(c.phone)
                           )}
-                        </p>
-                      </div>
-                      {hasUnread && (
-                        <span className="min-w-[20px] h-[20px] px-1.5 text-[11px] font-bold bg-emerald-500 text-white rounded-full flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/30">
-                          {c.unreadCount}
                         </span>
-                      )}
-                      {activeStatus === "archived" && onUnarchive && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onUnarchive(c.id); }}
-                          className="shrink-0 text-[10px] text-primary hover:text-primary/80 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 hover:bg-primary/20 transition-colors"
-                          title="Desarquivar"
-                        >
-                          <ArchiveRestore className="w-3 h-3" />
-                          <span className="hidden sm:inline">Desarquivar</span>
-                        </button>
+                        <span className={cn(
+                          "text-[11px] shrink-0",
+                          hasUnread ? "text-emerald-400 font-semibold" : "text-muted-foreground/50"
+                        )}>
+                          {c.lastMessageAt ? formatDate(c.lastMessageAt) : ""}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 mt-1">
+                        <div className="flex items-center gap-1 min-w-0 flex-1">
+                          {c.lastMessageStatus && <MessageTicks status={c.lastMessageStatus} />}
+                          <p className={cn(
+                            "text-xs truncate",
+                            hasUnread ? "text-foreground/80 font-medium" : "text-muted-foreground/60"
+                          )}>
+                            {c.status === "typing" ? (
+                              <span className="text-emerald-400 italic">digitando...</span>
+                            ) : mediaPreview ? (
+                              <span>{mediaPreview.icon} {mediaPreview.text}</span>
+                            ) : trimmedQuery && c.lastMessage ? (
+                              <HighlightText text={c.lastMessage} query={trimmedQuery} />
+                            ) : (
+                              c.lastMessage || "..."
+                            )}
+                          </p>
+                        </div>
+                        {hasUnread && (
+                          <span className="min-w-[20px] h-[20px] px-1.5 text-[11px] font-bold bg-emerald-500 text-white rounded-full flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/30">
+                            {c.unreadCount}
+                          </span>
+                        )}
+                        {activeStatus === "archived" && onUnarchive && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onUnarchive(c.id); }}
+                            className="shrink-0 text-[10px] text-primary hover:text-primary/80 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 hover:bg-primary/20 transition-colors"
+                            title="Desarquivar"
+                          >
+                            <ArchiveRestore className="w-3 h-3" />
+                            <span className="hidden sm:inline">Desarquivar</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {matchedTags.length > 0 && (
+                        <div className="flex items-center gap-1 mt-1 overflow-hidden">
+                          <Tag className="w-2.5 h-2.5 text-primary/60 shrink-0" />
+                          {matchedTags.slice(0, 3).map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-[9px] px-1.5 py-0 h-4 rounded-md border-primary/30 text-primary/80 bg-primary/5">
+                              <HighlightText text={tag} query={trimmedQuery} />
+                            </Badge>
+                          ))}
+                        </div>
                       )}
                     </div>
-
-                    {/* Matched tags */}
-                    {matchedTags.length > 0 && (
-                      <div className="flex items-center gap-1 mt-1 overflow-hidden">
-                        <Tag className="w-2.5 h-2.5 text-primary/60 shrink-0" />
-                        {matchedTags.slice(0, 3).map((tag) => (
-                          <Badge key={tag} variant="outline" className="text-[9px] px-1.5 py-0 h-4 rounded-md border-primary/30 text-primary/80 bg-primary/5">
-                            <HighlightText text={tag} query={trimmedQuery} />
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </button>
+                  </button>
+                </div>
               );
             })
           )}
         </div>
       </ScrollArea>
+
+      {/* Context menu (right-click) */}
+      {contextMenuId && (
+        <div
+          className="fixed inset-0 z-50"
+          onClick={() => setContextMenuId(null)}
+          onContextMenu={(e) => { e.preventDefault(); setContextMenuId(null); }}
+        >
+          <div
+            className="absolute bg-popover border border-border rounded-lg shadow-xl py-1 min-w-[180px] animate-in fade-in-0 zoom-in-95"
+            style={{
+              left: Math.min(contextPos.x, window.innerWidth - 200),
+              top: Math.min(contextPos.y, window.innerHeight - 280),
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted/50 transition-colors"
+              onClick={() => {
+                setSelectionMode(true);
+                setSelectedIds(new Set([contextMenuId]));
+                setContextMenuId(null);
+              }}
+            >
+              <CheckSquare className="w-4 h-4 text-muted-foreground" />
+              Selecionar
+            </button>
+
+            {onBulkArchive && (
+              <button
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted/50 transition-colors"
+                onClick={() => {
+                  onBulkArchive([contextMenuId]);
+                  setContextMenuId(null);
+                }}
+              >
+                <Archive className="w-4 h-4 text-muted-foreground" />
+                Arquivar
+              </button>
+            )}
+
+            <button
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted/50 transition-colors"
+              onClick={() => {
+                const conv = filtered.find((c) => c.id === contextMenuId);
+                if (conv) onSelect(conv);
+                setContextMenuId(null);
+              }}
+            >
+              <Tag className="w-4 h-4 text-muted-foreground" />
+              Marcar com tag
+            </button>
+
+            <div className="h-px bg-border/50 my-1" />
+
+            {onBulkDelete && (
+              <button
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                onClick={() => {
+                  onBulkDelete([contextMenuId]);
+                  setContextMenuId(null);
+                }}
+              >
+                <Trash2 className="w-4 h-4" />
+                Apagar conversa
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
