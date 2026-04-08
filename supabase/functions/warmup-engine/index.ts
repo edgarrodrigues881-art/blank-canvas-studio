@@ -810,8 +810,10 @@ async function handleStart(db: any, userId: string | null, body: any) {
 
   if (cycleErr) throw cycleErr;
 
-  // 3. Register groups — strictly from the chosen group_source
+  // 3. Register groups — strictly from the chosen group_source, with fallback
   let userGroups: any[] = [];
+  let actualGroupSource = resolvedGroupSource;
+
   if (resolvedGroupSource === "system") {
     const { data } = await db
       .from("warmup_groups")
@@ -820,22 +822,35 @@ async function handleStart(db: any, userId: string | null, body: any) {
       .eq("is_custom", false);
     userGroups = data || [];
   } else {
-    // Use user's custom groups
+    // Try user's custom groups first
     const { data } = await db
       .from("warmup_groups")
       .select("id, name, link")
       .eq("user_id", userId)
       .eq("is_custom", true);
     userGroups = data || [];
+
+    // Fallback to system groups if user has none
+    if (userGroups.length === 0) {
+      console.log(`[warmup-engine] No custom groups for user ${userId}, falling back to system groups`);
+      actualGroupSource = "system";
+      const { data: sysGroups } = await db
+        .from("warmup_groups")
+        .select("id, name, link")
+        .is("user_id", null)
+        .eq("is_custom", false);
+      userGroups = sysGroups || [];
+    }
   }
 
   if (userGroups.length === 0) {
     await db.from("warmup_cycles").delete().eq("id", cycle.id);
-    throw new Error(
-      resolvedGroupSource === "system"
-        ? "Nenhum grupo do sistema cadastrado para iniciar o aquecimento"
-        : "Nenhum grupo próprio cadastrado para iniciar o aquecimento",
-    );
+    throw new Error("Nenhum grupo disponível para iniciar o aquecimento. Cadastre grupos em 'Captura de Grupos'.");
+  }
+
+  // Update cycle with actual group source used
+  if (actualGroupSource !== resolvedGroupSource) {
+    await db.from("warmup_cycles").update({ group_source: actualGroupSource }).eq("id", cycle.id);
   }
   
   const allGroups = shuffleArray((userGroups || []).map((g: any) => ({
