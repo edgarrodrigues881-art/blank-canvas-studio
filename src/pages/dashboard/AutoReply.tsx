@@ -219,15 +219,20 @@ function FlowCanvas() {
     (event: MouseEvent | TouchEvent) => {
       if (!pendingConnection.current) return;
 
-      const targetIsNode = (event.target as HTMLElement)?.closest?.(".react-flow__node");
-      const targetIsHandle = (event.target as HTMLElement)?.closest?.(".react-flow__handle");
+      const target = event.target as HTMLElement;
+      if (!target) {
+        pendingConnection.current = null;
+        return;
+      }
+      const targetIsNode = target.closest?.(".react-flow__node");
+      const targetIsHandle = target.closest?.(".react-flow__handle");
       if (targetIsNode || targetIsHandle) {
         pendingConnection.current = null;
         return;
       }
 
-      const clientX = "changedTouches" in event ? event.changedTouches[0].clientX : event.clientX;
-      const clientY = "changedTouches" in event ? event.changedTouches[0].clientY : event.clientY;
+      const clientX = "changedTouches" in event ? event.changedTouches[0].clientX : (event as MouseEvent).clientX;
+      const clientY = "changedTouches" in event ? event.changedTouches[0].clientY : (event as MouseEvent).clientY;
       const flowPos = screenToFlowPosition({ x: clientX, y: clientY });
 
       setDropMenu({
