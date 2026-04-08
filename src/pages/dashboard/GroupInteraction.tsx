@@ -13,7 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Plus, Save, MessageCircle, Clock,
+  Play, Pause, Plus, Save, MessageCircle, Clock,
   Users, Settings, ArrowLeft, Layers,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
