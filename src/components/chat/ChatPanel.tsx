@@ -345,6 +345,29 @@ export function ChatPanel({
     textareaRef.current?.focus();
   }, [setReplyTo, textareaRef]);
 
+  const toggleSelectMsg = useCallback((msgId: string) => {
+    setSelectedMsgIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(msgId)) next.delete(msgId); else next.add(msgId);
+      return next;
+    });
+  }, []);
+
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedMsgIds(new Set());
+  }, []);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (!onDeleteMessage) return;
+    const selectedMessages = messages.filter((m) => selectedMsgIds.has(m.id));
+    selectedMessages.forEach((m) => onDeleteMessage(m));
+    exitSelectionMode();
+  }, [messages, selectedMsgIds, onDeleteMessage, exitSelectionMode]);
+
+  // Exit selection mode on conversation change
+  useEffect(() => { exitSelectionMode(); }, [conversation.id]);
+
   return (
     <div className="flex flex-col h-full min-w-0 max-w-full overflow-hidden">
       <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageInput} />
