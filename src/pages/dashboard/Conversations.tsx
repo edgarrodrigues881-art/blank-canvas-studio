@@ -45,6 +45,7 @@ const Conversations = () => {
     sendFileMessage,
     retryMessage,
     deleteMessage,
+    editMessage,
     assignConversation,
     releaseConversation,
     archiveConversation,
