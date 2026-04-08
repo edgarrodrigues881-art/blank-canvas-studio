@@ -385,6 +385,14 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
                 <Reply className="w-3 h-3" /> Responder
               </button>
             )}
+            {onEdit && isSent && !msg.mediaType && (
+              <button
+                onClick={() => { onEdit(msg); setShowActions(false); }}
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md bg-muted/60 hover:bg-muted transition-colors"
+              >
+                <Pencil className="w-3 h-3" /> Editar
+              </button>
+            )}
             {onDelete && (
               <button
                 onClick={() => { onDelete(msg); setShowActions(false); }}
