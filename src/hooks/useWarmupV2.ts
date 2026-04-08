@@ -271,6 +271,7 @@ export function useAutosaveContacts() {
         .from("warmup_autosave_contacts" as any)
         .select("id, contact_name, phone_e164, tags, is_active, created_at, last_used_at, use_count, contact_status")
         .eq("user_id", user!.id)
+        .order("is_active", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as unknown as WarmupAutosaveContact[];
