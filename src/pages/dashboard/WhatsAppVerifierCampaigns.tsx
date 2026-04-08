@@ -557,9 +557,10 @@ export default function WhatsAppVerifierCampaigns() {
             </div>
 
             <div className="flex flex-wrap gap-2 justify-end">
-              <Button onClick={() => createJob.mutate()} disabled={createJob.isPending || phones.length === 0 || !selectedDevice}>
+              <Button onClick={() => createJob.mutate()} disabled={createJob.isPending || phones.length === 0 || selectedDevices.length === 0}>
                 {createJob.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Play className="w-4 h-4 mr-1.5" />}
                 {createJob.isPending ? "Criando..." : `Criar Campanha (${phones.length})`}
+                {selectedDevices.length > 1 && ` · ${selectedDevices.length} chips`}
               </Button>
             </div>
           </CardContent>
