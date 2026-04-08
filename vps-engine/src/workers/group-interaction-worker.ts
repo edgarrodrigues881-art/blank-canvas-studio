@@ -641,7 +641,9 @@ async function processOneInteraction(sb: any, interaction: any) {
     updatePayload.last_error = null;
     updatePayload.consecutive_errors = 0; // Reset on success
   } else {
-    updatePayload.last_error = sendError;
+    // Transient API errors are suppressed from last_error so the client UI stays clean
+    const isTransient = /502|503|504|Bad Gateway|Service Unavailable|Gateway Timeout|ECONNREFUSED|ECONNRESET|ETIMEDOUT|socket hang up/i.test(sendError || "");
+    updatePayload.last_error = isTransient ? null : sendError;
     updatePayload.consecutive_errors = (interaction.consecutive_errors || 0) + 1;
   }
 
