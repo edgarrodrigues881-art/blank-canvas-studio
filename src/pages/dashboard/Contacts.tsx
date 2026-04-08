@@ -275,26 +275,46 @@ const Contacts = () => {
     });
   }, [contacts, search, tagFilter]);
 
-  const lastClickedIndexRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartIndexRef = useRef<number | null>(null);
+  const dragModeRef = useRef<"add" | "remove">("add");
 
-  const toggleSelect = useCallback((id: string, index: number, shiftKey: boolean) => {
+  const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); dragModeRef.current = "remove"; }
+      else { next.add(id); dragModeRef.current = "add"; }
+      return next;
+    });
+  }, []);
 
-      if (shiftKey && lastClickedIndexRef.current !== null) {
-        const start = Math.min(lastClickedIndexRef.current, index);
-        const end = Math.max(lastClickedIndexRef.current, index);
-        for (let i = start; i <= end; i++) {
-          if (filtered[i]) next.add(filtered[i].id);
+  const handleDragStart = useCallback((index: number) => {
+    isDraggingRef.current = true;
+    dragStartIndexRef.current = index;
+  }, []);
+
+  const handleDragEnter = useCallback((index: number) => {
+    if (!isDraggingRef.current || dragStartIndexRef.current === null) return;
+    const start = Math.min(dragStartIndexRef.current, index);
+    const end = Math.max(dragStartIndexRef.current, index);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (let i = start; i <= end; i++) {
+        if (filtered[i]) {
+          if (dragModeRef.current === "add") next.add(filtered[i].id);
+          else next.delete(filtered[i].id);
         }
-      } else {
-        next.has(id) ? next.delete(id) : next.add(id);
       }
-
-      lastClickedIndexRef.current = index;
       return next;
     });
   }, [filtered]);
+
+  // Global mouseup to stop drag
+  useEffect(() => {
+    const handleMouseUp = () => { isDraggingRef.current = false; dragStartIndexRef.current = null; };
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => window.removeEventListener("mouseup", handleMouseUp);
+  }, []);
 
   const toggleAll = () => {
     if (selected.size === filtered.length) setSelected(new Set());
