@@ -445,6 +445,9 @@ export function ChatPanel({
                 onRetry={onRetryMessage}
                 onDelete={onDeleteMessage}
                 onEdit={onEditMessage}
+                selectionMode={selectionMode}
+                isSelected={selectedMsgIds.has(msg.id)}
+                onToggleSelect={toggleSelectMsg}
               />
             </div>
           );
