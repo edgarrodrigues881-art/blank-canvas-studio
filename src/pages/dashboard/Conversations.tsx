@@ -62,7 +62,7 @@ const Conversations = () => {
     bulkDeleteConversations,
   } = useConversations();
 
-  const [showDetails, setShowDetails] = useState(true);
+  const [showDetails, setShowDetails] = useState(false);
   const [showFlows, setShowFlows] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_W);
