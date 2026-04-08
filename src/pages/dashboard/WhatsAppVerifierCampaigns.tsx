@@ -692,7 +692,7 @@ export default function WhatsAppVerifierCampaigns() {
     const deviceIsOnline = deviceInfo && ACTIVE_DEVICE_STATUSES.includes(deviceInfo.status);
 
     // Detect which var columns have data
-    const activeVars = [1, 2, 3, 4, 5].filter((n) => sortedResults.some((r: any) => r[`var${n}`]));
+    const activeVars = Array.from({ length: 10 }, (_, i) => i + 1).filter((n) => sortedResults.some((r: any) => r[`var${n}`]));
 
     return (
       <div className="space-y-6 p-4 md:p-6 max-w-6xl mx-auto">
