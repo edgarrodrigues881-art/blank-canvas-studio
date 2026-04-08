@@ -219,20 +219,27 @@ async function processJob(jobId: string) {
         const now = new Date().toISOString();
 
         let batchSuccess = 0, batchNoWa = 0, batchError = 0;
+        const successIds: string[] = [];
+        const noWaIds: string[] = [];
+        const errorIds: string[] = [];
+        const detailMap: Record<string, string> = {};
+
         for (const result of results) {
           const matchingRow = batchResults.find(r => r.phone === result.phone);
           if (!matchingRow) continue;
-
-          await db.from("verify_results").update({
-            status: result.status,
-            detail: result.detail,
-            checked_at: now,
-          }).eq("id", matchingRow.id);
-
-          if (result.status === "success") batchSuccess++;
-          else if (result.status === "no_whatsapp") batchNoWa++;
-          else batchError++;
+          detailMap[matchingRow.id] = result.detail;
+          if (result.status === "success") { successIds.push(matchingRow.id); batchSuccess++; }
+          else if (result.status === "no_whatsapp") { noWaIds.push(matchingRow.id); batchNoWa++; }
+          else { errorIds.push(matchingRow.id); batchError++; }
         }
+
+        // Bulk updates by status — much faster than individual updates
+        const bulkOps: Promise<any>[] = [];
+        if (successIds.length > 0) bulkOps.push(db.from("verify_results").update({ status: "success", detail: "Tem WhatsApp", checked_at: now }).in("id", successIds));
+        if (noWaIds.length > 0) bulkOps.push(db.from("verify_results").update({ status: "no_whatsapp", detail: "Sem WhatsApp", checked_at: now }).in("id", noWaIds));
+        if (errorIds.length > 0) bulkOps.push(db.from("verify_results").update({ status: "error", detail: "Erro", checked_at: now }).in("id", errorIds));
+        await Promise.all(bulkOps);
+
         return { batchSuccess, batchNoWa, batchError };
       });
 
