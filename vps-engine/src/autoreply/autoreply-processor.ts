@@ -367,31 +367,10 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
   }
 
   // ── Text matching button label in active session ──
-  {
-    const { data: activeSession } = await db.from("autoreply_sessions")
-      .select("*").eq("device_id", deviceId).eq("contact_phone", fromPhone)
-      .in("status", ["active", "paused"])
-      .order("updated_at", { ascending: false }).limit(1).maybeSingle();
-
-    if (activeSession && messageText) {
-      const flow = matchingFlows.find(f => f.id === activeSession.flow_id);
-      if (flow) {
-        const nodes = flow.nodes as FlowNode[];
-        const edges = flow.edges as FlowEdge[];
-        const currentNode = findNodeById(activeSession.current_node_id, nodes);
-        if (currentNode?.data.buttons?.length) {
-          const labelMatch = currentNode.data.buttons.find(b => b.label.toLowerCase().trim() === messageText.toLowerCase().trim());
-          if (labelMatch) {
-            const target = findNextNodeForButton(currentNode.id, labelMatch.id, edges) || labelMatch.targetNodeId;
-            if (target) {
-              await processNodeChain(db, baseUrl, deviceToken, fromPhone, target, nodes, edges, activeSession.id, flow.id, deviceId, userId);
-              return;
-            }
-          }
-        }
-      }
-    }
-  }
+  // DISABLED: Only real button clicks (with button_response_id) should
+  // continue button flows. Typed text that matches a label is ignored
+  // so that the flow only advances on actual button taps.
+  // If needed in the future, re-enable by uncommenting below.
 
   // ── Waiting response continuation ──
   {
