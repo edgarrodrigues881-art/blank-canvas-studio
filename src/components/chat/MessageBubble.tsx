@@ -144,6 +144,7 @@ function getWaveform(id: string) {
 export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onRetry, onDelete }: MessageBubbleProps) {
   const [showActions, setShowActions] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
 
   const handleTouchStart = useCallback(() => {
     longPressTimer.current = setTimeout(() => setShowActions(true), 500);
@@ -151,6 +152,22 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
   const handleTouchEnd = useCallback(() => {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
   }, []);
+
+  // Close actions when clicking outside
+  useEffect(() => {
+    if (!showActions) return;
+    const handler = (e: MouseEvent | TouchEvent) => {
+      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
+        setShowActions(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler);
+    };
+  }, [showActions]);
 
   const renderContent = () => {
     const isAudio = msg.mediaType === "audio";
