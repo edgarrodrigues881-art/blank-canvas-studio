@@ -188,6 +188,26 @@ export function FlowHeader({ flowId, name, onNameChange, isActive, onToggleActiv
 
       <div className="flex items-center gap-1.5 shrink-0">
         <Button
+          size="icon"
+          variant="outline"
+          className="h-7 w-7 border-border/30 hover:border-border/50"
+          onClick={onUndo}
+          disabled={!canUndo}
+          title="Desfazer (Ctrl/Cmd+Z)"
+        >
+          <Undo2 className="w-3.5 h-3.5" />
+        </Button>
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-7 w-7 border-border/30 hover:border-border/50"
+          onClick={onRedo}
+          disabled={!canRedo}
+          title="Refazer (Ctrl/Cmd+Shift+Z)"
+        >
+          <Redo2 className="w-3.5 h-3.5" />
+        </Button>
+        <Button
           size="sm"
           variant="outline"
           className="h-7 text-[11px] px-3 border-border/30 hover:border-border/50"
