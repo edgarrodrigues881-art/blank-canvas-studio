@@ -716,131 +716,147 @@ export default function GroupInteractionPage() {
   function renderFormFields() {
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Schedule */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5" /> Agenda
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Label className="text-xs font-medium">Período 1</Label>
+        {/* Agenda + Delays in one card */}
+        <div className="rounded-2xl border border-border/30 bg-card overflow-hidden">
+          {/* Schedule section */}
+          <div className="px-5 py-4 space-y-3">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Clock className="w-3.5 h-3.5" />
+              <span className="text-xs font-semibold uppercase tracking-wider">Agenda</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
+              <div>
+                <Label className="text-[11px] text-muted-foreground">Início</Label>
+                <Input
+                  type="time"
+                  value={form.start_hour || "07:00"}
+                  onChange={(e) => updateForm({ start_hour: e.target.value })}
+                  className="mt-1 h-9"
+                />
+              </div>
+              <div>
+                <Label className="text-[11px] text-muted-foreground">Término</Label>
+                <Input
+                  type="time"
+                  value={form.end_hour || "21:00"}
+                  onChange={(e) => updateForm({ end_hour: e.target.value })}
+                  className="mt-1 h-9"
+                />
+              </div>
+              <div>
+                <Label className="text-[11px] text-muted-foreground">Delay mín (s)</Label>
+                <Input
+                  type="number"
+                  value={form.min_delay_seconds ?? ""}
+                  onChange={(e) => updateForm({ min_delay_seconds: e.target.value === "" ? undefined : Number(e.target.value) })}
+                  className="mt-1 h-9"
+                  min={0}
+                />
+              </div>
+              <div>
+                <Label className="text-[11px] text-muted-foreground">Delay máx (s)</Label>
+                <Input
+                  type="number"
+                  value={form.max_delay_seconds ?? ""}
+                  onChange={(e) => updateForm({ max_delay_seconds: e.target.value === "" ? undefined : Number(e.target.value) })}
+                  className="mt-1 h-9"
+                  min={0}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Switch checked={usePeriod2} onCheckedChange={(v) => {
+                setUsePeriod2(v);
+                if (v) {
+                  updateForm({
+                    start_hour_2: form.start_hour_2 || defaultPeriod2.start_hour_2,
+                    end_hour_2: form.end_hour_2 || defaultPeriod2.end_hour_2,
+                  });
+                } else {
+                  updateForm({ start_hour_2: undefined, end_hour_2: undefined });
+                }
+              }} />
+              <Label className="text-xs text-muted-foreground">2º período</Label>
+            </div>
+
+            {usePeriod2 && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-[11px] text-muted-foreground">Início</Label>
+                  <Label className="text-[11px] text-muted-foreground">Início 2</Label>
                   <Input
                     type="time"
-                    value={form.start_hour || "07:00"}
-                    onChange={(e) => updateForm({ start_hour: e.target.value })}
-                    className="mt-1"
+                    value={form.start_hour_2 || defaultPeriod2.start_hour_2}
+                    onChange={(e) => updateForm({ start_hour_2: e.target.value })}
+                    className="mt-1 h-9"
                   />
                 </div>
                 <div>
-                  <Label className="text-[11px] text-muted-foreground">Término</Label>
+                  <Label className="text-[11px] text-muted-foreground">Término 2</Label>
                   <Input
                     type="time"
-                    value={form.end_hour || "21:00"}
-                    onChange={(e) => updateForm({ end_hour: e.target.value })}
-                    className="mt-1"
+                    value={form.end_hour_2 || defaultPeriod2.end_hour_2}
+                    onChange={(e) => updateForm({ end_hour_2: e.target.value })}
+                    className="mt-1 h-9"
                   />
                 </div>
               </div>
+            )}
 
-              <div className="flex items-center gap-3 pt-1">
-                <Switch checked={usePeriod2} onCheckedChange={(v) => {
-                  setUsePeriod2(v);
-                  if (v) {
-                    updateForm({
-                      start_hour_2: form.start_hour_2 || defaultPeriod2.start_hour_2,
-                      end_hour_2: form.end_hour_2 || defaultPeriod2.end_hour_2,
-                    });
-                  } else {
-                    updateForm({ start_hour_2: undefined, end_hour_2: undefined });
-                  }
-                }} />
-                <Label className="text-xs">Adicionar 2º período (ex: tarde)</Label>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Dias ativos</Label>
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {DAYS.map((d) => (
+                  <button
+                    key={d.key}
+                    onClick={() => toggleDay(d.key)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-all ${
+                      (form.active_days || []).includes(d.key)
+                        ? "bg-primary/15 text-primary border-primary/30"
+                        : "bg-muted/30 text-muted-foreground border-border hover:border-border/80"
+                    }`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
               </div>
-
-              {usePeriod2 && (
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Período 2</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-[11px] text-muted-foreground">Início</Label>
-                      <Input
-                        type="time"
-                        value={form.start_hour_2 || defaultPeriod2.start_hour_2}
-                        onChange={(e) => updateForm({ start_hour_2: e.target.value })}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-[11px] text-muted-foreground">Término</Label>
-                      <Input
-                        type="time"
-                        value={form.end_hour_2 || defaultPeriod2.end_hour_2}
-                        onChange={(e) => updateForm({ end_hour_2: e.target.value })}
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-1">
-                <Label className="text-xs">Dias ativos</Label>
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {DAYS.map((d) => (
-                    <button
-                      key={d.key}
-                      onClick={() => toggleDay(d.key)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                        (form.active_days || []).includes(d.key)
-                          ? "bg-primary/15 text-primary border-primary/30"
-                          : "bg-muted/30 text-muted-foreground border-border hover:border-border/80"
-                      }`}
-                    >
-                      {d.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
         {/* Groups */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5" /> Grupos ({(form.group_ids || []).length} selecionados)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-2 mb-3">
-              <button
-                onClick={() => { setGroupSource("system"); updateForm({ group_ids: [] }); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                  groupSource === "system"
-                    ? "bg-primary/15 text-primary border-primary/30"
-                    : "bg-muted/30 text-muted-foreground border-border hover:border-border/80"
-                }`}
-              >
-                Grupos do Sistema
-              </button>
-              <button
-                onClick={() => { setGroupSource("custom"); updateForm({ group_ids: [] }); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                  groupSource === "custom"
-                    ? "bg-primary/15 text-primary border-primary/30"
-                    : "bg-muted/30 text-muted-foreground border-border hover:border-border/80"
-                }`}
-              >
-                Meus Grupos
-              </button>
+        <div className="rounded-2xl border border-border/30 bg-card overflow-hidden">
+          <div className="px-5 py-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Users className="w-3.5 h-3.5" />
+                <span className="text-xs font-semibold uppercase tracking-wider">Grupos ({(form.group_ids || []).length})</span>
+              </div>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => { setGroupSource("system"); updateForm({ group_ids: [] }); }}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-all ${
+                    groupSource === "system"
+                      ? "bg-primary/15 text-primary border-primary/30"
+                      : "bg-muted/30 text-muted-foreground border-border hover:border-border/80"
+                  }`}
+                >
+                  Sistema
+                </button>
+                <button
+                  onClick={() => { setGroupSource("custom"); updateForm({ group_ids: [] }); }}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-all ${
+                    groupSource === "custom"
+                      ? "bg-primary/15 text-primary border-primary/30"
+                      : "bg-muted/30 text-muted-foreground border-border hover:border-border/80"
+                  }`}
+                >
+                  Meus Grupos
+                </button>
+              </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 max-h-48 overflow-y-auto border border-border/50 rounded-lg p-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 max-h-44 overflow-y-auto border border-border/30 rounded-lg p-2">
               {warmupGroups.length === 0 ? (
                 <p className="text-xs text-muted-foreground p-2 col-span-full">
                   {groupSource === "custom"
@@ -854,45 +870,13 @@ export default function GroupInteractionPage() {
                       checked={(form.group_ids || []).includes(g.id)}
                       onCheckedChange={() => toggleGroup(g.id)}
                     />
-                    <span className="text-xs truncate">{g.name}</span>
+                    <span className="text-[11px] truncate">{g.name}</span>
                   </label>
                 ))
               )}
             </div>
-          </CardContent>
-        </Card>
-
-
-        {/* Delays & Limits */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Delays</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Delay mín. (seg)</Label>
-                <Input
-                  type="number"
-                  value={form.min_delay_seconds ?? ""}
-                  onChange={(e) => updateForm({ min_delay_seconds: e.target.value === "" ? undefined : Number(e.target.value) })}
-                  className="mt-1"
-                  min={0}
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Delay máx. (seg)</Label>
-                <Input
-                  type="number"
-                  value={form.max_delay_seconds ?? ""}
-                  onChange={(e) => updateForm({ max_delay_seconds: e.target.value === "" ? undefined : Number(e.target.value) })}
-                  className="mt-1"
-                  min={0}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     );
   }
