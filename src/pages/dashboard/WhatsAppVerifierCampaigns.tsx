@@ -217,8 +217,8 @@ export default function WhatsAppVerifierCampaigns() {
     if (phoneIdx < 0) { toast.error("Mapeie ao menos a coluna de Telefone"); return; }
 
     const varIdxMap: Record<string, number> = {};
-    const labels = ["Var 1", "Var 2", "Var 3", "Var 4", "Var 5"];
-    (["var1", "var2", "var3", "var4", "var5"] as const).forEach((key, i) => {
+    const labels = VAR_KEYS.map((_, i) => `Var ${i + 1}`);
+    VAR_KEYS.forEach((key, i) => {
       const idx = columnMappings.indexOf(key);
       if (idx >= 0) {
         varIdxMap[key] = idx;
@@ -233,11 +233,11 @@ export default function WhatsAppVerifierCampaigns() {
       if (!phone || seen.has(phone)) continue;
       seen.add(phone);
       const entry: ImportedRow = { phone };
-      if (varIdxMap.var1 !== undefined) entry.var1 = String(row[varIdxMap.var1] || "").trim();
-      if (varIdxMap.var2 !== undefined) entry.var2 = String(row[varIdxMap.var2] || "").trim();
-      if (varIdxMap.var3 !== undefined) entry.var3 = String(row[varIdxMap.var3] || "").trim();
-      if (varIdxMap.var4 !== undefined) entry.var4 = String(row[varIdxMap.var4] || "").trim();
-      if (varIdxMap.var5 !== undefined) entry.var5 = String(row[varIdxMap.var5] || "").trim();
+      VAR_KEYS.forEach((key) => {
+        if (varIdxMap[key] !== undefined) {
+          (entry as any)[key] = String(row[varIdxMap[key]] || "").trim();
+        }
+      });
       contacts.push(entry);
     }
 
