@@ -2239,34 +2239,23 @@ const Campaigns = () => {
                     ) : (
                       filteredSavedContacts.map(c => {
                         const isSelected = selectedSavedContactIds.has(c.id);
-                        const vars = (["var1","var2","var3","var4","var5","var6","var7","var8","var9","var10"] as const).filter(k => c[k]?.trim());
                         return (
                           <button key={c.id} onClick={() => setSelectedSavedContactIds(prev => {
                             const next = new Set(prev);
                             next.has(c.id) ? next.delete(c.id) : next.add(c.id);
                             return next;
-                          })} className={cn("w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-muted/10 transition-colors", isSelected && "bg-primary/5")}>
-                            <Checkbox checked={isSelected} className="pointer-events-none mt-0.5" />
-                            <div className="flex-1 min-w-0 space-y-1">
-                              <div className="flex items-center gap-2">
-                                <p className="text-xs font-medium text-foreground truncate">{c.name}</p>
-                                <p className="text-[11px] text-muted-foreground font-mono shrink-0">{c.phone}</p>
+                          })} className={cn("w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/10 transition-colors", isSelected && "bg-primary/5")}>
+                            <Checkbox checked={isSelected} className="pointer-events-none shrink-0" />
+                            <p className="text-xs font-medium text-foreground truncate flex-1 min-w-0">{c.name}</p>
+                            <p className="text-[11px] text-muted-foreground font-mono shrink-0">{c.phone}</p>
+                            {(c.tags || []).length > 0 && (
+                              <div className="flex gap-1 shrink-0">
+                                {(c.tags || []).slice(0, 2).map(t => (
+                                  <Badge key={t} variant="outline" className="text-[9px] px-1.5 py-0">{t}</Badge>
+                                ))}
+                                {(c.tags || []).length > 2 && <span className="text-[9px] text-muted-foreground">+{(c.tags || []).length - 2}</span>}
                               </div>
-                              {(c.tags || []).length > 0 && (
-                                <div className="flex gap-1 flex-wrap">
-                                  {(c.tags || []).map(t => (
-                                    <Badge key={t} variant="outline" className="text-[9px] px-1.5 py-0">{t}</Badge>
-                                  ))}
-                                </div>
-                              )}
-                              {vars.length > 0 && (
-                                <div className="flex gap-2 flex-wrap text-[10px] text-muted-foreground/60">
-                                  {vars.map(k => (
-                                    <span key={k}><span className="font-medium">{k.replace("var", "V")}:</span> {c[k]}</span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
+                            )}
                           </button>
                         );
                       })
