@@ -543,9 +543,12 @@ export default function GroupInteractionPage() {
                       </div>
                     </div>
 
-                    {invalidReason && (
-                      <p className="text-[11px] text-destructive mb-3 line-clamp-1 font-medium">{invalidReason}</p>
-                    )}
+                    {(() => {
+                      const isTransient = invalidReason && /desconectada|removida/i.test(invalidReason);
+                      return !isTransient && invalidReason ? (
+                        <p className="text-[11px] text-destructive mb-3 line-clamp-1 font-medium">{invalidReason}</p>
+                      ) : null;
+                    })()}
 
                     {/* Actions */}
                     <div className="flex items-center gap-3 pt-3 border-t border-border/10" onClick={(e) => e.stopPropagation()}>
