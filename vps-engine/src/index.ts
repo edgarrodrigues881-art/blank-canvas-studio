@@ -1032,7 +1032,7 @@ async function mainLoop() {
 
     guardedLoop("verify", async () => {
       await verifyTick();
-    }, 15_000)(),
+    }, 3_000)(),
 
     guardedLoop("community", async () => {
       const db = getDb();
