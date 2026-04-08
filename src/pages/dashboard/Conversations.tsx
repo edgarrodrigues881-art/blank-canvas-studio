@@ -404,7 +404,7 @@ const Conversations = () => {
           <div
             className={`${
               selectedConversation
-                ? "hidden md:flex flex-col shrink-0 w-[340px]"
+                ? "hidden md:flex flex-col shrink-0 w-[340px] overflow-hidden"
                 : "flex flex-col w-full max-w-[400px]"
             }`}
           >
