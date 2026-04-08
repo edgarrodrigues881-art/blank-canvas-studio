@@ -351,9 +351,9 @@ export function ConversationList({
                     {/* Content */}
                     <div className="flex-1 min-w-0 py-0.5">
                       {/* Row 1: Name + Time */}
-                      <div className="flex items-baseline justify-between gap-2">
+                      <div className="flex items-baseline justify-between gap-1.5 overflow-hidden">
                         <span className={cn(
-                          "truncate text-[13.5px] leading-tight",
+                          "truncate text-[13.5px] leading-tight min-w-0",
                           hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/85"
                         )}>
                           {trimmedQuery ? (
@@ -363,7 +363,7 @@ export function ConversationList({
                           )}
                         </span>
                         <span className={cn(
-                          "shrink-0 text-[11px] leading-tight",
+                          "shrink-0 text-[10.5px] leading-tight whitespace-nowrap",
                           hasNewMessages ? "text-emerald-500 font-semibold" : "text-muted-foreground/50"
                         )}>
                           {c.lastMessageAt ? formatDate(c.lastMessageAt) : ""}
