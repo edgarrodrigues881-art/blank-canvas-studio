@@ -450,6 +450,7 @@ const Conversations = () => {
               onFilterInstancesChange={setFilterInstanceIds}
               onBulkArchive={bulkArchiveConversations}
               onBulkDelete={bulkDeleteConversations}
+              onMarkUnread={markAsUnread}
             />
           </div>
 

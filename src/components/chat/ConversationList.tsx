@@ -1,4 +1,4 @@
-import { Search, Check, CheckCheck, MessageSquarePlus, Tag, X, ArchiveRestore, Smartphone, CheckSquare, Square, Trash2, Archive, XCircle, Pencil } from "lucide-react";
+import { Search, Check, CheckCheck, MessageSquarePlus, Tag, X, ArchiveRestore, Smartphone, CheckSquare, Square, Trash2, Archive, XCircle, Pencil, MailOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ interface ConversationListProps {
   onFilterInstancesChange?: (ids: string[]) => void;
   onBulkArchive?: (ids: string[]) => void;
   onBulkDelete?: (ids: string[]) => void;
+  onMarkUnread?: (conversationId: string) => void;
 }
 
 type StatusTab = "all" | "mine" | "new" | "attending" | "waiting" | "archived";
@@ -123,6 +124,7 @@ export function ConversationList({
   onFilterInstancesChange,
   onBulkArchive,
   onBulkDelete,
+  onMarkUnread,
 }: ConversationListProps) {
   const [activeStatus, setActiveStatus] = useState<StatusTab>("all");
   const [selectionMode, setSelectionMode] = useState(false);
@@ -536,6 +538,19 @@ export function ConversationList({
               <Tag className="w-3.5 h-3.5 text-muted-foreground" />
               Marcar com tag
             </button>
+
+            {onMarkUnread && (
+              <button
+                className="flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[12px] font-medium text-foreground transition-colors hover:bg-muted/60"
+                onClick={() => {
+                  onMarkUnread(contextMenuId);
+                  setContextMenuId(null);
+                }}
+              >
+                <MailOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                Marcar como não lida
+              </button>
+            )}
 
             <div className="my-1 h-px bg-border/50" />
 
