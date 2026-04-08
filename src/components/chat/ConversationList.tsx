@@ -459,7 +459,12 @@ export function ConversationList({
                             )}
                           </p>
                         </div>
-                        {hasUnread && (
+                        {hasNewMessages && (
+                          <span className="min-w-[20px] h-[20px] px-1.5 text-[11px] font-bold bg-destructive text-destructive-foreground rounded-full flex items-center justify-center shrink-0 shadow-sm shadow-destructive/30">
+                            {c.unreadCount}
+                          </span>
+                        )}
+                        {isManualUnread && (
                           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0 shadow-sm shadow-emerald-500/30" />
                         )}
                         {activeStatus === "archived" && onUnarchive && (
