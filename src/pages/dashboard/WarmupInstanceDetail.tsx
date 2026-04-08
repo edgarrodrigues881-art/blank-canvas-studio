@@ -1273,7 +1273,7 @@ const WarmupInstanceDetail = () => {
                   </button>
                   <button
                     className="group flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500/20 hover:border-purple-400/40 hover:shadow-[0_0_12px_rgba(168,85,247,0.15)] transition-all duration-200 disabled:opacity-40 disabled:hover:shadow-none"
-                    onClick={() => setShowAdvanceConfirm(true)}
+                    onClick={() => { setSkipTargetDay((cycle?.day_index || 1) + 1); setShowAdvanceConfirm(true); }}
                     disabled={advancingPhase || cycle.phase === "completed"}
                   >
                     {advancingPhase ? <Loader2 className="w-4 h-4 animate-spin" /> : <SkipForward className="w-4 h-4 group-hover:scale-110 transition-transform" />}
