@@ -245,7 +245,7 @@ function FlowCanvas() {
   );
 
   const createNodeFromMenu = useCallback(
-    (type: "messageNode" | "endNode" | "delayNode" | "conditionNode") => {
+    (type: "messageNode" | "endNode" | "delayNode" | "conditionNode" | "aiNode") => {
       if (!dropMenu) return;
 
       const id = nextNodeId(type);
@@ -257,6 +257,8 @@ function FlowCanvas() {
         data = { label: "Temporizador", delaySeconds: 5 };
       } else if (type === "conditionNode") {
         data = { label: "Condição", conditions: [] };
+      } else if (type === "aiNode") {
+        data = { label: "Resposta IA", aiPrompt: "", aiModel: "gpt-4o" };
       } else {
         data = {
           label: "Nova Mensagem",
