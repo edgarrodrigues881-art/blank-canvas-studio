@@ -392,6 +392,7 @@ export function ChatPanel({
                 onReply={handleReply}
                 onImageClick={setLightboxUrl}
                 onRetry={onRetryMessage}
+                onDelete={onDeleteMessage}
               />
             </div>
           );
