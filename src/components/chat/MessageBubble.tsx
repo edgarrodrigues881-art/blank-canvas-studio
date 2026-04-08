@@ -374,10 +374,13 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
 
         {/* Action popup */}
         {showActions && (
-          <div className={cn(
-            "flex items-center gap-1 mt-1 animate-fade-in",
-            isSent ? "justify-end" : "justify-start"
-          )}>
+          <div
+            ref={actionsRef}
+            className={cn(
+              "flex items-center gap-1 mt-1 animate-fade-in",
+              isSent ? "justify-end" : "justify-start"
+            )}
+          >
             {onReply && (
               <button
                 onClick={() => { onReply(msg); setShowActions(false); }}
