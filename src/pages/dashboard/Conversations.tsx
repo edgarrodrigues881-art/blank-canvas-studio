@@ -153,7 +153,10 @@ const Conversations = () => {
       return {
         ...rep,
         // Aggregate unread count from all instances
-        unreadCount: group.reduce((sum, c) => sum + c.unreadCount, 0),
+        unreadCount: group.reduce((sum, c) => {
+          if (c.unreadCount < 0) return sum < 0 ? sum : c.unreadCount;
+          return sum < 0 ? (c.unreadCount > 0 ? c.unreadCount : sum) : sum + c.unreadCount;
+        }, 0),
         // Use latest last message across all instances
         lastMessage: group[0].lastMessage,
         lastMessageAt: group[0].lastMessageAt,
