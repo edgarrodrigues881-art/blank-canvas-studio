@@ -257,6 +257,37 @@ const WarmupInstanceDetail = () => {
     staleTime: 60_000,
   });
 
+  // Plan status check — show alert if expired
+  const { data: planStatus } = useQuery({
+    queryKey: ["user_plan_status", user?.id],
+    queryFn: async () => {
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("expires_at")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("status, instance_override")
+        .eq("id", user!.id)
+        .maybeSingle();
+      const hasLegacyAccess = (profile?.instance_override ?? 0) > 0;
+      const hasActiveSub = sub && new Date(sub.expires_at) >= new Date();
+      const isSuspended = profile?.status === "suspended" || profile?.status === "cancelled";
+      return {
+        active: (hasActiveSub || hasLegacyAccess) && !isSuspended,
+        suspended: isSuspended,
+        expiresAt: sub?.expires_at || null,
+      };
+    },
+    enabled: !!user?.id,
+    staleTime: 60_000,
+    refetchInterval: 300_000,
+  });
+  const isPlanExpired = planStatus && !planStatus.active;
+
   // statusToday removed — UAZAPI v2 does not support status posting
 
   // Group audit logs by warmup day
