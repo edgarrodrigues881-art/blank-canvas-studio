@@ -151,6 +151,7 @@ function useDevices() {
 }
 
 export default function ChipConversation() {
+  const { user } = useAuth();
   const { data: conversations = [], isLoading } = useChipConversations();
   const { data: devices = [] } = useDevices();
   const actions = useChipConversationActions();
@@ -159,6 +160,22 @@ export default function ChipConversation() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingConv, setEditingConv] = useState<ChipConversation | null>(null);
   const deviceMap = useMemo(() => new Map(devices.map((device: any) => [device.id, device])), [devices]);
+
+  // Persistent cumulative stats from log tables (never lost on deletion)
+  const { data: cumulativeStats } = useQuery({
+    queryKey: ["chip-cumulative-stats", user?.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("chip_conversation_logs")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user!.id)
+        .eq("status", "sent");
+      return { totalMessages: count ?? 0 };
+    },
+    enabled: !!user?.id,
+    refetchInterval: () => document.hidden ? false : 60_000,
+    staleTime: 30_000,
+  });
 
   const busyDeviceIds = useMemo(
     () => new Set(
