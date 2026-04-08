@@ -180,8 +180,7 @@ function InstanceSelector({
     </div>
   );
 }
-
-
+export function NewConversationDialog({
   open,
   onOpenChange,
   onCreateConversation,
