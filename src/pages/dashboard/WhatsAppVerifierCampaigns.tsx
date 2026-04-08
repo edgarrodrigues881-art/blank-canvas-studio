@@ -282,7 +282,7 @@ export default function WhatsAppVerifierCampaigns() {
     onSuccess: (job: any) => {
       toast.success("Campanha criada!");
       queryClient.invalidateQueries({ queryKey: ["verify-jobs", user?.id] });
-      setRawInput(""); setJobName(""); setSelectedDevice("");
+      setRawInput(""); setJobName(""); setSelectedDevice(""); setSelectedDevices([]);
       setImportedContacts([]); setImportMode("plain");
       setSelectedJobId(job.id); setView("detail");
     },
