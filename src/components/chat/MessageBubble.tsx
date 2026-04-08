@@ -140,6 +140,7 @@ export interface MessageBubbleProps {
   selectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (msgId: string) => void;
+  onScrollToQuoted?: (quotedId: string) => void;
 }
 
 // Stable waveform cache outside component to avoid re-renders
