@@ -141,7 +141,16 @@ function getWaveform(id: string) {
   return waveformCache[id];
 }
 
-export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onRetry }: MessageBubbleProps) {
+export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onRetry, onDelete }: MessageBubbleProps) {
+  const [showActions, setShowActions] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTouchStart = useCallback(() => {
+    longPressTimer.current = setTimeout(() => setShowActions(true), 500);
+  }, []);
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  }, []);
 
   const renderContent = () => {
     const isAudio = msg.mediaType === "audio";
