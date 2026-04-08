@@ -118,7 +118,6 @@ function InstanceSelector({
   return (
     <div className="space-y-1.5">
       <label className="text-xs font-semibold text-foreground">Instância</label>
-      {/* Trigger button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -146,10 +145,9 @@ function InstanceSelector({
         <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform duration-200", isOpen && "rotate-180")} />
       </button>
 
-      {/* Dropdown list */}
       {isOpen && (
         <div className="rounded-xl border border-border/50 bg-card overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-          <ScrollArea className="max-h-[200px]">
+          <div className="max-h-[36dvh] overflow-y-auto overscroll-contain [touch-action:pan-y] [-webkit-overflow-scrolling:touch]">
             {devices.map((device) => {
               const isActive = device.id === deviceId;
               return (
@@ -157,7 +155,7 @@ function InstanceSelector({
                   key={device.id}
                   onClick={() => { onSelect(device.id); setIsOpen(false); }}
                   className={cn(
-                    "w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors",
+                    "w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors",
                     isActive ? "bg-primary/10" : "hover:bg-muted/20"
                   )}
                 >
@@ -166,7 +164,7 @@ function InstanceSelector({
                     {device.name}
                   </span>
                   {device.number && (
-                    <span className="text-[10px] text-muted-foreground/60 truncate max-w-[100px]">
+                    <span className="text-[10px] text-muted-foreground/60 truncate max-w-[96px]">
                       {formatDeviceNumber(device.number)}
                     </span>
                   )}
@@ -174,7 +172,7 @@ function InstanceSelector({
                 </button>
               );
             })}
-          </ScrollArea>
+          </div>
         </div>
       )}
     </div>
@@ -342,7 +340,7 @@ export function NewConversationDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
-      <DialogContent className="sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[420px] p-0 gap-0 overflow-hidden max-h-[88dvh] flex flex-col">
         {/* Header */}
         <DialogHeader className="px-5 pt-5 pb-3">
           <DialogTitle className="flex items-center gap-2 text-base">
@@ -353,7 +351,7 @@ export function NewConversationDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-5 pb-5 space-y-5">
+        <div className="px-5 pb-5 space-y-5 overflow-y-auto min-h-0">
           {/* 1. Phone field — primary */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-foreground">Número</label>
