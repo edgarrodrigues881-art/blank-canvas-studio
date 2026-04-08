@@ -257,33 +257,40 @@ export function useConversationSync() {
 
   // ─── Select conversation + fetch fresh messages from UAZAPI ───
   const selectConversation = useCallback((convId: string | null) => {
+    const prev = selectedConvIdRef.current;
     setSelectedConvId(convId);
-    setMessages([]);
+
+    // Only clear messages when switching to a different conversation
+    if (convId !== prev) {
+      setMessages([]);
+    }
+
     if (convId) {
+      // Show local messages immediately
       fetchMessages(convId);
 
-      // Background: pull fresh messages (sent + received) from UAZAPI
-      (async () => {
-        try {
-          const token = await getToken();
-          if (!token) return;
-          const resp = await fetch(
-            `https://${projectId}.supabase.co/functions/v1/sync-conversations`,
-            {
-              method: "POST",
-              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ conversation_id: convId }),
-            }
-          );
-          const result = await resp.json();
-          if (result.synced > 0) {
-            fetchMessages(convId);
+      // Background: pull fresh messages from UAZAPI (non-blocking)
+      const token = cachedTokenRef.current;
+      if (token) {
+        fetch(
+          `https://${projectId}.supabase.co/functions/v1/sync-conversations`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ conversation_id: convId }),
           }
-        } catch (e) {
-        }
-      })();
+        )
+          .then((r) => r.json())
+          .then((result) => {
+            // Only refresh if we got new messages AND user is still on this conversation
+            if (result.synced > 0 && selectedConvIdRef.current === convId) {
+              fetchMessages(convId);
+            }
+          })
+          .catch(() => {});
+      }
     }
-  }, [fetchMessages, getToken, projectId]);
+  }, [fetchMessages, projectId]);
 
   // ─── Initial load + auto background sync ───
   const hasSyncedRef = useRef(false);
