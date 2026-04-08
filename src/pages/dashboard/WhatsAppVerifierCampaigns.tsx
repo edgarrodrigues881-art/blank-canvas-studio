@@ -88,7 +88,6 @@ export default function WhatsAppVerifierCampaigns() {
   const [selectedDevice, setSelectedDevice] = useState("");
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [rawInput, setRawInput] = useState("");
-  const [swapDeviceId, setSwapDeviceId] = useState("");
   const [showSwapPanel, setShowSwapPanel] = useState(false);
 
   // Spreadsheet import state
