@@ -899,6 +899,7 @@ export default function WhatsAppVerifierCampaigns() {
             const pct = total > 0 ? (verified / total) * 100 : 0;
             const isActive = job.status === "running" || job.status === "pending";
             const isPaused = job.status === "paused";
+            const listDeviceIds: string[] = Array.isArray(job.device_ids) && job.device_ids.length > 0 ? job.device_ids : job.device_id ? [job.device_id] : [];
             const devInfo = getDeviceInfo(job.device_id);
 
             return (
