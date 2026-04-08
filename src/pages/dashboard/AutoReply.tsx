@@ -103,6 +103,7 @@ function FlowCanvas() {
   const pendingConnection = useRef<{ source: string; sourceHandle: string } | null>(null);
   const initialLoadDone = useRef(false);
   const isRestoringRef = useRef(false);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
   const { screenToFlowPosition } = useReactFlow();
 
   const snapshotFlow = useCallback((): FlowSnapshot => {
@@ -492,13 +493,27 @@ function FlowCanvas() {
 
   const onEdgeContextMenu = useCallback((event: React.MouseEvent, edge: Edge) => {
     event.preventDefault();
+    event.stopPropagation();
     setSelectedNodeId(null);
     setDropMenu(null);
 
     const menuWidth = 170;
     const menuHeight = 58;
-    const x = Math.min(event.clientX + 8, window.innerWidth - menuWidth - 8);
-    const y = Math.min(event.clientY + 8, window.innerHeight - menuHeight - 8);
+    const canvasRect = canvasRef.current?.getBoundingClientRect();
+
+    if (!canvasRect) {
+      setEdgeMenu({ x: event.clientX + 8, y: event.clientY + 8, edgeId: edge.id });
+      return;
+    }
+
+    const x = Math.min(
+      Math.max(12, event.clientX - canvasRect.left + 8),
+      canvasRect.width - menuWidth - 12,
+    );
+    const y = Math.min(
+      Math.max(12, event.clientY - canvasRect.top + 8),
+      canvasRect.height - menuHeight - 12,
+    );
 
     setEdgeMenu({ x, y, edgeId: edge.id });
   }, []);
@@ -648,7 +663,7 @@ function FlowCanvas() {
       />
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <FlowSidebar hasStartNode={nodes.some((n) => n.type === "startNode")} />
-        <div className="flex-1 min-w-0 relative" onContextMenu={(e) => e.preventDefault()}>
+        <div ref={canvasRef} className="flex-1 min-w-0 relative" onContextMenu={(e) => e.preventDefault()}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -719,10 +734,12 @@ function FlowCanvas() {
 
           {edgeMenu && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setEdgeMenu(null)} />
+              <div className="absolute inset-0 z-40" onClick={() => setEdgeMenu(null)} />
               <div
-                className="fixed z-50 animate-in fade-in zoom-in-95 duration-100"
+                className="absolute z-50 animate-in fade-in zoom-in-95 duration-100"
                 style={{ left: edgeMenu.x, top: edgeMenu.y }}
+                onClick={(event) => event.stopPropagation()}
+                onContextMenu={(event) => event.preventDefault()}
               >
                 <div className="bg-card border border-white/[0.08] rounded-lg shadow-2xl p-1 min-w-[150px]">
                   <button
