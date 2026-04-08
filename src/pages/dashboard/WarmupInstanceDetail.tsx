@@ -1263,7 +1263,7 @@ const WarmupInstanceDetail = () => {
 
               {/* Quick actions */}
               {cycle.is_running && (
-                <div className="grid grid-cols-4 gap-2 mt-3">
+                <div className="grid grid-cols-2 gap-2 mt-3">
                   <button
                     className="group flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 hover:border-amber-400/40 hover:shadow-[0_0_12px_rgba(245,158,11,0.15)] transition-all duration-200 disabled:opacity-40 disabled:hover:shadow-none"
                     onClick={() => setShowAccelerateConfirm(true)}
