@@ -540,18 +540,18 @@ const Conversations = () => {
               />
             </div>
           ) : (
-            <div className="hidden md:flex flex-col flex-1 items-center justify-center bg-muted/5">
-              <div className="flex flex-col items-center gap-4 text-center max-w-md px-6">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <MessageSquarePlus className="w-8 h-8 text-primary/40" />
+            <div className="hidden md:flex flex-col flex-1 items-center justify-center bg-muted/3">
+              <div className="flex flex-col items-center gap-5 text-center max-w-sm px-6">
+                <div className="w-20 h-20 rounded-full bg-muted/20 flex items-center justify-center">
+                  <MessageSquarePlus className="w-10 h-10 text-muted-foreground/25" />
                 </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-foreground/80">Atendimento</h2>
-                  <p className="text-sm text-muted-foreground/60 mt-1">
-                    Amplie, organize e gerencie suas conversas comerciais.
+                <div className="space-y-1.5">
+                  <h2 className="text-lg font-semibold text-foreground/70">Selecione uma conversa</h2>
+                  <p className="text-[13px] text-muted-foreground/50 leading-relaxed">
+                    Escolha uma conversa da lista ao lado para começar a atender.
                   </p>
                 </div>
-                <p className="text-[11px] text-muted-foreground/40 flex items-center gap-1.5">
+                <p className="text-[11px] text-muted-foreground/30 flex items-center gap-1.5 mt-2">
                   🔒 Suas mensagens são protegidas com criptografia de ponta a ponta.
                 </p>
               </div>
