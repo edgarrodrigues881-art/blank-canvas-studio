@@ -88,8 +88,7 @@ const menuGroups = [
   },
 ];
 
-const developmentItems = [
-  { title: "Resposta Automática", url: "/dashboard/auto-reply", icon: BotMessageSquare, locked: true },
+const developmentItems: typeof automationItems = [
 ];
 
 type BadgeKey = "activeCampaigns" | "unreadNotifications";
