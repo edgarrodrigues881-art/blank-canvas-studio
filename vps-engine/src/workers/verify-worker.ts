@@ -1,6 +1,7 @@
 // ══════════════════════════════════════════════════════════
 // VPS Engine — WhatsApp Number Verify Worker
 // Processes verify_jobs in background, survives page close
+// Supports multi-device round-robin for parallel verification
 // ══════════════════════════════════════════════════════════
 
 import { getDb } from "../core/db";
@@ -36,6 +37,13 @@ interface VerifyResult {
   phone: string;
   status: "success" | "no_whatsapp" | "error";
   detail: string;
+}
+
+interface DeviceInfo {
+  id: string;
+  uazapi_base_url: string;
+  uazapi_token: string;
+  status: string;
 }
 
 async function checkBatchNumbers(baseUrl: string, token: string, phones: string[]): Promise<VerifyResult[]> {
@@ -78,12 +86,24 @@ async function checkBatchNumbers(baseUrl: string, token: string, phones: string[
   }
 }
 
+async function loadDevices(db: any, deviceIds: string[]): Promise<DeviceInfo[]> {
+  if (deviceIds.length === 0) return [];
+  const { data } = await db
+    .from("devices")
+    .select("id, uazapi_base_url, uazapi_token, status")
+    .in("id", deviceIds);
+  return (data || []).filter((d: any) => d.uazapi_base_url && d.uazapi_token);
+}
+
+function getOnlineDevices(devices: DeviceInfo[]): DeviceInfo[] {
+  return devices.filter(d => CONNECTED_STATUSES.includes(d.status));
+}
+
 async function processJob(jobId: string) {
   const db = getDb();
   activeJobs.add(jobId);
 
   try {
-    // Load job
     const { data: job, error: jobErr } = await db
       .from("verify_jobs")
       .select("*")
@@ -96,42 +116,50 @@ async function processJob(jobId: string) {
       return;
     }
 
-    // Load device credentials
-    const { data: device } = await db
-      .from("devices")
-      .select("id, uazapi_base_url, uazapi_token, status")
-      .eq("id", job.device_id)
-      .single();
+    // Resolve device list: prefer device_ids array, fallback to single device_id
+    let deviceIds: string[] = [];
+    if (Array.isArray(job.device_ids) && job.device_ids.length > 0) {
+      deviceIds = job.device_ids;
+    } else if (job.device_id) {
+      deviceIds = [job.device_id];
+    }
 
-    if (!device || !device.uazapi_base_url || !device.uazapi_token) {
-      await db.from("verify_jobs").update({ status: "failed", last_error: "Dispositivo sem credenciais", completed_at: new Date().toISOString() }).eq("id", jobId);
+    if (deviceIds.length === 0) {
+      await db.from("verify_jobs").update({ status: "failed", last_error: "Nenhum dispositivo configurado", completed_at: new Date().toISOString() }).eq("id", jobId);
       activeJobs.delete(jobId);
       return;
     }
 
-    if (!CONNECTED_STATUSES.includes(device.status)) {
-      await db.from("verify_jobs").update({ status: "failed", last_error: "Dispositivo desconectado", completed_at: new Date().toISOString() }).eq("id", jobId);
+    // Load all devices
+    let allDevices = await loadDevices(db, deviceIds);
+    if (allDevices.length === 0) {
+      await db.from("verify_jobs").update({ status: "failed", last_error: "Dispositivos sem credenciais", completed_at: new Date().toISOString() }).eq("id", jobId);
       activeJobs.delete(jobId);
       return;
     }
 
-    let baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
-    let token = device.uazapi_token;
+    // Check if at least one is online
+    let onlineDevices = getOnlineDevices(allDevices);
+    if (onlineDevices.length === 0) {
+      await db.from("verify_jobs").update({ status: "paused", last_error: "Todos os dispositivos desconectados — pausado automaticamente" }).eq("id", jobId);
+      log.info(`Job ${jobId.slice(0, 8)} auto-paused: all devices disconnected`);
+      activeJobs.delete(jobId);
+      return;
+    }
 
     // Mark as running
-    await db.from("verify_jobs").update({ status: "running", started_at: new Date().toISOString() }).eq("id", jobId);
+    await db.from("verify_jobs").update({ status: "running", started_at: job.started_at || new Date().toISOString() }).eq("id", jobId);
 
-    // Get pending results in batches
-    let processed = 0;
     let successCount = job.success_count || 0;
     let noWaCount = job.no_whatsapp_count || 0;
     let errorCount = job.error_count || 0;
+    let deviceIndex = 0; // round-robin index
 
     while (true) {
-      // Re-check job status (user might have canceled or paused)
-      const { data: freshJob } = await db.from("verify_jobs").select("status, device_id").eq("id", jobId).single();
+      // Re-check job status
+      const { data: freshJob } = await db.from("verify_jobs").select("status, device_id, device_ids").eq("id", jobId).single();
       if (!freshJob || freshJob.status === "canceled") {
-        log.info(`Job ${jobId.slice(0, 8)} canceled by user`);
+        log.info(`Job ${jobId.slice(0, 8)} canceled`);
         activeJobs.delete(jobId);
         return;
       }
@@ -141,75 +169,81 @@ async function processJob(jobId: string) {
         return;
       }
 
-      // Check if device was swapped mid-job
-      if (freshJob.device_id !== device.id) {
-        log.info(`Job ${jobId.slice(0, 8)} device swapped, reloading credentials`);
-        const { data: newDevice } = await db.from("devices").select("id, uazapi_base_url, uazapi_token, status").eq("id", freshJob.device_id).single();
-        if (!newDevice || !newDevice.uazapi_base_url || !newDevice.uazapi_token) {
-          await db.from("verify_jobs").update({ status: "paused", last_error: "Nova instância sem credenciais" }).eq("id", jobId);
-          activeJobs.delete(jobId);
-          return;
-        }
-        if (!CONNECTED_STATUSES.includes(newDevice.status)) {
-          await db.from("verify_jobs").update({ status: "paused", last_error: "Nova instância desconectada" }).eq("id", jobId);
-          activeJobs.delete(jobId);
-          return;
-        }
-        // Update local references
-        (device as any).id = newDevice.id;
-        (device as any).uazapi_base_url = newDevice.uazapi_base_url;
-        (device as any).uazapi_token = newDevice.uazapi_token;
-        (device as any).status = newDevice.status;
-        baseUrl = newDevice.uazapi_base_url.replace(/\/+$/, "");
-        token = newDevice.uazapi_token;
-        log.info(`Job ${jobId.slice(0, 8)} now using device ${newDevice.id.slice(0, 8)}`);
+      // Re-resolve device list (user may have changed devices mid-job)
+      let currentDeviceIds: string[] = [];
+      if (Array.isArray(freshJob.device_ids) && freshJob.device_ids.length > 0) {
+        currentDeviceIds = freshJob.device_ids;
+      } else if (freshJob.device_id) {
+        currentDeviceIds = [freshJob.device_id];
+      }
+
+      // Reload device statuses periodically
+      allDevices = await loadDevices(db, currentDeviceIds);
+      onlineDevices = getOnlineDevices(allDevices);
+
+      if (onlineDevices.length === 0) {
+        await db.from("verify_jobs").update({ status: "paused", last_error: "Todos os dispositivos desconectados — pausado automaticamente" }).eq("id", jobId);
+        log.info(`Job ${jobId.slice(0, 8)} auto-paused: all devices disconnected`);
+        activeJobs.delete(jobId);
+        return;
       }
 
       // Fetch next batch of pending results
+      // With multiple devices, fetch BATCH_SIZE * onlineDevices.length to parallelize
+      const fetchLimit = BATCH_SIZE * onlineDevices.length;
       const { data: pendingResults } = await db
         .from("verify_results")
         .select("id, phone")
         .eq("job_id", jobId)
         .eq("status", "pending")
         .order("created_at", { ascending: true })
-        .limit(BATCH_SIZE);
+        .limit(fetchLimit);
 
       if (!pendingResults || pendingResults.length === 0) break;
 
-      const phones = pendingResults.map(r => r.phone);
-      const results = await checkBatchNumbers(baseUrl, token, phones);
-      const now = new Date().toISOString();
-
-      // Update each result
-      for (const result of results) {
-        const matchingRow = pendingResults.find(r => r.phone === result.phone);
-        if (!matchingRow) continue;
-
-        await db.from("verify_results").update({
-          status: result.status,
-          detail: result.detail,
-          checked_at: now,
-        }).eq("id", matchingRow.id);
-
-        if (result.status === "success") successCount++;
-        else if (result.status === "no_whatsapp") noWaCount++;
-        else errorCount++;
+      // Distribute batches across online devices via round-robin
+      const batches: { device: DeviceInfo; results: typeof pendingResults }[] = [];
+      for (let i = 0; i < pendingResults.length; i += BATCH_SIZE) {
+        const chunk = pendingResults.slice(i, i + BATCH_SIZE);
+        const device = onlineDevices[deviceIndex % onlineDevices.length];
+        deviceIndex++;
+        batches.push({ device, results: chunk });
       }
 
-      processed += results.length;
+      // Process all batches (sequentially per device pair to avoid overloading)
+      for (const batch of batches) {
+        const { device, results: batchResults } = batch;
+        const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
+        const phones = batchResults.map(r => r.phone);
+        const results = await checkBatchNumbers(baseUrl, device.uazapi_token, phones);
+        const now = new Date().toISOString();
+
+        for (const result of results) {
+          const matchingRow = batchResults.find(r => r.phone === result.phone);
+          if (!matchingRow) continue;
+
+          await db.from("verify_results").update({
+            status: result.status,
+            detail: result.detail,
+            checked_at: now,
+          }).eq("id", matchingRow.id);
+
+          if (result.status === "success") successCount++;
+          else if (result.status === "no_whatsapp") noWaCount++;
+          else errorCount++;
+        }
+
+        // Small delay between batches
+        await sleep(DELAY_BETWEEN_BATCHES_MS);
+      }
 
       // Update job counters
       await db.from("verify_jobs").update({
-        verified_count: (job.verified_count || 0) + processed,
+        verified_count: successCount + noWaCount + errorCount,
         success_count: successCount,
         no_whatsapp_count: noWaCount,
         error_count: errorCount,
       }).eq("id", jobId);
-
-      // Delay between batches
-      if (pendingResults.length === BATCH_SIZE) {
-        await sleep(DELAY_BETWEEN_BATCHES_MS);
-      }
     }
 
     // Mark as completed
@@ -238,7 +272,6 @@ async function processJob(jobId: string) {
 export async function verifyTick() {
   const db = getDb();
 
-  // Find jobs that need processing
   const { data: jobs } = await db
     .from("verify_jobs")
     .select("id")
@@ -248,7 +281,6 @@ export async function verifyTick() {
 
   if (!jobs || jobs.length === 0) return;
 
-  // Process each job (skip if already active)
   for (const job of jobs) {
     if (activeJobs.has(job.id)) continue;
     await processJob(job.id);
