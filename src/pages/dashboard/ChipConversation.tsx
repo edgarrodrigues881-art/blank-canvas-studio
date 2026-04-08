@@ -448,60 +448,57 @@ function ConversationCard({
         )}
 
         {/* Actions */}
-        <div className="grid grid-cols-2 gap-2 pt-3 border-t border-border/20">
+        <div className="flex items-center gap-3 pt-3 border-t border-border/10">
           {displayStatus === "idle" || displayStatus === "completed" ? (
             <>
-              <Button
-                size="sm"
+              <button
                 onClick={() => handleAction("start")}
                 disabled={isActionLoading || Boolean(invalidReason)}
-                className="h-9 text-[11px] font-semibold gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white shadow-sm shadow-emerald-500/25 transition-colors"
+                className="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-colors"
               >
-                {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" strokeWidth={1.8} />}
                 Iniciar
-              </Button>
-              <div className="flex items-center justify-end gap-1">
-                <Button size="icon" variant="ghost" onClick={onToggleExpand} className="w-8 h-8 text-muted-foreground/50 hover:text-foreground">
-                  {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button size="icon" variant="ghost" className="w-8 h-8 text-muted-foreground/40 hover:text-destructive">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Excluir conversa?</AlertDialogTitle>
-                      <AlertDialogDescription>A conversa e logs serão removidos.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={onDelete}>Excluir</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
+              </button>
+              <div className="flex-1" />
+              <button onClick={onToggleExpand} className="text-muted-foreground/40 hover:text-muted-foreground transition-colors p-1">
+                {expanded ? <ChevronUp className="w-4 h-4" strokeWidth={1.5} /> : <ChevronDown className="w-4 h-4" strokeWidth={1.5} />}
+              </button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button className="text-muted-foreground/30 hover:text-destructive transition-colors p-1">
+                    <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir conversa?</AlertDialogTitle>
+                    <AlertDialogDescription>A conversa e logs serão removidos.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={onDelete}>Excluir</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </>
           ) : displayStatus === "running" ? (
             <>
-              <Button
-                size="sm"
+              <button
                 onClick={() => handleAction("pause")}
                 disabled={isActionLoading}
-                className="h-9 text-[11px] font-semibold gap-1.5 rounded-xl bg-amber-500/15 text-amber-500 border border-amber-500/20 hover:bg-amber-500/25 hover:text-amber-400 transition-colors"
+                className="flex items-center gap-1.5 text-amber-400 hover:text-amber-300 disabled:opacity-40 text-xs font-medium transition-colors"
               >
-                <Pause className="w-3.5 h-3.5" /> Pausar
-              </Button>
+                <Pause className="w-3.5 h-3.5" strokeWidth={1.8} /> Pausar
+              </button>
+              <span className="text-border/30 select-none">·</span>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button
-                    size="sm"
+                  <button
                     disabled={isActionLoading}
-                    className="h-9 text-[11px] font-semibold gap-1.5 rounded-xl bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 transition-colors"
+                    className="flex items-center gap-1.5 text-muted-foreground/50 hover:text-destructive disabled:opacity-40 text-xs font-medium transition-colors"
                   >
-                    <Square className="w-3.5 h-3.5" /> Parar
-                  </Button>
+                    <XCircle className="w-3.5 h-3.5" strokeWidth={1.8} /> Parar
+                  </button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
@@ -514,25 +511,32 @@ function ConversationCard({
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+              <div className="flex-1" />
+              <button onClick={onToggleExpand} className="text-muted-foreground/40 hover:text-muted-foreground transition-colors p-1">
+                {expanded ? <ChevronUp className="w-4 h-4" strokeWidth={1.5} /> : <ChevronDown className="w-4 h-4" strokeWidth={1.5} />}
+              </button>
             </>
           ) : displayStatus === "paused" ? (
             <>
-              <Button
-                size="sm"
+              <button
                 onClick={() => handleAction("resume")}
                 disabled={isActionLoading || Boolean(invalidReason)}
-                className="h-9 text-[11px] font-semibold gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white shadow-sm shadow-emerald-500/25 transition-colors"
+                className="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-colors"
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Retomar
-              </Button>
-              <Button
-                size="sm"
+                <RotateCcw className="w-3.5 h-3.5" strokeWidth={1.8} /> Retomar
+              </button>
+              <span className="text-border/30 select-none">·</span>
+              <button
                 onClick={() => handleAction("stop")}
                 disabled={isActionLoading}
-                className="h-9 text-[11px] font-semibold gap-1.5 rounded-xl bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 transition-colors"
+                className="flex items-center gap-1.5 text-muted-foreground/50 hover:text-destructive disabled:opacity-40 text-xs font-medium transition-colors"
               >
-                <Square className="w-3.5 h-3.5" /> Parar
-              </Button>
+                <XCircle className="w-3.5 h-3.5" strokeWidth={1.8} /> Parar
+              </button>
+              <div className="flex-1" />
+              <button onClick={onToggleExpand} className="text-muted-foreground/40 hover:text-muted-foreground transition-colors p-1">
+                {expanded ? <ChevronUp className="w-4 h-4" strokeWidth={1.5} /> : <ChevronDown className="w-4 h-4" strokeWidth={1.5} />}
+              </button>
             </>
           ) : null}
         </div>
