@@ -470,9 +470,8 @@ function FlowCanvas() {
               <div
                 className="fixed z-50 animate-in fade-in zoom-in-95 duration-100"
                 style={{
-                  left: dropMenu.x,
-                  top: dropMenu.y,
-                  transform: "translate(-50%, -50%)",
+                  left: dropMenu.x + 8,
+                  top: dropMenu.y - 20,
                 }}
               >
                 <div className="bg-card border border-white/[0.08] rounded-lg shadow-2xl p-1 min-w-[160px]">
