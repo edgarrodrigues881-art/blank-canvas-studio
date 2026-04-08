@@ -63,7 +63,9 @@ interface ContactRowProps {
   index: number;
   selectMode: boolean;
   isSelected: boolean;
-  onToggleSelect: (id: string, index: number, shiftKey: boolean) => void;
+  onToggleSelect: (id: string) => void;
+  onDragStart: (index: number) => void;
+  onDragEnter: (index: number) => void;
   onRemoveTag: (contactId: string, tag: string) => void;
   onDelete: (ids: string[]) => void;
   onEdit: (contact: Contact) => void;
