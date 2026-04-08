@@ -170,7 +170,7 @@ const defaultQuickReplies = [
 
 export function ChatPanel({
   conversation, messages, showDetails, onToggleDetails, onBack,
-  onStatusChange, onSendMessage, onSendAudio, onSendFile, onRetryMessage, onDeleteMessage,
+  onStatusChange, onSendMessage, onSendAudio, onSendFile, onRetryMessage, onDeleteMessage, onEditMessage,
   onArchive, onMarkUnread,
   currentUserId, onAssign, onRelease,
   instances, selectedInstanceId, onInstanceChange,
