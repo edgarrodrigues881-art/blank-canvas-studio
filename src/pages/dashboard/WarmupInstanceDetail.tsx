@@ -1060,12 +1060,24 @@ const WarmupInstanceDetail = () => {
 
   const handlePause = () => {
     if (!deviceId) return;
-    engine.mutate({ action: "pause", device_id: deviceId }, { onSuccess: () => toast({ title: "Aquecimento pausado" }) });
+    engine.mutate(
+      { action: "pause", device_id: deviceId },
+      {
+        onSuccess: () => toast({ title: "Aquecimento pausado" }),
+        onError: (err: any) => toast({ title: "Erro ao pausar", description: err?.message || "Tente novamente", variant: "destructive" }),
+      },
+    );
   };
 
   const handleResume = () => {
     if (!deviceId) return;
-    engine.mutate({ action: "resume", device_id: deviceId }, { onSuccess: () => toast({ title: "Aquecimento retomado" }) });
+    engine.mutate(
+      { action: "resume", device_id: deviceId },
+      {
+        onSuccess: () => toast({ title: "Aquecimento retomado" }),
+        onError: (err: any) => toast({ title: "Erro ao retomar", description: err?.message || "Tente novamente", variant: "destructive" }),
+      },
+    );
   };
 
   const handleFinish = () => {
