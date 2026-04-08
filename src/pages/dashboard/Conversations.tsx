@@ -395,10 +395,9 @@ const Conversations = () => {
           <div
             className={`${
               selectedConversation
-                ? "hidden md:flex flex-col shrink-0"
+                ? "hidden md:flex flex-col shrink-0 w-[340px]"
                 : "flex flex-col w-full max-w-[400px]"
             }`}
-            style={selectedConversation ? { width: sidebarWidth } : undefined}
           >
             {/* Clean top header */}
             <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/30 shrink-0 bg-card/30">
@@ -505,14 +504,8 @@ const Conversations = () => {
             />
           </div>
 
-          {selectedConversation && (
-            <div
-              onMouseDown={handleMouseDown}
-              className="hidden md:flex items-center justify-center w-1.5 cursor-col-resize group hover:bg-primary/20 active:bg-primary/30 transition-colors shrink-0 relative"
-            >
-              <div className="w-0.5 h-8 rounded-full bg-border group-hover:bg-primary/50 group-active:bg-primary transition-colors" />
-            </div>
-          )}
+          {/* Fixed divider */}
+          <div className="hidden md:block w-px bg-border/50 shrink-0" />
 
           {selectedConversation ? (
             <div className="flex flex-col flex-1 min-w-0">
