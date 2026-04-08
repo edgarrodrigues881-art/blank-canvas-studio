@@ -108,15 +108,20 @@ function MsgFooter({ msg, inline }: { msg: Message; inline?: boolean }) {
   );
 }
 
-function QuotedBlock({ msg }: { msg: Message }) {
+function QuotedBlock({ msg, onScrollToQuoted }: { msg: Message; onScrollToQuoted?: (quotedId: string) => void }) {
   if (!msg.quotedContent && !msg.quotedMessageId) return null;
+  const isClickable = !!msg.quotedMessageId && !!onScrollToQuoted;
   return (
-    <div className={cn(
-      "rounded-lg px-2.5 py-1.5 mb-1.5 border-l-2 text-[11px] leading-snug",
-      msg.type === "sent"
-        ? "bg-white/10 border-l-white/40 text-white/70"
-        : "bg-muted/50 border-l-primary/40 text-muted-foreground"
-    )}>
+    <div
+      onClick={isClickable ? (e) => { e.stopPropagation(); onScrollToQuoted!(msg.quotedMessageId!); } : undefined}
+      className={cn(
+        "rounded-lg px-2.5 py-1.5 mb-1.5 border-l-2 text-[11px] leading-snug",
+        msg.type === "sent"
+          ? "bg-white/10 border-l-white/40 text-white/70"
+          : "bg-muted/50 border-l-primary/40 text-muted-foreground",
+        isClickable && "cursor-pointer hover:opacity-80 active:opacity-60 transition-opacity"
+      )}
+    >
       <p className="truncate">{msg.quotedContent || "..."}</p>
     </div>
   );
@@ -135,6 +140,7 @@ export interface MessageBubbleProps {
   selectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (msgId: string) => void;
+  onScrollToQuoted?: (quotedId: string) => void;
 }
 
 // Stable waveform cache outside component to avoid re-renders
@@ -144,7 +150,7 @@ function getWaveform(id: string) {
   return waveformCache[id];
 }
 
-export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onRetry, onDelete, onEdit, selectionMode, isSelected, onToggleSelect }: MessageBubbleProps) {
+export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onRetry, onDelete, onEdit, selectionMode, isSelected, onToggleSelect, onScrollToQuoted }: MessageBubbleProps) {
   const [showActions, setShowActions] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
@@ -184,7 +190,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
     if (isAudio && msg.mediaUrl) {
       return (
         <div>
-          <QuotedBlock msg={msg} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} />
           <AudioPlayer src={msg.mediaUrl} duration={msg.audioDuration} isSent={msg.type === "sent"} />
           <MsgFooter msg={msg} />
         </div>
@@ -232,7 +238,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
     if (isImage && msg.mediaUrl) {
       return (
         <div className="w-full">
-          <QuotedBlock msg={msg} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} />
           <button
             type="button"
             onClick={() => onImageClick?.(msg.mediaUrl!)}
@@ -253,7 +259,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
     if (isVideo && msg.mediaUrl) {
       return (
         <div>
-          <QuotedBlock msg={msg} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} />
           <video src={msg.mediaUrl} controls className="rounded-xl max-w-full max-h-[320px] cursor-pointer shadow-md" />
           {msg.content && !isMediaPlaceholder(msg.content) && (
             <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5">{msg.content}</p>
@@ -267,7 +273,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
       const fileName = msg.fileName || msg.mediaUrl.split("/").pop() || "Arquivo";
       return (
         <div>
-          <QuotedBlock msg={msg} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} />
           <a
             href={msg.mediaUrl}
             target="_blank"
@@ -305,7 +311,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
       const info = iconMap[msg.mediaType!] || { icon: <FileText className="w-5 h-5" />, label: msg.mediaType || "Mídia" };
       return (
         <div>
-          <QuotedBlock msg={msg} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} />
           <div className={cn("flex items-center gap-2.5 py-1", msg.type === "sent" ? "text-white/70" : "text-muted-foreground")}>
             {info.icon}
             <span className="text-[12px] font-medium">{info.label}</span>
@@ -324,7 +330,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
     
     return (
       <>
-        <QuotedBlock msg={msg} />
+        <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} />
         {textIsShort ? (
           <div className="flex items-end gap-0">
             <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{displayText}</p>

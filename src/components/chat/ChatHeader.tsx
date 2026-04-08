@@ -146,9 +146,6 @@ export const ChatHeader = memo(function ChatHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onToggleStatusHistory} className="gap-2 cursor-pointer">
-                <History className="w-4 h-4" /> Histórico de status
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onSelectMessages?.()} className="gap-2 cursor-pointer">
                 <CheckSquare className="w-4 h-4" /> Selecionar mensagens
               </DropdownMenuItem>

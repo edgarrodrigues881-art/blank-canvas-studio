@@ -368,6 +368,20 @@ export function ChatPanel({
   // Exit selection mode on conversation change
   useEffect(() => { exitSelectionMode(); }, [conversation.id]);
 
+  // Scroll to quoted message
+  const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
+  const handleScrollToQuoted = useCallback((quotedWaId: string) => {
+    // Find message by whatsapp_message_id or id
+    const target = messages.find((m) => m.whatsappMessageId === quotedWaId || m.id === quotedWaId);
+    if (!target) return;
+    const el = document.getElementById(`msg-${target.id}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedMsgId(target.id);
+      setTimeout(() => setHighlightedMsgId(null), 2000);
+    }
+  }, [messages]);
+
   return (
     <div className="flex flex-col h-full min-w-0 max-w-full overflow-hidden">
       <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageInput} />
@@ -430,7 +444,7 @@ export function ChatPanel({
           const showDevice = !!(instances && instances.length > 1) && msg.deviceName !== prevMsg?.deviceName;
 
           return (
-            <div key={msg.id} className="animate-fade-in">
+            <div key={msg.id} id={`msg-${msg.id}`} className={cn("animate-fade-in transition-colors duration-500", highlightedMsgId === msg.id && "bg-primary/10 rounded-lg")}>
               {showDate && (
                 <div className="flex justify-center my-4">
                   <span className="text-[10px] font-medium text-muted-foreground/70 bg-muted/60 px-3 py-1 rounded-full">
@@ -449,6 +463,7 @@ export function ChatPanel({
                 selectionMode={selectionMode}
                 isSelected={selectedMsgIds.has(msg.id)}
                 onToggleSelect={toggleSelectMsg}
+                onScrollToQuoted={handleScrollToQuoted}
               />
             </div>
           );
