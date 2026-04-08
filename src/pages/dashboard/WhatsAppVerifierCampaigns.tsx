@@ -935,9 +935,10 @@ export default function WhatsAppVerifierCampaigns() {
                   </div>
 
                   <div className="flex items-center gap-4 text-xs text-muted-foreground mb-2 flex-wrap">
-                    {devInfo && (
-                      <span className="flex items-center gap-1"><Smartphone className="w-3 h-3" />{devInfo.name}</span>
-                    )}
+                    <span className="flex items-center gap-1">
+                      <Smartphone className="w-3 h-3" />
+                      {listDeviceIds.length > 1 ? `${listDeviceIds.length} chips` : devInfo ? devInfo.name : "—"}
+                    </span>
                     <span>{total} números</span>
                     <span className="text-emerald-400">✓ {job.success_count || 0}</span>
                     <span className="text-red-400">✗ {job.no_whatsapp_count || 0}</span>
