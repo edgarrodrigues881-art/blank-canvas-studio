@@ -184,12 +184,10 @@ export function useConversationSync() {
   }, [user, mapConversationRow, sortConversations, isOwnDevice, ownPhonesLoaded, normalizePhone]);
 
   const fetchMessages = useCallback(async (conversationId: string) => {
-    const groupIds = getConversationIdsForSameContact(conversationId);
-
     const { data, error } = await supabase
       .from("conversation_messages")
       .select("*")
-      .in("conversation_id", groupIds)
+      .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -212,13 +210,13 @@ export function useConversationSync() {
 
     setMessages((prev) => {
       const pendingMessages = prev.filter(
-        (m) => groupIds.includes(m.conversation_id) && m.status === "sending" && !nextMessages.some((next: any) => next.id === m.id)
+        (m) => m.conversation_id === conversationId && m.status === "sending" && !nextMessages.some((next: any) => next.id === m.id)
       );
       return [...nextMessages, ...pendingMessages].sort(
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       );
     });
-  }, [getConversationIdsForSameContact]);
+  }, []);
 
   // ─── Sync from UAZAPI ───
   const syncConversations = useCallback(async () => {
