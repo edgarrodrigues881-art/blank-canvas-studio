@@ -36,14 +36,6 @@ const creditPacks = [
     cta: "Comprar créditos",
     popular: false,
   },
-  {
-    name: "Elite",
-    credits: 50000,
-    price: "997,00",
-    subtitle: "Para alto volume de prospecção",
-    cta: "Comprar créditos",
-    popular: false,
-  },
 ];
 
 const CreditPackCards = () => {
