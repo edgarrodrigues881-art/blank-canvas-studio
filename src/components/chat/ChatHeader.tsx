@@ -80,13 +80,13 @@ export const ChatHeader = memo(function ChatHeader({
           <ArrowLeft className="w-4 h-4" />
         </Button>
 
-        {/* Avatar — compact 32px */}
+        {/* Avatar — compact 28px */}
         <div className="relative shrink-0">
           {conversation.avatar_url ? (
-            <img src={conversation.avatar_url} alt={conversation.name} className="w-8 h-8 rounded-full object-cover" />
+            <img src={conversation.avatar_url} alt={conversation.name} className="w-7 h-7 rounded-full object-cover" />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="text-xs font-semibold text-primary">{conversation.name.slice(0, 2).toUpperCase()}</span>
+            <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center">
+              <span className="text-[10px] font-semibold text-muted-foreground">{conversation.name.slice(0, 2).toUpperCase()}</span>
             </div>
           )}
           {conversation.status === "online" && (
