@@ -33,9 +33,10 @@ const triggerLabels: Record<string, string> = {
 
 export default function AutoReplyList() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isStandalone = location.pathname.startsWith("/dashboard/auto-reply") || location.pathname.startsWith("/dashboard/autoreply");
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const { data: flows, isLoading } = useQuery({
