@@ -381,7 +381,7 @@ export function NewConversationDialog({
 
                 {showDevices && (
                   <div className="rounded-lg border border-border/30 bg-card overflow-hidden animate-in fade-in slide-in-from-top-1 duration-100">
-                    <ScrollArea className="max-h-[140px]">
+                    <ScrollArea className="max-h-[220px]">
                       {devices.map((device) => {
                         const isActive = device.id === deviceId;
                         return (
