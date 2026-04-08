@@ -225,12 +225,9 @@ Deno.serve(async (req) => {
         const participants = g?.Participants || g?.participants || [];
         const pCount = participants.length || g?.size || g?.memberCount || g?.Size || 0;
         const isCommunity = g?.IsCommunity === true || g?.isCommunity === true ||
-          g?.is_community === true || g?.linkedParent != null || g?.LinkedParentJID != null ||
+          g?.is_community === true ||
           g?.IsParent === true || g?.isParent === true ||
-          g?.groupType === "COMMUNITY" || g?.type === "community" ||
-          g?.isCommunityAnnounce === true || g?.IsCommunityAnnounce === true ||
-          (g?.LinkedParentJID && g?.LinkedParentJID !== "") ||
-          (g?.linkedParentJid && g?.linkedParentJid !== "");
+          g?.groupType === "COMMUNITY" || g?.type === "community";
         return { jid, name, participants_count: pCount, is_community: isCommunity };
       }).filter((g: any) => g.jid.includes("@g.us"));
 
