@@ -381,8 +381,8 @@ const Conversations = () => {
             ← Conversas
           </Button>
         </div>
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <AutomationFlows />
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <AutoReplyList />
         </div>
       </div>
     );
