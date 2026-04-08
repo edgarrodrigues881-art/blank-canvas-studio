@@ -465,9 +465,6 @@ function ConversationCard({
                 Iniciar
               </button>
               <div className="flex-1" />
-              <button onClick={onToggleExpand} className="text-muted-foreground/40 hover:text-muted-foreground transition-colors p-1">
-                {expanded ? <ChevronUp className="w-4 h-4" strokeWidth={1.5} /> : <ChevronDown className="w-4 h-4" strokeWidth={1.5} />}
-              </button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <button className="text-muted-foreground/30 hover:text-destructive transition-colors p-1">
@@ -499,7 +496,7 @@ function ConversationCard({
                 <AlertDialogTrigger asChild>
                   <button
                     disabled={isActionLoading}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/20 bg-muted/5 text-muted-foreground/60 hover:border-destructive/30 hover:text-destructive/80 hover:bg-destructive/5 disabled:opacity-40 text-xs font-medium transition-all"
+                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:border-destructive/50 disabled:opacity-40 text-xs font-medium transition-all"
                   >
                     <XCircle className="w-3.5 h-3.5" strokeWidth={1.8} /> Parar
                   </button>
@@ -515,10 +512,6 @@ function ConversationCard({
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-              <div className="flex-1" />
-              <button onClick={onToggleExpand} className="text-muted-foreground/40 hover:text-muted-foreground transition-colors p-1">
-                {expanded ? <ChevronUp className="w-4 h-4" strokeWidth={1.5} /> : <ChevronDown className="w-4 h-4" strokeWidth={1.5} />}
-              </button>
             </>
           ) : displayStatus === "paused" ? (
             <>
@@ -532,13 +525,9 @@ function ConversationCard({
               <button
                 onClick={() => handleAction("stop")}
                 disabled={isActionLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/20 bg-muted/5 text-muted-foreground/60 hover:border-destructive/30 hover:text-destructive/80 hover:bg-destructive/5 disabled:opacity-40 text-xs font-medium transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:border-destructive/50 disabled:opacity-40 text-xs font-medium transition-all"
               >
                 <XCircle className="w-3.5 h-3.5" strokeWidth={1.8} /> Parar
-              </button>
-              <div className="flex-1" />
-              <button onClick={onToggleExpand} className="text-muted-foreground/40 hover:text-muted-foreground transition-colors p-1">
-                {expanded ? <ChevronUp className="w-4 h-4" strokeWidth={1.5} /> : <ChevronDown className="w-4 h-4" strokeWidth={1.5} />}
               </button>
             </>
           ) : null}
