@@ -287,6 +287,37 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ── Enqueue for flow-based autoreply (visual flow builder) ──
+      try {
+        const { data: activeFlows } = await admin
+          .from("autoreply_flows")
+          .select("id")
+          .eq("user_id", device.user_id)
+          .eq("is_active", true)
+          .or(`device_id.eq.${device.id},device_id.is.null`)
+          .limit(1);
+
+        if (activeFlows && activeFlows.length > 0) {
+          const { error: queueErr } = await admin.from("autoreply_queue").insert({
+            device_id: device.id,
+            user_id: device.user_id,
+            from_phone: phone,
+            message_text: content || displayContent || "",
+            status: "pending",
+            device_header_id: device.id,
+            instance_token: null,
+            raw_payload: null,
+          });
+          if (queueErr) {
+            console.error("autoreply_queue insert error:", queueErr);
+          } else {
+            console.log(`Enqueued for flow autoreply: ${phone} on ${device.name}`);
+          }
+        }
+      } catch (e) {
+        console.error("Flow autoreply enqueue error:", e);
+      }
+
       // Trigger AI auto-reply for all incoming messages
       try {
         const aiReplyUrl = `${supabaseUrl}/functions/v1/ai-autoreply`;
