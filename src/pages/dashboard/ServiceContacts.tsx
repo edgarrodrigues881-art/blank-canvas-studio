@@ -17,11 +17,14 @@ interface ServiceContact {
   name: string;
   phone: string;
   email: string | null;
+  company: string | null;
   notes: string | null;
   tags: string[];
   status: string;
   origin: string;
   conversation_id: string | null;
+  last_message_at: string | null;
+  last_message_content: string | null;
   created_at: string;
 }
 
