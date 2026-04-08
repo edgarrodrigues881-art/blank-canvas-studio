@@ -716,16 +716,6 @@ export default function GroupInteractionPage() {
   function renderFormFields() {
     return (
       <div className="space-y-4">
-        {/* Name — compact inline */}
-        <div className="rounded-xl border border-border/30 bg-card px-4 py-3 flex items-center gap-3">
-          <Label className="text-xs text-muted-foreground whitespace-nowrap">Nome</Label>
-          <Input
-            value={form.name || ""}
-            onChange={(e) => updateForm({ name: e.target.value })}
-            className="h-8 text-sm"
-          />
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Schedule */}
           <Card>
