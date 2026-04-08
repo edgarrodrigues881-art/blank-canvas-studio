@@ -463,7 +463,8 @@ export default function GroupInteractionPage() {
           <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
             {interactions.map((inter) => {
               const invalidReason = getInteractionInvalidReason(inter, deviceMap);
-              const displayStatus = inter.status;
+              const deviceDisconnected = !!invalidReason && inter.status === "running";
+              const displayStatus = deviceDisconnected ? "paused" : inter.status;
               const deviceName = inter.device_id
                 ? deviceMap.get(inter.device_id)?.name || "Instância removida"
                 : "Sem instância";
