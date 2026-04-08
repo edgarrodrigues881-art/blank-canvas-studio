@@ -698,89 +698,75 @@ export default function WhatsAppVerifierCampaigns() {
           </div>
         </div>
 
-        {/* Instance cards */}
-        <Card className="border-border/50 bg-card/50">
-          <CardContent className="py-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">Instâncias ({jobDevices.length})</span>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setShowSwapPanel(!showSwapPanel)}>
-                {showSwapPanel ? "Fechar" : "Gerenciar"}
-              </Button>
-            </div>
+        {/* Instance info — compact */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Smartphone className="w-4 h-4" />
+            <span className="font-medium text-foreground">{jobDevices.length} instância{jobDevices.length !== 1 ? "s" : ""}</span>
+            <span>·</span>
+            <span>{jobDevices.filter((d: any) => ACTIVE_DEVICE_STATUSES.includes(d.status)).length} online</span>
+          </div>
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowSwapPanel(!showSwapPanel)}>
+            {showSwapPanel ? "Fechar" : "Gerenciar"}
+          </Button>
+        </div>
 
-            {/* Device chips */}
-            <div className="flex flex-wrap gap-2">
-              {jobDevices.length > 0 ? jobDevices.map((d: any) => {
-                const isOn = ACTIVE_DEVICE_STATUSES.includes(d.status);
-                return (
-                  <div key={d.id} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${
-                    isOn
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                      : "border-red-500/30 bg-red-500/10 text-red-400"
-                  }`}>
-                    <span className={`w-2 h-2 rounded-full ${isOn ? "bg-emerald-400" : "bg-red-400"}`} />
-                    {d.name}{d.number ? ` (${d.number})` : ""}
-                  </div>
-                );
-              }) : (
-                <span className="text-xs text-muted-foreground">Nenhuma instância vinculada</span>
-              )}
-            </div>
+        {job.last_error && (isPaused || job.status === "failed") && (
+          <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            {job.last_error}
+          </div>
+        )}
 
-            {job.last_error && (isPaused || job.status === "failed") && (
-              <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                {job.last_error}
-              </div>
-            )}
-
-            {/* Manage panel — toggle devices on/off */}
-            {showSwapPanel && (
-              <div className="pt-3 border-t border-border/50 space-y-2">
-                <p className="text-xs text-muted-foreground">Marque ou desmarque instâncias para esta campanha:</p>
-                <ScrollArea className="max-h-[220px]">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {allDevices.filter((d: any) => d.uazapi_base_url).map((d: any) => {
-                      const isOn = ACTIVE_DEVICE_STATUSES.includes(d.status);
-                      const isInJob = jobDeviceIds.includes(d.id);
-                      return (
-                        <button
-                          key={d.id}
-                          type="button"
-                          onClick={() => {
-                            const newIds = isInJob
-                              ? jobDeviceIds.filter((id: string) => id !== d.id)
-                              : [...jobDeviceIds, d.id];
-                            if (newIds.length === 0) { toast.error("Mínimo 1 instância"); return; }
-                            updateJobDevices.mutate({ jobId: job.id, deviceIds: newIds });
-                          }}
-                          disabled={updateJobDevices.isPending}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-sm transition-all ${
-                            isInJob
-                              ? "border-primary bg-primary/10 text-foreground"
-                              : "border-border/50 bg-background/50 text-muted-foreground hover:border-primary/50"
-                          }`}
-                        >
-                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
-                            isInJob ? "border-primary bg-primary" : "border-muted-foreground/40"
-                          }`}>
-                            {isInJob && <CheckCircle2 className="w-3 h-3 text-primary-foreground" />}
-                          </div>
-                          <span className={`w-2 h-2 rounded-full shrink-0 ${isOn ? "bg-emerald-400" : "bg-red-400"}`} />
-                          <span className="truncate">{d.name}{d.number ? ` (${d.number})` : ""}</span>
-                          {!isOn && <span className="text-[10px] text-red-400/70 ml-auto">Offline</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Manage panel — toggle devices on/off */}
+        {showSwapPanel && (
+          <Card className="border-border/50 bg-card/50">
+            <CardContent className="py-4 space-y-3">
+              <p className="text-xs text-muted-foreground">Marque ou desmarque instâncias para esta campanha. Ao remover, a campanha pausa automaticamente.</p>
+              <ScrollArea className="max-h-[280px]">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {allDevices.filter((d: any) => d.uazapi_base_url).map((d: any) => {
+                    const isOn = ACTIVE_DEVICE_STATUSES.includes(d.status);
+                    const isInJob = jobDeviceIds.includes(d.id);
+                    return (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={async () => {
+                          const newIds = isInJob
+                            ? jobDeviceIds.filter((id: string) => id !== d.id)
+                            : [...jobDeviceIds, d.id];
+                          if (newIds.length === 0) { toast.error("Mínimo 1 instância"); return; }
+                          // Auto-pause when removing a device to avoid errors
+                          if (isInJob && (job.status === "running" || job.status === "pending")) {
+                            await supabase.from("verify_jobs").update({ status: "paused" } as any).eq("id", job.id);
+                            toast.info("Campanha pausada para trocar instâncias");
+                          }
+                          updateJobDevices.mutate({ jobId: job.id, deviceIds: newIds });
+                        }}
+                        disabled={updateJobDevices.isPending}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-sm transition-all ${
+                          isInJob
+                            ? "border-primary bg-primary/10 text-foreground"
+                            : "border-border/50 bg-background/50 text-muted-foreground hover:border-primary/50"
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                          isInJob ? "border-primary bg-primary" : "border-muted-foreground/40"
+                        }`}>
+                          {isInJob && <CheckCircle2 className="w-3 h-3 text-primary-foreground" />}
+                        </div>
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${isOn ? "bg-emerald-400" : "bg-red-400"}`} />
+                        <span className="truncate">{d.name}{d.number ? ` (${d.number})` : ""}</span>
+                        {!isOn && <span className="text-[10px] text-red-400/70 ml-auto">Offline</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Progress */}
         {(isActive || isPaused) && (
