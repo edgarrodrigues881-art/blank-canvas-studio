@@ -242,14 +242,16 @@ export default function WhatsAppVerifierCampaigns() {
   const createJob = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Não autenticado");
-      if (!selectedDevice) throw new Error("Selecione uma instância");
+      if (!selectedDevice && selectedDevices.length === 0) throw new Error("Selecione ao menos uma instância");
       if (phones.length === 0) throw new Error("Nenhum número válido");
       if (phones.length > 5000) throw new Error("Máximo de 5000 números por campanha");
 
+      const deviceIds = selectedDevices.length > 0 ? selectedDevices : [selectedDevice];
+      const primaryDeviceId = deviceIds[0];
       const name = jobName.trim() || `Campanha ${new Date().toLocaleDateString("pt-BR")}`;
       const { data: job, error: jobErr } = await supabase
         .from("verify_jobs")
-        .insert({ user_id: user.id, device_id: selectedDevice, name, total_phones: phones.length, status: "pending" } as any)
+        .insert({ user_id: user.id, device_id: primaryDeviceId, device_ids: deviceIds, name, total_phones: phones.length, status: "pending" } as any)
         .select()
         .single();
       if (jobErr || !job) throw new Error(jobErr?.message || "Erro ao criar campanha");
