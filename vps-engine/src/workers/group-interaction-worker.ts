@@ -36,6 +36,10 @@ const FALLBACK_MESSAGES: Record<string, string[]> = {
 
 const DAY_MAP = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const CONNECTED_STATUSES = new Set(["Ready", "Connected", "connected", "authenticated", "open", "active", "online"]);
+const MAX_CONSECUTIVE_ERRORS = 5;
+const BACKOFF_BASE_SECONDS = 30;
 const GROUP_JID_RE = /@g\.us$/i;
 
 type AllowedGroupSelection = {
