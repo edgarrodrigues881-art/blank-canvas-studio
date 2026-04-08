@@ -9,6 +9,7 @@ import {
   MailOpen,
   Archive,
   X,
+  CheckSquare,
 } from "lucide-react";
 import { PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ export interface ChatHeaderProps {
   onRelease?: (conversationId: string) => void;
   onMarkUnread?: (conversationId: string) => void;
   onArchive?: (conversationId: string) => void;
+  onSelectMessages?: () => void;
 }
 
 export const ChatHeader = memo(function ChatHeader({
@@ -66,6 +68,7 @@ export const ChatHeader = memo(function ChatHeader({
   onRelease,
   onMarkUnread,
   onArchive,
+  onSelectMessages,
 }: ChatHeaderProps) {
   const currentStatusCfg = attendingStatusConfig[currentStatus];
 
@@ -145,6 +148,9 @@ export const ChatHeader = memo(function ChatHeader({
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onToggleStatusHistory} className="gap-2 cursor-pointer">
                 <History className="w-4 h-4" /> Histórico de status
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onSelectMessages?.()} className="gap-2 cursor-pointer">
+                <CheckSquare className="w-4 h-4" /> Selecionar mensagens
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onMarkUnread?.(conversation.id)} className="gap-2 cursor-pointer">
                 <MailOpen className="w-4 h-4" /> Marcar como não lida

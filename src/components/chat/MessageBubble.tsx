@@ -132,6 +132,9 @@ export interface MessageBubbleProps {
   onRetry?: (messageId: string) => void;
   onDelete?: (msg: Message) => void;
   onEdit?: (msg: Message) => void;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (msgId: string) => void;
 }
 
 // Stable waveform cache outside component to avoid re-renders
@@ -141,7 +144,7 @@ function getWaveform(id: string) {
   return waveformCache[id];
 }
 
-export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onRetry, onDelete, onEdit }: MessageBubbleProps) {
+export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onRetry, onDelete, onEdit, selectionMode, isSelected, onToggleSelect }: MessageBubbleProps) {
   const [showActions, setShowActions] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
@@ -344,10 +347,24 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
 
   const isSent = msg.type === "sent";
 
-  return (
-    <div className={cn("flex group relative", isSent ? "justify-end" : "justify-start")}>
+   return (
+    <div
+      className={cn("flex group relative", isSent ? "justify-end" : "justify-start", selectionMode && "cursor-pointer")}
+      onClick={selectionMode ? () => onToggleSelect?.(msg.id) : undefined}
+    >
+      {/* Selection checkbox */}
+      {selectionMode && (
+        <div className="self-center mx-1 shrink-0">
+          <div className={cn(
+            "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
+            isSelected ? "bg-primary border-primary" : "border-muted-foreground/30"
+          )}>
+            {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+          </div>
+        </div>
+      )}
       {/* Reply button for received */}
-      {!isSent && onReply && (
+      {!isSent && onReply && !selectionMode && (
         <button
           onClick={() => onReply(msg)}
           className="self-center mr-0.5 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted/50"
@@ -427,7 +444,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
       </div>
 
       {/* Reply button for sent */}
-      {isSent && onReply && (
+      {isSent && onReply && !selectionMode && (
         <button
           onClick={() => onReply(msg)}
           className="self-center ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted/50"

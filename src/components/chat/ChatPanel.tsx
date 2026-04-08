@@ -20,6 +20,8 @@ import {
   Loader2,
   X,
   Download,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -182,6 +184,8 @@ export function ChatPanel({
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedMsgIds, setSelectedMsgIds] = useState<Set<string>>(new Set());
 
   const scrollToBottomAfterSend = useCallback(() => {
     setIsNearBottom(true);
@@ -341,6 +345,29 @@ export function ChatPanel({
     textareaRef.current?.focus();
   }, [setReplyTo, textareaRef]);
 
+  const toggleSelectMsg = useCallback((msgId: string) => {
+    setSelectedMsgIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(msgId)) next.delete(msgId); else next.add(msgId);
+      return next;
+    });
+  }, []);
+
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedMsgIds(new Set());
+  }, []);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (!onDeleteMessage) return;
+    const selectedMessages = messages.filter((m) => selectedMsgIds.has(m.id));
+    selectedMessages.forEach((m) => onDeleteMessage(m));
+    exitSelectionMode();
+  }, [messages, selectedMsgIds, onDeleteMessage, exitSelectionMode]);
+
+  // Exit selection mode on conversation change
+  useEffect(() => { exitSelectionMode(); }, [conversation.id]);
+
   return (
     <div className="flex flex-col h-full min-w-0 max-w-full overflow-hidden">
       <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageInput} />
@@ -362,7 +389,31 @@ export function ChatPanel({
         onRelease={onRelease}
         onMarkUnread={onMarkUnread}
         onArchive={onArchive}
+        onSelectMessages={() => setSelectionMode(true)}
       />
+
+      {/* Selection toolbar */}
+      {selectionMode && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 border-b border-border/40">
+          <button onClick={exitSelectionMode} className="p-1 rounded hover:bg-muted/50">
+            <X className="w-4 h-4 text-foreground" />
+          </button>
+          <span className="text-xs font-medium text-foreground flex-1">
+            {selectedMsgIds.size} selecionada{selectedMsgIds.size !== 1 ? "s" : ""}
+          </span>
+          <button
+            onClick={() => { const all = new Set(messages.map(m => m.id)); setSelectedMsgIds(all); }}
+            className="text-[11px] text-primary hover:underline"
+          >
+            Selecionar tudo
+          </button>
+          {selectedMsgIds.size > 0 && onDeleteMessage && (
+            <button onClick={handleDeleteSelected} className="flex items-center gap-1 text-[11px] text-red-500 hover:text-red-400 px-2 py-1 rounded-md bg-red-500/10">
+              <Trash2 className="w-3 h-3" /> Apagar ({selectedMsgIds.size})
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Messages Area */}
       <div className="flex-1 relative overflow-hidden">
@@ -395,6 +446,9 @@ export function ChatPanel({
                 onRetry={onRetryMessage}
                 onDelete={onDeleteMessage}
                 onEdit={onEditMessage}
+                selectionMode={selectionMode}
+                isSelected={selectedMsgIds.has(msg.id)}
+                onToggleSelect={toggleSelectMsg}
               />
             </div>
           );
