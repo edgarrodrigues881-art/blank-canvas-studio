@@ -547,37 +547,32 @@ export default function GroupInteractionPage() {
                       <p className="text-[11px] text-destructive mb-3 line-clamp-1 font-medium">{invalidReason}</p>
                     )}
 
-                    {/* Actions — both buttons same size */}
-                    <div className="grid grid-cols-2 gap-2 pt-3 border-t border-border/20" onClick={(e) => e.stopPropagation()}>
+                    {/* Actions */}
+                    <div className="flex items-center gap-3 pt-3 border-t border-border/10" onClick={(e) => e.stopPropagation()}>
                       {isRunning ? (
-                        <Button
-                          size="sm"
-                          className="h-9 text-[11px] font-semibold gap-1.5 rounded-xl bg-amber-500/15 text-amber-500 border border-amber-500/20 hover:bg-amber-500/25 hover:text-amber-400 transition-colors"
+                        <button
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 text-xs font-medium transition-all"
                           onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "pause" })}
                         >
-                          <Pause className="w-3.5 h-3.5" /> Pausar
-                        </Button>
+                          <Pause className="w-3.5 h-3.5" strokeWidth={1.8} /> Pausar
+                        </button>
                       ) : (
-                        <Button
-                          size="sm"
+                        <button
                           disabled={Boolean(invalidReason)}
-                          className="h-9 text-[11px] font-semibold gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white shadow-sm shadow-emerald-500/25 transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-all"
                           onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "start" })}
                         >
-                          <Play className="w-3.5 h-3.5" /> {isPaused ? "Retomar" : "Iniciar"}
-                        </Button>
+                          <Play className="w-3.5 h-3.5" strokeWidth={1.8} /> {isPaused ? "Retomar" : "Iniciar"}
+                        </button>
                       )}
 
-                      {isActive ? (
-                        <Button
-                          size="sm"
-                          className="h-9 text-[11px] font-semibold gap-1.5 rounded-xl bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 transition-colors"
+                      {isActive && (
+                        <button
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/20 bg-muted/5 text-muted-foreground/60 hover:border-destructive/30 hover:text-destructive/80 hover:bg-destructive/5 text-xs font-medium transition-all"
                           onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "stop" })}
                         >
-                          <Square className="w-3 h-3" /> Parar
-                        </Button>
-                      ) : (
-                        <div />
+                          <Square className="w-3 h-3" strokeWidth={1.8} /> Parar
+                        </button>
                       )}
                     </div>
                   </div>
