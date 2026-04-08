@@ -75,7 +75,7 @@ const ContactRow = memo(function ContactRow({ contact, index, selectMode, isSele
     <div className="grid items-center border-b border-primary/5 hover:bg-primary/[0.02] text-sm transition-colors" style={{ minWidth: TABLE_MIN_WIDTH, gridTemplateColumns: TABLE_GRID_COLS }}>
       <div className="p-2 flex items-center justify-center">
         {selectMode ? (
-          <Checkbox checked={isSelected} onCheckedChange={() => onToggleSelect(contact.id, index, false)} onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleSelect(contact.id, index, e.shiftKey); }} />
+          <Checkbox checked={isSelected} onCheckedChange={() => {}} onClick={(e: React.MouseEvent) => { onToggleSelect(contact.id, index, e.shiftKey); }} />
         ) : (
           <span className="text-xs text-muted-foreground tabular-nums">{index + 1}</span>
         )}
