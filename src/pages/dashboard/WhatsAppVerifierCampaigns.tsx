@@ -71,15 +71,24 @@ function cleanAndDeduplicatePhones(raw: string): string[] {
 }
 
 function autoDetectMapping(headers: string[]): ColMapping[] {
+  const used = new Set<ColMapping>();
   return headers.map((h) => {
     const low = h.toLowerCase().trim();
-    if (/tel|phone|número|numero|celular|whats|fone/.test(low)) return "telefone";
-    if (/^nome$|^name$|^cliente$/.test(low)) return "var1";
-    if (/endere[cç]o|address|rua|logradouro|cep/.test(low)) return "var2";
-    if (/com[eé]rcio|empresa|company|loja|negócio|negocio/.test(low)) return "var3";
-    if (/email|e-mail/.test(low)) return "var4";
-    if (/cidade|city|bairro/.test(low)) return "var5";
-    return "ignorar";
+    let match: ColMapping = "ignorar";
+    if (/tel|phone|número|numero|celular|whats|fone/.test(low)) match = "telefone";
+    else if (/^nome$|^name$|^cliente$/.test(low)) match = "var1";
+    else if (/endere[cç]o|address|rua|logradouro|cep/.test(low)) match = "var2";
+    else if (/com[eé]rcio|empresa|company|loja|negócio|negocio|categoria/.test(low)) match = "var3";
+    else if (/email|e-mail/.test(low)) match = "var4";
+    else if (/cidade|city|bairro/.test(low)) match = "var5";
+    else if (/website|site|url|link/.test(low)) match = "var6";
+    else if (/instagram|insta/.test(low)) match = "var7";
+    else if (/facebook|fb/.test(low)) match = "var8";
+    else if (/avalia[çc][aã]o|rating|nota|estrela/.test(low)) match = "var9";
+    else if (/total.*avalia|reviews|quantidade/.test(low)) match = "var10";
+    if (match !== "ignorar" && used.has(match)) return "ignorar";
+    if (match !== "ignorar") used.add(match);
+    return match;
   });
 }
 
