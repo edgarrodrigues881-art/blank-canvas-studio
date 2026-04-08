@@ -44,6 +44,7 @@ interface ChatPanelProps {
   onSendAudio?: (conversationId: string, blob: Blob, duration: number) => void;
   onSendFile?: (conversationId: string, file: File) => void;
   onRetryMessage?: (messageId: string) => void;
+  onDeleteMessage?: (msg: Message) => void;
   onArchive?: (conversationId: string) => void;
   onMarkUnread?: (conversationId: string) => void;
   currentUserId?: string;
@@ -168,7 +169,7 @@ const defaultQuickReplies = [
 
 export function ChatPanel({
   conversation, messages, showDetails, onToggleDetails, onBack,
-  onStatusChange, onSendMessage, onSendAudio, onSendFile, onRetryMessage,
+  onStatusChange, onSendMessage, onSendAudio, onSendFile, onRetryMessage, onDeleteMessage,
   onArchive, onMarkUnread,
   currentUserId, onAssign, onRelease,
   instances, selectedInstanceId, onInstanceChange,
@@ -391,6 +392,7 @@ export function ChatPanel({
                 onReply={handleReply}
                 onImageClick={setLightboxUrl}
                 onRetry={onRetryMessage}
+                onDelete={onDeleteMessage}
               />
             </div>
           );

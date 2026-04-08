@@ -168,6 +168,56 @@ async function executeAttempts(baseUrl: string, token: string, attempts: SendAtt
   return { sent: false as const, error: lastErr || "Falha ao enviar mensagem" };
 }
 
+async function handleDeleteMessage(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  body: any,
+  fallbackBaseUrl: string,
+  fallbackToken: string,
+) {
+  const conversationId = String(body?.conversation_id || "").trim();
+  const messageId = String(body?.message_id || "").trim(); // our DB id
+  const whatsappMessageId = String(body?.whatsapp_message_id || "").trim();
+
+  if (!conversationId || !messageId) {
+    return json({ error: "conversation_id e message_id são obrigatórios" }, 400);
+  }
+
+  const { data: conv, error: convErr } = await admin
+    .from("conversations")
+    .select("id, user_id, remote_jid, devices!conversations_device_id_fkey(uazapi_token, uazapi_base_url)")
+    .eq("id", conversationId)
+    .eq("user_id", userId)
+    .single();
+
+  if (convErr || !conv) return json({ error: "Conversa não encontrada" }, 404);
+
+  const baseUrl = String(conv.devices?.uazapi_base_url || fallbackBaseUrl || "").replace(/\/+$/, "");
+  const token = String(conv.devices?.uazapi_token || fallbackToken || "").trim();
+
+  // Try to delete on WhatsApp if we have the WA message ID
+  let deletedOnWhatsApp = false;
+  if (baseUrl && token && whatsappMessageId) {
+    try {
+      const res = await fetch(`${baseUrl}/message/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", token },
+        body: JSON.stringify({ id: whatsappMessageId }),
+      });
+      const raw = await res.text();
+      console.log(`[chat-send] delete attempt → ${res.status}`, raw.substring(0, 300));
+      deletedOnWhatsApp = res.ok;
+    } catch (e: any) {
+      console.error("[chat-send] delete error:", e.message);
+    }
+  }
+
+  // Delete from our DB
+  await admin.from("conversation_messages").delete().eq("id", messageId);
+
+  return json({ deleted: true, deletedOnWhatsApp });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -192,6 +242,12 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
     const body = await req.json();
+
+    // ── DELETE action ──
+    if (body?.action === "delete") {
+      return handleDeleteMessage(admin, user.id, body, fallbackBaseUrl, fallbackToken);
+    }
+
     const conversationId = String(body?.conversation_id || "").trim();
     const content = String(body?.content || "").trim();
     const messageId = body?.message_id ? String(body.message_id) : null;

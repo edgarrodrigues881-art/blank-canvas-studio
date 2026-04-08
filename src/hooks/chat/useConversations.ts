@@ -123,6 +123,7 @@ export function useConversations() {
     sendAudioMessage: actions.sendAudioMessage,
     sendFileMessage: actions.sendFileMessage,
     retryMessage: actions.retryMessage,
+    deleteMessage: actions.deleteMessage,
     fetchConversations: sync.fetchConversations,
     assignConversation: actions.assignConversation,
     releaseConversation: actions.releaseConversation,
