@@ -389,6 +389,7 @@ export function ChatPanel({
         onRelease={onRelease}
         onMarkUnread={onMarkUnread}
         onArchive={onArchive}
+        onSelectMessages={() => setSelectionMode(true)}
       />
 
       {/* Selection toolbar */}
