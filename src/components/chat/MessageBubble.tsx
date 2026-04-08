@@ -130,6 +130,8 @@ export interface MessageBubbleProps {
   onImageClick?: (url: string) => void;
   /** Callback to retry failed message */
   onRetry?: (messageId: string) => void;
+  /** Callback to delete message */
+  onDelete?: (msg: Message) => void;
 }
 
 // Stable waveform cache outside component to avoid re-renders
