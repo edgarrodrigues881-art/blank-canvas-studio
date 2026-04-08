@@ -450,6 +450,9 @@ function FlowCanvas() {
             fitView
             fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
             deleteKeyCode={["Backspace", "Delete"]}
+            panOnDrag={[1, 2]}
+            selectionOnDrag
+            edgesReconnectable
             className="bg-background"
             proOptions={{ hideAttribution: true }}
           >
