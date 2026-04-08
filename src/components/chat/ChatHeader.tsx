@@ -68,6 +68,7 @@ export const ChatHeader = memo(function ChatHeader({
   onRelease,
   onMarkUnread,
   onArchive,
+  onSelectMessages,
 }: ChatHeaderProps) {
   const currentStatusCfg = attendingStatusConfig[currentStatus];
 
