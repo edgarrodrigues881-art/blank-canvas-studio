@@ -468,7 +468,18 @@ export function ConversationList({
               Selecionar
             </button>
 
-            {onBulkArchive && (
+            {activeStatus === "archived" && onUnarchive ? (
+              <button
+                className="flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[12px] font-medium text-foreground transition-colors hover:bg-muted/60"
+                onClick={() => {
+                  onUnarchive(contextMenuId);
+                  setContextMenuId(null);
+                }}
+              >
+                <ArchiveRestore className="w-3.5 h-3.5 text-muted-foreground" />
+                Desarquivar
+              </button>
+            ) : onBulkArchive && (
               <button
                 className="flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[12px] font-medium text-foreground transition-colors hover:bg-muted/60"
                 onClick={() => {
