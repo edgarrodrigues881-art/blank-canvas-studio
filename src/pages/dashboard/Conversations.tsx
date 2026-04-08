@@ -63,6 +63,7 @@ const Conversations = () => {
   const [filterInstanceIds, setFilterInstanceIds] = useState<string[]>([]);
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; conversationId: string; whatsappMessageId?: string; isSent: boolean } | null>(null);
 
   // Handle ?open=convId from queue
   useEffect(() => {
