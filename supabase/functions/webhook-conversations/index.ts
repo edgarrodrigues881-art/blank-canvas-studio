@@ -333,59 +333,16 @@ Deno.serve(async (req) => {
 
     console.log(`Message saved: ${fromMe ? "sent" : "received"} from ${phone} on ${device.name}: media=${mediaType} "${displayContent.substring(0, 80)}"`);
 
-    // ── Auto Lead Capture: atomic upsert via DB function ──
+    // ── Auto Lead Capture: minimal auto-creation, no data inference ──
     try {
-      const textForExtraction = content || "";
-      const lowerText = textForExtraction.toLowerCase();
-
-      // ── Regex extraction ──
-      const emailMatch = textForExtraction.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-      const extractedEmail = emailMatch?.[0]?.toLowerCase() || null;
-
-      // Company detection: "sou da empresa X", "trabalho na X", "empresa: X"
-      let extractedCompany: string | null = null;
-      const companyPatterns = [
-        /(?:sou da|trabalho na|empresa[:\s]+)[\s]*([A-ZÀ-Ú][a-zà-ú]+(?:\s[A-ZÀ-Ú][a-zà-ú]+){0,3})/,
-        /(?:minha empresa[:\s]+)[\s]*(.{2,40}?)(?:\.|,|$)/i,
-      ];
-      for (const pat of companyPatterns) {
-        const m = textForExtraction.match(pat);
-        if (m?.[1]?.trim()) { extractedCompany = m[1].trim(); break; }
-      }
-
-      // ── Tag scoring with weights ──
-      const tagScores: Record<string, number> = {};
-      const autoTags: string[] = [];
-
-      const tagRules: Array<{ keywords: string[]; tag: string; score: number }> = [
-        { keywords: ["comprar", "preço", "valor", "orçamento", "orcamento", "quanto custa", "tabela de preço", "proposta", "fechar", "contratar"], tag: "lead quente", score: 8 },
-        { keywords: ["suporte", "problema", "erro", "bug", "não funciona", "nao funciona", "travou", "caiu"], tag: "suporte", score: 3 },
-        { keywords: ["dúvida", "duvida", "como funciona", "informação", "informacao", "explica", "o que é", "o que e"], tag: "dúvida", score: 5 },
-        { keywords: ["urgente", "urgência", "urgencia", "preciso agora", "rápido"], tag: "urgente", score: 9 },
-        { keywords: ["obrigado", "valeu", "agradeço", "muito bom", "excelente", "parabéns"], tag: "cliente satisfeito", score: 4 },
-        { keywords: ["cancelar", "cancela", "desistir", "reembolso", "devolver"], tag: "risco churn", score: 7 },
-      ];
-
-      for (const rule of tagRules) {
-        if (rule.keywords.some((kw) => lowerText.includes(kw))) {
-          autoTags.push(rule.tag);
-          tagScores[rule.tag] = rule.score;
-        }
-      }
-
-      // Use WhatsApp pushName as fallback for contact name
+      // Use WhatsApp pushName as contact name (only if it's not just digits)
       const contactName = (name && name !== phone && !/^\d+$/.test(name)) ? name.substring(0, 255) : null;
 
-      // ── Atomic upsert via DB function ──
       const { data: contactId, error: upsertErr } = await admin.rpc("upsert_service_contact", {
         p_user_id: device.user_id,
         p_phone: phone,
         p_name: contactName,
-        p_email: extractedEmail,
-        p_company: extractedCompany,
         p_origin: "WhatsApp",
-        p_tags: autoTags.length > 0 ? autoTags : null,
-        p_tag_scores: Object.keys(tagScores).length > 0 ? tagScores : {},
         p_conversation_id: conversationId,
         p_last_message_content: displayContent.substring(0, 500),
         p_message_timestamp: timestamp,
