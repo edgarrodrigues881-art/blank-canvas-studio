@@ -122,16 +122,12 @@ function QuotedBlock({ msg }: { msg: Message }) {
 
 export interface MessageBubbleProps {
   msg: Message;
-  /** Whether this contact has multiple instances (shows device label) */
   showDeviceLabel?: boolean;
-  /** Callback when user clicks reply */
   onReply?: (msg: Message) => void;
-  /** Callback to open lightbox */
   onImageClick?: (url: string) => void;
-  /** Callback to retry failed message */
   onRetry?: (messageId: string) => void;
-  /** Callback to delete message */
   onDelete?: (msg: Message) => void;
+  onEdit?: (msg: Message) => void;
 }
 
 // Stable waveform cache outside component to avoid re-renders
