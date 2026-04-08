@@ -158,7 +158,9 @@ export function useNotifications() {
       .limit(20);
 
     const systemNotifications = dedupeNotifications(
-      ((data as Notification[] | null) || []).map((item) => ({ ...item, source: "system" as const })),
+      ((data as Notification[] | null) || [])
+        .filter((item) => !isHiddenNotification(item))
+        .map((item) => ({ ...item, source: "system" as const })),
     );
 
     for (const n of systemNotifications) {
