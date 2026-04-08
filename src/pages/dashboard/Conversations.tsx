@@ -341,29 +341,48 @@ const Conversations = () => {
             }`}
             style={selectedConversation ? { width: sidebarWidth } : undefined}
           >
-            <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/30 shrink-0">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  if (typeof Notification !== "undefined" && Notification.permission === "default") {
-                    Notification.requestPermission().then((p) => {
-                      if (p === "granted") toast.success("Notificações ativadas!");
-                      else toast.info("Notificações não foram permitidas");
-                    });
-                  } else if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-                    toast.info("Notificações já estão ativadas");
-                  }
-                }}
-                className="text-[11px] h-7 gap-1 text-muted-foreground hover:text-primary"
-              >
-                <Bell className="w-3.5 h-3.5" />
-                Notificações
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setShowFlows(true)} className="text-[11px] h-7 gap-1 text-muted-foreground hover:text-primary">
-                <Zap className="w-3.5 h-3.5" />
-                Fluxos
-              </Button>
+            {/* Clean top header */}
+            <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/30 shrink-0 bg-card/30">
+              <h2 className="text-base font-bold text-foreground tracking-tight">Atendimento</h2>
+              <div className="flex items-center gap-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-8 h-8 text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+                      Notification.requestPermission().then((p) => {
+                        if (p === "granted") toast.success("Notificações ativadas!");
+                        else toast.info("Notificações não foram permitidas");
+                      });
+                    } else if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+                      toast.info("Notificações já estão ativadas");
+                    }
+                  }}
+                  title="Notificações"
+                >
+                  <Bell className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-8 h-8 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowFlows(true)}
+                  title="Fluxos de automação"
+                >
+                  <Zap className="w-4 h-4" />
+                </Button>
+                {onNewConversationClick => (
+                  <Button
+                    size="sm"
+                    className="h-8 rounded-lg px-3 text-xs gap-1.5 ml-1"
+                    onClick={() => setNewConversationOpen(true)}
+                  >
+                    <MessageSquarePlus className="w-3.5 h-3.5" />
+                    Nova
+                  </Button>
+                )}
+              </div>
             </div>
             <ConversationList
               conversations={filteredConversations}
