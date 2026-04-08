@@ -103,7 +103,7 @@ export default function GIStatusPanel({ interaction }: { interaction: GroupInter
             </div>
           ))}
         </div>
-        {interaction.last_error && (
+        {interaction.last_error && !/502|503|504|Bad Gateway|Service Unavailable|Gateway Timeout|ECONNREFUSED|ECONNRESET|ETIMEDOUT|socket hang up/i.test(interaction.last_error) && (
           <div className="mt-3 p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
             {interaction.last_error}
           </div>
