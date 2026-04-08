@@ -194,6 +194,34 @@ const Contacts = () => {
     }
   }, []);
 
+  // Auto-sync: add tags from contacts that aren't in customTags yet
+  useEffect(() => {
+    if (!contacts || contacts.length === 0 || customTags.length === 0) return;
+    const allContactTags = new Set<string>();
+    for (const c of contacts) {
+      for (const t of c.tags || []) {
+        if (t) allContactTags.add(t.trim().toLowerCase());
+      }
+    }
+    const missing = [...allContactTags].filter(t => !customTags.includes(t));
+    if (missing.length === 0) return;
+    const newList = [...customTags, ...missing];
+    setCustomTags(newList);
+    localStorage.setItem("contactCustomTags", JSON.stringify(newList));
+    const newColors = { ...tagColors };
+    let colorIdx = newTagColorIdx;
+    for (const tag of missing) {
+      if (!(tag in newColors)) {
+        newColors[tag] = colorIdx;
+        colorIdx = (colorIdx + 1) % TAG_HEX_COLORS.length;
+      }
+    }
+    setTagColors(newColors);
+    setNewTagColorIdx(colorIdx);
+    localStorage.setItem("contactTagColors", JSON.stringify(newColors));
+  }, [contacts]);
+
+
   const handleCreateTag = () => {
     const tag = createTagInput.trim().toLowerCase();
     if (!tag) return;
