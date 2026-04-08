@@ -334,7 +334,7 @@ Deno.serve(async (req) => {
           .eq("user_id", device.user_id)
           .eq("is_active", true)
           .or(`device_id.eq.${device.id},device_id.is.null`)
-          .limit(1);
+          .limit(100);
 
         if (activeFlows && activeFlows.length > 0) {
           if (buttonResponseId) {
