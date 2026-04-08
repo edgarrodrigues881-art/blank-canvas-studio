@@ -13,7 +13,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Zap, Bell, MessageSquarePlus, Trash2, Pencil } from "lucide-react";
+import { Zap, Bell, MessageSquarePlus, Trash2, Pencil, Smartphone, ChevronDown, Check } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -401,6 +404,51 @@ const Conversations = () => {
             <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/30 shrink-0 bg-card/30">
               <h2 className="text-base font-bold text-foreground tracking-tight">Atendimento</h2>
               <div className="flex items-center gap-0.5">
+                {availableInstances.length > 1 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8 rounded-lg text-[11px] gap-1.5 border-border/40 text-muted-foreground hover:text-foreground">
+                        <Smartphone className="w-3 h-3" />
+                        {filterInstanceIds.length === 0
+                          ? "Instância"
+                          : filterInstanceIds.length === 1
+                            ? availableInstances.find((i) => i.id === filterInstanceIds[0])?.name || "Instância"
+                            : `${filterInstanceIds.length} instâncias`}
+                        <ChevronDown className="w-3 h-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-[180px]">
+                      <DropdownMenuItem
+                        onSelect={(e) => { e.preventDefault(); setFilterInstanceIds([]); }}
+                        className="gap-2 text-xs cursor-pointer"
+                      >
+                        <Check className={`w-3.5 h-3.5 ${filterInstanceIds.length === 0 ? "opacity-100" : "opacity-0"}`} />
+                        Todas
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {availableInstances.map((inst) => {
+                        const isActive = filterInstanceIds.includes(inst.id);
+                        return (
+                          <DropdownMenuItem
+                            key={inst.id}
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setFilterInstanceIds((prev) =>
+                                prev.includes(inst.id)
+                                  ? prev.filter((i) => i !== inst.id)
+                                  : [...prev, inst.id]
+                              );
+                            }}
+                            className="gap-2 text-xs cursor-pointer"
+                          >
+                            <Check className={`w-3.5 h-3.5 ${isActive ? "opacity-100" : "opacity-0"}`} />
+                            {inst.name}
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
