@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Save, Play, BotMessageSquare, ArrowLeft, Loader2, Smartphone, Circle } from "lucide-react";
+import { Save, Play, BotMessageSquare, ArrowLeft, Loader2, Smartphone, Circle, Undo2, Redo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -26,11 +26,15 @@ interface Props {
   nodes: Node<FlowNodeData>[];
   edges?: { id: string; source: string; target: string }[];
   isDirty?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
 const onlineStatuses = new Set(["connected", "Connected", "Ready", "ready", "authenticated"]);
 
-export function FlowHeader({ flowId, name, onNameChange, isActive, onToggleActive, onSave, saving, deviceId, onDeviceChange, nodes, edges = [], isDirty }: Props) {
+export function FlowHeader({ flowId, name, onNameChange, isActive, onToggleActive, onSave, saving, deviceId, onDeviceChange, nodes, edges = [], isDirty, onUndo, onRedo, canUndo = false, canRedo = false }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [testing, setTesting] = useState(false);
@@ -183,6 +187,26 @@ export function FlowHeader({ flowId, name, onNameChange, isActive, onToggleActiv
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-7 w-7 border-border/30 hover:border-border/50"
+          onClick={onUndo}
+          disabled={!canUndo}
+          title="Desfazer (Ctrl/Cmd+Z)"
+        >
+          <Undo2 className="w-3.5 h-3.5" />
+        </Button>
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-7 w-7 border-border/30 hover:border-border/50"
+          onClick={onRedo}
+          disabled={!canRedo}
+          title="Refazer (Ctrl/Cmd+Shift+Z)"
+        >
+          <Redo2 className="w-3.5 h-3.5" />
+        </Button>
         <Button
           size="sm"
           variant="outline"
