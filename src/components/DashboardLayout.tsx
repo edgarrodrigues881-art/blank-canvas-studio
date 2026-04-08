@@ -194,7 +194,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             ) : (
               <div
                 key={location.pathname}
-                className="animate-page-in"
+                className="animate-page-in h-full"
               >
                 {children}
               </div>
