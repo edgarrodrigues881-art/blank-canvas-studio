@@ -648,7 +648,7 @@ function FlowCanvas() {
       />
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <FlowSidebar hasStartNode={nodes.some((n) => n.type === "startNode")} />
-        <div className="flex-1 min-w-0 relative">
+        <div className="flex-1 min-w-0 relative" onContextMenu={(e) => e.preventDefault()}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
