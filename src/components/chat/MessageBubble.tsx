@@ -137,7 +137,7 @@ function getWaveform(id: string) {
   return waveformCache[id];
 }
 
-export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onRetry, onDelete }: MessageBubbleProps) {
+export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onRetry, onDelete, onEdit }: MessageBubbleProps) {
   const [showActions, setShowActions] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
