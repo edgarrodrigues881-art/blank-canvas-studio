@@ -725,7 +725,7 @@ export default function WhatsAppVerifierCampaigns() {
               <p className="text-xs text-muted-foreground">Marque ou desmarque instâncias para esta campanha. Ao remover, a campanha pausa automaticamente.</p>
               <ScrollArea className="max-h-[280px]">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {allDevices.filter((d: any) => d.uazapi_base_url).map((d: any) => {
+                  {allDevices.filter((d: any) => d.uazapi_base_url && ACTIVE_DEVICE_STATUSES.includes(d.status)).map((d: any) => {
                     const isOn = ACTIVE_DEVICE_STATUSES.includes(d.status);
                     const isInJob = jobDeviceIds.includes(d.id);
                     return (
