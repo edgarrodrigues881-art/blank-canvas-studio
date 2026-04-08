@@ -545,21 +545,7 @@ function ConversationCard({
         </div>
       </div>
 
-      {/* Expanded Details */}
-      {expanded && (
-        <div className="border-t border-border/20">
-          <div className="mx-5 my-3 rounded-xl border border-border/30 bg-muted/10 px-4 py-3">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground/60 mb-1">Chips participantes</p>
-            <p className="text-sm text-foreground font-medium">{deviceNames || "Nenhum"}</p>
-          </div>
-          <div className="px-5 pb-3">
-            <Button variant="ghost" size="sm" onClick={onSelectLogs} className="gap-2 w-full justify-center text-xs text-muted-foreground hover:text-foreground h-8">
-              {showLogs ? "Ocultar logs" : "Ver logs"}
-            </Button>
-          </div>
-          {showLogs && <ConversationLogs conversationId={conv.id} />}
-        </div>
-      )}
+      {/* Expanded Details — removed logs and chips (chips shown only in edit dialog) */}
     </div>
   );
 }
