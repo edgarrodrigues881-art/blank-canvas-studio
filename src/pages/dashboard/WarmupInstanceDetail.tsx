@@ -1047,8 +1047,11 @@ const WarmupInstanceDetail = () => {
   const handleStartWarmup = () => {
     if (!deviceId) return;
     const plan = plans.find(p => p.days_total === Number(daysTotal));
+    // Read the user's group_source preference (custom vs system)
+    let groupSource = "custom";
+    try { groupSource = localStorage.getItem(`warmup_group_source_${user?.id}`) === "system" ? "system" : "custom"; } catch {}
     engine.mutate(
-      { action: "start", device_id: deviceId, chip_state: chipState, days_total: Number(daysTotal), plan_id: plan?.id },
+      { action: "start", device_id: deviceId, chip_state: chipState, days_total: Number(daysTotal), plan_id: plan?.id, group_source: groupSource } as any,
       {
         onSuccess: () => toast({ title: "🔥 Aquecimento iniciado!", description: "Seu chip está sendo aquecido. Acompanhe o progresso aqui." }),
         onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
