@@ -13,8 +13,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Zap, Bell, MessageSquarePlus, Trash2 } from "lucide-react";
+import { Zap, Bell, MessageSquarePlus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 const MIN_SIDEBAR_W = 240;
 const MAX_SIDEBAR_W = 600;
