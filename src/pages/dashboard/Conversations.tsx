@@ -55,6 +55,8 @@ const Conversations = () => {
     markAsUnread,
     getConversationIdsForSameContact,
     getConversationContactKey,
+    bulkArchiveConversations,
+    bulkDeleteConversations,
   } = useConversations();
 
   const [showDetails, setShowDetails] = useState(true);
