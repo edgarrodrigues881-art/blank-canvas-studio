@@ -153,7 +153,7 @@ export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaCha
         <div className="w-14 h-14 rounded-full bg-muted/50 flex items-center justify-center">
           <MapPin className="h-7 w-7 text-muted-foreground/40" />
         </div>
-        <p className="text-muted-foreground/60 text-sm">Selecione estado e cidade para visualizar o mapa</p>
+        <p className="text-muted-foreground/60 text-sm text-center px-4">Selecione estado e cidade para visualizar o mapa</p>
       </div>
     );
   }
