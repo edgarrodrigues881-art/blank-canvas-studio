@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import {
   Search, Download, Loader2, Smartphone, Copy, Plus, CheckCircle2,
   XCircle, AlertTriangle, Phone, Upload, ArrowLeft, Trash2, StopCircle,
-  Clock, Play, History, Pause, RefreshCw, FileSpreadsheet, Variable,
+  Clock, Play, History, Pause, RefreshCw, FileSpreadsheet, Variable, Users,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
