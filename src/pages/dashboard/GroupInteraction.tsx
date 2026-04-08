@@ -1,4 +1,8 @@
 import { useState, useEffect, useMemo, useCallback, Fragment, useRef } from "react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useGroupInteraction, type GroupInteraction } from "@/hooks/useGroupInteraction";
@@ -125,6 +129,7 @@ export default function GroupInteractionPage() {
 
   const [showConfig, setShowConfig] = useState(false);
   const [showBulkCreate, setShowBulkCreate] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({ ...defaultForm });
   const [bulkDeviceIds, setBulkDeviceIds] = useState<string[]>([]);
   const [usePeriod2, setUsePeriod2] = useState(false);
@@ -723,13 +728,7 @@ export default function GroupInteractionPage() {
                     displayStatus={selectedDisplayStatus}
                     onAction={handleAction}
                     actionPending={invokeAction.isPending}
-                    onDelete={() => {
-                      if (confirm("Excluir esta automação?")) {
-                        deleteInteraction.mutate(selectedId);
-                        setSelectedId(null);
-                        setShowConfig(false);
-                      }
-                    }}
+                    onDelete={() => setShowDeleteDialog(true)}
                   />
                 </>
               )}
@@ -764,6 +763,32 @@ export default function GroupInteractionPage() {
             </Card>
           ) : null}
       </div>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir automação</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta automação? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (selectedId) {
+                  deleteInteraction.mutate(selectedId);
+                  setSelectedId(null);
+                  setShowConfig(false);
+                }
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 
