@@ -878,16 +878,10 @@ export default function WhatsAppVerifierCampaigns() {
                       user_id: user.id,
                       phone: r.phone,
                       name: r.var1 || r.phone,
-                      var1: r.var1 || "",
-                      var2: r.var2 || "",
-                      var3: r.var3 || "",
-                      var4: r.var4 || "",
-                      var5: r.var5 || "",
-                      var6: "",
-                      var7: "",
-                      var8: "",
-                      var9: "",
-                      var10: "",
+                      var1: r.var1 || "", var2: r.var2 || "", var3: r.var3 || "",
+                      var4: r.var4 || "", var5: r.var5 || "", var6: r.var6 || "",
+                      var7: r.var7 || "", var8: r.var8 || "", var9: r.var9 || "",
+                      var10: r.var10 || "",
                     }));
                     const { error } = await supabase.from("contacts").insert(batch);
                     if (error) throw error;
