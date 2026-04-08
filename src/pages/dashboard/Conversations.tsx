@@ -463,7 +463,7 @@ const Conversations = () => {
             </div>
           )}
 
-          {selectedConversation && (
+          {selectedConversation ? (
             <div className="flex flex-col flex-1 min-w-0">
               <ChatPanel
                 conversation={selectedConversation}
@@ -487,6 +487,23 @@ const Conversations = () => {
                 selectedInstanceId={selectedInstanceId}
                 onInstanceChange={setSelectedInstanceId}
               />
+            </div>
+          ) : (
+            <div className="hidden md:flex flex-col flex-1 items-center justify-center bg-muted/5">
+              <div className="flex flex-col items-center gap-4 text-center max-w-md px-6">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <MessageSquarePlus className="w-8 h-8 text-primary/40" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground/80">Atendimento</h2>
+                  <p className="text-sm text-muted-foreground/60 mt-1">
+                    Amplie, organize e gerencie suas conversas comerciais.
+                  </p>
+                </div>
+                <p className="text-[11px] text-muted-foreground/40 flex items-center gap-1.5">
+                  🔒 Suas mensagens são protegidas com criptografia de ponta a ponta.
+                </p>
+              </div>
             </div>
           )}
 
