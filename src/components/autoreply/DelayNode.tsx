@@ -17,26 +17,29 @@ export function DelayNode({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={`group rounded-xl bg-card border transition-all duration-200 ease-out min-w-[200px]
+      className={`rounded-lg overflow-hidden transition-all duration-150 w-[180px]
         ${selected
-          ? "border-amber-500/60 shadow-[0_0_20px_-4px_hsl(38_92%_50%/0.2)] scale-[1.01]"
-          : "border-border/50 shadow-sm hover:shadow-md hover:border-border/70"
+          ? "ring-2 ring-amber-400/70 shadow-[0_0_24px_-4px_rgba(251,191,36,0.25)]"
+          : "ring-1 ring-white/[0.06] shadow-md hover:ring-white/[0.1]"
         }`}
+      style={{ background: "hsl(var(--card))" }}
     >
+      <div className="h-1 bg-amber-500" />
+
       <Handle
         type="target"
         position={Position.Left}
         id="in"
-        className="!w-3 !h-3 !bg-amber-500 !border-2 !border-card !rounded-full !shadow-[0_0_6px_hsl(38_92%_50%/0.3)] !-left-1.5"
+        className="!w-2.5 !h-2.5 !bg-amber-400 !border-[1.5px] !border-card !rounded-full !-left-1.5"
       />
-      <div className="flex items-center gap-2 px-3.5 py-2.5">
-        <div className="w-6 h-6 rounded-lg bg-amber-500/10 flex items-center justify-center">
-          <Timer className="w-3 h-3 text-amber-500" />
+      <div className="flex items-center gap-2 px-3 py-2">
+        <div className="w-5 h-5 rounded bg-amber-500/15 flex items-center justify-center shrink-0">
+          <Timer className="w-3 h-3 text-amber-400" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-foreground leading-tight">{d.label}</p>
-          <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-            Aguardar <span className="font-mono text-amber-500/80 font-semibold">{formatDelay(seconds)}</span>
+          <p className="text-[11px] font-semibold text-foreground/90 leading-none">{d.label}</p>
+          <p className="text-[9px] text-muted-foreground/50 mt-0.5">
+            <span className="font-mono text-amber-400/70 font-semibold">{formatDelay(seconds)}</span>
           </p>
         </div>
       </div>
@@ -44,7 +47,7 @@ export function DelayNode({ data, selected }: NodeProps) {
         type="source"
         position={Position.Right}
         id="out"
-        className="!w-3 !h-3 !bg-amber-500 !border-2 !border-card !rounded-full !shadow-[0_0_6px_hsl(38_92%_50%/0.3)] !-right-1.5"
+        className="!w-2.5 !h-2.5 !bg-amber-400 !border-[1.5px] !border-card !rounded-full !-right-1.5"
       />
     </div>
   );

@@ -18,30 +18,30 @@ export function StartNode({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={`group rounded-xl bg-card border transition-all duration-200 ease-out min-w-[240px] max-w-[300px]
+      className={`rounded-lg overflow-hidden transition-all duration-150 w-[220px]
         ${selected
-          ? "border-emerald-500/60 shadow-[0_0_20px_-4px_hsl(142_71%_45%/0.2)] scale-[1.01]"
-          : "border-border/50 shadow-sm hover:shadow-md hover:border-border/70"
+          ? "ring-2 ring-emerald-400/70 shadow-[0_0_24px_-4px_rgba(52,211,153,0.3)]"
+          : "ring-1 ring-white/[0.06] shadow-md hover:ring-white/[0.1]"
         }`}
+      style={{ background: "hsl(var(--card))" }}
     >
-      {/* Header bar */}
-      <div className={`flex items-center gap-2 px-3.5 py-2.5 border-b ${selected ? "border-emerald-500/20" : "border-border/30"}`}>
-        <div
-          className={`w-6 h-6 rounded-lg flex items-center justify-center ${
-            isTemplate ? "bg-primary/10" : "bg-emerald-500/10"
-          }`}
-        >
+      {/* Colored top bar */}
+      <div className="h-1 bg-emerald-500" />
+
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 py-2">
+        <div className="w-5 h-5 rounded bg-emerald-500/15 flex items-center justify-center shrink-0">
           {isTemplate ? (
-            <FileText className="w-3 h-3 text-primary" />
+            <FileText className="w-3 h-3 text-emerald-400" />
           ) : (
-            <Zap className="w-3 h-3 text-emerald-500" />
+            <Zap className="w-3 h-3 text-emerald-400" />
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-foreground leading-tight truncate">
+          <p className="text-[11px] font-semibold text-foreground/90 leading-none truncate">
             {isTemplate ? (d.templateName || "Template") : d.label}
           </p>
-          <p className="text-[10px] text-muted-foreground/60 truncate">
+          <p className="text-[9px] text-muted-foreground/50 mt-0.5 truncate">
             {isTemplate ? "Template" : triggerLabels[d.trigger || "keyword"]}
           </p>
         </div>
@@ -49,32 +49,32 @@ export function StartNode({ data, selected }: NodeProps) {
 
       {isTemplate ? (
         <>
-          <div className="px-3.5 py-2.5 space-y-1">
+          <div className="px-3 pb-2 space-y-1">
             {hasTemplateImage && (
-              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50">
-                <Image className="w-3 h-3" />
-                <span>Imagem anexada</span>
+              <div className="flex items-center gap-1 text-[9px] text-muted-foreground/40">
+                <Image className="w-2.5 h-2.5" />
+                <span>Imagem</span>
               </div>
             )}
             {d.text && (
-              <p className="text-[10px] text-foreground/50 whitespace-pre-line leading-relaxed line-clamp-3">
+              <p className="text-[9px] text-foreground/40 whitespace-pre-line leading-relaxed line-clamp-2">
                 {d.text.replace(/\{(\w+)\}/g, (_, v) => `«${v}»`)}
               </p>
             )}
           </div>
 
           {hasTemplateButtons ? (
-            <div className="border-t border-border/20 px-3 py-2 space-y-1">
+            <div className="border-t border-white/[0.04] px-2.5 py-1.5 space-y-1">
               {d.buttons!.map((btn) => (
                 <div key={btn.id} className="relative flex items-center">
-                  <div className="flex-1 text-[10px] font-medium text-center py-1 px-2 rounded-md bg-primary/5 text-primary/70 border border-primary/10">
+                  <div className="flex-1 text-[9px] font-medium text-center py-1 rounded bg-emerald-500/8 text-emerald-400/70 border border-emerald-500/10">
                     {btn.label}
                   </div>
                   <Handle
                     type="source"
                     position={Position.Right}
                     id={`btn-${btn.id}`}
-                    className="!w-3 !h-3 !bg-primary !border-2 !border-card !rounded-full !-right-1.5 !shadow-[0_0_6px_hsl(var(--primary)/0.3)]"
+                    className="!w-2.5 !h-2.5 !bg-emerald-400 !border-[1.5px] !border-card !rounded-full !-right-1.5"
                   />
                 </div>
               ))}
@@ -84,15 +84,15 @@ export function StartNode({ data, selected }: NodeProps) {
               type="source"
               position={Position.Right}
               id="out"
-              className="!w-3 !h-3 !bg-primary !border-2 !border-card !rounded-full !shadow-[0_0_6px_hsl(var(--primary)/0.3)] !-right-1.5"
+              className="!w-2.5 !h-2.5 !bg-emerald-400 !border-[1.5px] !border-card !rounded-full !-right-1.5"
             />
           )}
         </>
       ) : (
         <>
           {d.trigger === "keyword" && d.keyword && (
-            <div className="px-3.5 py-2.5">
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/8 text-emerald-500/80 border border-emerald-500/15">
+            <div className="px-3 pb-2">
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/8 text-emerald-400/70 border border-emerald-500/10">
                 "{d.keyword}"
               </span>
             </div>
@@ -101,7 +101,7 @@ export function StartNode({ data, selected }: NodeProps) {
             type="source"
             position={Position.Right}
             id="out"
-            className="!w-3 !h-3 !bg-emerald-500 !border-2 !border-card !rounded-full !shadow-[0_0_6px_hsl(142_71%_45%/0.3)] !-right-1.5"
+            className="!w-2.5 !h-2.5 !bg-emerald-400 !border-[1.5px] !border-card !rounded-full !-right-1.5"
           />
         </>
       )}

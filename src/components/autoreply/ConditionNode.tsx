@@ -8,59 +8,61 @@ export function ConditionNode({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={`group rounded-xl bg-card border transition-all duration-200 ease-out min-w-[240px] max-w-[300px]
+      className={`rounded-lg overflow-hidden transition-all duration-150 w-[220px]
         ${selected
-          ? "border-violet-500/60 shadow-[0_0_20px_-4px_hsl(262_83%_58%/0.2)] scale-[1.01]"
-          : "border-border/50 shadow-sm hover:shadow-md hover:border-border/70"
+          ? "ring-2 ring-violet-400/70 shadow-[0_0_24px_-4px_rgba(139,92,246,0.25)]"
+          : "ring-1 ring-white/[0.06] shadow-md hover:ring-white/[0.1]"
         }`}
+      style={{ background: "hsl(var(--card))" }}
     >
+      <div className="h-1 bg-violet-500" />
+
       <Handle
         type="target"
         position={Position.Left}
         id="in"
-        className="!w-3 !h-3 !bg-violet-500 !border-2 !border-card !rounded-full !shadow-[0_0_6px_hsl(262_83%_58%/0.3)] !-left-1.5"
+        className="!w-2.5 !h-2.5 !bg-violet-400 !border-[1.5px] !border-card !rounded-full !-left-1.5"
       />
 
       {/* Header */}
-      <div className={`flex items-center gap-2 px-3.5 py-2.5 border-b ${selected ? "border-violet-500/20" : "border-border/30"}`}>
-        <div className="w-6 h-6 rounded-lg bg-violet-500/10 flex items-center justify-center">
-          <GitBranch className="w-3 h-3 text-violet-500" />
+      <div className="flex items-center gap-2 px-3 py-2">
+        <div className="w-5 h-5 rounded bg-violet-500/15 flex items-center justify-center shrink-0">
+          <GitBranch className="w-3 h-3 text-violet-400" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-foreground leading-tight truncate">{d.label}</p>
-          <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-            {conditions.length === 0 ? "Nenhuma condição" : `${conditions.length} condição${conditions.length !== 1 ? "ões" : ""}`}
+          <p className="text-[11px] font-semibold text-foreground/90 leading-none truncate">{d.label}</p>
+          <p className="text-[9px] text-muted-foreground/50 mt-0.5">
+            {conditions.length === 0 ? "Sem condições" : `${conditions.length} condição${conditions.length !== 1 ? "ões" : ""}`}
           </p>
         </div>
       </div>
 
-      {/* Condition branches */}
-      <div className="px-3 py-2 space-y-1">
+      {/* Branches */}
+      <div className="border-t border-white/[0.04] px-2.5 py-1.5 space-y-1">
         {conditions.map((cond, idx) => (
           <div key={cond.id} className="relative flex items-center">
-            <div className="flex-1 text-[10px] font-medium py-1 px-2 rounded-md bg-violet-500/5 text-violet-400/80 border border-violet-500/10">
-              <span className="text-[8px] uppercase text-violet-500/40 mr-1">Se</span>
+            <div className="flex-1 text-[9px] font-medium py-1 px-2 rounded bg-violet-500/8 text-violet-400/70 border border-violet-500/10">
+              <span className="text-[7px] uppercase text-violet-500/40 mr-1">SE</span>
               {cond.label || `Condição ${idx + 1}`}
             </div>
             <Handle
               type="source"
               position={Position.Right}
               id={`cond-${cond.id}`}
-              className="!w-3 !h-3 !bg-violet-500 !border-2 !border-card !rounded-full !-right-1.5 !shadow-[0_0_6px_hsl(262_83%_58%/0.3)]"
+              className="!w-2.5 !h-2.5 !bg-violet-400 !border-[1.5px] !border-card !rounded-full !-right-1.5"
             />
           </div>
         ))}
-        {/* Default / else branch */}
         <div className="relative flex items-center">
-          <div className="flex-1 text-[10px] font-medium py-1 px-2 rounded-md bg-muted/20 text-muted-foreground/50 border border-border/20">
-            <span className="text-[8px] uppercase text-muted-foreground/30 mr-1">Senão</span>
+          <div className="flex-1 text-[9px] font-medium py-1 px-2 rounded bg-white/[0.02] text-muted-foreground/40 border border-white/[0.04]">
+            <span className="text-[7px] uppercase text-muted-foreground/30 mr-1">SENÃO</span>
             Padrão
           </div>
           <Handle
             type="source"
             position={Position.Right}
             id="else"
-            className="!w-3 !h-3 !bg-muted-foreground/40 !border-2 !border-card !rounded-full !-right-1.5"
+            className="!w-2.5 !h-2.5 !bg-muted-foreground/40 !border-[1.5px] !border-card !rounded-full !-right-1.5"
           />
         </div>
       </div>

@@ -2,11 +2,11 @@ import { Zap, MessageSquare, CircleStop, Timer, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 
 const blocks = [
-  { type: "startNode", label: "Início", desc: "Gatilho do fluxo", icon: Zap, accent: "text-emerald-500", bg: "bg-emerald-500/10", ring: "ring-emerald-500/15" },
-  { type: "messageNode", label: "Mensagem", desc: "Texto, imagem, botões", icon: MessageSquare, accent: "text-primary", bg: "bg-primary/10", ring: "ring-primary/15" },
-  { type: "conditionNode", label: "Condição", desc: "Ramificar o fluxo", icon: GitBranch, accent: "text-violet-500", bg: "bg-violet-500/10", ring: "ring-violet-500/15" },
-  { type: "delayNode", label: "Temporizador", desc: "Delay entre msgs", icon: Timer, accent: "text-amber-500", bg: "bg-amber-500/10", ring: "ring-amber-500/15" },
-  { type: "endNode", label: "Finalizar", desc: "Encerra o fluxo", icon: CircleStop, accent: "text-rose-500", bg: "bg-rose-500/10", ring: "ring-rose-500/15" },
+  { type: "startNode", label: "Início", desc: "Gatilho", icon: Zap, color: "text-emerald-400", bar: "bg-emerald-500", bg: "bg-emerald-500/12" },
+  { type: "messageNode", label: "Mensagem", desc: "Texto / mídia", icon: MessageSquare, color: "text-primary", bar: "bg-primary", bg: "bg-primary/12" },
+  { type: "conditionNode", label: "Condição", desc: "Ramificar", icon: GitBranch, color: "text-violet-400", bar: "bg-violet-500", bg: "bg-violet-500/12" },
+  { type: "delayNode", label: "Delay", desc: "Temporizador", icon: Timer, color: "text-amber-400", bar: "bg-amber-500", bg: "bg-amber-500/12" },
+  { type: "endNode", label: "Finalizar", desc: "Encerrar", icon: CircleStop, color: "text-rose-400", bar: "bg-rose-500", bg: "bg-rose-500/12" },
 ];
 
 interface Props {
@@ -25,8 +25,8 @@ export function FlowSidebar({ hasStartNode = false }: Props) {
   };
 
   return (
-    <div className="w-[190px] shrink-0 border-r border-border/30 bg-card/20 p-3 space-y-1 hidden md:block">
-      <p className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground/30 font-semibold px-2 mb-3">
+    <div className="w-[170px] shrink-0 border-r border-white/[0.06] bg-[hsl(var(--card)/0.4)] p-2.5 space-y-0.5 hidden md:block">
+      <p className="text-[8px] uppercase tracking-[0.2em] text-muted-foreground/30 font-bold px-2 pt-1 pb-2">
         Blocos
       </p>
       {blocks.map((b) => {
@@ -36,18 +36,18 @@ export function FlowSidebar({ hasStartNode = false }: Props) {
             key={b.type}
             draggable={!isDisabled}
             onDragStart={(e) => onDragStart(e, b.type)}
-            className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-150 group
+            className={`flex items-center gap-2 px-2 py-1.5 rounded-md transition-all duration-100 group
               ${isDisabled
-                ? "opacity-30 cursor-not-allowed"
-                : "cursor-grab active:cursor-grabbing hover:bg-muted/20 active:scale-[0.97]"
+                ? "opacity-25 cursor-not-allowed"
+                : "cursor-grab active:cursor-grabbing hover:bg-white/[0.04] active:scale-[0.96]"
               }`}
           >
-            <div className={`w-7 h-7 rounded-lg ${b.bg} flex items-center justify-center ring-1 ${b.ring} transition-all ${!isDisabled ? "group-hover:scale-105" : ""}`}>
-              <b.icon className={`w-3.5 h-3.5 ${b.accent}`} />
+            <div className={`w-6 h-6 rounded ${b.bg} flex items-center justify-center transition-transform ${!isDisabled ? "group-hover:scale-110" : ""}`}>
+              <b.icon className={`w-3 h-3 ${b.color}`} />
             </div>
-            <div>
-              <p className="text-xs font-medium text-foreground/80 leading-tight">{b.label}</p>
-              <p className="text-[9px] text-muted-foreground/40 mt-0.5">{b.desc}</p>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-foreground/80 leading-none">{b.label}</p>
+              <p className="text-[8px] text-muted-foreground/35 mt-0.5">{b.desc}</p>
             </div>
           </div>
         );
