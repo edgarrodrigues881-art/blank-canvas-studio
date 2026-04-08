@@ -445,10 +445,19 @@ function FlowCanvas() {
         };
       }
 
+      const sourceNode = nodes.find((node) => node.id === dropMenu.sourceNodeId);
+      const menuRightFlow = screenToFlowPosition({ x: dropMenu.x + 190, y: dropMenu.y + 40 });
+      const nextX = Math.max(
+        dropMenu.flowX - 125,
+        menuRightFlow.x + 16,
+        sourceNode ? sourceNode.position.x + 250 : dropMenu.flowX - 125,
+      );
+      const nextY = dropMenu.flowY - 30;
+
       const newNode: Node<FlowNodeData> = {
         id,
         type,
-        position: { x: dropMenu.flowX - 125, y: dropMenu.flowY - 30 },
+        position: { x: nextX, y: nextY },
         data,
       };
 
