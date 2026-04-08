@@ -436,7 +436,16 @@ async function processOneConversation(sb: any, conv: any) {
     sent_at: new Date().toISOString(),
   }).then(() => {}, () => {});
 
-  await sb.from("chip_conversations").update({ total_messages_sent: newTotal, last_error: result.ok ? null : result.error, status: "active" }).eq("id", conversationId);
+  // Transient API errors (502, 503, timeout, ECONNREFUSED) are NOT stored in last_error
+  // so the client never sees infrastructure noise — only persistent/business errors are shown.
+  const isTransientError = !result.ok && /502|503|504|Bad Gateway|Service Unavailable|Gateway Timeout|ECONNREFUSED|ECONNRESET|ETIMEDOUT|socket hang up/i.test(result.error || "");
+  const errorToStore = result.ok ? null : (isTransientError ? null : result.error);
+
+  await sb.from("chip_conversations").update({
+    total_messages_sent: newTotal,
+    last_error: errorToStore,
+    status: "active",
+  }).eq("id", conversationId);
 
   // ── Calculate and ENFORCE delay ──
   const minDelay = Number(settings.min_delay_seconds) || 15;
