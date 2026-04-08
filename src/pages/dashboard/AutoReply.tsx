@@ -243,7 +243,7 @@ function FlowCanvas() {
   );
 
   const createNodeFromMenu = useCallback(
-    (type: "messageNode" | "endNode" | "delayNode") => {
+    (type: "messageNode" | "endNode" | "delayNode" | "conditionNode") => {
       if (!dropMenu) return;
 
       const id = nextNodeId(type);
@@ -253,6 +253,8 @@ function FlowCanvas() {
         data = { label: "Finalizar", action: "end_flow" };
       } else if (type === "delayNode") {
         data = { label: "Temporizador", delaySeconds: 5 };
+      } else if (type === "conditionNode") {
+        data = { label: "Condição", conditions: [] };
       } else {
         data = {
           label: "Nova Mensagem",
