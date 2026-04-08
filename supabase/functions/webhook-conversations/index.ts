@@ -241,6 +241,8 @@ Deno.serve(async (req) => {
       media_url: persistedMediaUrl,
       audio_duration: audioDuration,
       whatsapp_message_id: waId,
+      quoted_message_id: quotedMessageId,
+      quoted_content: quotedContent,
       created_at: timestamp,
       origin: messageOrigin,
     });

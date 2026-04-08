@@ -57,6 +57,33 @@ Deno.test("extractConversationEvent parses UAZAPI-GO audio", () => {
   assertEquals(result.mimeType, "audio/ogg; codecs=opus");
 });
 
+Deno.test("extractConversationEvent parses quoted replies from UAZAPI payload", () => {
+  const result = extractConversationEvent({
+    EventType: "messages",
+    chat: { name: "Eu" },
+    message: {
+      chatid: "556294192500@s.whatsapp.net",
+      content: {
+        text: "Oi",
+        contextInfo: {
+          stanzaID: "3EB07F57DA0FBBDE762F05",
+          participant: "30619509768229@lid",
+          quotedMessage: { conversation: "oi" },
+        },
+      },
+      fromMe: false,
+      messageid: "A51C42BDE7EBBB2DD529BE182658CDE6",
+      quoted: "3EB07F57DA0FBBDE762F05",
+      sender_pn: "556294192500@s.whatsapp.net",
+      type: "text",
+    },
+  });
+
+  assertExists(result);
+  assertEquals(result.quotedMessageId, "3EB07F57DA0FBBDE762F05");
+  assertEquals(result.quotedContent, "oi");
+});
+
 Deno.test("extractConversationEvent skips groups", () => {
   const result = extractConversationEvent({
     event: "messages",
