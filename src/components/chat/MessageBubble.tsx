@@ -93,14 +93,18 @@ function StatusIcon({ status }: { status?: string }) {
   return null;
 }
 
-function MsgFooter({ msg }: { msg: Message }) {
+function MsgFooter({ msg, inline }: { msg: Message; inline?: boolean }) {
   return (
-    <div className={cn("flex items-center gap-1 mt-1", msg.type === "sent" ? "justify-end" : "justify-start")}>
-      <span className={cn("text-[10px]", msg.type === "sent" ? "text-white/60" : "text-muted-foreground/60")}>
+    <span className={cn(
+      "flex items-center gap-1 shrink-0",
+      inline ? "ml-2 self-end" : "mt-1",
+      msg.type === "sent" ? "justify-end" : "justify-start"
+    )}>
+      <span className={cn("text-[10px] leading-none", msg.type === "sent" ? "text-white/60" : "text-muted-foreground/60")}>
         {format(new Date(msg.timestamp), "HH:mm")}
       </span>
       {msg.type === "sent" && <StatusIcon status={msg.status} />}
-    </div>
+    </span>
   );
 }
 
