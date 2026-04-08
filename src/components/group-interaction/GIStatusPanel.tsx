@@ -118,7 +118,7 @@ export default function GIStatusPanel({
         <div className="md:hidden border-t border-border/20" />
 
         {/* Col 2: Device */}
-        <div className="px-5 py-4 flex flex-col justify-center">
+        <div className="px-5 py-4 flex flex-col justify-center min-w-0">
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-medium mb-2">Dispositivo</span>
           {onDeviceChange ? (
             <Select value={selectedDeviceId || ""} onValueChange={onDeviceChange}>
