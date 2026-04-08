@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Play, Pause, Check, CheckCheck, Loader2,
   Download, FileText, Video, MapPin, User,
-  Image as ImageIcon, Reply, X, Trash2,
+  Image as ImageIcon, Reply, X, Trash2, Pencil,
 } from "lucide-react";
 import { Smartphone } from "lucide-react";
 import { type Message } from "./types";
