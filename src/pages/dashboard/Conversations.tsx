@@ -5,7 +5,7 @@ import { ConversationList } from "@/components/chat/ConversationList";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { ContactDetails } from "@/components/chat/ContactDetails";
 import { NewConversationDialog } from "@/components/chat/NewConversationDialog";
-import { AutomationFlows } from "@/components/chat/AutomationFlows";
+import AutoReplyList from "@/pages/dashboard/AutoReplyList";
 import { type Conversation, type AttendingStatus, type Message, type ConversationInstance } from "@/components/chat/types";
 import { useConversations } from "@/hooks/chat/useConversations";
 import { Button } from "@/components/ui/button";
@@ -381,8 +381,8 @@ const Conversations = () => {
             ← Conversas
           </Button>
         </div>
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <AutomationFlows />
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <AutoReplyList />
         </div>
       </div>
     );
