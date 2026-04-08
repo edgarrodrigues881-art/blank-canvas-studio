@@ -633,14 +633,13 @@ export default function WhatsAppVerifierCampaigns() {
                   <span className="text-xs font-medium text-muted-foreground">Prévia dos dados</span>
                   <span className="text-[10px] text-muted-foreground">{importRows.length} linhas total</span>
                 </div>
-                <ScrollArea className="h-[260px]">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs" style={{ minWidth: `${importHeaders.length * 140}px` }}>
+                <div className="h-[260px] overflow-auto">
+                    <table className="w-full text-xs" style={{ minWidth: `${importHeaders.length * 160}px` }}>
                       <thead className="bg-muted/30 sticky top-0 z-10">
                         <tr>
                           <th className="text-left px-3 py-2 font-medium text-muted-foreground w-[40px]">#</th>
                           {importHeaders.map((h, i) => (
-                            <th key={i} className="text-left px-3 py-2 font-medium text-muted-foreground whitespace-nowrap">{h}</th>
+                            <th key={i} className="text-left px-3 py-2 font-medium text-muted-foreground whitespace-nowrap min-w-[120px]">{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -657,8 +656,7 @@ export default function WhatsAppVerifierCampaigns() {
                         ))}
                       </tbody>
                     </table>
-                  </div>
-                </ScrollArea>
+                </div>
               </div>
             )}
 
