@@ -77,7 +77,7 @@ export default function ServiceContacts() {
   const handleSave = async () => {
     if (!user) return;
     const tags = form.tags.split(",").map(t => t.trim()).filter(Boolean);
-    const payload = { name: form.name, phone: form.phone, email: form.email || null, notes: form.notes || null, tags, user_id: user.id };
+    const payload = { name: form.name, phone: form.phone, email: form.email || null, company: form.company || null, notes: form.notes || null, tags, user_id: user.id };
 
     if (editing) {
       const { error } = await supabase.from("service_contacts").update(payload as any).eq("id", editing.id);
