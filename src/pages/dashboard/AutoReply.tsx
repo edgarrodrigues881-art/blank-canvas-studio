@@ -42,8 +42,8 @@ const nodeTypes = {
 const defaultEdgeOptions = {
   type: "smoothstep",
   animated: true,
-  style: { stroke: "hsl(var(--primary) / 0.35)", strokeWidth: 1.2 },
-  markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(var(--primary) / 0.4)", width: 14, height: 14 },
+  style: { stroke: "hsl(var(--primary) / 0.45)", strokeWidth: 1.5 },
+  markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(var(--primary) / 0.5)", width: 12, height: 12 },
 };
 
 const defaultNodes: Node<FlowNodeData>[] = [
@@ -442,10 +442,10 @@ function FlowCanvas() {
             className="bg-background"
             proOptions={{ hideAttribution: true }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={28} size={0.6} className="!bg-background" color="hsl(var(--muted-foreground) / 0.06)" />
+            <Background variant={BackgroundVariant.Dots} gap={20} size={1} className="!bg-[hsl(var(--background))]" color="hsl(var(--muted-foreground) / 0.1)" />
             <Controls
               showInteractive={false}
-              className="!bg-card/80 !backdrop-blur-sm !border-border/30 !shadow-lg !rounded-xl !overflow-hidden [&>button]:!bg-transparent [&>button]:!border-b [&>button]:!border-border/20 [&>button]:!text-muted-foreground/60 [&>button:hover]:!bg-muted/30 [&>button:hover]:!text-foreground [&>button]:!transition-colors [&>button]:!duration-150 [&>button:last-child]:!border-b-0 [&>button]:!w-7 [&>button]:!h-7"
+              className="!bg-card !border !border-white/[0.06] !shadow-lg !rounded-lg !overflow-hidden [&>button]:!bg-transparent [&>button]:!border-b [&>button]:!border-white/[0.04] [&>button]:!text-muted-foreground/50 [&>button:hover]:!bg-white/[0.04] [&>button:hover]:!text-foreground [&>button]:!transition-colors [&>button]:!duration-100 [&>button:last-child]:!border-b-0 [&>button]:!w-6 [&>button]:!h-6"
             />
           </ReactFlow>
 
@@ -454,53 +454,34 @@ function FlowCanvas() {
             <>
               <div className="fixed inset-0 z-40" onClick={() => setDropMenu(null)} />
               <div
-                className="fixed z-50 animate-in fade-in zoom-in-95 duration-150"
+                className="fixed z-50 animate-in fade-in zoom-in-95 duration-100"
                 style={{
                   left: dropMenu.x,
                   top: dropMenu.y,
                   transform: "translate(-50%, -50%)",
                 }}
               >
-                <div className="bg-card/90 backdrop-blur-md border border-border/30 rounded-xl shadow-xl p-1 min-w-[170px]">
-                  <p className="text-[9px] uppercase tracking-wider text-muted-foreground/40 font-semibold px-3 pt-2 pb-1">
-                    Adicionar bloco
+                <div className="bg-card border border-white/[0.08] rounded-lg shadow-2xl p-1 min-w-[160px]">
+                  <p className="text-[8px] uppercase tracking-[0.15em] text-muted-foreground/30 font-bold px-2.5 pt-1.5 pb-1">
+                    Adicionar
                   </p>
-                  <button
-                    onClick={() => createNodeFromMenu("messageNode")}
-                    className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-foreground/80 hover:bg-primary/8 transition-colors"
-                  >
-                    <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
-                      <MessageSquare className="w-3 h-3 text-primary" />
-                    </div>
-                    Mensagem
-                  </button>
-                  <button
-                    onClick={() => createNodeFromMenu("delayNode")}
-                    className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-foreground/80 hover:bg-amber-500/8 transition-colors"
-                  >
-                    <div className="w-6 h-6 rounded-md bg-amber-500/10 flex items-center justify-center">
-                      <Timer className="w-3 h-3 text-amber-500" />
-                    </div>
-                    Temporizador
-                  </button>
-                  <button
-                    onClick={() => createNodeFromMenu("conditionNode")}
-                    className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-foreground/80 hover:bg-violet-500/8 transition-colors"
-                  >
-                    <div className="w-6 h-6 rounded-md bg-violet-500/10 flex items-center justify-center">
-                      <GitBranch className="w-3 h-3 text-violet-500" />
-                    </div>
-                    Condição
-                  </button>
-                  <button
-                    onClick={() => createNodeFromMenu("endNode")}
-                    className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs text-foreground/80 hover:bg-destructive/8 transition-colors"
-                  >
-                    <div className="w-6 h-6 rounded-md bg-destructive/10 flex items-center justify-center">
-                      <Square className="w-3 h-3 text-destructive" />
-                    </div>
-                    Finalizar
-                  </button>
+                  {[
+                    { type: "messageNode" as const, label: "Mensagem", icon: MessageSquare, color: "text-primary", bg: "bg-primary/12", hover: "hover:bg-primary/8" },
+                    { type: "conditionNode" as const, label: "Condição", icon: GitBranch, color: "text-violet-400", bg: "bg-violet-500/12", hover: "hover:bg-violet-500/8" },
+                    { type: "delayNode" as const, label: "Delay", icon: Timer, color: "text-amber-400", bg: "bg-amber-500/12", hover: "hover:bg-amber-500/8" },
+                    { type: "endNode" as const, label: "Finalizar", icon: Square, color: "text-rose-400", bg: "bg-rose-500/12", hover: "hover:bg-rose-500/8" },
+                  ].map((item) => (
+                    <button
+                      key={item.type}
+                      onClick={() => createNodeFromMenu(item.type)}
+                      className={`flex items-center gap-2 w-full px-2 py-1.5 rounded text-[11px] text-foreground/70 ${item.hover} transition-colors`}
+                    >
+                      <div className={`w-5 h-5 rounded ${item.bg} flex items-center justify-center`}>
+                        <item.icon className={`w-3 h-3 ${item.color}`} />
+                      </div>
+                      {item.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             </>
