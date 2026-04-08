@@ -47,18 +47,28 @@ export function useConversationSync() {
   const selectedConvIdRef = useRef(selectedConvId);
   useEffect(() => { selectedConvIdRef.current = selectedConvId; }, [selectedConvId]);
 
+  // Cache device_id → name so realtime rows (without join) get a name
+  const deviceNameCache = useRef<Map<string, string>>(new Map());
+
   // ─── Helpers ───
-  const mapConversationRow = useCallback((row: any): RealConversation => ({
-    ...row,
-    tags: row.tags || [],
-    attending_status: row.attending_status || "nova",
-    last_message: row.last_message || "",
-    last_message_at: row.last_message_at || row.updated_at || row.created_at || new Date().toISOString(),
-    unread_count: row.unread_count ?? 0,
-    status: row.status || "offline",
-    status_changed_at: row.status_changed_at || row.created_at || new Date().toISOString(),
-    deviceName: row.devices?.name || row.deviceName || undefined,
-  }), []);
+  const mapConversationRow = useCallback((row: any): RealConversation => {
+    const resolvedName = row.devices?.name || row.deviceName || (row.device_id ? deviceNameCache.current.get(row.device_id) : undefined);
+    // Update cache when we have a name
+    if (resolvedName && row.device_id) {
+      deviceNameCache.current.set(row.device_id, resolvedName);
+    }
+    return {
+      ...row,
+      tags: row.tags || [],
+      attending_status: row.attending_status || "nova",
+      last_message: row.last_message || "",
+      last_message_at: row.last_message_at || row.updated_at || row.created_at || new Date().toISOString(),
+      unread_count: row.unread_count ?? 0,
+      status: row.status || "offline",
+      status_changed_at: row.status_changed_at || row.created_at || new Date().toISOString(),
+      deviceName: resolvedName,
+    };
+  }, []);
 
   const sortConversations = useCallback((items: RealConversation[]) => {
     return [...items].sort((a, b) => {
