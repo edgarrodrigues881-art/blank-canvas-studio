@@ -23,15 +23,14 @@ import {
 // ── Types ──
 type ViewMode = "list" | "create" | "detail";
 type ImportMode = "plain" | "spreadsheet";
-type ColMapping = "telefone" | "var1" | "var2" | "var3" | "var4" | "var5" | "ignorar";
+type ColMapping = "telefone" | "var1" | "var2" | "var3" | "var4" | "var5" | "var6" | "var7" | "var8" | "var9" | "var10" | "ignorar";
+
+const VAR_KEYS = ["var1","var2","var3","var4","var5","var6","var7","var8","var9","var10"] as const;
 
 interface ImportedRow {
   phone: string;
-  var1?: string;
-  var2?: string;
-  var3?: string;
-  var4?: string;
-  var5?: string;
+  var1?: string; var2?: string; var3?: string; var4?: string; var5?: string;
+  var6?: string; var7?: string; var8?: string; var9?: string; var10?: string;
 }
 
 const BATCH_SIZE = 10;
@@ -43,8 +42,13 @@ const MAPPING_OPTIONS: { value: ColMapping; label: string }[] = [
   { value: "var1", label: "Variável 1 (ex: Nome)" },
   { value: "var2", label: "Variável 2 (ex: Endereço)" },
   { value: "var3", label: "Variável 3 (ex: Comércio)" },
-  { value: "var4", label: "Variável 4" },
-  { value: "var5", label: "Variável 5" },
+  { value: "var4", label: "Variável 4 (ex: Email)" },
+  { value: "var5", label: "Variável 5 (ex: Cidade)" },
+  { value: "var6", label: "Variável 6 (ex: Website)" },
+  { value: "var7", label: "Variável 7 (ex: Instagram)" },
+  { value: "var8", label: "Variável 8 (ex: Facebook)" },
+  { value: "var9", label: "Variável 9 (ex: Avaliação)" },
+  { value: "var10", label: "Variável 10" },
 ];
 
 function cleanPhone(raw: string): string {
@@ -67,15 +71,24 @@ function cleanAndDeduplicatePhones(raw: string): string[] {
 }
 
 function autoDetectMapping(headers: string[]): ColMapping[] {
+  const used = new Set<ColMapping>();
   return headers.map((h) => {
     const low = h.toLowerCase().trim();
-    if (/tel|phone|número|numero|celular|whats|fone/.test(low)) return "telefone";
-    if (/^nome$|^name$|^cliente$/.test(low)) return "var1";
-    if (/endere[cç]o|address|rua|logradouro|cep/.test(low)) return "var2";
-    if (/com[eé]rcio|empresa|company|loja|negócio|negocio/.test(low)) return "var3";
-    if (/email|e-mail/.test(low)) return "var4";
-    if (/cidade|city|bairro/.test(low)) return "var5";
-    return "ignorar";
+    let match: ColMapping = "ignorar";
+    if (/tel|phone|número|numero|celular|whats|fone/.test(low)) match = "telefone";
+    else if (/^nome$|^name$|^cliente$/.test(low)) match = "var1";
+    else if (/endere[cç]o|address|rua|logradouro|cep/.test(low)) match = "var2";
+    else if (/com[eé]rcio|empresa|company|loja|negócio|negocio|categoria/.test(low)) match = "var3";
+    else if (/email|e-mail/.test(low)) match = "var4";
+    else if (/cidade|city|bairro/.test(low)) match = "var5";
+    else if (/website|site|url|link/.test(low)) match = "var6";
+    else if (/instagram|insta/.test(low)) match = "var7";
+    else if (/facebook|fb/.test(low)) match = "var8";
+    else if (/avalia[çc][aã]o|rating|nota|estrela/.test(low)) match = "var9";
+    else if (/total.*avalia|reviews|quantidade/.test(low)) match = "var10";
+    if (match !== "ignorar" && used.has(match)) return "ignorar";
+    if (match !== "ignorar") used.add(match);
+    return match;
   });
 }
 
@@ -97,7 +110,7 @@ export default function WhatsAppVerifierCampaigns() {
   const [importRows, setImportRows] = useState<any[][]>([]);
   const [columnMappings, setColumnMappings] = useState<ColMapping[]>([]);
   const [importedContacts, setImportedContacts] = useState<ImportedRow[]>([]);
-  const [varLabels, setVarLabels] = useState<string[]>(["Var 1", "Var 2", "Var 3", "Var 4", "Var 5"]);
+  const [varLabels, setVarLabels] = useState<string[]>(VAR_KEYS.map((_, i) => `Var ${i + 1}`));
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: allDevices = [] } = useQuery({
@@ -204,8 +217,8 @@ export default function WhatsAppVerifierCampaigns() {
     if (phoneIdx < 0) { toast.error("Mapeie ao menos a coluna de Telefone"); return; }
 
     const varIdxMap: Record<string, number> = {};
-    const labels = ["Var 1", "Var 2", "Var 3", "Var 4", "Var 5"];
-    (["var1", "var2", "var3", "var4", "var5"] as const).forEach((key, i) => {
+    const labels = VAR_KEYS.map((_, i) => `Var ${i + 1}`);
+    VAR_KEYS.forEach((key, i) => {
       const idx = columnMappings.indexOf(key);
       if (idx >= 0) {
         varIdxMap[key] = idx;
@@ -220,11 +233,11 @@ export default function WhatsAppVerifierCampaigns() {
       if (!phone || seen.has(phone)) continue;
       seen.add(phone);
       const entry: ImportedRow = { phone };
-      if (varIdxMap.var1 !== undefined) entry.var1 = String(row[varIdxMap.var1] || "").trim();
-      if (varIdxMap.var2 !== undefined) entry.var2 = String(row[varIdxMap.var2] || "").trim();
-      if (varIdxMap.var3 !== undefined) entry.var3 = String(row[varIdxMap.var3] || "").trim();
-      if (varIdxMap.var4 !== undefined) entry.var4 = String(row[varIdxMap.var4] || "").trim();
-      if (varIdxMap.var5 !== undefined) entry.var5 = String(row[varIdxMap.var5] || "").trim();
+      VAR_KEYS.forEach((key) => {
+        if (varIdxMap[key] !== undefined) {
+          (entry as any)[key] = String(row[varIdxMap[key]] || "").trim();
+        }
+      });
       contacts.push(entry);
     }
 
@@ -236,7 +249,7 @@ export default function WhatsAppVerifierCampaigns() {
     toast.success(`${contacts.length} contatos importados com variáveis`);
   }, [columnMappings, importHeaders, importRows]);
 
-  const hasVars = importMode === "spreadsheet" && importedContacts.some((c) => c.var1 || c.var2 || c.var3 || c.var4 || c.var5);
+  const hasVars = importMode === "spreadsheet" && importedContacts.some((c) => VAR_KEYS.some((k) => c[k]));
 
   // ── Mutations ──
   const createJob = useMutation({
@@ -265,14 +278,9 @@ export default function WhatsAppVerifierCampaigns() {
       for (let i = 0; i < phones.length; i += 500) {
         const batch = phones.slice(i, i + 500).map((phone) => {
           const vars = contactMap.get(phone);
-          return {
-            job_id: (job as any).id, user_id: user.id, phone, status: "pending",
-            ...(vars?.var1 ? { var1: vars.var1 } : {}),
-            ...(vars?.var2 ? { var2: vars.var2 } : {}),
-            ...(vars?.var3 ? { var3: vars.var3 } : {}),
-            ...(vars?.var4 ? { var4: vars.var4 } : {}),
-            ...(vars?.var5 ? { var5: vars.var5 } : {}),
-          };
+          const varData: Record<string, string> = {};
+          if (vars) VAR_KEYS.forEach((k) => { if ((vars as any)[k]) varData[k] = (vars as any)[k]; });
+          return { job_id: (job as any).id, user_id: user.id, phone, status: "pending", ...varData };
         });
         const { error } = await supabase.from("verify_results").insert(batch as any);
         if (error) throw new Error(error.message);
@@ -396,7 +404,7 @@ export default function WhatsAppVerifierCampaigns() {
 
   // ── Detect if results have vars ──
   const resultsHaveVars = useMemo(() => {
-    return sortedResults.some((r: any) => r.var1 || r.var2 || r.var3 || r.var4 || r.var5);
+    return sortedResults.some((r: any) => VAR_KEYS.some((k) => r[k]));
   }, [sortedResults]);
 
   // Hidden file input for xlsx
@@ -684,7 +692,7 @@ export default function WhatsAppVerifierCampaigns() {
     const deviceIsOnline = deviceInfo && ACTIVE_DEVICE_STATUSES.includes(deviceInfo.status);
 
     // Detect which var columns have data
-    const activeVars = [1, 2, 3, 4, 5].filter((n) => sortedResults.some((r: any) => r[`var${n}`]));
+    const activeVars = Array.from({ length: 10 }, (_, i) => i + 1).filter((n) => sortedResults.some((r: any) => r[`var${n}`]));
 
     return (
       <div className="space-y-6 p-4 md:p-6 max-w-6xl mx-auto">
@@ -870,16 +878,10 @@ export default function WhatsAppVerifierCampaigns() {
                       user_id: user.id,
                       phone: r.phone,
                       name: r.var1 || r.phone,
-                      var1: r.var1 || "",
-                      var2: r.var2 || "",
-                      var3: r.var3 || "",
-                      var4: r.var4 || "",
-                      var5: r.var5 || "",
-                      var6: "",
-                      var7: "",
-                      var8: "",
-                      var9: "",
-                      var10: "",
+                      var1: r.var1 || "", var2: r.var2 || "", var3: r.var3 || "",
+                      var4: r.var4 || "", var5: r.var5 || "", var6: r.var6 || "",
+                      var7: r.var7 || "", var8: r.var8 || "", var9: r.var9 || "",
+                      var10: r.var10 || "",
                     }));
                     const { error } = await supabase.from("contacts").insert(batch);
                     if (error) throw error;

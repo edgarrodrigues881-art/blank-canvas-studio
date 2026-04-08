@@ -4263,10 +4263,15 @@ export type Database = {
           status: string
           user_id: string
           var1: string | null
+          var10: string | null
           var2: string | null
           var3: string | null
           var4: string | null
           var5: string | null
+          var6: string | null
+          var7: string | null
+          var8: string | null
+          var9: string | null
         }
         Insert: {
           checked_at?: string | null
@@ -4278,10 +4283,15 @@ export type Database = {
           status?: string
           user_id: string
           var1?: string | null
+          var10?: string | null
           var2?: string | null
           var3?: string | null
           var4?: string | null
           var5?: string | null
+          var6?: string | null
+          var7?: string | null
+          var8?: string | null
+          var9?: string | null
         }
         Update: {
           checked_at?: string | null
@@ -4293,10 +4303,15 @@ export type Database = {
           status?: string
           user_id?: string
           var1?: string | null
+          var10?: string | null
           var2?: string | null
           var3?: string | null
           var4?: string | null
           var5?: string | null
+          var6?: string | null
+          var7?: string | null
+          var8?: string | null
+          var9?: string | null
         }
         Relationships: [
           {
