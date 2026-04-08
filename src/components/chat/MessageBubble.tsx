@@ -317,6 +317,17 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
 
     // Plain text
     const displayText = isMediaPlaceholder(msg.content) && !msg.mediaType ? msg.content : msg.content;
+    const isShort = !msg.quotedContent && !msg.quotedMessageId && displayText && !displayText.includes("\n") && displayText.length <= 42;
+    
+    if (isShort) {
+      return (
+        <div className="flex items-end gap-0">
+          <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{displayText}</p>
+          <MsgFooter msg={msg} inline />
+        </div>
+      );
+    }
+
     return (
       <>
         <QuotedBlock msg={msg} />
