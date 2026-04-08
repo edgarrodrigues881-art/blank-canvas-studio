@@ -437,7 +437,7 @@ function FlowCanvas() {
             nodeTypes={nodeTypes}
             defaultEdgeOptions={defaultEdgeOptions}
             fitView
-            fitViewOptions={{ padding: 0.3 }}
+            fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
             deleteKeyCode={["Backspace", "Delete"]}
             className="bg-background"
             proOptions={{ hideAttribution: true }}
