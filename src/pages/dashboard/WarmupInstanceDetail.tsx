@@ -1060,12 +1060,24 @@ const WarmupInstanceDetail = () => {
 
   const handlePause = () => {
     if (!deviceId) return;
-    engine.mutate({ action: "pause", device_id: deviceId }, { onSuccess: () => toast({ title: "Aquecimento pausado" }) });
+    engine.mutate(
+      { action: "pause", device_id: deviceId },
+      {
+        onSuccess: () => toast({ title: "Aquecimento pausado" }),
+        onError: (err: any) => toast({ title: "Erro ao pausar", description: err?.message || "Tente novamente", variant: "destructive" }),
+      },
+    );
   };
 
   const handleResume = () => {
     if (!deviceId) return;
-    engine.mutate({ action: "resume", device_id: deviceId }, { onSuccess: () => toast({ title: "Aquecimento retomado" }) });
+    engine.mutate(
+      { action: "resume", device_id: deviceId },
+      {
+        onSuccess: () => toast({ title: "Aquecimento retomado" }),
+        onError: (err: any) => toast({ title: "Erro ao retomar", description: err?.message || "Tente novamente", variant: "destructive" }),
+      },
+    );
   };
 
   const handleFinish = () => {
@@ -1255,8 +1267,9 @@ const WarmupInstanceDetail = () => {
                   className="w-full gap-2 h-9 rounded-xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 text-[11px] font-medium transition-all"
                   variant="ghost"
                   onClick={handleResume}
+                  disabled={engine.isPending}
                 >
-                  <Play className="w-3.5 h-3.5" /> Retomar
+                  {engine.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} Retomar
                 </Button>
               ) : null}
 
