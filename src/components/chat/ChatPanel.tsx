@@ -45,6 +45,7 @@ interface ChatPanelProps {
   onSendFile?: (conversationId: string, file: File) => void;
   onRetryMessage?: (messageId: string) => void;
   onDeleteMessage?: (msg: Message) => void;
+  onEditMessage?: (msg: Message) => void;
   onArchive?: (conversationId: string) => void;
   onMarkUnread?: (conversationId: string) => void;
   currentUserId?: string;
