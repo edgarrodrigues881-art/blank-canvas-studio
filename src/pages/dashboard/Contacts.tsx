@@ -196,7 +196,7 @@ const Contacts = () => {
 
   // Auto-sync: add tags from contacts that aren't in customTags yet
   useEffect(() => {
-    if (!contacts || contacts.length === 0 || customTags.length === 0) return;
+    if (!contacts || contacts.length === 0) return;
     const allContactTags = new Set<string>();
     for (const c of contacts) {
       for (const t of c.tags || []) {
@@ -219,7 +219,7 @@ const Contacts = () => {
     setTagColors(newColors);
     setNewTagColorIdx(colorIdx);
     localStorage.setItem("contactTagColors", JSON.stringify(newColors));
-  }, [contacts]);
+  }, [contacts, customTags]);
 
 
   const handleCreateTag = () => {
