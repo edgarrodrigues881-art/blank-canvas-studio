@@ -88,12 +88,17 @@ const ContactRow = memo(function ContactRow({ contact, index, selectMode, isSele
           return (
             <span
               key={tag}
-              className="group inline-flex items-center gap-1 pl-2 pr-1.5 py-0.5 rounded-md text-[10px] font-semibold text-white shadow-sm cursor-pointer transition-all hover:shadow-md hover:scale-[1.02]"
+              className="group inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md text-[10px] font-semibold text-white shadow-sm transition-all"
               style={{ backgroundColor: color }}
-              onClick={() => onRemoveTag(contact.id, tag)}
             >
               {tag}
-              <X className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onRemoveTag(contact.id, tag); }}
+                className="w-3.5 h-3.5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/20"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
             </span>
           );
         }) : <span className="text-[11px] text-muted-foreground">—</span>}
