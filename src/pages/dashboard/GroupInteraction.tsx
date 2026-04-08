@@ -129,6 +129,7 @@ export default function GroupInteractionPage() {
 
   const [showConfig, setShowConfig] = useState(false);
   const [showBulkCreate, setShowBulkCreate] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({ ...defaultForm });
   const [bulkDeviceIds, setBulkDeviceIds] = useState<string[]>([]);
   const [usePeriod2, setUsePeriod2] = useState(false);
