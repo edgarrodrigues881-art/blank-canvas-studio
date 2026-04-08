@@ -351,7 +351,7 @@ export function NewConversationDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-5 pb-5 space-y-5">
+        <div className="px-5 pb-5 space-y-5 overflow-y-auto min-h-0">
           {/* 1. Phone field — primary */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-foreground">Número</label>
