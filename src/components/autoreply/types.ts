@@ -32,6 +32,9 @@ export interface FlowNodeData extends Record<string, unknown> {
   action?: "end_flow" | "wait_response" | "transfer_human";
   // Condition node
   conditions?: FlowCondition[];
+  // AI node
+  aiPrompt?: string;
+  aiModel?: string;
 }
 
 // Unique ID generator to avoid collisions across sessions

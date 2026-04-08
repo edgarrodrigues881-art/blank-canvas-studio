@@ -1,9 +1,10 @@
-import { Zap, MessageSquare, CircleStop, Timer, GitBranch } from "lucide-react";
+import { Zap, MessageSquare, CircleStop, Timer, GitBranch, Bot } from "lucide-react";
 import { toast } from "sonner";
 
 const blocks = [
   { type: "startNode", label: "Início", desc: "Gatilho", icon: Zap, color: "text-emerald-400", bar: "bg-emerald-500", bg: "bg-emerald-500/12" },
   { type: "messageNode", label: "Mensagem", desc: "Texto / mídia", icon: MessageSquare, color: "text-primary", bar: "bg-primary", bg: "bg-primary/12" },
+  { type: "aiNode", label: "IA", desc: "Resposta IA", icon: Bot, color: "text-cyan-400", bar: "bg-cyan-500", bg: "bg-cyan-500/12" },
   { type: "conditionNode", label: "Condição", desc: "Ramificar", icon: GitBranch, color: "text-violet-400", bar: "bg-violet-500", bg: "bg-violet-500/12" },
   { type: "delayNode", label: "Delay", desc: "Temporizador", icon: Timer, color: "text-amber-400", bar: "bg-amber-500", bg: "bg-amber-500/12" },
   { type: "endNode", label: "Finalizar", desc: "Encerrar", icon: CircleStop, color: "text-rose-400", bar: "bg-rose-500", bg: "bg-rose-500/12" },

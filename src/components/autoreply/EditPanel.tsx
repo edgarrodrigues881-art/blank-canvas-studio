@@ -31,6 +31,7 @@ export function EditPanel({ node, onUpdate, onDelete, onDuplicate, onClose }: Pr
   const isMessage = node.type === "messageNode";
   const isDelay = node.type === "delayNode";
   const isCondition = node.type === "conditionNode";
+  const isAI = node.type === "aiNode";
   const navigate = useNavigate();
 
   const { data: templatesList } = useTemplates();
@@ -416,6 +417,24 @@ export function EditPanel({ node, onUpdate, onDelete, onDuplicate, onClose }: Pr
                   <SelectItem value="transfer_human">Transferir para humano</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {/* AI node */}
+          {isAI && (
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground/50 font-semibold">Prompt da IA</Label>
+                <Textarea
+                  value={d.aiPrompt || ""}
+                  onChange={(e) => onUpdate(node.id, { aiPrompt: e.target.value })}
+                  placeholder="Ex: Responda de forma educada e ofereça ajuda sobre nossos produtos..."
+                  className="min-h-[100px] text-xs resize-none"
+                />
+                <p className="text-[9px] text-muted-foreground/40">
+                  Instruções para a IA gerar a resposta automática ao contato.
+                </p>
+              </div>
             </div>
           )}
 

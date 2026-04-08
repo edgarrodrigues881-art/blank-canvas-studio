@@ -20,12 +20,13 @@ import { MessageNode } from "@/components/autoreply/MessageNode";
 import { EndNode } from "@/components/autoreply/EndNode";
 import { DelayNode } from "@/components/autoreply/DelayNode";
 import { ConditionNode } from "@/components/autoreply/ConditionNode";
+import { AINode } from "@/components/autoreply/AINode";
 import { FlowSidebar } from "@/components/autoreply/FlowSidebar";
 import { EditPanel } from "@/components/autoreply/EditPanel";
 import { FlowHeader } from "@/components/autoreply/FlowHeader";
 import type { FlowNodeData, FlowCondition } from "@/components/autoreply/types";
 import { nextNodeId, nextBtnId } from "@/components/autoreply/types";
-import { MessageSquare, Square, Timer, GitBranch } from "lucide-react";
+import { MessageSquare, Square, Timer, GitBranch, Bot } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -36,6 +37,7 @@ const nodeTypes = {
   messageNode: MessageNode,
   delayNode: DelayNode,
   conditionNode: ConditionNode,
+  aiNode: AINode,
   endNode: EndNode,
 };
 
@@ -243,7 +245,7 @@ function FlowCanvas() {
   );
 
   const createNodeFromMenu = useCallback(
-    (type: "messageNode" | "endNode" | "delayNode" | "conditionNode") => {
+    (type: "messageNode" | "endNode" | "delayNode" | "conditionNode" | "aiNode") => {
       if (!dropMenu) return;
 
       const id = nextNodeId(type);
@@ -255,6 +257,8 @@ function FlowCanvas() {
         data = { label: "Temporizador", delaySeconds: 5 };
       } else if (type === "conditionNode") {
         data = { label: "Condição", conditions: [] };
+      } else if (type === "aiNode") {
+        data = { label: "Resposta IA", aiPrompt: "", aiModel: "gpt-4o" };
       } else {
         data = {
           label: "Nova Mensagem",
@@ -331,6 +335,8 @@ function FlowCanvas() {
         data = { label: "Temporizador", delaySeconds: 5 };
       } else if (type === "conditionNode") {
         data = { label: "Condição", conditions: [] };
+      } else if (type === "aiNode") {
+        data = { label: "Resposta IA", aiPrompt: "", aiModel: "gpt-4o" };
       } else {
         data = {
           label: "Nova Mensagem",
@@ -467,6 +473,7 @@ function FlowCanvas() {
                   </p>
                   {[
                     { type: "messageNode" as const, label: "Mensagem", icon: MessageSquare, color: "text-primary", bg: "bg-primary/12", hover: "hover:bg-primary/8" },
+                    { type: "aiNode" as const, label: "IA", icon: Bot, color: "text-cyan-400", bg: "bg-cyan-500/12", hover: "hover:bg-cyan-500/8" },
                     { type: "conditionNode" as const, label: "Condição", icon: GitBranch, color: "text-violet-400", bg: "bg-violet-500/12", hover: "hover:bg-violet-500/8" },
                     { type: "delayNode" as const, label: "Delay", icon: Timer, color: "text-amber-400", bg: "bg-amber-500/12", hover: "hover:bg-amber-500/8" },
                     { type: "endNode" as const, label: "Finalizar", icon: Square, color: "text-rose-400", bg: "bg-rose-500/12", hover: "hover:bg-rose-500/8" },
