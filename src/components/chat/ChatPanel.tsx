@@ -44,6 +44,7 @@ interface ChatPanelProps {
   onSendAudio?: (conversationId: string, blob: Blob, duration: number) => void;
   onSendFile?: (conversationId: string, file: File) => void;
   onRetryMessage?: (messageId: string) => void;
+  onDeleteMessage?: (msg: Message) => void;
   onArchive?: (conversationId: string) => void;
   onMarkUnread?: (conversationId: string) => void;
   currentUserId?: string;
