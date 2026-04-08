@@ -394,6 +394,7 @@ export function ChatPanel({
                 onImageClick={setLightboxUrl}
                 onRetry={onRetryMessage}
                 onDelete={onDeleteMessage}
+                onEdit={onEditMessage}
               />
             </div>
           );
