@@ -511,11 +511,11 @@ export function ChatPanel({
 
       {/* Instance Selector + Input Area */}
       <div className="border-t border-border/40 bg-card/30 shrink-0 min-w-0 max-w-full">
-        {instances && instances.length > 1 && (
+        {instances && instances.filter(i => i.deviceName).length > 1 && (
           <div className="flex items-center gap-1.5 px-4 pt-1.5 pb-0">
             <span className="text-[9px] text-muted-foreground/50 shrink-0">via:</span>
             <div className="flex gap-1 overflow-x-auto scrollbar-none">
-              {instances.map((inst) => (
+              {instances.filter(i => i.deviceName).map((inst) => (
                 <button
                   key={inst.id}
                   onClick={() => onInstanceChange?.(inst.id)}
@@ -526,7 +526,7 @@ export function ChatPanel({
                       : "text-muted-foreground/40 hover:text-muted-foreground/60"
                   )}
                 >
-                  {inst.deviceName || `Instância ${inst.id.slice(0, 6)}`}
+                  {inst.deviceName}
                 </button>
               ))}
             </div>
