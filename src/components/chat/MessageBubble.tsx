@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Play, Pause, Check, CheckCheck, Loader2,
   Download, FileText, Video, MapPin, User,
-  Image as ImageIcon, Reply, X, Trash2,
+  Image as ImageIcon, Reply, X, Trash2, Pencil,
 } from "lucide-react";
 import { Smartphone } from "lucide-react";
 import { type Message } from "./types";
@@ -122,16 +122,12 @@ function QuotedBlock({ msg }: { msg: Message }) {
 
 export interface MessageBubbleProps {
   msg: Message;
-  /** Whether this contact has multiple instances (shows device label) */
   showDeviceLabel?: boolean;
-  /** Callback when user clicks reply */
   onReply?: (msg: Message) => void;
-  /** Callback to open lightbox */
   onImageClick?: (url: string) => void;
-  /** Callback to retry failed message */
   onRetry?: (messageId: string) => void;
-  /** Callback to delete message */
   onDelete?: (msg: Message) => void;
+  onEdit?: (msg: Message) => void;
 }
 
 // Stable waveform cache outside component to avoid re-renders
@@ -141,7 +137,7 @@ function getWaveform(id: string) {
   return waveformCache[id];
 }
 
-export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onRetry, onDelete }: MessageBubbleProps) {
+export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onRetry, onDelete, onEdit }: MessageBubbleProps) {
   const [showActions, setShowActions] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
@@ -387,6 +383,14 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
                 className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md bg-muted/60 hover:bg-muted transition-colors"
               >
                 <Reply className="w-3 h-3" /> Responder
+              </button>
+            )}
+            {onEdit && isSent && !msg.mediaType && (
+              <button
+                onClick={() => { onEdit(msg); setShowActions(false); }}
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md bg-muted/60 hover:bg-muted transition-colors"
+              >
+                <Pencil className="w-3 h-3" /> Editar
               </button>
             )}
             {onDelete && (

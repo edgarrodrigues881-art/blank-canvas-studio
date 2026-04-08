@@ -124,6 +124,7 @@ export function useConversations() {
     sendFileMessage: actions.sendFileMessage,
     retryMessage: actions.retryMessage,
     deleteMessage: actions.deleteMessage,
+    editMessage: actions.editMessage,
     fetchConversations: sync.fetchConversations,
     assignConversation: actions.assignConversation,
     releaseConversation: actions.releaseConversation,

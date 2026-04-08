@@ -218,6 +218,56 @@ async function handleDeleteMessage(
   return json({ deleted: true, deletedOnWhatsApp });
 }
 
+async function handleEditMessage(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  body: any,
+  fallbackBaseUrl: string,
+  fallbackToken: string,
+) {
+  const conversationId = String(body?.conversation_id || "").trim();
+  const messageId = String(body?.message_id || "").trim();
+  const whatsappMessageId = String(body?.whatsapp_message_id || "").trim();
+  const newText = String(body?.new_text || "").trim();
+
+  if (!conversationId || !messageId || !newText) {
+    return json({ error: "conversation_id, message_id e new_text são obrigatórios" }, 400);
+  }
+
+  const { data: conv, error: convErr } = await admin
+    .from("conversations")
+    .select("id, user_id, remote_jid, devices!conversations_device_id_fkey(uazapi_token, uazapi_base_url)")
+    .eq("id", conversationId)
+    .eq("user_id", userId)
+    .single();
+
+  if (convErr || !conv) return json({ error: "Conversa não encontrada" }, 404);
+
+  const baseUrl = String(conv.devices?.uazapi_base_url || fallbackBaseUrl || "").replace(/\/+$/, "");
+  const token = String(conv.devices?.uazapi_token || fallbackToken || "").trim();
+
+  let editedOnWhatsApp = false;
+  if (baseUrl && token && whatsappMessageId) {
+    try {
+      const res = await fetch(`${baseUrl}/message/edit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", token },
+        body: JSON.stringify({ id: whatsappMessageId, text: newText }),
+      });
+      const raw = await res.text();
+      console.log(`[chat-send] edit attempt → ${res.status}`, raw.substring(0, 300));
+      editedOnWhatsApp = res.ok;
+    } catch (e: any) {
+      console.error("[chat-send] edit error:", e.message);
+    }
+  }
+
+  // Update in our DB
+  await admin.from("conversation_messages").update({ content: newText }).eq("id", messageId);
+
+  return json({ edited: true, editedOnWhatsApp });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -246,6 +296,11 @@ Deno.serve(async (req) => {
     // ── DELETE action ──
     if (body?.action === "delete") {
       return handleDeleteMessage(admin, user.id, body, fallbackBaseUrl, fallbackToken);
+    }
+
+    // ── EDIT action ──
+    if (body?.action === "edit") {
+      return handleEditMessage(admin, user.id, body, fallbackBaseUrl, fallbackToken);
     }
 
     const conversationId = String(body?.conversation_id || "").trim();

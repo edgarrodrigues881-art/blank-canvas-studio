@@ -13,8 +13,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Zap, Bell, MessageSquarePlus, Trash2 } from "lucide-react";
+import { Zap, Bell, MessageSquarePlus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 const MIN_SIDEBAR_W = 240;
 const MAX_SIDEBAR_W = 600;
@@ -45,6 +47,7 @@ const Conversations = () => {
     sendFileMessage,
     retryMessage,
     deleteMessage,
+    editMessage,
     assignConversation,
     releaseConversation,
     archiveConversation,
@@ -64,6 +67,8 @@ const Conversations = () => {
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; conversationId: string; whatsappMessageId?: string; isSent: boolean } | null>(null);
+  const [editTarget, setEditTarget] = useState<{ id: string; conversationId: string; whatsappMessageId?: string; content: string } | null>(null);
+  const [editText, setEditText] = useState("");
 
   // Handle ?open=convId from queue
   useEffect(() => {
@@ -320,6 +325,25 @@ const Conversations = () => {
     [deleteTarget, deleteMessage]
   );
 
+  const handleEditMessage = useCallback(
+    (msg: any) => {
+      setEditTarget({
+        id: msg.id,
+        conversationId: msg.conversationId,
+        whatsappMessageId: msg.whatsappMessageId,
+        content: msg.content || "",
+      });
+      setEditText(msg.content || "");
+    },
+    []
+  );
+
+  const confirmEdit = useCallback(() => {
+    if (!editTarget || !editText.trim()) return;
+    editMessage(editTarget.id, editTarget.conversationId, editTarget.whatsappMessageId, editText.trim());
+    setEditTarget(null);
+  }, [editTarget, editText, editMessage]);
+
   const handleStatusChange = useCallback(
     (conversationId: string, newStatus: AttendingStatus) => {
       updateStatus(conversationId, newStatus);
@@ -448,6 +472,7 @@ const Conversations = () => {
                 onSendFile={handleSendFile}
                 onRetryMessage={retryMessage}
                 onDeleteMessage={handleDeleteMessage}
+                onEditMessage={handleEditMessage}
                 currentUserId={user?.id}
                 onAssign={assignConversation}
                 onRelease={releaseConversation}
@@ -507,6 +532,35 @@ const Conversations = () => {
             >
               <Trash2 className="w-4 h-4 mr-2" />
               Apagar para mim
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit message dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => { if (!open) setEditTarget(null); }}>
+        <DialogContent className="max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2">
+              <Pencil className="w-4 h-4" /> Editar mensagem
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Edite o texto da mensagem. A alteração será aplicada no WhatsApp.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            className="min-h-[80px] resize-none"
+            placeholder="Digite o novo texto..."
+            autoFocus
+          />
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setEditTarget(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmEdit} disabled={!editText.trim() || editText.trim() === editTarget?.content}>
+              Salvar
             </Button>
           </div>
         </DialogContent>
