@@ -507,49 +507,45 @@ export default function WhatsAppVerifierCampaigns() {
                 </>
               ) : (
                 <div className="space-y-3">
-                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-                    <div className="flex items-center justify-between mb-3">
+                  <div className="rounded-xl border border-primary/20 bg-card/60 backdrop-blur overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-border/30 bg-muted/10">
                       <div className="flex items-center gap-2">
                         <FileSpreadsheet className="w-4 h-4 text-primary" />
-                        <span className="text-sm font-medium">{importedContacts.length} contatos importados com variáveis</span>
+                        <span className="text-sm font-medium text-foreground">{importedContacts.length} contatos importados</span>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => { setImportMode("plain"); setImportedContacts([]); }}>
-                        <XCircle className="w-4 h-4 mr-1" /> Limpar
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setImportMode("plain"); setImportedContacts([]); }}>
+                        <XCircle className="w-3.5 h-3.5 mr-1" /> Limpar
                       </Button>
                     </div>
 
-                    {/* Preview first 5 rows */}
-                    <div className="rounded-md border border-border/30 overflow-hidden">
-                      <ScrollArea className="max-h-[200px]">
-                        <table className="w-full text-xs">
-                          <thead className="bg-muted/30 sticky top-0">
-                            <tr>
-                              <th className="text-left px-3 py-1.5 font-medium text-muted-foreground">Telefone</th>
-                              {varLabels.map((label, i) => {
-                                const key = `var${i + 1}` as keyof ImportedRow;
-                                if (!importedContacts.some((c) => c[key])) return null;
-                                return <th key={i} className="text-left px-3 py-1.5 font-medium text-muted-foreground">{label}</th>;
-                              })}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border/20">
-                            {importedContacts.slice(0, 5).map((c, i) => (
-                              <tr key={i} className="hover:bg-muted/10">
-                                <td className="px-3 py-1.5 font-mono text-foreground">{c.phone}</td>
-                                {varLabels.map((_, vi) => {
-                                  const key = `var${vi + 1}` as keyof ImportedRow;
-                                  if (!importedContacts.some((cc) => cc[key])) return null;
-                                  return <td key={vi} className="px-3 py-1.5 text-muted-foreground truncate max-w-[120px]">{c[key] || "-"}</td>;
-                                })}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </ScrollArea>
+                    <ScrollArea className="h-[340px]">
+                      <div className="divide-y divide-border/20">
+                        {importedContacts.map((c, i) => {
+                          const activeVarKeys = varLabels.map((_, vi) => `var${vi + 1}` as keyof ImportedRow).filter((key) => importedContacts.some((cc) => cc[key]));
+                          return (
+                            <div key={i} className="flex items-center gap-4 px-4 py-2.5 hover:bg-muted/10 transition-colors">
+                              <span className="text-[10px] text-muted-foreground/50 w-6 text-right shrink-0">{i + 1}</span>
+                              <span className="font-mono text-sm text-foreground min-w-[130px]">{c.phone}</span>
+                              {activeVarKeys.map((key, vi) => (
+                                <span key={vi} className="text-xs text-muted-foreground truncate max-w-[180px]" title={String(c[key] || "")}>
+                                  {c[key] || "—"}
+                                </span>
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+
+                    <div className="px-4 py-2 border-t border-border/30 bg-muted/10 flex items-center justify-between">
+                      <span className="text-[10px] text-muted-foreground">Total: {importedContacts.length} leads</span>
+                      {(() => {
+                        const activeLabels = varLabels.filter((_, vi) => importedContacts.some((c) => c[`var${vi + 1}` as keyof ImportedRow]));
+                        return activeLabels.length > 0 ? (
+                          <span className="text-[10px] text-muted-foreground">Variáveis: {activeLabels.join(", ")}</span>
+                        ) : null;
+                      })()}
                     </div>
-                    {importedContacts.length > 5 && (
-                      <p className="text-[10px] text-muted-foreground mt-1.5 text-center">... e mais {importedContacts.length - 5} contatos</p>
-                    )}
                   </div>
                 </div>
               )}
