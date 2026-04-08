@@ -406,7 +406,7 @@ const Conversations = () => {
                 {availableInstances.length > 1 && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-8 rounded-lg text-[11px] gap-1.5 border-border/40 text-muted-foreground hover:text-foreground">
+                      <Button variant="outline" size="sm" className="!h-[28px] rounded-lg text-[11px] gap-1.5 border-border/40 text-muted-foreground hover:text-foreground px-2">
                         <Smartphone className="w-3 h-3" />
                         {filterInstanceIds.length === 0
                           ? "Instância"
