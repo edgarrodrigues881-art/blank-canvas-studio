@@ -308,6 +308,8 @@ Deno.serve(async (req) => {
             device_header_id: device.id,
             instance_token: null,
             raw_payload: null,
+            button_response_id: buttonResponseId || null,
+            has_button_response: !!buttonResponseId,
           });
           if (queueErr) {
             console.error("autoreply_queue insert error:", queueErr);
