@@ -602,7 +602,7 @@ export default function WhatsAppVerifierCampaigns() {
     const total = job.total_phones || 0;
     const verified = (job.success_count || 0) + (job.no_whatsapp_count || 0) + (job.error_count || 0);
     const pct = total > 0 ? (verified / total) * 100 : 0;
-    const validResults = jobResults.filter((r: any) => r.status === "success");
+    const validResults = sortedResults.filter((r: any) => r.status === "success");
     const isActive = job.status === "running" || job.status === "pending";
     const isPaused = job.status === "paused";
     const canResume = isPaused || job.status === "failed";
@@ -610,7 +610,7 @@ export default function WhatsAppVerifierCampaigns() {
     const deviceIsOnline = deviceInfo && ACTIVE_DEVICE_STATUSES.includes(deviceInfo.status);
 
     // Detect which var columns have data
-    const activeVars = [1, 2, 3, 4, 5].filter((n) => jobResults.some((r: any) => r[`var${n}`]));
+    const activeVars = [1, 2, 3, 4, 5].filter((n) => sortedResults.some((r: any) => r[`var${n}`]));
 
     return (
       <div className="space-y-6 p-4 md:p-6 max-w-6xl mx-auto">
@@ -713,7 +713,7 @@ export default function WhatsAppVerifierCampaigns() {
         </div>
 
         {/* Export buttons */}
-        {jobResults.length > 0 && (
+        {sortedResults.length > 0 && (
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" disabled={validResults.length === 0} onClick={() => {
               const lines = validResults.map((r: any) => {
@@ -744,7 +744,7 @@ export default function WhatsAppVerifierCampaigns() {
               const headerCols = ["Número", "Status"];
               if (activeVars.length > 0) activeVars.forEach((n) => headerCols.push(`Var${n}`));
               const header = "\uFEFF" + headerCols.join(";") + "\n";
-              const rows = jobResults.map((r: any) => {
+              const rows = sortedResults.map((r: any) => {
                 const cols = [r.phone, r.status];
                 if (activeVars.length > 0) activeVars.forEach((n) => cols.push(r[`var${n}`] || ""));
                 return cols.join(";");
@@ -756,9 +756,9 @@ export default function WhatsAppVerifierCampaigns() {
         )}
 
         {/* Results table */}
-        {jobResults.length > 0 && (
+        {sortedResults.length > 0 && (
           <Card className="border-border/50 bg-card/50">
-            <CardHeader className="pb-3"><CardTitle className="text-base">Resultados ({jobResults.length}{jobResults.length >= 500 ? "+" : ""})</CardTitle></CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="text-base">Resultados ({sortedResults.length}{sortedResults.length >= 500 ? "+" : ""})</CardTitle></CardHeader>
             <CardContent>
               <div className="rounded-lg border border-border/50 overflow-hidden">
                 <ScrollArea className="h-[400px]">
@@ -776,7 +776,7 @@ export default function WhatsAppVerifierCampaigns() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/30">
-                      {jobResults.map((result: any, i: number) => (
+                      {sortedResults.map((result: any, i: number) => (
                         <tr key={i} className="hover:bg-muted/10 transition-colors">
                           <td className="px-4 py-2.5 font-mono text-foreground">{result.phone}</td>
                           <td className="px-4 py-2.5">{statusBadge(result.status)}</td>
