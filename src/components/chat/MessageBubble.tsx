@@ -317,7 +317,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
   const isSent = msg.type === "sent";
 
   return (
-    <div className={cn("flex group", isSent ? "justify-end" : "justify-start")}>
+    <div className={cn("flex group relative", isSent ? "justify-end" : "justify-start")}>
       {/* Reply button for received */}
       {!isSent && onReply && (
         <button
@@ -338,6 +338,9 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
           </span>
         )}
         <div
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onContextMenu={(e) => { e.preventDefault(); setShowActions(true); }}
           className={cn(
             "min-w-[60px] rounded-2xl relative",
             msg.mediaType === "image" && msg.mediaUrl
@@ -351,6 +354,37 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
         >
           {renderContent()}
         </div>
+
+        {/* Action popup */}
+        {showActions && (
+          <div className={cn(
+            "flex items-center gap-1 mt-1 animate-fade-in",
+            isSent ? "justify-end" : "justify-start"
+          )}>
+            {onReply && (
+              <button
+                onClick={() => { onReply(msg); setShowActions(false); }}
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md bg-muted/60 hover:bg-muted transition-colors"
+              >
+                <Reply className="w-3 h-3" /> Responder
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={() => { onDelete(msg); setShowActions(false); }}
+                className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 px-2 py-1 rounded-md bg-muted/60 hover:bg-red-500/10 transition-colors"
+              >
+                <Trash2 className="w-3 h-3" /> Apagar
+              </button>
+            )}
+            <button
+              onClick={() => setShowActions(false)}
+              className="p-1 rounded-md hover:bg-muted/60 text-muted-foreground"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Reply button for sent */}
