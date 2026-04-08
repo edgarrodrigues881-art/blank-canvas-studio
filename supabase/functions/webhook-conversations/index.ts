@@ -147,6 +147,7 @@ Deno.serve(async (req) => {
       avatarUrl,
       quotedMessageId,
       quotedContent,
+      buttonResponseId,
     } = parsed;
 
     // Use a readable label for media messages instead of [mensagem]
