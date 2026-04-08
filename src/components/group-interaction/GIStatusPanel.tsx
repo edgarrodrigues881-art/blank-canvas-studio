@@ -120,18 +120,28 @@ export default function GIStatusPanel({
         <div className="px-5 py-4 flex flex-col justify-center">
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-medium mb-2">Dispositivo</span>
           {onDeviceChange ? (
-            <Select value={selectedDeviceId || ""} onValueChange={onDeviceChange}>
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder="Selecionar" />
-              </SelectTrigger>
-              <SelectContent>
-                {eligibleDevices.map((d: any) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name} {d.number ? `(${d.number})` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            (() => {
+              const devicesToShow = allDevices || eligibleDevices;
+              const eligibleIds = new Set(eligibleDevices.map((d: any) => d.id));
+              return (
+                <Select value={selectedDeviceId || ""} onValueChange={onDeviceChange}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Selecionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {devicesToShow.map((d: any) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        <span className="flex items-center gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${eligibleIds.has(d.id) ? "bg-emerald-500" : "bg-destructive"}`} />
+                          {d.name} {d.number ? `(${d.number})` : ""}
+                          {!eligibleIds.has(d.id) && <span className="text-[10px] text-destructive">(offline)</span>}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              );
+            })()
           ) : (
             <span className="text-sm font-semibold text-foreground">{deviceName || "—"}</span>
           )}
