@@ -6,9 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { type Conversation } from "./types";
-import { format, isToday, isYesterday } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { BRAZIL_TIME_ZONE, formatBrazilTime, getBrazilDateKey, getBrazilNow } from "@/lib/brazilTime";
 import { useState, useMemo, Fragment, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { formatPhone } from "@/utils/formatters";
@@ -50,10 +49,23 @@ const statusTabs: { key: StatusTab; label: string }[] = [
 ];
 
 function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  if (isToday(d)) return format(d, "HH:mm");
-  if (isYesterday(d)) return "Ontem";
-  return format(d, "dd/MM", { locale: ptBR });
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const brazilNow = getBrazilNow();
+  const todayKey = getBrazilDateKey(brazilNow);
+  const yesterdayKey = getBrazilDateKey(new Date(brazilNow.getTime() - 86400000));
+  const targetKey = getBrazilDateKey(date);
+
+  if (targetKey === todayKey) return formatBrazilTime(date);
+  if (targetKey === yesterdayKey) return "Ontem";
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: BRAZIL_TIME_ZONE,
+    day: "2-digit",
+    month: "2-digit",
+  }).format(date);
 }
 
 
@@ -349,11 +361,11 @@ export function ConversationList({
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 min-w-0 py-0.5 overflow-hidden">
+                    <div className="flex-1 min-w-0 py-0.5">
                       {/* Row 1: Name + Time */}
-                      <div className="flex items-baseline gap-1.5">
+                      <div className="grid grid-cols-[minmax(0,1fr)_46px] items-baseline gap-x-2">
                         <span className={cn(
-                          "truncate text-[13.5px] leading-tight flex-1 min-w-0",
+                          "truncate text-[13.5px] leading-tight min-w-0",
                           hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/85"
                         )}>
                           {trimmedQuery ? (
@@ -363,20 +375,20 @@ export function ConversationList({
                           )}
                         </span>
                         <span className={cn(
-                          "shrink-0 text-[10.5px] leading-tight whitespace-nowrap ml-auto",
-                          hasNewMessages ? "text-emerald-500 font-semibold" : "text-muted-foreground/50"
+                          "text-right text-[10.5px] leading-tight whitespace-nowrap tabular-nums",
+                          hasNewMessages ? "text-emerald-500 font-semibold" : "text-muted-foreground/70"
                         )}>
                           {c.lastMessageAt ? formatDate(c.lastMessageAt) : ""}
                         </span>
                       </div>
 
                       {/* Row 2: Last message + Badge */}
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <div className="flex items-center gap-1 min-w-0 flex-1">
+                      <div className="grid grid-cols-[minmax(0,1fr)_minmax(18px,auto)] items-center gap-x-2 mt-0.5">
+                        <div className="flex items-center gap-1 min-w-0 overflow-hidden">
                           {c.lastMessageStatus && <MessageTicks status={c.lastMessageStatus} />}
                           <p className={cn(
-                            "truncate text-[12.5px] leading-snug",
-                            hasUnread ? "text-foreground/70" : "text-muted-foreground/50"
+                            "truncate text-[12.5px] leading-snug min-w-0 max-w-[220px]",
+                            hasUnread ? "text-foreground/70" : "text-muted-foreground/55"
                           )}>
                             {c.status === "typing" ? (
                               <span className="text-emerald-400 italic">digitando...</span>
@@ -390,25 +402,23 @@ export function ConversationList({
                           </p>
                         </div>
 
-                        {/* Unread indicators */}
-                        {hasNewMessages && (
-                          <span className="min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-emerald-500 text-white rounded-full flex items-center justify-center shrink-0">
-                            {c.unreadCount}
-                          </span>
-                        )}
-                        {isManualUnread && (
-                          <span className="w-[10px] h-[10px] rounded-full bg-emerald-500 shrink-0" />
-                        )}
-
-                        {activeStatus === "archived" && onUnarchive && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onUnarchive(c.id); }}
-                            className="shrink-0 text-[10px] text-primary hover:text-primary/80 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 hover:bg-primary/20 transition-colors"
-                            title="Desarquivar"
-                          >
-                            <ArchiveRestore className="w-3 h-3" />
-                          </button>
-                        )}
+                        <div className="flex items-center justify-end min-w-[18px]">
+                          {hasNewMessages ? (
+                            <span className="min-w-[20px] h-[20px] px-1.5 text-[10px] font-bold bg-emerald-500 text-white rounded-full flex items-center justify-center shrink-0">
+                              {c.unreadCount > 99 ? "99+" : c.unreadCount}
+                            </span>
+                          ) : isManualUnread ? (
+                            <span className="w-[10px] h-[10px] rounded-full bg-emerald-500 shrink-0" />
+                          ) : activeStatus === "archived" && onUnarchive ? (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onUnarchive(c.id); }}
+                              className="shrink-0 text-[10px] text-primary hover:text-primary/80 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 hover:bg-primary/20 transition-colors"
+                              title="Desarquivar"
+                            >
+                              <ArchiveRestore className="w-3 h-3" />
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
 
                       {matchedTags.length > 0 && (
