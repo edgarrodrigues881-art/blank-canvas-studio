@@ -304,7 +304,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
   };
 
   return (
-    <div className={cn("flex group", msg.type === "sent" ? "justify-end" : "justify-start")}>
+    <div className={cn("flex group mb-1", msg.type === "sent" ? "justify-end" : "justify-start")}>
       {/* Reply button for received */}
       {msg.type === "received" && onReply && (
         <button
@@ -317,13 +317,13 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
       )}
 
       <div className={cn("flex flex-col", msg.type === "sent" ? "items-end" : "items-start")}>
-        {/* Device label for multi-instance */}
+        {/* Device label — only show, very discrete */}
         {showDeviceLabel && msg.deviceName && (
           <span className={cn(
-            "text-[9px] font-medium mb-0.5 flex items-center gap-0.5",
-            msg.type === "sent" ? "self-end text-muted-foreground/60" : "self-start text-muted-foreground/60"
+            "text-[8px] font-medium mb-0.5 text-muted-foreground/40 flex items-center gap-0.5",
+            msg.type === "sent" ? "self-end mr-1" : "self-start ml-1"
           )}>
-            <Smartphone className="w-2.5 h-2.5" />
+            <Smartphone className="w-2 h-2" />
             {msg.deviceName}
           </span>
         )}
@@ -332,8 +332,10 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
             "min-w-[72px] rounded-2xl relative",
             msg.mediaType === "image" && msg.mediaUrl
               ? "w-[min(240px,72vw)] p-1.5"
-              : "w-fit max-w-[78%] sm:max-w-[68%] px-3 py-2",
-            msg.type === "sent" ? "bg-blue-600 text-white rounded-br-md" : "bg-card border border-border text-foreground rounded-bl-md",
+              : "w-fit max-w-[78%] sm:max-w-[68%] px-3.5 py-2.5",
+            msg.type === "sent"
+              ? "bg-blue-600 text-white rounded-br-md"
+              : "bg-card border border-border/60 text-foreground rounded-bl-md",
             msg.status === "failed" && "opacity-70"
           )}
         >

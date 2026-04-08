@@ -5,7 +5,6 @@ import {
   ChevronDown,
   UserCheck,
   UserX,
-  Clock,
   History,
   MailOpen,
   Archive,
@@ -56,7 +55,6 @@ export const ChatHeader = memo(function ChatHeader({
   conversation,
   currentUserId,
   currentStatus,
-  timeInStatus,
   showDetails,
   showStatusHistory,
   statusHistory,
@@ -73,80 +71,64 @@ export const ChatHeader = memo(function ChatHeader({
 
   return (
     <>
-      {/* Header bar */}
-      <div className="border-b border-border flex items-start px-4 py-2 gap-3 shrink-0 bg-card/50">
+      {/* Header bar — clean, aligned */}
+      <div className="border-b border-border/50 flex items-center px-4 py-3 gap-3 shrink-0 bg-card/40">
         <Button variant="ghost" size="icon" className="md:hidden w-8 h-8 shrink-0" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <div className="relative shrink-0 mt-0.5">
+
+        {/* Avatar */}
+        <div className="relative shrink-0">
           {conversation.avatar_url ? (
-            <img src={conversation.avatar_url} alt={conversation.name} className="w-9 h-9 rounded-full object-cover" />
+            <img src={conversation.avatar_url} alt={conversation.name} className="w-10 h-10 rounded-full object-cover" />
           ) : (
-            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="text-xs font-semibold text-primary">{conversation.name.slice(0, 2).toUpperCase()}</span>
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <span className="text-sm font-semibold text-primary">{conversation.name.slice(0, 2).toUpperCase()}</span>
             </div>
           )}
           {conversation.status === "online" && (
-            <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-card" />
+            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-card" />
           )}
         </div>
 
+        {/* Name + phone + status badge */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground truncate">{conversation.name}</p>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5 text-[10px] text-muted-foreground">
-            <span className="truncate">{conversation.phone}</span>
-            {conversation.statusChangedAt && (
-              <span className="inline-flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                Status há {timeInStatus}
-              </span>
-            )}
-            <button
-              onClick={onToggleStatusHistory}
-              className="inline-flex items-center gap-1 text-muted-foreground/70 hover:text-muted-foreground transition-colors"
-              title="Histórico de status"
-            >
-              <History className="w-3 h-3" />
-              Histórico
-            </button>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-foreground truncate">{conversation.name}</p>
+            {/* Status badge inline */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className={cn(
+                  "flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold transition-colors shrink-0",
+                  currentStatusCfg.bg, currentStatusCfg.textStrong
+                )}>
+                  <span className={cn("w-1.5 h-1.5 rounded-full", currentStatusCfg.dot)} />
+                  {currentStatusCfg.label}
+                  <ChevronDown className="w-2.5 h-2.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[160px]">
+                {(Object.entries(attendingStatusConfig) as [AttendingStatus, typeof currentStatusCfg][]).map(([key, cfg]) => (
+                  <DropdownMenuItem key={key} onClick={() => onStatusChange(key)} className={cn("gap-2 text-xs cursor-pointer", currentStatus === key && "bg-muted font-bold")}>
+                    <span className={cn("w-2 h-2 rounded-full shrink-0", cfg.dot)} />
+                    <span className={cn("font-semibold", cfg.textStrong)}>{cfg.label}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <div className="mt-1 text-[10px] text-muted-foreground">
-            {conversation.assignedTo
-              ? conversation.assignedTo === currentUserId
-                ? "Atendido por você"
-                : `Responsável: ${conversation.assignedName || "..."}`
-              : "Sem responsável"}
-          </div>
+          <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">{conversation.phone}</p>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className={cn("flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-semibold transition-colors", currentStatusCfg.bg, currentStatusCfg.textStrong)}>
-                <span className={cn("w-2 h-2 rounded-full", currentStatusCfg.dot)} />
-                {currentStatusCfg.label}
-                <ChevronDown className="w-3 h-3" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[180px]">
-              {(Object.entries(attendingStatusConfig) as [AttendingStatus, typeof currentStatusCfg][]).map(([key, cfg]) => (
-                <DropdownMenuItem key={key} onClick={() => onStatusChange(key)} className={cn("gap-2 text-xs cursor-pointer", currentStatus === key && "bg-muted font-bold")}>
-                  <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", cfg.dot)} />
-                  <span className={cn("font-semibold", cfg.textStrong)}>{cfg.label}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
+        {/* Actions — minimal */}
+        <div className="flex items-center gap-0.5 shrink-0">
           {conversation.assignedTo === currentUserId ? (
-            <Button variant="ghost" size="sm" className="text-[11px] h-7 px-2 text-muted-foreground hover:text-destructive gap-1" onClick={() => onRelease?.(conversation.id)}>
-              <UserX className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Liberar</span>
+            <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-destructive" onClick={() => onRelease?.(conversation.id)} title="Liberar">
+              <UserX className="w-4 h-4" />
             </Button>
           ) : !conversation.assignedTo ? (
-            <Button variant="ghost" size="sm" className="text-[11px] h-7 px-2 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 gap-1" onClick={() => onAssign?.(conversation.id)}>
-              <UserCheck className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Assumir</span>
+            <Button variant="ghost" size="icon" className="w-8 h-8 text-emerald-500/70 hover:text-emerald-400 hover:bg-emerald-500/10" onClick={() => onAssign?.(conversation.id)} title="Assumir">
+              <UserCheck className="w-4 h-4" />
             </Button>
           ) : null}
 
@@ -156,9 +138,14 @@ export const ChatHeader = memo(function ChatHeader({
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-foreground"><MoreVertical className="w-4 h-4" /></Button>
+              <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-foreground">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onToggleStatusHistory} className="gap-2 cursor-pointer">
+                <History className="w-4 h-4" /> Histórico de status
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onMarkUnread?.(conversation.id)} className="gap-2 cursor-pointer">
                 <MailOpen className="w-4 h-4" /> Marcar como não lida
               </DropdownMenuItem>
@@ -173,34 +160,19 @@ export const ChatHeader = memo(function ChatHeader({
         </div>
       </div>
 
-      {/* Status History Panel */}
+      {/* Status History Panel — on demand */}
       {showStatusHistory && (
-        <div className="border-b border-border bg-muted/10 px-4 py-2 max-h-[160px] overflow-y-auto animate-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center justify-between mb-1.5">
+        <div className="border-b border-border/40 bg-muted/5 px-4 py-2.5 max-h-[140px] overflow-y-auto animate-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center justify-between mb-2">
             <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
-              <History className="w-3.5 h-3.5" /> Histórico de Status
+              <History className="w-3.5 h-3.5" /> Histórico
             </span>
             <button onClick={onToggleStatusHistory} className="text-muted-foreground/50 hover:text-foreground">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
           {statusHistory.length === 0 ? (
-            conversation.statusChangedAt ? (
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-[10px]">
-                  <span className="text-muted-foreground/50 shrink-0 w-[70px]">
-                    {format(new Date(conversation.statusChangedAt), "dd/MM HH:mm")}
-                  </span>
-                  <span className={cn("flex items-center gap-1 font-semibold", currentStatusCfg.color)}>
-                    <span className={cn("w-1.5 h-1.5 rounded-full", currentStatusCfg.dot)} />
-                    {currentStatusCfg.label}
-                  </span>
-                  <span className="text-muted-foreground/40 ml-auto">Status atual</span>
-                </div>
-              </div>
-            ) : (
-              <p className="text-[10px] text-muted-foreground">Nenhum histórico registrado ainda</p>
-            )
+            <p className="text-[10px] text-muted-foreground">Nenhum histórico registrado</p>
           ) : (
             <div className="space-y-1">
               {statusHistory.map((h: any) => {
@@ -224,7 +196,7 @@ export const ChatHeader = memo(function ChatHeader({
                       <span className={cn("w-1.5 h-1.5 rounded-full", newCfg.dot)} />
                       {newCfg.label}
                     </span>
-                    <span className="text-muted-foreground/40 ml-auto truncate max-w-[120px]">
+                    <span className="text-muted-foreground/40 ml-auto truncate max-w-[100px]">
                       {h.changed_by_name || "Sistema"}
                     </span>
                   </div>
