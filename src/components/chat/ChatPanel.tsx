@@ -444,7 +444,7 @@ export function ChatPanel({
           const showDevice = !!(instances && instances.length > 1) && msg.deviceName !== prevMsg?.deviceName;
 
           return (
-            <div key={msg.id} className="animate-fade-in">
+            <div key={msg.id} id={`msg-${msg.id}`} className={cn("animate-fade-in transition-colors duration-500", highlightedMsgId === msg.id && "bg-primary/10 rounded-lg")}>
               {showDate && (
                 <div className="flex justify-center my-4">
                   <span className="text-[10px] font-medium text-muted-foreground/70 bg-muted/60 px-3 py-1 rounded-full">
@@ -463,6 +463,7 @@ export function ChatPanel({
                 selectionMode={selectionMode}
                 isSelected={selectedMsgIds.has(msg.id)}
                 onToggleSelect={toggleSelectMsg}
+                onScrollToQuoted={handleScrollToQuoted}
               />
             </div>
           );
