@@ -56,6 +56,7 @@ export default function GIStatusPanel({
   interaction,
   deviceName,
   eligibleDevices = [],
+  allDevices,
   selectedDeviceId,
   onDeviceChange,
   onNameChange,
