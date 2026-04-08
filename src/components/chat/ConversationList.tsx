@@ -318,7 +318,7 @@ export function ConversationList({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-[180px]">
               <DropdownMenuItem
-                onClick={() => onFilterInstancesChange?.([])}
+                onSelect={(e) => { e.preventDefault(); onFilterInstancesChange?.([]); }}
                 className="gap-2 text-xs cursor-pointer"
               >
                 <Check className={cn("w-3.5 h-3.5", filterInstanceIds.length === 0 ? "opacity-100" : "opacity-0")} />
@@ -330,7 +330,7 @@ export function ConversationList({
                 return (
                   <DropdownMenuItem
                     key={inst.id}
-                    onClick={() => toggleInstance(inst.id)}
+                    onSelect={(e) => { e.preventDefault(); toggleInstance(inst.id); }}
                     className="gap-2 text-xs cursor-pointer"
                   >
                     <Check className={cn("w-3.5 h-3.5", isActive ? "opacity-100" : "opacity-0")} />
