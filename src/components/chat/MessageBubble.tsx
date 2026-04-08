@@ -317,22 +317,22 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
 
     // Plain text
     const displayText = isMediaPlaceholder(msg.content) && !msg.mediaType ? msg.content : msg.content;
-    const isShort = !msg.quotedContent && !msg.quotedMessageId && displayText && !displayText.includes("\n") && displayText.length <= 42;
+    const textIsShort = displayText && !displayText.includes("\n") && displayText.length <= 42;
     
-    if (isShort) {
-      return (
-        <div className="flex items-end gap-0">
-          <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{displayText}</p>
-          <MsgFooter msg={msg} inline />
-        </div>
-      );
-    }
-
     return (
       <>
         <QuotedBlock msg={msg} />
-        <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{displayText}</p>
-        <MsgFooter msg={msg} />
+        {textIsShort ? (
+          <div className="flex items-end gap-0">
+            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{displayText}</p>
+            <MsgFooter msg={msg} inline />
+          </div>
+        ) : (
+          <>
+            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{displayText}</p>
+            <MsgFooter msg={msg} />
+          </>
+        )}
         {msg.status === "failed" && (
           <button onClick={() => onRetry?.(msg.id)} className="text-[10px] text-red-400 hover:text-red-300 mt-0.5 text-right underline cursor-pointer block w-full">
             Falhou — toque para reenviar
@@ -370,10 +370,10 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
           onTouchEnd={handleTouchEnd}
           onContextMenu={(e) => { e.preventDefault(); setShowActions(true); }}
           className={cn(
-            "min-w-[60px] rounded-2xl relative",
+            "min-w-[48px] rounded-xl relative",
             msg.mediaType === "image" && msg.mediaUrl
               ? "w-full max-w-[260px] p-1.5"
-              : "w-fit px-3.5 py-2",
+              : "w-fit px-2.5 py-1.5",
             isSent
               ? "bg-blue-600 text-white rounded-br-sm"
               : "bg-card border border-border/40 text-foreground rounded-bl-sm",
