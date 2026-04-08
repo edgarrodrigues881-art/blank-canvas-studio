@@ -504,6 +504,7 @@ export function useConversationActions({
     sendMessage,
     retryMessage,
     deleteMessage,
+    editMessage,
     sendAudioMessage,
     sendFileMessage,
     createConversation,
