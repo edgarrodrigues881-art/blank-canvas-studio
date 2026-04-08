@@ -10,7 +10,7 @@ import { createLogger } from "../core/logger";
 const log = createLogger("verify");
 
 const API_TIMEOUT_MS = 25_000;
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 10;
 const DELAY_BETWEEN_BATCHES_MS = 800;
 const CONNECTED_STATUSES = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"];
 
