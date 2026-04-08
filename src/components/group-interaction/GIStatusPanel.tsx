@@ -76,7 +76,7 @@ export default function GIStatusPanel({
           <Input
             value={formName ?? interaction.name}
             onChange={(e) => onNameChange(e.target.value)}
-            className="h-8 text-sm font-semibold bg-transparent border-none shadow-none focus-visible:ring-0 p-0 flex-1"
+            className="h-8 text-sm font-semibold bg-transparent border border-border/40 rounded-lg shadow-none focus-visible:ring-1 focus-visible:ring-primary/30 px-2.5 flex-1"
           />
         ) : (
           <span className="text-sm font-semibold text-foreground flex-1 truncate">{interaction.name}</span>
