@@ -286,7 +286,126 @@ export function EditPanel({ node, onUpdate, onDelete, onDuplicate, onClose }: Pr
             </div>
           )}
 
-          {isEnd && (
+          {/* Condition node */}
+          {isCondition && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground/50 font-semibold">Condições</Label>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs text-muted-foreground/60 hover:text-foreground"
+                  onClick={() => {
+                    const newCond: FlowCondition = {
+                      id: nextCondId(),
+                      label: "",
+                      variable: "mensagem",
+                      operator: "contains",
+                      value: "",
+                    };
+                    onUpdate(node.id, { conditions: [...(d.conditions || []), newCond] });
+                  }}
+                >
+                  <Plus className="w-3 h-3 mr-1" /> Adicionar
+                </Button>
+              </div>
+
+              {(d.conditions || []).length === 0 && (
+                <p className="text-[10px] text-muted-foreground/30 text-center py-2">
+                  Nenhuma condição adicionada. O fluxo seguirá pela saída "Senão".
+                </p>
+              )}
+
+              {(d.conditions || []).map((cond, i) => (
+                <div key={cond.id} className="space-y-2 rounded-xl border border-border/30 p-3 bg-card/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold text-violet-400">Condição {i + 1}</span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 text-muted-foreground/30 hover:text-destructive"
+                      onClick={() => {
+                        onUpdate(node.id, {
+                          conditions: (d.conditions || []).filter((c) => c.id !== cond.id),
+                        });
+                      }}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                  <Input
+                    value={cond.label}
+                    onChange={(e) => {
+                      onUpdate(node.id, {
+                        conditions: (d.conditions || []).map((c) =>
+                          c.id === cond.id ? { ...c, label: e.target.value } : c
+                        ),
+                      });
+                    }}
+                    placeholder="Nome da condição (ex: Contém 'sim')"
+                    className="h-8 text-xs"
+                  />
+                  <Select
+                    value={cond.variable}
+                    onValueChange={(v) => {
+                      onUpdate(node.id, {
+                        conditions: (d.conditions || []).map((c) =>
+                          c.id === cond.id ? { ...c, variable: v } : c
+                        ),
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mensagem">Mensagem recebida</SelectItem>
+                      <SelectItem value="nome">Nome do contato</SelectItem>
+                      <SelectItem value="numero">Número</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={cond.operator}
+                    onValueChange={(v) => {
+                      onUpdate(node.id, {
+                        conditions: (d.conditions || []).map((c) =>
+                          c.id === cond.id ? { ...c, operator: v as any } : c
+                        ),
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="contains">Contém</SelectItem>
+                      <SelectItem value="equals">É igual a</SelectItem>
+                      <SelectItem value="starts_with">Começa com</SelectItem>
+                      <SelectItem value="ends_with">Termina com</SelectItem>
+                      <SelectItem value="not_equals">Diferente de</SelectItem>
+                      <SelectItem value="exists">Existe</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {cond.operator !== "exists" && (
+                    <Input
+                      value={cond.value}
+                      onChange={(e) => {
+                        onUpdate(node.id, {
+                          conditions: (d.conditions || []).map((c) =>
+                            c.id === cond.id ? { ...c, value: e.target.value } : c
+                          ),
+                        });
+                      }}
+                      placeholder="Valor"
+                      className="h-8 text-xs"
+                    />
+                  )}
+                </div>
+              ))}
+
+              <p className="text-[10px] text-muted-foreground/40">
+                Cada condição gera uma saída separada. A saída "Senão" é usada quando nenhuma condição é atendida.
+              </p>
+            </div>
+          )}
+
+
             <div className="space-y-2">
               <Label className="text-[11px] uppercase tracking-wider text-muted-foreground/50 font-semibold">Ação final</Label>
               <Select value={d.action || "end_flow"} onValueChange={(v) => onUpdate(node.id, { action: v as any })}>
