@@ -10,6 +10,7 @@ import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useState, useMemo, Fragment, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { formatPhone } from "@/utils/formatters";
 import { getMessagePreview } from "@/utils/fileHelpers";
 
@@ -446,9 +447,9 @@ export function ConversationList({
       </ScrollArea>
 
       {/* Context menu (right-click) */}
-      {contextMenuId && (
+      {contextMenuId && createPortal(
         <div
-          className="fixed inset-0 z-50"
+          className="fixed inset-0 z-[9999]"
           onClick={() => setContextMenuId(null)}
           onContextMenu={(e) => { e.preventDefault(); setContextMenuId(null); }}
         >
@@ -512,7 +513,8 @@ export function ConversationList({
               </button>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
