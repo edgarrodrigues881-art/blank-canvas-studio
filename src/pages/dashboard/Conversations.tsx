@@ -376,10 +376,19 @@ const Conversations = () => {
   if (showFlows) {
     return (
       <div className="flex flex-col h-[calc(100vh-theme(spacing.14)-theme(spacing.5)*2)] sm:h-[calc(100vh-theme(spacing.14)-theme(spacing.10))] -m-2.5 sm:-m-5 md:-m-8">
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card/50 shrink-0">
-          <Button variant="ghost" size="sm" onClick={() => setShowFlows(false)} className="text-xs gap-1">
-            ← Conversas
-          </Button>
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-border/40 bg-card/60 backdrop-blur-sm shrink-0">
+          <button
+            onClick={() => setShowFlows(false)}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Conversas
+          </button>
+          <div className="w-px h-4 bg-border/40" />
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 text-primary" />
+            <span className="text-sm font-semibold text-foreground">Fluxos de Automação</span>
+          </div>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto">
           <AutoReplyList />
