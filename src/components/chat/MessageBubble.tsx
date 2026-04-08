@@ -108,15 +108,20 @@ function MsgFooter({ msg, inline }: { msg: Message; inline?: boolean }) {
   );
 }
 
-function QuotedBlock({ msg }: { msg: Message }) {
+function QuotedBlock({ msg, onScrollToQuoted }: { msg: Message; onScrollToQuoted?: (quotedId: string) => void }) {
   if (!msg.quotedContent && !msg.quotedMessageId) return null;
+  const isClickable = !!msg.quotedMessageId && !!onScrollToQuoted;
   return (
-    <div className={cn(
-      "rounded-lg px-2.5 py-1.5 mb-1.5 border-l-2 text-[11px] leading-snug",
-      msg.type === "sent"
-        ? "bg-white/10 border-l-white/40 text-white/70"
-        : "bg-muted/50 border-l-primary/40 text-muted-foreground"
-    )}>
+    <div
+      onClick={isClickable ? (e) => { e.stopPropagation(); onScrollToQuoted!(msg.quotedMessageId!); } : undefined}
+      className={cn(
+        "rounded-lg px-2.5 py-1.5 mb-1.5 border-l-2 text-[11px] leading-snug",
+        msg.type === "sent"
+          ? "bg-white/10 border-l-white/40 text-white/70"
+          : "bg-muted/50 border-l-primary/40 text-muted-foreground",
+        isClickable && "cursor-pointer hover:opacity-80 active:opacity-60 transition-opacity"
+      )}
+    >
       <p className="truncate">{msg.quotedContent || "..."}</p>
     </div>
   );
