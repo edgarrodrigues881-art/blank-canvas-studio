@@ -454,117 +454,46 @@ function ConversationCard({
 
         {/* Actions */}
         <div className="flex items-center gap-3 pt-3 border-t border-border/10">
-          {displayStatus === "idle" || displayStatus === "completed" ? (
-            <>
-              <button
-                onClick={() => handleAction("start")}
-                disabled={isActionLoading || Boolean(invalidReason)}
-                className="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-colors"
-              >
-                {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" strokeWidth={1.8} />}
-                Iniciar
-              </button>
-              <div className="flex-1" />
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <button className="text-muted-foreground/30 hover:text-destructive transition-colors p-1">
-                    <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
-                  </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Excluir conversa?</AlertDialogTitle>
-                    <AlertDialogDescription>A conversa e logs serão removidos.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={onDelete}>Excluir</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </>
-          ) : displayStatus === "running" ? (
+          {displayStatus === "running" ? (
             <>
               <button
                 onClick={() => handleAction("pause")}
                 disabled={isActionLoading}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 disabled:opacity-40 text-xs font-medium transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 disabled:opacity-40 text-xs font-medium transition-all"
               >
                 <Pause className="w-3.5 h-3.5" strokeWidth={1.8} /> Pausar
               </button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <button
-                    disabled={isActionLoading}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:border-destructive/50 disabled:opacity-40 text-xs font-medium transition-all"
-                  >
-                    <XCircle className="w-3.5 h-3.5" strokeWidth={1.8} /> Parar
-                  </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Parar conversa?</AlertDialogTitle>
-                    <AlertDialogDescription>A conversa será encerrada.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Fechar</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleAction("stop")}>Parar</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <button className="text-muted-foreground/30 hover:text-destructive transition-colors p-1 ml-1">
-                    <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
-                  </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Excluir conversa?</AlertDialogTitle>
-                    <AlertDialogDescription>A conversa e logs serão removidos.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={onDelete}>Excluir</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
             </>
-          ) : displayStatus === "paused" ? (
+          ) : (
             <>
               <button
-                onClick={() => handleAction("resume")}
+                onClick={() => displayStatus === "paused" ? handleAction("resume") : handleAction("start")}
                 disabled={isActionLoading || Boolean(invalidReason)}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-all"
               >
-                <RotateCcw className="w-3.5 h-3.5" strokeWidth={1.8} /> Retomar
+                {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" strokeWidth={1.8} />}
+                {displayStatus === "paused" ? "Retomar" : "Iniciar"}
               </button>
-              <button
-                onClick={() => handleAction("stop")}
-                disabled={isActionLoading}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:border-destructive/50 disabled:opacity-40 text-xs font-medium transition-all"
-              >
-                <XCircle className="w-3.5 h-3.5" strokeWidth={1.8} /> Parar
-              </button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <button className="text-muted-foreground/30 hover:text-destructive transition-colors p-1 ml-1">
-                    <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
-                  </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Excluir conversa?</AlertDialogTitle>
-                    <AlertDialogDescription>A conversa e logs serão removidos.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={onDelete}>Excluir</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
             </>
-          ) : null}
+          )}
+          <div className="flex-1" />
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button className="text-destructive hover:text-destructive/80 transition-colors p-1">
+                <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Excluir conversa?</AlertDialogTitle>
+                <AlertDialogDescription>A conversa e logs serão removidos.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={onDelete}>Excluir</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
