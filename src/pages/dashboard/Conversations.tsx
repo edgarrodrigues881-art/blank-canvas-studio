@@ -536,6 +536,35 @@ const Conversations = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit message dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => { if (!open) setEditTarget(null); }}>
+        <DialogContent className="max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2">
+              <Pencil className="w-4 h-4" /> Editar mensagem
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Edite o texto da mensagem. A alteração será aplicada no WhatsApp.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            className="min-h-[80px] resize-none"
+            placeholder="Digite o novo texto..."
+            autoFocus
+          />
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setEditTarget(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmEdit} disabled={!editText.trim() || editText.trim() === editTarget?.content}>
+              Salvar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
