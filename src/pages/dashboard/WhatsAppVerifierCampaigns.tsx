@@ -85,6 +85,7 @@ export default function WhatsAppVerifierCampaigns() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [jobName, setJobName] = useState("");
   const [selectedDevice, setSelectedDevice] = useState("");
+  const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [rawInput, setRawInput] = useState("");
   const [swapDeviceId, setSwapDeviceId] = useState("");
   const [showSwapPanel, setShowSwapPanel] = useState(false);
