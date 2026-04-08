@@ -511,13 +511,24 @@ const Conversations = () => {
           )}
 
           {selectedConversation && showDetails && (
-            <div className="hidden lg:flex flex-col w-[300px] xl:w-[320px] border-l border-border shrink-0">
-              <ContactDetails
-                conversation={selectedConversation}
-                onClose={() => setShowDetails(false)}
-                onTagsChange={handleTagsChange}
-              />
-            </div>
+            <>
+              {/* Desktop sidebar */}
+              <div className="hidden lg:flex flex-col w-[300px] xl:w-[320px] border-l border-border shrink-0">
+                <ContactDetails
+                  conversation={selectedConversation}
+                  onClose={() => setShowDetails(false)}
+                  onTagsChange={handleTagsChange}
+                />
+              </div>
+              {/* Mobile fullscreen overlay */}
+              <div className="fixed inset-0 z-50 bg-background flex flex-col lg:hidden">
+                <ContactDetails
+                  conversation={selectedConversation}
+                  onClose={() => setShowDetails(false)}
+                  onTagsChange={handleTagsChange}
+                />
+              </div>
+            </>
           )}
         </div>
       </div>
