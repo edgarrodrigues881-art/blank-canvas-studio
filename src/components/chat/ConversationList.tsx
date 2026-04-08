@@ -453,7 +453,7 @@ export function ConversationList({
           onContextMenu={(e) => { e.preventDefault(); setContextMenuId(null); }}
         >
           <div
-            className="absolute bg-popover border border-border rounded-lg shadow-xl py-0.5 min-w-[160px] animate-in fade-in-0 zoom-in-95"
+            className="fixed bg-popover border border-border rounded-lg shadow-xl py-0.5 min-w-[160px] animate-in fade-in-0 zoom-in-95 z-[51]"
             style={{
               left: Math.min(contextPos.x, window.innerWidth - 180),
               top: Math.min(contextPos.y, window.innerHeight - 200),
