@@ -191,7 +191,7 @@ const Conversations = () => {
       .filter((c) => normalizePhoneKey(c.phone) === key)
       .map((c) => ({
         id: c._rawId,
-        deviceName: realConvs.find((r) => r.id === c._rawId)?.deviceName,
+        deviceName: c.deviceName,
         lastMessageAt: c.lastMessageAt,
       }))
       .sort((a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime());
