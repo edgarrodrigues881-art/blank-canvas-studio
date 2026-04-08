@@ -47,6 +47,15 @@ interface ActiveFlowConfig {
   nodes: unknown;
 }
 
+interface SessionPhoneMatch {
+  id: string;
+  contact_phone: string;
+  status: string;
+  updated_at: string;
+}
+
+const ACTIVE_SESSION_STATUSES = new Set(["active", "paused", "waiting_response"]);
+
 function findFlowButtonOrigin(flows: ActiveFlowConfig[], buttonResponseId: string, deviceId: string) {
   const matches: Array<{ flowId: string; nodeId: string; deviceId: string | null }> = [];
 
@@ -63,6 +72,40 @@ function findFlowButtonOrigin(flows: ActiveFlowConfig[], buttonResponseId: strin
 
   matches.sort((a, b) => Number(b.deviceId === deviceId) - Number(a.deviceId === deviceId));
   return matches[0] ?? null;
+}
+
+function getPhoneVariants(phone: string): string[] {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return [];
+
+  const variants = new Set<string>([digits]);
+
+  const addBrazilVariants = (country: string, area: string, local: string) => {
+    if (area.length !== 2) return;
+    if (local.length === 9 && local.startsWith("9")) variants.add(`${country}${area}${local.slice(1)}`);
+    if (local.length === 8) variants.add(`${country}${area}9${local}`);
+  };
+
+  if (digits.startsWith("55")) {
+    addBrazilVariants("55", digits.slice(2, 4), digits.slice(4));
+  } else {
+    addBrazilVariants("55", digits.slice(0, 2), digits.slice(2));
+  }
+
+  return [...variants];
+}
+
+function pickBestSessionMatch(sessions: SessionPhoneMatch[] | null | undefined) {
+  if (!sessions?.length) return null;
+
+  const byUpdatedDesc = (a: SessionPhoneMatch, b: SessionPhoneMatch) =>
+    new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+
+  const active = sessions
+    .filter((session) => ACTIVE_SESSION_STATUSES.has(session.status))
+    .sort(byUpdatedDesc)[0];
+
+  return active ?? [...sessions].sort(byUpdatedDesc)[0] ?? null;
 }
 
 Deno.serve(async (req) => {
@@ -337,15 +380,24 @@ Deno.serve(async (req) => {
           .limit(100);
 
         if (activeFlows && activeFlows.length > 0) {
+          const phoneCandidates = getPhoneVariants(phone);
+          let queuePhone = phone;
+
           if (buttonResponseId) {
-            const { data: activeSession } = await admin
+            const { data: recentSessions } = await admin
               .from("autoreply_sessions")
-              .select("id, status")
+              .select("id, status, contact_phone, updated_at")
               .eq("device_id", device.id)
-              .eq("contact_phone", phone)
+              .in("contact_phone", phoneCandidates.length ? phoneCandidates : [phone])
               .order("updated_at", { ascending: false })
-              .limit(1)
-              .maybeSingle();
+              .limit(10);
+
+            const activeSession = pickBestSessionMatch(recentSessions as SessionPhoneMatch[] | null | undefined);
+
+            if (activeSession?.contact_phone && activeSession.contact_phone !== phone) {
+              queuePhone = activeSession.contact_phone;
+              console.log(`Resolved session phone ${phone} -> ${queuePhone}`);
+            }
 
             // If the most recent session is completed, skip recovery and don't enqueue
             // This prevents repeated button clicks from re-triggering the flow
@@ -355,7 +407,7 @@ Deno.serve(async (req) => {
               return json({ ok: true, skipped: "button_already_used" });
             }
 
-            const isActive = activeSession && ["active", "paused", "waiting_response"].includes(activeSession.status);
+            const isActive = !!activeSession && ACTIVE_SESSION_STATUSES.has(activeSession.status);
 
             if (!isActive) {
               const recovered = findFlowButtonOrigin(activeFlows as ActiveFlowConfig[], buttonResponseId, device.id);
@@ -364,7 +416,7 @@ Deno.serve(async (req) => {
                   flow_id: recovered.flowId,
                   device_id: device.id,
                   user_id: device.user_id,
-                  contact_phone: phone,
+                  contact_phone: queuePhone,
                   current_node_id: recovered.nodeId,
                   status: "active",
                   last_message_at: new Date().toISOString(),
@@ -384,7 +436,7 @@ Deno.serve(async (req) => {
           const { error: queueErr } = await admin.from("autoreply_queue").insert({
             device_id: device.id,
             user_id: device.user_id,
-            from_phone: phone,
+            from_phone: queuePhone,
             message_text: content || displayContent || "",
             status: "pending",
             device_header_id: device.id,
