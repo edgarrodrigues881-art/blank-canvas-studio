@@ -727,13 +727,7 @@ export default function GroupInteractionPage() {
                     displayStatus={selectedDisplayStatus}
                     onAction={handleAction}
                     actionPending={invokeAction.isPending}
-                    onDelete={() => {
-                      if (confirm("Excluir esta automação?")) {
-                        deleteInteraction.mutate(selectedId);
-                        setSelectedId(null);
-                        setShowConfig(false);
-                      }
-                    }}
+                    onDelete={() => setShowDeleteDialog(true)}
                   />
                 </>
               )}
