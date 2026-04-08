@@ -703,23 +703,37 @@ export default function WhatsAppVerifierCampaigns() {
         <Card className="border-border/50 bg-card/50">
           <CardContent className="py-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <Smartphone className="w-5 h-5 text-muted-foreground" />
-                <div>
-                  <span className="font-medium text-foreground">
-                    {deviceInfo ? `${deviceInfo.name}${deviceInfo.number ? ` (${deviceInfo.number})` : ""}` : "Instância removida"}
-                  </span>
-                  {deviceInfo && (
-                    <Badge className={`ml-2 text-xs ${deviceIsOnline ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-400 border-red-500/30"}`}>
-                      {deviceIsOnline ? "Online" : deviceInfo.status}
-                    </Badge>
-                  )}
-                </div>
+                {jobDevices.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {jobDevices.map((d: any) => {
+                      const isOn = ACTIVE_DEVICE_STATUSES.includes(d.status);
+                      return (
+                        <div key={d.id} className="flex items-center gap-1.5">
+                          <span className="text-sm font-medium text-foreground">{d.name}{d.number ? ` (${d.number})` : ""}</span>
+                          <Badge className={`text-[10px] ${isOn ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-400 border-red-500/30"}`}>
+                            {isOn ? "●" : "○"}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">Instância removida</span>
+                )}
               </div>
               <Button variant="outline" size="sm" onClick={() => { setShowSwapPanel(!showSwapPanel); setSwapDeviceId(""); }}>
                 <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Trocar instância
               </Button>
             </div>
+
+            {job.last_error && (isPaused || job.status === "failed") && (
+              <div className="mt-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                {job.last_error}
+              </div>
+            )}
 
             {showSwapPanel && (
               <div className="mt-4 pt-4 border-t border-border/50 flex items-end gap-3">
@@ -728,7 +742,7 @@ export default function WhatsAppVerifierCampaigns() {
                   <Select value={swapDeviceId} onValueChange={setSwapDeviceId}>
                     <SelectTrigger className="bg-background/50"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
-                      {onlineDevices.filter((d: any) => d.id !== job.device_id).map((d: any) => (
+                      {onlineDevices.filter((d: any) => !jobDeviceIds.includes(d.id)).map((d: any) => (
                         <SelectItem key={d.id} value={d.id}>
                           <span className="flex items-center gap-2"><Smartphone className="w-3.5 h-3.5" />{d.name} {d.number ? `(${d.number})` : ""}</span>
                         </SelectItem>
