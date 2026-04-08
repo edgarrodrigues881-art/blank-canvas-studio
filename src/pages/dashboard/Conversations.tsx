@@ -9,7 +9,11 @@ import { AutomationFlows } from "@/components/chat/AutomationFlows";
 import { type Conversation, type AttendingStatus, type Message, type ConversationInstance } from "@/components/chat/types";
 import { useConversations } from "@/hooks/chat/useConversations";
 import { Button } from "@/components/ui/button";
-import { Zap, Bell, MessageSquarePlus } from "lucide-react";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
+import { Zap, Bell, MessageSquarePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 const MIN_SIDEBAR_W = 240;
@@ -59,6 +63,7 @@ const Conversations = () => {
   const [filterInstanceIds, setFilterInstanceIds] = useState<string[]>([]);
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; conversationId: string; whatsappMessageId?: string; isSent: boolean } | null>(null);
 
   // Handle ?open=convId from queue
   useEffect(() => {
@@ -296,10 +301,23 @@ const Conversations = () => {
 
   const handleDeleteMessage = useCallback(
     (msg: any) => {
-      if (!confirm("Apagar esta mensagem para todos?")) return;
-      deleteMessage(msg.id, msg.conversationId, msg.whatsappMessageId);
+      setDeleteTarget({
+        id: msg.id,
+        conversationId: msg.conversationId,
+        whatsappMessageId: msg.whatsappMessageId,
+        isSent: msg.type === "sent",
+      });
     },
-    [deleteMessage]
+    []
+  );
+
+  const confirmDelete = useCallback(
+    (forEveryone: boolean) => {
+      if (!deleteTarget) return;
+      deleteMessage(deleteTarget.id, deleteTarget.conversationId, deleteTarget.whatsappMessageId, forEveryone);
+      setDeleteTarget(null);
+    },
+    [deleteTarget, deleteMessage]
   );
 
   const handleStatusChange = useCallback(
@@ -459,6 +477,41 @@ const Conversations = () => {
         onOpenChange={setNewConversationOpen}
         onCreateConversation={createConversation}
       />
+
+      {/* Delete message dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent className="max-w-[340px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base">Apagar mensagem</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground">
+              {deleteTarget?.isSent
+                ? "Escolha como deseja apagar esta mensagem."
+                : "Você só pode apagar mensagens recebidas para você."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col gap-2 sm:flex-col">
+            {deleteTarget?.isSent && (
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => confirmDelete(true)}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Apagar para todos
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={() => confirmDelete(false)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Apagar para mim
+            </Button>
+            <AlertDialogCancel className="w-full mt-0">Cancelar</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
