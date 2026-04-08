@@ -118,8 +118,7 @@ export const ChatHeader = memo(function ChatHeader({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
-          <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">{conversation.phone}</p>
+          <span className="text-[10px] text-muted-foreground/40 truncate hidden sm:inline">{conversation.phone}</span>
         </div>
 
         {/* Actions — minimal */}
