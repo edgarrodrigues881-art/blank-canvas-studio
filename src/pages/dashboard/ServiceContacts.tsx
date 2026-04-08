@@ -64,7 +64,7 @@ export default function ServiceContacts() {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ name: "", phone: "", email: "", notes: "", tags: "" });
+    setForm({ name: "", phone: "", email: "", company: "", notes: "", tags: "" });
     setDialogOpen(true);
   };
 
