@@ -476,27 +476,27 @@ export default function GroupInteractionPage() {
       {/* Persistent cumulative stats */}
       {!showConfig && !showBulkCreate && (
         <div className="grid grid-cols-2 gap-3">
-          <Card className="border-border/50 bg-card">
+          <Card className="border-border/50 bg-card overflow-hidden">
             <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-violet-500/10 flex items-center justify-center">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-violet-500/10 flex items-center justify-center shrink-0">
                   <MessageCircle className="w-4 h-4 text-violet-400" />
                 </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Mensagens Entregues</p>
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">Mensagens Entregues</p>
                   <p className="text-xl font-bold text-foreground tabular-nums">{(groupCumulativeStats?.totalMessages ?? 0).toLocaleString("pt-BR")}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card className="border-border/50 bg-card">
+          <Card className="border-border/50 bg-card overflow-hidden">
             <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                   <Users className="w-4 h-4 text-primary" />
                 </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Automações Ativas</p>
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">Automações Ativas</p>
                   <p className="text-xl font-bold text-foreground tabular-nums">{interactions.filter(i => i.status === "running").length}</p>
                 </div>
               </div>
