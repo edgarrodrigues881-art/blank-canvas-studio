@@ -3766,6 +3766,7 @@ export type Database = {
           id: string
           last_message_at: string | null
           last_message_content: string | null
+          lead_score: number | null
           name: string
           notes: string | null
           origin: string | null
@@ -3784,6 +3785,7 @@ export type Database = {
           id?: string
           last_message_at?: string | null
           last_message_content?: string | null
+          lead_score?: number | null
           name?: string
           notes?: string | null
           origin?: string | null
@@ -3802,6 +3804,7 @@ export type Database = {
           id?: string
           last_message_at?: string | null
           last_message_content?: string | null
+          lead_score?: number | null
           name?: string
           notes?: string | null
           origin?: string | null
@@ -5823,6 +5826,22 @@ export type Database = {
         Returns: boolean
       }
       try_provision_lock: { Args: { _user_id: string }; Returns: boolean }
+      upsert_service_contact: {
+        Args: {
+          p_company?: string
+          p_conversation_id?: string
+          p_email?: string
+          p_last_message_content?: string
+          p_message_timestamp?: string
+          p_name?: string
+          p_origin?: string
+          p_phone: string
+          p_tag_scores?: Json
+          p_tags?: string[]
+          p_user_id: string
+        }
+        Returns: string
+      }
       use_free_pull: { Args: { p_user_id: string }; Returns: Json }
     }
     Enums: {
