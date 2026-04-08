@@ -84,6 +84,31 @@ Deno.test("extractConversationEvent parses quoted replies from UAZAPI payload", 
   assertEquals(result.quotedContent, "oi");
 });
 
+Deno.test("extractConversationEvent parses UAZAPI button click payload", () => {
+  const result = extractConversationEvent({
+    EventType: "messages",
+    chat: { name: "Dg Contingência" },
+    message: {
+      buttonOrListid: "btn-1775684318768",
+      chatid: "556294192500@s.whatsapp.net",
+      content: {
+        selectedID: "btn-1775684318768",
+        selectedDisplayText: "Ver Ferramenta",
+      },
+      fromMe: false,
+      messageType: "TemplateButtonReplyMessage",
+      messageid: "3EB0F18EB7886C93836A40",
+      senderName: "Dg Contingência",
+      sender_pn: "556294192500@s.whatsapp.net",
+      vote: "Ver Ferramenta",
+    },
+  });
+
+  assertExists(result);
+  assertEquals(result.content, "Ver Ferramenta");
+  assertEquals(result.buttonResponseId, "btn-1775684318768");
+});
+
 Deno.test("extractConversationEvent skips groups", () => {
   const result = extractConversationEvent({
     event: "messages",
