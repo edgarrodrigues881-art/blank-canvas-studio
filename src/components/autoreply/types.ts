@@ -4,6 +4,14 @@ export interface FlowButton {
   targetNodeId: string;
 }
 
+export interface FlowCondition {
+  id: string;
+  label: string;
+  variable: string;
+  operator: "equals" | "contains" | "starts_with" | "ends_with" | "not_equals" | "exists";
+  value: string;
+}
+
 export interface FlowNodeData extends Record<string, unknown> {
   label: string;
   // Start node
@@ -22,6 +30,8 @@ export interface FlowNodeData extends Record<string, unknown> {
   delaySeconds?: number;
   // End node
   action?: "end_flow" | "wait_response" | "transfer_human";
+  // Condition node
+  conditions?: FlowCondition[];
 }
 
 // Unique ID generator to avoid collisions across sessions
@@ -33,4 +43,9 @@ export function nextNodeId(prefix: string): string {
 let _btnIdCounter = Date.now() + 1000;
 export function nextBtnId(): string {
   return `btn-${++_btnIdCounter}`;
+}
+
+let _condIdCounter = Date.now() + 2000;
+export function nextCondId(): string {
+  return `cond-${++_condIdCounter}`;
 }

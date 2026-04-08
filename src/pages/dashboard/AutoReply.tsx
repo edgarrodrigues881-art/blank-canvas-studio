@@ -19,12 +19,13 @@ import { StartNode } from "@/components/autoreply/StartNode";
 import { MessageNode } from "@/components/autoreply/MessageNode";
 import { EndNode } from "@/components/autoreply/EndNode";
 import { DelayNode } from "@/components/autoreply/DelayNode";
+import { ConditionNode } from "@/components/autoreply/ConditionNode";
 import { FlowSidebar } from "@/components/autoreply/FlowSidebar";
 import { EditPanel } from "@/components/autoreply/EditPanel";
 import { FlowHeader } from "@/components/autoreply/FlowHeader";
-import type { FlowNodeData } from "@/components/autoreply/types";
+import type { FlowNodeData, FlowCondition } from "@/components/autoreply/types";
 import { nextNodeId, nextBtnId } from "@/components/autoreply/types";
-import { MessageSquare, Square, Timer } from "lucide-react";
+import { MessageSquare, Square, Timer, GitBranch } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -34,6 +35,7 @@ const nodeTypes = {
   startNode: StartNode,
   messageNode: MessageNode,
   delayNode: DelayNode,
+  conditionNode: ConditionNode,
   endNode: EndNode,
 };
 
@@ -241,7 +243,7 @@ function FlowCanvas() {
   );
 
   const createNodeFromMenu = useCallback(
-    (type: "messageNode" | "endNode" | "delayNode") => {
+    (type: "messageNode" | "endNode" | "delayNode" | "conditionNode") => {
       if (!dropMenu) return;
 
       const id = nextNodeId(type);
@@ -251,6 +253,8 @@ function FlowCanvas() {
         data = { label: "Finalizar", action: "end_flow" };
       } else if (type === "delayNode") {
         data = { label: "Temporizador", delaySeconds: 5 };
+      } else if (type === "conditionNode") {
+        data = { label: "Condição", conditions: [] };
       } else {
         data = {
           label: "Nova Mensagem",
@@ -325,6 +329,8 @@ function FlowCanvas() {
         data = { label: "Finalizar", action: "end_flow" };
       } else if (type === "delayNode") {
         data = { label: "Temporizador", delaySeconds: 5 };
+      } else if (type === "conditionNode") {
+        data = { label: "Condição", conditions: [] };
       } else {
         data = {
           label: "Nova Mensagem",
@@ -476,6 +482,15 @@ function FlowCanvas() {
                       <Timer className="w-3.5 h-3.5 text-amber-500" />
                     </div>
                     Temporizador
+                  </button>
+                  <button
+                    onClick={() => createNodeFromMenu("conditionNode")}
+                    className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-sm text-foreground hover:bg-violet-500/10 transition-colors"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                      <GitBranch className="w-3.5 h-3.5 text-violet-500" />
+                    </div>
+                    Condição
                   </button>
                   <button
                     onClick={() => createNodeFromMenu("endNode")}
