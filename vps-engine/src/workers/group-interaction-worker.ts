@@ -36,6 +36,10 @@ const FALLBACK_MESSAGES: Record<string, string[]> = {
 
 const DAY_MAP = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const CONNECTED_STATUSES = new Set(["Ready", "Connected", "connected", "authenticated", "open", "active", "online"]);
+const MAX_CONSECUTIVE_ERRORS = 5;
+const BACKOFF_BASE_SECONDS = 30;
 const GROUP_JID_RE = /@g\.us$/i;
 
 type AllowedGroupSelection = {
@@ -499,6 +503,24 @@ async function processOneInteraction(sb: any, interaction: any) {
     return;
   }
 
+  // ── Check device connection status — skip if disconnected ──
+  if (!CONNECTED_STATUSES.has(device.status)) {
+    log.warn(`Interaction ${interaction.id.slice(0, 8)}: device "${device.name}" is ${device.status} — skipping send`);
+    await rescheduleInteraction(sb, interaction.id, 120, {
+      last_error: `Dispositivo "${device.name}" desconectado (${device.status}) — aguardando reconexão`,
+    });
+    return;
+  }
+
+  // ── Consecutive error backoff — avoid hammering API ──
+  const consecutiveErrors = interaction.consecutive_errors || 0;
+  if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+    const backoffSeconds = Math.min(BACKOFF_BASE_SECONDS * Math.pow(2, consecutiveErrors - MAX_CONSECUTIVE_ERRORS), 1800);
+    log.warn(`Interaction ${interaction.id.slice(0, 8)}: ${consecutiveErrors} consecutive errors — backoff ${backoffSeconds}s`);
+    await pauseInteraction(sb, interaction.id, `Pausada automaticamente após ${consecutiveErrors} erros consecutivos. Último: ${interaction.last_error || "desconhecido"}`);
+    return;
+  }
+
   const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
 
   // Resolve groups strictly from explicit allowlist/JIDs already linked to this interaction
@@ -617,8 +639,10 @@ async function processOneInteraction(sb: any, interaction: any) {
     updatePayload.last_sent_at = new Date().toISOString();
     updatePayload.today_count = todayCount + 1;
     updatePayload.last_error = null;
+    updatePayload.consecutive_errors = 0; // Reset on success
   } else {
     updatePayload.last_error = sendError;
+    updatePayload.consecutive_errors = (interaction.consecutive_errors || 0) + 1;
   }
 
   // Schedule next delay
