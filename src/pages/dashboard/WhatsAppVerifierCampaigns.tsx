@@ -381,10 +381,20 @@ export default function WhatsAppVerifierCampaigns() {
     }
   };
 
+  // ── Sort results: success first, pending middle, no_whatsapp/error last ──
+  const STATUS_ORDER: Record<string, number> = { success: 0, pending: 1, no_whatsapp: 2, error: 3 };
+  const sortedResults = useMemo(() => {
+    return [...jobResults].sort((a: any, b: any) => {
+      const orderA = STATUS_ORDER[a.status] ?? 1;
+      const orderB = STATUS_ORDER[b.status] ?? 1;
+      return orderA - orderB;
+    });
+  }, [jobResults]);
+
   // ── Detect if results have vars ──
   const resultsHaveVars = useMemo(() => {
-    return jobResults.some((r: any) => r.var1 || r.var2 || r.var3 || r.var4 || r.var5);
-  }, [jobResults]);
+    return sortedResults.some((r: any) => r.var1 || r.var2 || r.var3 || r.var4 || r.var5);
+  }, [sortedResults]);
 
   // Hidden file input for xlsx
   const handleSpreadsheetClick = () => {
