@@ -23,15 +23,14 @@ import {
 // ── Types ──
 type ViewMode = "list" | "create" | "detail";
 type ImportMode = "plain" | "spreadsheet";
-type ColMapping = "telefone" | "var1" | "var2" | "var3" | "var4" | "var5" | "ignorar";
+type ColMapping = "telefone" | "var1" | "var2" | "var3" | "var4" | "var5" | "var6" | "var7" | "var8" | "var9" | "var10" | "ignorar";
+
+const VAR_KEYS = ["var1","var2","var3","var4","var5","var6","var7","var8","var9","var10"] as const;
 
 interface ImportedRow {
   phone: string;
-  var1?: string;
-  var2?: string;
-  var3?: string;
-  var4?: string;
-  var5?: string;
+  var1?: string; var2?: string; var3?: string; var4?: string; var5?: string;
+  var6?: string; var7?: string; var8?: string; var9?: string; var10?: string;
 }
 
 const BATCH_SIZE = 10;
@@ -43,8 +42,13 @@ const MAPPING_OPTIONS: { value: ColMapping; label: string }[] = [
   { value: "var1", label: "Variável 1 (ex: Nome)" },
   { value: "var2", label: "Variável 2 (ex: Endereço)" },
   { value: "var3", label: "Variável 3 (ex: Comércio)" },
-  { value: "var4", label: "Variável 4" },
-  { value: "var5", label: "Variável 5" },
+  { value: "var4", label: "Variável 4 (ex: Email)" },
+  { value: "var5", label: "Variável 5 (ex: Cidade)" },
+  { value: "var6", label: "Variável 6 (ex: Website)" },
+  { value: "var7", label: "Variável 7 (ex: Instagram)" },
+  { value: "var8", label: "Variável 8 (ex: Facebook)" },
+  { value: "var9", label: "Variável 9 (ex: Avaliação)" },
+  { value: "var10", label: "Variável 10" },
 ];
 
 function cleanPhone(raw: string): string {
