@@ -704,12 +704,11 @@ const WarmupInstanceDetail = () => {
     }
   };
 
-  /* advance day: skip current day's jobs, move to next day (or complete if last day) */
-  const handleAdvancePhase = async () => {
+  /* advance day: skip current day's jobs, move to target day (or next day if no target) */
+  const handleAdvancePhase = async (targetDay?: number) => {
     if (!deviceId || !cycle) return;
     setAdvancingPhase(true);
     try {
-      // Always read latest cycle from DB to avoid stale UI/cache
       const { data: latestCycle, error: latestErr } = await supabase
         .from("warmup_cycles")
         .select("id, phase, day_index, days_total, chip_state")
@@ -717,13 +716,12 @@ const WarmupInstanceDetail = () => {
         .single();
       if (latestErr) throw latestErr;
 
-      // If already completed, nothing to do
       if (latestCycle.phase === "completed") {
         toast({ title: "Ciclo já concluído", description: "Este ciclo já foi finalizado." });
         return;
       }
 
-      const newDayIndex = (latestCycle.day_index || 1) + 1;
+      const newDayIndex = targetDay || ((latestCycle.day_index || 1) + 1);
       const isLastDay = newDayIndex > (latestCycle.days_total || 30);
       const finalDayIndex = isLastDay ? latestCycle.days_total : newDayIndex;
       
