@@ -340,7 +340,7 @@ export function NewConversationDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
-      <DialogContent className="sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[420px] p-0 gap-0 overflow-hidden max-h-[88dvh] flex flex-col">
         {/* Header */}
         <DialogHeader className="px-5 pt-5 pb-3">
           <DialogTitle className="flex items-center gap-2 text-base">
