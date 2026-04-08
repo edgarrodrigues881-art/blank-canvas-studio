@@ -380,7 +380,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
         </button>
       )}
 
-      <div className={cn("flex flex-col max-w-[82%] sm:max-w-[72%]", isSent ? "items-end" : "items-start")}>
+      <div className={cn("flex flex-col max-w-[82%] sm:max-w-[72%] min-w-0", isSent ? "items-end" : "items-start")}>
         {/* Device label — only when instance changes */}
         {showDeviceLabel && msg.deviceName && (
           <span className="text-[8px] text-muted-foreground/30 mb-0.5 ml-1 mr-1 flex items-center gap-0.5">
@@ -393,7 +393,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
           onTouchEnd={handleTouchEnd}
           onContextMenu={(e) => { e.preventDefault(); setShowActions(true); }}
           className={cn(
-            "min-w-[48px] rounded-xl relative",
+            "min-w-[48px] max-w-full rounded-xl relative overflow-hidden",
             msg.mediaType === "image" && msg.mediaUrl
               ? "w-full max-w-[260px] p-1.5"
               : "w-fit px-2.5 py-1.5",
