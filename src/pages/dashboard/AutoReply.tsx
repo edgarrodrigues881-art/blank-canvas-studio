@@ -42,8 +42,8 @@ const nodeTypes = {
 const defaultEdgeOptions = {
   type: "smoothstep",
   animated: true,
-  style: { stroke: "hsl(var(--primary) / 0.35)", strokeWidth: 1.2 },
-  markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(var(--primary) / 0.4)", width: 14, height: 14 },
+  style: { stroke: "hsl(var(--primary) / 0.45)", strokeWidth: 1.5 },
+  markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(var(--primary) / 0.5)", width: 12, height: 12 },
 };
 
 const defaultNodes: Node<FlowNodeData>[] = [
