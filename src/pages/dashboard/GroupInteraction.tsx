@@ -662,6 +662,7 @@ export default function GroupInteractionPage() {
                     interaction={(selectedPresentation || selected)!}
                     deviceName={selected?.device_id ? (deviceMap.get(selected.device_id)?.name || "Instância removida") : "Sem instância"}
                     eligibleDevices={eligibleDevices}
+                    allDevices={devices}
                     selectedDeviceId={form.device_id}
                     onDeviceChange={(v) => updateForm({ device_id: v })}
                     formName={form.name}
