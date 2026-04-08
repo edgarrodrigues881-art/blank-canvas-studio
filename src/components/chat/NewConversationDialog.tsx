@@ -339,67 +339,14 @@ export function NewConversationDialog({
             )}
           </div>
 
-          {/* 3. Instance — visual buttons */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-foreground">Instância</label>
-            {loadingDevices ? (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground py-3 justify-center">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Carregando...
-              </div>
-            ) : devices.length === 0 ? (
-              <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 text-xs text-muted-foreground text-center">
-                Nenhuma instância conectada
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {devices.map((device) => {
-                  const isSelected = deviceId === device.id;
-                  return (
-                    <button
-                      key={device.id}
-                      onClick={() => setDeviceId(device.id)}
-                      disabled={submitting}
-                      className={cn(
-                        "flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all duration-150",
-                        isSelected
-                          ? "border-primary bg-primary/10 shadow-sm shadow-primary/10"
-                          : "border-border/40 bg-card/50 hover:bg-muted/30 hover:border-border"
-                      )}
-                    >
-                      <div className={cn(
-                        "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-                        isSelected ? "bg-primary/20" : "bg-muted/40"
-                      )}>
-                        <Smartphone className={cn(
-                          "w-4 h-4 transition-colors",
-                          isSelected ? "text-primary" : "text-muted-foreground"
-                        )} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className={cn(
-                          "text-xs font-semibold truncate transition-colors",
-                          isSelected ? "text-primary" : "text-foreground"
-                        )}>
-                          {device.name}
-                        </p>
-                        {device.number && (
-                          <p className="text-[10px] text-muted-foreground truncate">
-                            {formatDeviceNumber(device.number)}
-                          </p>
-                        )}
-                      </div>
-                      {isSelected && (
-                        <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center shrink-0">
-                          <span className="text-primary-foreground text-[8px] font-bold">✓</span>
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          {/* 3. Instance — compact collapsible list */}
+          <InstanceSelector
+            devices={devices}
+            deviceId={deviceId}
+            onSelect={setDeviceId}
+            loading={loadingDevices}
+            disabled={submitting}
+          />
         </div>
 
         {/* Footer — fixed bottom */}
