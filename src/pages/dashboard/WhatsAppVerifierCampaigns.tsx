@@ -110,7 +110,7 @@ export default function WhatsAppVerifierCampaigns() {
   const [importRows, setImportRows] = useState<any[][]>([]);
   const [columnMappings, setColumnMappings] = useState<ColMapping[]>([]);
   const [importedContacts, setImportedContacts] = useState<ImportedRow[]>([]);
-  const [varLabels, setVarLabels] = useState<string[]>(["Var 1", "Var 2", "Var 3", "Var 4", "Var 5"]);
+  const [varLabels, setVarLabels] = useState<string[]>(VAR_KEYS.map((_, i) => `Var ${i + 1}`));
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: allDevices = [] } = useQuery({
