@@ -664,6 +664,8 @@ export default function GroupInteractionPage() {
                     eligibleDevices={eligibleDevices}
                     selectedDeviceId={form.device_id}
                     onDeviceChange={(v) => updateForm({ device_id: v })}
+                    formName={form.name}
+                    onNameChange={(name) => updateForm({ name })}
                     displayStatus={selectedDisplayStatus}
                     onAction={handleAction}
                     actionPending={invokeAction.isPending}
