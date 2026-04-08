@@ -303,39 +303,38 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
     );
   };
 
+  const isSent = msg.type === "sent";
+
   return (
-    <div className={cn("flex group mb-1", msg.type === "sent" ? "justify-end" : "justify-start")}>
+    <div className={cn("flex group", isSent ? "justify-end" : "justify-start")}>
       {/* Reply button for received */}
-      {msg.type === "received" && onReply && (
+      {!isSent && onReply && (
         <button
           onClick={() => onReply(msg)}
-          className="self-center mr-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted/50"
+          className="self-center mr-0.5 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted/50"
           title="Responder"
         >
           <Reply className="w-3.5 h-3.5 text-muted-foreground" />
         </button>
       )}
 
-      <div className={cn("flex flex-col", msg.type === "sent" ? "items-end" : "items-start")}>
-        {/* Device label — only show, very discrete */}
+      <div className={cn("flex flex-col max-w-[82%] sm:max-w-[72%]", isSent ? "items-end" : "items-start")}>
+        {/* Device label — only when instance changes */}
         {showDeviceLabel && msg.deviceName && (
-          <span className={cn(
-            "text-[8px] font-medium mb-0.5 text-muted-foreground/40 flex items-center gap-0.5",
-            msg.type === "sent" ? "self-end mr-1" : "self-start ml-1"
-          )}>
+          <span className="text-[8px] text-muted-foreground/30 mb-0.5 ml-1 mr-1 flex items-center gap-0.5">
             <Smartphone className="w-2 h-2" />
             {msg.deviceName}
           </span>
         )}
         <div
           className={cn(
-            "min-w-[72px] rounded-2xl relative",
+            "min-w-[60px] rounded-2xl relative",
             msg.mediaType === "image" && msg.mediaUrl
-              ? "w-[min(240px,72vw)] p-1.5"
-              : "w-fit max-w-[78%] sm:max-w-[68%] px-3.5 py-2.5",
-            msg.type === "sent"
-              ? "bg-blue-600 text-white rounded-br-md"
-              : "bg-card border border-border/60 text-foreground rounded-bl-md",
+              ? "w-full max-w-[260px] p-1.5"
+              : "w-fit px-3.5 py-2",
+            isSent
+              ? "bg-blue-600 text-white rounded-br-sm"
+              : "bg-card border border-border/40 text-foreground rounded-bl-sm",
             msg.status === "failed" && "opacity-70"
           )}
         >
@@ -344,10 +343,10 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
       </div>
 
       {/* Reply button for sent */}
-      {msg.type === "sent" && onReply && (
+      {isSent && onReply && (
         <button
           onClick={() => onReply(msg)}
-          className="self-center ml-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted/50"
+          className="self-center ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted/50"
           title="Responder"
         >
           <Reply className="w-3.5 h-3.5 text-muted-foreground" />
