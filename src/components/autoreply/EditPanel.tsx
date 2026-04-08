@@ -30,6 +30,7 @@ export function EditPanel({ node, onUpdate, onDelete, onDuplicate, onClose }: Pr
   const isEnd = node.type === "endNode";
   const isMessage = node.type === "messageNode";
   const isDelay = node.type === "delayNode";
+  const isCondition = node.type === "conditionNode";
   const navigate = useNavigate();
 
   const { data: templatesList } = useTemplates();
