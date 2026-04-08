@@ -50,10 +50,17 @@ function buildAttempts(
 ): SendAttempt[] {
   const target = destination.group ? destination.chatId : destination.number;
 
-  // Build contextInfo for quoted messages
-  const contextInfo = quotedMessageId
-    ? { quotedMessage: { stanzaId: quotedMessageId } }
-    : undefined;
+  // Build quote fields for UAZAPI - multiple formats for compatibility
+  const quoteFields = quotedMessageId
+    ? {
+        quotedMsgId: quotedMessageId,
+        quotedMsg: quotedMessageId,
+        contextInfo: {
+          stanzaId: quotedMessageId,
+          quotedMessage: { conversation: "" },
+        },
+      }
+    : {};
 
   if (type === "audio") {
     return [
@@ -85,18 +92,18 @@ function buildAttempts(
 
   if (destination.group) {
     return [
-      { path: "/chat/send-text", body: { chatId: destination.chatId, text: safeText, body: safeText, ...(contextInfo && { contextInfo }) } },
-      { path: "/send/text", body: { number: destination.chatId, text: safeText, ...(contextInfo && { contextInfo }) } },
-      { path: "/message/sendText", body: { chatId: destination.chatId, text: safeText, ...(contextInfo && { contextInfo }) } },
+      { path: "/chat/send-text", body: { chatId: destination.chatId, text: safeText, body: safeText, ...quoteFields } },
+      { path: "/send/text", body: { number: destination.chatId, text: safeText, ...quoteFields } },
+      { path: "/message/sendText", body: { chatId: destination.chatId, text: safeText, ...quoteFields } },
     ];
   }
 
   return [
-    { path: "/send/text", body: { number: destination.number, text: safeText, ...(contextInfo && { contextInfo }) } },
-    { path: "/send/text", body: { chatId: destination.chatId, text: safeText, ...(contextInfo && { contextInfo }) } },
-    { path: "/chat/send-text", body: { number: destination.number, to: destination.number, chatId: destination.chatId, body: safeText, text: safeText, ...(contextInfo && { contextInfo }) } },
-    { path: "/message/sendText", body: { chatId: destination.chatId, text: safeText, ...(contextInfo && { contextInfo }) } },
-    { path: "/message/sendText", body: { number: destination.number, text: safeText, ...(contextInfo && { contextInfo }) } },
+    { path: "/send/text", body: { number: destination.number, text: safeText, ...quoteFields } },
+    { path: "/send/text", body: { chatId: destination.chatId, text: safeText, ...quoteFields } },
+    { path: "/chat/send-text", body: { number: destination.number, to: destination.number, chatId: destination.chatId, body: safeText, text: safeText, ...quoteFields } },
+    { path: "/message/sendText", body: { chatId: destination.chatId, text: safeText, ...quoteFields } },
+    { path: "/message/sendText", body: { number: destination.number, text: safeText, ...quoteFields } },
   ];
 }
 
