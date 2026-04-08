@@ -34,7 +34,7 @@ interface Props {
 
 const onlineStatuses = new Set(["connected", "Connected", "Ready", "ready", "authenticated"]);
 
-export function FlowHeader({ flowId, name, onNameChange, isActive, onToggleActive, onSave, saving, deviceId, onDeviceChange, nodes, edges = [], isDirty }: Props) {
+export function FlowHeader({ flowId, name, onNameChange, isActive, onToggleActive, onSave, saving, deviceId, onDeviceChange, nodes, edges = [], isDirty, onUndo, onRedo, canUndo = false, canRedo = false }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [testing, setTesting] = useState(false);
