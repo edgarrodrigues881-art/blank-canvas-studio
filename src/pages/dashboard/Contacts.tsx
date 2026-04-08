@@ -73,9 +73,12 @@ interface ContactRowProps {
 const ContactRow = memo(function ContactRow({ contact, index, selectMode, isSelected, onToggleSelect, onRemoveTag, onDelete, onEdit, getTagColor }: ContactRowProps): ReactElement {
   return (
     <div className="grid items-center border-b border-primary/5 hover:bg-primary/[0.02] text-sm transition-colors" style={{ minWidth: TABLE_MIN_WIDTH, gridTemplateColumns: TABLE_GRID_COLS }}>
-      <div className="p-2 flex items-center justify-center">
+      <div
+        className="p-2 flex items-center justify-center cursor-pointer"
+        onClick={(e: React.MouseEvent) => { if (selectMode) onToggleSelect(contact.id, index, e.shiftKey); }}
+      >
         {selectMode ? (
-          <Checkbox checked={isSelected} onCheckedChange={() => {}} onClick={(e: React.MouseEvent) => { onToggleSelect(contact.id, index, e.shiftKey); }} />
+          <Checkbox checked={isSelected} tabIndex={-1} className="pointer-events-none" />
         ) : (
           <span className="text-xs text-muted-foreground tabular-nums">{index + 1}</span>
         )}
