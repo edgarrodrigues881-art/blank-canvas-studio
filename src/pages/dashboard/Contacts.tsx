@@ -222,6 +222,7 @@ const Contacts = () => {
   }, [contacts]);
 
 
+  const handleCreateTag = () => {
     const tag = createTagInput.trim().toLowerCase();
     if (!tag) return;
     if (customTags.includes(tag)) {
