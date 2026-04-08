@@ -431,8 +431,8 @@ export function ConversationList({
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between gap-2 mt-1">
-                        <div className="flex items-center gap-1 min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2 mt-1 overflow-hidden">
+                        <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
                           {c.lastMessageStatus && <MessageTicks status={c.lastMessageStatus} />}
                           <p className={cn(
                             "truncate",
