@@ -63,20 +63,24 @@ interface ContactRowProps {
   index: number;
   selectMode: boolean;
   isSelected: boolean;
-  onToggleSelect: (id: string, index: number, shiftKey: boolean) => void;
+  onToggleSelect: (id: string) => void;
+  onDragStart: (index: number) => void;
+  onDragEnter: (index: number) => void;
   onRemoveTag: (contactId: string, tag: string) => void;
   onDelete: (ids: string[]) => void;
   onEdit: (contact: Contact) => void;
   getTagColor: (tag: string) => string;
 }
 
-const ContactRow = memo(function ContactRow({ contact, index, selectMode, isSelected, onToggleSelect, onRemoveTag, onDelete, onEdit, getTagColor }: ContactRowProps): ReactElement {
+const ContactRow = memo(function ContactRow({ contact, index, selectMode, isSelected, onToggleSelect, onDragStart, onDragEnter, onRemoveTag, onDelete, onEdit, getTagColor }: ContactRowProps): ReactElement {
   return (
-    <div className="grid items-center border-b border-primary/5 hover:bg-primary/[0.02] text-sm transition-colors" style={{ minWidth: TABLE_MIN_WIDTH, gridTemplateColumns: TABLE_GRID_COLS }}>
-      <div
-        className="p-2 flex items-center justify-center cursor-pointer"
-        onClick={(e: React.MouseEvent) => { if (selectMode) onToggleSelect(contact.id, index, e.shiftKey); }}
-      >
+    <div
+      className="grid items-center border-b border-primary/5 hover:bg-primary/[0.02] text-sm transition-colors select-none"
+      style={{ minWidth: TABLE_MIN_WIDTH, gridTemplateColumns: TABLE_GRID_COLS }}
+      onMouseDown={() => { if (selectMode) { onToggleSelect(contact.id); onDragStart(index); } }}
+      onMouseEnter={() => { if (selectMode) onDragEnter(index); }}
+    >
+      <div className="p-2 flex items-center justify-center cursor-pointer">
         {selectMode ? (
           <Checkbox checked={isSelected} tabIndex={-1} className="pointer-events-none" />
         ) : (
@@ -271,26 +275,46 @@ const Contacts = () => {
     });
   }, [contacts, search, tagFilter]);
 
-  const lastClickedIndexRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartIndexRef = useRef<number | null>(null);
+  const dragModeRef = useRef<"add" | "remove">("add");
 
-  const toggleSelect = useCallback((id: string, index: number, shiftKey: boolean) => {
+  const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); dragModeRef.current = "remove"; }
+      else { next.add(id); dragModeRef.current = "add"; }
+      return next;
+    });
+  }, []);
 
-      if (shiftKey && lastClickedIndexRef.current !== null) {
-        const start = Math.min(lastClickedIndexRef.current, index);
-        const end = Math.max(lastClickedIndexRef.current, index);
-        for (let i = start; i <= end; i++) {
-          if (filtered[i]) next.add(filtered[i].id);
+  const handleDragStart = useCallback((index: number) => {
+    isDraggingRef.current = true;
+    dragStartIndexRef.current = index;
+  }, []);
+
+  const handleDragEnter = useCallback((index: number) => {
+    if (!isDraggingRef.current || dragStartIndexRef.current === null) return;
+    const start = Math.min(dragStartIndexRef.current, index);
+    const end = Math.max(dragStartIndexRef.current, index);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (let i = start; i <= end; i++) {
+        if (filtered[i]) {
+          if (dragModeRef.current === "add") next.add(filtered[i].id);
+          else next.delete(filtered[i].id);
         }
-      } else {
-        next.has(id) ? next.delete(id) : next.add(id);
       }
-
-      lastClickedIndexRef.current = index;
       return next;
     });
   }, [filtered]);
+
+  // Global mouseup to stop drag
+  useEffect(() => {
+    const handleMouseUp = () => { isDraggingRef.current = false; dragStartIndexRef.current = null; };
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => window.removeEventListener("mouseup", handleMouseUp);
+  }, []);
 
   const toggleAll = () => {
     if (selected.size === filtered.length) setSelected(new Set());
@@ -730,7 +754,7 @@ const Contacts = () => {
         ) : (
           <div style={{ maxHeight: filtered.length > 10 ? 480 : undefined, overflowY: filtered.length > 10 ? 'auto' : undefined }}>
             {filtered.map((contact, i) => (
-              <ContactRow key={contact.id} contact={contact} index={i} selectMode={selectMode} isSelected={selected.has(contact.id)} onToggleSelect={toggleSelect} onRemoveTag={removeTag} onDelete={handleDeleteIds} onEdit={openEditDialog} getTagColor={getTagColor} />
+              <ContactRow key={contact.id} contact={contact} index={i} selectMode={selectMode} isSelected={selected.has(contact.id)} onToggleSelect={toggleSelect} onDragStart={handleDragStart} onDragEnter={handleDragEnter} onRemoveTag={removeTag} onDelete={handleDeleteIds} onEdit={openEditDialog} getTagColor={getTagColor} />
             ))}
           </div>
         )}
