@@ -17,7 +17,7 @@ import {
   CheckCircle2, AlertCircle, RefreshCw, Copy, UserCheck, ShieldCheck, EyeOff
 } from "lucide-react";
 
-interface GroupInfo { jid: string; name: string; participants_count: number }
+interface GroupInfo { jid: string; name: string; participants_count: number; is_community?: boolean }
 interface ExtractedLead { phone: string; name: string; group_jid: string; group_name: string; is_admin: boolean }
 
 const ROW_HEIGHT = 40;
@@ -288,7 +288,14 @@ export default function GroupLeadExtractor() {
                   }`}>
                     <Checkbox checked={selectedGroups.has(g.jid)} onCheckedChange={() => toggleGroup(g.jid)} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{g.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium truncate">{g.name}</p>
+                        {g.is_community && (
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0 border-blue-500/40 text-blue-400">
+                            Comunidade
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-[11px] text-muted-foreground font-mono truncate">{g.jid}</p>
                     </div>
                     <Badge variant="secondary" className="shrink-0 text-[11px]">
