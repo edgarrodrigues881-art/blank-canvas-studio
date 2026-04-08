@@ -126,6 +126,8 @@ export function ConversationList({
   const [activeStatus, setActiveStatus] = useState<StatusTab>("all");
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [contextMenuId, setContextMenuId] = useState<string | null>(null);
+  const [contextPos, setContextPos] = useState({ x: 0, y: 0 });
 
   const toggleInstance = (id: string) => {
     if (!onFilterInstancesChange) return;
