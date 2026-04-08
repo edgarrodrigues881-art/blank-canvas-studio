@@ -41,6 +41,7 @@ interface GIStatusPanelProps {
   interaction: GroupInteraction;
   deviceName?: string;
   eligibleDevices?: any[];
+  allDevices?: any[];
   selectedDeviceId?: string | null;
   onDeviceChange?: (id: string) => void;
   onNameChange?: (name: string) => void;
@@ -55,6 +56,7 @@ export default function GIStatusPanel({
   interaction,
   deviceName,
   eligibleDevices = [],
+  allDevices,
   selectedDeviceId,
   onDeviceChange,
   onNameChange,
@@ -71,15 +73,15 @@ export default function GIStatusPanel({
   return (
     <div className="rounded-2xl border border-border/30 bg-card overflow-hidden">
       {/* Top row: Name + Status badge */}
-      <div className="flex items-center gap-3 px-5 pt-4 pb-3 border-b border-border/15">
+      <div className="flex items-center gap-3 px-4 pt-3 pb-2 border-b border-border/15">
         {onNameChange ? (
           <Input
             value={formName ?? interaction.name}
             onChange={(e) => onNameChange(e.target.value)}
-            className="h-8 text-sm font-semibold bg-muted/30 border border-border rounded-lg shadow-sm focus-visible:ring-2 focus-visible:ring-primary/40 px-2.5 flex-1"
+            className="h-7 text-xs font-medium bg-muted/30 border border-border rounded-md shadow-sm focus-visible:ring-2 focus-visible:ring-primary/40 px-2 flex-1 max-w-[300px]"
           />
         ) : (
-          <span className="text-sm font-semibold text-foreground flex-1 truncate">{interaction.name}</span>
+          <span className="text-xs font-semibold text-foreground flex-1 truncate">{interaction.name}</span>
         )}
         <Badge variant="outline" className={`text-[10px] shrink-0 ${cfg.color}`}>{cfg.label}</Badge>
       </div>
@@ -118,18 +120,28 @@ export default function GIStatusPanel({
         <div className="px-5 py-4 flex flex-col justify-center">
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-medium mb-2">Dispositivo</span>
           {onDeviceChange ? (
-            <Select value={selectedDeviceId || ""} onValueChange={onDeviceChange}>
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder="Selecionar" />
-              </SelectTrigger>
-              <SelectContent>
-                {eligibleDevices.map((d: any) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name} {d.number ? `(${d.number})` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            (() => {
+              const devicesToShow = allDevices || eligibleDevices;
+              const eligibleIds = new Set(eligibleDevices.map((d: any) => d.id));
+              return (
+                <Select value={selectedDeviceId || ""} onValueChange={onDeviceChange}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Selecionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {devicesToShow.map((d: any) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        <span className="flex items-center gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${eligibleIds.has(d.id) ? "bg-emerald-500" : "bg-destructive"}`} />
+                          {d.name} {d.number ? `(${d.number})` : ""}
+                          {!eligibleIds.has(d.id) && <span className="text-[10px] text-destructive">(offline)</span>}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              );
+            })()
           ) : (
             <span className="text-sm font-semibold text-foreground">{deviceName || "—"}</span>
           )}
@@ -162,7 +174,7 @@ export default function GIStatusPanel({
               <Button
                 size="sm"
                 variant="ghost"
-                className="w-full text-muted-foreground/40 hover:text-destructive h-8 text-xs"
+                className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 h-8 text-xs"
                 onClick={onDelete}
               >
                 <Trash2 className="w-3.5 h-3.5 mr-1" /> Excluir
