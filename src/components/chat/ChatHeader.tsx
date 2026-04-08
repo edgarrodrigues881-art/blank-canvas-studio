@@ -95,10 +95,9 @@ export const ChatHeader = memo(function ChatHeader({
         </div>
 
         {/* Name + phone + status badge */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-foreground truncate">{conversation.name}</p>
-            {/* Status badge inline */}
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="text-sm font-semibold text-foreground truncate shrink min-w-0">{conversation.name}</p>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className={cn(
