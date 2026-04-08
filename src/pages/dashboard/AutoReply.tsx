@@ -238,11 +238,11 @@ function FlowCanvas() {
       setDeviceId((data as any).device_id || null);
 
       if (Array.isArray(data.nodes) && data.nodes.length > 0) {
-        setNodes(data.nodes as Node<FlowNodeData>[]);
+        setNodes(data.nodes as unknown as Node<FlowNodeData>[]);
       }
 
       if (Array.isArray(data.edges)) {
-        setEdges(data.edges as Edge[]);
+        setEdges(data.edges as unknown as Edge[]);
       }
 
       setUndoStack([]);
