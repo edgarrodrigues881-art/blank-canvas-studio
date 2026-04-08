@@ -37,7 +37,7 @@ export default function ServiceContacts() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ServiceContact | null>(null);
-  const [form, setForm] = useState({ name: "", phone: "", email: "", notes: "", tags: "" });
+  const [form, setForm] = useState({ name: "", phone: "", email: "", company: "", notes: "", tags: "" });
   const fileRef = useRef<HTMLInputElement>(null);
 
   const fetchContacts = useCallback(async () => {
