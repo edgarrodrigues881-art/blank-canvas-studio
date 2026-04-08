@@ -70,7 +70,7 @@ export default function ServiceContacts() {
 
   const openEdit = (c: ServiceContact) => {
     setEditing(c);
-    setForm({ name: c.name, phone: c.phone, email: c.email || "", notes: c.notes || "", tags: (c.tags || []).join(", ") });
+    setForm({ name: c.name, phone: c.phone, email: c.email || "", company: c.company || "", notes: c.notes || "", tags: (c.tags || []).join(", ") });
     setDialogOpen(true);
   };
 
