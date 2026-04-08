@@ -142,7 +142,8 @@ export default function GIStatusPanel({
         </div>
 
         {/* Divider */}
-        <div className="bg-border/20" />
+        <div className="hidden md:block bg-border/20" />
+        <div className="md:hidden border-t border-border/20" />
 
         {/* Col 3: Actions */}
         {onAction && (
