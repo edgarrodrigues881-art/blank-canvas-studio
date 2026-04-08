@@ -9,6 +9,7 @@ import {
   MailOpen,
   Archive,
   X,
+  CheckSquare,
 } from "lucide-react";
 import { PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Button } from "@/components/ui/button";
