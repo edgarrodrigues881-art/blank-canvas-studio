@@ -340,15 +340,24 @@ Deno.serve(async (req) => {
           if (buttonResponseId) {
             const { data: activeSession } = await admin
               .from("autoreply_sessions")
-              .select("id")
+              .select("id, status")
               .eq("device_id", device.id)
               .eq("contact_phone", phone)
-              .in("status", ["active", "paused", "waiting_response"])
               .order("updated_at", { ascending: false })
               .limit(1)
               .maybeSingle();
 
-            if (!activeSession) {
+            // If the most recent session is completed, skip recovery and don't enqueue
+            // This prevents repeated button clicks from re-triggering the flow
+            if (activeSession?.status === "completed") {
+              console.log(`Button click ignored: session already completed for ${phone}`);
+              // Skip enqueue entirely for completed flows
+              return json({ ok: true, skipped: "button_already_used" });
+            }
+
+            const isActive = activeSession && ["active", "paused", "waiting_response"].includes(activeSession.status);
+
+            if (!isActive) {
               const recovered = findFlowButtonOrigin(activeFlows as ActiveFlowConfig[], buttonResponseId, device.id);
               if (recovered) {
                 const { error: sessionErr } = await admin.from("autoreply_sessions").upsert({
