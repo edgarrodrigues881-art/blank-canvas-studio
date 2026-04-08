@@ -1423,7 +1423,7 @@ const WarmupInstanceDetail = () => {
                 handleStartWarmup();
               }
             }}
-            disabled={!isConnected || engine.isPending}
+            disabled={!isConnected || engine.isPending || !!isPlanExpired}
           >
             {engine.isPending ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -1432,8 +1432,11 @@ const WarmupInstanceDetail = () => {
             )}
             {isTerminalCycle ? "Começar Novo Aquecimento" : "Começar Aquecimento"}
           </Button>
-          {!isConnected && (
+          {!isConnected && !isPlanExpired && (
             <p className="text-xs text-amber-400 text-center -mt-2 font-semibold">⚠ Conecte a instância primeiro para iniciar</p>
+          )}
+          {isPlanExpired && (
+            <p className="text-xs text-destructive text-center -mt-2 font-semibold">⚠ Ative seu plano para iniciar o aquecimento</p>
           )}
         </div>
       )}
