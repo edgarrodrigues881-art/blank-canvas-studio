@@ -443,8 +443,8 @@ function ConversationCard({
         {/* Error Banner — hide transient infrastructure errors from the user */}
         {(() => {
           const rawError = conv.last_error;
-          const isTransient = rawError && /502|503|504|Bad Gateway|Service Unavailable|Gateway Timeout|ECONNREFUSED|ECONNRESET|ETIMEDOUT|socket hang up/i.test(rawError);
-          const visibleError = invalidReason || (rawError && !isTransient ? rawError : null);
+          const isTransient = rawError && /502|503|504|Bad Gateway|Service Unavailable|Gateway Timeout|ECONNREFUSED|ECONNRESET|ETIMEDOUT|socket hang up|failed to|Image:\s*500/i.test(rawError);
+          const visibleError = invalidReason && !/Instância offline/i.test(invalidReason) ? invalidReason : (rawError && !isTransient ? rawError : null);
           return visibleError ? (
             <div className="mb-3 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20">
               <p className="text-xs text-destructive font-medium truncate">{visibleError}</p>
