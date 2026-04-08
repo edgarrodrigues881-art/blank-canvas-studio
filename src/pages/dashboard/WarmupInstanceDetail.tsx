@@ -280,6 +280,7 @@ const WarmupInstanceDetail = () => {
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [showShortDaysWarning, setShowShortDaysWarning] = useState(false);
   const [showAdvanceConfirm, setShowAdvanceConfirm] = useState(false);
+  const [skipTargetDay, setSkipTargetDay] = useState<number | null>(null);
   const [showAccelerateConfirm, setShowAccelerateConfirm] = useState(false);
   const [accelerating, setAccelerating] = useState(false);
   const [advancingPhase, setAdvancingPhase] = useState(false);
@@ -703,12 +704,11 @@ const WarmupInstanceDetail = () => {
     }
   };
 
-  /* advance day: skip current day's jobs, move to next day (or complete if last day) */
-  const handleAdvancePhase = async () => {
+  /* advance day: skip current day's jobs, move to target day (or next day if no target) */
+  const handleAdvancePhase = async (targetDay?: number) => {
     if (!deviceId || !cycle) return;
     setAdvancingPhase(true);
     try {
-      // Always read latest cycle from DB to avoid stale UI/cache
       const { data: latestCycle, error: latestErr } = await supabase
         .from("warmup_cycles")
         .select("id, phase, day_index, days_total, chip_state")
@@ -716,13 +716,12 @@ const WarmupInstanceDetail = () => {
         .single();
       if (latestErr) throw latestErr;
 
-      // If already completed, nothing to do
       if (latestCycle.phase === "completed") {
         toast({ title: "Ciclo já concluído", description: "Este ciclo já foi finalizado." });
         return;
       }
 
-      const newDayIndex = (latestCycle.day_index || 1) + 1;
+      const newDayIndex = targetDay || ((latestCycle.day_index || 1) + 1);
       const isLastDay = newDayIndex > (latestCycle.days_total || 30);
       const finalDayIndex = isLastDay ? latestCycle.days_total : newDayIndex;
       
@@ -1274,7 +1273,7 @@ const WarmupInstanceDetail = () => {
                   </button>
                   <button
                     className="group flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500/20 hover:border-purple-400/40 hover:shadow-[0_0_12px_rgba(168,85,247,0.15)] transition-all duration-200 disabled:opacity-40 disabled:hover:shadow-none"
-                    onClick={() => setShowAdvanceConfirm(true)}
+                    onClick={() => { setSkipTargetDay((cycle?.day_index || 1) + 1); setShowAdvanceConfirm(true); }}
                     disabled={advancingPhase || cycle.phase === "completed"}
                   >
                     {advancingPhase ? <Loader2 className="w-4 h-4 animate-spin" /> : <SkipForward className="w-4 h-4 group-hover:scale-110 transition-transform" />}
@@ -2231,21 +2230,41 @@ const WarmupInstanceDetail = () => {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-foreground">
                   <AlertTriangle className="w-5 h-5 text-amber-400" />
-                  Pular dia?
+                  Pular para qual dia?
                 </DialogTitle>
               </DialogHeader>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>Avançar o dia manualmente <strong className="text-foreground">cancela as tarefas pendentes do dia atual</strong> e agenda novas para o próximo dia.</p>
-                <p>O aquecimento gradual existe para proteger seu número contra restrições e banimentos do WhatsApp.</p>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <p>Selecione o dia para onde deseja avançar. As tarefas pendentes do dia atual serão canceladas.</p>
                 {cycle && (
-                  <p className="text-xs bg-muted/30 rounded-lg p-2.5 border border-border/30">
-                    <span className="font-semibold text-foreground">Dia {cycle.day_index}</span>
-                    <span className="mx-1.5">→</span>
-                    <span className="font-semibold text-foreground">
-                      {cycle.day_index + 1 > cycle.days_total ? "Concluído" : `Dia ${cycle.day_index + 1}`}
-                    </span>
-                    <span className="text-muted-foreground/60 ml-1">/ {cycle.days_total}</span>
-                  </p>
+                  <>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {Array.from({ length: (cycle.days_total || 7) - (cycle.day_index || 1) }, (_, i) => {
+                        const day = (cycle.day_index || 1) + 1 + i;
+                        const isSelected = skipTargetDay === day;
+                        return (
+                          <button
+                            key={day}
+                            onClick={() => setSkipTargetDay(day)}
+                            className={`py-2 px-1 rounded-lg text-xs font-bold transition-all border ${
+                              isSelected
+                                ? "bg-purple-500/20 border-purple-400/50 text-purple-300 shadow-[0_0_8px_rgba(168,85,247,0.2)]"
+                                : "bg-muted/20 border-border/30 text-muted-foreground hover:bg-muted/40 hover:border-border/50"
+                            }`}
+                          >
+                            Dia {day}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs bg-muted/30 rounded-lg p-2.5 border border-border/30">
+                      <span className="font-semibold text-foreground">Dia {cycle.day_index}</span>
+                      <span className="mx-1.5">→</span>
+                      <span className="font-semibold text-foreground">
+                        {skipTargetDay && skipTargetDay > cycle.days_total ? "Concluído" : `Dia ${skipTargetDay || (cycle.day_index + 1)}`}
+                      </span>
+                      <span className="text-muted-foreground/60 ml-1">/ {cycle.days_total}</span>
+                    </p>
+                  </>
                 )}
               </div>
               <DialogFooter className="gap-2 sm:gap-2">
@@ -2253,13 +2272,13 @@ const WarmupInstanceDetail = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
-                  onClick={() => { setShowAdvanceConfirm(false); handleAdvancePhase(); }}
+                  className="gap-1.5 border-purple-500/30 text-purple-400 hover:bg-purple-500/10 hover:text-purple-300"
+                  onClick={() => { setShowAdvanceConfirm(false); handleAdvancePhase(skipTargetDay || undefined); }}
                   disabled={advancingPhase}
                 >
                   {advancingPhase && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <SkipForward className="w-3.5 h-3.5" />
-                  Confirmar avanço
+                  Pular para dia {skipTargetDay || ((cycle?.day_index || 1) + 1)}
                 </Button>
               </DialogFooter>
             </DialogContent>
