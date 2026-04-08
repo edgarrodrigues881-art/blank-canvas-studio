@@ -1192,6 +1192,26 @@ const WarmupInstanceDetail = () => {
   return (
     <div className="w-full space-y-6 pb-8">
 
+      {/* Plan expired banner */}
+      {isPlanExpired && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive">
+          <AlertTriangle className="w-5 h-5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold">
+              {planStatus?.suspended ? "Conta suspensa" : "Plano expirado"}
+            </p>
+            <p className="text-xs opacity-80">
+              {planStatus?.suspended
+                ? "Sua conta está suspensa. Entre em contato com o suporte."
+                : "Seu plano está inativo. Ative um plano para usar o aquecimento."}
+            </p>
+          </div>
+          <Button size="sm" variant="destructive" className="shrink-0 text-xs" onClick={() => navigate("/dashboard/my-plan")}>
+            Ver Planos
+          </Button>
+        </div>
+      )}
+
       {/* ═══════════ HERO HEADER ═══════════ */}
       <div className="relative rounded-2xl border border-primary/20 bg-card/60 backdrop-blur-xl overflow-hidden shadow-[0_0_40px_-12px_hsl(var(--primary)/0.15)]">
         {/* ambient glow */}
