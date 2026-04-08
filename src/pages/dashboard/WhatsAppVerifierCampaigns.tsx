@@ -869,7 +869,7 @@ export default function WhatsAppVerifierCampaigns() {
                     }));
                     const { error, data } = await supabase.from("contacts").upsert(batch, { onConflict: "user_id,phone", ignoreDuplicates: true });
                     if (error) throw error;
-                    inserted += data?.length || batch.length;
+                    inserted += batch.length;
                   }
                   toast.success(`${inserted} contatos adicionados à sua base!`);
                 } catch (err: any) {
