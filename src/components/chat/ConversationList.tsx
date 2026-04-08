@@ -349,7 +349,7 @@ export function ConversationList({
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 min-w-0 py-0.5">
+                    <div className="flex-1 min-w-0 max-w-[calc(100%-60px)] py-0.5">
                       {/* Row 1: Name + Time */}
                       <div className="flex items-baseline justify-between gap-2">
                         <span className={cn(
