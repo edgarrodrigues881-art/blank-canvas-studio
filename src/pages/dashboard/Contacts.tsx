@@ -790,7 +790,7 @@ const Contacts = () => {
         ) : filtered.length === 0 ? (
           <div className="text-center py-8 text-sm text-muted-foreground">Nenhum contato encontrado</div>
         ) : (
-          <div style={{ maxHeight: filtered.length > 10 ? 480 : undefined, overflowY: filtered.length > 10 ? 'auto' : undefined }}>
+          <div ref={scrollContainerRef} style={{ maxHeight: filtered.length > 10 ? 480 : undefined, overflowY: filtered.length > 10 ? 'auto' : undefined }}>
             {filtered.map((contact, i) => (
               <ContactRow key={contact.id} contact={contact} index={i} selectMode={selectMode} isSelected={selected.has(contact.id)} onToggleSelect={toggleSelect} onDragStart={handleDragStart} onDragEnter={handleDragEnter} onRemoveTag={removeTag} onDelete={handleDeleteIds} onEdit={openEditDialog} getTagColor={getTagColor} />
             ))}
