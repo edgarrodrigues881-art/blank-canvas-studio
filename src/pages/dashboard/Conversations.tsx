@@ -294,6 +294,14 @@ const Conversations = () => {
     [sendFileMessage, selectedInstanceId]
   );
 
+  const handleDeleteMessage = useCallback(
+    (msg: any) => {
+      if (!confirm("Apagar esta mensagem para todos?")) return;
+      deleteMessage(msg.id, msg.conversationId, msg.whatsappMessageId);
+    },
+    [deleteMessage]
+  );
+
   const handleStatusChange = useCallback(
     (conversationId: string, newStatus: AttendingStatus) => {
       updateStatus(conversationId, newStatus);
