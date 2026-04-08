@@ -419,7 +419,7 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
         <AlertTriangle className="h-4 w-4 text-amber-500" />
         <AlertTitle className="text-amber-500 font-semibold">Instabilidade temporária</AlertTitle>
         <AlertDescription className="text-muted-foreground text-sm">
-          A função de Adição em Massa está passando por instabilidades. Estamos trabalhando para resolver o problema o mais rápido possível. Caso encontre erros, aguarde alguns minutos e tente novamente.
+          A função de Adição em Massa está passando por instabilidades. Estamos trabalhando para resolver o problema o mais rápido possível. Caso encontre erros, entre em contato com o suporte para que possamos resolver.
         </AlertDescription>
       </Alert>
       {/* Top bar — search + create */}
