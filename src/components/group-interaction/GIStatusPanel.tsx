@@ -71,15 +71,15 @@ export default function GIStatusPanel({
   return (
     <div className="rounded-2xl border border-border/30 bg-card overflow-hidden">
       {/* Top row: Name + Status badge */}
-      <div className="flex items-center gap-3 px-5 pt-4 pb-3 border-b border-border/15">
+      <div className="flex items-center gap-3 px-4 pt-3 pb-2 border-b border-border/15">
         {onNameChange ? (
           <Input
             value={formName ?? interaction.name}
             onChange={(e) => onNameChange(e.target.value)}
-            className="h-8 text-sm font-semibold bg-muted/30 border border-border rounded-lg shadow-sm focus-visible:ring-2 focus-visible:ring-primary/40 px-2.5 flex-1"
+            className="h-7 text-xs font-medium bg-muted/30 border border-border rounded-md shadow-sm focus-visible:ring-2 focus-visible:ring-primary/40 px-2 flex-1 max-w-[300px]"
           />
         ) : (
-          <span className="text-sm font-semibold text-foreground flex-1 truncate">{interaction.name}</span>
+          <span className="text-xs font-semibold text-foreground flex-1 truncate">{interaction.name}</span>
         )}
         <Badge variant="outline" className={`text-[10px] shrink-0 ${cfg.color}`}>{cfg.label}</Badge>
       </div>
