@@ -63,7 +63,7 @@ interface ContactRowProps {
   index: number;
   selectMode: boolean;
   isSelected: boolean;
-  onToggleSelect: (id: string) => void;
+  onToggleSelect: (id: string, index: number, shiftKey: boolean) => void;
   onRemoveTag: (contactId: string, tag: string) => void;
   onDelete: (ids: string[]) => void;
   onEdit: (contact: Contact) => void;
@@ -75,9 +75,9 @@ const ContactRow = memo(function ContactRow({ contact, index, selectMode, isSele
     <div className="grid items-center border-b border-primary/5 hover:bg-primary/[0.02] text-sm transition-colors" style={{ minWidth: TABLE_MIN_WIDTH, gridTemplateColumns: TABLE_GRID_COLS }}>
       <div className="p-2 flex items-center justify-center">
         {selectMode ? (
-          <Checkbox checked={isSelected} onCheckedChange={() => onToggleSelect(contact.id)} />
+          <Checkbox checked={isSelected} onCheckedChange={() => {}} onClick={(e: React.MouseEvent) => { onToggleSelect(contact.id, index, e.shiftKey); }} />
         ) : (
-          <span className="text-xs text-muted-foreground tabular-nums">{index}</span>
+          <span className="text-xs text-muted-foreground tabular-nums">{index + 1}</span>
         )}
       </div>
       <div className="p-2 font-medium text-foreground truncate">{contact.name}</div>
@@ -268,13 +268,26 @@ const Contacts = () => {
     });
   }, [contacts, search, tagFilter]);
 
-  const toggleSelect = (id: string) => {
+  const lastClickedIndexRef = useRef<number | null>(null);
+
+  const toggleSelect = useCallback((id: string, index: number, shiftKey: boolean) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+
+      if (shiftKey && lastClickedIndexRef.current !== null) {
+        const start = Math.min(lastClickedIndexRef.current, index);
+        const end = Math.max(lastClickedIndexRef.current, index);
+        for (let i = start; i <= end; i++) {
+          if (filtered[i]) next.add(filtered[i].id);
+        }
+      } else {
+        next.has(id) ? next.delete(id) : next.add(id);
+      }
+
+      lastClickedIndexRef.current = index;
       return next;
     });
-  };
+  }, [filtered]);
 
   const toggleAll = () => {
     if (selected.size === filtered.length) setSelected(new Set());
@@ -714,7 +727,7 @@ const Contacts = () => {
         ) : (
           <div style={{ maxHeight: filtered.length > 10 ? 480 : undefined, overflowY: filtered.length > 10 ? 'auto' : undefined }}>
             {filtered.map((contact, i) => (
-              <ContactRow key={contact.id} contact={contact} index={i + 1} selectMode={selectMode} isSelected={selected.has(contact.id)} onToggleSelect={toggleSelect} onRemoveTag={removeTag} onDelete={handleDeleteIds} onEdit={openEditDialog} getTagColor={getTagColor} />
+              <ContactRow key={contact.id} contact={contact} index={i} selectMode={selectMode} isSelected={selected.has(contact.id)} onToggleSelect={toggleSelect} onRemoveTag={removeTag} onDelete={handleDeleteIds} onEdit={openEditDialog} getTagColor={getTagColor} />
             ))}
           </div>
         )}
