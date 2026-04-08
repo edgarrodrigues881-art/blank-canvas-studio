@@ -268,13 +268,26 @@ const Contacts = () => {
     });
   }, [contacts, search, tagFilter]);
 
-  const toggleSelect = (id: string) => {
+  const lastClickedIndexRef = useRef<number | null>(null);
+
+  const toggleSelect = useCallback((id: string, index: number, shiftKey: boolean) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+
+      if (shiftKey && lastClickedIndexRef.current !== null) {
+        const start = Math.min(lastClickedIndexRef.current, index);
+        const end = Math.max(lastClickedIndexRef.current, index);
+        for (let i = start; i <= end; i++) {
+          if (filtered[i]) next.add(filtered[i].id);
+        }
+      } else {
+        next.has(id) ? next.delete(id) : next.add(id);
+      }
+
+      lastClickedIndexRef.current = index;
       return next;
     });
-  };
+  }, [filtered]);
 
   const toggleAll = () => {
     if (selected.size === filtered.length) setSelected(new Set());
