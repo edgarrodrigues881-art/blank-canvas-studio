@@ -532,7 +532,7 @@ export function ChatPanel({
             </div>
           </div>
         )}
-      <div className="px-3 py-2.5">
+      <div className="px-3 py-1.5">
         {isRecording ? (
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" className="w-9 h-9 shrink-0 text-red-400 hover:text-red-300" onClick={cancelRecording}>
