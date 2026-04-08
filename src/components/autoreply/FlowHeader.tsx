@@ -26,6 +26,10 @@ interface Props {
   nodes: Node<FlowNodeData>[];
   edges?: { id: string; source: string; target: string }[];
   isDirty?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
 const onlineStatuses = new Set(["connected", "Connected", "Ready", "ready", "authenticated"]);
