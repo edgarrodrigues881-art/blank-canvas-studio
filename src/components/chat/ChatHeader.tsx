@@ -148,6 +148,9 @@ export const ChatHeader = memo(function ChatHeader({
               <DropdownMenuItem onClick={() => onSelectMessages?.()} className="gap-2 cursor-pointer">
                 <CheckSquare className="w-4 h-4" /> Selecionar mensagens
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={onToggleDetails} className="gap-2 cursor-pointer lg:hidden">
+                <PanelRightOpen className="w-4 h-4" /> Detalhes
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => { onArchive?.(conversation.id); onBack(); }} className="gap-2 cursor-pointer">
                 <Archive className="w-4 h-4" /> Arquivar
               </DropdownMenuItem>
