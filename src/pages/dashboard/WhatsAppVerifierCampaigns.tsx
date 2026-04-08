@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import {
   Search, Download, Loader2, Smartphone, Copy, Plus, CheckCircle2,
   XCircle, AlertTriangle, Phone, Upload, ArrowLeft, Trash2, StopCircle,
-  Clock, Play, History, Pause, RefreshCw, FileSpreadsheet, Variable,
+  Clock, Play, History, Pause, RefreshCw, FileSpreadsheet, Variable, Users,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
@@ -164,7 +164,7 @@ export default function WhatsAppVerifierCampaigns() {
         .select("*")
         .eq("job_id", selectedJobId)
         .order("created_at", { ascending: true })
-        .limit(500);
+        .limit(5000);
       if (error) throw error;
       return data || [];
     },
@@ -815,18 +815,6 @@ export default function WhatsAppVerifierCampaigns() {
         {sortedResults.length > 0 && (
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" disabled={validResults.length === 0} onClick={() => {
-              const lines = validResults.map((r: any) => {
-                const parts = [r.phone];
-                if (r.var1) parts.push(r.var1);
-                if (r.var2) parts.push(r.var2);
-                if (r.var3) parts.push(r.var3);
-                return parts.join(" | ");
-              });
-              navigator.clipboard.writeText(lines.join("\n"));
-              toast.success(`${validResults.length} números copiados!`);
-            }}><Copy className="w-3.5 h-3.5 mr-1.5" /> Copiar válidos ({validResults.length})</Button>
-
-            <Button variant="outline" size="sm" disabled={validResults.length === 0} onClick={() => {
               const headerCols = ["Número"];
               if (activeVars.length > 0) activeVars.forEach((n) => headerCols.push(`Var${n}`));
               const header = "\uFEFF" + headerCols.join(";") + "\n";
@@ -837,7 +825,7 @@ export default function WhatsAppVerifierCampaigns() {
               }).join("\n");
               const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8" });
               triggerDownload(blob, `validos_${job.name.replace(/\s+/g, "_")}.csv`);
-            }}><Download className="w-3.5 h-3.5 mr-1.5" /> Exportar válidos</Button>
+            }}><Download className="w-3.5 h-3.5 mr-1.5" /> Exportar válidos ({validResults.length})</Button>
 
             <Button variant="outline" size="sm" onClick={() => {
               const headerCols = ["Número", "Status"];
@@ -851,6 +839,60 @@ export default function WhatsAppVerifierCampaigns() {
               const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8" });
               triggerDownload(blob, `verificacao_${job.name.replace(/\s+/g, "_")}.csv`);
             }}><Download className="w-3.5 h-3.5 mr-1.5" /> Exportar tudo</Button>
+
+            <Button
+              variant="default"
+              size="sm"
+              disabled={validResults.length === 0}
+              className="bg-primary hover:bg-primary/90 gap-1.5"
+              onClick={async () => {
+                if (!user || validResults.length === 0) return;
+                try {
+                  // Fetch existing phones to avoid duplicates
+                  const phonesToCheck = validResults.map((r: any) => r.phone);
+                  const { data: existing } = await supabase
+                    .from("contacts")
+                    .select("phone")
+                    .eq("user_id", user.id)
+                    .in("phone", phonesToCheck.slice(0, 1000));
+                  const existingSet = new Set((existing || []).map((c: any) => c.phone));
+
+                  const newContacts = validResults.filter((r: any) => !existingSet.has(r.phone));
+                  if (newContacts.length === 0) {
+                    toast.info("Todos os números já estão nos seus contatos!");
+                    return;
+                  }
+
+                  const batchSize = 200;
+                  let inserted = 0;
+                  for (let i = 0; i < newContacts.length; i += batchSize) {
+                    const batch = newContacts.slice(i, i + batchSize).map((r: any) => ({
+                      user_id: user.id,
+                      phone: r.phone,
+                      name: r.var1 || r.phone,
+                      var1: r.var1 || "",
+                      var2: r.var2 || "",
+                      var3: r.var3 || "",
+                      var4: r.var4 || "",
+                      var5: r.var5 || "",
+                      var6: "",
+                      var7: "",
+                      var8: "",
+                      var9: "",
+                      var10: "",
+                    }));
+                    const { error } = await supabase.from("contacts").insert(batch);
+                    if (error) throw error;
+                    inserted += batch.length;
+                  }
+                  toast.success(`${inserted} contatos adicionados! (${existingSet.size > 0 ? existingSet.size + " já existiam" : "nenhum duplicado"})`);
+                } catch (err: any) {
+                  toast.error("Erro ao importar: " + (err?.message || ""));
+                }
+              }}
+            >
+              <Users className="w-3.5 h-3.5" /> Adicionar aos Contatos ({validResults.length})
+            </Button>
 
             {(() => {
               const pendingResults = sortedResults.filter((r: any) => r.status === "pending");
