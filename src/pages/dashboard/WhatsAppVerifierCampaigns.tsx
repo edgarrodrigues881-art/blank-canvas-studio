@@ -819,6 +819,25 @@ export default function WhatsAppVerifierCampaigns() {
               const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8" });
               triggerDownload(blob, `verificacao_${job.name.replace(/\s+/g, "_")}.csv`);
             }}><Download className="w-3.5 h-3.5 mr-1.5" /> Exportar tudo</Button>
+
+            {(() => {
+              const pendingResults = sortedResults.filter((r: any) => r.status === "pending");
+              if (pendingResults.length === 0) return null;
+              return (
+                <Button variant="outline" size="sm" onClick={() => {
+                  const headerCols = ["Número"];
+                  if (activeVars.length > 0) activeVars.forEach((n) => headerCols.push(`Var${n}`));
+                  const header = "\uFEFF" + headerCols.join(";") + "\n";
+                  const rows = pendingResults.map((r: any) => {
+                    const cols = [r.phone];
+                    if (activeVars.length > 0) activeVars.forEach((n) => cols.push(r[`var${n}`] || ""));
+                    return cols.join(";");
+                  }).join("\n");
+                  const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8" });
+                  triggerDownload(blob, `pendentes_${job.name.replace(/\s+/g, "_")}.csv`);
+                }}><Download className="w-3.5 h-3.5 mr-1.5" /> Exportar pendentes ({pendingResults.length})</Button>
+              );
+            })()}
           </div>
         )}
 
