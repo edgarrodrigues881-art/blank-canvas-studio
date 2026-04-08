@@ -147,7 +147,7 @@ export default function GIStatusPanel({
 
         {/* Col 3: Actions */}
         {onAction && (
-          <div className="px-5 py-4 flex flex-col items-center justify-center gap-2 min-w-[120px]">
+          <div className="px-5 py-4 flex flex-row md:flex-col items-center justify-center gap-2 md:min-w-[120px]">
             {status === "running" ? (
               <button
                 onClick={() => onAction("pause")}
