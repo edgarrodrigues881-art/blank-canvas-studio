@@ -368,6 +368,20 @@ export function ChatPanel({
   // Exit selection mode on conversation change
   useEffect(() => { exitSelectionMode(); }, [conversation.id]);
 
+  // Scroll to quoted message
+  const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
+  const handleScrollToQuoted = useCallback((quotedWaId: string) => {
+    // Find message by whatsapp_message_id or id
+    const target = messages.find((m) => m.whatsappMessageId === quotedWaId || m.id === quotedWaId);
+    if (!target) return;
+    const el = document.getElementById(`msg-${target.id}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedMsgId(target.id);
+      setTimeout(() => setHighlightedMsgId(null), 2000);
+    }
+  }, [messages]);
+
   return (
     <div className="flex flex-col h-full min-w-0 max-w-full overflow-hidden">
       <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageInput} />
