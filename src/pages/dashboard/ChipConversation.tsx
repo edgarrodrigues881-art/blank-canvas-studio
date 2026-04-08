@@ -454,117 +454,46 @@ function ConversationCard({
 
         {/* Actions */}
         <div className="flex items-center gap-3 pt-3 border-t border-border/10">
-          {displayStatus === "idle" || displayStatus === "completed" ? (
-            <>
-              <button
-                onClick={() => handleAction("start")}
-                disabled={isActionLoading || Boolean(invalidReason)}
-                className="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-colors"
-              >
-                {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" strokeWidth={1.8} />}
-                Iniciar
-              </button>
-              <div className="flex-1" />
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <button className="text-muted-foreground/30 hover:text-destructive transition-colors p-1">
-                    <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
-                  </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Excluir conversa?</AlertDialogTitle>
-                    <AlertDialogDescription>A conversa e logs serão removidos.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={onDelete}>Excluir</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </>
-          ) : displayStatus === "running" ? (
+          {displayStatus === "running" ? (
             <>
               <button
                 onClick={() => handleAction("pause")}
                 disabled={isActionLoading}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 disabled:opacity-40 text-xs font-medium transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 disabled:opacity-40 text-xs font-medium transition-all"
               >
                 <Pause className="w-3.5 h-3.5" strokeWidth={1.8} /> Pausar
               </button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <button
-                    disabled={isActionLoading}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:border-destructive/50 disabled:opacity-40 text-xs font-medium transition-all"
-                  >
-                    <XCircle className="w-3.5 h-3.5" strokeWidth={1.8} /> Parar
-                  </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Parar conversa?</AlertDialogTitle>
-                    <AlertDialogDescription>A conversa será encerrada.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Fechar</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleAction("stop")}>Parar</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <button className="text-muted-foreground/30 hover:text-destructive transition-colors p-1 ml-1">
-                    <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
-                  </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Excluir conversa?</AlertDialogTitle>
-                    <AlertDialogDescription>A conversa e logs serão removidos.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={onDelete}>Excluir</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
             </>
-          ) : displayStatus === "paused" ? (
+          ) : (
             <>
               <button
-                onClick={() => handleAction("resume")}
+                onClick={() => displayStatus === "paused" ? handleAction("resume") : handleAction("start")}
                 disabled={isActionLoading || Boolean(invalidReason)}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-all"
               >
-                <RotateCcw className="w-3.5 h-3.5" strokeWidth={1.8} /> Retomar
+                {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" strokeWidth={1.8} />}
+                {displayStatus === "paused" ? "Retomar" : "Iniciar"}
               </button>
-              <button
-                onClick={() => handleAction("stop")}
-                disabled={isActionLoading}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:border-destructive/50 disabled:opacity-40 text-xs font-medium transition-all"
-              >
-                <XCircle className="w-3.5 h-3.5" strokeWidth={1.8} /> Parar
-              </button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <button className="text-muted-foreground/30 hover:text-destructive transition-colors p-1 ml-1">
-                    <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
-                  </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Excluir conversa?</AlertDialogTitle>
-                    <AlertDialogDescription>A conversa e logs serão removidos.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={onDelete}>Excluir</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
             </>
-          ) : null}
+          )}
+          <div className="flex-1" />
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button className="text-destructive hover:text-destructive/80 transition-colors p-1">
+                <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Excluir conversa?</AlertDialogTitle>
+                <AlertDialogDescription>A conversa e logs serão removidos.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={onDelete}>Excluir</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
@@ -707,152 +636,136 @@ function CreateConversationForm({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Name */}
-      <div className="space-y-2">
-        <Label>Nome da conversa</Label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Aquecimento chips A-B" />
+    <div className="space-y-4">
+      {/* Name — compact */}
+      <div className="rounded-2xl border border-border/30 bg-card overflow-hidden">
+        <div className="px-5 py-4">
+          <div className="flex items-center gap-2 text-muted-foreground mb-2">
+            <MessageCircle className="w-3.5 h-3.5" />
+            <span className="text-xs font-semibold uppercase tracking-wider">Identificação</span>
+          </div>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ex: Aquecimento chips A-B"
+            className="h-9 text-sm bg-muted/30 border border-border rounded-md"
+          />
+        </div>
       </div>
 
-      {/* Device Selection */}
-      <div className="space-y-2">
-        <Label>Selecione os chips (mín. 2)</Label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[200px] overflow-y-auto rounded-lg border border-border p-2">
-          {devices.length === 0 ? (
-            <p className="text-sm text-muted-foreground col-span-2 text-center py-4">
-              Nenhum dispositivo encontrado
-            </p>
-          ) : (
-            devices.map((device) => {
-              const selected = selectedDevices.includes(device.id);
-              const isConnected = isConversationDeviceConnected(device);
-              const isOffline = !isConnected;
-              return (
+      {/* Device Selection — card style */}
+      <div className="rounded-2xl border border-border/30 bg-card overflow-hidden">
+        <div className="px-5 py-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Smartphone className="w-3.5 h-3.5" />
+              <span className="text-xs font-semibold uppercase tracking-wider">Chips ({selectedDevices.length} selecionados)</span>
+            </div>
+            <span className="text-[10px] text-muted-foreground/60">mín. 2</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[200px] overflow-y-auto border border-border/30 rounded-lg p-2">
+            {devices.length === 0 ? (
+              <p className="text-xs text-muted-foreground col-span-2 text-center py-4">Nenhum dispositivo encontrado</p>
+            ) : (
+              devices.map((device) => {
+                const selected = selectedDevices.includes(device.id);
+                const isConnected = isConversationDeviceConnected(device);
+                const isOffline = !isConnected;
+                return (
+                  <label
+                    key={device.id}
+                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border transition-all cursor-pointer ${
+                      isOffline && !selected
+                        ? "border-border/20 bg-muted/10 opacity-50 cursor-not-allowed"
+                        : selected
+                          ? "border-primary/40 bg-primary/10"
+                          : "border-border/30 hover:border-border/60 hover:bg-muted/30"
+                    }`}
+                    onClick={(e) => {
+                      if (isOffline && !selected) { e.preventDefault(); return; }
+                      toggleDevice(device.id);
+                    }}
+                  >
+                    <Checkbox checked={selected} className="pointer-events-none" />
+                    <span className="text-[11px] font-medium text-foreground truncate flex-1">{device.name}</span>
+                    {device.number && <span className="text-[10px] text-muted-foreground/60">{device.number}</span>}
+                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isConnected ? "bg-emerald-500" : "bg-destructive/60"}`} />
+                  </label>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Schedule + Delays — unified card like Group Interaction */}
+      <div className="rounded-2xl border border-border/30 bg-card overflow-hidden">
+        <div className="px-5 py-4 space-y-3">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Clock className="w-3.5 h-3.5" />
+            <span className="text-xs font-semibold uppercase tracking-wider">Agenda</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Início</Label>
+              <Input type="time" value={startHour1} onChange={(e) => setStartHour1(e.target.value)} className="mt-1 h-9" />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Término</Label>
+              <Input type="time" value={endHour1} onChange={(e) => setEndHour1(e.target.value)} className="mt-1 h-9" />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Delay mín (s)</Label>
+              <Input type="number" min={5} value={minDelay} onChange={(e) => setMinDelay(Number(e.target.value))} className="mt-1 h-9" />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Delay máx (s)</Label>
+              <Input type="number" min={10} value={maxDelay} onChange={(e) => setMaxDelay(Number(e.target.value))} className="mt-1 h-9" />
+            </div>
+          </div>
+
+          {/* Period 2 toggle */}
+          <div className="flex items-center gap-3">
+            <Switch checked={usePeriod2} onCheckedChange={setUsePeriod2} />
+            <Label className="text-xs text-muted-foreground">2º período</Label>
+          </div>
+
+          {usePeriod2 && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-[11px] text-muted-foreground">Início 2</Label>
+                <Input type="time" value={startHour2} onChange={(e) => setStartHour2(e.target.value)} className="mt-1 h-9" />
+              </div>
+              <div>
+                <Label className="text-[11px] text-muted-foreground">Término 2</Label>
+                <Input type="time" value={endHour2} onChange={(e) => setEndHour2(e.target.value)} className="mt-1 h-9" />
+              </div>
+            </div>
+          )}
+
+          {/* Days */}
+          <div>
+            <Label className="text-[11px] text-muted-foreground">Dias ativos</Label>
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {DAY_OPTIONS.map((day) => (
                 <button
-                  key={device.id}
+                  key={day.key}
                   type="button"
-                  onClick={() => {
-                    if (isOffline && !selected) return; // block selecting offline devices
-                    toggleDevice(device.id);
-                  }}
-                  className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all text-left ${
-                    isOffline && !selected
-                      ? "border-border/30 bg-muted/10 opacity-50 cursor-not-allowed"
-                      : selected
-                        ? "border-primary/50 bg-primary/10"
-                        : "border-border hover:border-border/80 hover:bg-muted/30"
+                  onClick={() => toggleDay(day.key)}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-all ${
+                    activeDays.includes(day.key)
+                      ? "bg-primary/15 text-primary border-primary/30"
+                      : "bg-muted/30 text-muted-foreground border-border hover:border-border/80"
                   }`}
                 >
-                  <Checkbox checked={selected} className="pointer-events-none" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">{device.name}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {device.number || "Sem número"}
-                      {isOffline && <span className="ml-1 text-destructive">(offline)</span>}
-                    </p>
-                  </div>
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${isConnected ? "bg-emerald-400" : "bg-destructive/60"}`} />
+                  {day.label}
                 </button>
-              );
-            })
-          )}
-        </div>
-        {selectedDevices.length > 0 && (
-          <p className="text-xs text-muted-foreground">{selectedDevices.length} chip(s) selecionado(s)</p>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* Timing */}
-      <div className="space-y-4">
-        <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <Clock className="w-4 h-4 text-primary" />
-          Configuração de Tempo
-        </h4>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-xs">Delay mínimo (segundos)</Label>
-            <Input type="number" min={5} value={minDelay} onChange={(e) => setMinDelay(Number(e.target.value))} />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Delay máximo (segundos)</Label>
-            <Input type="number" min={10} value={maxDelay} onChange={(e) => setMaxDelay(Number(e.target.value))} />
-          </div>
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Schedule — Dual time windows */}
-      <div className="space-y-4">
-        <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <Settings2 className="w-4 h-4 text-primary" />
-          Agenda
-        </h4>
-
-        {/* Period 1 */}
-        <div className="space-y-2">
-          <Label className="text-xs font-medium">Período 1</Label>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label className="text-[11px] text-muted-foreground">Início</Label>
-              <Input type="time" value={startHour1} onChange={(e) => setStartHour1(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[11px] text-muted-foreground">Término</Label>
-              <Input type="time" value={endHour1} onChange={(e) => setEndHour1(e.target.value)} />
+              ))}
             </div>
           </div>
         </div>
-
-        {/* Toggle Period 2 */}
-        <div className="flex items-center gap-3">
-          <Switch checked={usePeriod2} onCheckedChange={setUsePeriod2} />
-          <Label className="text-xs">Adicionar 2º período (ex: tarde)</Label>
-        </div>
-
-        {/* Period 2 */}
-        {usePeriod2 && (
-          <div className="space-y-2">
-            <Label className="text-xs font-medium">Período 2</Label>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Início</Label>
-                <Input type="time" value={startHour2} onChange={(e) => setStartHour2(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Término</Label>
-                <Input type="time" value={endHour2} onChange={(e) => setEndHour2(e.target.value)} />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Days of the week */}
-        <div className="space-y-2">
-          <Label className="text-xs">Dias ativos</Label>
-          <div className="flex flex-wrap gap-2">
-            {DAY_OPTIONS.map((day) => (
-              <button
-                key={day.key}
-                type="button"
-                onClick={() => toggleDay(day.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                  activeDays.includes(day.key)
-                    ? "bg-primary/15 text-primary border-primary/30"
-                    : "bg-muted/30 text-muted-foreground border-border hover:border-border/80"
-                }`}
-              >
-                {day.label}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
-
-      <Separator />
 
       <Button onClick={handleSubmit} disabled={isLoading} className="w-full gap-2">
         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : initialData ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
