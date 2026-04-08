@@ -278,14 +278,9 @@ export default function WhatsAppVerifierCampaigns() {
       for (let i = 0; i < phones.length; i += 500) {
         const batch = phones.slice(i, i + 500).map((phone) => {
           const vars = contactMap.get(phone);
-          return {
-            job_id: (job as any).id, user_id: user.id, phone, status: "pending",
-            ...(vars?.var1 ? { var1: vars.var1 } : {}),
-            ...(vars?.var2 ? { var2: vars.var2 } : {}),
-            ...(vars?.var3 ? { var3: vars.var3 } : {}),
-            ...(vars?.var4 ? { var4: vars.var4 } : {}),
-            ...(vars?.var5 ? { var5: vars.var5 } : {}),
-          };
+          const varData: Record<string, string> = {};
+          if (vars) VAR_KEYS.forEach((k) => { if ((vars as any)[k]) varData[k] = (vars as any)[k]; });
+          return { job_id: (job as any).id, user_id: user.id, phone, status: "pending", ...varData };
         });
         const { error } = await supabase.from("verify_results").insert(batch as any);
         if (error) throw new Error(error.message);
