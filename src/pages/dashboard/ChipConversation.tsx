@@ -270,7 +270,31 @@ export default function ChipConversation() {
         </Dialog>
       </div>
 
-      {/* Edit Dialog */}
+      {/* Persistent cumulative stats */}
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="border-border/50 bg-card p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-blue-500/10 flex items-center justify-center">
+              <MessageCircle className="w-4 h-4 text-blue-400" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Mensagens Entregues</p>
+              <p className="text-xl font-bold text-foreground tabular-nums">{(cumulativeStats?.totalMessages ?? 0).toLocaleString("pt-BR")}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="border-border/50 bg-card p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+              <ArrowRightLeft className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Automações Ativas</p>
+              <p className="text-xl font-bold text-foreground tabular-nums">{conversations.filter(c => normalizeConversationStatus(c.status) === "running").length}</p>
+            </div>
+          </div>
+        </Card>
+      </div>
       <Dialog open={!!editingConv} onOpenChange={(open) => !open && setEditingConv(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
