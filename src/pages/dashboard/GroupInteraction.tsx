@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import {
   Play, Pause, Plus, Save, MessageCircle, Clock,
-  Users, Settings, ArrowLeft, Layers,
+  Users, Settings, ArrowLeft, Layers, Smartphone,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -718,6 +718,37 @@ export default function GroupInteractionPage() {
   function renderFormFields() {
     return (
       <div className="space-y-4">
+        {/* Device selector — only for new creation (no selectedId) */}
+        {!selectedId && (
+          <div className="rounded-2xl border border-border/30 bg-card overflow-hidden">
+            <div className="px-5 py-4 space-y-2">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Smartphone className="w-3.5 h-3.5" />
+                <span className="text-xs font-semibold uppercase tracking-wider">Dispositivo</span>
+              </div>
+              <Select value={form.device_id || ""} onValueChange={(v) => updateForm({ device_id: v })}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Selecionar instância" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(devices || []).map((d: any) => {
+                    const isEligible = eligibleDevices.some((e: any) => e.id === d.id);
+                    return (
+                      <SelectItem key={d.id} value={d.id}>
+                        <span className="flex items-center gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isEligible ? "bg-emerald-500" : "bg-destructive"}`} />
+                          {d.name} {d.number ? `(${d.number})` : ""}
+                          {!isEligible && <span className="text-[10px] text-destructive">(offline)</span>}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
         {/* Agenda + Delays in one card */}
         <div className="rounded-2xl border border-border/30 bg-card overflow-hidden">
           {/* Schedule section */}
