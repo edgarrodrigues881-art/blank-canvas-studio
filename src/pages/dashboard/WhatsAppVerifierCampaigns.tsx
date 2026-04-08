@@ -249,7 +249,7 @@ export default function WhatsAppVerifierCampaigns() {
     toast.success(`${contacts.length} contatos importados com variáveis`);
   }, [columnMappings, importHeaders, importRows]);
 
-  const hasVars = importMode === "spreadsheet" && importedContacts.some((c) => c.var1 || c.var2 || c.var3 || c.var4 || c.var5);
+  const hasVars = importMode === "spreadsheet" && importedContacts.some((c) => VAR_KEYS.some((k) => c[k]));
 
   // ── Mutations ──
   const createJob = useMutation({
