@@ -195,7 +195,7 @@ const Conversations = () => {
         lastMessageAt: c.lastMessageAt,
       }))
       .sort((a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime());
-  }, [selectedConversation, allConversations, realConvs]);
+  }, [selectedConversation, allConversations]);
 
   // Auto-select the latest instance when conversation changes
   useEffect(() => {
