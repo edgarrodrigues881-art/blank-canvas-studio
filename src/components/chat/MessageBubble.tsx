@@ -317,22 +317,22 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
 
     // Plain text
     const displayText = isMediaPlaceholder(msg.content) && !msg.mediaType ? msg.content : msg.content;
-    const isShort = !msg.quotedContent && !msg.quotedMessageId && displayText && !displayText.includes("\n") && displayText.length <= 42;
+    const textIsShort = displayText && !displayText.includes("\n") && displayText.length <= 42;
     
-    if (isShort) {
-      return (
-        <div className="flex items-end gap-0">
-          <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{displayText}</p>
-          <MsgFooter msg={msg} inline />
-        </div>
-      );
-    }
-
     return (
       <>
         <QuotedBlock msg={msg} />
-        <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{displayText}</p>
-        <MsgFooter msg={msg} />
+        {textIsShort ? (
+          <div className="flex items-end gap-0">
+            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{displayText}</p>
+            <MsgFooter msg={msg} inline />
+          </div>
+        ) : (
+          <>
+            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{displayText}</p>
+            <MsgFooter msg={msg} />
+          </>
+        )}
         {msg.status === "failed" && (
           <button onClick={() => onRetry?.(msg.id)} className="text-[10px] text-red-400 hover:text-red-300 mt-0.5 text-right underline cursor-pointer block w-full">
             Falhou — toque para reenviar
