@@ -9,7 +9,7 @@ import { AutomationFlows } from "@/components/chat/AutomationFlows";
 import { type Conversation, type AttendingStatus, type Message, type ConversationInstance } from "@/components/chat/types";
 import { useConversations } from "@/hooks/chat/useConversations";
 import { Button } from "@/components/ui/button";
-import { Zap, Bell } from "lucide-react";
+import { Zap, Bell, MessageSquarePlus } from "lucide-react";
 import { toast } from "sonner";
 
 const MIN_SIDEBAR_W = 240;
