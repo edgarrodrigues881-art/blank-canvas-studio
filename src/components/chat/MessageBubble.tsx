@@ -444,7 +444,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
       </div>
 
       {/* Reply button for sent */}
-      {isSent && onReply && (
+      {isSent && onReply && !selectionMode && (
         <button
           onClick={() => onReply(msg)}
           className="self-center ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted/50"
