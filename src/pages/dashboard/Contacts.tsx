@@ -519,7 +519,7 @@ const Contacts = () => {
       </div>
 
       {/* Filters — premium search bar */}
-      <div className="relative rounded-2xl border border-border/30 bg-gradient-to-r from-card via-card to-card p-[1px] shadow-lg dark:shadow-[0_4px_32px_rgba(0,0,0,0.4)] overflow-hidden max-w-5xl mx-auto">
+      <div className="relative rounded-2xl border border-border/30 bg-gradient-to-r from-card via-card to-card p-[1px] shadow-lg dark:shadow-[0_4px_32px_rgba(0,0,0,0.4)] overflow-hidden w-full">
         {/* Subtle top gradient accent line */}
         <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 rounded-2xl bg-card/80 backdrop-blur-xl px-4 py-3">
