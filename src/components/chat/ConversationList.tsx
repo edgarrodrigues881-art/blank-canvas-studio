@@ -10,6 +10,7 @@ import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useState, useMemo, Fragment, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { formatPhone } from "@/utils/formatters";
 import { getMessagePreview } from "@/utils/fileHelpers";
 
