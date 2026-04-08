@@ -1,4 +1,4 @@
-import { Search, Check, CheckCheck, MessageSquarePlus, Tag, X, ArchiveRestore, Smartphone, CheckSquare, Square, Trash2, Archive, XCircle, Pencil } from "lucide-react";
+import { Search, Check, CheckCheck, MessageSquarePlus, Tag, X, ArchiveRestore, Smartphone, CheckSquare, Square, Trash2, Archive, XCircle, Pencil, MailOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
