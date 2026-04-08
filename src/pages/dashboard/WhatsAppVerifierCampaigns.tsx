@@ -404,7 +404,7 @@ export default function WhatsAppVerifierCampaigns() {
 
   // ── Detect if results have vars ──
   const resultsHaveVars = useMemo(() => {
-    return sortedResults.some((r: any) => r.var1 || r.var2 || r.var3 || r.var4 || r.var5);
+    return sortedResults.some((r: any) => VAR_KEYS.some((k) => r[k]));
   }, [sortedResults]);
 
   // Hidden file input for xlsx
