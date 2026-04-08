@@ -293,27 +293,52 @@ function resolveAudioDuration(body: JsonObject, messageNodes: JsonObject[]): num
 }
 
 function resolveQuotedMessage(body: JsonObject, messageNodes: JsonObject[]): { id: string | null; content: string | null } {
-  const ctx = messageNodes
-    .flatMap((node) => [node.contextInfo, node.quotedMessage])
-    .find((value) => value && typeof value === "object")
-    || body.contextInfo
-    || body.quotedMsg
-    || body.quoted
-    || null;
-
-  if (!ctx || typeof ctx !== "object") return { id: null, content: null };
+  const ctx = [
+    ...messageNodes.flatMap((node) => [
+      node.contextInfo,
+      node.content?.contextInfo,
+      node.quotedMessage,
+      node.content?.quotedMessage,
+    ]),
+    body.contextInfo,
+    body.message?.contextInfo,
+    body.message?.content?.contextInfo,
+    body.data?.contextInfo,
+    body.data?.message?.contextInfo,
+    body.data?.message?.content?.contextInfo,
+    body.quotedMsg,
+    body.message?.quotedMsg,
+    body.data?.quotedMsg,
+    body.data?.message?.quotedMsg,
+  ].find((value) => value && typeof value === "object") || null;
 
   const quotedId = firstString(
-    ctx.stanzaId,
-    ctx.quotedMessageId,
-    ctx.id,
+    ctx?.stanzaId,
+    ctx?.stanzaID,
+    ctx?.quotedMessageId,
+    ctx?.id,
+    body.quoted,
+    body.message?.quoted,
+    body.data?.quoted,
+    body.data?.message?.quoted,
+    ...messageNodes.flatMap((node) => [
+      node.quoted,
+      node.contextInfo?.stanzaId,
+      node.contextInfo?.stanzaID,
+      node.content?.contextInfo?.stanzaId,
+      node.content?.contextInfo?.stanzaID,
+    ]),
   ) || null;
 
   const quotedContent = firstString(
-    ctx.quotedMessage?.conversation,
-    ctx.quotedMessage?.extendedTextMessage?.text,
-    ctx.body,
-    ctx.message,
+    ctx?.quotedMessage?.conversation,
+    ctx?.quotedMessage?.extendedTextMessage?.text,
+    ctx?.quotedMessage?.imageMessage?.caption,
+    ctx?.quotedMessage?.videoMessage?.caption,
+    ctx?.quotedMessage?.documentMessage?.caption,
+    ctx?.quotedMessage?.documentMessage?.fileName,
+    ctx?.body,
+    ctx?.message,
   ) || null;
 
   return { id: quotedId, content: quotedContent };
