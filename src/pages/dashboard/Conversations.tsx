@@ -480,7 +480,7 @@ const Conversations = () => {
 
       {/* Delete message dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
-        <AlertDialogContent className="max-w-[340px]">
+        <AlertDialogContent className="max-w-[340px]" onPointerDownOutside={() => setDeleteTarget(null)} onEscapeKeyDown={() => setDeleteTarget(null)}>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base">Apagar mensagem</AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-muted-foreground">
