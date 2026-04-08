@@ -248,6 +248,11 @@ Deno.serve(async (req) => {
       return handleDeleteMessage(admin, user.id, body, fallbackBaseUrl, fallbackToken);
     }
 
+    // ── EDIT action ──
+    if (body?.action === "edit") {
+      return handleEditMessage(admin, user.id, body, fallbackBaseUrl, fallbackToken);
+    }
+
     const conversationId = String(body?.conversation_id || "").trim();
     const content = String(body?.content || "").trim();
     const messageId = body?.message_id ? String(body.message_id) : null;
