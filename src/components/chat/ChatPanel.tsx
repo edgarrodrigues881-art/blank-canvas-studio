@@ -367,24 +367,27 @@ export function ChatPanel({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="absolute inset-0 overflow-y-auto px-4 py-3 space-y-0.5"
-        style={{ backgroundImage: "radial-gradient(circle at 1px 1px, hsl(var(--muted) / 0.4) 1px, transparent 0)", backgroundSize: "28px 28px", scrollBehavior: "smooth" }}
+        className="absolute inset-0 overflow-y-auto px-3 py-4 space-y-0.5"
+        style={{ backgroundImage: "radial-gradient(circle at 1px 1px, hsl(var(--muted) / 0.3) 1px, transparent 0)", backgroundSize: "32px 32px", scrollBehavior: "smooth" }}
       >
         {messages.map((msg, i) => {
           const showDate = i === 0 || format(new Date(messages[i - 1].timestamp), "dd/MM/yyyy") !== format(new Date(msg.timestamp), "dd/MM/yyyy");
+          // Only show device label when it changes from previous message
+          const prevMsg = i > 0 ? messages[i - 1] : null;
+          const showDevice = !!(instances && instances.length > 1) && msg.deviceName !== prevMsg?.deviceName;
 
           return (
             <div key={msg.id} className="animate-fade-in">
               {showDate && (
-                <div className="flex justify-center my-3">
-                  <span className="text-[10px] font-medium text-muted-foreground bg-muted/80 px-3 py-1 rounded-full">
+                <div className="flex justify-center my-4">
+                  <span className="text-[10px] font-medium text-muted-foreground/70 bg-muted/60 px-3 py-1 rounded-full">
                     {format(new Date(msg.timestamp), "dd 'de' MMMM", { locale: ptBR })}
                   </span>
                 </div>
               )}
               <MessageBubble
                 msg={msg}
-                showDeviceLabel={!!(instances && instances.length > 1)}
+                showDeviceLabel={showDevice}
                 onReply={handleReply}
                 onImageClick={setLightboxUrl}
                 onRetry={onRetryMessage}
