@@ -323,6 +323,25 @@ const Conversations = () => {
     [deleteTarget, deleteMessage]
   );
 
+  const handleEditMessage = useCallback(
+    (msg: any) => {
+      setEditTarget({
+        id: msg.id,
+        conversationId: msg.conversationId,
+        whatsappMessageId: msg.whatsappMessageId,
+        content: msg.content || "",
+      });
+      setEditText(msg.content || "");
+    },
+    []
+  );
+
+  const confirmEdit = useCallback(() => {
+    if (!editTarget || !editText.trim()) return;
+    editMessage(editTarget.id, editTarget.conversationId, editTarget.whatsappMessageId, editText.trim());
+    setEditTarget(null);
+  }, [editTarget, editText, editMessage]);
+
   const handleStatusChange = useCallback(
     (conversationId: string, newStatus: AttendingStatus) => {
       updateStatus(conversationId, newStatus);
