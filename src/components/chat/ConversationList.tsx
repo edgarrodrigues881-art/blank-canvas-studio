@@ -458,9 +458,7 @@ export function ConversationList({
                           </p>
                         </div>
                         {hasUnread && (
-                          <span className="min-w-[20px] h-[20px] px-1.5 text-[11px] font-bold bg-emerald-500 text-white rounded-full flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/30">
-                            {c.unreadCount}
-                          </span>
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0 shadow-sm shadow-emerald-500/30" />
                         )}
                         {activeStatus === "archived" && onUnarchive && (
                           <button
