@@ -162,7 +162,7 @@ export default function GIStatusPanel({
               <Button
                 size="sm"
                 variant="ghost"
-                className="w-full text-muted-foreground/40 hover:text-destructive h-8 text-xs"
+                className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 h-8 text-xs"
                 onClick={onDelete}
               >
                 <Trash2 className="w-3.5 h-3.5 mr-1" /> Excluir
