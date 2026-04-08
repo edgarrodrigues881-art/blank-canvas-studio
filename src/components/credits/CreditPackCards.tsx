@@ -36,14 +36,6 @@ const creditPacks = [
     cta: "Comprar créditos",
     popular: false,
   },
-  {
-    name: "Elite",
-    credits: 50000,
-    price: "997,00",
-    subtitle: "Para alto volume de prospecção",
-    cta: "Comprar créditos",
-    popular: false,
-  },
 ];
 
 const CreditPackCards = () => {
@@ -102,7 +94,7 @@ const CreditPackCards = () => {
       </div>
 
       {/* Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 xl:gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {creditPacks.map((pack) => (
           <div
             key={pack.name}
