@@ -507,7 +507,7 @@ const Conversations = () => {
           <div className="hidden md:block w-px bg-border/50 shrink-0" />
 
           {selectedConversation ? (
-            <div className="flex flex-col flex-1 min-w-0">
+            <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
               <ChatPanel
                 conversation={selectedConversation}
                 messages={messages}
