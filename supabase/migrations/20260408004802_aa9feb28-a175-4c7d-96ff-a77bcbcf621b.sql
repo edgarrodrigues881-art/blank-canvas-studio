@@ -1,0 +1,1 @@
+ALTER TABLE public.group_interactions ADD COLUMN IF NOT EXISTS consecutive_errors integer NOT NULL DEFAULT 0;

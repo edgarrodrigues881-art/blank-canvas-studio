@@ -2446,6 +2446,7 @@ export type Database = {
         Row: {
           active_days: Json
           completed_at: string | null
+          consecutive_errors: number
           content_types: Json | null
           content_weights: Json | null
           created_at: string
@@ -2486,6 +2487,7 @@ export type Database = {
         Insert: {
           active_days?: Json
           completed_at?: string | null
+          consecutive_errors?: number
           content_types?: Json | null
           content_weights?: Json | null
           created_at?: string
@@ -2526,6 +2528,7 @@ export type Database = {
         Update: {
           active_days?: Json
           completed_at?: string | null
+          consecutive_errors?: number
           content_types?: Json | null
           content_weights?: Json | null
           created_at?: string
