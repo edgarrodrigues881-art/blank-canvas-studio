@@ -26,7 +26,7 @@ import { EditPanel } from "@/components/autoreply/EditPanel";
 import { FlowHeader } from "@/components/autoreply/FlowHeader";
 import type { FlowNodeData, FlowCondition } from "@/components/autoreply/types";
 import { nextNodeId, nextBtnId } from "@/components/autoreply/types";
-import { MessageSquare, Square, Timer, GitBranch } from "lucide-react";
+import { MessageSquare, Square, Timer, GitBranch, Bot } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
