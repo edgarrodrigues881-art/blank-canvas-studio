@@ -1,4 +1,8 @@
 import { useState, useEffect, useMemo, useCallback, Fragment, useRef } from "react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useGroupInteraction, type GroupInteraction } from "@/hooks/useGroupInteraction";
