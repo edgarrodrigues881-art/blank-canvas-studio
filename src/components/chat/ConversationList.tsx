@@ -178,125 +178,88 @@ export function ConversationList({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <div className="px-3 pt-2 pb-1.5 space-y-1.5 border-b border-border">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <h2 className="text-sm font-bold text-foreground">Atendimento</h2>
-            <span className="text-[10px] text-muted-foreground">{conversations.length} conversas</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 rounded-lg px-2 text-[10px] shrink-0"
-              onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
+      <div className="px-3 pt-2.5 pb-2 space-y-2.5">
+        {/* Search bar — full width */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+          <Input
+            placeholder="Buscar conversa, nome ou número..."
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pl-9 pr-9 h-9 text-sm bg-muted/20 border-border/30 rounded-xl placeholder:text-muted-foreground/40"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => onSearchChange("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
             >
-              {selectionMode ? <XCircle className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
-              {selectionMode ? "Cancelar" : "Selecionar"}
-            </Button>
-            {onNewConversationClick && !selectionMode && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 rounded-lg px-2.5 text-[10px] shrink-0"
-                onClick={onNewConversationClick}
-              >
-                <MessageSquarePlus className="w-3.5 h-3.5" />
-                Nova conversa
-              </Button>
-            )}
-          </div>
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
-        {/* Bulk action bar */}
+        {trimmedQuery && (
+          <div className="text-[11px] text-muted-foreground px-0.5">
+            {filtered.length} resultado{filtered.length !== 1 ? "s" : ""} para "<span className="text-foreground font-medium">{trimmedQuery}</span>"
+          </div>
+        )}
+
+        {/* Bulk action bar — only when selection mode is on */}
         {selectionMode && (
-          <div className="flex items-center gap-1.5 py-1">
+          <div className="flex items-center gap-1.5 py-1 px-0.5">
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-[10px] gap-1"
+              className="h-7 px-2 text-[11px] gap-1"
               onClick={selectedIds.size === filtered.length ? () => setSelectedIds(new Set()) : selectAllVisible}
             >
-              {selectedIds.size === filtered.length ? <Square className="w-3 h-3" /> : <CheckSquare className="w-3 h-3" />}
-              {selectedIds.size === filtered.length ? "Desmarcar" : "Selecionar"} todas ({filtered.length})
+              {selectedIds.size === filtered.length ? <Square className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
+              {selectedIds.size === filtered.length ? "Desmarcar" : "Todas"} ({filtered.length})
             </Button>
             <div className="flex-1" />
             {selectedIds.size > 0 && (
               <>
                 <span className="text-[10px] text-muted-foreground">{selectedIds.size} selecionada{selectedIds.size > 1 ? "s" : ""}</span>
                 {onBulkArchive && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-6 px-2 text-[10px] gap-1"
-                    onClick={() => { onBulkArchive(Array.from(selectedIds)); exitSelectionMode(); }}
-                  >
-                    <Archive className="w-3 h-3" />
-                    Arquivar
+                  <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] gap-1" onClick={() => { onBulkArchive(Array.from(selectedIds)); exitSelectionMode(); }}>
+                    <Archive className="w-3 h-3" /> Arquivar
                   </Button>
                 )}
                 {onBulkDelete && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-6 px-2 text-[10px] gap-1 text-destructive hover:text-destructive"
-                    onClick={() => { onBulkDelete(Array.from(selectedIds)); exitSelectionMode(); }}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                    Apagar
+                  <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] gap-1 text-destructive hover:text-destructive" onClick={() => { onBulkDelete(Array.from(selectedIds)); exitSelectionMode(); }}>
+                    <Trash2 className="w-3 h-3" /> Apagar
                   </Button>
                 )}
               </>
             )}
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] gap-1 text-muted-foreground" onClick={exitSelectionMode}>
+              <XCircle className="w-3.5 h-3.5" /> Cancelar
+            </Button>
           </div>
         )}
 
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Buscar nome, número, mensagem ou tag..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-8 pr-8 h-7 text-xs bg-muted/30 border-border/50 rounded-lg"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => onSearchChange("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
-        {trimmedQuery && (
-          <div className="text-[10px] text-muted-foreground">
-            {filtered.length} resultado{filtered.length !== 1 ? "s" : ""} para "<span className="text-foreground font-medium">{trimmedQuery}</span>"
-          </div>
-        )}
-
-        <div className="flex gap-0.5 overflow-x-auto scrollbar-none -mx-0.5">
+        {/* Pill tabs — modern style with scroll */}
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-0.5 pb-0.5">
           {statusTabs.map((tab) => {
             const count = statusCount(tab.key);
+            const isActive = activeStatus === tab.key;
             return (
               <button
                 key={tab.key}
                 onClick={() => setActiveStatus(tab.key)}
                 className={cn(
-                  "px-1.5 py-0.5 rounded-md text-[10px] font-semibold whitespace-nowrap transition-all flex items-center gap-0.5",
-                  activeStatus === tab.key
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all duration-150",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
+                    : "bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 )}
               >
                 {tab.label}
                 <span className={cn(
-                  "text-[9px] min-w-[12px] h-3 px-0.5 rounded-full flex items-center justify-center font-bold",
-                  activeStatus === tab.key
+                  "text-[9px] min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center font-bold",
+                  isActive
                     ? "bg-primary-foreground/20 text-primary-foreground"
-                    : "bg-muted-foreground/15 text-muted-foreground"
+                    : "bg-muted-foreground/10 text-muted-foreground"
                 )}>
                   {count}
                 </span>
@@ -305,17 +268,17 @@ export function ConversationList({
           })}
         </div>
 
-        {/* Instance filter chips — inline, minimal */}
+        {/* Instance filter chips */}
         {availableInstances.length > 1 && (
-          <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none text-[9px] text-muted-foreground/60">
-            <Smartphone className="w-2.5 h-2.5 shrink-0" />
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none text-[10px]">
+            <Smartphone className="w-3 h-3 shrink-0 text-muted-foreground/50" />
             <button
               onClick={() => onFilterInstancesChange?.([])}
               className={cn(
-                "px-1 py-px rounded whitespace-nowrap transition-colors",
+                "px-2 py-0.5 rounded-full whitespace-nowrap transition-all",
                 filterInstanceIds.length === 0
-                  ? "text-primary font-semibold"
-                  : "hover:text-muted-foreground"
+                  ? "bg-primary/10 text-primary font-semibold"
+                  : "text-muted-foreground/60 hover:text-muted-foreground"
               )}
             >
               Todas
@@ -327,10 +290,10 @@ export function ConversationList({
                   key={inst.id}
                   onClick={() => toggleInstance(inst.id)}
                   className={cn(
-                    "px-1 py-px rounded whitespace-nowrap transition-colors",
+                    "px-2 py-0.5 rounded-full whitespace-nowrap transition-all",
                     isActive
-                      ? "text-primary font-semibold"
-                      : "hover:text-muted-foreground"
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-muted-foreground/60 hover:text-muted-foreground"
                   )}
                 >
                   {inst.name}
@@ -340,6 +303,9 @@ export function ConversationList({
           </div>
         )}
       </div>
+
+      {/* Subtle divider */}
+      <div className="h-px bg-border/30" />
 
       <ScrollArea className="flex-1">
         <div className="pb-14 divide-y divide-border/30">
