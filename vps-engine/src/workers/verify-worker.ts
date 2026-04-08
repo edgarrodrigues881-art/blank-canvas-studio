@@ -210,14 +210,15 @@ async function processJob(jobId: string) {
         batches.push({ device, results: chunk });
       }
 
-      // Process all batches (sequentially per device pair to avoid overloading)
-      for (const batch of batches) {
+      // Process all batches IN PARALLEL — each device works simultaneously
+      const batchPromises = batches.map(async (batch) => {
         const { device, results: batchResults } = batch;
         const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
         const phones = batchResults.map(r => r.phone);
         const results = await checkBatchNumbers(baseUrl, device.uazapi_token, phones);
         const now = new Date().toISOString();
 
+        let batchSuccess = 0, batchNoWa = 0, batchError = 0;
         for (const result of results) {
           const matchingRow = batchResults.find(r => r.phone === result.phone);
           if (!matchingRow) continue;
@@ -228,13 +229,18 @@ async function processJob(jobId: string) {
             checked_at: now,
           }).eq("id", matchingRow.id);
 
-          if (result.status === "success") successCount++;
-          else if (result.status === "no_whatsapp") noWaCount++;
-          else errorCount++;
+          if (result.status === "success") batchSuccess++;
+          else if (result.status === "no_whatsapp") batchNoWa++;
+          else batchError++;
         }
+        return { batchSuccess, batchNoWa, batchError };
+      });
 
-        // Small delay between batches
-        await sleep(DELAY_BETWEEN_BATCHES_MS);
+      const batchResults = await Promise.all(batchPromises);
+      for (const r of batchResults) {
+        successCount += r.batchSuccess;
+        noWaCount += r.batchNoWa;
+        errorCount += r.batchError;
       }
 
       // Update job counters
