@@ -132,6 +132,9 @@ export interface MessageBubbleProps {
   onRetry?: (messageId: string) => void;
   onDelete?: (msg: Message) => void;
   onEdit?: (msg: Message) => void;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (msgId: string) => void;
 }
 
 // Stable waveform cache outside component to avoid re-renders
