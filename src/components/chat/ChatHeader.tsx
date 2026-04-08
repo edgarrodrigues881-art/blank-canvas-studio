@@ -75,40 +75,40 @@ export const ChatHeader = memo(function ChatHeader({
   return (
     <>
       {/* Header bar — clean, aligned */}
-      <div className="border-b border-border/50 flex items-center px-4 py-3 gap-3 shrink-0 bg-card/40">
-        <Button variant="ghost" size="icon" className="md:hidden w-8 h-8 shrink-0" onClick={onBack}>
+      <div className="border-b border-border/50 flex items-center px-3 py-2 gap-2.5 shrink-0 bg-card/40 h-[52px]">
+        <Button variant="ghost" size="icon" className="md:hidden w-7 h-7 shrink-0" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
 
-        {/* Avatar */}
+        {/* Avatar — compact 32px */}
         <div className="relative shrink-0">
           {conversation.avatar_url ? (
-            <img src={conversation.avatar_url} alt={conversation.name} className="w-10 h-10 rounded-full object-cover" />
+            <img src={conversation.avatar_url} alt={conversation.name} className="w-8 h-8 rounded-full object-cover" />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="text-sm font-semibold text-primary">{conversation.name.slice(0, 2).toUpperCase()}</span>
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <span className="text-xs font-semibold text-primary">{conversation.name.slice(0, 2).toUpperCase()}</span>
             </div>
           )}
           {conversation.status === "online" && (
-            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-card" />
+            <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full ring-[1.5px] ring-card" />
           )}
         </div>
 
-        {/* Name + phone + status badge */}
-        <div className="flex-1 min-w-0 overflow-hidden">
-          <div className="flex items-center gap-2 min-w-0">
-            <p className="text-sm font-semibold text-foreground truncate shrink min-w-0">{conversation.name}</p>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className={cn(
-                  "flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold transition-colors shrink-0",
-                  currentStatusCfg.bg, currentStatusCfg.textStrong
-                )}>
-                  <span className={cn("w-1.5 h-1.5 rounded-full", currentStatusCfg.dot)} />
-                  {currentStatusCfg.label}
-                  <ChevronDown className="w-2.5 h-2.5" />
-                </button>
-              </DropdownMenuTrigger>
+        {/* Name · Status inline */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <p className="text-[13px] font-semibold text-foreground truncate">{conversation.name}</p>
+          <span className="text-muted-foreground/30 text-xs">·</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className={cn(
+                "flex items-center gap-1 px-1.5 py-px rounded-md text-[10px] font-medium transition-colors shrink-0 hover:opacity-80",
+                currentStatusCfg.color
+              )}>
+                <span className={cn("w-1.5 h-1.5 rounded-full", currentStatusCfg.dot)} />
+                {currentStatusCfg.label}
+                <ChevronDown className="w-2.5 h-2.5 opacity-50" />
+              </button>
+            </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="min-w-[160px]">
                 {(Object.entries(attendingStatusConfig) as [AttendingStatus, typeof currentStatusCfg][]).map(([key, cfg]) => (
                   <DropdownMenuItem key={key} onClick={() => onStatusChange(key)} className={cn("gap-2 text-xs cursor-pointer", currentStatus === key && "bg-muted font-bold")}>
@@ -118,8 +118,7 @@ export const ChatHeader = memo(function ChatHeader({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
-          <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">{conversation.phone}</p>
+          <span className="text-[10px] text-muted-foreground/40 truncate hidden sm:inline">{conversation.phone}</span>
         </div>
 
         {/* Actions — minimal */}
