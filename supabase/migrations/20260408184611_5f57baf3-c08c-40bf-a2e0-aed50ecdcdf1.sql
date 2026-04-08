@@ -1,0 +1,1 @@
+UPDATE public.feature_controls SET status = 'active' WHERE route_path = '/dashboard/auto-reply' OR route_path = '/dashboard/autoreply';
