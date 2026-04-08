@@ -15,6 +15,7 @@ export interface ParsedConversationEvent {
   avatarUrl: string | null;
   quotedMessageId: string | null;
   quotedContent: string | null;
+  buttonResponseId: string | null;
 }
 
 type JsonObject = Record<string, any>;
