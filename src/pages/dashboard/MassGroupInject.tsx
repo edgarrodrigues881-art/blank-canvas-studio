@@ -423,22 +423,22 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
         </AlertDescription>
       </Alert>
       {/* Top bar — search + create */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
           <h1 className="text-xl font-bold text-foreground tracking-tight shrink-0">Adição em Massa</h1>
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
-            <Input
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Buscar campanha ou grupo..."
-              className="h-9 pl-9 bg-muted/20 border-border/30 text-sm"
-            />
-          </div>
+          <Button onClick={onCreateNew} className="gap-2 shadow-lg shadow-primary/15 shrink-0">
+            <Plus className="w-4 h-4" /> Nova Campanha
+          </Button>
         </div>
-        <Button onClick={onCreateNew} className="gap-2 shadow-lg shadow-primary/15 shrink-0">
-          <Plus className="w-4 h-4" /> Nova Campanha
-        </Button>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+          <Input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Buscar campanha ou grupo..."
+            className="h-9 pl-9 bg-muted/20 border-border/30 text-sm"
+          />
+        </div>
       </div>
 
       {/* Filter pills */}
