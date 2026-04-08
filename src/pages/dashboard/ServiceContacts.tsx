@@ -17,11 +17,14 @@ interface ServiceContact {
   name: string;
   phone: string;
   email: string | null;
+  company: string | null;
   notes: string | null;
   tags: string[];
   status: string;
   origin: string;
   conversation_id: string | null;
+  last_message_at: string | null;
+  last_message_content: string | null;
   created_at: string;
 }
 
@@ -34,7 +37,7 @@ export default function ServiceContacts() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ServiceContact | null>(null);
-  const [form, setForm] = useState({ name: "", phone: "", email: "", notes: "", tags: "" });
+  const [form, setForm] = useState({ name: "", phone: "", email: "", company: "", notes: "", tags: "" });
   const fileRef = useRef<HTMLInputElement>(null);
 
   const fetchContacts = useCallback(async () => {
@@ -61,20 +64,20 @@ export default function ServiceContacts() {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ name: "", phone: "", email: "", notes: "", tags: "" });
+    setForm({ name: "", phone: "", email: "", company: "", notes: "", tags: "" });
     setDialogOpen(true);
   };
 
   const openEdit = (c: ServiceContact) => {
     setEditing(c);
-    setForm({ name: c.name, phone: c.phone, email: c.email || "", notes: c.notes || "", tags: (c.tags || []).join(", ") });
+    setForm({ name: c.name, phone: c.phone, email: c.email || "", company: c.company || "", notes: c.notes || "", tags: (c.tags || []).join(", ") });
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
     if (!user) return;
     const tags = form.tags.split(",").map(t => t.trim()).filter(Boolean);
-    const payload = { name: form.name, phone: form.phone, email: form.email || null, notes: form.notes || null, tags, user_id: user.id };
+    const payload = { name: form.name, phone: form.phone, email: form.email || null, company: form.company || null, notes: form.notes || null, tags, user_id: user.id };
 
     if (editing) {
       const { error } = await supabase.from("service_contacts").update(payload as any).eq("id", editing.id);
@@ -248,8 +251,9 @@ export default function ServiceContacts() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div><Label>Nome</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Nome do contato" /></div>
-            <div><Label>Telefone</Label><Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="5511999999999" /></div>
+            <div><Label>Telefone</Label><Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="5511999999999" disabled={!!editing} /></div>
             <div><Label>Email</Label><Input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="email@exemplo.com" /></div>
+            <div><Label>Empresa</Label><Input value={form.company} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} placeholder="Nome da empresa" /></div>
             <div><Label>Observação</Label><Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Anotações sobre o contato" rows={3} /></div>
             <div><Label>Tags (separadas por vírgula)</Label><Input value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} placeholder="vip, lead, suporte" /></div>
           </div>
