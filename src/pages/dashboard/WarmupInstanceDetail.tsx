@@ -1203,7 +1203,7 @@ const WarmupInstanceDetail = () => {
             <p className="text-xs opacity-80">
               {planStatus?.suspended
                 ? "Sua conta está suspensa. Entre em contato com o suporte."
-                : "Seu plano está inativo. Ative um plano para usar o aquecimento."}
+                : `Seu plano está inativo.${planStatus?.expiresAt ? ` Expirou em ${new Date(planStatus.expiresAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })} (Brasília).` : ""} Ative um plano para usar o aquecimento.`}
             </p>
           </div>
           <Button size="sm" variant="destructive" className="shrink-0 text-xs" onClick={() => navigate("/dashboard/my-plan")}>

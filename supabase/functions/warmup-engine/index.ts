@@ -656,7 +656,13 @@ async function validateUserPlan(db: any, userId: string): Promise<string | null>
   const hasActiveSub = activeSub && new Date(activeSub.expires_at) >= new Date();
 
   if (!hasActiveSub && !hasLegacyAccess) {
-    return "Seu plano está inativo. Ative um plano para continuar.";
+    // Format expiration in Brasília time
+    let expInfo = "";
+    if (activeSub?.expires_at) {
+      const expDate = new Date(activeSub.expires_at);
+      expInfo = " Expirou em " + expDate.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) + " (Brasília).";
+    }
+    return "Seu plano está inativo." + expInfo + " Ative um plano para continuar.";
   }
   return null;
 }
