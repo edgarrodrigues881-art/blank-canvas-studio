@@ -1280,22 +1280,6 @@ const WarmupInstanceDetail = () => {
                     {advancingPhase ? <Loader2 className="w-4 h-4 animate-spin" /> : <SkipForward className="w-4 h-4 group-hover:scale-110 transition-transform" />}
                     <span className="text-[9px] font-bold leading-none tracking-wide">Pular</span>
                   </button>
-                  <button
-                    className="group flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 hover:bg-sky-500/20 hover:border-sky-400/40 hover:shadow-[0_0_12px_rgba(14,165,233,0.15)] transition-all duration-200 disabled:opacity-40 disabled:hover:shadow-none"
-                    onClick={handleTestAutosave}
-                    disabled={testingAutosave}
-                  >
-                    {testingAutosave ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 group-hover:scale-110 transition-transform" />}
-                    <span className="text-[9px] font-bold leading-none tracking-wide">Auto Save</span>
-                  </button>
-                  <button
-                    className="group flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 hover:bg-violet-500/20 hover:border-violet-400/40 hover:shadow-[0_0_12px_rgba(139,92,246,0.15)] transition-all duration-200 disabled:opacity-40 disabled:hover:shadow-none"
-                    onClick={handleTestCommunity}
-                    disabled={testingCommunity}
-                  >
-                    {testingCommunity ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 group-hover:scale-110 transition-transform" />}
-                    <span className="text-[9px] font-bold leading-none tracking-wide">Comunitário</span>
-                  </button>
                 </div>
               )}
             </div>
