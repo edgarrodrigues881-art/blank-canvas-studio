@@ -13,8 +13,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Play, Pause, Square, Plus, Trash2, Copy, Save, MessageCircle, Clock,
-  Users, Settings, RotateCw, ArrowLeft, Layers,
+  Play, Pause, Plus, Trash2, Save, MessageCircle, Clock,
+  Users, Settings, ArrowLeft, Layers,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
