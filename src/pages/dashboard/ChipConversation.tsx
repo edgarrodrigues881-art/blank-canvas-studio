@@ -535,17 +535,34 @@ function ConversationCard({
               <button
                 onClick={() => handleAction("resume")}
                 disabled={isActionLoading || Boolean(invalidReason)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-all"
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-all"
               >
                 <RotateCcw className="w-3.5 h-3.5" strokeWidth={1.8} /> Retomar
               </button>
               <button
                 onClick={() => handleAction("stop")}
                 disabled={isActionLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:border-destructive/50 disabled:opacity-40 text-xs font-medium transition-all"
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:border-destructive/50 disabled:opacity-40 text-xs font-medium transition-all"
               >
                 <XCircle className="w-3.5 h-3.5" strokeWidth={1.8} /> Parar
               </button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button className="text-muted-foreground/30 hover:text-destructive transition-colors p-1 ml-1">
+                    <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir conversa?</AlertDialogTitle>
+                    <AlertDialogDescription>A conversa e logs serão removidos.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={onDelete}>Excluir</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </>
           ) : null}
         </div>
