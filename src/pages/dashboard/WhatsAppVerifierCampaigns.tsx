@@ -518,24 +518,40 @@ export default function WhatsAppVerifierCampaigns() {
                       </Button>
                     </div>
 
-                    <ScrollArea className="h-[340px]">
-                      <div className="divide-y divide-border/20">
-                        {importedContacts.map((c, i) => {
-                          const activeVarKeys = varLabels.map((_, vi) => `var${vi + 1}` as keyof ImportedRow).filter((key) => importedContacts.some((cc) => cc[key]));
-                          return (
-                            <div key={i} className="flex items-center gap-4 px-4 py-2.5 hover:bg-muted/10 transition-colors">
-                              <span className="text-[10px] text-muted-foreground/50 w-6 text-right shrink-0">{i + 1}</span>
-                              <span className="font-mono text-sm text-foreground min-w-[130px]">{c.phone}</span>
-                              {activeVarKeys.map((key, vi) => (
-                                <span key={vi} className="text-xs text-muted-foreground truncate max-w-[180px]" title={String(c[key] || "")}>
-                                  {c[key] || "—"}
-                                </span>
-                              ))}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </ScrollArea>
+                    {(() => {
+                      const activeVarKeys = varLabels.map((_, vi) => `var${vi + 1}` as keyof ImportedRow).filter((key) => importedContacts.some((cc) => cc[key]));
+                      const activeVarLabels = varLabels.filter((_, vi) => importedContacts.some((c) => c[`var${vi + 1}` as keyof ImportedRow]));
+                      return (
+                        <ScrollArea className="h-[340px]">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm" style={{ minWidth: `${200 + activeVarKeys.length * 220}px` }}>
+                              <thead className="bg-muted/20 sticky top-0 z-10">
+                                <tr>
+                                  <th className="text-left px-3 py-2 text-[10px] font-medium text-muted-foreground w-[40px]">#</th>
+                                  <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground w-[150px]">Telefone</th>
+                                  {activeVarLabels.map((label, vi) => (
+                                    <th key={vi} className="text-left px-3 py-2 text-xs font-medium text-muted-foreground w-[220px]">{label}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border/20">
+                                {importedContacts.map((c, i) => (
+                                  <tr key={i} className="hover:bg-muted/10 transition-colors">
+                                    <td className="px-3 py-2 text-[10px] text-muted-foreground/50">{i + 1}</td>
+                                    <td className="px-3 py-2 font-mono text-sm text-foreground">{c.phone}</td>
+                                    {activeVarKeys.map((key, vi) => (
+                                      <td key={vi} className="px-3 py-2 text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap max-w-[220px]" title={String(c[key] || "")}>
+                                        {c[key] || "—"}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </ScrollArea>
+                      );
+                    })()}
 
                     <div className="px-4 py-2 border-t border-border/30 bg-muted/10 flex items-center justify-between">
                       <span className="text-[10px] text-muted-foreground">Total: {importedContacts.length} leads</span>
