@@ -194,6 +194,7 @@ export function ConversationList({
 
   return (
     <div className="flex flex-col h-full bg-background">
+      {/* Search */}
       <div className="px-3 pt-2.5 pb-2 space-y-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
@@ -219,6 +220,7 @@ export function ConversationList({
           </div>
         )}
 
+        {/* Selection mode bar */}
         {selectionMode && (
           <div className="flex items-center justify-between gap-2 rounded-xl border border-border/50 bg-muted/20 px-2 py-1.5">
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -236,44 +238,23 @@ export function ConversationList({
                 {selectedIds.size === filtered.length ? "Desmarcar" : "Todas"}
               </Button>
               {selectedIds.size > 0 && onBulkArchive && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 rounded-lg px-2 text-[11px] gap-1.5"
-                  onClick={() => {
-                    onBulkArchive(Array.from(selectedIds));
-                    exitSelectionMode();
-                  }}
-                >
+                <Button variant="ghost" size="sm" className="h-7 rounded-lg px-2 text-[11px] gap-1.5" onClick={() => { onBulkArchive(Array.from(selectedIds)); exitSelectionMode(); }}>
                   <Archive className="w-3.5 h-3.5" /> Arquivar
                 </Button>
               )}
               {selectedIds.size > 0 && onBulkDelete && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 rounded-lg px-2 text-[11px] gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={() => {
-                    onBulkDelete(Array.from(selectedIds));
-                    exitSelectionMode();
-                  }}
-                >
+                <Button variant="ghost" size="sm" className="h-7 rounded-lg px-2 text-[11px] gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => { onBulkDelete(Array.from(selectedIds)); exitSelectionMode(); }}>
                   <Trash2 className="w-3.5 h-3.5" /> Apagar
                 </Button>
               )}
             </div>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 shrink-0 rounded-lg text-muted-foreground hover:text-foreground"
-              onClick={exitSelectionMode}
-            >
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 rounded-lg text-muted-foreground hover:text-foreground" onClick={exitSelectionMode}>
               <XCircle className="w-3.5 h-3.5" />
             </Button>
           </div>
         )}
 
+        {/* Status filter tabs */}
         <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-0.5 pb-0.5">
           {statusTabs.map((tab) => {
             const count = statusCount(tab.key);
@@ -302,13 +283,13 @@ export function ConversationList({
             );
           })}
         </div>
-
       </div>
 
       <div className="h-px bg-border/30" />
 
+      {/* Conversation list */}
       <ScrollArea className="flex-1">
-        <div className="pb-14 divide-y divide-border/30">
+        <div className="pb-14">
           {filtered.length === 0 ? (
             <div className="py-12 text-center text-xs text-muted-foreground">
               Nenhuma conversa encontrada
@@ -339,53 +320,41 @@ export function ConversationList({
                   <button
                     onClick={() => (selectionMode ? toggleSelect(c.id) : onSelect(c))}
                     className={cn(
-                      "w-full flex items-center text-left transition-all",
-                      selectionMode ? "gap-2.5 px-2.5 py-2.5" : "gap-3 px-3 py-3",
+                      "w-full flex items-center text-left transition-colors duration-100 gap-3 px-4 py-2.5",
                       isSelected
-                        ? "bg-primary/10"
-                        : hasUnread
-                          ? "bg-muted/10 hover:bg-muted/20"
-                          : "hover:bg-muted/15",
-                      selectionMode && selectedIds.has(c.id) && "bg-primary/10"
+                        ? "bg-primary/8"
+                        : "hover:bg-muted/10",
+                      selectionMode && selectedIds.has(c.id) && "bg-primary/8"
                     )}
                   >
                     {selectionMode && (
                       <div className="shrink-0" onClick={(e) => { e.stopPropagation(); toggleSelect(c.id); }}>
-                        <Checkbox
-                          checked={selectedIds.has(c.id)}
-                          className="w-4 h-4"
-                        />
+                        <Checkbox checked={selectedIds.has(c.id)} className="w-4 h-4" />
                       </div>
                     )}
+
+                    {/* Avatar */}
                     <div className="relative shrink-0">
                       {c.avatar_url ? (
                         <img
                           src={c.avatar_url}
                           alt={avatarLabel}
-                          className={cn("rounded-full object-cover", selectionMode ? "w-10 h-10" : "w-12 h-12")}
+                          className="w-[46px] h-[46px] rounded-full object-cover"
                         />
                       ) : (
-                        <div
-                          className={cn(
-                            "rounded-full flex items-center justify-center font-bold",
-                            selectionMode ? "w-10 h-10 text-sm" : "w-12 h-12 text-base",
-                            avatarCls,
-                          )}
-                        >
+                        <div className={cn("w-[46px] h-[46px] rounded-full flex items-center justify-center font-semibold text-sm", avatarCls)}>
                           {avatarLabel.slice(0, 2).toUpperCase()}
                         </div>
                       )}
-                      {c.status === "online" && (
-                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-background" />
-                      )}
                     </div>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 py-0.5">
+                      {/* Row 1: Name + Time */}
+                      <div className="flex items-baseline justify-between gap-2">
                         <span className={cn(
-                          "truncate",
-                          selectionMode ? "text-[15px]" : "text-sm",
-                          hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/90"
+                          "truncate text-[13.5px] leading-tight",
+                          hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/85"
                         )}>
                           {trimmedQuery ? (
                             <HighlightText text={displayName || formatPhone(c.phone)} query={trimmedQuery} />
@@ -394,21 +363,20 @@ export function ConversationList({
                           )}
                         </span>
                         <span className={cn(
-                          "shrink-0",
-                          selectionMode ? "text-[10px]" : "text-[11px]",
-                          hasUnread ? "text-emerald-400 font-semibold" : "text-muted-foreground/50"
+                          "shrink-0 text-[11px] leading-tight",
+                          hasNewMessages ? "text-emerald-500 font-semibold" : "text-muted-foreground/50"
                         )}>
                           {c.lastMessageAt ? formatDate(c.lastMessageAt) : ""}
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between gap-2 mt-1 overflow-hidden">
+                      {/* Row 2: Last message + Badge */}
+                      <div className="flex items-center justify-between gap-2 mt-0.5">
                         <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
                           {c.lastMessageStatus && <MessageTicks status={c.lastMessageStatus} />}
                           <p className={cn(
-                            "truncate",
-                            selectionMode ? "text-[12px]" : "text-xs",
-                            hasUnread ? "text-foreground/80 font-medium" : "text-muted-foreground/60"
+                            "truncate text-[12.5px] leading-snug",
+                            hasUnread ? "text-foreground/70" : "text-muted-foreground/50"
                           )}>
                             {c.status === "typing" ? (
                               <span className="text-emerald-400 italic">digitando...</span>
@@ -421,14 +389,17 @@ export function ConversationList({
                             )}
                           </p>
                         </div>
+
+                        {/* Unread indicators */}
                         {hasNewMessages && (
-                          <span className="min-w-[20px] h-[20px] px-1.5 text-[11px] font-bold bg-destructive text-destructive-foreground rounded-full flex items-center justify-center shrink-0 shadow-sm shadow-destructive/30">
+                          <span className="min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-emerald-500 text-white rounded-full flex items-center justify-center shrink-0">
                             {c.unreadCount}
                           </span>
                         )}
                         {isManualUnread && (
-                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0 shadow-sm shadow-emerald-500/30" />
+                          <span className="w-[10px] h-[10px] rounded-full bg-emerald-500 shrink-0" />
                         )}
+
                         {activeStatus === "archived" && onUnarchive && (
                           <button
                             onClick={(e) => { e.stopPropagation(); onUnarchive(c.id); }}
@@ -436,7 +407,6 @@ export function ConversationList({
                             title="Desarquivar"
                           >
                             <ArchiveRestore className="w-3 h-3" />
-                            <span className="hidden sm:inline">Desarquivar</span>
                           </button>
                         )}
                       </div>
@@ -453,6 +423,8 @@ export function ConversationList({
                       )}
                     </div>
                   </button>
+                  {/* Subtle separator */}
+                  <div className="h-px bg-border/20 ml-[70px]" />
                 </div>
               );
             })
