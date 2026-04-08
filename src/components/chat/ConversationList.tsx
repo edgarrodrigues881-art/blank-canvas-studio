@@ -354,7 +354,9 @@ export function ConversationList({
           ) : (
             filtered.map((c) => {
               const isSelected = selectedId === c.id;
-              const hasUnread = c.unreadCount > 0;
+              const hasUnread = c.unreadCount !== 0;
+              const isManualUnread = c.unreadCount < 0;
+              const hasNewMessages = c.unreadCount > 0;
               const displayName = c.name && c.name !== c.phone ? c.name : null;
               const avatarLabel = displayName || c.phone;
               const avatarCls = getAvatarColor(avatarLabel);
