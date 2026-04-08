@@ -88,7 +88,7 @@ const menuGroups = [
   },
 ];
 
-const developmentItems: typeof automationItems = [
+const developmentItems: { title: string; url: string; icon: any; exact?: boolean; badgeKey?: any; locked?: boolean }[] = [
 ];
 
 type BadgeKey = "activeCampaigns" | "unreadNotifications";
