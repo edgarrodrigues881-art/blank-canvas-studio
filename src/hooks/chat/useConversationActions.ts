@@ -257,9 +257,7 @@ export function useConversationActions({
         }),
       });
       const result = await res.json();
-      if (result.edited) {
-        toast.success(result.editedOnWhatsApp ? "Mensagem editada" : "Mensagem editada localmente");
-      } else {
+      if (!result.edited) {
         toast.error(result.error || "Erro ao editar mensagem");
       }
     } catch {
