@@ -470,6 +470,7 @@ const Conversations = () => {
                 onSendFile={handleSendFile}
                 onRetryMessage={retryMessage}
                 onDeleteMessage={handleDeleteMessage}
+                onEditMessage={handleEditMessage}
                 currentUserId={user?.id}
                 onAssign={assignConversation}
                 onRelease={releaseConversation}
