@@ -848,11 +848,25 @@ export default function WhatsAppVerifierCampaigns() {
               onClick={async () => {
                 if (!user || validResults.length === 0) return;
                 try {
+                  // Fetch existing phones to avoid duplicates
+                  const phonesToCheck = validResults.map((r: any) => r.phone);
+                  const { data: existing } = await supabase
+                    .from("contacts")
+                    .select("phone")
+                    .eq("user_id", user.id)
+                    .in("phone", phonesToCheck.slice(0, 1000));
+                  const existingSet = new Set((existing || []).map((c: any) => c.phone));
+
+                  const newContacts = validResults.filter((r: any) => !existingSet.has(r.phone));
+                  if (newContacts.length === 0) {
+                    toast.info("Todos os números já estão nos seus contatos!");
+                    return;
+                  }
+
                   const batchSize = 200;
                   let inserted = 0;
-                  let skipped = 0;
-                  for (let i = 0; i < validResults.length; i += batchSize) {
-                    const batch = validResults.slice(i, i + batchSize).map((r: any) => ({
+                  for (let i = 0; i < newContacts.length; i += batchSize) {
+                    const batch = newContacts.slice(i, i + batchSize).map((r: any) => ({
                       user_id: user.id,
                       phone: r.phone,
                       name: r.var1 || r.phone,
@@ -867,11 +881,11 @@ export default function WhatsAppVerifierCampaigns() {
                       var9: "",
                       var10: "",
                     }));
-                    const { error, data } = await supabase.from("contacts").upsert(batch, { onConflict: "user_id,phone", ignoreDuplicates: true });
+                    const { error } = await supabase.from("contacts").insert(batch);
                     if (error) throw error;
                     inserted += batch.length;
                   }
-                  toast.success(`${inserted} contatos adicionados à sua base!`);
+                  toast.success(`${inserted} contatos adicionados! (${existingSet.size > 0 ? existingSet.size + " já existiam" : "nenhum duplicado"})`);
                 } catch (err: any) {
                   toast.error("Erro ao importar: " + (err?.message || ""));
                 }
