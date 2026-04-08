@@ -1,4 +1,4 @@
-import { Search, Check, CheckCheck, MessageSquarePlus, Tag, X, ArchiveRestore, Smartphone, CheckSquare, Square, Trash2, Archive, XCircle, Pencil, MailOpen } from "lucide-react";
+import { Search, Check, CheckCheck, MessageSquarePlus, Tag, X, ArchiveRestore, Smartphone, CheckSquare, Square, Trash2, Archive, XCircle, Pencil, MailOpen, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -304,37 +304,42 @@ export function ConversationList({
         </div>
 
         {availableInstances.length > 1 && (
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none text-[10px]">
-            <Smartphone className="w-3 h-3 shrink-0 text-muted-foreground/50" />
-            <button
-              onClick={() => onFilterInstancesChange?.([])}
-              className={cn(
-                "px-2 py-0.5 rounded-full whitespace-nowrap transition-all",
-                filterInstanceIds.length === 0
-                  ? "bg-primary/10 text-primary font-semibold"
-                  : "text-muted-foreground/60 hover:text-muted-foreground"
-              )}
-            >
-              Todas
-            </button>
-            {availableInstances.map((inst) => {
-              const isActive = filterInstanceIds.includes(inst.id);
-              return (
-                <button
-                  key={inst.id}
-                  onClick={() => toggleInstance(inst.id)}
-                  className={cn(
-                    "px-2 py-0.5 rounded-full whitespace-nowrap transition-all",
-                    isActive
-                      ? "bg-primary/10 text-primary font-semibold"
-                      : "text-muted-foreground/60 hover:text-muted-foreground"
-                  )}
-                >
-                  {inst.name}
-                </button>
-              );
-            })}
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 rounded-lg text-[11px] gap-1.5 border-border/40 text-muted-foreground hover:text-foreground">
+                <Smartphone className="w-3 h-3" />
+                {filterInstanceIds.length === 0
+                  ? "Instância"
+                  : filterInstanceIds.length === 1
+                    ? availableInstances.find((i) => i.id === filterInstanceIds[0])?.name || "Instância"
+                    : `${filterInstanceIds.length} instâncias`}
+                <ChevronDown className="w-3 h-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[180px]">
+              <DropdownMenuItem
+                onClick={() => onFilterInstancesChange?.([])}
+                className="gap-2 text-xs cursor-pointer"
+              >
+                <Check className={cn("w-3.5 h-3.5", filterInstanceIds.length === 0 ? "opacity-100" : "opacity-0")} />
+                Todas
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {availableInstances.map((inst) => {
+                const isActive = filterInstanceIds.includes(inst.id);
+                return (
+                  <DropdownMenuItem
+                    key={inst.id}
+                    onClick={() => toggleInstance(inst.id)}
+                    className="gap-2 text-xs cursor-pointer"
+                  >
+                    <Check className={cn("w-3.5 h-3.5", isActive ? "opacity-100" : "opacity-0")} />
+                    {inst.name}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
