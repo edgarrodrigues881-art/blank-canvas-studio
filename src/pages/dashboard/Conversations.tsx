@@ -448,6 +448,8 @@ const Conversations = () => {
               availableInstances={availableInstances}
               filterInstanceIds={filterInstanceIds}
               onFilterInstancesChange={setFilterInstanceIds}
+              onBulkArchive={bulkArchiveConversations}
+              onBulkDelete={bulkDeleteConversations}
             />
           </div>
 
