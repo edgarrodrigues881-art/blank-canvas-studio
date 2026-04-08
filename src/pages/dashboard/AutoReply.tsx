@@ -484,6 +484,15 @@ function FlowCanvas() {
                     Temporizador
                   </button>
                   <button
+                    onClick={() => createNodeFromMenu("conditionNode")}
+                    className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-sm text-foreground hover:bg-violet-500/10 transition-colors"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                      <GitBranch className="w-3.5 h-3.5 text-violet-500" />
+                    </div>
+                    Condição
+                  </button>
+                  <button
                     onClick={() => createNodeFromMenu("endNode")}
                     className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-sm text-foreground hover:bg-destructive/10 transition-colors"
                   >
