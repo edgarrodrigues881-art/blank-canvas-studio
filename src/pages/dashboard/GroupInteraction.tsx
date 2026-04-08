@@ -496,8 +496,8 @@ export default function GroupInteractionPage() {
                   <Users className="w-4 h-4 text-primary" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">Automações Ativas</p>
-                  <p className="text-xl font-bold text-foreground tabular-nums">{interactions.filter(i => i.status === "running").length}</p>
+                  <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-medium truncate">Automações Ativas</p>
+                  <p className="text-lg font-bold text-foreground tabular-nums">{interactions.filter(i => i.status === "running").length}</p>
                 </div>
               </div>
             </CardContent>
