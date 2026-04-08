@@ -477,6 +477,41 @@ const Conversations = () => {
         onOpenChange={setNewConversationOpen}
         onCreateConversation={createConversation}
       />
+
+      {/* Delete message dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent className="max-w-[340px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base">Apagar mensagem</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground">
+              {deleteTarget?.isSent
+                ? "Escolha como deseja apagar esta mensagem."
+                : "Você só pode apagar mensagens recebidas para você."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col gap-2 sm:flex-col">
+            {deleteTarget?.isSent && (
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => confirmDelete(true)}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Apagar para todos
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={() => confirmDelete(false)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Apagar para mim
+            </Button>
+            <AlertDialogCancel className="w-full mt-0">Cancelar</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
