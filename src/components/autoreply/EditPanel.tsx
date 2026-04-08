@@ -436,7 +436,7 @@ export function EditPanel({ node, onUpdate, onDelete, onDuplicate, onClose }: Pr
                 </p>
               </div>
             </div>
-          )
+          )}
 
           {/* Message node */}
           {isMessage && (
