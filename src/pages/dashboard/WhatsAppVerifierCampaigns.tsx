@@ -308,17 +308,17 @@ export default function WhatsAppVerifierCampaigns() {
     onError: (err: any) => toast.error(err?.message || "Erro ao retomar"),
   });
 
-  const swapDevice = useMutation({
-    mutationFn: async ({ jobId, newDeviceId }: { jobId: string; newDeviceId: string }) => {
-      const { error } = await supabase.from("verify_jobs").update({ device_id: newDeviceId } as any).eq("id", jobId);
+  const updateJobDevices = useMutation({
+    mutationFn: async ({ jobId, deviceIds }: { jobId: string; deviceIds: string[] }) => {
+      const { error } = await supabase.from("verify_jobs").update({ device_ids: deviceIds, device_id: deviceIds[0] || null } as any).eq("id", jobId);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Instância trocada!");
+      toast.success("Instâncias atualizadas!");
       queryClient.invalidateQueries({ queryKey: ["verify-jobs", user?.id] });
-      setShowSwapPanel(false); setSwapDeviceId("");
+      setShowSwapPanel(false);
     },
-    onError: (err: any) => toast.error(err?.message || "Erro ao trocar instância"),
+    onError: (err: any) => toast.error(err?.message || "Erro ao atualizar instâncias"),
   });
 
   const cancelJob = useMutation({
