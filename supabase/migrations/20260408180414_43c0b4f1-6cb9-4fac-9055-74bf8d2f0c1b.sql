@@ -1,0 +1,1 @@
+ALTER TABLE public.group_join_campaigns ADD COLUMN limit_per_instance integer DEFAULT NULL;
