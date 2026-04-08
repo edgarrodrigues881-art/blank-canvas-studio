@@ -129,7 +129,23 @@ export default function GroupInteractionPage() {
   const [bulkDeviceIds, setBulkDeviceIds] = useState<string[]>([]);
   const [usePeriod2, setUsePeriod2] = useState(false);
   const [groupSource, setGroupSource] = useState<"system" | "custom">("system");
-  
+
+  // Persistent cumulative stats from log tables (never lost on deletion)
+  const { data: groupCumulativeStats } = useQuery({
+    queryKey: ["group-cumulative-stats", user?.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("group_interaction_logs" as any)
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user!.id)
+        .eq("status", "sent");
+      return { totalMessages: (count as number) ?? 0 };
+    },
+    enabled: !!user?.id,
+    refetchInterval: () => document.hidden ? false : 60_000,
+    staleTime: 30_000,
+  });
+
 
   const { data: devices = [] } = useQuery({
     queryKey: ["devices-gi", user?.id],
