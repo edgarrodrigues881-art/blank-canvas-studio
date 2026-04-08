@@ -213,6 +213,33 @@ export function useConversationActions({
     }
   }, [messages, getToken, projectId, setMessages]);
 
+  const deleteMessage = useCallback(async (messageId: string, conversationId: string, whatsappMessageId?: string) => {
+    // Optimistically remove from state
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+
+    const token = await getToken();
+    try {
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/chat-send`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "delete",
+          conversation_id: conversationId,
+          message_id: messageId,
+          whatsapp_message_id: whatsappMessageId || "",
+        }),
+      });
+      const result = await res.json();
+      if (result.deleted) {
+        toast.success(result.deletedOnWhatsApp ? "Mensagem apagada para todos" : "Mensagem apagada localmente");
+      } else {
+        toast.error(result.error || "Erro ao apagar mensagem");
+      }
+    } catch {
+      toast.error("Erro de conexão ao apagar mensagem");
+    }
+  }, [getToken, projectId, setMessages]);
+
   const sendAudioMessage = useCallback(async (conversationId: string, blob: Blob, duration: number) => {
     if (!user) return;
     const conv = conversationsRef.current.find((c) => c.id === conversationId);
