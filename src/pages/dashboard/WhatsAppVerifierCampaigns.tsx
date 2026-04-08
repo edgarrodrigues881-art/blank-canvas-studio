@@ -657,6 +657,8 @@ export default function WhatsAppVerifierCampaigns() {
     const isActive = job.status === "running" || job.status === "pending";
     const isPaused = job.status === "paused";
     const canResume = isPaused || job.status === "failed";
+    const jobDeviceIds: string[] = Array.isArray(job.device_ids) && job.device_ids.length > 0 ? job.device_ids : job.device_id ? [job.device_id] : [];
+    const jobDevices = jobDeviceIds.map((id: string) => getDeviceInfo(id)).filter(Boolean);
     const deviceInfo = getDeviceInfo(job.device_id);
     const deviceIsOnline = deviceInfo && ACTIVE_DEVICE_STATUSES.includes(deviceInfo.status);
 
