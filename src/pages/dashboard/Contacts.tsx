@@ -278,6 +278,8 @@ const Contacts = () => {
   const isDraggingRef = useRef(false);
   const dragStartIndexRef = useRef<number | null>(null);
   const dragModeRef = useRef<"add" | "remove">("add");
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const autoScrollRef = useRef<number | null>(null);
 
   const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
@@ -309,11 +311,47 @@ const Contacts = () => {
     });
   }, [filtered]);
 
-  // Global mouseup to stop drag
+  // Auto-scroll while dragging near edges
   useEffect(() => {
-    const handleMouseUp = () => { isDraggingRef.current = false; dragStartIndexRef.current = null; };
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current || !scrollContainerRef.current) return;
+      const rect = scrollContainerRef.current.getBoundingClientRect();
+      const edgeZone = 50; // px from edge to trigger scroll
+      const speed = 8;
+
+      if (e.clientY > rect.bottom - edgeZone) {
+        // Near bottom — scroll down
+        if (!autoScrollRef.current) {
+          autoScrollRef.current = window.setInterval(() => {
+            scrollContainerRef.current?.scrollBy(0, speed);
+          }, 16);
+        }
+      } else if (e.clientY < rect.top + edgeZone) {
+        // Near top — scroll up
+        if (!autoScrollRef.current) {
+          autoScrollRef.current = window.setInterval(() => {
+            scrollContainerRef.current?.scrollBy(0, -speed);
+          }, 16);
+        }
+      } else {
+        // Not near edge — stop scrolling
+        if (autoScrollRef.current) { clearInterval(autoScrollRef.current); autoScrollRef.current = null; }
+      }
+    };
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+      dragStartIndexRef.current = null;
+      if (autoScrollRef.current) { clearInterval(autoScrollRef.current); autoScrollRef.current = null; }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
-    return () => window.removeEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      if (autoScrollRef.current) clearInterval(autoScrollRef.current);
+    };
   }, []);
 
   const toggleAll = () => {
