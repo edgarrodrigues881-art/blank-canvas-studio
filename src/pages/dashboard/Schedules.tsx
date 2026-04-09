@@ -305,6 +305,29 @@ export default function Schedules() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Reschedule confirmation */}
+      <AlertDialog open={!!rescheduleTarget} onOpenChange={(o) => { if (!o) setRescheduleTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reagendar mensagem</AlertDialogTitle>
+            <AlertDialogDescription>
+              {rescheduleTarget && (
+                <>
+                  Mover agendamento de <strong>{rescheduleTarget.schedule.contact_name || rescheduleTarget.schedule.contact_phone}</strong> para{" "}
+                  <strong>{format(rescheduleTarget.newDate, "dd/MM/yyyy")}</strong> mantendo o horário original ({format(new Date(rescheduleTarget.schedule.scheduled_at), "HH:mm")})?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Desfazer</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmReschedule}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* New/Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
