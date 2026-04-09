@@ -107,19 +107,22 @@ export default function Schedules() {
   // New / Edit
   const openNew = () => {
     setEditing(null);
-    setForm({ contact_name: "", contact_phone: "", message_content: "", date: "", time: "", device_id: "" });
+    setEditInitialDate("");
+    setEditInitialTime("");
     setEditDialogOpen(true);
   };
 
   const openNewForDay = (date: Date) => {
     setEditing(null);
-    setForm({ contact_name: "", contact_phone: "", message_content: "", date: format(date, "yyyy-MM-dd"), time: "", device_id: "" });
+    setEditInitialDate(format(date, "yyyy-MM-dd"));
+    setEditInitialTime("");
     setEditDialogOpen(true);
   };
 
   const openNewAtTime = (date: Date, time: string) => {
     setEditing(null);
-    setForm({ contact_name: "", contact_phone: "", message_content: "", date: format(date, "yyyy-MM-dd"), time, device_id: "" });
+    setEditInitialDate(format(date, "yyyy-MM-dd"));
+    setEditInitialTime(time);
     setDaySheetOpen(false);
     setEditDialogOpen(true);
   };
