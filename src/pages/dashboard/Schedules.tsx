@@ -73,6 +73,24 @@ export default function Schedules() {
   useEffect(() => { fetchSchedules(); }, [fetchSchedules]);
   useEffect(() => { fetchDevices(); }, [fetchDevices]);
 
+  // Realtime subscription for status updates
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("scheduled-messages-realtime")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "scheduled_messages", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const updated = payload.new as any;
+          setSchedules(prev => prev.map(s => s.id === updated.id ? { ...s, ...updated } : s));
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
   const connectedDevices = useMemo(() =>
     devices.filter(d => ["Ready", "Connected", "authenticated"].includes(d.status)),
     [devices]
@@ -230,13 +248,21 @@ export default function Schedules() {
   const handleConfirmSend = async (id: string, deviceId: string | null) => {
     setSending(true);
     try {
-      const payload: any = { status: "sent", sent_at: new Date().toISOString() };
+      // Set scheduled_at to now + assign device so the worker picks it up immediately
+      const payload: any = {
+        scheduled_at: new Date().toISOString(),
+        status: "pending",
+        attempts: 0,
+        next_retry_at: null,
+        error_message: null,
+      };
       if (deviceId) payload.device_id = deviceId;
       const { error } = await supabase.from("scheduled_messages").update(payload).eq("id", id);
       if (error) throw error;
-      toast.success("Mensagem enviada com sucesso");
+      toast.success("Mensagem adicionada à fila de envio");
       setSendNowOpen(false);
-      fetchSchedules();
+      // Optimistic update
+      setSchedules(prev => prev.map(s => s.id === id ? { ...s, ...payload } : s));
     } catch {
       toast.error("Erro ao enviar mensagem");
     } finally {

@@ -3698,13 +3698,16 @@ export type Database = {
       }
       scheduled_messages: {
         Row: {
+          attempts: number
           contact_name: string
           contact_phone: string
           created_at: string
           device_id: string | null
           error_message: string | null
           id: string
+          max_attempts: number
           message_content: string
+          next_retry_at: string | null
           scheduled_at: string
           sent_at: string | null
           status: string
@@ -3712,13 +3715,16 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          attempts?: number
           contact_name?: string
           contact_phone: string
           created_at?: string
           device_id?: string | null
           error_message?: string | null
           id?: string
+          max_attempts?: number
           message_content: string
+          next_retry_at?: string | null
           scheduled_at: string
           sent_at?: string | null
           status?: string
@@ -3726,13 +3732,16 @@ export type Database = {
           user_id: string
         }
         Update: {
+          attempts?: number
           contact_name?: string
           contact_phone?: string
           created_at?: string
           device_id?: string | null
           error_message?: string | null
           id?: string
+          max_attempts?: number
           message_content?: string
+          next_retry_at?: string | null
           scheduled_at?: string
           sent_at?: string | null
           status?: string
@@ -5728,6 +5737,32 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "message_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      claim_scheduled_messages: {
+        Args: { _limit?: number }
+        Returns: {
+          attempts: number
+          contact_name: string
+          contact_phone: string
+          created_at: string
+          device_id: string | null
+          error_message: string | null
+          id: string
+          max_attempts: number
+          message_content: string
+          next_retry_at: string | null
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "scheduled_messages"
           isOneToOne: false
           isSetofReturn: true
         }
