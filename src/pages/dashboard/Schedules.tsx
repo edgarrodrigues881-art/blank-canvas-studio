@@ -109,6 +109,35 @@ export default function Schedules() {
     setEditDialogOpen(true);
   };
 
+  const openNewAtTime = (date: Date, time: string) => {
+    setEditing(null);
+    setForm({ contact_name: "", contact_phone: "", message_content: "", date: format(date, "yyyy-MM-dd"), time, device_id: "" });
+    setDaySheetOpen(false);
+    setEditDialogOpen(true);
+  };
+
+  const handleRescheduleTime = async (id: string, newHour: number, newMinute: number) => {
+    const s = schedules.find(x => x.id === id);
+    if (!s || !selectedDay) return;
+    const newScheduled = new Date(s.scheduled_at);
+    newScheduled.setHours(newHour, newMinute, 0, 0);
+
+    // Optimistic
+    setSchedules(prev => prev.map(x => x.id === id ? { ...x, scheduled_at: newScheduled.toISOString() } : x));
+
+    const { error } = await supabase
+      .from("scheduled_messages")
+      .update({ scheduled_at: newScheduled.toISOString() } as any)
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Erro ao reagendar horário");
+      fetchSchedules();
+    } else {
+      toast.success(`Reagendado para ${String(newHour).padStart(2, "0")}:${String(newMinute).padStart(2, "0")}`);
+    }
+  };
+
   const openEdit = (s: ScheduledMessage) => {
     setEditing(s);
     const dt = new Date(s.scheduled_at);
