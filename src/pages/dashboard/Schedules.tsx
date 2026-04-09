@@ -34,6 +34,7 @@ export default function Schedules() {
   const [sendNowTarget, setSendNowTarget] = useState<ScheduledMessage | null>(null);
   const [sending, setSending] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState<{ id: string; newDate: Date; schedule: ScheduledMessage } | null>(null);
 
   const [form, setForm] = useState({
     contact_name: "",
@@ -159,6 +160,38 @@ export default function Schedules() {
     fetchSchedules();
   };
 
+  // Reschedule (drag & drop)
+  const handleReschedule = (scheduleId: string, newDate: Date) => {
+    const s = schedules.find(x => x.id === scheduleId);
+    if (!s) return;
+    setRescheduleTarget({ id: scheduleId, newDate, schedule: s });
+  };
+
+  const handleConfirmReschedule = async () => {
+    if (!rescheduleTarget) return;
+    const { id, newDate, schedule } = rescheduleTarget;
+    // Keep the original time, change only the date
+    const original = new Date(schedule.scheduled_at);
+    const newScheduled = new Date(newDate);
+    newScheduled.setHours(original.getHours(), original.getMinutes(), original.getSeconds());
+
+    // Optimistic update
+    setSchedules(prev => prev.map(s => s.id === id ? { ...s, scheduled_at: newScheduled.toISOString() } : s));
+    setRescheduleTarget(null);
+
+    const { error } = await supabase
+      .from("scheduled_messages")
+      .update({ scheduled_at: newScheduled.toISOString() } as any)
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Erro ao reagendar");
+      fetchSchedules(); // revert
+    } else {
+      toast.success("Agendamento reagendado com sucesso");
+    }
+  };
+
   // Send now
   const handleSendNow = (s: ScheduledMessage) => {
     setSendNowTarget(s);
@@ -229,6 +262,7 @@ export default function Schedules() {
           onEdit={openEdit}
           onCancel={(id) => setCancelTarget(id)}
           onNewForDay={openNewForDay}
+          onReschedule={handleReschedule}
         />
       )}
 
@@ -266,6 +300,29 @@ export default function Schedules() {
             <AlertDialogCancel>Voltar</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Cancelar agendamento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reschedule confirmation */}
+      <AlertDialog open={!!rescheduleTarget} onOpenChange={(o) => { if (!o) setRescheduleTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reagendar mensagem</AlertDialogTitle>
+            <AlertDialogDescription>
+              {rescheduleTarget && (
+                <>
+                  Mover agendamento de <strong>{rescheduleTarget.schedule.contact_name || rescheduleTarget.schedule.contact_phone}</strong> para{" "}
+                  <strong>{format(rescheduleTarget.newDate, "dd/MM/yyyy")}</strong> mantendo o horário original ({format(new Date(rescheduleTarget.schedule.scheduled_at), "HH:mm")})?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Desfazer</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmReschedule}>
+              Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
