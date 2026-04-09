@@ -4,18 +4,14 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Plus, Send, CalendarClock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, CalendarClock } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 import ScheduleCalendarGrid from "@/components/schedules/ScheduleCalendarGrid";
 import DayDetailSheet from "@/components/schedules/DayDetailSheet";
 import SendNowDialog from "@/components/schedules/SendNowDialog";
+import NewScheduleDialog from "@/components/schedules/NewScheduleDialog";
 import { ScheduledMessage, Device } from "@/components/schedules/types";
 
 export default function Schedules() {
@@ -36,14 +32,8 @@ export default function Schedules() {
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [rescheduleTarget, setRescheduleTarget] = useState<{ id: string; newDate: Date; schedule: ScheduledMessage } | null>(null);
 
-  const [form, setForm] = useState({
-    contact_name: "",
-    contact_phone: "",
-    message_content: "",
-    date: "",
-    time: "",
-    device_id: "",
-  });
+  const [editInitialDate, setEditInitialDate] = useState("");
+  const [editInitialTime, setEditInitialTime] = useState("");
 
   const fetchSchedules = useCallback(async () => {
     if (!user) return;
@@ -91,10 +81,6 @@ export default function Schedules() {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  const connectedDevices = useMemo(() =>
-    devices.filter(d => ["Ready", "Connected", "authenticated"].includes(d.status)),
-    [devices]
-  );
 
   const pendingCount = useMemo(() => schedules.filter(s => s.status === "pending").length, [schedules]);
   const sentCount = useMemo(() => schedules.filter(s => s.status === "sent").length, [schedules]);
@@ -117,19 +103,22 @@ export default function Schedules() {
   // New / Edit
   const openNew = () => {
     setEditing(null);
-    setForm({ contact_name: "", contact_phone: "", message_content: "", date: "", time: "", device_id: "" });
+    setEditInitialDate("");
+    setEditInitialTime("");
     setEditDialogOpen(true);
   };
 
   const openNewForDay = (date: Date) => {
     setEditing(null);
-    setForm({ contact_name: "", contact_phone: "", message_content: "", date: format(date, "yyyy-MM-dd"), time: "", device_id: "" });
+    setEditInitialDate(format(date, "yyyy-MM-dd"));
+    setEditInitialTime("");
     setEditDialogOpen(true);
   };
 
   const openNewAtTime = (date: Date, time: string) => {
     setEditing(null);
-    setForm({ contact_name: "", contact_phone: "", message_content: "", date: format(date, "yyyy-MM-dd"), time, device_id: "" });
+    setEditInitialDate(format(date, "yyyy-MM-dd"));
+    setEditInitialTime(time);
     setDaySheetOpen(false);
     setEditDialogOpen(true);
   };
@@ -159,43 +148,9 @@ export default function Schedules() {
   const openEdit = (s: ScheduledMessage) => {
     setEditing(s);
     const dt = new Date(s.scheduled_at);
-    setForm({
-      contact_name: s.contact_name,
-      contact_phone: s.contact_phone,
-      message_content: s.message_content,
-      date: format(dt, "yyyy-MM-dd"),
-      time: format(dt, "HH:mm"),
-      device_id: s.device_id || "",
-    });
+    setEditInitialDate(format(dt, "yyyy-MM-dd"));
+    setEditInitialTime(format(dt, "HH:mm"));
     setEditDialogOpen(true);
-  };
-
-  const handleSave = async () => {
-    if (!user || !form.contact_phone || !form.message_content || !form.date || !form.time) {
-      toast.error("Preencha todos os campos obrigatórios");
-      return;
-    }
-    const scheduled_at = new Date(`${form.date}T${form.time}:00`).toISOString();
-    const payload = {
-      user_id: user.id,
-      contact_name: form.contact_name,
-      contact_phone: form.contact_phone,
-      message_content: form.message_content,
-      scheduled_at,
-      device_id: form.device_id || null,
-    };
-
-    if (editing) {
-      const { error } = await supabase.from("scheduled_messages").update(payload as any).eq("id", editing.id);
-      if (error) { toast.error("Erro ao atualizar"); return; }
-      toast.success("Agendamento atualizado");
-    } else {
-      const { error } = await supabase.from("scheduled_messages").insert(payload as any);
-      if (error) { toast.error("Erro ao criar"); return; }
-      toast.success("Agendamento criado");
-    }
-    setEditDialogOpen(false);
-    fetchSchedules();
   };
 
   // Cancel (delete)
@@ -386,41 +341,15 @@ export default function Schedules() {
       </AlertDialog>
 
       {/* New/Edit Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editing ? "Editar Agendamento" : "Novo Agendamento"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div><Label>Nome do contato</Label><Input value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="Nome" /></div>
-            <div><Label>Telefone *</Label><Input value={form.contact_phone} onChange={e => setForm(f => ({ ...f, contact_phone: e.target.value }))} placeholder="5511999999999" /></div>
-            <div><Label>Mensagem *</Label><Textarea value={form.message_content} onChange={e => setForm(f => ({ ...f, message_content: e.target.value }))} placeholder="Mensagem a enviar" rows={3} /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Data *</Label><Input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} /></div>
-              <div><Label>Hora *</Label><Input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} /></div>
-            </div>
-            <div>
-              <Label>Instância (opcional)</Label>
-              <Select value={form.device_id || "auto"} onValueChange={v => setForm(f => ({ ...f, device_id: v === "auto" ? "" : v }))}>
-                <SelectTrigger><SelectValue placeholder="Automático" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto">Automático (primeira disponível)</SelectItem>
-                  {connectedDevices.map(d => (
-                    <SelectItem key={d.id} value={d.id}>{d.name} {d.number ? `(${d.number})` : ""}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={!form.contact_phone || !form.message_content || !form.date || !form.time}>
-              <Send className="w-4 h-4 mr-1.5" />
-              {editing ? "Salvar" : "Agendar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <NewScheduleDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        devices={devices}
+        editing={editing}
+        initialDate={editInitialDate}
+        initialTime={editInitialTime}
+        onSaved={fetchSchedules}
+      />
     </div>
   );
 }
