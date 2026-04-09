@@ -160,6 +160,38 @@ export default function Schedules() {
     fetchSchedules();
   };
 
+  // Reschedule (drag & drop)
+  const handleReschedule = (scheduleId: string, newDate: Date) => {
+    const s = schedules.find(x => x.id === scheduleId);
+    if (!s) return;
+    setRescheduleTarget({ id: scheduleId, newDate, schedule: s });
+  };
+
+  const handleConfirmReschedule = async () => {
+    if (!rescheduleTarget) return;
+    const { id, newDate, schedule } = rescheduleTarget;
+    // Keep the original time, change only the date
+    const original = new Date(schedule.scheduled_at);
+    const newScheduled = new Date(newDate);
+    newScheduled.setHours(original.getHours(), original.getMinutes(), original.getSeconds());
+
+    // Optimistic update
+    setSchedules(prev => prev.map(s => s.id === id ? { ...s, scheduled_at: newScheduled.toISOString() } : s));
+    setRescheduleTarget(null);
+
+    const { error } = await supabase
+      .from("scheduled_messages")
+      .update({ scheduled_at: newScheduled.toISOString() } as any)
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Erro ao reagendar");
+      fetchSchedules(); // revert
+    } else {
+      toast.success("Agendamento reagendado com sucesso");
+    }
+  };
+
   // Send now
   const handleSendNow = (s: ScheduledMessage) => {
     setSendNowTarget(s);
