@@ -248,13 +248,21 @@ export default function Schedules() {
   const handleConfirmSend = async (id: string, deviceId: string | null) => {
     setSending(true);
     try {
-      const payload: any = { status: "sent", sent_at: new Date().toISOString() };
+      // Set scheduled_at to now + assign device so the worker picks it up immediately
+      const payload: any = {
+        scheduled_at: new Date().toISOString(),
+        status: "pending",
+        attempts: 0,
+        next_retry_at: null,
+        error_message: null,
+      };
       if (deviceId) payload.device_id = deviceId;
       const { error } = await supabase.from("scheduled_messages").update(payload).eq("id", id);
       if (error) throw error;
-      toast.success("Mensagem enviada com sucesso");
+      toast.success("Mensagem adicionada à fila de envio");
       setSendNowOpen(false);
-      fetchSchedules();
+      // Optimistic update
+      setSchedules(prev => prev.map(s => s.id === id ? { ...s, ...payload } : s));
     } catch {
       toast.error("Erro ao enviar mensagem");
     } finally {
