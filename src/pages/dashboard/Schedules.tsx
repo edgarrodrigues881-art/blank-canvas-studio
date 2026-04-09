@@ -1,46 +1,39 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Clock, Plus, Pencil, XCircle, Send, CalendarClock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Send, CalendarClock } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
-interface ScheduledMessage {
-  id: string;
-  contact_name: string;
-  contact_phone: string;
-  message_content: string;
-  scheduled_at: string;
-  status: string;
-  device_id: string | null;
-  sent_at: string | null;
-  error_message: string | null;
-  created_at: string;
-}
-
-interface Device {
-  id: string;
-  name: string;
-  number: string | null;
-  status: string;
-}
+import ScheduleCalendarGrid from "@/components/schedules/ScheduleCalendarGrid";
+import DayDetailSheet from "@/components/schedules/DayDetailSheet";
+import SendNowDialog from "@/components/schedules/SendNowDialog";
+import { ScheduledMessage, Device } from "@/components/schedules/types";
 
 export default function Schedules() {
   const { user } = useAuth();
   const [schedules, setSchedules] = useState<ScheduledMessage[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  // Dialogs
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ScheduledMessage | null>(null);
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [daySheetOpen, setDaySheetOpen] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [sendNowOpen, setSendNowOpen] = useState(false);
+  const [sendNowTarget, setSendNowTarget] = useState<ScheduledMessage | null>(null);
+  const [sending, setSending] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     contact_name: "",
@@ -53,14 +46,18 @@ export default function Schedules() {
 
   const fetchSchedules = useCallback(async () => {
     if (!user) return;
+    const start = startOfMonth(currentMonth);
+    const end = endOfMonth(currentMonth);
     const { data } = await supabase
       .from("scheduled_messages")
       .select("*")
       .eq("user_id", user.id)
+      .gte("scheduled_at", start.toISOString())
+      .lte("scheduled_at", end.toISOString())
       .order("scheduled_at", { ascending: true });
     setSchedules((data as any[]) || []);
     setLoading(false);
-  }, [user]);
+  }, [user, currentMonth]);
 
   const fetchDevices = useCallback(async () => {
     if (!user) return;
@@ -72,17 +69,37 @@ export default function Schedules() {
     setDevices((data as Device[]) || []);
   }, [user]);
 
-  useEffect(() => {
-    fetchSchedules();
-    fetchDevices();
-  }, [fetchSchedules, fetchDevices]);
+  useEffect(() => { fetchSchedules(); }, [fetchSchedules]);
+  useEffect(() => { fetchDevices(); }, [fetchDevices]);
 
-  const filtered = schedules.filter(s => filterStatus === "all" || s.status === filterStatus);
+  const connectedDevices = useMemo(() =>
+    devices.filter(d => ["Ready", "Connected", "authenticated"].includes(d.status)),
+    [devices]
+  );
 
+  const pendingCount = useMemo(() => schedules.filter(s => s.status === "pending").length, [schedules]);
+  const sentCount = useMemo(() => schedules.filter(s => s.status === "sent").length, [schedules]);
+
+  const daySchedules = useMemo(() => {
+    if (!selectedDay) return [];
+    return schedules.filter(s => isSameDay(new Date(s.scheduled_at), selectedDay));
+  }, [schedules, selectedDay]);
+
+  // Navigation
+  const prevMonth = () => { setCurrentMonth(m => subMonths(m, 1)); setLoading(true); };
+  const nextMonth = () => { setCurrentMonth(m => addMonths(m, 1)); setLoading(true); };
+
+  // Day click
+  const handleDayClick = (date: Date) => {
+    setSelectedDay(date);
+    setDaySheetOpen(true);
+  };
+
+  // New / Edit
   const openNew = () => {
     setEditing(null);
     setForm({ contact_name: "", contact_phone: "", message_content: "", date: "", time: "", device_id: "" });
-    setDialogOpen(true);
+    setEditDialogOpen(true);
   };
 
   const openEdit = (s: ScheduledMessage) => {
@@ -96,7 +113,7 @@ export default function Schedules() {
       time: format(dt, "HH:mm"),
       device_id: s.device_id || "",
     });
-    setDialogOpen(true);
+    setEditDialogOpen(true);
   };
 
   const handleSave = async () => {
@@ -104,7 +121,6 @@ export default function Schedules() {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
-
     const scheduled_at = new Date(`${form.date}T${form.time}:00`).toISOString();
     const payload = {
       user_id: user.id,
@@ -118,33 +134,50 @@ export default function Schedules() {
     if (editing) {
       const { error } = await supabase.from("scheduled_messages").update(payload as any).eq("id", editing.id);
       if (error) { toast.error("Erro ao atualizar"); return; }
-      toast.success("Agendamento atualizado com sucesso");
+      toast.success("Agendamento atualizado");
     } else {
       const { error } = await supabase.from("scheduled_messages").insert(payload as any);
       if (error) { toast.error("Erro ao criar"); return; }
-      toast.success("Agendamento criado com sucesso");
+      toast.success("Agendamento criado");
     }
-    setDialogOpen(false);
+    setEditDialogOpen(false);
     fetchSchedules();
   };
 
-  const handleCancel = async (id: string) => {
-    await supabase.from("scheduled_messages").update({ status: "cancelled" } as any).eq("id", id);
+  // Cancel (delete)
+  const handleConfirmCancel = async () => {
+    if (!cancelTarget) return;
+    await supabase.from("scheduled_messages").update({ status: "cancelled" } as any).eq("id", cancelTarget);
     toast.success("Agendamento cancelado");
+    setCancelTarget(null);
     fetchSchedules();
   };
 
-  const statusConfig: Record<string, { label: string; className: string }> = {
-    pending: { label: "Pendente", className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-    sent: { label: "Enviado", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-    cancelled: { label: "Cancelado", className: "bg-muted text-muted-foreground border-muted" },
-    failed: { label: "Falhou", className: "bg-destructive/15 text-destructive border-destructive/30" },
+  // Send now
+  const handleSendNow = (s: ScheduledMessage) => {
+    setSendNowTarget(s);
+    setSendNowOpen(true);
   };
 
-  const connectedDevices = devices.filter(d => ["Ready", "Connected", "authenticated"].includes(d.status));
+  const handleConfirmSend = async (id: string, deviceId: string | null) => {
+    setSending(true);
+    try {
+      const payload: any = { status: "sent", sent_at: new Date().toISOString() };
+      if (deviceId) payload.device_id = deviceId;
+      const { error } = await supabase.from("scheduled_messages").update(payload).eq("id", id);
+      if (error) throw error;
+      toast.success("Mensagem enviada com sucesso");
+      setSendNowOpen(false);
+      fetchSchedules();
+    } catch {
+      toast.error("Erro ao enviar mensagem");
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 space-y-4 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -154,7 +187,7 @@ export default function Schedules() {
           <div>
             <h1 className="text-xl font-bold text-foreground">Agendamentos</h1>
             <p className="text-xs text-muted-foreground">
-              {schedules.filter(s => s.status === "pending").length} pendentes · {schedules.filter(s => s.status === "sent").length} enviados
+              {pendingCount} pendentes · {sentCount} enviados
             </p>
           </div>
         </div>
@@ -163,79 +196,73 @@ export default function Schedules() {
         </Button>
       </div>
 
-      {/* Filter */}
-      <div className="flex gap-3">
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="pending">Pendente</SelectItem>
-            <SelectItem value="sent">Enviado</SelectItem>
-            <SelectItem value="cancelled">Cancelado</SelectItem>
-            <SelectItem value="failed">Falhou</SelectItem>
-          </SelectContent>
-        </Select>
+      {/* Month navigation */}
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" size="sm" onClick={prevMonth} className="gap-1">
+          <ChevronLeft className="w-4 h-4" /> Anterior
+        </Button>
+        <h2 className="text-sm font-semibold text-foreground capitalize">
+          {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
+        </h2>
+        <Button variant="ghost" size="sm" onClick={nextMonth} className="gap-1">
+          Próximo <ChevronRight className="w-4 h-4" />
+        </Button>
       </div>
 
-      {/* Table */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead className="font-semibold">Contato</TableHead>
-              <TableHead className="font-semibold">Telefone</TableHead>
-              <TableHead className="font-semibold hidden md:table-cell">Mensagem</TableHead>
-              <TableHead className="font-semibold">Data/Hora</TableHead>
-              <TableHead className="font-semibold">Status</TableHead>
-              <TableHead className="w-[100px]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">Carregando...</TableCell></TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">Nenhum agendamento encontrado</TableCell></TableRow>
-            ) : filtered.map(s => {
-              const sc = statusConfig[s.status] || statusConfig.pending;
-              return (
-                <TableRow key={s.id} className="hover:bg-muted/20 transition-colors">
-                  <TableCell className="font-medium">{s.contact_name || "—"}</TableCell>
-                  <TableCell className="font-mono text-xs">{s.contact_phone}</TableCell>
-                  <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[200px] truncate">{s.message_content}</TableCell>
-                  <TableCell className="text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <Calendar className="w-3 h-3 text-muted-foreground" />
-                      {format(new Date(s.scheduled_at), "dd/MM/yyyy")}
-                      <Clock className="w-3 h-3 text-muted-foreground ml-1" />
-                      {format(new Date(s.scheduled_at), "HH:mm")}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={`text-[10px] ${sc.className}`}>{sc.label}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      {s.status === "pending" && (
-                        <>
-                          <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => handleCancel(s.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive">
-                            <XCircle className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
+      {/* Calendar grid */}
+      {loading ? (
+        <div className="rounded-xl border border-border bg-card flex items-center justify-center py-24 text-muted-foreground text-sm">
+          Carregando...
+        </div>
+      ) : (
+        <ScheduleCalendarGrid
+          currentMonth={currentMonth}
+          schedules={schedules}
+          onDayClick={handleDayClick}
+        />
+      )}
+
+      {/* Day detail sheet */}
+      <DayDetailSheet
+        open={daySheetOpen}
+        onOpenChange={setDaySheetOpen}
+        date={selectedDay}
+        schedules={daySchedules}
+        onEdit={(s) => { setDaySheetOpen(false); openEdit(s); }}
+        onCancel={(id) => { setDaySheetOpen(false); setCancelTarget(id); }}
+        onSendNow={(s) => { setDaySheetOpen(false); handleSendNow(s); }}
+      />
+
+      {/* Send now dialog */}
+      <SendNowDialog
+        open={sendNowOpen}
+        onOpenChange={setSendNowOpen}
+        schedule={sendNowTarget}
+        devices={devices}
+        onConfirm={handleConfirmSend}
+        sending={sending}
+      />
+
+      {/* Cancel confirmation */}
+      <AlertDialog open={!!cancelTarget} onOpenChange={(o) => { if (!o) setCancelTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar agendamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja cancelar este agendamento? A ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Cancelar agendamento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* New/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editing ? "Editar Agendamento" : "Novo Agendamento"}</DialogTitle>
@@ -262,7 +289,7 @@ export default function Schedules() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={!form.contact_phone || !form.message_content || !form.date || !form.time}>
               <Send className="w-4 h-4 mr-1.5" />
               {editing ? "Salvar" : "Agendar"}
