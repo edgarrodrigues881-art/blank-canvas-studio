@@ -102,6 +102,12 @@ export default function Schedules() {
     setEditDialogOpen(true);
   };
 
+  const openNewForDay = (date: Date) => {
+    setEditing(null);
+    setForm({ contact_name: "", contact_phone: "", message_content: "", date: format(date, "yyyy-MM-dd"), time: "", device_id: "" });
+    setEditDialogOpen(true);
+  };
+
   const openEdit = (s: ScheduledMessage) => {
     setEditing(s);
     const dt = new Date(s.scheduled_at);
@@ -219,6 +225,10 @@ export default function Schedules() {
           currentMonth={currentMonth}
           schedules={schedules}
           onDayClick={handleDayClick}
+          onSendNow={handleSendNow}
+          onEdit={openEdit}
+          onCancel={(id) => setCancelTarget(id)}
+          onNewForDay={openNewForDay}
         />
       )}
 
