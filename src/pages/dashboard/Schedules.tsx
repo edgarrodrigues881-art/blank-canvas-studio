@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import ScheduleCalendarGrid from "@/components/schedules/ScheduleCalendarGrid";
 import DayDetailSheet from "@/components/schedules/DayDetailSheet";
 import SendNowDialog from "@/components/schedules/SendNowDialog";
+import NewScheduleDialog from "@/components/schedules/NewScheduleDialog";
 import { ScheduledMessage, Device } from "@/components/schedules/types";
 
 export default function Schedules() {
