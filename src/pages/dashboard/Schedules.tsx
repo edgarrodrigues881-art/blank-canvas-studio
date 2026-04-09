@@ -152,43 +152,9 @@ export default function Schedules() {
   const openEdit = (s: ScheduledMessage) => {
     setEditing(s);
     const dt = new Date(s.scheduled_at);
-    setForm({
-      contact_name: s.contact_name,
-      contact_phone: s.contact_phone,
-      message_content: s.message_content,
-      date: format(dt, "yyyy-MM-dd"),
-      time: format(dt, "HH:mm"),
-      device_id: s.device_id || "",
-    });
+    setEditInitialDate(format(dt, "yyyy-MM-dd"));
+    setEditInitialTime(format(dt, "HH:mm"));
     setEditDialogOpen(true);
-  };
-
-  const handleSave = async () => {
-    if (!user || !form.contact_phone || !form.message_content || !form.date || !form.time) {
-      toast.error("Preencha todos os campos obrigatórios");
-      return;
-    }
-    const scheduled_at = new Date(`${form.date}T${form.time}:00`).toISOString();
-    const payload = {
-      user_id: user.id,
-      contact_name: form.contact_name,
-      contact_phone: form.contact_phone,
-      message_content: form.message_content,
-      scheduled_at,
-      device_id: form.device_id || null,
-    };
-
-    if (editing) {
-      const { error } = await supabase.from("scheduled_messages").update(payload as any).eq("id", editing.id);
-      if (error) { toast.error("Erro ao atualizar"); return; }
-      toast.success("Agendamento atualizado");
-    } else {
-      const { error } = await supabase.from("scheduled_messages").insert(payload as any);
-      if (error) { toast.error("Erro ao criar"); return; }
-      toast.success("Agendamento criado");
-    }
-    setEditDialogOpen(false);
-    fetchSchedules();
   };
 
   // Cancel (delete)
