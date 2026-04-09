@@ -73,6 +73,24 @@ export default function Schedules() {
   useEffect(() => { fetchSchedules(); }, [fetchSchedules]);
   useEffect(() => { fetchDevices(); }, [fetchDevices]);
 
+  // Realtime subscription for status updates
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("scheduled-messages-realtime")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "scheduled_messages", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const updated = payload.new as any;
+          setSchedules(prev => prev.map(s => s.id === updated.id ? { ...s, ...updated } : s));
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
   const connectedDevices = useMemo(() =>
     devices.filter(d => ["Ready", "Connected", "authenticated"].includes(d.status)),
     [devices]
