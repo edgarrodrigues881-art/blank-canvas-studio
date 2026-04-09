@@ -345,41 +345,15 @@ export default function Schedules() {
       </AlertDialog>
 
       {/* New/Edit Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editing ? "Editar Agendamento" : "Novo Agendamento"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div><Label>Nome do contato</Label><Input value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="Nome" /></div>
-            <div><Label>Telefone *</Label><Input value={form.contact_phone} onChange={e => setForm(f => ({ ...f, contact_phone: e.target.value }))} placeholder="5511999999999" /></div>
-            <div><Label>Mensagem *</Label><Textarea value={form.message_content} onChange={e => setForm(f => ({ ...f, message_content: e.target.value }))} placeholder="Mensagem a enviar" rows={3} /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Data *</Label><Input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} /></div>
-              <div><Label>Hora *</Label><Input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} /></div>
-            </div>
-            <div>
-              <Label>Instância (opcional)</Label>
-              <Select value={form.device_id || "auto"} onValueChange={v => setForm(f => ({ ...f, device_id: v === "auto" ? "" : v }))}>
-                <SelectTrigger><SelectValue placeholder="Automático" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto">Automático (primeira disponível)</SelectItem>
-                  {connectedDevices.map(d => (
-                    <SelectItem key={d.id} value={d.id}>{d.name} {d.number ? `(${d.number})` : ""}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={!form.contact_phone || !form.message_content || !form.date || !form.time}>
-              <Send className="w-4 h-4 mr-1.5" />
-              {editing ? "Salvar" : "Agendar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <NewScheduleDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        devices={devices}
+        editing={editing}
+        initialDate={editInitialDate}
+        initialTime={editInitialTime}
+        onSaved={fetchSchedules}
+      />
     </div>
   );
 }
