@@ -262,6 +262,7 @@ export default function Schedules() {
           onEdit={openEdit}
           onCancel={(id) => setCancelTarget(id)}
           onNewForDay={openNewForDay}
+          onReschedule={handleReschedule}
         />
       )}
 
