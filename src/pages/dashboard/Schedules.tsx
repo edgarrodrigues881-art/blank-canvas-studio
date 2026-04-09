@@ -225,6 +225,10 @@ export default function Schedules() {
           currentMonth={currentMonth}
           schedules={schedules}
           onDayClick={handleDayClick}
+          onSendNow={handleSendNow}
+          onEdit={openEdit}
+          onCancel={(id) => setCancelTarget(id)}
+          onNewForDay={openNewForDay}
         />
       )}
 
