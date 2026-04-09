@@ -295,7 +295,7 @@ export default function Schedules() {
         />
       )}
 
-      {/* Day detail sheet */}
+      {/* Day detail sheet (timeline) */}
       <DayDetailSheet
         open={daySheetOpen}
         onOpenChange={setDaySheetOpen}
@@ -304,6 +304,8 @@ export default function Schedules() {
         onEdit={(s) => { setDaySheetOpen(false); openEdit(s); }}
         onCancel={(id) => { setDaySheetOpen(false); setCancelTarget(id); }}
         onSendNow={(s) => { setDaySheetOpen(false); handleSendNow(s); }}
+        onNewAtTime={openNewAtTime}
+        onRescheduleTime={handleRescheduleTime}
       />
 
       {/* Send now dialog */}
