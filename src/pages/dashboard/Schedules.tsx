@@ -32,14 +32,8 @@ export default function Schedules() {
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [rescheduleTarget, setRescheduleTarget] = useState<{ id: string; newDate: Date; schedule: ScheduledMessage } | null>(null);
 
-  const [form, setForm] = useState({
-    contact_name: "",
-    contact_phone: "",
-    message_content: "",
-    date: "",
-    time: "",
-    device_id: "",
-  });
+  const [editInitialDate, setEditInitialDate] = useState("");
+  const [editInitialTime, setEditInitialTime] = useState("");
 
   const fetchSchedules = useCallback(async () => {
     if (!user) return;
