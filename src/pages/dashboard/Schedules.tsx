@@ -34,6 +34,7 @@ export default function Schedules() {
   const [sendNowTarget, setSendNowTarget] = useState<ScheduledMessage | null>(null);
   const [sending, setSending] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState<{ id: string; newDate: Date; schedule: ScheduledMessage } | null>(null);
 
   const [form, setForm] = useState({
     contact_name: "",
