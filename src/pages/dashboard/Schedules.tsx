@@ -81,10 +81,6 @@ export default function Schedules() {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  const connectedDevices = useMemo(() =>
-    devices.filter(d => ["Ready", "Connected", "authenticated"].includes(d.status)),
-    [devices]
-  );
 
   const pendingCount = useMemo(() => schedules.filter(s => s.status === "pending").length, [schedules]);
   const sentCount = useMemo(() => schedules.filter(s => s.status === "sent").length, [schedules]);
