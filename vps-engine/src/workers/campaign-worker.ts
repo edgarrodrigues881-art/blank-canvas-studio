@@ -924,7 +924,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       await sb.from("campaign_contacts").update({ status: "failed", error_message: "Número inválido", device_id: device.id }).eq("id", contact.id);
       continue;
     }
-    let sendTo = isLid ? phone : normalizeBrazilianPhone(phone);
+    let sendTo = isLid ? `${phone}@lid` : normalizeBrazilianPhone(phone);
 
     if (!isLid) {
       const check = await checkNumberExists(baseUrl, device.uazapi_token, sendTo);
