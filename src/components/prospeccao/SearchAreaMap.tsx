@@ -178,7 +178,7 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
 
   if (!cidade) {
     return (
-      <div className="w-full aspect-[4/3] max-h-[400px] rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/10 flex flex-col items-center justify-center gap-3">
+      <div className="w-full aspect-square max-h-[520px] rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/10 flex flex-col items-center justify-center gap-3">
         <div className="w-14 h-14 rounded-full bg-muted/50 flex items-center justify-center"><MapPin className="h-7 w-7 text-muted-foreground/40" /></div>
         <p className="text-muted-foreground/60 text-sm text-center px-4">Preencha a cidade para visualizar o mapa</p>
       </div>
@@ -187,7 +187,7 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
 
   if (geocoding) {
     return (
-      <div className="w-full aspect-[4/3] max-h-[400px] rounded-xl border border-border bg-muted/10 flex flex-col items-center justify-center gap-3">
+      <div className="w-full aspect-square max-h-[520px] rounded-xl border border-border bg-muted/10 flex flex-col items-center justify-center gap-3">
         <Target className="h-8 w-8 text-primary animate-pulse" />
         <p className="text-muted-foreground text-sm">Localizando {cidade}...</p>
       </div>
