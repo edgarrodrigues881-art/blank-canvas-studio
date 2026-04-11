@@ -126,6 +126,7 @@ const PAISES: { code: string; nome: string }[] = [
 ];
 
 export default function Prospeccao() {
+  const navigate = useNavigate();
   const [nicho, setNicho] = useState("");
   const [nichosRelacionados, setNichosRelacionados] = useState("");
   const [pais, setPais] = useState("BR");
