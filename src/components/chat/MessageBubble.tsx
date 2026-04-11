@@ -301,7 +301,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
             <img src={msg.mediaUrl} alt="Imagem" className="w-full max-h-[320px] object-cover" />
           </button>
           {displayCaption && !isMediaPlaceholder(displayCaption) && (
-            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5">{displayCaption}</p>
+            <FormattedText text={displayCaption} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5" />
           )}
           <MsgFooter msg={msg} />
         </div>
@@ -314,7 +314,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
           <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} />
           <video src={msg.mediaUrl} controls className="rounded-xl max-w-full max-h-[320px] cursor-pointer shadow-md" />
           {msg.content && !isMediaPlaceholder(msg.content) && (
-            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5">{msg.content}</p>
+            <FormattedText text={msg.content} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5" />
           )}
           <MsgFooter msg={msg} />
         </div>
@@ -343,7 +343,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
             <Download className={cn("w-4 h-4 shrink-0", msg.type === "sent" ? "text-white/50" : "text-muted-foreground/50")} />
           </a>
           {msg.content && !isMediaPlaceholder(msg.content) && (
-            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5">{msg.content}</p>
+            <FormattedText text={msg.content} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5" />
           )}
           <MsgFooter msg={msg} />
         </div>
@@ -369,7 +369,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
             <span className="text-[12px] font-medium">{info.label}</span>
           </div>
           {msg.content && !isMediaPlaceholder(msg.content) && (
-            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1">{msg.content}</p>
+            <FormattedText text={msg.content} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1" />
           )}
           <MsgFooter msg={msg} />
         </div>
@@ -385,12 +385,12 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
         <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} />
         {textIsShort ? (
           <div className="flex items-end gap-0">
-            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{displayText}</p>
+            <FormattedText text={displayText || ""} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words" />
             <MsgFooter msg={msg} inline />
           </div>
         ) : (
           <>
-            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{displayText}</p>
+            <FormattedText text={displayText || ""} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words" />
             <MsgFooter msg={msg} />
           </>
         )}
