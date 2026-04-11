@@ -23,6 +23,7 @@ import {
   CheckSquare,
   Square,
 } from "lucide-react";
+import { EmojiPicker } from "./EmojiPicker";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -623,6 +624,11 @@ export function ChatPanel({
           </div>
         ) : (
           <div className="flex items-end gap-2">
+            <EmojiPicker onEmojiSelect={(emoji) => {
+              setInput((prev) => prev + emoji);
+              textareaRef.current?.focus();
+            }} />
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="w-9 h-9 shrink-0 text-muted-foreground hover:text-foreground mb-0.5">
