@@ -313,7 +313,7 @@ Deno.serve(async (req) => {
     const type = body?.type ? String(body.type) : undefined;
     const fileName = body?.file_name ? String(body.file_name) : undefined;
     const quotedMessageId = body?.quoted_message_id ? String(body.quoted_message_id) : undefined;
-    const caption = body?.caption ? String(body.caption) : undefined;
+    const caption = typeof body?.caption === "string" ? body.caption : undefined;
 
     if (!conversationId || !content) {
       return json({ error: "conversation_id e content são obrigatórios" }, 400);
@@ -341,7 +341,7 @@ Deno.serve(async (req) => {
     const destination = getDestination(conv.remote_jid);
     const attempts = buildAttempts(type, destination, content, fileName, quotedMessageId, caption);
 
-    console.log(`[chat-send] Sending ${type || "text"} to ${destination.chatId} via ${baseUrl}`);
+    console.log(`[chat-send] Sending ${type || "text"} to ${destination.chatId} via ${baseUrl} caption=${JSON.stringify(caption)}`);
 
     const result = await executeAttempts(baseUrl, token, attempts);
 
