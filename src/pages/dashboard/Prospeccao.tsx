@@ -500,8 +500,18 @@ export default function Prospeccao() {
                       disabled={!estado || loadingCidades}
                     />
                   ) : (
-                    <Input placeholder="Ex: Lisboa, Madrid, Buenos Aires..." value={cidade} onChange={e => setCidade(e.target.value)} />
+                    <SearchableSelect
+                      value={cidade}
+                      onValueChange={setCidade}
+                      options={cidadeOptions}
+                      placeholder={loadingCidades ? "Buscando..." : "Digite para buscar cidades..."}
+                      searchPlaceholder="Digite o nome da cidade..."
+                      emptyMessage={cidadeSearch.length < 2 ? "Digite ao menos 2 letras" : loadingCidades ? "Buscando..." : "Nenhuma cidade encontrada"}
+                      onSearchChange={setCidadeSearch}
+                      loading={loadingCidades}
+                    />
                   )}
+                </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Máx. resultados</Label>

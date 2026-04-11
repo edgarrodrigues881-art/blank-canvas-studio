@@ -14,6 +14,8 @@ interface SearchableSelectProps {
   emptyMessage?: string;
   disabled?: boolean;
   className?: string;
+  onSearchChange?: (search: string) => void;
+  loading?: boolean;
 }
 
 export function SearchableSelect({
