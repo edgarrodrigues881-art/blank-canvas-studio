@@ -152,6 +152,7 @@ export default function Prospeccao() {
   useEffect(() => { loadCredits(); }, [loadCredits]);
 
   useEffect(() => {
+    if (pais !== "BR") { setCidades([]); setEstado(""); setCidade(""); return; }
     if (!estado) { setCidades([]); setCidade(""); return; }
     const fetchCidades = async () => {
       setLoadingCidades(true); setCidade("");
@@ -163,7 +164,7 @@ export default function Prospeccao() {
       finally { setLoadingCidades(false); }
     };
     fetchCidades();
-  }, [estado]);
+  }, [estado, pais]);
 
   useEffect(() => {
     if (activeTab === "historico") loadCampaigns();
