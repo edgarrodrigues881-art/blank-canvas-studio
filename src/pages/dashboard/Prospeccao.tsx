@@ -187,8 +187,11 @@ export default function Prospeccao() {
 
   useEffect(() => { loadCredits(); }, [loadCredits]);
 
+  const [cidadeSearch, setCidadeSearch] = useState("");
+
+  // Fetch cities for Brazil (by state)
   useEffect(() => {
-    if (pais !== "BR") { setCidades([]); setEstado(""); setCidade(""); return; }
+    if (pais !== "BR") { setEstado(""); return; }
     if (!estado) { setCidades([]); setCidade(""); return; }
     const fetchCidades = async () => {
       setLoadingCidades(true); setCidade("");
@@ -201,6 +204,32 @@ export default function Prospeccao() {
     };
     fetchCidades();
   }, [estado, pais]);
+
+  // Fetch cities for international countries via Nominatim
+  useEffect(() => {
+    if (pais === "BR" || !pais) { if (pais !== "BR") setCidades([]); return; }
+    const term = cidadeSearch.trim();
+    if (term.length < 2) { setCidades([]); return; }
+    const controller = new AbortController();
+    const timeout = setTimeout(async () => {
+      setLoadingCidades(true);
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?country=${pais.toLowerCase()}&city=${encodeURIComponent(term)}&format=json&limit=30&featuretype=city&accept-language=pt`,
+          { signal: controller.signal, headers: { "User-Agent": "ProspeccaoApp/1.0" } }
+        );
+        const data = await res.json();
+        const names = [...new Set(data.map((d: any) => {
+          const parts = d.display_name.split(",");
+          return parts[0].trim();
+        }).filter(Boolean))] as string[];
+        setCidades(names.sort());
+      } catch (e: any) {
+        if (e.name !== "AbortError") setCidades([]);
+      } finally { setLoadingCidades(false); }
+    }, 400);
+    return () => { clearTimeout(timeout); controller.abort(); };
+  }, [cidadeSearch, pais]);
 
   useEffect(() => {
     if (activeTab === "historico") loadCampaigns();
