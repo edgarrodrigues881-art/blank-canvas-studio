@@ -270,35 +270,33 @@ export function useConversationSync() {
     const prev = selectedConvIdRef.current;
     setSelectedConvId(convId);
 
-    // Only clear messages when switching to a different conversation
-    if (convId !== prev) {
+    if (!convId) {
       setMessages([]);
+      return;
     }
 
-    if (convId) {
-      // Show local messages immediately
-      fetchMessages(convId);
+    // When switching conversations, load local messages immediately (don't clear first)
+    fetchMessages(convId);
 
-      // Background: pull fresh messages from UAZAPI (non-blocking)
-      const token = cachedTokenRef.current;
-      if (token) {
-        fetch(
-          `https://${projectId}.supabase.co/functions/v1/sync-conversations`,
-          {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ conversation_id: convId }),
+    // Background: pull fresh messages from UAZAPI (non-blocking)
+    const token = cachedTokenRef.current;
+    if (token) {
+      fetch(
+        `https://${projectId}.supabase.co/functions/v1/sync-conversations`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ conversation_id: convId }),
+        }
+      )
+        .then((r) => r.json())
+        .then((result) => {
+          // Only refresh if we got new messages AND user is still on this conversation
+          if (result.synced > 0 && selectedConvIdRef.current === convId) {
+            fetchMessages(convId);
           }
-        )
-          .then((r) => r.json())
-          .then((result) => {
-            // Only refresh if we got new messages AND user is still on this conversation
-            if (result.synced > 0 && selectedConvIdRef.current === convId) {
-              fetchMessages(convId);
-            }
-          })
-          .catch(() => {});
-      }
+        })
+        .catch(() => {});
     }
   }, [fetchMessages, projectId]);
 
