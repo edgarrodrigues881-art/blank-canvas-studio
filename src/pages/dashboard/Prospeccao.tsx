@@ -520,11 +520,10 @@ export default function Prospeccao() {
                       value={cidade}
                       onValueChange={setCidade}
                       options={cidadeOptions}
-                      placeholder={loadingCidades ? "Buscando..." : "Digite para buscar cidades..."}
-                      searchPlaceholder="Digite o nome da cidade..."
-                      emptyMessage={cidadeSearch.length < 2 ? "Digite ao menos 2 letras" : loadingCidades ? "Buscando..." : "Nenhuma cidade encontrada"}
-                      onSearchChange={setCidadeSearch}
-                      loading={loadingCidades}
+                      placeholder={loadingCidades ? "Carregando cidades..." : "Selecione a cidade"}
+                      searchPlaceholder="Buscar cidade..."
+                      emptyMessage={loadingCidades ? "Carregando..." : "Nenhuma cidade encontrada"}
+                      disabled={loadingCidades}
                     />
                   )}
                 </div>
