@@ -28,9 +28,6 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
   const radiusInitializedRef = useRef(false);
   const reverseGeocodeRef = useRef<(lat: number, lng: number) => void>(() => {});
   const centerRef = useRef<{ lat: number; lng: number } | null>(null);
-  const markerRef = useRef<L.Marker | null>(null);
-  const circleRef = useRef<L.Circle | null>(null);
-  const radiusInitializedRef = useRef(false);
   const [radiusKm, setRadiusKm] = useState(initialRadiusKm);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [geocoding, setGeocoding] = useState(false);
