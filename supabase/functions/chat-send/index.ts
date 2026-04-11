@@ -51,38 +51,34 @@ function buildAttempts(
 ): SendAttempt[] {
   const target = destination.group ? destination.chatId : destination.number;
 
-  // UAZAPI uses "replyid" field — needs short ID only (after ":" if prefixed)
   const normalizedQuoteId = quotedMessageId
     ? (quotedMessageId.includes(":") ? quotedMessageId.split(":").pop()! : quotedMessageId)
     : undefined;
   const quoteFields = normalizedQuoteId ? { replyid: normalizedQuoteId } : {};
+  const textFields = caption?.trim() ? { text: caption.trim() } : {};
+  const docFields = fileName?.trim() ? { docName: fileName.trim() } : {};
 
   if (type === "audio") {
     return [
-      { path: "/send/media", body: { number: target, file: content, type: "audio", ptt: true } },
-      { path: "/send/media", body: { number: target, file: content, type: "ptt" } },
-      { path: "/send/media", body: { number: target, media: content, type: "audio", ptt: true } },
-      { path: "/send/audio", body: { number: target, audio: content, ptt: true } },
+      { path: "/send/media", body: { number: target, file: content, type: "audio", ptt: true, ...quoteFields } },
+      { path: "/send/media", body: { number: target, file: content, type: "ptt", ...quoteFields } },
+      { path: "/send/media", body: { number: target, media: content, type: "audio", ptt: true, ...quoteFields } },
+      { path: "/send/audio", body: { number: target, audio: content, ptt: true, ...quoteFields } },
     ];
   }
 
   if (type === "image") {
-    const cap = caption || "";
     return [
-      { path: "/send/media", body: { number: target, file: content, type: "image", caption: cap } },
-      { path: "/send/media", body: { number: target, media: content, type: "image", caption: cap } },
-      { path: "/send/image", body: { number: target, image: content, caption: cap } },
+      { path: "/send/media", body: { number: target, file: content, type: "image", ...textFields, ...quoteFields } },
+      { path: "/send/media", body: { number: target, media: content, type: "image", ...textFields, ...quoteFields } },
     ];
   }
 
   if (type === "document") {
-    const cap = caption || "";
-    const fn = fileName || "arquivo";
     return [
-      { path: "/send/media", body: { number: target, file: content, type: "document", fileName: fn, caption: cap } },
-      { path: "/send/media", body: { number: target, media: content, type: "document", fileName: fn, caption: cap } },
-      { path: "/send/document", body: { number: target, media: content, fileName: fn, caption: cap } },
-      { path: "/send/document", body: { number: target, document: content, fileName: fn, caption: cap } },
+      { path: "/send/media", body: { number: target, file: content, type: "document", ...docFields, ...textFields, ...quoteFields } },
+      { path: "/send/media", body: { number: target, media: content, type: "document", ...docFields, ...textFields, ...quoteFields } },
+      { path: "/send/document", body: { number: target, document: content, ...docFields, ...textFields, ...quoteFields } },
     ];
   }
 
@@ -90,18 +86,14 @@ function buildAttempts(
 
   if (destination.group) {
     return [
-      { path: "/chat/send-text", body: { chatId: destination.chatId, text: safeText, body: safeText, ...quoteFields } },
       { path: "/send/text", body: { number: destination.chatId, text: safeText, ...quoteFields } },
-      { path: "/message/sendText", body: { chatId: destination.chatId, text: safeText, ...quoteFields } },
+      { path: "/chat/send-text", body: { chatId: destination.chatId, text: safeText, body: safeText, ...quoteFields } },
     ];
   }
 
   return [
     { path: "/send/text", body: { number: destination.number, text: safeText, ...quoteFields } },
-    { path: "/send/text", body: { chatId: destination.chatId, text: safeText, ...quoteFields } },
     { path: "/chat/send-text", body: { number: destination.number, to: destination.number, chatId: destination.chatId, body: safeText, text: safeText, ...quoteFields } },
-    { path: "/message/sendText", body: { chatId: destination.chatId, text: safeText, ...quoteFields } },
-    { path: "/message/sendText", body: { number: destination.number, text: safeText, ...quoteFields } },
   ];
 }
 
@@ -341,7 +333,7 @@ Deno.serve(async (req) => {
     const destination = getDestination(conv.remote_jid);
     const attempts = buildAttempts(type, destination, content, fileName, quotedMessageId, caption);
 
-    console.log(`[chat-send] Sending ${type || "text"} to ${destination.chatId} via ${baseUrl} caption=${JSON.stringify(caption)}`);
+    console.log(`[chat-send] Sending ${type || "text"} to ${destination.chatId} via ${baseUrl} hasCaption=${Boolean(caption)}`);
 
     const result = await executeAttempts(baseUrl, token, attempts);
 

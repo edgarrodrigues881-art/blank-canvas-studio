@@ -141,7 +141,14 @@ export function useConversationActions({
     };
     setMessages((prev) => [...prev, optimisticMsg]);
     setConversations((prev) =>
-      sortConversations(prev.map((c) => c.id === conversationId ? { ...c, last_message: content, last_message_at: now } : c))
+      sortConversations(prev.map((c) => c.id === conversationId ? {
+        ...c,
+        last_message: content,
+        last_message_at: now,
+        unread_count: 0,
+        last_message_direction: "sent",
+        last_message_status: "sending",
+      } : c))
     );
 
     const token = await getToken();
@@ -282,7 +289,14 @@ export function useConversationActions({
     };
     setMessages((prev) => [...prev, optimisticMsg]);
     setConversations((prev) =>
-      sortConversations(prev.map((c) => c.id === conversationId ? { ...c, last_message: "🎧 Áudio", last_message_at: now } : c))
+      sortConversations(prev.map((c) => c.id === conversationId ? {
+        ...c,
+        last_message: "🎧 Áudio",
+        last_message_at: now,
+        unread_count: 0,
+        last_message_direction: "sent",
+        last_message_status: "sending",
+      } : c))
     );
 
     try {
@@ -350,7 +364,14 @@ export function useConversationActions({
     };
     setMessages((prev) => [...prev, optimisticMsg]);
     setConversations((prev) =>
-      sortConversations(prev.map((c) => c.id === conversationId ? { ...c, last_message: previewLabel, last_message_at: now } : c))
+      sortConversations(prev.map((c) => c.id === conversationId ? {
+        ...c,
+        last_message: previewLabel,
+        last_message_at: now,
+        unread_count: 0,
+        last_message_direction: "sent",
+        last_message_status: "sending",
+      } : c))
     );
 
     try {
@@ -374,10 +395,18 @@ export function useConversationActions({
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: dbMsg.id } : m));
 
       const token = await getToken();
+      const payload = {
+        conversation_id: conversationId,
+        content: publicUrl,
+        message_id: dbMsg.id,
+        type: mediaType,
+        file_name: file.name,
+        ...(typeof caption === "string" && caption.length > 0 ? { caption } : {}),
+      };
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/chat-send`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation_id: conversationId, content: publicUrl, message_id: dbMsg.id, type: mediaType, file_name: file.name, caption: caption || "" }),
+        body: JSON.stringify(payload),
       });
       const result = await res.json();
 
