@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Target, CheckCircle2, Navigation, Minus, Plus } from "lucide-react";
 import { getCountryNameByCode } from "@/lib/regionNames";
 
+// Store latest callbacks in refs so map init effect doesn't re-run
+
+
 interface SearchAreaMapProps {
   cidade: string;
   estado?: string;
@@ -23,6 +26,8 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
   const markerRef = useRef<L.Marker | null>(null);
   const circleRef = useRef<L.Circle | null>(null);
   const radiusInitializedRef = useRef(false);
+  const reverseGeocodeRef = useRef<(lat: number, lng: number) => void>(() => {});
+  const centerRef = useRef<{ lat: number; lng: number } | null>(null);
   const [radiusKm, setRadiusKm] = useState(initialRadiusKm);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [geocoding, setGeocoding] = useState(false);
@@ -49,6 +54,10 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
       if (cityName) { setLocationLabel(cityName); onCityDetected?.(cityName); }
     } catch { /* ignore */ }
   }, [onCityDetected]);
+
+  // Keep refs in sync
+  useEffect(() => { reverseGeocodeRef.current = reverseGeocode; }, [reverseGeocode]);
+  useEffect(() => { centerRef.current = center; }, [center]);
 
   useEffect(() => {
     if (cidade) return;
@@ -93,6 +102,7 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
     return () => { cancelled = true; };
   }, [cidade, estado, pais]);
 
+  // Initialize map ONCE when center first becomes available
   useEffect(() => {
     if (!center || !mapRef.current || mapInstanceRef.current) return;
 
@@ -127,7 +137,7 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
         return { lat: pos.lat, lng: pos.lng };
       });
       setConfirmed(false); setChanged(true);
-      reverseGeocode(pos.lat, pos.lng);
+      reverseGeocodeRef.current(pos.lat, pos.lng);
     });
 
     mapInstanceRef.current = map;
@@ -140,6 +150,7 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
     window.addEventListener("resize", handleResize);
     requestAnimationFrame(() => { handleResize(); fitCircleBounds(); });
 
+    // Cleanup only on unmount — NOT on re-render
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", handleResize);
@@ -148,7 +159,8 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
       markerRef.current = null;
       circleRef.current = null;
     };
-  }, [center, fitCircleBounds, radiusKm, reverseGeocode]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [center]);
 
   useEffect(() => {
     const map = mapInstanceRef.current; const marker = markerRef.current; const circle = circleRef.current;
