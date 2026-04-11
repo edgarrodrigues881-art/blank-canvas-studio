@@ -451,14 +451,22 @@ export default function Prospeccao() {
                 <div className="space-y-2">
                   <Label>Nichos relacionados</Label>
                   <Input placeholder="Ex: hamburgueria, restaurante..." value={nichosRelacionados} onChange={e => setNichosRelacionados(e.target.value)} />
-                  <p className="text-xs text-muted-foreground">Separe por vírgula (opcional)</p>
                 </div>
                 <div className="space-y-2">
                   <Label>País *</Label>
                   <Select value={pais} onValueChange={(v) => { setPais(v); setEstado(""); setCidade(""); setPaisSearch(""); }}>
                     <SelectTrigger><SelectValue placeholder="Selecione o país" /></SelectTrigger>
-                    <SelectContent>
-                      <div className="px-2 pb-2 sticky top-0 bg-popover z-10">
+                    <SelectContent
+                      onCloseAutoFocus={(e) => e.preventDefault()}
+                      onKeyDown={(e) => {
+                        // Block Radix typeahead when search input is focused
+                        const target = e.target as HTMLElement;
+                        if (target.tagName === "INPUT") {
+                          e.stopPropagation();
+                        }
+                      }}
+                    >
+                      <div className="px-2 pb-2 sticky top-0 bg-popover z-10" onKeyDown={(e) => e.stopPropagation()}>
                         <Input
                           placeholder="Buscar país..."
                           value={paisSearch}
@@ -491,8 +499,14 @@ export default function Prospeccao() {
                   {pais === "BR" ? (
                     <Select value={cidade} onValueChange={(v) => { setCidade(v); setCidadeSearch(""); }} disabled={!estado || loadingCidades}>
                       <SelectTrigger><SelectValue placeholder={loadingCidades ? "Carregando..." : estado ? "Selecione a cidade" : "Selecione o estado primeiro"} /></SelectTrigger>
-                      <SelectContent>
-                        <div className="px-2 pb-2 sticky top-0 bg-popover z-10">
+                      <SelectContent
+                        onCloseAutoFocus={(e) => e.preventDefault()}
+                        onKeyDown={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.tagName === "INPUT") e.stopPropagation();
+                        }}
+                      >
+                        <div className="px-2 pb-2 sticky top-0 bg-popover z-10" onKeyDown={(e) => e.stopPropagation()}>
                           <Input
                             placeholder="Buscar cidade..."
                             value={cidadeSearch}
@@ -530,9 +544,11 @@ export default function Prospeccao() {
               <div className="mt-4">
                 <SearchAreaMap
                   cidade={cidade}
-                  estado={estado}
+                  estado={pais === "BR" ? estado : ""}
+                  pais={pais}
                   onAreaChange={handleAreaChange}
                   onAreaConfirm={handleAreaConfirm}
+                  onCityDetected={(city) => { if (pais !== "BR") setCidade(city); }}
                   initialRadiusKm={12}
                 />
               </div>

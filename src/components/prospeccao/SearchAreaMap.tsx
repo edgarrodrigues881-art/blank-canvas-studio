@@ -8,13 +8,15 @@ import { MapPin, Target, CheckCircle2, Navigation, Minus, Plus } from "lucide-re
 
 interface SearchAreaMapProps {
   cidade: string;
-  estado: string;
+  estado?: string;
+  pais?: string;
   onAreaConfirm?: (lat: number, lng: number, radiusKm: number) => void;
   onAreaChange?: (lat: number, lng: number, radiusKm: number) => void;
+  onCityDetected?: (city: string) => void;
   initialRadiusKm?: number;
 }
 
-export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaChange, initialRadiusKm = 12 }: SearchAreaMapProps) {
+export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfirm, onAreaChange, onCityDetected, initialRadiusKm = 12 }: SearchAreaMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
@@ -24,18 +26,54 @@ export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaCha
   const [geocoding, setGeocoding] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [changed, setChanged] = useState(false);
+  const [locationLabel, setLocationLabel] = useState("");
+
+  // Reverse geocode to get city name from coordinates
+  const reverseGeocode = useCallback(async (lat: number, lng: number) => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10`,
+        { headers: { "User-Agent": "ProspeccaoBot/1.0" } }
+      );
+      const data = await res.json();
+      const addr = data.address || {};
+      const cityName = addr.city || addr.town || addr.village || addr.municipality || addr.county || "";
+      if (cityName) {
+        setLocationLabel(cityName);
+        onCityDetected?.(cityName);
+      }
+    } catch { /* ignore */ }
+  }, [onCityDetected]);
 
   useEffect(() => {
-    if (!cidade || !estado) return;
+    if (!cidade) return;
     let cancelled = false;
     const geocode = async () => {
       setGeocoding(true);
       try {
-        const q = encodeURIComponent(`${cidade}, ${estado}, Brazil`);
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`);
+        const parts = [cidade];
+        if (estado) parts.push(estado);
+        // Add country name for better results
+        const countryNames: Record<string, string> = {
+          BR: "Brazil", US: "United States", PT: "Portugal", ES: "Spain", AR: "Argentina",
+          CL: "Chile", CO: "Colombia", MX: "Mexico", DE: "Germany", FR: "France",
+          IT: "Italy", GB: "United Kingdom", CA: "Canada", AU: "Australia", JP: "Japan",
+          AO: "Angola", MZ: "Mozambique", CN: "China", IN: "India", RU: "Russia",
+        };
+        const countryName = countryNames[pais.toUpperCase()] || "";
+        if (countryName) parts.push(countryName);
+
+        const q = encodeURIComponent(parts.join(", "));
+        const cc = pais.toLowerCase();
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=${cc}`,
+          { headers: { "User-Agent": "ProspeccaoBot/1.0" } }
+        );
         const data = await res.json();
         if (!cancelled && data.length > 0) {
-          setCenter({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
+          const newCenter = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+          setCenter(newCenter);
+          setLocationLabel(cidade);
           setConfirmed(false);
           setChanged(false);
         }
@@ -47,7 +85,7 @@ export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaCha
     };
     geocode();
     return () => { cancelled = true; };
-  }, [cidade, estado]);
+  }, [cidade, estado, pais]);
 
   useEffect(() => {
     if (!center || !mapRef.current) return;
@@ -70,17 +108,12 @@ export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaCha
 
     L.control.zoom({ position: "topright" }).addTo(map);
 
-    // Carto Positron - minimal, clean, no clutter
     L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
-      maxZoom: 18,
-      subdomains: "abcd",
+      maxZoom: 18, subdomains: "abcd",
     }).addTo(map);
 
-    // Separate labels layer on top (thin, subtle)
     L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {
-      maxZoom: 18,
-      subdomains: "abcd",
-      pane: "overlayPane",
+      maxZoom: 18, subdomains: "abcd", pane: "overlayPane",
     }).addTo(map);
 
     const icon = L.divIcon({
@@ -111,13 +144,14 @@ export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaCha
       setCenter({ lat: pos.lat, lng: pos.lng });
       setConfirmed(false);
       setChanged(true);
+      // Reverse geocode to detect city
+      reverseGeocode(pos.lat, pos.lng);
     });
 
     mapInstanceRef.current = map;
     markerRef.current = marker;
     circleRef.current = circle;
 
-    // Multiple invalidateSize calls to handle layout shifts
     const timers = [150, 500, 1000].map(ms => setTimeout(() => {
       map.invalidateSize();
       if (circleRef.current) map.fitBounds(circleRef.current.getBounds(), { padding: [30, 30] });
@@ -147,13 +181,13 @@ export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaCha
     setChanged(false);
   };
 
-  if (!cidade || !estado) {
+  if (!cidade) {
     return (
       <div className="w-full aspect-[4/3] max-h-[400px] rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/10 flex flex-col items-center justify-center gap-3">
         <div className="w-14 h-14 rounded-full bg-muted/50 flex items-center justify-center">
           <MapPin className="h-7 w-7 text-muted-foreground/40" />
         </div>
-        <p className="text-muted-foreground/60 text-sm text-center px-4">Selecione estado e cidade para visualizar o mapa</p>
+        <p className="text-muted-foreground/60 text-sm text-center px-4">Preencha a cidade para visualizar o mapa</p>
       </div>
     );
   }
@@ -172,12 +206,11 @@ export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaCha
       <div className="relative">
         <div ref={mapRef} className="w-full aspect-[4/3] max-h-[400px] rounded-xl overflow-hidden border border-border" />
 
-        {/* Info overlay - top left */}
         {center && (
           <div className="absolute top-3 left-3 bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-border/50 space-y-0.5 max-w-[220px]">
             <div className="flex items-center gap-1.5">
               <Navigation className="h-3 w-3 text-primary shrink-0" />
-              <span className="text-xs font-medium text-foreground truncate">{cidade}, {estado}</span>
+              <span className="text-xs font-medium text-foreground truncate">{locationLabel || cidade}</span>
             </div>
             <p className="text-[10px] text-muted-foreground">
               {center.lat.toFixed(4)}, {center.lng.toFixed(4)} · {radiusKm}km
@@ -185,7 +218,6 @@ export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaCha
           </div>
         )}
 
-        {/* Status overlay - bottom */}
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
           <div className="bg-background/80 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-border/50 text-[11px] text-muted-foreground">
             Arraste o marcador para ajustar
@@ -204,7 +236,6 @@ export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaCha
         </div>
       </div>
 
-      {/* Controls */}
       <div className="flex items-center gap-3 px-1">
         <Label className="text-sm whitespace-nowrap font-medium">Raio:</Label>
         <div className="flex items-center gap-1.5">
@@ -218,17 +249,17 @@ export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaCha
           <Input
             type="number"
             min={2}
-            max={30}
+            max={50}
             value={radiusKm}
             onChange={(e) => {
               const v = parseInt(e.target.value, 10);
-              if (!isNaN(v) && v >= 2 && v <= 30) setRadiusKm(v);
+              if (!isNaN(v) && v >= 2 && v <= 50) setRadiusKm(v);
             }}
             className="w-16 h-8 text-center text-sm font-medium tabular-nums rounded-lg bg-muted/30 border-border/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           <button
             type="button"
-            onClick={() => setRadiusKm((r) => Math.min(30, r + 1))}
+            onClick={() => setRadiusKm((r) => Math.min(50, r + 1))}
             className="h-8 w-8 rounded-lg border border-border/50 bg-muted/30 flex items-center justify-center hover:bg-muted/60 transition-colors"
           >
             <Plus className="h-3.5 w-3.5 text-muted-foreground" />
@@ -237,7 +268,6 @@ export default function SearchAreaMap({ cidade, estado, onAreaConfirm, onAreaCha
         </div>
       </div>
 
-      {/* Confirm area button */}
       {center && (
         <div className="flex items-center gap-3 px-1">
           <Button
