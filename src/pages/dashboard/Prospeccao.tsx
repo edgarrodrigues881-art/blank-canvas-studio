@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { toast } from "sonner";
 import {
   Search, Download, MapPin, Phone, Globe, Star, Loader2, Building2,
   Mail, Instagram, RefreshCw, Database, History, Clock, Coins,
-  Copy, Eye, ChevronRight, Target
+  Copy, Eye, ChevronRight, Target, Smartphone
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -125,6 +126,7 @@ const PAISES: { code: string; nome: string }[] = [
 ];
 
 export default function Prospeccao() {
+  const navigate = useNavigate();
   const [nicho, setNicho] = useState("");
   const [nichosRelacionados, setNichosRelacionados] = useState("");
   const [pais, setPais] = useState("BR");
@@ -174,6 +176,53 @@ export default function Prospeccao() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [savingContacts, setSavingContacts] = useState(false);
+  const [verifyingWA, setVerifyingWA] = useState(false);
+
+  const handleVerifyWhatsApp = useCallback(async () => {
+    const leadsWithPhone = results.filter(r => r.telefone?.replace(/\D/g, ""));
+    if (leadsWithPhone.length === 0) { toast.error("Nenhum lead com telefone"); return; }
+    setVerifyingWA(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Não autenticado");
+
+      const name = `Prospecção: ${nicho || "leads"} - ${cidade || "geral"} (${new Date().toLocaleDateString("pt-BR")})`;
+      const phones = leadsWithPhone.map(r => r.telefone.replace(/\D/g, ""));
+
+      const { data: job, error: jobErr } = await supabase.from("verify_jobs").insert({
+        user_id: user.id, name, total_phones: phones.length, status: "pending",
+      } as any).select().single();
+      if (jobErr || !job) throw new Error(jobErr?.message || "Erro ao criar verificação");
+
+      for (let i = 0; i < leadsWithPhone.length; i += 500) {
+        const batch = leadsWithPhone.slice(i, i + 500).map(r => ({
+          job_id: (job as any).id,
+          user_id: user.id,
+          phone: r.telefone.replace(/\D/g, ""),
+          status: "pending",
+          var1: r.nome || "",
+          var2: r.categoria || "",
+          var3: r.email || "",
+          var4: r.endereco || "",
+          var5: r.website || "",
+          var6: r.instagram || "",
+          var7: String(r.avaliacao ?? ""),
+          var8: r.faixaPreco || "",
+          var9: r.facebook || "",
+          var10: r.googleMapsUrl || "",
+        }));
+        const { error } = await supabase.from("verify_results").insert(batch as any);
+        if (error) throw new Error(error.message);
+      }
+
+      toast.success(`Verificação criada com ${phones.length} números! Redirecionando...`);
+      navigate("/dashboard/whatsapp-verifier");
+    } catch (err: any) {
+      toast.error(err?.message || "Erro ao criar verificação");
+    } finally {
+      setVerifyingWA(false);
+    }
+  }, [results, nicho, cidade, navigate]);
 
   // Load credit balance
   const loadCredits = useCallback(async () => {
@@ -620,6 +669,10 @@ export default function Prospeccao() {
                       {savingContacts ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
                       {savingContacts ? "Salvando..." : "Salvar nos Contatos"}
                     </Button>
+                    <Button variant="outline" onClick={handleVerifyWhatsApp} disabled={verifyingWA} className="gap-2">
+                      {verifyingWA ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
+                      {verifyingWA ? "Criando..." : "Verificar WhatsApp"}
+                    </Button>
                   </>
                 )}
                 {(creditBalance !== null && creditBalance <= 0) && freePulls <= 0 && (
@@ -648,17 +701,6 @@ export default function Prospeccao() {
                       <Button variant="outline" size="sm" onClick={() => handleSearch(true)} disabled={loading} className="gap-1.5">
                         <RefreshCw className="h-3.5 w-3.5" /> Nova busca
                       </Button>
-                    )}
-                    {results.length > 0 && (
-                      <>
-                        <Button variant="outline" size="sm" onClick={() => exportCSV()} className="gap-1.5">
-                          <Download className="h-3.5 w-3.5" /> Exportar CSV
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => saveToContacts()} disabled={savingContacts} className="gap-1.5">
-                          {savingContacts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
-                          {savingContacts ? "Salvando..." : "Salvar nos Contatos"}
-                        </Button>
-                      </>
                     )}
                   </div>
                 </div>
