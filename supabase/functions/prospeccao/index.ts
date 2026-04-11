@@ -645,7 +645,7 @@ Deno.serve(async (req) => {
       console.log(`[prospeccao] Using custom center: ${customCenter.lat.toFixed(4)},${customCenter.lng.toFixed(4)} | radius: ${userRadius}km`);
       cityGeoPromise = Promise.resolve({ center: { lat: customCenter.lat, lng: customCenter.lng }, radiusKm: userRadius });
     } else {
-      cityGeoPromise = geocodeCity(cidadeTrimmed, estadoTrimmed);
+      cityGeoPromise = geocodeCity(cidadeTrimmed, estadoTrimmed, pais);
     }
 
     const [cityGeo, bairros] = await Promise.all([
