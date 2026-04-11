@@ -456,14 +456,22 @@ export default function Prospeccao() {
                   <Label>País *</Label>
                   <Select value={pais} onValueChange={(v) => { setPais(v); setEstado(""); setCidade(""); setPaisSearch(""); }}>
                     <SelectTrigger><SelectValue placeholder="Selecione o país" /></SelectTrigger>
-                    <SelectContent onCloseAutoFocus={(e) => e.preventDefault()}>
-                      <div className="px-2 pb-2 sticky top-0 bg-popover z-10">
+                    <SelectContent
+                      onCloseAutoFocus={(e) => e.preventDefault()}
+                      onKeyDown={(e) => {
+                        // Block Radix typeahead when search input is focused
+                        const target = e.target as HTMLElement;
+                        if (target.tagName === "INPUT") {
+                          e.stopPropagation();
+                        }
+                      }}
+                    >
+                      <div className="px-2 pb-2 sticky top-0 bg-popover z-10" onKeyDown={(e) => e.stopPropagation()}>
                         <Input
                           placeholder="Buscar país..."
                           value={paisSearch}
                           onChange={(e) => setPaisSearch(e.target.value)}
                           onKeyDown={(e) => e.stopPropagation()}
-                          onFocus={(e) => e.stopPropagation()}
                           className="h-8 text-sm"
                           autoFocus
                         />
