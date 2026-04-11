@@ -197,7 +197,7 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
   return (
     <div className="space-y-3">
       <div className="relative">
-        <div ref={mapRef} className="w-full aspect-[4/3] max-h-[400px] rounded-xl overflow-hidden border border-border" />
+        <div ref={mapRef} className="w-full aspect-square max-h-[520px] rounded-xl overflow-hidden border border-border" />
         {center && (
           <div className="absolute top-3 left-3 bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-border/50 space-y-0.5 max-w-[220px] z-[1000]">
             <div className="flex items-center gap-1.5">
