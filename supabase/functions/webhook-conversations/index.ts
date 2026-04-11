@@ -289,6 +289,9 @@ Deno.serve(async (req) => {
     if (!fromMe) {
       const { data: cur } = await admin.from("conversations").select("unread_count").eq("id", conversationId).single();
       await admin.from("conversations").update({ unread_count: (cur?.unread_count || 0) + 1 }).eq("id", conversationId);
+    } else {
+      // User replied from phone — clear unread since they've seen the chat
+      await admin.from("conversations").update({ unread_count: 0 }).eq("id", conversationId);
     }
 
     // Check for duplicate before inserting
