@@ -23,6 +23,7 @@ import {
   CheckSquare,
   Square,
 } from "lucide-react";
+import { EmojiPicker } from "./EmojiPicker";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
