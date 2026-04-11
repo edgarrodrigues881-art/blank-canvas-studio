@@ -702,17 +702,6 @@ export default function Prospeccao() {
                         <RefreshCw className="h-3.5 w-3.5" /> Nova busca
                       </Button>
                     )}
-                    {results.length > 0 && (
-                      <>
-                        <Button variant="outline" size="sm" onClick={() => exportCSV()} className="gap-1.5">
-                          <Download className="h-3.5 w-3.5" /> Exportar CSV
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => saveToContacts()} disabled={savingContacts} className="gap-1.5">
-                          {savingContacts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
-                          {savingContacts ? "Salvando..." : "Salvar nos Contatos"}
-                        </Button>
-                      </>
-                    )}
                   </div>
                 </div>
               </CardHeader>
