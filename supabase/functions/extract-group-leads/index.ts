@@ -40,30 +40,42 @@ function isValidPhone(raw: string): boolean {
 async function fetchGroupsList(baseUrl: string, token: string): Promise<any[]> {
   const endpoints = [
     `${baseUrl}/group/list?GetParticipants=false&count=500`,
+    `${baseUrl}/group/list?GetParticipants=false&page=1&count=500`,
     `${baseUrl}/group/fetchAllGroups?getParticipants=false`,
+    `${baseUrl}/group/fetchAllGroups`,
     `${baseUrl}/group/listAll`,
-    `${baseUrl}/chats?type=group`,
+    `${baseUrl}/chats?type=group&count=500`,
+    `${baseUrl}/chat/list?type=group&count=500`,
   ];
 
   const headers: Record<string, string> = { token, Accept: "application/json", "Cache-Control": "no-cache" };
 
   for (const ep of endpoints) {
     try {
+      console.log(`[extractor] Trying endpoint: ${ep.replace(baseUrl, '...')}`);
       const res = await fetchWithTimeout(ep, { method: "GET", headers });
+      console.log(`[extractor] Response: ${res.status} ${res.statusText}`);
       if (!res.ok) continue;
       const raw = await res.text();
+      if (!raw) { console.log(`[extractor] Empty response body`); continue; }
       let parsed: any = null;
-      try { parsed = raw ? JSON.parse(raw) : null; } catch { continue; }
+      try { parsed = JSON.parse(raw); } catch { console.log(`[extractor] JSON parse failed, body length=${raw.length}`); continue; }
       if (!parsed) continue;
 
-      const candidates = [parsed, parsed?.groups, parsed?.data, parsed?.data?.groups, parsed?.chats];
+      const candidates = [parsed, parsed?.groups, parsed?.data, parsed?.data?.groups, parsed?.chats, parsed?.data?.chats];
       for (const c of candidates) {
         if (Array.isArray(c) && c.length > 0) {
           console.log(`[extractor] Found ${c.length} groups from ${ep.split('?')[0]}`);
           return c;
         }
       }
-    } catch { continue; }
+      // Log what we got if nothing matched
+      const keys = typeof parsed === 'object' && parsed !== null ? Object.keys(parsed).slice(0, 10) : [];
+      console.log(`[extractor] No array found. Keys: [${keys.join(', ')}], isArray=${Array.isArray(parsed)}, length=${Array.isArray(parsed) ? parsed.length : 'N/A'}`);
+    } catch (err: any) {
+      console.log(`[extractor] Endpoint error: ${err?.message}`);
+      continue;
+    }
   }
   return [];
 }
