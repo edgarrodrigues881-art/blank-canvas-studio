@@ -102,7 +102,7 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
       wheelPxPerZoomLevel: 180, fadeAnimation: false, markerZoomAnimation: false,
     });
     L.control.zoom({ position: "topright" }).addTo(map);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
       maxZoom: 19, subdomains: "abcd", updateWhenIdle: true, keepBuffer: 2,
     }).addTo(map);
 
