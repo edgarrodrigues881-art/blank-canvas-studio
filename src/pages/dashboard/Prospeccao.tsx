@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import {
   Search, Download, MapPin, Phone, Globe, Star, Loader2, Building2,
   Mail, Instagram, RefreshCw, Database, History, Clock, Coins,
-  Copy, Eye, ChevronRight, Target
+  Copy, Eye, ChevronRight, Target, Smartphone
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
