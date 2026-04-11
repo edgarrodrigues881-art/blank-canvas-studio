@@ -232,8 +232,9 @@ export default function Prospeccao() {
               const list = Array.isArray(item?.cities)
                 ? item.cities.filter((city: unknown): city is string => typeof city === "string" && city.trim().length > 0)
                 : [];
+              const uniqueCities = Array.from(new Set<string>(list));
               if (!iso2) return acc;
-              acc[iso2] = [...new Set(list)].sort((a, b) =>
+              acc[iso2] = uniqueCities.sort((a, b) =>
                 a.localeCompare(b, "pt-BR", { sensitivity: "base" })
               );
               return acc;
