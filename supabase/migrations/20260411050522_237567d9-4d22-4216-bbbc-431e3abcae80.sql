@@ -1,0 +1,1 @@
+UPDATE public.conversation_messages SET status = 'sent' WHERE id IN ('548b863d-9a4f-4412-b4c8-77a9fdf77e33', '1b3d4d52-1f58-4f95-a1eb-36bd4ab11af0', 'fb88f350-fb83-4187-8314-d3268b12acd5') AND status = 'failed';
