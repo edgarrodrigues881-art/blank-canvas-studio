@@ -20,14 +20,11 @@ import {
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { normalizePhoneKey } from "@/utils/formatters";
 
 const MIN_SIDEBAR_W = 240;
 const MAX_SIDEBAR_W = 600;
 const DEFAULT_SIDEBAR_W = 340;
-
-function normalizePhoneKey(phone: string) {
-  return phone.replace(/\D/g, "");
-}
 
 const Conversations = () => {
   const { user } = useAuth();

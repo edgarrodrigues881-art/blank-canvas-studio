@@ -33,7 +33,7 @@ function getConversationPreview(type?: string, content?: string, fileName?: stri
 }
 
 
-async function reserveDeviceSendSlot(admin: ReturnType<typeof createClient>, deviceId?: string | null) {
+async function reserveDeviceSendSlot(admin: any, deviceId?: string | null) {
   if (!deviceId) return 0;
 
   const { data, error } = await admin.rpc("claim_device_send_slot", {
@@ -132,7 +132,7 @@ async function executeAttempts(baseUrl: string, token: string, attempts: SendAtt
 }
 
 async function handleDeleteMessage(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   userId: string,
   body: any,
   fallbackBaseUrl: string,
@@ -146,17 +146,20 @@ async function handleDeleteMessage(
     return json({ error: "conversation_id e message_id são obrigatórios" }, 400);
   }
 
-  const { data: conv, error: convErr } = await admin
+  const { data: convData, error: convErr } = await admin
     .from("conversations")
     .select("id, user_id, remote_jid, device_id, devices!conversations_device_id_fkey(uazapi_token, uazapi_base_url)")
     .eq("id", conversationId)
     .eq("user_id", userId)
     .single();
 
+  const conv: any = convData;
+
   if (convErr || !conv) return json({ error: "Conversa não encontrada" }, 404);
 
-  const baseUrl = String(conv.devices?.uazapi_base_url || fallbackBaseUrl || "").replace(/\/+$/, "");
-  const token = String(conv.devices?.uazapi_token || fallbackToken || "").trim();
+  const deviceConfig = Array.isArray(conv.devices) ? conv.devices[0] : conv.devices;
+  const baseUrl = String(deviceConfig?.uazapi_base_url || fallbackBaseUrl || "").replace(/\/+$/, "");
+  const token = String(deviceConfig?.uazapi_token || fallbackToken || "").trim();
 
   let deletedOnWhatsApp = false;
   if (baseUrl && token && whatsappMessageId) {
@@ -180,7 +183,7 @@ async function handleDeleteMessage(
 }
 
 async function handleEditMessage(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   userId: string,
   body: any,
   fallbackBaseUrl: string,
@@ -195,17 +198,20 @@ async function handleEditMessage(
     return json({ error: "conversation_id, message_id e new_text são obrigatórios" }, 400);
   }
 
-  const { data: conv, error: convErr } = await admin
+  const { data: convData, error: convErr } = await admin
     .from("conversations")
     .select("id, user_id, remote_jid, device_id, devices!conversations_device_id_fkey(uazapi_token, uazapi_base_url)")
     .eq("id", conversationId)
     .eq("user_id", userId)
     .single();
 
+  const conv: any = convData;
+
   if (convErr || !conv) return json({ error: "Conversa não encontrada" }, 404);
 
-  const baseUrl = String(conv.devices?.uazapi_base_url || fallbackBaseUrl || "").replace(/\/+$/, "");
-  const token = String(conv.devices?.uazapi_token || fallbackToken || "").trim();
+  const deviceConfig = Array.isArray(conv.devices) ? conv.devices[0] : conv.devices;
+  const baseUrl = String(deviceConfig?.uazapi_base_url || fallbackBaseUrl || "").replace(/\/+$/, "");
+  const token = String(deviceConfig?.uazapi_token || fallbackToken || "").trim();
 
   let editedOnWhatsApp = false;
   if (baseUrl && token && whatsappMessageId) {
@@ -250,7 +256,7 @@ Deno.serve(async (req) => {
 
     if (authErr || !user) return json({ error: "Não autenticado" }, 401);
 
-    const admin = createClient(supabaseUrl, serviceKey);
+    const admin: any = createClient(supabaseUrl, serviceKey);
     const body = await req.json();
 
     if (body?.action === "delete") {
@@ -273,17 +279,20 @@ Deno.serve(async (req) => {
       return json({ error: "conversation_id e content são obrigatórios" }, 400);
     }
 
-    const { data: conv, error: convErr } = await admin
+    const { data: convData, error: convErr } = await admin
       .from("conversations")
       .select("id, user_id, remote_jid, device_id, devices!conversations_device_id_fkey(uazapi_token, uazapi_base_url)")
       .eq("id", conversationId)
       .eq("user_id", user.id)
       .single();
 
+    const conv: any = convData;
+
     if (convErr || !conv) return json({ error: "Conversa não encontrada" }, 404);
 
-    const baseUrl = String(conv.devices?.uazapi_base_url || fallbackBaseUrl || "").replace(/\/+$/, "");
-    const token = String(conv.devices?.uazapi_token || fallbackToken || "").trim();
+    const deviceConfig = Array.isArray(conv.devices) ? conv.devices[0] : conv.devices;
+    const baseUrl = String(deviceConfig?.uazapi_base_url || fallbackBaseUrl || "").replace(/\/+$/, "");
+    const token = String(deviceConfig?.uazapi_token || fallbackToken || "").trim();
 
     if (!baseUrl || !token) {
       if (messageId) {

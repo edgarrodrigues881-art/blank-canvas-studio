@@ -1,24 +1,19 @@
+import {
+  GROUP_JID_SUFFIX,
+  PRIVATE_JID_SUFFIX,
+  areEquivalentChatIds,
+  cleanNumber,
+  isGroupJid,
+  normalizeChatId,
+} from "../_shared/phone-variants.ts";
+
 export type SendAttempt = {
   path: string;
   body: Record<string, unknown>;
   expectedChatId?: string;
 };
 
-const PRIVATE_JID_SUFFIX = "@s.whatsapp.net";
-const GROUP_JID_SUFFIX = "@g.us";
-
-export const cleanNumber = (value: string) => String(value || "").replace(/\D/g, "");
-export const isGroupJid = (value: string) => String(value || "").includes(GROUP_JID_SUFFIX);
-
-function normalizeChatId(value: string, isGroup = false) {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-  if (raw.includes("@")) return raw;
-
-  const digits = cleanNumber(raw);
-  if (!digits) return "";
-  return `${digits}${isGroup ? GROUP_JID_SUFFIX : PRIVATE_JID_SUFFIX}`;
-}
+export { cleanNumber, isGroupJid };
 
 export function getDestination(remoteJid: string) {
   const raw = String(remoteJid || "").trim();
@@ -54,7 +49,7 @@ export function isResponseTargetMismatch(parsed: any, expectedChatId?: string) {
   const normalizedExpected = normalizeChatId(expectedChatId, expectedChatId.includes(GROUP_JID_SUFFIX));
   const actualChatId = extractResponseChatId(parsed);
 
-  return Boolean(actualChatId && normalizedExpected && actualChatId !== normalizedExpected);
+  return Boolean(actualChatId && normalizedExpected && !areEquivalentChatIds(actualChatId, normalizedExpected));
 }
 
 export function buildAttempts(
