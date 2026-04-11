@@ -82,19 +82,31 @@ export function useConversationRealtime({
             }
 
             return sortConversations(
-              prev.map((c) => c.id === row.id ? {
-                ...c,
-                last_message: row.last_message ?? c.last_message,
-                last_message_at: row.last_message_at ?? c.last_message_at,
-                unread_count: isSelectedConversation || shouldKeepRead ? 0 : (row.unread_count ?? c.unread_count),
-                name: row.name ?? c.name,
-                avatar_url: row.avatar_url ?? c.avatar_url,
-                attending_status: row.attending_status ?? c.attending_status,
-                tags: row.tags ?? c.tags,
-                category: row.category ?? c.category,
-                notes: row.notes ?? c.notes,
-                updated_at: row.updated_at ?? c.updated_at,
-              } : c)
+              prev.map((c) => {
+                if (c.id !== row.id) return c;
+
+                const sentRecently =
+                  c.last_message_direction === "sent" &&
+                  Date.now() - new Date(c.last_message_at || 0).getTime() < 2 * 60 * 1000;
+                const preserveUnreadFromOwnSend = sentRecently && (row.unread_count ?? 0) > (c.unread_count ?? 0);
+                const keepUnreadZero = isSelectedConversation || shouldKeepRead || preserveUnreadFromOwnSend;
+
+                return {
+                  ...c,
+                  last_message: row.last_message ?? c.last_message,
+                  last_message_at: row.last_message_at ?? c.last_message_at,
+                  unread_count: keepUnreadZero ? 0 : (row.unread_count ?? c.unread_count),
+                  name: row.name ?? c.name,
+                  avatar_url: row.avatar_url ?? c.avatar_url,
+                  attending_status: row.attending_status ?? c.attending_status,
+                  tags: row.tags ?? c.tags,
+                  category: row.category ?? c.category,
+                  notes: row.notes ?? c.notes,
+                  updated_at: row.updated_at ?? c.updated_at,
+                  last_message_direction: row.last_message_direction ?? c.last_message_direction,
+                  last_message_status: row.last_message_status ?? c.last_message_status,
+                };
+              })
             );
           });
         }
@@ -134,7 +146,7 @@ export function useConversationRealtime({
 
             const nextUnreadCount = newMsg.direction === "received"
               ? (isOpenConversation ? 0 : (target.unread_count ?? 0) + 1)
-              : target.unread_count;
+              : 0;
 
             return sortConversations(
               prev.map((c) =>
@@ -144,6 +156,8 @@ export function useConversationRealtime({
                       last_message: newMsg.content ?? c.last_message,
                       last_message_at: newMsg.created_at ?? c.last_message_at,
                       unread_count: nextUnreadCount,
+                      last_message_direction: newMsg.direction,
+                      last_message_status: newMsg.status ?? c.last_message_status,
                     }
                   : c
               )
