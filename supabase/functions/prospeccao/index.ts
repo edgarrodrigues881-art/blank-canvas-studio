@@ -14,11 +14,22 @@ interface CityGeo {
   radiusKm: number;
 }
 
-async function geocodeCity(cidade: string, estado: string): Promise<CityGeo | null> {
+async function geocodeCity(cidade: string, estado: string, pais: string = "BR"): Promise<CityGeo | null> {
   try {
-    const q = encodeURIComponent(`${cidade}, ${estado}, Brazil`);
+    const countryCode = pais.toLowerCase();
+    const locationParts = [cidade];
+    if (estado) locationParts.push(estado);
+    const countryNames: Record<string, string> = {
+      br: "Brazil", us: "United States", pt: "Portugal", es: "Spain", ar: "Argentina",
+      cl: "Chile", co: "Colombia", mx: "Mexico", pe: "Peru", uy: "Uruguay",
+      py: "Paraguay", bo: "Bolivia", ec: "Ecuador", ve: "Venezuela", de: "Germany",
+      fr: "France", it: "Italy", gb: "United Kingdom", ca: "Canada", au: "Australia",
+      jp: "Japan", ao: "Angola", mz: "Mozambique",
+    };
+    locationParts.push(countryNames[countryCode] || pais);
+    const q = encodeURIComponent(locationParts.join(", "));
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=br`,
+      `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=${countryCode}`,
       { headers: { "User-Agent": "ProspeccaoBot/1.0" } }
     );
     if (!res.ok) return null;
@@ -37,7 +48,7 @@ async function geocodeCity(cidade: string, estado: string): Promise<CityGeo | nu
       radiusKm = Math.min(Math.max(radiusKm, 3), 30);
     }
 
-    console.log(`[prospeccao] City "${cidade}": center ${center.lat.toFixed(4)},${center.lng.toFixed(4)} | radius ~${radiusKm.toFixed(1)}km`);
+    console.log(`[prospeccao] City "${cidade}" (${pais}): center ${center.lat.toFixed(4)},${center.lng.toFixed(4)} | radius ~${radiusKm.toFixed(1)}km`);
     return { center, radiusKm };
   } catch { return null; }
 }
