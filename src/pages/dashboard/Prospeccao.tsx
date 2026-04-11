@@ -451,7 +451,6 @@ export default function Prospeccao() {
                 <div className="space-y-2">
                   <Label>Nichos relacionados</Label>
                   <Input placeholder="Ex: hamburgueria, restaurante..." value={nichosRelacionados} onChange={e => setNichosRelacionados(e.target.value)} />
-                  <p className="text-xs text-muted-foreground">Separe por vírgula (opcional)</p>
                 </div>
                 <div className="space-y-2">
                   <Label>País *</Label>
