@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import Globe from "react-globe.gl";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -17,74 +16,74 @@ interface SearchAreaMapProps {
   initialRadiusKm?: number;
 }
 
-export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfirm, onAreaChange, onCityDetected, initialRadiusKm = 12 }: SearchAreaMapProps) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const markerRef = useRef<L.Marker | null>(null);
-  const circleRef = useRef<L.Circle | null>(null);
-  const resizeObserverRef = useRef<ResizeObserver | null>(null);
-  const radiusInitializedRef = useRef(false);
+export default function SearchAreaMap({
+  cidade,
+  estado,
+  pais = "BR",
+  onAreaConfirm,
+  onAreaChange,
+  onCityDetected,
+  initialRadiusKm = 12,
+}: SearchAreaMapProps) {
+  const globeRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [radiusKm, setRadiusKm] = useState(initialRadiusKm);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [geocoding, setGeocoding] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [changed, setChanged] = useState(false);
   const [locationLabel, setLocationLabel] = useState("");
+  const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
 
-  const fitCircleBounds = useCallback((animate = false) => {
-    const map = mapInstanceRef.current;
-    const circle = circleRef.current;
-
-    if (!map || !circle) {
-      return;
-    }
-
-    window.requestAnimationFrame(() => {
-      if (!mapInstanceRef.current || !circleRef.current) {
-        return;
+  // Resize observer for container
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setDimensions({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
       }
-
-      map.fitBounds(circle.getBounds(), {
-        padding: [30, 30],
-        animate,
-      });
     });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
   }, []);
 
-  // Reverse geocode to get city name from coordinates
-  const reverseGeocode = useCallback(async (lat: number, lng: number) => {
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10`,
-        { headers: { "User-Agent": "ProspeccaoBot/1.0" } }
-      );
-      const data = await res.json();
-      const addr = data.address || {};
-      const cityName = addr.city || addr.town || addr.village || addr.municipality || addr.county || "";
-      if (cityName) {
-        setLocationLabel(cityName);
-        onCityDetected?.(cityName);
+  // Reverse geocode
+  const reverseGeocode = useCallback(
+    async (lat: number, lng: number) => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10`,
+          { headers: { "User-Agent": "ProspeccaoBot/1.0" } }
+        );
+        const data = await res.json();
+        const addr = data.address || {};
+        const cityName =
+          addr.city || addr.town || addr.village || addr.municipality || addr.county || "";
+        if (cityName) {
+          setLocationLabel(cityName);
+          onCityDetected?.(cityName);
+        }
+      } catch {
+        /* ignore */
       }
-    } catch { /* ignore */ }
-  }, [onCityDetected]);
+    },
+    [onCityDetected]
+  );
 
+  // Reset when city is cleared
   useEffect(() => {
-    if (cidade) {
-      return;
-    }
-
-    resizeObserverRef.current?.disconnect();
-    resizeObserverRef.current = null;
-    mapInstanceRef.current?.remove();
-    mapInstanceRef.current = null;
-    markerRef.current = null;
-    circleRef.current = null;
+    if (cidade) return;
     setCenter(null);
     setLocationLabel("");
     setConfirmed(false);
     setChanged(false);
   }, [cidade]);
 
+  // Geocode city
   useEffect(() => {
     if (!cidade) return;
     let cancelled = false;
@@ -95,7 +94,6 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
         if (estado) parts.push(estado);
         const countryName = getCountryNameByCode(pais);
         if (countryName) parts.push(countryName);
-
         const q = encodeURIComponent(parts.join(", "));
         const cc = pais.toLowerCase();
         const res = await fetch(
@@ -104,16 +102,17 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
         );
         const data = await res.json();
         if (!cancelled && data.length > 0) {
-          const newCenter = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-          setCenter((currentCenter) => {
+          const newCenter = {
+            lat: parseFloat(data[0].lat),
+            lng: parseFloat(data[0].lon),
+          };
+          setCenter((cur) => {
             if (
-              currentCenter &&
-              Math.abs(currentCenter.lat - newCenter.lat) < 0.0001 &&
-              Math.abs(currentCenter.lng - newCenter.lng) < 0.0001
-            ) {
-              return currentCenter;
-            }
-
+              cur &&
+              Math.abs(cur.lat - newCenter.lat) < 0.0001 &&
+              Math.abs(cur.lng - newCenter.lng) < 0.0001
+            )
+              return cur;
             return newCenter;
           });
           setLocationLabel(cidade);
@@ -127,164 +126,64 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
       }
     };
     geocode();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [cidade, estado, pais]);
 
+  // Fly to city when center changes
   useEffect(() => {
-    if (!center || !mapRef.current || mapInstanceRef.current) return;
+    if (!center || !globeRef.current) return;
+    const altitude = Math.max(0.3, radiusKm / 200);
+    globeRef.current.pointOfView(
+      { lat: center.lat, lng: center.lng, altitude },
+      1000
+    );
+  }, [center, radiusKm]);
 
-    const map = L.map(mapRef.current, {
-      center: [center.lat, center.lng],
-      zoom: 12,
-      zoomControl: false,
-      attributionControl: false,
-      scrollWheelZoom: true,
-      preferCanvas: true,
-      zoomSnap: 0.25,
-      zoomDelta: 0.5,
-      wheelDebounceTime: 80,
-      wheelPxPerZoomLevel: 180,
-      fadeAnimation: false,
-      markerZoomAnimation: false,
-    });
-
-    L.control.zoom({ position: "topright" }).addTo(map);
-
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-      maxZoom: 18,
-      subdomains: "abcd",
-      updateWhenIdle: true,
-      keepBuffer: 2,
-    }).addTo(map);
-
-    const icon = L.divIcon({
-      className: "",
-      html: `<div style="
-        width:14px;height:14px;border-radius:50%;
-        background:hsl(var(--primary));border:2px solid hsl(var(--background));
-        box-shadow:0 0 0 3px hsl(var(--primary) / 0.3), 0 0 12px hsl(var(--primary) / 0.4);
-        cursor:grab;
-      "></div>`,
-      iconSize: [14, 14],
-      iconAnchor: [7, 7],
-    });
-
-    const marker = L.marker([center.lat, center.lng], { draggable: true, icon }).addTo(map);
-
-    const circle = L.circle([center.lat, center.lng], {
-      radius: radiusKm * 1000,
-      color: "hsl(var(--primary))",
-      fillColor: "hsl(var(--primary))",
-      fillOpacity: 0.12,
-      weight: 2.5,
-    }).addTo(map);
-
-    const syncCirclePosition = () => {
-      const pos = marker.getLatLng();
-      circle.setLatLng(pos);
-    };
-
-    const handleDragEnd = () => {
-      const pos = marker.getLatLng();
-      circle.setLatLng(pos);
-      setCenter((currentCenter) => {
-        if (
-          currentCenter &&
-          Math.abs(currentCenter.lat - pos.lat) < 0.0001 &&
-          Math.abs(currentCenter.lng - pos.lng) < 0.0001
-        ) {
-          return currentCenter;
-        }
-
-        return { lat: pos.lat, lng: pos.lng };
-      });
-      setConfirmed(false);
-      setChanged(true);
-      reverseGeocode(pos.lat, pos.lng);
-    };
-
-    marker.on("drag", syncCirclePosition);
-    marker.on("dragend", handleDragEnd);
-
-    mapInstanceRef.current = map;
-    markerRef.current = marker;
-    circleRef.current = circle;
-
-    const handleResize = () => {
-      map.invalidateSize({ pan: false });
-    };
-
-    if (typeof ResizeObserver !== "undefined") {
-      const observer = new ResizeObserver(handleResize);
-      observer.observe(mapRef.current);
-      resizeObserverRef.current = observer;
-    }
-
-    window.addEventListener("resize", handleResize);
-    window.requestAnimationFrame(() => {
-      handleResize();
-      fitCircleBounds();
-    });
-
-    return () => {
-      resizeObserverRef.current?.disconnect();
-      resizeObserverRef.current = null;
-      window.removeEventListener("resize", handleResize);
-      marker.off("drag", syncCirclePosition);
-      marker.off("dragend", handleDragEnd);
-      map.remove();
-      mapInstanceRef.current = null;
-      markerRef.current = null;
-      circleRef.current = null;
-    };
-  }, [center, fitCircleBounds, radiusKm, reverseGeocode]);
-
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    const marker = markerRef.current;
-    const circle = circleRef.current;
-
-    if (!map || !marker || !circle || !center) {
-      return;
-    }
-
-    const nextLatLng = L.latLng(center.lat, center.lng);
-    const currentLatLng = marker.getLatLng();
-
-    if (currentLatLng.distanceTo(nextLatLng) < 1) {
-      return;
-    }
-
-    marker.setLatLng(nextLatLng);
-    circle.setLatLng(nextLatLng);
-    map.setView(nextLatLng, Math.max(map.getZoom(), 12), { animate: false });
-    fitCircleBounds();
-  }, [center, fitCircleBounds]);
-
-  useEffect(() => {
-    if (!circleRef.current) {
-      return;
-    }
-
-    circleRef.current.setRadius(radiusKm * 1000);
-    fitCircleBounds();
-
-    if (!radiusInitializedRef.current) {
-      radiusInitializedRef.current = true;
-      return;
-    }
-
-    setConfirmed(false);
-    setChanged(true);
-  }, [fitCircleBounds, radiusKm]);
-
+  // Sync radius
   useEffect(() => {
     setRadiusKm(initialRadiusKm);
   }, [initialRadiusKm]);
 
+  // Notify parent
   useEffect(() => {
     if (center && onAreaChange) onAreaChange(center.lat, center.lng, radiusKm);
   }, [center, radiusKm, onAreaChange]);
+
+  // Globe data
+  const markerData = useMemo(
+    () => (center ? [{ lat: center.lat, lng: center.lng, size: 0.6 }] : []),
+    [center]
+  );
+
+  const ringData = useMemo(
+    () =>
+      center
+        ? [
+            {
+              lat: center.lat,
+              lng: center.lng,
+              maxR: radiusKm / 111.32, // convert km to degrees approx
+              propagationSpeed: 2,
+              repeatPeriod: 800,
+            },
+          ]
+        : [],
+    [center, radiusKm]
+  );
+
+  // Handle globe click to move marker
+  const handleGlobeClick = useCallback(
+    ({ lat, lng }: { lat: number; lng: number }) => {
+      if (!cidade) return; // only allow clicks when a city is selected
+      setCenter({ lat, lng });
+      setConfirmed(false);
+      setChanged(true);
+      reverseGeocode(lat, lng);
+    },
+    [cidade, reverseGeocode]
+  );
 
   const handleConfirm = () => {
     if (center && onAreaConfirm) {
@@ -300,7 +199,9 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
         <div className="w-14 h-14 rounded-full bg-muted/50 flex items-center justify-center">
           <MapPin className="h-7 w-7 text-muted-foreground/40" />
         </div>
-        <p className="text-muted-foreground/60 text-sm text-center px-4">Preencha a cidade para visualizar o mapa</p>
+        <p className="text-muted-foreground/60 text-sm text-center px-4">
+          Preencha a cidade para visualizar o globo
+        </p>
       </div>
     );
   }
@@ -317,13 +218,45 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
   return (
     <div className="space-y-3">
       <div className="relative">
-        <div ref={mapRef} className="w-full aspect-[4/3] max-h-[400px] rounded-xl overflow-hidden border border-border" />
+        <div
+          ref={containerRef}
+          className="w-full aspect-[4/3] max-h-[400px] rounded-xl overflow-hidden border border-border bg-[#0a0a1a]"
+        >
+          <Globe
+            ref={globeRef}
+            width={dimensions.width}
+            height={dimensions.height}
+            globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
+            bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
+            backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
+            pointsData={markerData}
+            pointLat="lat"
+            pointLng="lng"
+            pointColor={() => "hsl(142, 71%, 45%)"}
+            pointAltitude={0.01}
+            pointRadius="size"
+            ringsData={ringData}
+            ringLat="lat"
+            ringLng="lng"
+            ringMaxRadius="maxR"
+            ringPropagationSpeed="propagationSpeed"
+            ringRepeatPeriod="repeatPeriod"
+            ringColor={() => (t: number) => `rgba(34,197,94,${1 - t})`}
+            atmosphereColor="hsl(142, 71%, 45%)"
+            atmosphereAltitude={0.2}
+            onGlobeClick={handleGlobeClick}
+            animateIn={true}
+            enablePointerInteraction={true}
+          />
+        </div>
 
         {center && (
-          <div className="absolute top-3 left-3 bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-border/50 space-y-0.5 max-w-[220px]">
+          <div className="absolute top-3 left-3 bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-border/50 space-y-0.5 max-w-[220px] pointer-events-none">
             <div className="flex items-center gap-1.5">
               <Navigation className="h-3 w-3 text-primary shrink-0" />
-              <span className="text-xs font-medium text-foreground truncate">{locationLabel || cidade}</span>
+              <span className="text-xs font-medium text-foreground truncate">
+                {locationLabel || cidade}
+              </span>
             </div>
             <p className="text-[10px] text-muted-foreground">
               {center.lat.toFixed(4)}, {center.lng.toFixed(4)} · {radiusKm}km
@@ -333,7 +266,7 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
 
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
           <div className="bg-background/80 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-border/50 text-[11px] text-muted-foreground">
-            Arraste o marcador para ajustar
+            Clique no globo para ajustar
           </div>
           {confirmed && !changed && (
             <div className="bg-primary/10 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-primary/30 flex items-center gap-1.5">
@@ -343,7 +276,9 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
           )}
           {changed && !confirmed && (
             <div className="bg-yellow-500/10 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-yellow-500/30">
-              <span className="text-[11px] text-yellow-600 dark:text-yellow-400">Área alterada</span>
+              <span className="text-[11px] text-yellow-600 dark:text-yellow-400">
+                Área alterada
+              </span>
             </div>
           )}
         </div>
