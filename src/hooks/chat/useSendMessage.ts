@@ -7,7 +7,7 @@ interface UseSendMessageParams {
   conversationPhone?: string;
   onSendMessage?: (conversationId: string, content: string, quotedMessageId?: string, quotedContent?: string) => void;
   onSendAudio?: (conversationId: string, blob: Blob, duration: number) => void;
-  onSendFile?: (conversationId: string, file: File) => void;
+  onSendFile?: (conversationId: string, file: File, caption?: string) => void;
   /** Called after any send action so ChatPanel can scroll to bottom */
   onAfterSend?: () => void;
 }
@@ -106,18 +106,15 @@ export function useSendMessage({
     if (!pendingFile) return;
     setSendingFile(true);
     const caption = input.trim();
-    if (caption) {
-      onSendMessage?.(conversationId, caption);
-      setInput("");
-    }
-    onSendFile?.(conversationId, pendingFile);
+    onSendFile?.(conversationId, pendingFile, caption || undefined);
+    if (caption) setInput("");
     // Clean up
     if (pendingPreview) URL.revokeObjectURL(pendingPreview);
     setPendingFile(null);
     setPendingPreview(null);
     setSendingFile(false);
     onAfterSend?.();
-  }, [pendingFile, input, conversationId, onSendMessage, onSendFile, pendingPreview, onAfterSend]);
+  }, [pendingFile, input, conversationId, onSendFile, pendingPreview, onAfterSend]);
 
   // ── Send text ──
   const handleSend = useCallback(() => {

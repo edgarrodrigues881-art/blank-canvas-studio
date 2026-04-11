@@ -47,6 +47,7 @@ function buildAttempts(
   content: string,
   fileName?: string,
   quotedMessageId?: string,
+  caption?: string,
 ): SendAttempt[] {
   const target = destination.group ? destination.chatId : destination.number;
 
@@ -66,19 +67,22 @@ function buildAttempts(
   }
 
   if (type === "image") {
+    const cap = caption || "";
     return [
-      { path: "/send/media", body: { number: target, file: content, type: "image", caption: "" } },
-      { path: "/send/media", body: { number: target, media: content, type: "image", caption: "" } },
-      { path: "/send/image", body: { number: target, image: content, caption: "" } },
+      { path: "/send/media", body: { number: target, file: content, type: "image", caption: cap } },
+      { path: "/send/media", body: { number: target, media: content, type: "image", caption: cap } },
+      { path: "/send/image", body: { number: target, image: content, caption: cap } },
     ];
   }
 
   if (type === "document") {
+    const cap = caption || "";
+    const fn = fileName || "arquivo";
     return [
-      { path: "/send/media", body: { number: target, file: content, type: "document", fileName: fileName || "arquivo" } },
-      { path: "/send/media", body: { number: target, media: content, type: "document", fileName: fileName || "arquivo" } },
-      { path: "/send/document", body: { number: target, media: content, fileName: fileName || "arquivo" } },
-      { path: "/send/document", body: { number: target, document: content, fileName: fileName || "arquivo" } },
+      { path: "/send/media", body: { number: target, file: content, type: "document", fileName: fn, caption: cap } },
+      { path: "/send/media", body: { number: target, media: content, type: "document", fileName: fn, caption: cap } },
+      { path: "/send/document", body: { number: target, media: content, fileName: fn, caption: cap } },
+      { path: "/send/document", body: { number: target, document: content, fileName: fn, caption: cap } },
     ];
   }
 
@@ -309,6 +313,7 @@ Deno.serve(async (req) => {
     const type = body?.type ? String(body.type) : undefined;
     const fileName = body?.file_name ? String(body.file_name) : undefined;
     const quotedMessageId = body?.quoted_message_id ? String(body.quoted_message_id) : undefined;
+    const caption = body?.caption ? String(body.caption) : undefined;
 
     if (!conversationId || !content) {
       return json({ error: "conversation_id e content são obrigatórios" }, 400);
@@ -334,7 +339,7 @@ Deno.serve(async (req) => {
     }
 
     const destination = getDestination(conv.remote_jid);
-    const attempts = buildAttempts(type, destination, content, fileName, quotedMessageId);
+    const attempts = buildAttempts(type, destination, content, fileName, quotedMessageId, caption);
 
     console.log(`[chat-send] Sending ${type || "text"} to ${destination.chatId} via ${baseUrl}`);
 

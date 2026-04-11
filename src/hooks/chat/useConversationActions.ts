@@ -326,7 +326,7 @@ export function useConversationActions({
     }
   }, [user, sortConversations, getToken, projectId, conversationsRef, setConversations, setMessages]);
 
-  const sendFileMessage = useCallback(async (conversationId: string, file: File) => {
+  const sendFileMessage = useCallback(async (conversationId: string, file: File, caption?: string) => {
     if (!user) return;
     const conv = conversationsRef.current.find((c) => c.id === conversationId);
     if (!conv) return;
@@ -338,10 +338,13 @@ export function useConversationActions({
     const ext = file.name.split(".").pop() || "bin";
     const storagePath = `${user.id}/chat-files/${tempId}.${ext}`;
     const localUrl = isImage ? URL.createObjectURL(file) : null;
-    const previewLabel = isImage ? "📷 Foto" : `📎 ${file.name}`;
+    const previewLabel = caption || (isImage ? "📷 Foto" : `📎 ${file.name}`);
+    const dbContent = caption
+      ? (isImage ? `[image] ${caption}` : `[document] ${file.name}\n${caption}`)
+      : (isImage ? "[image]" : `[document] ${file.name}`);
 
     const optimisticMsg: RealMessage = {
-      id: tempId, conversation_id: conversationId, content: isImage ? "[image]" : `[document] ${file.name}`,
+      id: tempId, conversation_id: conversationId, content: dbContent,
       direction: "sent", status: "sending", media_type: mediaType, media_url: localUrl,
       audio_duration: null, is_ai_response: false, whatsapp_message_id: null, created_at: now,
     };
@@ -362,7 +365,7 @@ export function useConversationActions({
         .from("conversation_messages")
         .insert({
           conversation_id: conversationId, user_id: user.id, remote_jid: conv.remote_jid,
-          content: isImage ? "[image]" : `[document] ${file.name}`, direction: "sent", status: "sending",
+          content: dbContent, direction: "sent", status: "sending",
           media_type: mediaType, media_url: publicUrl, message_type: mediaType, created_at: now,
         })
         .select().single();
@@ -374,7 +377,7 @@ export function useConversationActions({
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/chat-send`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation_id: conversationId, content: publicUrl, message_id: dbMsg.id, type: mediaType, file_name: file.name }),
+        body: JSON.stringify({ conversation_id: conversationId, content: publicUrl, message_id: dbMsg.id, type: mediaType, file_name: file.name, caption: caption || "" }),
       });
       const result = await res.json();
 
