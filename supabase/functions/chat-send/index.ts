@@ -29,9 +29,9 @@ function getDestination(remoteJid: string) {
   };
 }
 
-function getConversationPreview(type?: string, content?: string, fileName?: string) {
+function getConversationPreview(type?: string, content?: string, fileName?: string, caption?: string) {
   if (type === "audio") return "🎧 Áudio";
-  if (type === "image") return "📷 Foto";
+  if (type === "image") return caption?.trim() ? `📷 ${caption.trim()}` : "📷 Foto";
   if (type === "document") return `📎 ${fileName || "Arquivo"}`;
   return String(content || "").trim();
 }
@@ -55,7 +55,8 @@ function buildAttempts(
     ? (quotedMessageId.includes(":") ? quotedMessageId.split(":").pop()! : quotedMessageId)
     : undefined;
   const quoteFields = normalizedQuoteId ? { replyid: normalizedQuoteId } : {};
-  const textFields = caption?.trim() ? { text: caption.trim() } : {};
+  // UAZAPI uses "caption" for image/document captions
+  const captionFields = caption?.trim() ? { caption: caption.trim() } : {};
   const docFields = fileName?.trim() ? { docName: fileName.trim() } : {};
 
   if (type === "audio") {
@@ -69,16 +70,16 @@ function buildAttempts(
 
   if (type === "image") {
     return [
-      { path: "/send/media", body: { number: target, file: content, type: "image", ...textFields, ...quoteFields } },
-      { path: "/send/media", body: { number: target, media: content, type: "image", ...textFields, ...quoteFields } },
+      { path: "/send/media", body: { number: target, file: content, type: "image", ...captionFields, ...quoteFields } },
+      { path: "/send/media", body: { number: target, media: content, type: "image", ...captionFields, ...quoteFields } },
     ];
   }
 
   if (type === "document") {
     return [
-      { path: "/send/media", body: { number: target, file: content, type: "document", ...docFields, ...textFields, ...quoteFields } },
-      { path: "/send/media", body: { number: target, media: content, type: "document", ...docFields, ...textFields, ...quoteFields } },
-      { path: "/send/document", body: { number: target, document: content, ...docFields, ...textFields, ...quoteFields } },
+      { path: "/send/media", body: { number: target, file: content, type: "document", ...docFields, ...captionFields, ...quoteFields } },
+      { path: "/send/media", body: { number: target, media: content, type: "document", ...docFields, ...captionFields, ...quoteFields } },
+      { path: "/send/document", body: { number: target, document: content, ...docFields, ...captionFields, ...quoteFields } },
     ];
   }
 
@@ -361,7 +362,7 @@ Deno.serve(async (req) => {
     await admin
       .from("conversations")
       .update({
-        last_message: getConversationPreview(type, content, fileName),
+        last_message: getConversationPreview(type, content, fileName, caption),
         last_message_at: new Date().toISOString(),
       })
       .eq("id", conversationId);

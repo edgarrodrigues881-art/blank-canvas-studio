@@ -16,14 +16,15 @@ export function getFileIcon(name: string): string {
 export function isMediaPlaceholder(content: string | undefined | null): boolean {
   if (!content) return true;
   const lower = content.toLowerCase().trim();
-  return [
+  const exactPlaceholders = [
     "[image]", "[foto]", "[audio]", "[áudio]", "[ptt]",
     "[video]", "[vídeo]", "[document]", "[documento]", "[arquivo]",
     "[sticker]", "[figurinha]", "[contact]", "[contato]",
     "[location]", "[localização]", "[mensagem]",
     "🎧 áudio", "📷 foto", "🎬 vídeo", "📎 arquivo",
     "🏷️ figurinha", "👤 contato", "📍 localização",
-  ].some(p => lower === p || lower.startsWith(p));
+  ];
+  return exactPlaceholders.some(p => lower === p);
 }
 
 /** Extract icon + label for media message previews */

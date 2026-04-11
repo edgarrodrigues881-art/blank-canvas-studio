@@ -235,6 +235,10 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
     }
 
     if (isImage && msg.mediaUrl) {
+      // Extract display caption: strip leading [image] / [document] prefix if present
+      const rawCaption = msg.content || "";
+      const displayCaption = rawCaption.replace(/^\[(image|foto|document|documento)\]\s*/i, "").trim();
+
       return (
         <div className="w-full">
           <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} />
@@ -243,12 +247,10 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
             onClick={() => onImageClick?.(msg.mediaUrl!)}
             className="block w-full overflow-hidden rounded-[18px] border border-border/20 bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           >
-            <div className="aspect-square w-full">
-              <img src={msg.mediaUrl} alt="Imagem" className="h-full w-full object-cover" />
-            </div>
+            <img src={msg.mediaUrl} alt="Imagem" className="w-full max-h-[320px] object-cover" />
           </button>
-          {msg.content && !isMediaPlaceholder(msg.content) && (
-            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5">{msg.content}</p>
+          {displayCaption && !isMediaPlaceholder(displayCaption) && (
+            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5">{displayCaption}</p>
           )}
           <MsgFooter msg={msg} />
         </div>
@@ -393,12 +395,16 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
           onContextMenu={(e) => { e.preventDefault(); setShowActions(true); }}
           className={cn(
             "min-w-[48px] max-w-full rounded-xl relative overflow-hidden",
-            msg.mediaType === "image" && msg.mediaUrl
-              ? "w-full max-w-[260px] p-1.5"
-              : "w-fit px-2.5 py-1.5",
-            isSent
-              ? "bg-blue-600 text-white rounded-br-sm"
-              : "bg-card border border-border/40 text-foreground rounded-bl-sm",
+            msg.mediaType === "sticker" && msg.mediaUrl
+              ? "w-fit p-1 bg-transparent border-0 shadow-none"
+              : msg.mediaType === "image" && msg.mediaUrl
+                ? "w-full max-w-[320px] p-1.5"
+                : "w-fit px-2.5 py-1.5",
+            msg.mediaType === "sticker" && msg.mediaUrl
+              ? ""
+              : isSent
+                ? "bg-blue-600 text-white rounded-br-sm"
+                : "bg-card border border-border/40 text-foreground rounded-bl-sm",
             msg.status === "failed" && "opacity-70"
           )}
         >
