@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import Globe from "react-globe.gl";
+import { useEffect, useState, useCallback, Suspense, lazy } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { MapPin, Target, CheckCircle2, Navigation, Minus, Plus } from "lucide-react";
+import { MapPin, Target, CheckCircle2, Navigation, Minus, Plus, Loader2 } from "lucide-react";
 import { getCountryNameByCode } from "@/lib/regionNames";
+
+const GlobeScene = lazy(() => import("./GlobeScene"));
 
 interface SearchAreaMapProps {
   cidade: string;
@@ -25,31 +26,12 @@ export default function SearchAreaMap({
   onCityDetected,
   initialRadiusKm = 12,
 }: SearchAreaMapProps) {
-  const globeRef = useRef<any>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const [radiusKm, setRadiusKm] = useState(initialRadiusKm);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [geocoding, setGeocoding] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [changed, setChanged] = useState(false);
   const [locationLabel, setLocationLabel] = useState("");
-  const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
-
-  // Resize observer for container
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) {
-        setDimensions({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        });
-      }
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
 
   // Reverse geocode
   const reverseGeocode = useCallback(
@@ -74,7 +56,7 @@ export default function SearchAreaMap({
     [onCityDetected]
   );
 
-  // Reset when city is cleared
+  // Reset on city clear
   useEffect(() => {
     if (cidade) return;
     setCenter(null);
@@ -126,22 +108,10 @@ export default function SearchAreaMap({
       }
     };
     geocode();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [cidade, estado, pais]);
 
-  // Fly to city when center changes
-  useEffect(() => {
-    if (!center || !globeRef.current) return;
-    const altitude = Math.max(0.3, radiusKm / 200);
-    globeRef.current.pointOfView(
-      { lat: center.lat, lng: center.lng, altitude },
-      1000
-    );
-  }, [center, radiusKm]);
-
-  // Sync radius
+  // Sync radius from parent
   useEffect(() => {
     setRadiusKm(initialRadiusKm);
   }, [initialRadiusKm]);
@@ -151,32 +121,9 @@ export default function SearchAreaMap({
     if (center && onAreaChange) onAreaChange(center.lat, center.lng, radiusKm);
   }, [center, radiusKm, onAreaChange]);
 
-  // Globe data
-  const markerData = useMemo(
-    () => (center ? [{ lat: center.lat, lng: center.lng, size: 0.6 }] : []),
-    [center]
-  );
-
-  const ringData = useMemo(
-    () =>
-      center
-        ? [
-            {
-              lat: center.lat,
-              lng: center.lng,
-              maxR: radiusKm / 111.32, // convert km to degrees approx
-              propagationSpeed: 2,
-              repeatPeriod: 800,
-            },
-          ]
-        : [],
-    [center, radiusKm]
-  );
-
-  // Handle globe click to move marker
   const handleGlobeClick = useCallback(
-    ({ lat, lng }: { lat: number; lng: number }) => {
-      if (!cidade) return; // only allow clicks when a city is selected
+    (lat: number, lng: number) => {
+      if (!cidade) return;
       setCenter({ lat, lng });
       setConfirmed(false);
       setChanged(true);
@@ -195,7 +142,7 @@ export default function SearchAreaMap({
 
   if (!cidade) {
     return (
-      <div className="w-full aspect-[4/3] max-h-[400px] rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/10 flex flex-col items-center justify-center gap-3">
+      <div className="w-full aspect-[4/3] max-h-[420px] rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/10 flex flex-col items-center justify-center gap-3">
         <div className="w-14 h-14 rounded-full bg-muted/50 flex items-center justify-center">
           <MapPin className="h-7 w-7 text-muted-foreground/40" />
         </div>
@@ -208,7 +155,7 @@ export default function SearchAreaMap({
 
   if (geocoding) {
     return (
-      <div className="w-full aspect-[4/3] max-h-[400px] rounded-xl border border-border bg-muted/10 flex flex-col items-center justify-center gap-3">
+      <div className="w-full aspect-[4/3] max-h-[420px] rounded-xl border border-border bg-muted/10 flex flex-col items-center justify-center gap-3">
         <Target className="h-8 w-8 text-primary animate-pulse" />
         <p className="text-muted-foreground text-sm">Localizando {cidade}...</p>
       </div>
@@ -218,36 +165,20 @@ export default function SearchAreaMap({
   return (
     <div className="space-y-3">
       <div className="relative">
-        <div
-          ref={containerRef}
-          className="w-full aspect-[4/3] max-h-[400px] rounded-xl overflow-hidden border border-border bg-[#0a0a1a]"
-        >
-          <Globe
-            ref={globeRef}
-            width={dimensions.width}
-            height={dimensions.height}
-            globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
-            bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
-            backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
-            pointsData={markerData}
-            pointLat="lat"
-            pointLng="lng"
-            pointColor={() => "hsl(142, 71%, 45%)"}
-            pointAltitude={0.01}
-            pointRadius="size"
-            ringsData={ringData}
-            ringLat="lat"
-            ringLng="lng"
-            ringMaxRadius="maxR"
-            ringPropagationSpeed="propagationSpeed"
-            ringRepeatPeriod="repeatPeriod"
-            ringColor={() => (t: number) => `rgba(34,197,94,${1 - t})`}
-            atmosphereColor="hsl(142, 71%, 45%)"
-            atmosphereAltitude={0.2}
-            onGlobeClick={handleGlobeClick}
-            animateIn={true}
-            enablePointerInteraction={true}
-          />
+        <div className="w-full aspect-[4/3] max-h-[420px] rounded-xl overflow-hidden border border-border">
+          <Suspense
+            fallback={
+              <div className="w-full h-full bg-[#070b14] flex items-center justify-center">
+                <Loader2 className="h-8 w-8 text-primary animate-spin" />
+              </div>
+            }
+          >
+            <GlobeScene
+              center={center}
+              radiusKm={radiusKm}
+              onGlobeClick={handleGlobeClick}
+            />
+          </Suspense>
         </div>
 
         {center && (
