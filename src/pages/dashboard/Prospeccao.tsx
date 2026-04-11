@@ -144,7 +144,16 @@ export default function Prospeccao() {
   const [freePulls, setFreePulls] = useState<number>(0);
 
   const [cidadeSearch, setCidadeSearch] = useState("");
+  const [paisSearch, setPaisSearch] = useState("");
   const [areaConfirmed, setAreaConfirmed] = useState(false);
+
+  const filteredPaises = useMemo(() => {
+    if (!paisSearch.trim()) return PAISES;
+    const term = paisSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return PAISES.filter(p =>
+      p.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term)
+    );
+  }, [paisSearch]);
 
   const filteredCidades = useMemo(() => {
     if (!cidadeSearch.trim()) return cidades;
