@@ -222,7 +222,7 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
         </div>
       </div>
 
-      <div className="flex items-center gap-3 px-1">
+      <div className="flex flex-wrap items-center gap-3 px-1">
         <Label className="text-sm whitespace-nowrap font-medium">Raio:</Label>
         <div className="flex items-center gap-1.5">
           <button type="button" onClick={() => setRadiusKm(r => Math.max(2, r - 1))} className="h-8 w-8 rounded-lg border border-border/50 bg-muted/30 flex items-center justify-center hover:bg-muted/60 transition-colors"><Minus className="h-3.5 w-3.5 text-muted-foreground" /></button>
@@ -231,16 +231,13 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
           <button type="button" onClick={() => setRadiusKm(r => Math.min(50, r + 1))} className="h-8 w-8 rounded-lg border border-border/50 bg-muted/30 flex items-center justify-center hover:bg-muted/60 transition-colors"><Plus className="h-3.5 w-3.5 text-muted-foreground" /></button>
           <span className="text-xs text-muted-foreground ml-0.5">km</span>
         </div>
-      </div>
 
-      {center && (
-        <div className="flex items-center gap-3 px-1">
+        {center && (
           <Button size="sm" variant={confirmed && !changed ? "outline" : "default"} onClick={handleConfirm} className="gap-2">
             {confirmed && !changed ? (<><CheckCircle2 className="h-4 w-4" />Área confirmada</>) : (<><Target className="h-4 w-4" />Usar esta área</>)}
           </Button>
-          <span className="text-xs text-muted-foreground">Essa área será usada na prospecção</span>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
