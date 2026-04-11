@@ -225,8 +225,11 @@ export default function Prospeccao() {
   };
 
   const handleSearch = async (forceRefresh = false) => {
-    if (!nicho.trim() || !estado || !cidade.trim()) {
-      toast.error("Preencha todos os campos obrigatórios"); return;
+    if (!nicho.trim() || !cidade.trim()) {
+      toast.error("Preencha nicho e cidade"); return;
+    }
+    if (pais === "BR" && !estado) {
+      toast.error("Selecione o estado"); return;
     }
     const canSearch = (creditBalance !== null && creditBalance > 0) || freePulls > 0;
     if (!canSearch) {
