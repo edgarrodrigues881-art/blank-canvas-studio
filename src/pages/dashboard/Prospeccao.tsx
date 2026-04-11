@@ -499,8 +499,14 @@ export default function Prospeccao() {
                   {pais === "BR" ? (
                     <Select value={cidade} onValueChange={(v) => { setCidade(v); setCidadeSearch(""); }} disabled={!estado || loadingCidades}>
                       <SelectTrigger><SelectValue placeholder={loadingCidades ? "Carregando..." : estado ? "Selecione a cidade" : "Selecione o estado primeiro"} /></SelectTrigger>
-                      <SelectContent>
-                        <div className="px-2 pb-2 sticky top-0 bg-popover z-10">
+                      <SelectContent
+                        onCloseAutoFocus={(e) => e.preventDefault()}
+                        onKeyDown={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.tagName === "INPUT") e.stopPropagation();
+                        }}
+                      >
+                        <div className="px-2 pb-2 sticky top-0 bg-popover z-10" onKeyDown={(e) => e.stopPropagation()}>
                           <Input
                             placeholder="Buscar cidade..."
                             value={cidadeSearch}
