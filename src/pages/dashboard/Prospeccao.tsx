@@ -530,9 +530,11 @@ export default function Prospeccao() {
               <div className="mt-4">
                 <SearchAreaMap
                   cidade={cidade}
-                  estado={estado}
+                  estado={pais === "BR" ? estado : ""}
+                  pais={pais}
                   onAreaChange={handleAreaChange}
                   onAreaConfirm={handleAreaConfirm}
+                  onCityDetected={(city) => { if (pais !== "BR") setCidade(city); }}
                   initialRadiusKm={12}
                 />
               </div>
