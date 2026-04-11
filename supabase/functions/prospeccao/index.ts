@@ -106,7 +106,8 @@ function expandNicho(nicho: string): string[] {
 
 // ========== BAIRROS ==========
 
-async function fetchBairros(cidade: string, estado: string): Promise<string[]> {
+async function fetchBairros(cidade: string, estado: string, pais: string = "BR"): Promise<string[]> {
+  if (pais !== "BR") return []; // bairros only for Brazil
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(`${cidade}, ${estado}, Brazil`)}&format=json&limit=1&countrycodes=br`,
