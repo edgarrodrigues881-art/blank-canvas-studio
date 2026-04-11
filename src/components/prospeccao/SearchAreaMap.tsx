@@ -1,11 +1,17 @@
-import { useEffect, useState, useCallback, Suspense, lazy } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense, lazy } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { MapPin, Target, CheckCircle2, Navigation, Minus, Plus, Loader2 } from "lucide-react";
+import {
+  MapPin, Target, CheckCircle2, Navigation, Minus, Plus,
+  Loader2, Globe as GlobeIcon, Map as MapIcon,
+} from "lucide-react";
 import { getCountryNameByCode } from "@/lib/regionNames";
 
 const GlobeScene = lazy(() => import("./GlobeScene"));
+const LeafletMap = lazy(() => import("./LeafletMap"));
+
+type ViewMode = "globe" | "map";
 
 interface SearchAreaMapProps {
   cidade: string;
@@ -32,6 +38,35 @@ export default function SearchAreaMap({
   const [confirmed, setConfirmed] = useState(false);
   const [changed, setChanged] = useState(false);
   const [locationLabel, setLocationLabel] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("globe");
+  const [transitioning, setTransitioning] = useState(false);
+  const [renderMode, setRenderMode] = useState<ViewMode>("globe");
+  const transitionTimeout = useRef<ReturnType<typeof setTimeout>>();
+
+  // Smooth transition between modes
+  const switchMode = useCallback((next: ViewMode) => {
+    if (next === viewMode || transitioning) return;
+    setTransitioning(true);
+    // Start fade out
+    setTimeout(() => {
+      setRenderMode(next); // swap the rendered component
+      setViewMode(next);
+      // Fade in after mount
+      setTimeout(() => setTransitioning(false), 80);
+    }, 300); // fade-out duration
+  }, [viewMode, transitioning]);
+
+  // Auto-switch to map when center is set (user picked a city)
+  // User can manually toggle back
+  useEffect(() => {
+    if (center && viewMode === "globe") {
+      // Give globe time to animate to location, then offer map
+      transitionTimeout.current = setTimeout(() => {
+        // Don't auto-switch, let user decide
+      }, 2000);
+    }
+    return () => clearTimeout(transitionTimeout.current);
+  }, [center]);
 
   // Reverse geocode
   const reverseGeocode = useCallback(
@@ -49,9 +84,7 @@ export default function SearchAreaMap({
           setLocationLabel(cityName);
           onCityDetected?.(cityName);
         }
-      } catch {
-        /* ignore */
-      }
+      } catch { /* ignore */ }
     },
     [onCityDetected]
   );
@@ -63,6 +96,7 @@ export default function SearchAreaMap({
     setLocationLabel("");
     setConfirmed(false);
     setChanged(false);
+    if (viewMode !== "globe") switchMode("globe");
   }, [cidade]);
 
   // Geocode city
@@ -89,12 +123,7 @@ export default function SearchAreaMap({
             lng: parseFloat(data[0].lon),
           };
           setCenter((cur) => {
-            if (
-              cur &&
-              Math.abs(cur.lat - newCenter.lat) < 0.0001 &&
-              Math.abs(cur.lng - newCenter.lng) < 0.0001
-            )
-              return cur;
+            if (cur && Math.abs(cur.lat - newCenter.lat) < 0.0001 && Math.abs(cur.lng - newCenter.lng) < 0.0001) return cur;
             return newCenter;
           });
           setLocationLabel(cidade);
@@ -111,12 +140,8 @@ export default function SearchAreaMap({
     return () => { cancelled = true; };
   }, [cidade, estado, pais]);
 
-  // Sync radius from parent
-  useEffect(() => {
-    setRadiusKm(initialRadiusKm);
-  }, [initialRadiusKm]);
+  useEffect(() => { setRadiusKm(initialRadiusKm); }, [initialRadiusKm]);
 
-  // Notify parent
   useEffect(() => {
     if (center && onAreaChange) onAreaChange(center.lat, center.lng, radiusKm);
   }, [center, radiusKm, onAreaChange]);
@@ -132,14 +157,23 @@ export default function SearchAreaMap({
     [cidade, reverseGeocode]
   );
 
+  const handleMapMarkerMove = useCallback(
+    (lat: number, lng: number) => {
+      setCenter({ lat, lng });
+      setConfirmed(false);
+      setChanged(true);
+      reverseGeocode(lat, lng);
+    },
+    [reverseGeocode]
+  );
+
   const handleConfirm = () => {
-    if (center && onAreaConfirm) {
-      onAreaConfirm(center.lat, center.lng, radiusKm);
-    }
+    if (center && onAreaConfirm) onAreaConfirm(center.lat, center.lng, radiusKm);
     setConfirmed(true);
     setChanged(false);
   };
 
+  /* ── Empty state ── */
   if (!cidade) {
     return (
       <div className="w-full aspect-[4/3] max-h-[420px] rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/10 flex flex-col items-center justify-center gap-3">
@@ -147,7 +181,7 @@ export default function SearchAreaMap({
           <MapPin className="h-7 w-7 text-muted-foreground/40" />
         </div>
         <p className="text-muted-foreground/60 text-sm text-center px-4">
-          Preencha a cidade para visualizar o globo
+          Preencha a cidade para visualizar o mapa
         </p>
       </div>
     );
@@ -165,7 +199,13 @@ export default function SearchAreaMap({
   return (
     <div className="space-y-3">
       <div className="relative">
-        <div className="w-full aspect-[4/3] max-h-[420px] rounded-xl overflow-hidden border border-border">
+        <div
+          className="w-full aspect-[4/3] max-h-[420px] rounded-xl overflow-hidden border border-border"
+          style={{
+            opacity: transitioning ? 0 : 1,
+            transition: "opacity 300ms ease-in-out",
+          }}
+        >
           <Suspense
             fallback={
               <div className="w-full h-full bg-[#070b14] flex items-center justify-center">
@@ -173,16 +213,56 @@ export default function SearchAreaMap({
               </div>
             }
           >
-            <GlobeScene
-              center={center}
-              radiusKm={radiusKm}
-              onGlobeClick={handleGlobeClick}
-            />
+            {renderMode === "globe" ? (
+              <GlobeScene
+                center={center}
+                radiusKm={radiusKm}
+                onGlobeClick={handleGlobeClick}
+              />
+            ) : center ? (
+              <LeafletMap
+                center={center}
+                radiusKm={radiusKm}
+                onMarkerMove={handleMapMarkerMove}
+              />
+            ) : null}
           </Suspense>
         </div>
 
+        {/* Mode toggle pill */}
+        <div className="absolute top-3 right-3 z-20">
+          <div className="bg-background/90 backdrop-blur-sm rounded-lg border border-border/50 p-0.5 flex gap-0.5">
+            <button
+              type="button"
+              onClick={() => switchMode("globe")}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all duration-200 ${
+                viewMode === "globe"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <GlobeIcon className="h-3 w-3" />
+              Globo
+            </button>
+            <button
+              type="button"
+              onClick={() => center && switchMode("map")}
+              disabled={!center}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all duration-200 ${
+                viewMode === "map"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground disabled:opacity-40"
+              }`}
+            >
+              <MapIcon className="h-3 w-3" />
+              Mapa
+            </button>
+          </div>
+        </div>
+
+        {/* Location label */}
         {center && (
-          <div className="absolute top-3 left-3 bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-border/50 space-y-0.5 max-w-[220px] pointer-events-none">
+          <div className="absolute top-3 left-3 bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-border/50 space-y-0.5 max-w-[220px] pointer-events-none z-10">
             <div className="flex items-center gap-1.5">
               <Navigation className="h-3 w-3 text-primary shrink-0" />
               <span className="text-xs font-medium text-foreground truncate">
@@ -195,9 +275,10 @@ export default function SearchAreaMap({
           </div>
         )}
 
-        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
+        {/* Bottom hints */}
+        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
           <div className="bg-background/80 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-border/50 text-[11px] text-muted-foreground">
-            Clique no globo para ajustar
+            {viewMode === "globe" ? "Clique no globo para ajustar" : "Arraste o marcador para ajustar"}
           </div>
           {confirmed && !changed && (
             <div className="bg-primary/10 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-primary/30 flex items-center gap-1.5">
@@ -207,14 +288,13 @@ export default function SearchAreaMap({
           )}
           {changed && !confirmed && (
             <div className="bg-yellow-500/10 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-yellow-500/30">
-              <span className="text-[11px] text-yellow-600 dark:text-yellow-400">
-                Área alterada
-              </span>
+              <span className="text-[11px] text-yellow-600 dark:text-yellow-400">Área alterada</span>
             </div>
           )}
         </div>
       </div>
 
+      {/* Radius controls */}
       <div className="flex items-center gap-3 px-1">
         <Label className="text-sm whitespace-nowrap font-medium">Raio:</Label>
         <div className="flex items-center gap-1.5">
