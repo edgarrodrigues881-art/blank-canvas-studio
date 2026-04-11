@@ -56,29 +56,70 @@ interface CampaignLog {
 }
 
 const PAISES: { code: string; nome: string }[] = [
-  { code: "BR", nome: "Brasil" },
-  { code: "US", nome: "Estados Unidos" },
-  { code: "PT", nome: "Portugal" },
-  { code: "ES", nome: "Espanha" },
-  { code: "AR", nome: "Argentina" },
-  { code: "CL", nome: "Chile" },
-  { code: "CO", nome: "Colômbia" },
-  { code: "MX", nome: "México" },
-  { code: "PE", nome: "Peru" },
-  { code: "UY", nome: "Uruguai" },
-  { code: "PY", nome: "Paraguai" },
-  { code: "BO", nome: "Bolívia" },
-  { code: "EC", nome: "Equador" },
-  { code: "VE", nome: "Venezuela" },
-  { code: "DE", nome: "Alemanha" },
-  { code: "FR", nome: "França" },
-  { code: "IT", nome: "Itália" },
-  { code: "GB", nome: "Reino Unido" },
-  { code: "CA", nome: "Canadá" },
-  { code: "AU", nome: "Austrália" },
-  { code: "JP", nome: "Japão" },
-  { code: "AO", nome: "Angola" },
-  { code: "MZ", nome: "Moçambique" },
+  { code: "AF", nome: "Afeganistão" }, { code: "ZA", nome: "África do Sul" }, { code: "AL", nome: "Albânia" },
+  { code: "DE", nome: "Alemanha" }, { code: "AD", nome: "Andorra" }, { code: "AO", nome: "Angola" },
+  { code: "AG", nome: "Antígua e Barbuda" }, { code: "SA", nome: "Arábia Saudita" }, { code: "DZ", nome: "Argélia" },
+  { code: "AR", nome: "Argentina" }, { code: "AM", nome: "Armênia" }, { code: "AU", nome: "Austrália" },
+  { code: "AT", nome: "Áustria" }, { code: "AZ", nome: "Azerbaijão" }, { code: "BS", nome: "Bahamas" },
+  { code: "BH", nome: "Bahrein" }, { code: "BD", nome: "Bangladesh" }, { code: "BB", nome: "Barbados" },
+  { code: "BE", nome: "Bélgica" }, { code: "BZ", nome: "Belize" }, { code: "BJ", nome: "Benin" },
+  { code: "BY", nome: "Bielorrússia" }, { code: "BO", nome: "Bolívia" }, { code: "BA", nome: "Bósnia e Herzegovina" },
+  { code: "BW", nome: "Botsuana" }, { code: "BR", nome: "Brasil" }, { code: "BN", nome: "Brunei" },
+  { code: "BG", nome: "Bulgária" }, { code: "BF", nome: "Burkina Faso" }, { code: "BI", nome: "Burundi" },
+  { code: "BT", nome: "Butão" }, { code: "CV", nome: "Cabo Verde" }, { code: "CM", nome: "Camarões" },
+  { code: "KH", nome: "Camboja" }, { code: "CA", nome: "Canadá" }, { code: "QA", nome: "Catar" },
+  { code: "KZ", nome: "Cazaquistão" }, { code: "TD", nome: "Chade" }, { code: "CL", nome: "Chile" },
+  { code: "CN", nome: "China" }, { code: "CY", nome: "Chipre" }, { code: "CO", nome: "Colômbia" },
+  { code: "KM", nome: "Comores" }, { code: "CG", nome: "Congo" }, { code: "KP", nome: "Coreia do Norte" },
+  { code: "KR", nome: "Coreia do Sul" }, { code: "CI", nome: "Costa do Marfim" }, { code: "CR", nome: "Costa Rica" },
+  { code: "HR", nome: "Croácia" }, { code: "CU", nome: "Cuba" }, { code: "DK", nome: "Dinamarca" },
+  { code: "DJ", nome: "Djibuti" }, { code: "DM", nome: "Dominica" }, { code: "EG", nome: "Egito" },
+  { code: "SV", nome: "El Salvador" }, { code: "AE", nome: "Emirados Árabes" }, { code: "EC", nome: "Equador" },
+  { code: "ER", nome: "Eritreia" }, { code: "SK", nome: "Eslováquia" }, { code: "SI", nome: "Eslovênia" },
+  { code: "ES", nome: "Espanha" }, { code: "US", nome: "Estados Unidos" }, { code: "EE", nome: "Estônia" },
+  { code: "SZ", nome: "Eswatini" }, { code: "ET", nome: "Etiópia" }, { code: "FJ", nome: "Fiji" },
+  { code: "PH", nome: "Filipinas" }, { code: "FI", nome: "Finlândia" }, { code: "FR", nome: "França" },
+  { code: "GA", nome: "Gabão" }, { code: "GM", nome: "Gâmbia" }, { code: "GH", nome: "Gana" },
+  { code: "GE", nome: "Geórgia" }, { code: "GR", nome: "Grécia" }, { code: "GD", nome: "Granada" },
+  { code: "GT", nome: "Guatemala" }, { code: "GY", nome: "Guiana" }, { code: "GN", nome: "Guiné" },
+  { code: "GQ", nome: "Guiné Equatorial" }, { code: "GW", nome: "Guiné-Bissau" }, { code: "HT", nome: "Haiti" },
+  { code: "HN", nome: "Honduras" }, { code: "HU", nome: "Hungria" }, { code: "YE", nome: "Iêmen" },
+  { code: "IN", nome: "Índia" }, { code: "ID", nome: "Indonésia" }, { code: "IQ", nome: "Iraque" },
+  { code: "IR", nome: "Irã" }, { code: "IE", nome: "Irlanda" }, { code: "IS", nome: "Islândia" },
+  { code: "IL", nome: "Israel" }, { code: "IT", nome: "Itália" }, { code: "JM", nome: "Jamaica" },
+  { code: "JP", nome: "Japão" }, { code: "JO", nome: "Jordânia" }, { code: "KW", nome: "Kuwait" },
+  { code: "LA", nome: "Laos" }, { code: "LS", nome: "Lesoto" }, { code: "LV", nome: "Letônia" },
+  { code: "LB", nome: "Líbano" }, { code: "LR", nome: "Libéria" }, { code: "LY", nome: "Líbia" },
+  { code: "LI", nome: "Liechtenstein" }, { code: "LT", nome: "Lituânia" }, { code: "LU", nome: "Luxemburgo" },
+  { code: "MK", nome: "Macedônia do Norte" }, { code: "MG", nome: "Madagascar" }, { code: "MY", nome: "Malásia" },
+  { code: "MW", nome: "Malaui" }, { code: "MV", nome: "Maldivas" }, { code: "ML", nome: "Mali" },
+  { code: "MT", nome: "Malta" }, { code: "MA", nome: "Marrocos" }, { code: "MU", nome: "Maurício" },
+  { code: "MR", nome: "Mauritânia" }, { code: "MX", nome: "México" }, { code: "MM", nome: "Mianmar" },
+  { code: "FM", nome: "Micronésia" }, { code: "MZ", nome: "Moçambique" }, { code: "MD", nome: "Moldávia" },
+  { code: "MC", nome: "Mônaco" }, { code: "MN", nome: "Mongólia" }, { code: "ME", nome: "Montenegro" },
+  { code: "NA", nome: "Namíbia" }, { code: "NR", nome: "Nauru" }, { code: "NP", nome: "Nepal" },
+  { code: "NI", nome: "Nicarágua" }, { code: "NE", nome: "Níger" }, { code: "NG", nome: "Nigéria" },
+  { code: "NO", nome: "Noruega" }, { code: "NZ", nome: "Nova Zelândia" }, { code: "OM", nome: "Omã" },
+  { code: "NL", nome: "Países Baixos" }, { code: "PW", nome: "Palau" }, { code: "PA", nome: "Panamá" },
+  { code: "PG", nome: "Papua Nova Guiné" }, { code: "PK", nome: "Paquistão" }, { code: "PY", nome: "Paraguai" },
+  { code: "PE", nome: "Peru" }, { code: "PL", nome: "Polônia" }, { code: "PT", nome: "Portugal" },
+  { code: "KE", nome: "Quênia" }, { code: "KG", nome: "Quirguistão" }, { code: "GB", nome: "Reino Unido" },
+  { code: "CF", nome: "República Centro-Africana" }, { code: "CD", nome: "República Dem. do Congo" },
+  { code: "DO", nome: "República Dominicana" }, { code: "CZ", nome: "República Tcheca" },
+  { code: "RO", nome: "Romênia" }, { code: "RW", nome: "Ruanda" }, { code: "RU", nome: "Rússia" },
+  { code: "WS", nome: "Samoa" }, { code: "LC", nome: "Santa Lúcia" }, { code: "KN", nome: "São Cristóvão e Névis" },
+  { code: "ST", nome: "São Tomé e Príncipe" }, { code: "VC", nome: "São Vicente e Granadinas" },
+  { code: "SN", nome: "Senegal" }, { code: "SL", nome: "Serra Leoa" }, { code: "RS", nome: "Sérvia" },
+  { code: "SC", nome: "Seicheles" }, { code: "SG", nome: "Singapura" }, { code: "SY", nome: "Síria" },
+  { code: "SO", nome: "Somália" }, { code: "LK", nome: "Sri Lanka" }, { code: "SE", nome: "Suécia" },
+  { code: "CH", nome: "Suíça" }, { code: "SR", nome: "Suriname" }, { code: "TH", nome: "Tailândia" },
+  { code: "TW", nome: "Taiwan" }, { code: "TJ", nome: "Tajiquistão" }, { code: "TZ", nome: "Tanzânia" },
+  { code: "TL", nome: "Timor-Leste" }, { code: "TG", nome: "Togo" }, { code: "TO", nome: "Tonga" },
+  { code: "TT", nome: "Trinidad e Tobago" }, { code: "TN", nome: "Tunísia" }, { code: "TM", nome: "Turcomenistão" },
+  { code: "TR", nome: "Turquia" }, { code: "TV", nome: "Tuvalu" }, { code: "UA", nome: "Ucrânia" },
+  { code: "UG", nome: "Uganda" }, { code: "UY", nome: "Uruguai" }, { code: "UZ", nome: "Uzbequistão" },
+  { code: "VU", nome: "Vanuatu" }, { code: "VE", nome: "Venezuela" }, { code: "VN", nome: "Vietnã" },
+  { code: "ZM", nome: "Zâmbia" }, { code: "ZW", nome: "Zimbábue" },
 ];
 
 export default function Prospeccao() {
@@ -103,7 +144,16 @@ export default function Prospeccao() {
   const [freePulls, setFreePulls] = useState<number>(0);
 
   const [cidadeSearch, setCidadeSearch] = useState("");
+  const [paisSearch, setPaisSearch] = useState("");
   const [areaConfirmed, setAreaConfirmed] = useState(false);
+
+  const filteredPaises = useMemo(() => {
+    if (!paisSearch.trim()) return PAISES;
+    const term = paisSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return PAISES.filter(p =>
+      p.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term)
+    );
+  }, [paisSearch]);
 
   const filteredCidades = useMemo(() => {
     if (!cidadeSearch.trim()) return cidades;
@@ -405,10 +455,25 @@ export default function Prospeccao() {
                 </div>
                 <div className="space-y-2">
                   <Label>País *</Label>
-                  <Select value={pais} onValueChange={(v) => { setPais(v); setEstado(""); setCidade(""); }}>
+                  <Select value={pais} onValueChange={(v) => { setPais(v); setEstado(""); setCidade(""); setPaisSearch(""); }}>
                     <SelectTrigger><SelectValue placeholder="Selecione o país" /></SelectTrigger>
                     <SelectContent>
-                      {PAISES.map(p => <SelectItem key={p.code} value={p.code}>{p.nome}</SelectItem>)}
+                      <div className="px-2 pb-2 sticky top-0 bg-popover z-10">
+                        <Input
+                          placeholder="Buscar país..."
+                          value={paisSearch}
+                          onChange={(e) => setPaisSearch(e.target.value)}
+                          onKeyDown={(e) => e.stopPropagation()}
+                          className="h-8 text-sm"
+                          autoFocus
+                        />
+                      </div>
+                      <ScrollArea className="max-h-[200px]">
+                        {filteredPaises.length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center py-2">Nenhum país encontrado</p>
+                        )}
+                        {filteredPaises.map(p => <SelectItem key={p.code} value={p.code}>{p.nome}</SelectItem>)}
+                      </ScrollArea>
                     </SelectContent>
                   </Select>
                 </div>
