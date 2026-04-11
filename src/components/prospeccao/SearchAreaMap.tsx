@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { MapPin, Target, CheckCircle2, Navigation, Minus, Plus } from "lucide-react";
+import { getCountryNameByCode } from "@/lib/regionNames";
 
 interface SearchAreaMapProps {
   cidade: string;
@@ -21,12 +22,34 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
   const circleRef = useRef<L.Circle | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const radiusInitializedRef = useRef(false);
   const [radiusKm, setRadiusKm] = useState(initialRadiusKm);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [geocoding, setGeocoding] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [changed, setChanged] = useState(false);
   const [locationLabel, setLocationLabel] = useState("");
+
+  const fitCircleBounds = useCallback((animate = false) => {
+    const map = mapInstanceRef.current;
+    const circle = circleRef.current;
+
+    if (!map || !circle) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      if (!mapInstanceRef.current || !circleRef.current) {
+        return;
+      }
+
+      map.fitBounds(circle.getBounds(), {
+        padding: [30, 30],
+        animate,
+      });
+    });
+  }, []);
 
   // Reverse geocode to get city name from coordinates
   const reverseGeocode = useCallback(async (lat: number, lng: number) => {
@@ -46,6 +69,23 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
   }, [onCityDetected]);
 
   useEffect(() => {
+    if (cidade) {
+      return;
+    }
+
+    resizeObserverRef.current?.disconnect();
+    resizeObserverRef.current = null;
+    mapInstanceRef.current?.remove();
+    mapInstanceRef.current = null;
+    markerRef.current = null;
+    circleRef.current = null;
+    setCenter(null);
+    setLocationLabel("");
+    setConfirmed(false);
+    setChanged(false);
+  }, [cidade]);
+
+  useEffect(() => {
     if (!cidade) return;
     let cancelled = false;
     const geocode = async () => {
@@ -53,14 +93,7 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
       try {
         const parts = [cidade];
         if (estado) parts.push(estado);
-        // Add country name for better results
-        const countryNames: Record<string, string> = {
-          BR: "Brazil", US: "United States", PT: "Portugal", ES: "Spain", AR: "Argentina",
-          CL: "Chile", CO: "Colombia", MX: "Mexico", DE: "Germany", FR: "France",
-          IT: "Italy", GB: "United Kingdom", CA: "Canada", AU: "Australia", JP: "Japan",
-          AO: "Angola", MZ: "Mozambique", CN: "China", IN: "India", RU: "Russia",
-        };
-        const countryName = countryNames[pais.toUpperCase()] || "";
+        const countryName = getCountryNameByCode(pais);
         if (countryName) parts.push(countryName);
 
         const q = encodeURIComponent(parts.join(", "));
@@ -72,7 +105,17 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
         const data = await res.json();
         if (!cancelled && data.length > 0) {
           const newCenter = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-          setCenter(newCenter);
+          setCenter((currentCenter) => {
+            if (
+              currentCenter &&
+              Math.abs(currentCenter.lat - newCenter.lat) < 0.0001 &&
+              Math.abs(currentCenter.lng - newCenter.lng) < 0.0001
+            ) {
+              return currentCenter;
+            }
+
+            return newCenter;
+          });
           setLocationLabel(cidade);
           setConfirmed(false);
           setChanged(false);
@@ -88,11 +131,7 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
   }, [cidade, estado, pais]);
 
   useEffect(() => {
-    if (!center || !mapRef.current) return;
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
-      mapInstanceRef.current = null;
-    }
+    if (!center || !mapRef.current || mapInstanceRef.current) return;
 
     const map = L.map(mapRef.current, {
       center: [center.lat, center.lng],
@@ -100,28 +139,30 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
       zoomControl: false,
       attributionControl: false,
       scrollWheelZoom: true,
+      preferCanvas: true,
       zoomSnap: 0.25,
       zoomDelta: 0.5,
       wheelDebounceTime: 80,
       wheelPxPerZoomLevel: 180,
+      fadeAnimation: false,
+      markerZoomAnimation: false,
     });
 
     L.control.zoom({ position: "topright" }).addTo(map);
 
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
-      maxZoom: 18, subdomains: "abcd",
-    }).addTo(map);
-
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {
-      maxZoom: 18, subdomains: "abcd", pane: "overlayPane",
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+      maxZoom: 18,
+      subdomains: "abcd",
+      updateWhenIdle: true,
+      keepBuffer: 2,
     }).addTo(map);
 
     const icon = L.divIcon({
       className: "",
       html: `<div style="
         width:14px;height:14px;border-radius:50%;
-        background:hsl(142,71%,45%);border:2px solid white;
-        box-shadow:0 0 0 3px hsla(142,71%,45%,0.3), 0 0 12px hsla(142,71%,45%,0.4);
+        background:hsl(var(--primary));border:2px solid hsl(var(--background));
+        box-shadow:0 0 0 3px hsl(var(--primary) / 0.3), 0 0 12px hsl(var(--primary) / 0.4);
         cursor:grab;
       "></div>`,
       iconSize: [14, 14],
@@ -132,42 +173,114 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
 
     const circle = L.circle([center.lat, center.lng], {
       radius: radiusKm * 1000,
-      color: "hsl(142,71%,45%)",
-      fillColor: "hsl(142,71%,45%)",
+      color: "hsl(var(--primary))",
+      fillColor: "hsl(var(--primary))",
       fillOpacity: 0.12,
       weight: 2.5,
     }).addTo(map);
 
-    marker.on("dragend", () => {
+    const syncCirclePosition = () => {
       const pos = marker.getLatLng();
       circle.setLatLng(pos);
-      setCenter({ lat: pos.lat, lng: pos.lng });
+    };
+
+    const handleDragEnd = () => {
+      const pos = marker.getLatLng();
+      circle.setLatLng(pos);
+      setCenter((currentCenter) => {
+        if (
+          currentCenter &&
+          Math.abs(currentCenter.lat - pos.lat) < 0.0001 &&
+          Math.abs(currentCenter.lng - pos.lng) < 0.0001
+        ) {
+          return currentCenter;
+        }
+
+        return { lat: pos.lat, lng: pos.lng };
+      });
       setConfirmed(false);
       setChanged(true);
-      // Reverse geocode to detect city
       reverseGeocode(pos.lat, pos.lng);
-    });
+    };
+
+    marker.on("drag", syncCirclePosition);
+    marker.on("dragend", handleDragEnd);
 
     mapInstanceRef.current = map;
     markerRef.current = marker;
     circleRef.current = circle;
 
-    const timers = [150, 500, 1000].map(ms => setTimeout(() => {
-      map.invalidateSize();
-      if (circleRef.current) map.fitBounds(circleRef.current.getBounds(), { padding: [30, 30] });
-    }, ms));
+    const handleResize = () => {
+      map.invalidateSize({ pan: false });
+    };
 
-    return () => { timers.forEach(clearTimeout); map.remove(); mapInstanceRef.current = null; };
-  }, [center?.lat, center?.lng]);
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(handleResize);
+      observer.observe(mapRef.current);
+      resizeObserverRef.current = observer;
+    }
+
+    window.addEventListener("resize", handleResize);
+    window.requestAnimationFrame(() => {
+      handleResize();
+      fitCircleBounds();
+    });
+
+    return () => {
+      resizeObserverRef.current?.disconnect();
+      resizeObserverRef.current = null;
+      window.removeEventListener("resize", handleResize);
+      marker.off("drag", syncCirclePosition);
+      marker.off("dragend", handleDragEnd);
+      map.remove();
+      mapInstanceRef.current = null;
+      markerRef.current = null;
+      circleRef.current = null;
+    };
+  }, [center, fitCircleBounds, radiusKm, reverseGeocode]);
 
   useEffect(() => {
-    if (circleRef.current) circleRef.current.setRadius(radiusKm * 1000);
-    if (mapInstanceRef.current && circleRef.current) {
-      mapInstanceRef.current.fitBounds(circleRef.current.getBounds(), { padding: [30, 30] });
+    const map = mapInstanceRef.current;
+    const marker = markerRef.current;
+    const circle = circleRef.current;
+
+    if (!map || !marker || !circle || !center) {
+      return;
     }
+
+    const nextLatLng = L.latLng(center.lat, center.lng);
+    const currentLatLng = marker.getLatLng();
+
+    if (currentLatLng.distanceTo(nextLatLng) < 1) {
+      return;
+    }
+
+    marker.setLatLng(nextLatLng);
+    circle.setLatLng(nextLatLng);
+    map.setView(nextLatLng, Math.max(map.getZoom(), 12), { animate: false });
+    fitCircleBounds();
+  }, [center, fitCircleBounds]);
+
+  useEffect(() => {
+    if (!circleRef.current) {
+      return;
+    }
+
+    circleRef.current.setRadius(radiusKm * 1000);
+    fitCircleBounds();
+
+    if (!radiusInitializedRef.current) {
+      radiusInitializedRef.current = true;
+      return;
+    }
+
     setConfirmed(false);
     setChanged(true);
-  }, [radiusKm]);
+  }, [fitCircleBounds, radiusKm]);
+
+  useEffect(() => {
+    setRadiusKm(initialRadiusKm);
+  }, [initialRadiusKm]);
 
   useEffect(() => {
     if (center && onAreaChange) onAreaChange(center.lat, center.lng, radiusKm);

@@ -22,6 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import SearchAreaMap from "@/components/prospeccao/SearchAreaMap";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { getCountryNameByCode } from "@/lib/regionNames";
 
 const ESTADOS_BR: { sigla: string; nome: string }[] = [
   { sigla: "AC", nome: "Acre" }, { sigla: "AL", nome: "Alagoas" }, { sigla: "AM", nome: "Amazonas" },
@@ -132,7 +133,6 @@ export default function Prospeccao() {
   const [cidades, setCidades] = useState<string[]>([]);
   const [loadingCidades, setLoadingCidades] = useState(false);
   const [internationalCitiesByCountry, setInternationalCitiesByCountry] = useState<Record<string, string[]>>({});
-  const [internationalCitiesLoaded, setInternationalCitiesLoaded] = useState(false);
   const [maxResults, setMaxResults] = useState("50");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<ProspectResult[]>([]);
@@ -209,8 +209,11 @@ export default function Prospeccao() {
   useEffect(() => {
     if (pais === "BR" || !pais) return;
 
-    if (internationalCitiesLoaded) {
-      setCidades(internationalCitiesByCountry[pais] ?? []);
+    const cachedCities = internationalCitiesByCountry[pais];
+
+    if (cachedCities) {
+      setCidades(cachedCities);
+      setLoadingCidades(false);
       return;
     }
 
@@ -221,31 +224,42 @@ export default function Prospeccao() {
       setCidades([]);
 
       try {
-        const res = await fetch("https://countriesnow.space/api/v0.1/countries", {
+        const countryName = getCountryNameByCode(pais);
+
+        const res = await fetch("https://countriesnow.space/api/v0.1/countries/cities", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ country: countryName }),
           signal: controller.signal,
         });
+
+        if (!res.ok) {
+          throw new Error(`Erro ao carregar cidades: ${res.status}`);
+        }
+
         const data = await res.json();
 
-        const nextMap = Array.isArray(data?.data)
-          ? data.data.reduce((acc: Record<string, string[]>, item: any) => {
-              const iso2 = item?.iso2?.toUpperCase();
-              const list = Array.isArray(item?.cities)
-                ? item.cities.filter((city: unknown): city is string => typeof city === "string" && city.trim().length > 0)
-                : [];
-              const uniqueCities = Array.from(new Set<string>(list));
-              if (!iso2) return acc;
-              acc[iso2] = uniqueCities.sort((a, b) =>
+        const nextCities: string[] = Array.isArray(data?.data)
+          ? (() => {
+              const filteredCities = data.data.filter(
+                (city: unknown): city is string => typeof city === "string" && city.trim().length > 0
+              );
+
+              return Array.from(new Set<string>(filteredCities)).sort((a, b) =>
                 a.localeCompare(b, "pt-BR", { sensitivity: "base" })
               );
-              return acc;
-            }, {})
-          : {};
+            })()
+          : [];
 
         if (controller.signal.aborted) return;
 
-        setInternationalCitiesByCountry(nextMap);
-        setInternationalCitiesLoaded(true);
-        setCidades(nextMap[pais] ?? []);
+        setInternationalCitiesByCountry((currentCache) => ({
+          ...currentCache,
+          [pais]: nextCities,
+        }));
+        setCidades(nextCities);
       } catch (e: any) {
         if (e.name !== "AbortError") {
           setCidades([]);
@@ -260,7 +274,7 @@ export default function Prospeccao() {
 
     fetchInternationalCities();
     return () => controller.abort();
-  }, [pais, internationalCitiesByCountry, internationalCitiesLoaded]);
+  }, [internationalCitiesByCountry, pais]);
 
   useEffect(() => {
     if (activeTab === "historico") loadCampaigns();
@@ -507,6 +521,7 @@ export default function Prospeccao() {
                     placeholder="Selecione o país"
                     searchPlaceholder="Buscar país..."
                     emptyMessage="Nenhum país encontrado"
+                    maxVisibleOptions={120}
                   />
                 </div>
                 {pais === "BR" && (
@@ -529,6 +544,8 @@ export default function Prospeccao() {
                       searchPlaceholder="Buscar cidade..."
                       emptyMessage="Nenhuma cidade encontrada"
                       disabled={!estado || loadingCidades}
+                      loading={loadingCidades}
+                      maxVisibleOptions={200}
                     />
                   ) : (
                     <SearchableSelect
@@ -539,6 +556,8 @@ export default function Prospeccao() {
                       searchPlaceholder="Buscar cidade..."
                       emptyMessage={loadingCidades ? "Carregando..." : "Nenhuma cidade encontrada"}
                       disabled={loadingCidades}
+                      loading={loadingCidades}
+                      maxVisibleOptions={200}
                     />
                   )}
                 </div>
@@ -562,7 +581,14 @@ export default function Prospeccao() {
                   pais={pais}
                   onAreaChange={handleAreaChange}
                   onAreaConfirm={handleAreaConfirm}
-                  onCityDetected={(city) => { if (pais !== "BR") setCidade(city); }}
+                  onCityDetected={(city) => {
+                    if (pais === "BR") {
+                      return;
+                    }
+
+                    setCidade((currentCity) => currentCity === city ? currentCity : city);
+                    setCidades((currentCities) => currentCities.includes(city) ? currentCities : [city, ...currentCities]);
+                  }}
                   initialRadiusKm={12}
                 />
               </div>
