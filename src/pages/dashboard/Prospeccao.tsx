@@ -238,7 +238,7 @@ export default function Prospeccao() {
     setLoading(true); setSearched(true);
     try {
       const relacionados = nichosRelacionados.split(",").map(n => n.trim()).filter(Boolean);
-      const body: any = { nicho: nicho.trim(), nichosRelacionados: relacionados, estado, cidade: cidade.trim(), maxResults: Number(maxResults), forceRefresh };
+      const body: any = { nicho: nicho.trim(), nichosRelacionados: relacionados, estado: pais === "BR" ? estado : "", cidade: cidade.trim(), maxResults: Number(maxResults), forceRefresh, pais };
       if (searchLat !== null && searchLng !== null) {
         body.customCenter = { lat: searchLat, lng: searchLng };
         body.customRadiusKm = searchRadius;
