@@ -55,9 +55,36 @@ interface CampaignLog {
   score: number | null; tier: string | null; created_at: string;
 }
 
+const PAISES: { code: string; nome: string }[] = [
+  { code: "BR", nome: "Brasil" },
+  { code: "US", nome: "Estados Unidos" },
+  { code: "PT", nome: "Portugal" },
+  { code: "ES", nome: "Espanha" },
+  { code: "AR", nome: "Argentina" },
+  { code: "CL", nome: "Chile" },
+  { code: "CO", nome: "Colômbia" },
+  { code: "MX", nome: "México" },
+  { code: "PE", nome: "Peru" },
+  { code: "UY", nome: "Uruguai" },
+  { code: "PY", nome: "Paraguai" },
+  { code: "BO", nome: "Bolívia" },
+  { code: "EC", nome: "Equador" },
+  { code: "VE", nome: "Venezuela" },
+  { code: "DE", nome: "Alemanha" },
+  { code: "FR", nome: "França" },
+  { code: "IT", nome: "Itália" },
+  { code: "GB", nome: "Reino Unido" },
+  { code: "CA", nome: "Canadá" },
+  { code: "AU", nome: "Austrália" },
+  { code: "JP", nome: "Japão" },
+  { code: "AO", nome: "Angola" },
+  { code: "MZ", nome: "Moçambique" },
+];
+
 export default function Prospeccao() {
   const [nicho, setNicho] = useState("");
   const [nichosRelacionados, setNichosRelacionados] = useState("");
+  const [pais, setPais] = useState("BR");
   const [estado, setEstado] = useState("");
   const [cidade, setCidade] = useState("");
   const [cidades, setCidades] = useState<string[]>([]);
