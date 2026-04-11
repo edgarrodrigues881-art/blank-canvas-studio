@@ -648,9 +648,9 @@ export default function Prospeccao() {
                       {savingContacts ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
                       {savingContacts ? "Salvando..." : "Salvar nos Contatos"}
                     </Button>
-                    <Button variant="outline" onClick={handleVerifyWhatsApp} disabled={verifyingWA} className="gap-2">
-                      {verifyingWA ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
-                      {verifyingWA ? "Criando..." : "Verificar WhatsApp"}
+                    <Button variant="outline" onClick={handleVerifyWhatsApp} className="gap-2">
+                      <Smartphone className="h-4 w-4" />
+                      Verificar WhatsApp
                     </Button>
                   </>
                 )}
