@@ -144,25 +144,10 @@ export default function Prospeccao() {
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
   const [freePulls, setFreePulls] = useState<number>(0);
 
-  const [cidadeSearch, setCidadeSearch] = useState("");
-  const [paisSearch, setPaisSearch] = useState("");
   const [areaConfirmed, setAreaConfirmed] = useState(false);
 
-  const filteredPaises = useMemo(() => {
-    if (!paisSearch.trim()) return PAISES;
-    const term = paisSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return PAISES.filter(p =>
-      p.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term)
-    );
-  }, [paisSearch]);
-
-  const filteredCidades = useMemo(() => {
-    if (!cidadeSearch.trim()) return cidades;
-    const term = cidadeSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return cidades.filter(c => 
-      c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term)
-    );
-  }, [cidades, cidadeSearch]);
+  const paisOptions = useMemo(() => PAISES.map(p => ({ value: p.code, label: p.nome })), []);
+  const cidadeOptions = useMemo(() => cidades.map(c => ({ value: c, label: c })), [cidades]);
 
   const handleAreaChange = useCallback((lat: number, lng: number, radiusKm: number) => {
     setSearchLat(lat);
