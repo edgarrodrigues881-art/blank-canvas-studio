@@ -38,11 +38,30 @@ type ViewMode = "list" | "create" | "detail";
 export default function WhatsAppVerifier() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const location = useLocation();
   const [view, setView] = useState<ViewMode>("list");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [jobName, setJobName] = useState("");
   const [selectedDevice, setSelectedDevice] = useState("");
   const [rawInput, setRawInput] = useState("");
+  const [prospeccaoLeads, setProspeccaoLeads] = useState<Array<{ phone: string; [key: string]: string }> | null>(null);
+  const didApplyState = useRef(false);
+
+  // Auto-fill from Prospecção navigation state
+  useEffect(() => {
+    if (didApplyState.current) return;
+    const state = location.state as any;
+    if (state?.prospeccaoLeads?.length) {
+      didApplyState.current = true;
+      const leads = state.prospeccaoLeads;
+      setProspeccaoLeads(leads);
+      setRawInput(leads.map((l: any) => l.phone).join("\n"));
+      if (state.suggestedName) setJobName(state.suggestedName);
+      setView("create");
+      // Clear navigation state to avoid re-applying on refresh
+      window.history.replaceState({}, "");
+    }
+  }, [location.state]);
 
   const { data: devices = [] } = useQuery({
     queryKey: ["devices-for-verifier"],
