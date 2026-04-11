@@ -241,14 +241,16 @@ export default function Prospeccao() {
 
         const data = await res.json();
 
-        const nextCities = Array.isArray(data?.data)
-          ? Array.from(
-              new Set(
-                data.data.filter(
-                  (city: unknown): city is string => typeof city === "string" && city.trim().length > 0
-                )
-              )
-            ).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }))
+        const nextCities: string[] = Array.isArray(data?.data)
+          ? (() => {
+              const filteredCities = data.data.filter(
+                (city: unknown): city is string => typeof city === "string" && city.trim().length > 0
+              );
+
+              return Array.from(new Set<string>(filteredCities)).sort((a, b) =>
+                a.localeCompare(b, "pt-BR", { sensitivity: "base" })
+              );
+            })()
           : [];
 
         if (controller.signal.aborted) return;
