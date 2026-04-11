@@ -187,11 +187,9 @@ export default function Prospeccao() {
 
   useEffect(() => { loadCredits(); }, [loadCredits]);
 
-  const [cidadeSearch, setCidadeSearch] = useState("");
-
   // Fetch cities for Brazil (by state)
   useEffect(() => {
-    if (pais !== "BR") { setEstado(""); return; }
+    if (pais !== "BR") return;
     if (!estado) { setCidades([]); setCidade(""); return; }
     const fetchCidades = async () => {
       setLoadingCidades(true); setCidade("");
@@ -205,31 +203,49 @@ export default function Prospeccao() {
     fetchCidades();
   }, [estado, pais]);
 
-  // Fetch cities for international countries via Nominatim
+  // Fetch cities for international countries via countriesnow API
   useEffect(() => {
-    if (pais === "BR" || !pais) { if (pais !== "BR") setCidades([]); return; }
-    const term = cidadeSearch.trim();
-    if (term.length < 2) { setCidades([]); return; }
+    if (pais === "BR" || !pais) { setCidades([]); return; }
+    const paisObj = PAISES.find(p => p.code === pais);
+    if (!paisObj) return;
     const controller = new AbortController();
-    const timeout = setTimeout(async () => {
-      setLoadingCidades(true);
+    setLoadingCidades(true); setCidade("");
+    const fetchInternationalCities = async () => {
       try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?country=${pais.toLowerCase()}&city=${encodeURIComponent(term)}&format=json&limit=30&featuretype=city&accept-language=pt`,
-          { signal: controller.signal, headers: { "User-Agent": "ProspeccaoApp/1.0" } }
-        );
+        const res = await fetch("https://countriesnow.space/api/v1/countries/cities", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ country: paisObj.nome }),
+          signal: controller.signal,
+        });
         const data = await res.json();
-        const names = [...new Set(data.map((d: any) => {
-          const parts = d.display_name.split(",");
-          return parts[0].trim();
-        }).filter(Boolean))] as string[];
-        setCidades(names.sort());
+        if (data?.data?.length) {
+          setCidades(data.data.sort());
+        } else {
+          // Fallback: try with English name via ISO
+          const res2 = await fetch(`https://countriesnow.space/api/v1/countries/iso`, { signal: controller.signal });
+          const isoData = await res2.json();
+          const match = isoData?.data?.find((c: any) => c.Iso2?.toUpperCase() === pais);
+          if (match?.name) {
+            const res3 = await fetch("https://countriesnow.space/api/v1/countries/cities", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ country: match.name }),
+              signal: controller.signal,
+            });
+            const data3 = await res3.json();
+            setCidades(data3?.data?.length ? data3.data.sort() : []);
+          } else {
+            setCidades([]);
+          }
+        }
       } catch (e: any) {
         if (e.name !== "AbortError") setCidades([]);
       } finally { setLoadingCidades(false); }
-    }, 400);
-    return () => { clearTimeout(timeout); controller.abort(); };
-  }, [cidadeSearch, pais]);
+    };
+    fetchInternationalCities();
+    return () => controller.abort();
+  }, [pais]);
 
   useEffect(() => {
     if (activeTab === "historico") loadCampaigns();
