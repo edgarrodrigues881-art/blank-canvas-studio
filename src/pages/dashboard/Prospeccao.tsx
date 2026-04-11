@@ -593,20 +593,20 @@ export default function Prospeccao() {
                 />
               </div>
 
-              {/* Estimativa de custo */}
-              {!loading && freePulls <= 0 && creditBalance !== null && creditBalance > 0 && (
-                <div className="mt-2 p-2 rounded-md bg-muted/50 border border-border text-xs text-muted-foreground">
-                  <Coins className="inline h-3 w-3 mr-1" />
-                  Custo estimado: <strong className="text-foreground">~{(() => {
-                    const t = parseInt(maxResults) || 50;
-                    const caps: Record<number, number> = { 10: 1, 20: 2, 50: 4, 100: 6, 200: 10, 500: 16, 1000: 24 };
-                    const api = Object.entries(caps).reduce((acc, [k, v]) => t <= Number(k) ? (acc === 0 ? v : acc) : acc, 0) || 60;
-                    return Math.ceil(api * 6.25);
-                  })()} créditos</strong> para {maxResults} leads
-                </div>
-              )}
+              <div className="flex flex-wrap items-center gap-3 mt-3">
+                {/* Estimativa de custo */}
+                {!loading && freePulls <= 0 && creditBalance !== null && creditBalance > 0 && (
+                  <div className="px-3 py-1.5 rounded-lg bg-muted/50 border border-border text-xs text-muted-foreground flex items-center gap-1">
+                    <Coins className="h-3 w-3" />
+                    <span>~{(() => {
+                      const t = parseInt(maxResults) || 50;
+                      const caps: Record<number, number> = { 10: 1, 20: 2, 50: 4, 100: 6, 200: 10, 500: 16, 1000: 24 };
+                      const api = Object.entries(caps).reduce((acc, [k, v]) => t <= Number(k) ? (acc === 0 ? v : acc) : acc, 0) || 60;
+                      return Math.ceil(api * 6.25);
+                    })()} créditos</span>
+                  </div>
+                )}
 
-              <div className="flex items-center gap-3 mt-4">
                 <Button onClick={() => handleSearch()} disabled={loading || ((creditBalance === null || creditBalance <= 0) && freePulls <= 0)} className="gap-2">
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                   {loading ? "Buscando..." : freePulls > 0 && (creditBalance === null || creditBalance <= 0) ? `Puxada Grátis — 10 leads (${freePulls})` : "Buscar"}
