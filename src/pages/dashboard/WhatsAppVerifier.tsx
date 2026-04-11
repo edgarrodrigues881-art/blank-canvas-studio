@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,11 +38,30 @@ type ViewMode = "list" | "create" | "detail";
 export default function WhatsAppVerifier() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const location = useLocation();
   const [view, setView] = useState<ViewMode>("list");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [jobName, setJobName] = useState("");
   const [selectedDevice, setSelectedDevice] = useState("");
   const [rawInput, setRawInput] = useState("");
+  const [prospeccaoLeads, setProspeccaoLeads] = useState<Array<{ phone: string; [key: string]: string }> | null>(null);
+  const didApplyState = useRef(false);
+
+  // Auto-fill from Prospecção navigation state
+  useEffect(() => {
+    if (didApplyState.current) return;
+    const state = location.state as any;
+    if (state?.prospeccaoLeads?.length) {
+      didApplyState.current = true;
+      const leads = state.prospeccaoLeads;
+      setProspeccaoLeads(leads);
+      setRawInput(leads.map((l: any) => l.phone).join("\n"));
+      if (state.suggestedName) setJobName(state.suggestedName);
+      setView("create");
+      // Clear navigation state to avoid re-applying on refresh
+      window.history.replaceState({}, "");
+    }
+  }, [location.state]);
 
   const { data: devices = [] } = useQuery({
     queryKey: ["devices-for-verifier"],
@@ -93,8 +113,21 @@ export default function WhatsAppVerifier() {
       const name = jobName.trim() || `Verificação ${new Date().toLocaleDateString("pt-BR")}`;
       const { data: job, error: jobErr } = await supabase.from("verify_jobs").insert({ user_id: user.id, device_id: selectedDevice, name, total_phones: phones.length, status: "pending" } as any).select().single();
       if (jobErr || !job) throw new Error(jobErr?.message || "Erro ao criar verificação");
+      // Build a lookup map from prospeccaoLeads for variable data
+      const leadMap = new Map<string, Record<string, string>>();
+      if (prospeccaoLeads) {
+        for (const l of prospeccaoLeads) {
+          leadMap.set(l.phone, l);
+        }
+      }
       for (let i = 0; i < phones.length; i += 500) {
-        const batch = phones.slice(i, i + 500).map(phone => ({ job_id: (job as any).id, user_id: user.id, phone, status: "pending" }));
+        const batch = phones.slice(i, i + 500).map(phone => {
+          const lead = leadMap.get(phone);
+          return {
+            job_id: (job as any).id, user_id: user.id, phone, status: "pending",
+            ...(lead ? { var1: lead.var1, var2: lead.var2, var3: lead.var3, var4: lead.var4, var5: lead.var5, var6: lead.var6, var7: lead.var7, var8: lead.var8, var9: lead.var9, var10: lead.var10 } : {}),
+          };
+        });
         const { error } = await supabase.from("verify_results").insert(batch as any);
         if (error) throw new Error(error.message);
       }
@@ -103,7 +136,7 @@ export default function WhatsAppVerifier() {
     onSuccess: (job: any) => {
       toast.success("Verificação criada! Processamento em background.");
       queryClient.invalidateQueries({ queryKey: ["verify-jobs"] });
-      setRawInput(""); setJobName(""); setSelectedDevice("");
+      setRawInput(""); setJobName(""); setSelectedDevice(""); setProspeccaoLeads(null);
       setSelectedJobId(job.id); setView("detail");
     },
     onError: (err: any) => toast.error(err?.message || "Erro"),
