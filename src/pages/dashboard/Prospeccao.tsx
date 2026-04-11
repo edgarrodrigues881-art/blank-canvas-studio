@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -143,25 +144,10 @@ export default function Prospeccao() {
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
   const [freePulls, setFreePulls] = useState<number>(0);
 
-  const [cidadeSearch, setCidadeSearch] = useState("");
-  const [paisSearch, setPaisSearch] = useState("");
   const [areaConfirmed, setAreaConfirmed] = useState(false);
 
-  const filteredPaises = useMemo(() => {
-    if (!paisSearch.trim()) return PAISES;
-    const term = paisSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return PAISES.filter(p =>
-      p.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term)
-    );
-  }, [paisSearch]);
-
-  const filteredCidades = useMemo(() => {
-    if (!cidadeSearch.trim()) return cidades;
-    const term = cidadeSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return cidades.filter(c => 
-      c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term)
-    );
-  }, [cidades, cidadeSearch]);
+  const paisOptions = useMemo(() => PAISES.map(p => ({ value: p.code, label: p.nome })), []);
+  const cidadeOptions = useMemo(() => cidades.map(c => ({ value: c, label: c })), [cidades]);
 
   const handleAreaChange = useCallback((lat: number, lng: number, radiusKm: number) => {
     setSearchLat(lat);
@@ -454,36 +440,14 @@ export default function Prospeccao() {
                 </div>
                 <div className="space-y-2">
                   <Label>País *</Label>
-                  <Select value={pais} onValueChange={(v) => { setPais(v); setEstado(""); setCidade(""); setPaisSearch(""); }}>
-                    <SelectTrigger><SelectValue placeholder="Selecione o país" /></SelectTrigger>
-                    <SelectContent
-                      onCloseAutoFocus={(e) => e.preventDefault()}
-                      onKeyDown={(e) => {
-                        // Block Radix typeahead when search input is focused
-                        const target = e.target as HTMLElement;
-                        if (target.tagName === "INPUT") {
-                          e.stopPropagation();
-                        }
-                      }}
-                    >
-                      <div className="px-2 pb-2 sticky top-0 bg-popover z-10" onKeyDown={(e) => e.stopPropagation()}>
-                        <Input
-                          placeholder="Buscar país..."
-                          value={paisSearch}
-                          onChange={(e) => setPaisSearch(e.target.value)}
-                          onKeyDown={(e) => e.stopPropagation()}
-                          className="h-8 text-sm"
-                          autoFocus
-                        />
-                      </div>
-                      <ScrollArea className="max-h-[200px]">
-                        {filteredPaises.length === 0 && (
-                          <p className="text-sm text-muted-foreground text-center py-2">Nenhum país encontrado</p>
-                        )}
-                        {filteredPaises.map(p => <SelectItem key={p.code} value={p.code}>{p.nome}</SelectItem>)}
-                      </ScrollArea>
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={pais}
+                    onValueChange={(v) => { setPais(v); setEstado(""); setCidade(""); }}
+                    options={paisOptions}
+                    placeholder="Selecione o país"
+                    searchPlaceholder="Buscar país..."
+                    emptyMessage="Nenhum país encontrado"
+                  />
                 </div>
                 {pais === "BR" && (
                   <div className="space-y-2">
@@ -497,33 +461,15 @@ export default function Prospeccao() {
                 <div className="space-y-2">
                   <Label>Cidade *</Label>
                   {pais === "BR" ? (
-                    <Select value={cidade} onValueChange={(v) => { setCidade(v); setCidadeSearch(""); }} disabled={!estado || loadingCidades}>
-                      <SelectTrigger><SelectValue placeholder={loadingCidades ? "Carregando..." : estado ? "Selecione a cidade" : "Selecione o estado primeiro"} /></SelectTrigger>
-                      <SelectContent
-                        onCloseAutoFocus={(e) => e.preventDefault()}
-                        onKeyDown={(e) => {
-                          const target = e.target as HTMLElement;
-                          if (target.tagName === "INPUT") e.stopPropagation();
-                        }}
-                      >
-                        <div className="px-2 pb-2 sticky top-0 bg-popover z-10" onKeyDown={(e) => e.stopPropagation()}>
-                          <Input
-                            placeholder="Buscar cidade..."
-                            value={cidadeSearch}
-                            onChange={(e) => setCidadeSearch(e.target.value)}
-                            onKeyDown={(e) => e.stopPropagation()}
-                            className="h-8 text-sm"
-                            autoFocus
-                          />
-                        </div>
-                        <ScrollArea className="max-h-[200px]">
-                          {filteredCidades.length === 0 && (
-                            <p className="text-sm text-muted-foreground text-center py-2">Nenhuma cidade encontrada</p>
-                          )}
-                          {filteredCidades.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                        </ScrollArea>
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={cidade}
+                      onValueChange={setCidade}
+                      options={cidadeOptions}
+                      placeholder={loadingCidades ? "Carregando..." : estado ? "Selecione a cidade" : "Selecione o estado primeiro"}
+                      searchPlaceholder="Buscar cidade..."
+                      emptyMessage="Nenhuma cidade encontrada"
+                      disabled={!estado || loadingCidades}
+                    />
                   ) : (
                     <Input placeholder="Ex: Lisboa, Madrid, Buenos Aires..." value={cidade} onChange={e => setCidade(e.target.value)} />
                   )}
