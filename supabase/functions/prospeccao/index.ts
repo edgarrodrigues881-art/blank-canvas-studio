@@ -788,15 +788,29 @@ Deno.serve(async (req) => {
     // --- CACHE SAVE ---
     try {
       const adminClient = createClient(supabaseUrl, serviceRoleKey);
-      await adminClient.from("prospeccao_cache").upsert({
+      const nichoLower = nichoTrimmed.toLowerCase();
+      const estadoLower = estadoTrimmed.toLowerCase();
+      const cidadeLower = cidadeTrimmed.toLowerCase();
+
+      // Delete existing cache entry first, then insert (onConflict doesn't support expression indexes)
+      await adminClient
+        .from("prospeccao_cache")
+        .delete()
+        .eq("user_id", user.id)
+        .ilike("nicho", nichoLower)
+        .ilike("estado", estadoLower)
+        .ilike("cidade", cidadeLower);
+
+      await adminClient.from("prospeccao_cache").insert({
         user_id: user.id,
-        nicho: nichoTrimmed.toLowerCase(),
-        estado: estadoTrimmed.toLowerCase(),
-        cidade: cidadeTrimmed.toLowerCase(),
+        nicho: nichoLower,
+        estado: estadoLower,
+        cidade: cidadeLower,
         results, total: results.length,
         created_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      }, { onConflict: "user_id,lower(nicho),lower(estado),lower(cidade)" });
+      });
+      console.log(`[prospeccao] Cache saved for "${nichoLower}" in "${cidadeLower}"`);
     } catch (e) {
       console.error("[prospeccao] Cache save error:", e);
     }
