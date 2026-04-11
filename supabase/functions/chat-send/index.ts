@@ -5,11 +5,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const MANUAL_CHAT_MIN_INTERVAL_MS = 900;
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 const cleanNumber = (value: string) => String(value || "").replace(/\D/g, "");
@@ -55,7 +61,6 @@ function buildAttempts(
     ? (quotedMessageId.includes(":") ? quotedMessageId.split(":").pop()! : quotedMessageId)
     : undefined;
   const quoteFields = normalizedQuoteId ? { replyid: normalizedQuoteId } : {};
-  // Send both caption AND text fields for maximum UAZAPI version compatibility
   const captionFields = caption?.trim() ? { caption: caption.trim(), text: caption.trim() } : {};
   const docFields = fileName?.trim() ? { docName: fileName.trim() } : {};
 
@@ -96,6 +101,26 @@ function buildAttempts(
     { path: "/send/text", body: { number: destination.number, text: safeText, ...quoteFields } },
     { path: "/chat/send-text", body: { number: destination.number, to: destination.number, chatId: destination.chatId, body: safeText, text: safeText, ...quoteFields } },
   ];
+}
+
+async function reserveDeviceSendSlot(admin: ReturnType<typeof createClient>, deviceId?: string | null) {
+  if (!deviceId) return 0;
+
+  const { data, error } = await admin.rpc("claim_device_send_slot", {
+    p_device_id: deviceId,
+    p_min_interval_ms: MANUAL_CHAT_MIN_INTERVAL_MS,
+  });
+
+  if (error) {
+    console.error("[chat-send] claim_device_send_slot error:", error.message);
+    return 0;
+  }
+
+  const waitMs = typeof data === "number" ? Math.max(0, data) : 0;
+  if (waitMs > 0) {
+    console.log(`[chat-send] Waiting ${waitMs}ms before sending on device ${deviceId}`);
+  }
+  return waitMs;
 }
 
 async function executeAttempts(baseUrl: string, token: string, attempts: SendAttempt[]) {
@@ -173,7 +198,7 @@ async function handleDeleteMessage(
   fallbackToken: string,
 ) {
   const conversationId = String(body?.conversation_id || "").trim();
-  const messageId = String(body?.message_id || "").trim(); // our DB id
+  const messageId = String(body?.message_id || "").trim();
   const whatsappMessageId = String(body?.whatsapp_message_id || "").trim();
 
   if (!conversationId || !messageId) {
@@ -182,7 +207,7 @@ async function handleDeleteMessage(
 
   const { data: conv, error: convErr } = await admin
     .from("conversations")
-    .select("id, user_id, remote_jid, devices!conversations_device_id_fkey(uazapi_token, uazapi_base_url)")
+    .select("id, user_id, remote_jid, device_id, devices!conversations_device_id_fkey(uazapi_token, uazapi_base_url)")
     .eq("id", conversationId)
     .eq("user_id", userId)
     .single();
@@ -192,7 +217,6 @@ async function handleDeleteMessage(
   const baseUrl = String(conv.devices?.uazapi_base_url || fallbackBaseUrl || "").replace(/\/+$/, "");
   const token = String(conv.devices?.uazapi_token || fallbackToken || "").trim();
 
-  // Try to delete on WhatsApp if we have the WA message ID
   let deletedOnWhatsApp = false;
   if (baseUrl && token && whatsappMessageId) {
     try {
@@ -209,7 +233,6 @@ async function handleDeleteMessage(
     }
   }
 
-  // Delete from our DB
   await admin.from("conversation_messages").delete().eq("id", messageId);
 
   return json({ deleted: true, deletedOnWhatsApp });
@@ -233,7 +256,7 @@ async function handleEditMessage(
 
   const { data: conv, error: convErr } = await admin
     .from("conversations")
-    .select("id, user_id, remote_jid, devices!conversations_device_id_fkey(uazapi_token, uazapi_base_url)")
+    .select("id, user_id, remote_jid, device_id, devices!conversations_device_id_fkey(uazapi_token, uazapi_base_url)")
     .eq("id", conversationId)
     .eq("user_id", userId)
     .single();
@@ -259,7 +282,6 @@ async function handleEditMessage(
     }
   }
 
-  // Update in our DB
   await admin.from("conversation_messages").update({ content: newText }).eq("id", messageId);
 
   return json({ edited: true, editedOnWhatsApp });
@@ -290,12 +312,10 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceKey);
     const body = await req.json();
 
-    // ── DELETE action ──
     if (body?.action === "delete") {
       return handleDeleteMessage(admin, user.id, body, fallbackBaseUrl, fallbackToken);
     }
 
-    // ── EDIT action ──
     if (body?.action === "edit") {
       return handleEditMessage(admin, user.id, body, fallbackBaseUrl, fallbackToken);
     }
@@ -314,7 +334,7 @@ Deno.serve(async (req) => {
 
     const { data: conv, error: convErr } = await admin
       .from("conversations")
-      .select("id, user_id, remote_jid, devices!conversations_device_id_fkey(uazapi_token, uazapi_base_url)")
+      .select("id, user_id, remote_jid, device_id, devices!conversations_device_id_fkey(uazapi_token, uazapi_base_url)")
       .eq("id", conversationId)
       .eq("user_id", user.id)
       .single();
@@ -331,10 +351,17 @@ Deno.serve(async (req) => {
       return json({ error: "Dispositivo sem API configurada" }, 400);
     }
 
+    const waitMs = await reserveDeviceSendSlot(admin, conv.device_id);
+    if (waitMs > 0) {
+      await sleep(waitMs);
+    }
+
     const destination = getDestination(conv.remote_jid);
     const attempts = buildAttempts(type, destination, content, fileName, quotedMessageId, caption);
 
-    console.log(`[chat-send] Sending ${type || "text"} to ${destination.chatId} via ${baseUrl} hasCaption=${Boolean(caption)}`);
+    console.log(
+      `[chat-send] Sending ${type || "text"} to ${destination.chatId} via ${baseUrl} device=${conv.device_id} waitMs=${waitMs} hasCaption=${Boolean(caption)}`,
+    );
 
     const result = await executeAttempts(baseUrl, token, attempts);
 
@@ -342,7 +369,12 @@ Deno.serve(async (req) => {
       if (messageId) {
         await admin.from("conversation_messages").update({ status: "failed" }).eq("id", messageId);
       }
-      return json({ error: `Falha ao enviar: ${result.error}`, sent: false }, 200);
+      return json({
+        sent: false,
+        error: `Falha ao enviar: ${result.error}`,
+        waitMs,
+        targetChatId: destination.chatId,
+      }, 200);
     }
 
     if (messageId) {
@@ -367,7 +399,12 @@ Deno.serve(async (req) => {
       })
       .eq("id", conversationId);
 
-    return json({ sent: true, messageId: result.parsed?.key?.id || result.parsed?.messageid || null });
+    return json({
+      sent: true,
+      messageId: result.parsed?.key?.id || result.parsed?.messageid || null,
+      waitMs,
+      targetChatId: destination.chatId,
+    });
   } catch (err: any) {
     console.error("[chat-send] Error:", err);
     return json({ error: err.message || "Erro interno" }, 500);
