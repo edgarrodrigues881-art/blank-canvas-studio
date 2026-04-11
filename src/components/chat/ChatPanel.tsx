@@ -574,9 +574,6 @@ export function ChatPanel({
               <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-foreground" onClick={cancelPendingFile}>
                 <X className="w-4 h-4" />
               </Button>
-              <Button size="icon" className="w-9 h-9 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm" onClick={sendPendingFile} disabled={sendingFile}>
-                {sendingFile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              </Button>
             </div>
           </div>
         </div>
