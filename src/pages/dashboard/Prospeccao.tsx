@@ -229,9 +229,11 @@ export default function Prospeccao() {
         const nextMap = Array.isArray(data?.data)
           ? data.data.reduce((acc: Record<string, string[]>, item: any) => {
               const iso2 = item?.iso2?.toUpperCase();
-              const list = Array.isArray(item?.cities) ? item.cities.filter(Boolean) : [];
+              const list = Array.isArray(item?.cities)
+                ? item.cities.filter((city: unknown): city is string => typeof city === "string" && city.trim().length > 0)
+                : [];
               if (!iso2) return acc;
-              acc[iso2] = [...new Set(list)].sort((a: string, b: string) =>
+              acc[iso2] = [...new Set(list)].sort((a, b) =>
                 a.localeCompare(b, "pt-BR", { sensitivity: "base" })
               );
               return acc;
