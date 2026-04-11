@@ -131,6 +131,8 @@ export default function Prospeccao() {
   const [cidade, setCidade] = useState("");
   const [cidades, setCidades] = useState<string[]>([]);
   const [loadingCidades, setLoadingCidades] = useState(false);
+  const [internationalCitiesByCountry, setInternationalCitiesByCountry] = useState<Record<string, string[]>>({});
+  const [internationalCitiesLoaded, setInternationalCitiesLoaded] = useState(false);
   const [maxResults, setMaxResults] = useState("50");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<ProspectResult[]>([]);
@@ -203,49 +205,62 @@ export default function Prospeccao() {
     fetchCidades();
   }, [estado, pais]);
 
-  // Fetch cities for international countries via countriesnow API
+  // Fetch cities for international countries via CountriesNow API
   useEffect(() => {
-    if (pais === "BR" || !pais) { setCidades([]); return; }
-    const paisObj = PAISES.find(p => p.code === pais);
-    if (!paisObj) return;
+    if (pais === "BR" || !pais) return;
+
+    if (internationalCitiesLoaded) {
+      setCidades(internationalCitiesByCountry[pais] ?? []);
+      return;
+    }
+
     const controller = new AbortController();
-    setLoadingCidades(true); setCidade("");
     const fetchInternationalCities = async () => {
+      setLoadingCidades(true);
+      setCidade("");
+      setCidades([]);
+
       try {
-        const res = await fetch("https://countriesnow.space/api/v1/countries/cities", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ country: paisObj.nome }),
+        const res = await fetch("https://countriesnow.space/api/v0.1/countries", {
           signal: controller.signal,
         });
         const data = await res.json();
-        if (data?.data?.length) {
-          setCidades(data.data.sort());
-        } else {
-          // Fallback: try with English name via ISO
-          const res2 = await fetch(`https://countriesnow.space/api/v1/countries/iso`, { signal: controller.signal });
-          const isoData = await res2.json();
-          const match = isoData?.data?.find((c: any) => c.Iso2?.toUpperCase() === pais);
-          if (match?.name) {
-            const res3 = await fetch("https://countriesnow.space/api/v1/countries/cities", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ country: match.name }),
-              signal: controller.signal,
-            });
-            const data3 = await res3.json();
-            setCidades(data3?.data?.length ? data3.data.sort() : []);
-          } else {
-            setCidades([]);
-          }
-        }
+
+        const nextMap = Array.isArray(data?.data)
+          ? data.data.reduce((acc: Record<string, string[]>, item: any) => {
+              const iso2 = item?.iso2?.toUpperCase();
+              const list = Array.isArray(item?.cities)
+                ? item.cities.filter((city: unknown): city is string => typeof city === "string" && city.trim().length > 0)
+                : [];
+              const uniqueCities = Array.from(new Set<string>(list));
+              if (!iso2) return acc;
+              acc[iso2] = uniqueCities.sort((a, b) =>
+                a.localeCompare(b, "pt-BR", { sensitivity: "base" })
+              );
+              return acc;
+            }, {})
+          : {};
+
+        if (controller.signal.aborted) return;
+
+        setInternationalCitiesByCountry(nextMap);
+        setInternationalCitiesLoaded(true);
+        setCidades(nextMap[pais] ?? []);
       } catch (e: any) {
-        if (e.name !== "AbortError") setCidades([]);
-      } finally { setLoadingCidades(false); }
+        if (e.name !== "AbortError") {
+          setCidades([]);
+          toast.error("Erro ao carregar cidades do país");
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoadingCidades(false);
+        }
+      }
     };
+
     fetchInternationalCities();
     return () => controller.abort();
-  }, [pais]);
+  }, [pais, internationalCitiesByCountry, internationalCitiesLoaded]);
 
   useEffect(() => {
     if (activeTab === "historico") loadCampaigns();
