@@ -136,7 +136,7 @@ export default function WhatsAppVerifier() {
     onSuccess: (job: any) => {
       toast.success("Verificação criada! Processamento em background.");
       queryClient.invalidateQueries({ queryKey: ["verify-jobs"] });
-      setRawInput(""); setJobName(""); setSelectedDevice("");
+      setRawInput(""); setJobName(""); setSelectedDevice(""); setProspeccaoLeads(null);
       setSelectedJobId(job.id); setView("detail");
     },
     onError: (err: any) => toast.error(err?.message || "Erro"),

@@ -176,7 +176,7 @@ export default function Prospeccao() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [savingContacts, setSavingContacts] = useState(false);
-  const [verifyingWA, setVerifyingWA] = useState(false);
+  
 
   const handleVerifyWhatsApp = useCallback(() => {
     const leadsWithPhone = results.filter(r => r.telefone?.replace(/\D/g, ""));
