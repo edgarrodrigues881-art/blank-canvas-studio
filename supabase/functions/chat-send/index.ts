@@ -55,8 +55,8 @@ function buildAttempts(
     ? (quotedMessageId.includes(":") ? quotedMessageId.split(":").pop()! : quotedMessageId)
     : undefined;
   const quoteFields = normalizedQuoteId ? { replyid: normalizedQuoteId } : {};
-  // UAZAPI uses "caption" for image/document captions
-  const captionFields = caption?.trim() ? { caption: caption.trim() } : {};
+  // Send both caption AND text fields for maximum UAZAPI version compatibility
+  const captionFields = caption?.trim() ? { caption: caption.trim(), text: caption.trim() } : {};
   const docFields = fileName?.trim() ? { docName: fileName.trim() } : {};
 
   if (type === "audio") {
