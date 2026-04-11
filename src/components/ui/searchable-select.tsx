@@ -27,8 +27,11 @@ export function SearchableSelect({
   emptyMessage = "Nenhum resultado",
   disabled = false,
   className,
+  onSearchChange,
+  loading = false,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
 
   const selectedLabel = useMemo(() => {
     return options.find(o => o.value === value)?.label || "";
@@ -53,8 +56,15 @@ export function SearchableSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} />
+        <Command shouldFilter={!onSearchChange}>
+          <CommandInput
+            placeholder={searchPlaceholder}
+            value={search}
+            onValueChange={(v) => {
+              setSearch(v);
+              onSearchChange?.(v);
+            }}
+          />
           <CommandList>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
