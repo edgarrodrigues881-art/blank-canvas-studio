@@ -55,9 +55,36 @@ interface CampaignLog {
   score: number | null; tier: string | null; created_at: string;
 }
 
+const PAISES: { code: string; nome: string }[] = [
+  { code: "BR", nome: "Brasil" },
+  { code: "US", nome: "Estados Unidos" },
+  { code: "PT", nome: "Portugal" },
+  { code: "ES", nome: "Espanha" },
+  { code: "AR", nome: "Argentina" },
+  { code: "CL", nome: "Chile" },
+  { code: "CO", nome: "Colômbia" },
+  { code: "MX", nome: "México" },
+  { code: "PE", nome: "Peru" },
+  { code: "UY", nome: "Uruguai" },
+  { code: "PY", nome: "Paraguai" },
+  { code: "BO", nome: "Bolívia" },
+  { code: "EC", nome: "Equador" },
+  { code: "VE", nome: "Venezuela" },
+  { code: "DE", nome: "Alemanha" },
+  { code: "FR", nome: "França" },
+  { code: "IT", nome: "Itália" },
+  { code: "GB", nome: "Reino Unido" },
+  { code: "CA", nome: "Canadá" },
+  { code: "AU", nome: "Austrália" },
+  { code: "JP", nome: "Japão" },
+  { code: "AO", nome: "Angola" },
+  { code: "MZ", nome: "Moçambique" },
+];
+
 export default function Prospeccao() {
   const [nicho, setNicho] = useState("");
   const [nichosRelacionados, setNichosRelacionados] = useState("");
+  const [pais, setPais] = useState("BR");
   const [estado, setEstado] = useState("");
   const [cidade, setCidade] = useState("");
   const [cidades, setCidades] = useState<string[]>([]);
@@ -125,6 +152,7 @@ export default function Prospeccao() {
   useEffect(() => { loadCredits(); }, [loadCredits]);
 
   useEffect(() => {
+    if (pais !== "BR") { setCidades([]); setEstado(""); setCidade(""); return; }
     if (!estado) { setCidades([]); setCidade(""); return; }
     const fetchCidades = async () => {
       setLoadingCidades(true); setCidade("");
@@ -136,7 +164,7 @@ export default function Prospeccao() {
       finally { setLoadingCidades(false); }
     };
     fetchCidades();
-  }, [estado]);
+  }, [estado, pais]);
 
   useEffect(() => {
     if (activeTab === "historico") loadCampaigns();
@@ -197,8 +225,11 @@ export default function Prospeccao() {
   };
 
   const handleSearch = async (forceRefresh = false) => {
-    if (!nicho.trim() || !estado || !cidade.trim()) {
-      toast.error("Preencha todos os campos obrigatórios"); return;
+    if (!nicho.trim() || !cidade.trim()) {
+      toast.error("Preencha nicho e cidade"); return;
+    }
+    if (pais === "BR" && !estado) {
+      toast.error("Selecione o estado"); return;
     }
     const canSearch = (creditBalance !== null && creditBalance > 0) || freePulls > 0;
     if (!canSearch) {
@@ -207,7 +238,7 @@ export default function Prospeccao() {
     setLoading(true); setSearched(true);
     try {
       const relacionados = nichosRelacionados.split(",").map(n => n.trim()).filter(Boolean);
-      const body: any = { nicho: nicho.trim(), nichosRelacionados: relacionados, estado, cidade: cidade.trim(), maxResults: Number(maxResults), forceRefresh };
+      const body: any = { nicho: nicho.trim(), nichosRelacionados: relacionados, estado: pais === "BR" ? estado : "", cidade: cidade.trim(), maxResults: Number(maxResults), forceRefresh, pais };
       if (searchLat !== null && searchLng !== null) {
         body.customCenter = { lat: searchLat, lng: searchLng };
         body.customRadiusKm = searchRadius;
@@ -362,7 +393,7 @@ export default function Prospeccao() {
           <Card>
             <CardHeader><CardTitle className="text-lg">Filtros de Busca</CardTitle></CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Nicho / Segmento *</Label>
                   <Input placeholder="Ex: pizzaria, dentista..." value={nicho} onChange={e => setNicho(e.target.value)} />
@@ -373,35 +404,50 @@ export default function Prospeccao() {
                   <p className="text-xs text-muted-foreground">Separe por vírgula (opcional)</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Estado *</Label>
-                  <Select value={estado} onValueChange={setEstado}>
-                    <SelectTrigger><SelectValue placeholder="Selecione o estado" /></SelectTrigger>
-                    <SelectContent>{ESTADOS_BR.map(uf => <SelectItem key={uf.sigla} value={uf.sigla}>{uf.nome} ({uf.sigla})</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Cidade *</Label>
-                  <Select value={cidade} onValueChange={(v) => { setCidade(v); setCidadeSearch(""); }} disabled={!estado || loadingCidades}>
-                    <SelectTrigger><SelectValue placeholder={loadingCidades ? "Carregando..." : estado ? "Selecione a cidade" : "Selecione o estado primeiro"} /></SelectTrigger>
+                  <Label>País *</Label>
+                  <Select value={pais} onValueChange={(v) => { setPais(v); setEstado(""); setCidade(""); }}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o país" /></SelectTrigger>
                     <SelectContent>
-                      <div className="px-2 pb-2 sticky top-0 bg-popover z-10">
-                        <Input
-                          placeholder="Buscar cidade..."
-                          value={cidadeSearch}
-                          onChange={(e) => setCidadeSearch(e.target.value)}
-                          onKeyDown={(e) => e.stopPropagation()}
-                          className="h-8 text-sm"
-                          autoFocus
-                        />
-                      </div>
-                      <ScrollArea className="max-h-[200px]">
-                        {filteredCidades.length === 0 && (
-                          <p className="text-sm text-muted-foreground text-center py-2">Nenhuma cidade encontrada</p>
-                        )}
-                        {filteredCidades.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                      </ScrollArea>
+                      {PAISES.map(p => <SelectItem key={p.code} value={p.code}>{p.nome}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                </div>
+                {pais === "BR" && (
+                  <div className="space-y-2">
+                    <Label>Estado *</Label>
+                    <Select value={estado} onValueChange={setEstado}>
+                      <SelectTrigger><SelectValue placeholder="Selecione o estado" /></SelectTrigger>
+                      <SelectContent>{ESTADOS_BR.map(uf => <SelectItem key={uf.sigla} value={uf.sigla}>{uf.nome} ({uf.sigla})</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label>Cidade *</Label>
+                  {pais === "BR" ? (
+                    <Select value={cidade} onValueChange={(v) => { setCidade(v); setCidadeSearch(""); }} disabled={!estado || loadingCidades}>
+                      <SelectTrigger><SelectValue placeholder={loadingCidades ? "Carregando..." : estado ? "Selecione a cidade" : "Selecione o estado primeiro"} /></SelectTrigger>
+                      <SelectContent>
+                        <div className="px-2 pb-2 sticky top-0 bg-popover z-10">
+                          <Input
+                            placeholder="Buscar cidade..."
+                            value={cidadeSearch}
+                            onChange={(e) => setCidadeSearch(e.target.value)}
+                            onKeyDown={(e) => e.stopPropagation()}
+                            className="h-8 text-sm"
+                            autoFocus
+                          />
+                        </div>
+                        <ScrollArea className="max-h-[200px]">
+                          {filteredCidades.length === 0 && (
+                            <p className="text-sm text-muted-foreground text-center py-2">Nenhuma cidade encontrada</p>
+                          )}
+                          {filteredCidades.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        </ScrollArea>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input placeholder="Ex: Lisboa, Madrid, Buenos Aires..." value={cidade} onChange={e => setCidade(e.target.value)} />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Máx. resultados</Label>

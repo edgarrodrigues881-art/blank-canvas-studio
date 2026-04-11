@@ -14,11 +14,22 @@ interface CityGeo {
   radiusKm: number;
 }
 
-async function geocodeCity(cidade: string, estado: string): Promise<CityGeo | null> {
+async function geocodeCity(cidade: string, estado: string, pais: string = "BR"): Promise<CityGeo | null> {
   try {
-    const q = encodeURIComponent(`${cidade}, ${estado}, Brazil`);
+    const countryCode = pais.toLowerCase();
+    const locationParts = [cidade];
+    if (estado) locationParts.push(estado);
+    const countryNames: Record<string, string> = {
+      br: "Brazil", us: "United States", pt: "Portugal", es: "Spain", ar: "Argentina",
+      cl: "Chile", co: "Colombia", mx: "Mexico", pe: "Peru", uy: "Uruguay",
+      py: "Paraguay", bo: "Bolivia", ec: "Ecuador", ve: "Venezuela", de: "Germany",
+      fr: "France", it: "Italy", gb: "United Kingdom", ca: "Canada", au: "Australia",
+      jp: "Japan", ao: "Angola", mz: "Mozambique",
+    };
+    locationParts.push(countryNames[countryCode] || pais);
+    const q = encodeURIComponent(locationParts.join(", "));
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=br`,
+      `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=${countryCode}`,
       { headers: { "User-Agent": "ProspeccaoBot/1.0" } }
     );
     if (!res.ok) return null;
@@ -37,7 +48,7 @@ async function geocodeCity(cidade: string, estado: string): Promise<CityGeo | nu
       radiusKm = Math.min(Math.max(radiusKm, 3), 30);
     }
 
-    console.log(`[prospeccao] City "${cidade}": center ${center.lat.toFixed(4)},${center.lng.toFixed(4)} | radius ~${radiusKm.toFixed(1)}km`);
+    console.log(`[prospeccao] City "${cidade}" (${pais}): center ${center.lat.toFixed(4)},${center.lng.toFixed(4)} | radius ~${radiusKm.toFixed(1)}km`);
     return { center, radiusKm };
   } catch { return null; }
 }
@@ -95,7 +106,8 @@ function expandNicho(nicho: string): string[] {
 
 // ========== BAIRROS ==========
 
-async function fetchBairros(cidade: string, estado: string): Promise<string[]> {
+async function fetchBairros(cidade: string, estado: string, pais: string = "BR"): Promise<string[]> {
+  if (pais !== "BR") return []; // bairros only for Brazil
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(`${cidade}, ${estado}, Brazil`)}&format=json&limit=1&countrycodes=br`,
@@ -152,11 +164,15 @@ function mapPlace(item: any) {
   };
 }
 
+// Country code for Serper gl param
+let _queryCountry = "br";
+function setQueryCountry(code: string) { _queryCountry = code.toLowerCase(); }
+
 async function query(
   q: string, ll: string, apiKey: string,
   seen: Set<string>, places: any[]
 ): Promise<number> {
-  const body: any = { q, gl: "br", hl: "pt-br", num: 20 };
+  const body: any = { q, gl: _queryCountry, hl: _queryCountry === "br" ? "pt-br" : "en", num: 20 };
   if (ll) body.ll = ll;
 
   try {
@@ -521,17 +537,21 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { nicho, nichosRelacionados, estado, cidade, maxResults, forceRefresh, customCenter, customRadiusKm } = await req.json();
+    const { nicho, nichosRelacionados, estado, cidade, maxResults, forceRefresh, customCenter, customRadiusKm, pais: paisParam } = await req.json();
+    const pais = (paisParam || "BR").toUpperCase();
 
-    if (!nicho || !cidade || !estado) {
+    if (!nicho || !cidade) {
       return new Response(
-        JSON.stringify({ error: "nicho, estado e cidade são obrigatórios" }),
+        JSON.stringify({ error: "nicho e cidade são obrigatórios" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    // Set country for Serper queries
+    setQueryCountry(pais);
+
     const nichoTrimmed = nicho.trim();
-    const estadoTrimmed = estado.trim();
+    const estadoTrimmed = (estado || "").trim();
     const cidadeTrimmed = cidade.trim();
 
     // --- CACHE ---
@@ -625,12 +645,12 @@ Deno.serve(async (req) => {
       console.log(`[prospeccao] Using custom center: ${customCenter.lat.toFixed(4)},${customCenter.lng.toFixed(4)} | radius: ${userRadius}km`);
       cityGeoPromise = Promise.resolve({ center: { lat: customCenter.lat, lng: customCenter.lng }, radiusKm: userRadius });
     } else {
-      cityGeoPromise = geocodeCity(cidadeTrimmed, estadoTrimmed);
+      cityGeoPromise = geocodeCity(cidadeTrimmed, estadoTrimmed, pais);
     }
 
     const [cityGeo, bairros] = await Promise.all([
       cityGeoPromise,
-      fetchBairros(cidadeTrimmed, estadoTrimmed),
+      fetchBairros(cidadeTrimmed, estadoTrimmed, pais),
     ]);
 
     console.log(`[prospeccao] "${nichoTrimmed}" em "${cidadeTrimmed}" | target: ${requestedTotal} | bairros: ${bairros.length} | campaign: ${campaignId}`);
