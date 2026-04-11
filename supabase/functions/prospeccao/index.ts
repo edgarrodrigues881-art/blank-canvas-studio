@@ -164,11 +164,15 @@ function mapPlace(item: any) {
   };
 }
 
+// Country code for Serper gl param
+let _queryCountry = "br";
+function setQueryCountry(code: string) { _queryCountry = code.toLowerCase(); }
+
 async function query(
   q: string, ll: string, apiKey: string,
   seen: Set<string>, places: any[]
 ): Promise<number> {
-  const body: any = { q, gl: "br", hl: "pt-br", num: 20 };
+  const body: any = { q, gl: _queryCountry, hl: _queryCountry === "br" ? "pt-br" : "en", num: 20 };
   if (ll) body.ll = ll;
 
   try {
