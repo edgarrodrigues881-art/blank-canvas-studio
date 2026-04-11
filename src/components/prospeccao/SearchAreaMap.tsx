@@ -55,6 +55,10 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
     } catch { /* ignore */ }
   }, [onCityDetected]);
 
+  // Keep refs in sync
+  useEffect(() => { reverseGeocodeRef.current = reverseGeocode; }, [reverseGeocode]);
+  useEffect(() => { centerRef.current = center; }, [center]);
+
   useEffect(() => {
     if (cidade) return;
     mapInstanceRef.current?.remove();
@@ -98,6 +102,7 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
     return () => { cancelled = true; };
   }, [cidade, estado, pais]);
 
+  // Initialize map ONCE when center first becomes available
   useEffect(() => {
     if (!center || !mapRef.current || mapInstanceRef.current) return;
 
@@ -132,7 +137,7 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
         return { lat: pos.lat, lng: pos.lng };
       });
       setConfirmed(false); setChanged(true);
-      reverseGeocode(pos.lat, pos.lng);
+      reverseGeocodeRef.current(pos.lat, pos.lng);
     });
 
     mapInstanceRef.current = map;
@@ -145,6 +150,7 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
     window.addEventListener("resize", handleResize);
     requestAnimationFrame(() => { handleResize(); fitCircleBounds(); });
 
+    // Cleanup only on unmount — NOT on re-render
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", handleResize);
@@ -153,7 +159,8 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
       markerRef.current = null;
       circleRef.current = null;
     };
-  }, [center, fitCircleBounds, radiusKm, reverseGeocode]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [center]);
 
   useEffect(() => {
     const map = mapInstanceRef.current; const marker = markerRef.current; const circle = circleRef.current;
