@@ -305,9 +305,9 @@ const Conversations = () => {
   );
 
   const handleSendFile = useCallback(
-    (conversationId: string, file: File) => {
+    (conversationId: string, file: File, caption?: string) => {
       const targetId = selectedInstanceId || conversationId;
-      sendFileMessage(targetId, file);
+      sendFileMessage(targetId, file, caption);
     },
     [sendFileMessage, selectedInstanceId]
   );

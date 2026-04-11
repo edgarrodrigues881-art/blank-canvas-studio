@@ -44,7 +44,7 @@ interface ChatPanelProps {
   onStatusChange?: (conversationId: string, newStatus: AttendingStatus) => void;
   onSendMessage?: (conversationId: string, content: string, quotedMessageId?: string, quotedContent?: string) => void;
   onSendAudio?: (conversationId: string, blob: Blob, duration: number) => void;
-  onSendFile?: (conversationId: string, file: File) => void;
+  onSendFile?: (conversationId: string, file: File, caption?: string) => void;
   onRetryMessage?: (messageId: string) => void;
   onDeleteMessage?: (msg: Message) => void;
   onEditMessage?: (msg: Message) => void;
