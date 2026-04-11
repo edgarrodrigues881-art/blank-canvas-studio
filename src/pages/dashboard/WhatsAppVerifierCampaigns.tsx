@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +26,8 @@ type ViewMode = "list" | "create" | "detail";
 type ImportMode = "plain" | "spreadsheet";
 type ColMapping = "telefone" | "var1" | "var2" | "var3" | "var4" | "var5" | "var6" | "var7" | "var8" | "var9" | "var10" | "ignorar";
 
-const VAR_KEYS = ["var1","var2","var3","var4","var5","var6","var7","var8","var9","var10"] as const;
+const VAR_KEYS = ["var1", "var2", "var3", "var4", "var5", "var6", "var7", "var8", "var9", "var10"] as const;
+const PROSPECCAO_VAR_LABELS = ["Nome", "Categoria", "Email", "Endereço", "Website", "Instagram", "Avaliação", "Faixa de preço", "Facebook", "Google Maps"];
 
 interface ImportedRow {
   phone: string;
@@ -95,6 +97,8 @@ function autoDetectMapping(headers: string[]): ColMapping[] {
 export default function WhatsAppVerifierCampaigns() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [view, setView] = useState<ViewMode>("list");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [jobName, setJobName] = useState("");
@@ -112,6 +116,41 @@ export default function WhatsAppVerifierCampaigns() {
   const [importedContacts, setImportedContacts] = useState<ImportedRow[]>([]);
   const [varLabels, setVarLabels] = useState<string[]>(VAR_KEYS.map((_, i) => `Var ${i + 1}`));
   const fileRef = useRef<HTMLInputElement>(null);
+  const prefilledFromProspeccaoRef = useRef(false);
+
+  useEffect(() => {
+    const state = location.state as { prospeccaoLeads?: ImportedRow[]; suggestedName?: string } | null;
+    if (prefilledFromProspeccaoRef.current || !state?.prospeccaoLeads?.length) return;
+
+    const contacts = state.prospeccaoLeads
+      .map((lead) => {
+        const phone = cleanPhone(lead.phone || "");
+        if (!phone) return null;
+
+        const contact: ImportedRow = { phone };
+        VAR_KEYS.forEach((key) => {
+          const value = lead[key];
+          if (value) contact[key] = value;
+        });
+        return contact;
+      })
+      .filter((contact): contact is ImportedRow => Boolean(contact));
+
+    if (contacts.length === 0) return;
+
+    prefilledFromProspeccaoRef.current = true;
+    setSelectedJobId(null);
+    setSelectedDevice("");
+    setSelectedDevices([]);
+    setJobName(state.suggestedName || `Campanha ${new Date().toLocaleDateString("pt-BR")}`);
+    setRawInput(contacts.map((contact) => contact.phone).join("\n"));
+    setImportedContacts(contacts);
+    setVarLabels(PROSPECCAO_VAR_LABELS);
+    setImportMode("spreadsheet");
+    setView("create");
+    toast.success(`${contacts.length} contatos importados da Prospecção`);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
 
   const { data: allDevices = [] } = useQuery({
     queryKey: ["all-devices-verifier"],
