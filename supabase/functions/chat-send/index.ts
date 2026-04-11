@@ -341,7 +341,7 @@ Deno.serve(async (req) => {
     const destination = getDestination(conv.remote_jid);
     const attempts = buildAttempts(type, destination, content, fileName, quotedMessageId, caption);
 
-    console.log(`[chat-send] Sending ${type || "text"} to ${destination.chatId} via ${baseUrl}`);
+    console.log(`[chat-send] Sending ${type || "text"} to ${destination.chatId} via ${baseUrl} caption=${JSON.stringify(caption)}`);
 
     const result = await executeAttempts(baseUrl, token, attempts);
 
