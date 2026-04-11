@@ -76,11 +76,13 @@ function buildAttempts(
   }
 
   if (type === "document") {
+    const cap = caption || "";
+    const fn = fileName || "arquivo";
     return [
-      { path: "/send/media", body: { number: target, file: content, type: "document", fileName: fileName || "arquivo" } },
-      { path: "/send/media", body: { number: target, media: content, type: "document", fileName: fileName || "arquivo" } },
-      { path: "/send/document", body: { number: target, media: content, fileName: fileName || "arquivo" } },
-      { path: "/send/document", body: { number: target, document: content, fileName: fileName || "arquivo" } },
+      { path: "/send/media", body: { number: target, file: content, type: "document", fileName: fn, caption: cap } },
+      { path: "/send/media", body: { number: target, media: content, type: "document", fileName: fn, caption: cap } },
+      { path: "/send/document", body: { number: target, media: content, fileName: fn, caption: cap } },
+      { path: "/send/document", body: { number: target, document: content, fileName: fn, caption: cap } },
     ];
   }
 
