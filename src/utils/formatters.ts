@@ -34,5 +34,9 @@ export function formatPhone(phone: string): string {
 
 /** Strip to only significant digits for comparison */
 export function normalizePhoneKey(phone: string): string {
-  return phone.replace(/\D/g, "").replace(/^55/, "").replace(/^0+/, "");
+  const digits = phone.replace(/\D/g, "").replace(/^55/, "").replace(/^0+/, "");
+  if (digits.length === 11 && digits[2] === "9") {
+    return `${digits.slice(0, 2)}${digits.slice(3)}`;
+  }
+  return digits;
 }

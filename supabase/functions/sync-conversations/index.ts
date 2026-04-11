@@ -67,6 +67,7 @@ async function upsertConversationForEquivalentJid(
     avatar: string | null;
     lastMessage: string;
     lastMessageAt: string;
+    unreadCount: number;
   },
 ) {
   const candidates = buildEquivalentChatIds(payload.remoteJid);
@@ -93,6 +94,7 @@ async function upsertConversationForEquivalentJid(
         avatar_url: payload.avatar,
         last_message: payload.lastMessage.substring(0, 500),
         last_message_at: payload.lastMessageAt,
+        unread_count: payload.unreadCount,
         updated_at: new Date().toISOString(),
       })
       .eq("id", existing.id);
@@ -112,6 +114,7 @@ async function upsertConversationForEquivalentJid(
         avatar_url: payload.avatar,
         last_message: payload.lastMessage.substring(0, 500),
         last_message_at: payload.lastMessageAt,
+        unread_count: payload.unreadCount,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id,device_id,remote_jid" },
@@ -276,6 +279,7 @@ Deno.serve(async (req) => {
             avatar,
             lastMessage: lastMsg || "",
             lastMessageAt: lastMsgAt,
+            unreadCount: unread,
           });
 
           if (upsertErr) {

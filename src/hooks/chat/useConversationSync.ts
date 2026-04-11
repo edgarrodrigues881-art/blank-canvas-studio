@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import type { RealConversation, RealMessage } from "./useConversations";
+import { normalizePhoneKey } from "@/utils/formatters";
 
 /**
  * useConversationSync
@@ -82,8 +83,8 @@ export function useConversationSync() {
 
   const getConversationContactKey = useCallback((conversation: { phone?: string | null; remote_jid?: string | null }) => {
     const raw = conversation.phone || conversation.remote_jid?.split("@")[0] || "";
-    return normalizePhone(raw);
-  }, [normalizePhone]);
+    return normalizePhoneKey(raw);
+  }, []);
 
   const getConversationIdsForSameContact = useCallback((convId: string) => {
     const target = conversationsRef.current.find((c) => c.id === convId);
@@ -184,10 +185,11 @@ export function useConversationSync() {
   }, [user, mapConversationRow, sortConversations, isOwnDevice, ownPhonesLoaded, normalizePhone]);
 
   const fetchMessages = useCallback(async (conversationId: string) => {
+    const conversationIds = getConversationIdsForSameContact(conversationId);
     const { data, error } = await supabase
       .from("conversation_messages")
       .select("*")
-      .eq("conversation_id", conversationId)
+      .in("conversation_id", conversationIds)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -210,13 +212,13 @@ export function useConversationSync() {
 
     setMessages((prev) => {
       const pendingMessages = prev.filter(
-        (m) => m.conversation_id === conversationId && m.status === "sending" && !nextMessages.some((next: any) => next.id === m.id)
+        (m) => conversationIds.includes(m.conversation_id) && m.status === "sending" && !nextMessages.some((next: any) => next.id === m.id)
       );
       return [...nextMessages, ...pendingMessages].sort(
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       );
     });
-  }, []);
+  }, [getConversationIdsForSameContact]);
 
   // ─── Sync from UAZAPI ───
   const syncConversations = useCallback(async () => {
