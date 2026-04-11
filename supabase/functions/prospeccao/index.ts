@@ -650,7 +650,7 @@ Deno.serve(async (req) => {
 
     const [cityGeo, bairros] = await Promise.all([
       cityGeoPromise,
-      fetchBairros(cidadeTrimmed, estadoTrimmed),
+      fetchBairros(cidadeTrimmed, estadoTrimmed, pais),
     ]);
 
     console.log(`[prospeccao] "${nichoTrimmed}" em "${cidadeTrimmed}" | target: ${requestedTotal} | bairros: ${bairros.length} | campaign: ${campaignId}`);
