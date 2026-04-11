@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Target, CheckCircle2, Navigation, Minus, Plus } from "lucide-react";
 import { getCountryNameByCode } from "@/lib/regionNames";
 
+// Store latest callbacks in refs so map init effect doesn't re-run
+
+
 interface SearchAreaMapProps {
   cidade: string;
   estado?: string;
