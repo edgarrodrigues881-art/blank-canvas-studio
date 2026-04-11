@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, ReactNode } from "react";
 import {
   Play, Pause, Check, CheckCheck, Loader2,
   Download, FileText, Video, MapPin, User,
@@ -12,6 +12,57 @@ import { formatDuration } from "@/utils/formatters";
 import { getFileIcon, isMediaPlaceholder } from "@/utils/fileHelpers";
 
 export { isMediaPlaceholder };
+
+/* ─── WhatsApp Text Formatting ─── */
+
+function formatWhatsAppText(text: string): ReactNode[] {
+  // Process formatting: *bold*, _italic_, ~strikethrough~, ```monospace```
+  const parts: ReactNode[] = [];
+  let remaining = text;
+  let key = 0;
+
+  // Regex for WhatsApp formatting patterns
+  const pattern = /(\*([^*\n]+)\*|_([^_\n]+)_|~([^~\n]+)~|```([^`]+)```|`([^`\n]+)`)/;
+
+  while (remaining.length > 0) {
+    const match = pattern.exec(remaining);
+    if (!match) {
+      parts.push(remaining);
+      break;
+    }
+
+    // Add text before match
+    if (match.index > 0) {
+      parts.push(remaining.slice(0, match.index));
+    }
+
+    key++;
+    if (match[2] !== undefined) {
+      // *bold*
+      parts.push(<strong key={key} className="font-bold">{match[2]}</strong>);
+    } else if (match[3] !== undefined) {
+      // _italic_
+      parts.push(<em key={key} className="italic">{match[3]}</em>);
+    } else if (match[4] !== undefined) {
+      // ~strikethrough~
+      parts.push(<del key={key} className="line-through">{match[4]}</del>);
+    } else if (match[5] !== undefined) {
+      // ```monospace block```
+      parts.push(<code key={key} className="bg-black/20 rounded px-1.5 py-0.5 text-[12px] font-mono">{match[5]}</code>);
+    } else if (match[6] !== undefined) {
+      // `inline mono`
+      parts.push(<code key={key} className="bg-black/20 rounded px-1 py-0.5 text-[12px] font-mono">{match[6]}</code>);
+    }
+
+    remaining = remaining.slice(match.index + match[0].length);
+  }
+
+  return parts;
+}
+
+function FormattedText({ text, className }: { text: string; className?: string }) {
+  return <p className={className}>{formatWhatsAppText(text)}</p>;
+}
 
 /* ─── Audio Player ─── */
 
@@ -250,7 +301,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
             <img src={msg.mediaUrl} alt="Imagem" className="w-full max-h-[320px] object-cover" />
           </button>
           {displayCaption && !isMediaPlaceholder(displayCaption) && (
-            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5">{displayCaption}</p>
+            <FormattedText text={displayCaption} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5" />
           )}
           <MsgFooter msg={msg} />
         </div>
@@ -263,7 +314,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
           <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} />
           <video src={msg.mediaUrl} controls className="rounded-xl max-w-full max-h-[320px] cursor-pointer shadow-md" />
           {msg.content && !isMediaPlaceholder(msg.content) && (
-            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5">{msg.content}</p>
+            <FormattedText text={msg.content} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5" />
           )}
           <MsgFooter msg={msg} />
         </div>
@@ -292,7 +343,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
             <Download className={cn("w-4 h-4 shrink-0", msg.type === "sent" ? "text-white/50" : "text-muted-foreground/50")} />
           </a>
           {msg.content && !isMediaPlaceholder(msg.content) && (
-            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5">{msg.content}</p>
+            <FormattedText text={msg.content} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5" />
           )}
           <MsgFooter msg={msg} />
         </div>
@@ -318,7 +369,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
             <span className="text-[12px] font-medium">{info.label}</span>
           </div>
           {msg.content && !isMediaPlaceholder(msg.content) && (
-            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1">{msg.content}</p>
+            <FormattedText text={msg.content} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1" />
           )}
           <MsgFooter msg={msg} />
         </div>
@@ -334,12 +385,12 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
         <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} />
         {textIsShort ? (
           <div className="flex items-end gap-0">
-            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{displayText}</p>
+            <FormattedText text={displayText || ""} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words" />
             <MsgFooter msg={msg} inline />
           </div>
         ) : (
           <>
-            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{displayText}</p>
+            <FormattedText text={displayText || ""} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words" />
             <MsgFooter msg={msg} />
           </>
         )}
