@@ -1,4 +1,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  buildAttempts,
+  extractResponseChatId,
+  getDestination,
+  isResponseTargetMismatch,
+  type SendAttempt,
+} from "./send-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,23 +25,6 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const cleanNumber = (value: string) => String(value || "").replace(/\D/g, "");
-const isGroupJid = (value: string) => String(value || "").includes("@g.us");
-
-function getDestination(remoteJid: string) {
-  const raw = String(remoteJid || "").trim();
-  const group = isGroupJid(raw);
-  const cleaned = cleanNumber(raw);
-  const chatId = raw.includes("@") ? raw : `${cleaned}${group ? "@g.us" : "@s.whatsapp.net"}`;
-
-  return {
-    group,
-    raw,
-    number: group ? chatId : cleaned,
-    chatId,
-  };
-}
-
 function getConversationPreview(type?: string, content?: string, fileName?: string, caption?: string) {
   if (type === "audio") return "🎧 Áudio";
   if (type === "image") return caption?.trim() ? `📷 ${caption.trim()}` : "📷 Foto";
@@ -42,66 +32,6 @@ function getConversationPreview(type?: string, content?: string, fileName?: stri
   return String(content || "").trim();
 }
 
-type SendAttempt = {
-  path: string;
-  body: Record<string, unknown>;
-};
-
-function buildAttempts(
-  type: string | undefined,
-  destination: ReturnType<typeof getDestination>,
-  content: string,
-  fileName?: string,
-  quotedMessageId?: string,
-  caption?: string,
-): SendAttempt[] {
-  const target = destination.group ? destination.chatId : destination.number;
-
-  const normalizedQuoteId = quotedMessageId
-    ? (quotedMessageId.includes(":") ? quotedMessageId.split(":").pop()! : quotedMessageId)
-    : undefined;
-  const quoteFields = normalizedQuoteId ? { replyid: normalizedQuoteId } : {};
-  const captionFields = caption?.trim() ? { caption: caption.trim(), text: caption.trim() } : {};
-  const docFields = fileName?.trim() ? { docName: fileName.trim() } : {};
-
-  if (type === "audio") {
-    return [
-      { path: "/send/media", body: { number: target, file: content, type: "audio", ptt: true, ...quoteFields } },
-      { path: "/send/media", body: { number: target, file: content, type: "ptt", ...quoteFields } },
-      { path: "/send/media", body: { number: target, media: content, type: "audio", ptt: true, ...quoteFields } },
-      { path: "/send/audio", body: { number: target, audio: content, ptt: true, ...quoteFields } },
-    ];
-  }
-
-  if (type === "image") {
-    return [
-      { path: "/send/media", body: { number: target, file: content, type: "image", ...captionFields, ...quoteFields } },
-      { path: "/send/media", body: { number: target, media: content, type: "image", ...captionFields, ...quoteFields } },
-    ];
-  }
-
-  if (type === "document") {
-    return [
-      { path: "/send/media", body: { number: target, file: content, type: "document", ...docFields, ...captionFields, ...quoteFields } },
-      { path: "/send/media", body: { number: target, media: content, type: "document", ...docFields, ...captionFields, ...quoteFields } },
-      { path: "/send/document", body: { number: target, document: content, ...docFields, ...captionFields, ...quoteFields } },
-    ];
-  }
-
-  const safeText = content.trim();
-
-  if (destination.group) {
-    return [
-      { path: "/send/text", body: { number: destination.chatId, text: safeText, ...quoteFields } },
-      { path: "/chat/send-text", body: { chatId: destination.chatId, text: safeText, body: safeText, ...quoteFields } },
-    ];
-  }
-
-  return [
-    { path: "/send/text", body: { number: destination.number, text: safeText, ...quoteFields } },
-    { path: "/chat/send-text", body: { number: destination.number, to: destination.number, chatId: destination.chatId, body: safeText, text: safeText, ...quoteFields } },
-  ];
-}
 
 async function reserveDeviceSendSlot(admin: ReturnType<typeof createClient>, deviceId?: string | null) {
   if (!deviceId) return 0;
@@ -131,7 +61,6 @@ async function executeAttempts(baseUrl: string, token: string, attempts: SendAtt
     "blocked",
     "not on whatsapp",
     "privacidade",
-    "method not allowed",
     "saved contacts",
   ];
 
@@ -158,17 +87,23 @@ async function executeAttempts(baseUrl: string, token: string, attempts: SendAtt
       }
 
       const bodyLower = raw.toLowerCase();
+      const hardFailed = hardFailKeywords.some((keyword) => bodyLower.includes(keyword));
       const explicitFailure = Boolean(
         parsed?.error ||
         parsed?.status === "error" ||
         parsed?.code === 404 ||
-        hardFailKeywords.some((keyword) => bodyLower.includes(keyword)),
+        hardFailed,
+      );
+      const actualChatId = extractResponseChatId(parsed);
+      const targetMismatch = isResponseTargetMismatch(parsed, attempt.expectedChatId);
+
+      console.log(
+        `[chat-send] Attempt ${attempt.path} → ${response.status} expected=${attempt.expectedChatId || "-"} actual=${actualChatId || "-"}`,
+        raw.substring(0, 400),
       );
 
-      console.log(`[chat-send] Attempt ${attempt.path} → ${response.status}`, raw.substring(0, 400));
-
-      if (response.ok && !explicitFailure) {
-        return { sent: true as const, parsed, path: attempt.path };
+      if (response.ok && !explicitFailure && !targetMismatch) {
+        return { sent: true as const, parsed, path: attempt.path, actualChatId };
       }
 
       const parsedMessage =
@@ -177,9 +112,15 @@ async function executeAttempts(baseUrl: string, token: string, attempts: SendAtt
         raw.substring(0, 240) ||
         `HTTP ${response.status}`;
 
-      lastErr = `${response.status} @ ${attempt.path}: ${parsedMessage}`;
+      lastErr = targetMismatch
+        ? `Destino divergente em ${attempt.path}: esperado ${attempt.expectedChatId}, retornado ${actualChatId || "desconhecido"}`
+        : `${response.status} @ ${attempt.path}: ${parsedMessage}`;
 
-      if (response.status !== 404 && response.status !== 405) {
+      if (targetMismatch) {
+        continue;
+      }
+
+      if (response.status === 401 || response.status === 403 || hardFailed) {
         break;
       }
     } catch (error: any) {
