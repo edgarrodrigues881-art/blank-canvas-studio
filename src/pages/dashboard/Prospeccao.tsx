@@ -455,10 +455,25 @@ export default function Prospeccao() {
                 </div>
                 <div className="space-y-2">
                   <Label>País *</Label>
-                  <Select value={pais} onValueChange={(v) => { setPais(v); setEstado(""); setCidade(""); }}>
+                  <Select value={pais} onValueChange={(v) => { setPais(v); setEstado(""); setCidade(""); setPaisSearch(""); }}>
                     <SelectTrigger><SelectValue placeholder="Selecione o país" /></SelectTrigger>
                     <SelectContent>
-                      {PAISES.map(p => <SelectItem key={p.code} value={p.code}>{p.nome}</SelectItem>)}
+                      <div className="px-2 pb-2 sticky top-0 bg-popover z-10">
+                        <Input
+                          placeholder="Buscar país..."
+                          value={paisSearch}
+                          onChange={(e) => setPaisSearch(e.target.value)}
+                          onKeyDown={(e) => e.stopPropagation()}
+                          className="h-8 text-sm"
+                          autoFocus
+                        />
+                      </div>
+                      <ScrollArea className="max-h-[200px]">
+                        {filteredPaises.length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center py-2">Nenhum país encontrado</p>
+                        )}
+                        {filteredPaises.map(p => <SelectItem key={p.code} value={p.code}>{p.nome}</SelectItem>)}
+                      </ScrollArea>
                     </SelectContent>
                   </Select>
                 </div>
