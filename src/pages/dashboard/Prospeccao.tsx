@@ -512,7 +512,6 @@ export default function Prospeccao() {
                     />
                   )}
                 </div>
-                </div>
                 <div className="space-y-2">
                   <Label>Máx. resultados</Label>
                   <Select value={maxResults} onValueChange={setMaxResults}>
