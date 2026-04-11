@@ -24,7 +24,7 @@ Deno.test("isResponseTargetMismatch detecta troca indevida de JID", () => {
       { chatid: "556294192500@s.whatsapp.net" },
       "5562994192500@s.whatsapp.net",
     ),
-    true,
+    false,
   );
 });
 
@@ -35,5 +35,15 @@ Deno.test("isResponseTargetMismatch aceita o chat esperado", () => {
       "5562994192500@s.whatsapp.net",
     ),
     false,
+  );
+});
+
+Deno.test("isResponseTargetMismatch continua bloqueando um destino realmente diferente", () => {
+  assertEquals(
+    isResponseTargetMismatch(
+      { chatid: "5562994192599@s.whatsapp.net" },
+      "5562994192500@s.whatsapp.net",
+    ),
+    true,
   );
 });

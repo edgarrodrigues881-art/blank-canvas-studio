@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { extractConversationEvent, isApiSentMessage } from "./parser.ts";
 import { persistIncomingMedia } from "./media.ts";
+import { buildEquivalentChatIds } from "../_shared/phone-variants.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -25,6 +26,22 @@ function getMediaLabel(mediaType: string | null): string {
     case "location": return "📍 Localização";
     default: return `[${mediaType}]`;
   }
+}
+
+async function findConversationByEquivalentJid(admin: any, userId: string, deviceId: string, remoteJid: string) {
+  const candidates = buildEquivalentChatIds(remoteJid);
+  if (candidates.length === 0) return null;
+
+  const { data } = await admin
+    .from("conversations")
+    .select("id, remote_jid, phone, name, created_at")
+    .eq("user_id", userId)
+    .eq("device_id", deviceId)
+    .in("remote_jid", candidates)
+    .order("created_at", { ascending: true })
+    .limit(5);
+
+  return data?.[0] ?? null;
 }
 
 interface FlowButtonConfig {
@@ -254,32 +271,58 @@ Deno.serve(async (req) => {
         console.log(`Autosave contact detected: ${phoneDigits} → origin=warmup`);
       }
     }
-    const { data: conv, error: convErr } = await admin
-      .from("conversations")
-      .upsert({
-        user_id: device.user_id,
-        device_id: device.id,
-        remote_jid: remoteJid,
-        name,
-        phone,
-        avatar_url: avatarUrl,
-        last_message: displayContent.substring(0, 500),
-        last_message_at: timestamp,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id,device_id,remote_jid" })
-      .select("id")
-      .single();
+    const existingConversation = await findConversationByEquivalentJid(admin, device.user_id, device.id, remoteJid);
 
-    let conversationId = conv?.id;
+    let conversationId = existingConversation?.id;
 
-    if (convErr && !conversationId) {
-      console.error("Conversation upsert error:", convErr);
-      const { data: existing } = await admin.from("conversations").select("id")
-        .eq("user_id", device.user_id)
-        .eq("device_id", device.id)
-        .eq("remote_jid", remoteJid)
+    if (existingConversation) {
+      const preferredName = existingConversation.name && existingConversation.name !== existingConversation.phone
+        ? existingConversation.name
+        : name;
+
+      const { error: updateErr } = await admin
+        .from("conversations")
+        .update({
+          name: preferredName,
+          phone: existingConversation.phone || phone,
+          avatar_url: avatarUrl,
+          last_message: displayContent.substring(0, 500),
+          last_message_at: timestamp,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingConversation.id);
+
+      if (updateErr) {
+        console.error("Conversation update error:", updateErr);
+      }
+    } else {
+      const { data: conv, error: convErr } = await admin
+        .from("conversations")
+        .upsert({
+          user_id: device.user_id,
+          device_id: device.id,
+          remote_jid: remoteJid,
+          name,
+          phone,
+          avatar_url: avatarUrl,
+          last_message: displayContent.substring(0, 500),
+          last_message_at: timestamp,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id,device_id,remote_jid" })
+        .select("id")
         .single();
-      conversationId = existing?.id;
+
+      conversationId = conv?.id;
+
+      if (convErr && !conversationId) {
+        console.error("Conversation upsert error:", convErr);
+        const { data: existing } = await admin.from("conversations").select("id")
+          .eq("user_id", device.user_id)
+          .eq("device_id", device.id)
+          .eq("remote_jid", remoteJid)
+          .single();
+        conversationId = existing?.id;
+      }
     }
 
     if (!conversationId) {

@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { buildEquivalentChatIds } from "../_shared/phone-variants.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -53,6 +54,72 @@ function inferMediaType(typeValue: string, mimeValue: string, urlValue: string):
   if (/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|txt|csv)(\?|$)/.test(url)) return "document";
 
   return null;
+}
+
+async function upsertConversationForEquivalentJid(
+  admin: any,
+  userId: string,
+  deviceId: string,
+  payload: {
+    remoteJid: string;
+    name: string;
+    phone: string;
+    avatar: string | null;
+    lastMessage: string;
+    lastMessageAt: string;
+  },
+) {
+  const candidates = buildEquivalentChatIds(payload.remoteJid);
+  const { data: existingMatches } = await admin
+    .from("conversations")
+    .select("id, remote_jid, phone, name, created_at")
+    .eq("user_id", userId)
+    .eq("device_id", deviceId)
+    .in("remote_jid", candidates)
+    .order("created_at", { ascending: true })
+    .limit(5);
+
+  const existing = existingMatches?.[0];
+  if (existing) {
+    const preferredName = existing.name && existing.name !== existing.phone
+      ? existing.name
+      : payload.name.substring(0, 255);
+
+    const { error } = await admin
+      .from("conversations")
+      .update({
+        name: preferredName,
+        phone: existing.phone || payload.phone,
+        avatar_url: payload.avatar,
+        last_message: payload.lastMessage.substring(0, 500),
+        last_message_at: payload.lastMessageAt,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
+
+    return { id: existing.id, error };
+  }
+
+  const { data, error } = await admin
+    .from("conversations")
+    .upsert(
+      {
+        user_id: userId,
+        device_id: deviceId,
+        remote_jid: payload.remoteJid,
+        name: payload.name.substring(0, 255),
+        phone: payload.phone,
+        avatar_url: payload.avatar,
+        last_message: payload.lastMessage.substring(0, 500),
+        last_message_at: payload.lastMessageAt,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,device_id,remote_jid" },
+    )
+    .select("id")
+    .maybeSingle();
+
+  return { id: data?.id || null, error };
 }
 
 Deno.serve(async (req) => {
@@ -202,23 +269,14 @@ Deno.serve(async (req) => {
           const unread = chat.UnreadCount || chat.unreadCount || chat.unread || 0;
           const avatar = chat.ProfilePicUrl || chat.profilePicUrl || chat.imgUrl || chat.Contact?.profilePicUrl || null;
 
-          const { error: upsertErr } = await admin
-            .from("conversations")
-            .upsert(
-              {
-                user_id: userId,
-                device_id: device.id,
-                remote_jid: jid,
-                name: name.substring(0, 255),
-                phone,
-                avatar_url: avatar,
-                last_message: (lastMsg || "").substring(0, 500),
-                last_message_at: lastMsgAt,
-                unread_count: unread,
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: "user_id,device_id,remote_jid" }
-            );
+          const { error: upsertErr } = await upsertConversationForEquivalentJid(admin, userId, device.id, {
+            remoteJid: jid,
+            name,
+            phone,
+            avatar,
+            lastMessage: lastMsg || "",
+            lastMessageAt: lastMsgAt,
+          });
 
           if (upsertErr) {
             console.error(`[${device.name}] Upsert error for ${jid}:`, upsertErr.message);
@@ -242,25 +300,26 @@ Deno.serve(async (req) => {
               // Try multiple endpoints for fetching messages
               let messages: any[] = [];
 
-              // Try /chat/fetchMessages POST
-              const msgData1 = await fetchSafe(`${baseUrl}/chat/fetchMessages`, "POST", { chatId: conv.remote_jid, count: 30 });
-              if (msgData1) {
-                messages = Array.isArray(msgData1.messages || msgData1.data || msgData1) ? (msgData1.messages || msgData1.data || msgData1) : [];
-              }
+              for (const chatId of buildEquivalentChatIds(conv.remote_jid)) {
+                if (messages.length > 0) break;
 
-              // Fallback: /chat/messages GET
-              if (messages.length === 0) {
-                const msgData2 = await fetchSafe(`${baseUrl}/chat/messages?chatId=${encodeURIComponent(conv.remote_jid)}&count=30`);
-                if (msgData2) {
-                  messages = Array.isArray(msgData2.messages || msgData2.data || msgData2) ? (msgData2.messages || msgData2.data || msgData2) : [];
+                const msgData1 = await fetchSafe(`${baseUrl}/chat/fetchMessages`, "POST", { chatId, count: 30 });
+                if (msgData1) {
+                  messages = Array.isArray(msgData1.messages || msgData1.data || msgData1) ? (msgData1.messages || msgData1.data || msgData1) : [];
                 }
-              }
 
-              // Fallback: /message/list
-              if (messages.length === 0) {
-                const msgData3 = await fetchSafe(`${baseUrl}/message/list?chatId=${encodeURIComponent(conv.remote_jid)}&count=30`);
-                if (msgData3) {
-                  messages = Array.isArray(msgData3.messages || msgData3.data || msgData3) ? (msgData3.messages || msgData3.data || msgData3) : [];
+                if (messages.length === 0) {
+                  const msgData2 = await fetchSafe(`${baseUrl}/chat/messages?chatId=${encodeURIComponent(chatId)}&count=30`);
+                  if (msgData2) {
+                    messages = Array.isArray(msgData2.messages || msgData2.data || msgData2) ? (msgData2.messages || msgData2.data || msgData2) : [];
+                  }
+                }
+
+                if (messages.length === 0) {
+                  const msgData3 = await fetchSafe(`${baseUrl}/message/list?chatId=${encodeURIComponent(chatId)}&count=30`);
+                  if (msgData3) {
+                    messages = Array.isArray(msgData3.messages || msgData3.data || msgData3) ? (msgData3.messages || msgData3.data || msgData3) : [];
+                  }
                 }
               }
 
@@ -395,20 +454,20 @@ async function syncSingleConversation(
 
     // Also find same contact on other devices
     if (conversations.length > 0) {
-      const phone = conversations[0].remote_jid.replace(/@.*$/, "");
+      const aliases = buildEquivalentChatIds(conversations[0].remote_jid);
       const { data: others } = await admin.from("conversations")
         .select("id, device_id, remote_jid")
         .eq("user_id", userId)
-        .like("remote_jid", `%${phone}%`)
+        .in("remote_jid", aliases)
         .neq("id", conversationId);
       if (others) conversations.push(...others);
     }
   } else if (remoteJid) {
-    const phone = remoteJid.replace(/@.*$/, "");
+    const aliases = buildEquivalentChatIds(remoteJid);
     const { data: convs } = await admin.from("conversations")
       .select("id, device_id, remote_jid")
       .eq("user_id", userId)
-      .like("remote_jid", `%${phone}%`);
+      .in("remote_jid", aliases);
     conversations = convs || [];
   }
 
@@ -442,19 +501,22 @@ async function syncSingleConversation(
     try {
       let messages: any[] = [];
 
-      // Try multiple endpoints - fetch more messages (50)
-      const endpoints = [
-        { url: `${baseUrl}/chat/fetchMessages`, method: "POST", body: { chatId: conv.remote_jid, count: 50 } },
-        { url: `${baseUrl}/chat/messages?chatId=${encodeURIComponent(conv.remote_jid)}&count=50`, method: "GET" },
-        { url: `${baseUrl}/message/list?chatId=${encodeURIComponent(conv.remote_jid)}&count=50`, method: "GET" },
-        { url: `${baseUrl}/chat/getMessages?chatId=${encodeURIComponent(conv.remote_jid)}&count=50`, method: "GET" },
-      ];
-
-      for (const ep of endpoints) {
+      for (const chatId of buildEquivalentChatIds(conv.remote_jid)) {
         if (messages.length > 0) break;
-        const data = await fetchSafe(ep.url, ep.method, ep.body);
-        if (data) {
-          messages = Array.isArray(data.messages || data.data || data) ? (data.messages || data.data || data) : [];
+
+        const endpoints = [
+          { url: `${baseUrl}/chat/fetchMessages`, method: "POST", body: { chatId, count: 50 } },
+          { url: `${baseUrl}/chat/messages?chatId=${encodeURIComponent(chatId)}&count=50`, method: "GET" },
+          { url: `${baseUrl}/message/list?chatId=${encodeURIComponent(chatId)}&count=50`, method: "GET" },
+          { url: `${baseUrl}/chat/getMessages?chatId=${encodeURIComponent(chatId)}&count=50`, method: "GET" },
+        ];
+
+        for (const ep of endpoints) {
+          if (messages.length > 0) break;
+          const data = await fetchSafe(ep.url, ep.method, ep.body);
+          if (data) {
+            messages = Array.isArray(data.messages || data.data || data) ? (data.messages || data.data || data) : [];
+          }
         }
       }
 
