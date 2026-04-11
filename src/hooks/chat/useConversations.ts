@@ -45,6 +45,7 @@ export interface RealMessage {
   whatsapp_message_id: string | null;
   quoted_message_id?: string | null;
   quoted_content?: string | null;
+  failure_reason?: string | null;
   created_at: string;
   deviceName?: string;
 }

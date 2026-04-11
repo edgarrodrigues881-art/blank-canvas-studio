@@ -284,6 +284,7 @@ const Conversations = () => {
       whatsappMessageId: m.whatsapp_message_id || undefined,
       quotedMessageId: m.quoted_message_id || undefined,
       quotedContent: m.quoted_content || undefined,
+      failureReason: m.failure_reason || undefined,
       deviceName: m.deviceName,
     }))
   , [realMsgs]);

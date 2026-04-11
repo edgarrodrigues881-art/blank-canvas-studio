@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getSendFailureFeedback } from "@/lib/chatSendFeedback";
 import type { RealConversation, RealMessage } from "./useConversations";
 
 interface UseConversationActionsParams {
@@ -20,6 +21,12 @@ interface UseConversationActionsParams {
   conversations: RealConversation[];
   archivedConversations: RealConversation[];
   messages: RealMessage[];
+}
+
+function notifySendFailure(rawError?: string | null, deviceName?: string | null) {
+  const feedback = getSendFailureFeedback(rawError, deviceName);
+  toast.error(feedback.title, { description: feedback.description });
+  return feedback.shortReason;
 }
 
 /**
@@ -137,7 +144,7 @@ export function useConversationActions({
     const optimisticMsg: RealMessage = {
       id: tempId, conversation_id: conversationId, content, direction: "sent",
       status: "sending", media_type: null, media_url: null, audio_duration: null,
-      is_ai_response: false, whatsapp_message_id: null, created_at: now,
+      is_ai_response: false, whatsapp_message_id: null, failure_reason: null, created_at: now,
     };
     setMessages((prev) => [...prev, optimisticMsg]);
     setConversations((prev) =>
@@ -180,17 +187,17 @@ export function useConversationActions({
     const apiOk = apiResult.status === "fulfilled" && apiResult.value?.sent;
     const finalStatus = apiOk ? "sent" : "failed";
     const finalId = dbMsg?.id || tempId;
+    const errMsg = apiResult.status === "fulfilled" ? apiResult.value?.error : "Erro de conexão";
+    const failureReason = apiOk ? null : notifySendFailure(errMsg, conv.deviceName);
 
-    setMessages((prev) => prev.map((m) => (m.id === tempId || m.id === finalId) ? { ...m, id: finalId, status: finalStatus } : m));
+    setMessages((prev) => prev.map((m) => (m.id === tempId || m.id === finalId)
+      ? { ...m, id: finalId, status: finalStatus, failure_reason: failureReason }
+      : m
+    ));
 
     if (dbMsg) {
       const waMessageId = apiOk ? (apiResult.value?.messageId || null) : null;
       supabase.from("conversation_messages").update({ status: finalStatus, whatsapp_message_id: waMessageId }).eq("id", dbMsg.id).then(() => {});
-    }
-
-    if (!apiOk) {
-      const errMsg = apiResult.status === "fulfilled" ? apiResult.value?.error : "Erro de conexão";
-      toast.error(errMsg || "Falha ao enviar mensagem");
     }
 
     return dbMsg;
@@ -200,7 +207,7 @@ export function useConversationActions({
     const msg = messages.find((m) => m.id === messageId);
     if (!msg || !msg.content) return;
 
-    setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, status: "sending" } : m));
+    setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, status: "sending", failure_reason: null } : m));
     const token = await getToken();
 
     try {
@@ -211,12 +218,12 @@ export function useConversationActions({
       });
       const result = await res.json();
       const status = result.sent ? "sent" : "failed";
-      setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, status } : m));
+      const failureReason = result.sent ? null : notifySendFailure(result.error, msg.deviceName);
+      setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, status, failure_reason: failureReason } : m));
       supabase.from("conversation_messages").update({ status }).eq("id", messageId).then(() => {});
-      if (!result.sent) toast.error(result.error || "Falha ao reenviar");
     } catch {
-      setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, status: "failed" } : m));
-      toast.error("Erro de conexão ao reenviar");
+      const failureReason = notifySendFailure("Erro de conexão", msg.deviceName);
+      setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, status: "failed", failure_reason: failureReason } : m));
     }
   }, [messages, getToken, projectId, setMessages]);
 
@@ -285,7 +292,7 @@ export function useConversationActions({
     const optimisticMsg: RealMessage = {
       id: tempId, conversation_id: conversationId, content: "[audio]", direction: "sent",
       status: "sending", media_type: "audio", media_url: null, audio_duration: duration,
-      is_ai_response: false, whatsapp_message_id: null, created_at: now,
+      is_ai_response: false, whatsapp_message_id: null, failure_reason: null, created_at: now,
     };
     setMessages((prev) => [...prev, optimisticMsg]);
     setConversations((prev) =>
@@ -328,15 +335,15 @@ export function useConversationActions({
       const result = await res.json();
 
       if (result.sent) {
-        setMessages((prev) => prev.map((m) => m.id === dbMsg.id ? { ...m, status: "sent" } : m));
+        setMessages((prev) => prev.map((m) => m.id === dbMsg.id ? { ...m, status: "sent", failure_reason: null } : m));
       } else {
-        setMessages((prev) => prev.map((m) => m.id === dbMsg.id ? { ...m, status: "failed" } : m));
+        const failureReason = notifySendFailure(result.error, conv.deviceName);
+        setMessages((prev) => prev.map((m) => m.id === dbMsg.id ? { ...m, status: "failed", failure_reason: failureReason } : m));
         await supabase.from("conversation_messages").update({ status: "failed" }).eq("id", dbMsg.id);
-        toast.error(result.error || "Falha ao enviar áudio");
       }
     } catch (err: any) {
-      setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, status: "failed" } : m));
-      toast.error(err.message || "Erro ao enviar áudio");
+      const failureReason = notifySendFailure(err?.message || "Erro de conexão", conv.deviceName);
+      setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, status: "failed", failure_reason: failureReason } : m));
     }
   }, [user, sortConversations, getToken, projectId, conversationsRef, setConversations, setMessages]);
 
@@ -360,7 +367,7 @@ export function useConversationActions({
     const optimisticMsg: RealMessage = {
       id: tempId, conversation_id: conversationId, content: dbContent,
       direction: "sent", status: "sending", media_type: mediaType, media_url: localUrl,
-      audio_duration: null, is_ai_response: false, whatsapp_message_id: null, created_at: now,
+      audio_duration: null, is_ai_response: false, whatsapp_message_id: null, failure_reason: null, created_at: now,
     };
     setMessages((prev) => [...prev, optimisticMsg]);
     setConversations((prev) =>
@@ -411,15 +418,15 @@ export function useConversationActions({
       const result = await res.json();
 
       if (result.sent) {
-        setMessages((prev) => prev.map((m) => m.id === dbMsg.id ? { ...m, status: "sent" } : m));
+        setMessages((prev) => prev.map((m) => m.id === dbMsg.id ? { ...m, status: "sent", failure_reason: null } : m));
       } else {
-        setMessages((prev) => prev.map((m) => m.id === dbMsg.id ? { ...m, status: "failed" } : m));
+        const failureReason = notifySendFailure(result.error, conv.deviceName);
+        setMessages((prev) => prev.map((m) => m.id === dbMsg.id ? { ...m, status: "failed", failure_reason: failureReason } : m));
         await supabase.from("conversation_messages").update({ status: "failed" }).eq("id", dbMsg.id);
-        toast.error(result.error || "Falha ao enviar arquivo");
       }
     } catch (err: any) {
-      setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, status: "failed" } : m));
-      toast.error(err.message || "Erro ao enviar arquivo");
+      const failureReason = notifySendFailure(err?.message || "Erro de conexão", conv.deviceName);
+      setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, status: "failed", failure_reason: failureReason } : m));
     } finally {
       if (localUrl) URL.revokeObjectURL(localUrl);
     }

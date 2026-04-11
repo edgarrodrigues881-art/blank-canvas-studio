@@ -395,9 +395,29 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
           </>
         )}
         {msg.status === "failed" && (
-          <button onClick={() => onRetry?.(msg.id)} className="text-[10px] text-red-400 hover:text-red-300 mt-0.5 text-right underline cursor-pointer block w-full">
-            Falhou — toque para reenviar
-          </button>
+          <div className="mt-1.5 space-y-1">
+            <div
+              className={cn(
+                "rounded-md px-2 py-1 text-[10px] leading-relaxed",
+                msg.type === "sent"
+                  ? "bg-white/10 text-white/85"
+                  : "bg-destructive/10 text-destructive"
+              )}
+            >
+              Motivo: {msg.failureReason || "não foi possível concluir o envio agora."}
+            </div>
+            <button
+              onClick={() => onRetry?.(msg.id)}
+              className={cn(
+                "text-[10px] mt-0.5 text-right underline cursor-pointer block w-full",
+                msg.type === "sent"
+                  ? "text-white/80 hover:text-white"
+                  : "text-destructive hover:text-destructive/80"
+              )}
+            >
+              Não enviada — tocar para tentar novamente
+            </button>
+          </div>
         )}
       </>
     );
