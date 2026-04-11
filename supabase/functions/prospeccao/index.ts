@@ -537,17 +537,21 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { nicho, nichosRelacionados, estado, cidade, maxResults, forceRefresh, customCenter, customRadiusKm } = await req.json();
+    const { nicho, nichosRelacionados, estado, cidade, maxResults, forceRefresh, customCenter, customRadiusKm, pais: paisParam } = await req.json();
+    const pais = (paisParam || "BR").toUpperCase();
 
-    if (!nicho || !cidade || !estado) {
+    if (!nicho || !cidade) {
       return new Response(
-        JSON.stringify({ error: "nicho, estado e cidade são obrigatórios" }),
+        JSON.stringify({ error: "nicho e cidade são obrigatórios" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    // Set country for Serper queries
+    setQueryCountry(pais);
+
     const nichoTrimmed = nicho.trim();
-    const estadoTrimmed = estado.trim();
+    const estadoTrimmed = (estado || "").trim();
     const cidadeTrimmed = cidade.trim();
 
     // --- CACHE ---
