@@ -298,9 +298,67 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
   }
 }
 
+function resolveDirectNumber(target: string): string {
+  return String(target || "").replace(/\D/g, "");
+}
+
+function resolveTargetChatId(target: string): string {
+  const raw = String(target || "").trim();
+  if (!raw) return "";
+  if (raw.includes("@")) return raw;
+
+  const digits = resolveDirectNumber(raw);
+  return digits ? `${digits}@s.whatsapp.net` : raw;
+}
+
+async function sendTextWithFallback(baseUrl: string, token: string, target: string, body: string) {
+  const text = typeof body === "string" ? body.trim() : "";
+  if (!text) throw new Error("Texto vazio");
+
+  const rawTarget = String(target || "").trim();
+  const directNumber = resolveDirectNumber(rawTarget);
+  const chatId = resolveTargetChatId(rawTarget);
+  const isGroup = chatId.endsWith("@g.us");
+
+  const attempts = isGroup
+    ? [
+        { path: "/chat/send-text", body: { chatId, text, body: text } },
+        { path: "/message/sendText", body: { chatId, text } },
+        { path: "/send/text", body: { number: chatId, text } },
+      ]
+    : [
+        {
+          path: "/chat/send-text",
+          body: {
+            number: directNumber || rawTarget,
+            to: directNumber || rawTarget,
+            chatId,
+            body: text,
+            text,
+          },
+        },
+        { path: "/message/sendText", body: { chatId, text } },
+        { path: "/send/text", body: { number: rawTarget.includes("@") ? chatId : directNumber || rawTarget, text } },
+      ];
+
+  let lastErr = "";
+
+  for (const attempt of attempts) {
+    try {
+      return await uazapiRequest(baseUrl, token, attempt.path, attempt.body);
+    } catch (err: any) {
+      lastErr = err?.message || String(err);
+      log.warn(`Text send fallback failed on ${attempt.path} for ${chatId || rawTarget}: ${lastErr}`);
+    }
+  }
+
+  throw new Error(lastErr || "Falha ao enviar texto");
+}
+
 async function sendUazapiMessage(baseUrl: string, token: string, to: string, body: string, mediaUrl?: string | null, buttons?: CampaignButton[], messageType?: string, carouselCards?: CarouselCard[]) {
-  const isLid = to.includes("@lid");
-  const phone = isLid ? `${to.replace("@lid", "")}@lid` : to.replace(/\D/g, "");
+  const rawTarget = String(to || "").trim();
+  const isExplicitChatId = rawTarget.includes("@");
+  const phone = isExplicitChatId ? rawTarget : rawTarget.replace(/\D/g, "");
   const text = typeof body === "string" ? body.trim() : "";
   const hasButtons = buttons && buttons.length > 0;
   const choices = hasButtons ? buttons.map((b, i) => buildMenuChoice(b, i)).filter(Boolean) as string[] : [];
@@ -331,13 +389,13 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
   if (mediaUrl) {
     const mediaType = detectMediaType(mediaUrl);
     if (mediaType === "audio") {
-      if (text) { await uazapiRequest(baseUrl, token, "/send/text", { number: phone, text }); await sleep(1500 + Math.random() * 1500); }
+      if (text) { await sendTextWithFallback(baseUrl, token, phone, text); await sleep(1500 + Math.random() * 1500); }
       return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, type: "ptt", file: mediaUrl });
     }
     return await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType, text);
   }
 
-  return await uazapiRequest(baseUrl, token, "/send/text", { number: phone, text });
+  return await sendTextWithFallback(baseUrl, token, phone, text);
 }
 
 // ── Error classification ──

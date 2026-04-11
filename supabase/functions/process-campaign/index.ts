@@ -430,9 +430,70 @@ async function sendCaptionedMedia(baseUrl: string, token: string, phone: string,
   }
 }
 
+function resolveDirectNumber(target: string): string {
+  return String(target || "").replace(/\D/g, "");
+}
+
+function resolveTargetChatId(target: string): string {
+  const raw = String(target || "").trim();
+  if (!raw) return "";
+  if (raw.includes("@")) return raw;
+
+  const digits = resolveDirectNumber(raw);
+  return digits ? `${digits}@s.whatsapp.net` : raw;
+}
+
+async function sendTextWithFallback(baseUrl: string, token: string, target: string, body: string) {
+  const text = typeof body === "string" ? body.trim() : "";
+  if (!text) throw new Error("Texto vazio");
+
+  const rawTarget = String(target || "").trim();
+  const directNumber = resolveDirectNumber(rawTarget);
+  const chatId = resolveTargetChatId(rawTarget);
+  const isGroup = chatId.endsWith("@g.us");
+
+  const attempts = isGroup
+    ? [
+        { endpoint: "/chat/send-text", payload: { chatId, text, body: text } },
+        { endpoint: "/message/sendText", payload: { chatId, text } },
+        { endpoint: "/send/text", payload: { number: chatId, text } },
+      ]
+    : [
+        {
+          endpoint: "/chat/send-text",
+          payload: {
+            number: directNumber || rawTarget,
+            to: directNumber || rawTarget,
+            chatId,
+            body: text,
+            text,
+          },
+        },
+        { endpoint: "/message/sendText", payload: { chatId, text } },
+        {
+          endpoint: "/send/text",
+          payload: { number: rawTarget.includes("@") ? chatId : directNumber || rawTarget, text },
+        },
+      ];
+
+  let lastError: Error | null = null;
+
+  for (const attempt of attempts) {
+    try {
+      return await uazapiRequest(baseUrl, token, attempt.endpoint, attempt.payload);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.warn(`Text send fallback failed on ${attempt.endpoint} for ${chatId || rawTarget}: ${lastError.message}`);
+    }
+  }
+
+  throw lastError ?? new Error("Falha ao enviar texto");
+}
+
 async function sendUazapiMessage(baseUrl: string, token: string, to: string, body: string, mediaUrl?: string | null, buttons?: CampaignButton[], messageType?: string, carouselCards?: CarouselCard[]) {
-  const isLid = to.includes("@lid");
-  const phone = isLid ? `${to.replace("@lid", "")}@lid` : to.replace(/\D/g, "");
+  const rawTarget = String(to || "").trim();
+  const isExplicitChatId = rawTarget.includes("@");
+  const phone = isExplicitChatId ? rawTarget : rawTarget.replace(/\D/g, "");
   const text = typeof body === "string" ? body.trim() : "";
   const hasButtons = buttons && buttons.length > 0;
   const choices = hasButtons ? buttons.map((b, i) => buildMenuChoice(b, i)).filter((choice): choice is string => Boolean(choice)) : [];
@@ -514,7 +575,7 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     const mediaType = detectMediaType(mediaUrl);
     if (mediaType === "audio") {
       if (text) {
-        await uazapiRequest(baseUrl, token, "/send/text", { number: phone, text });
+        await sendTextWithFallback(baseUrl, token, phone, text);
         await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1500));
       }
       return await uazapiRequest(baseUrl, token, "/send/media", {
@@ -527,7 +588,7 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     return await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType, text);
   }
 
-  return await uazapiRequest(baseUrl, token, "/send/text", { number: phone, text });
+  return await sendTextWithFallback(baseUrl, token, phone, text);
 }
 
 function isDisconnectError(msg: string): boolean {
@@ -569,7 +630,7 @@ const RETRY_DELAY_MAX_MS = 60_000;
 function buildPhoneSendCandidates(to: string): string[] {
   const raw = String(to || "").trim();
   if (!raw) return [];
-  if (raw.includes("@lid")) return [raw];
+  if (raw.includes("@")) return [raw];
 
   const digits = raw.replace(/\D/g, "");
   if (!digits) return [];
