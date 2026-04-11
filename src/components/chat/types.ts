@@ -37,6 +37,7 @@ export interface Message {
   whatsappMessageId?: string;
   quotedMessageId?: string;
   quotedContent?: string;
+  failureReason?: string;
   deviceName?: string;
 }
 
