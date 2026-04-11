@@ -113,8 +113,21 @@ export default function WhatsAppVerifier() {
       const name = jobName.trim() || `Verificação ${new Date().toLocaleDateString("pt-BR")}`;
       const { data: job, error: jobErr } = await supabase.from("verify_jobs").insert({ user_id: user.id, device_id: selectedDevice, name, total_phones: phones.length, status: "pending" } as any).select().single();
       if (jobErr || !job) throw new Error(jobErr?.message || "Erro ao criar verificação");
+      // Build a lookup map from prospeccaoLeads for variable data
+      const leadMap = new Map<string, Record<string, string>>();
+      if (prospeccaoLeads) {
+        for (const l of prospeccaoLeads) {
+          leadMap.set(l.phone, l);
+        }
+      }
       for (let i = 0; i < phones.length; i += 500) {
-        const batch = phones.slice(i, i + 500).map(phone => ({ job_id: (job as any).id, user_id: user.id, phone, status: "pending" }));
+        const batch = phones.slice(i, i + 500).map(phone => {
+          const lead = leadMap.get(phone);
+          return {
+            job_id: (job as any).id, user_id: user.id, phone, status: "pending",
+            ...(lead ? { var1: lead.var1, var2: lead.var2, var3: lead.var3, var4: lead.var4, var5: lead.var5, var6: lead.var6, var7: lead.var7, var8: lead.var8, var9: lead.var9, var10: lead.var10 } : {}),
+          };
+        });
         const { error } = await supabase.from("verify_results").insert(batch as any);
         if (error) throw new Error(error.message);
       }
