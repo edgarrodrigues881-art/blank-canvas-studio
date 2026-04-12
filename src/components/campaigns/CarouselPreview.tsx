@@ -266,4 +266,4 @@ export const CarouselPreview = React.memo(function CarouselPreview({ cards, mess
       </div>
     </div>
   );
-}
+});
