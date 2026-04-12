@@ -83,6 +83,24 @@ function matchesContentType(type: MediaOnlyType, contentType: string, extension:
   return contentType.startsWith(`${type}/`) || mediaExtensions[type].includes(extension as never);
 }
 
+function extractResponseChatId(raw: string) {
+  try {
+    const parsed = JSON.parse(raw);
+    const candidate = [
+      parsed?.chatid,
+      parsed?.chatId,
+      parsed?.jid,
+      parsed?.key?.remoteJid,
+      parsed?.message?.key?.remoteJid,
+      parsed?.to,
+    ].find((value) => typeof value === "string" && value.trim());
+
+    return candidate ? String(candidate).trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 async function inspectMediaUrl(value: string, type: MediaOnlyType) {
   let parsedUrl: URL;
 
@@ -151,41 +169,42 @@ function buildAttempts(baseUrl: string, groupJid: string, content: string, type:
   const cleanCaption = caption?.trim();
   const captionFields = cleanCaption ? { caption: cleanCaption, text: cleanCaption } : {};
   const docFields = fileName?.trim() ? { docName: fileName.trim() } : {};
+  const targetFields = { number: groupJid, chatId: groupJid };
 
   if (type === "audio") {
     return [
-      { endpoint: `${baseUrl}/send/media`, body: { number: groupJid, file: content, type: "audio", ptt: true } },
-      { endpoint: `${baseUrl}/send/media`, body: { number: groupJid, media: content, type: "audio", ptt: true } },
-      { endpoint: `${baseUrl}/send/audio`, body: { number: groupJid, audio: content, ptt: true } },
+      { endpoint: `${baseUrl}/send/media`, body: { ...targetFields, file: content, type: "audio", ptt: true } },
+      { endpoint: `${baseUrl}/send/media`, body: { ...targetFields, media: content, type: "audio", ptt: true } },
+      { endpoint: `${baseUrl}/send/audio`, body: { ...targetFields, audio: content, ptt: true } },
     ];
   }
 
   if (type === "image") {
     return [
-      { endpoint: `${baseUrl}/send/media`, body: { number: groupJid, file: content, type: "image", ...captionFields } },
-      { endpoint: `${baseUrl}/send/media`, body: { number: groupJid, media: content, type: "image", ...captionFields } },
+      { endpoint: `${baseUrl}/send/media`, body: { ...targetFields, file: content, type: "image", ...captionFields } },
+      { endpoint: `${baseUrl}/send/media`, body: { ...targetFields, media: content, type: "image", ...captionFields } },
     ];
   }
 
   if (type === "video") {
     return [
-      { endpoint: `${baseUrl}/send/media`, body: { number: groupJid, file: content, type: "video", ...captionFields } },
-      { endpoint: `${baseUrl}/send/media`, body: { number: groupJid, media: content, type: "video", ...captionFields } },
+      { endpoint: `${baseUrl}/send/media`, body: { ...targetFields, file: content, type: "video", ...captionFields } },
+      { endpoint: `${baseUrl}/send/media`, body: { ...targetFields, media: content, type: "video", ...captionFields } },
     ];
   }
 
   if (type === "document") {
     return [
-      { endpoint: `${baseUrl}/send/media`, body: { number: groupJid, file: content, type: "document", ...docFields, ...captionFields } },
-      { endpoint: `${baseUrl}/send/document`, body: { number: groupJid, document: content, ...docFields, ...captionFields } },
-      { endpoint: `${baseUrl}/send/media`, body: { number: groupJid, media: content, type: "document", ...docFields, ...captionFields } },
+      { endpoint: `${baseUrl}/send/media`, body: { ...targetFields, file: content, type: "document", ...docFields, ...captionFields } },
+      { endpoint: `${baseUrl}/send/document`, body: { ...targetFields, document: content, ...docFields, ...captionFields } },
+      { endpoint: `${baseUrl}/send/media`, body: { ...targetFields, media: content, type: "document", ...docFields, ...captionFields } },
     ];
   }
 
   const safeText = content.trim();
   return [
     { endpoint: `${baseUrl}/chat/send-text`, body: { chatId: groupJid, text: safeText, body: safeText } },
-    { endpoint: `${baseUrl}/send/text`, body: { number: groupJid, text: safeText } },
+    { endpoint: `${baseUrl}/send/text`, body: { ...targetFields, text: safeText } },
   ];
 }
 
@@ -201,7 +220,7 @@ function extractProviderError(raw: string) {
   return raw.trim() || "Falha ao enviar mensagem para o grupo.";
 }
 
-async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string, string>) {
+async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string, string>, expectedGroupJid: string) {
   let lastError = "Falha ao enviar mensagem para o grupo.";
 
   for (const attempt of attempts) {
@@ -216,7 +235,15 @@ async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string
       const raw = await response.text();
       console.log(`[group-carousel] Response: ${response.status} ${raw.substring(0, 200)}`);
 
-      if (response.ok) return;
+      if (response.ok) {
+        const actualChatId = extractResponseChatId(raw);
+        if (actualChatId && actualChatId !== expectedGroupJid) {
+          lastError = `A API respondeu com outro grupo (${actualChatId}).`;
+          console.warn(`[group-carousel] Target mismatch: expected ${expectedGroupJid}, got ${actualChatId}`);
+          continue;
+        }
+        return;
+      }
       lastError = extractProviderError(raw);
     } catch (error: any) {
       lastError = error?.message || "Falha ao enviar mensagem para o grupo.";
@@ -284,7 +311,7 @@ Deno.serve(async (req) => {
     const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
     const attempts = buildAttempts(baseUrl, groupJid, normalizedContent, type, caption, fileName);
 
-    await sendWithFallbacks(attempts, headers);
+    await sendWithFallbacks(attempts, headers, groupJid);
     return json({ ok: true });
   } catch (error: any) {
     console.error("[group-carousel] Error:", error);
