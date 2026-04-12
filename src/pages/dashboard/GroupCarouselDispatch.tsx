@@ -122,24 +122,6 @@ export default function GroupCarouselDispatch() {
     );
   }, []);
 
-  const addManualJid = useCallback(() => {
-    const raw = manualJid.trim();
-    if (!raw) return;
-    const jid = raw.includes("@g.us") ? raw : `${raw}@g.us`;
-    if (selectedGroups.includes(jid)) {
-      toast.info("Esse JID já foi adicionado");
-      setManualJid("");
-      return;
-    }
-    // Add to groups list if not present
-    setGroups((prev) => {
-      if (prev.some((g) => g.id === jid)) return prev;
-      return [...prev, { id: jid, name: `Manual: ${jid}` }];
-    });
-    setSelectedGroups((prev) => [...prev, jid]);
-    setManualJid("");
-    toast.success("JID adicionado com sucesso");
-  }, [manualJid, selectedGroups]);
 
   if (!isAllowed) {
     return <Navigate to="/dashboard" replace />;
