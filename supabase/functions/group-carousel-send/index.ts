@@ -15,19 +15,39 @@ const mediaExtensions = {
   audio: ["mp3", "ogg", "wav", "m4a", "aac"],
 } as const;
 
+const CarouselButtonSchema = z.object({
+  type: z.string().optional(),
+  text: z.string().optional(),
+  value: z.string().optional(),
+});
+
+const CarouselCardSchema = z.object({
+  id: z.string().optional(),
+  position: z.number().optional(),
+  text: z.string().optional(),
+  mediaUrl: z.string().optional(),
+  mediaType: z.string().nullable().optional(),
+  buttons: z.array(CarouselButtonSchema).optional().default([]),
+});
+
 const BodySchema = z.object({
   deviceId: z.string().uuid("deviceId inválido"),
   groupJid: z.string().trim().regex(/@g\.us$/, "groupJid inválido"),
-  content: z.string().trim().min(1, "content é obrigatório"),
+  content: z.string().optional().default(""),
   type: z.enum(["text", "image", "video", "document", "audio"]).optional().default("text"),
   caption: z.string().optional(),
+  headerText: z.string().optional(),
+  cards: z.array(CarouselCardSchema).max(4, "Máximo de 4 cards").optional(),
 });
 
 type MediaType = z.infer<typeof BodySchema>["type"];
 type MediaOnlyType = Exclude<MediaType, "text">;
+type CarouselButton = z.infer<typeof CarouselButtonSchema>;
+type CarouselCard = z.infer<typeof CarouselCardSchema>;
 type SendAttempt = {
   endpoint: string;
   body: Record<string, unknown>;
+  label?: string;
 };
 
 function json(data: unknown, status = 200) {
@@ -165,7 +185,91 @@ async function inspectMediaUrl(value: string, type: MediaOnlyType) {
   };
 }
 
-function buildAttempts(baseUrl: string, groupJid: string, content: string, type: MediaType, caption?: string, fileName?: string): SendAttempt[] {
+function normalizeCarouselCards(rawCards: CarouselCard[]) {
+  return rawCards
+    .map((raw, index) => ({
+      id: typeof raw.id === "string" ? raw.id : `card-${index + 1}`,
+      position: typeof raw.position === "number" ? raw.position : index,
+      text: typeof raw.text === "string" ? raw.text.trim() : "",
+      mediaUrl: typeof raw.mediaUrl === "string" ? raw.mediaUrl.trim() : "",
+      mediaType: typeof raw.mediaType === "string" ? raw.mediaType : null,
+      buttons: Array.isArray(raw.buttons)
+        ? raw.buttons
+            .map((button) => ({
+              type: typeof button.type === "string" ? button.type : "reply",
+              text: typeof button.text === "string" ? button.text.trim() : "",
+              value: typeof button.value === "string" ? button.value.trim() : "",
+            }))
+            .filter((button) => button.text)
+        : [],
+    }))
+    .filter((card) => card.text || card.mediaUrl || card.buttons.length > 0)
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+}
+
+function normalizeCarouselUrl(rawValue: string) {
+  const trimmed = rawValue.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^[a-z]+:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+function buildCarouselButton(button: CarouselButton, index: number) {
+  const text = (button.text || "").trim();
+  if (!text) return null;
+
+  const normalizedType = (button.type || "reply").toLowerCase();
+  const rawValue = (button.value || "").trim();
+
+  if (normalizedType === "url") {
+    const normalizedUrl = normalizeCarouselUrl(rawValue);
+    if (!normalizedUrl) return null;
+    return { id: normalizedUrl, label: text, text, url: normalizedUrl, type: "URL" };
+  }
+
+  if (normalizedType === "phone" || normalizedType === "call") {
+    if (!rawValue) return null;
+    return { id: rawValue, label: text, text, phone: rawValue, type: "CALL" };
+  }
+
+  if (normalizedType === "copy") {
+    return { id: rawValue || text, label: text, text, type: "COPY" };
+  }
+
+  return { id: rawValue || `card_btn_${index + 1}`, label: text, text, type: "REPLY" };
+}
+
+function buildCarouselChoice(button: CarouselButton) {
+  const text = (button.text || "").trim();
+  if (!text) return null;
+
+  const normalizedType = (button.type || "reply").toLowerCase();
+  const rawValue = (button.value || "").trim();
+
+  if (normalizedType === "url") {
+    return rawValue ? `${text}|url:${rawValue}` : null;
+  }
+
+  if (normalizedType === "phone" || normalizedType === "call") {
+    return rawValue ? `${text}|call:${rawValue}` : null;
+  }
+
+  if (normalizedType === "copy") {
+    return `${text}|copy:${rawValue || text}`;
+  }
+
+  return rawValue ? `${text}|${rawValue}` : text;
+}
+
+function buildMessageAttempts(
+  baseUrl: string,
+  groupJid: string,
+  content: string,
+  type: MediaType,
+  caption?: string,
+  fileName?: string,
+): SendAttempt[] {
   const cleanCaption = caption?.trim();
   const captionFields = cleanCaption ? { caption: cleanCaption, text: cleanCaption } : {};
   const docFields = fileName?.trim() ? { docName: fileName.trim() } : {};
@@ -208,6 +312,60 @@ function buildAttempts(baseUrl: string, groupJid: string, content: string, type:
   ];
 }
 
+function buildCarouselAttempts(baseUrl: string, groupJid: string, headerText: string | undefined, cards: CarouselCard[]): SendAttempt[] {
+  const normalizedCards = normalizeCarouselCards(cards);
+  if (normalizedCards.length === 0) {
+    throw new Error("Carrossel sem cards configurados.");
+  }
+
+  const targetFields = { number: groupJid, chatId: groupJid };
+  const primaryText = headerText?.trim();
+
+  const structuredPayload: Record<string, unknown> = {
+    ...targetFields,
+    ...(primaryText ? { text: primaryText } : {}),
+    carousel: normalizedCards.map((card) => ({
+      text: card.text,
+      ...(card.mediaUrl ? { image: card.mediaUrl } : {}),
+      buttons: card.buttons
+        .map((button, index) => buildCarouselButton(button, index))
+        .filter(Boolean),
+    })),
+  };
+
+  const menuChoices = normalizedCards.flatMap((card, index) => {
+    const title = card.text || `Card ${index + 1}`;
+    const lines = [`[${title}]`];
+    if (card.mediaUrl) {
+      lines.push(`{${card.mediaUrl}}`);
+    }
+    lines.push(...card.buttons.map((button) => buildCarouselChoice(button)).filter(Boolean) as string[]);
+    return lines;
+  });
+
+  const hasUrlButtons = normalizedCards.some((card) =>
+    card.buttons.some((button) => (button.type || "").toLowerCase() === "url"),
+  );
+
+  return [
+    {
+      endpoint: `${baseUrl}/send/carousel`,
+      body: structuredPayload,
+      label: "structured_carousel",
+    },
+    {
+      endpoint: `${baseUrl}/send/menu`,
+      body: {
+        ...targetFields,
+        type: hasUrlButtons ? "list" : "carousel",
+        ...(primaryText ? { text: primaryText } : {}),
+        choices: menuChoices,
+      },
+      label: "menu_fallback",
+    },
+  ];
+}
+
 function extractProviderError(raw: string) {
   try {
     const parsed = JSON.parse(raw);
@@ -225,7 +383,7 @@ async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string
 
   for (const attempt of attempts) {
     try {
-      console.log(`[group-carousel] Sending via ${attempt.endpoint}`);
+      console.log(`[group-carousel] Sending via ${attempt.endpoint}${attempt.label ? ` (${attempt.label})` : ""}`);
       const response = await fetchWithTimeout(attempt.endpoint, {
         method: "POST",
         headers,
@@ -276,7 +434,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) return json({ ok: false, error: "Unauthorized" }, 401);
 
-    const { deviceId, groupJid, content, type, caption } = parsedBody.data;
+    const { deviceId, groupJid, content, type, caption, headerText, cards } = parsedBody.data;
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: device, error: deviceError } = await admin
@@ -290,8 +448,41 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Dispositivo não configurado" }, 404);
     }
 
-    let normalizedContent = content;
+    const headers = {
+      token: device.uazapi_token,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    };
+    const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
+
+    const normalizedCarouselCards = normalizeCarouselCards(cards || []);
+    if (normalizedCarouselCards.length > 0) {
+      for (const [index, card] of normalizedCarouselCards.entries()) {
+        if (card.mediaUrl) {
+          if (card.mediaType && card.mediaType !== "image") {
+            return json({ ok: false, error: `Card ${index + 1}: para carrossel em grupo use imagem.` }, 400);
+          }
+
+          const inspectedMedia = await inspectMediaUrl(card.mediaUrl, "image");
+          if (!inspectedMedia.ok) {
+            return json({ ok: false, error: `Card ${index + 1}: ${inspectedMedia.error}` }, 400);
+          }
+
+          card.mediaUrl = inspectedMedia.normalizedUrl;
+        }
+      }
+
+      const attempts = buildCarouselAttempts(baseUrl, groupJid, headerText, normalizedCarouselCards);
+      await sendWithFallbacks(attempts, headers, groupJid);
+      return json({ ok: true, mode: "carousel" });
+    }
+
+    let normalizedContent = content.trim();
     let fileName: string | undefined;
+
+    if (!normalizedContent) {
+      return json({ ok: false, error: "content é obrigatório quando não houver cards." }, 400);
+    }
 
     if (type !== "text") {
       const inspectedMedia = await inspectMediaUrl(content, type);
@@ -303,16 +494,9 @@ Deno.serve(async (req) => {
       fileName = inspectedMedia.fileName;
     }
 
-    const headers = {
-      token: device.uazapi_token,
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    };
-    const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
-    const attempts = buildAttempts(baseUrl, groupJid, normalizedContent, type, caption, fileName);
-
+    const attempts = buildMessageAttempts(baseUrl, groupJid, normalizedContent, type, caption, fileName);
     await sendWithFallbacks(attempts, headers, groupJid);
-    return json({ ok: true });
+    return json({ ok: true, mode: "message" });
   } catch (error: any) {
     console.error("[group-carousel] Error:", error);
     return json({ ok: false, error: error?.message || "Erro interno ao enviar carrossel." }, 500);
