@@ -276,8 +276,15 @@ export default function GroupCarouselDispatch() {
                   <p className="text-xs text-muted-foreground">{selectedGroupDetails.length} grupo(s) selecionado(s)</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedGroupDetails.map((group) => (
-                      <Badge key={group.id} variant="secondary" className="max-w-full">
+                      <Badge key={group.id} variant="secondary" className="max-w-full flex items-center gap-1 pr-1">
                         <span className="truncate">{group.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(group.id)}
+                          className="ml-1 rounded-full p-0.5 hover:bg-destructive/20 hover:text-destructive transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                       </Badge>
                     ))}
                   </div>
