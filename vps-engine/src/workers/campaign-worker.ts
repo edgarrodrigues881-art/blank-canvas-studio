@@ -298,6 +298,16 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
   }
 }
 
+// LID detection: WhatsApp community internal IDs that need @lid suffix
+function isLikelyLid(digits: string): boolean {
+  // LIDs are typically 14-20 digit numbers that don't match phone patterns
+  // Phone numbers with country code are 10-15 digits and start with valid country codes
+  if (digits.length < 14) return false;
+  // If it starts with common country codes + area codes, it's probably a phone
+  if (/^(1|7|20|27|30|31|32|33|34|36|39|40|41|43|44|45|46|47|48|49|51|52|53|54|55|56|57|58|60|61|62|63|64|65|66|81|82|84|86|90|91|92|93|94|95|98)\d{8,13}$/.test(digits)) return false;
+  return true;
+}
+
 function resolveDirectNumber(target: string): string {
   return String(target || "").replace(/\D/g, "");
 }
@@ -308,7 +318,10 @@ function resolveTargetChatId(target: string): string {
   if (raw.includes("@")) return raw;
 
   const digits = resolveDirectNumber(raw);
-  return digits ? `${digits}@s.whatsapp.net` : raw;
+  if (!digits) return raw;
+  // Detect LID numbers and use @lid suffix
+  if (isLikelyLid(digits)) return `${digits}@lid`;
+  return `${digits}@s.whatsapp.net`;
 }
 
 async function sendTextWithFallback(baseUrl: string, token: string, target: string, body: string) {

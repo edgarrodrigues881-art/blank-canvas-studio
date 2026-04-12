@@ -161,7 +161,8 @@ function parseParticipants(rawParticipants: any[], groupJid: string, groupName: 
         // We found a real phone! Add to valid list instead
         valid.push({ phone: recoveredPhone, name: String(name || ""), group_jid: groupJid, group_name: groupName, is_admin: isAdmin });
       } else {
-        const lidId = primaryStr.replace(/@.*$/, "");
+        // Preserve the @lid suffix so campaign worker knows to use it
+        const lidId = primaryStr.includes("@lid") ? primaryStr.trim() : primaryStr.replace(/@.*$/, "");
         lids.push({ phone: lidId, name: String(name || ""), group_jid: groupJid, group_name: groupName, is_admin: isAdmin });
       }
       continue;
