@@ -119,43 +119,37 @@ export default function GroupCarouselDispatch() {
       try {
         // Send header text if exists
         if (headerText.trim()) {
-          await supabase.functions.invoke("chat-send", {
-            body: {
-              deviceId: selectedDevice,
-              remoteJid: groupId,
-              content: headerText.trim(),
-              type: "text",
-            },
+          const { data } = await supabase.functions.invoke("group-carousel-send", {
+            body: { deviceId: selectedDevice, groupJid: groupId, content: headerText.trim(), type: "text" },
           });
+          if (data && !data.ok && data.error) { console.warn("Header send warning:", data.error); }
           await delay(1500);
         }
 
         // Send each card sequentially
         for (const card of cards) {
           if (card.mediaUrl.trim()) {
-            await supabase.functions.invoke("chat-send", {
+            const { data } = await supabase.functions.invoke("group-carousel-send", {
               body: {
                 deviceId: selectedDevice,
-                remoteJid: groupId,
+                groupJid: groupId,
                 content: card.mediaUrl.trim(),
                 type: card.mediaType || "image",
                 caption: card.text.trim() || undefined,
               },
             });
+            if (data && !data.ok && data.error) { console.warn("Card send warning:", data.error); }
           } else if (card.text.trim()) {
-            await supabase.functions.invoke("chat-send", {
-              body: {
-                deviceId: selectedDevice,
-                remoteJid: groupId,
-                content: card.text.trim(),
-                type: "text",
-              },
+            const { data } = await supabase.functions.invoke("group-carousel-send", {
+              body: { deviceId: selectedDevice, groupJid: groupId, content: card.text.trim(), type: "text" },
             });
+            if (data && !data.ok && data.error) { console.warn("Card send warning:", data.error); }
           }
           await delay(2000);
         }
         successCount++;
-      } catch {
+      } catch (err) {
+        console.error("Group send error:", err);
         errorCount++;
       }
       // Delay between groups
