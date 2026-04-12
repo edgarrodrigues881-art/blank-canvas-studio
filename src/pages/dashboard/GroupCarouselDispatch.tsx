@@ -47,6 +47,7 @@ export default function GroupCarouselDispatch() {
   const [selectedDevice, setSelectedDevice] = useState(draft.current?.selectedDevice || "");
   const [selectedGroups, setSelectedGroups] = useState<string[]>(draft.current?.selectedGroups || []);
   const [groupSearch, setGroupSearch] = useState("");
+  const [manualJid, setManualJid] = useState("");
   const [headerText, setHeaderText] = useState(draft.current?.headerText || "");
   const [cards, setCards] = useState<CarouselCard[]>(draft.current?.cards?.length ? draft.current.cards : [createEmptyCard(0)]);
   const [loadingGroups, setLoadingGroups] = useState(false);
