@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { Layers, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -22,18 +22,40 @@ import {
 } from "@/components/campaigns/carousel-types";
 
 const ALLOWED_EMAIL = "edgarrodrigues881@gmail.com";
+const STORAGE_KEY = "group-carousel-draft";
+
+function loadDraft() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as {
+      selectedDevice: string;
+      selectedGroups: string[];
+      headerText: string;
+      cards: CarouselCard[];
+    };
+  } catch {
+    return null;
+  }
+}
 
 export default function GroupCarouselDispatch() {
   const { user } = useAuth();
+  const draft = useRef(loadDraft());
   const [devices, setDevices] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
-  const [selectedDevice, setSelectedDevice] = useState("");
-  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState(draft.current?.selectedDevice || "");
+  const [selectedGroups, setSelectedGroups] = useState<string[]>(draft.current?.selectedGroups || []);
   const [groupSearch, setGroupSearch] = useState("");
-  const [headerText, setHeaderText] = useState("");
-  const [cards, setCards] = useState<CarouselCard[]>([createEmptyCard(0)]);
+  const [headerText, setHeaderText] = useState(draft.current?.headerText || "");
+  const [cards, setCards] = useState<CarouselCard[]>(draft.current?.cards?.length ? draft.current.cards : [createEmptyCard(0)]);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [sending, setSending] = useState(false);
+
+  // Persist draft to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ selectedDevice, selectedGroups, headerText, cards }));
+  }, [selectedDevice, selectedGroups, headerText, cards]);
 
   const isAllowed = user?.email === ALLOWED_EMAIL;
 
@@ -57,7 +79,6 @@ export default function GroupCarouselDispatch() {
     }
 
     setLoadingGroups(true);
-    setSelectedGroups([]);
     setGroupSearch("");
 
     const params = new URLSearchParams({
@@ -85,20 +106,24 @@ export default function GroupCarouselDispatch() {
       });
   }, [selectedDevice]);
 
-  if (!isAllowed) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  const filteredGroups = groups.filter(
-    (group) => !groupSearch || (group.name || group.id || "").toLowerCase().includes(groupSearch.toLowerCase()),
+  const filteredGroups = useMemo(
+    () => groups.filter((group) => !groupSearch || (group.name || group.id || "").toLowerCase().includes(groupSearch.toLowerCase())),
+    [groups, groupSearch],
   );
-  const selectedGroupDetails = groups.filter((group) => selectedGroups.includes(group.id));
+  const selectedGroupDetails = useMemo(
+    () => groups.filter((group) => selectedGroups.includes(group.id)),
+    [groups, selectedGroups],
+  );
 
-  const toggleGroup = (groupId: string) => {
+  const toggleGroup = useCallback((groupId: string) => {
     setSelectedGroups((prev) =>
       prev.includes(groupId) ? prev.filter((value) => value !== groupId) : [...prev, groupId],
     );
-  };
+  }, []);
+
+  if (!isAllowed) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const handleSend = async () => {
     if (!selectedDevice) {
