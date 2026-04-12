@@ -39,6 +39,14 @@ function loadDraft() {
   }
 }
 
+function isCarouselCardTouched(card: CarouselCard) {
+  return Boolean(
+    card.text.trim()
+    || card.mediaUrl.trim()
+    || card.buttons.some((button) => button.text.trim() || button.value.trim()),
+  );
+}
+
 export default function GroupCarouselDispatch() {
   const { user } = useAuth();
   const draft = useRef(loadDraft());
@@ -111,6 +119,7 @@ export default function GroupCarouselDispatch() {
     () => groups.filter((group) => !groupSearch || (group.name || group.id || "").toLowerCase().includes(groupSearch.toLowerCase())),
     [groups, groupSearch],
   );
+  const hasConfiguredCards = useMemo(() => cards.some(isCarouselCardTouched), [cards]);
   const selectedGroupDetails = useMemo(
     () => groups.filter((group) => selectedGroups.includes(group.id)),
     [groups, selectedGroups],
@@ -138,16 +147,26 @@ export default function GroupCarouselDispatch() {
       return;
     }
 
-    const cardErrors = validateCarouselCards(cards);
-    const invalidMediaIndex = cards.findIndex((card) => card.mediaUrl && card.mediaType && card.mediaType !== "image");
+    const touchedCards = cards.filter(isCarouselCardTouched);
+    const hasTextOnlyMessage = !touchedCards.length && headerText.trim();
 
-    if (invalidMediaIndex >= 0) {
-      cardErrors.unshift(`Card ${invalidMediaIndex + 1}: para carrossel em grupo use imagem.`);
+    if (!touchedCards.length && !headerText.trim()) {
+      toast.error("Digite o texto principal ou preencha pelo menos 1 card");
+      return;
     }
 
-    if (cardErrors.length > 0) {
-      toast.error(cardErrors[0]);
-      return;
+    if (touchedCards.length > 0) {
+      const cardErrors = validateCarouselCards(touchedCards);
+      const invalidMediaIndex = touchedCards.findIndex((card) => card.mediaUrl && card.mediaType && card.mediaType !== "image");
+
+      if (invalidMediaIndex >= 0) {
+        cardErrors.unshift(`Card ${invalidMediaIndex + 1}: para carrossel em grupo use imagem.`);
+      }
+
+      if (cardErrors.length > 0) {
+        toast.error(cardErrors[0]);
+        return;
+      }
     }
 
     setSending(true);
@@ -158,20 +177,38 @@ export default function GroupCarouselDispatch() {
     try {
       for (const groupId of selectedGroups) {
         const result = await supabase.functions.invoke("group-carousel-send", {
-          body: {
-            deviceId: selectedDevice,
-            groupJid: groupId,
-            headerText: headerText.trim() || undefined,
-            cards: serializeCarouselCards(cards),
-          },
+          body: hasTextOnlyMessage
+            ? {
+                deviceId: selectedDevice,
+                groupJid: groupId,
+                content: headerText.trim(),
+                type: "text",
+              }
+            : {
+                deviceId: selectedDevice,
+                groupJid: groupId,
+                headerText: headerText.trim() || undefined,
+                cards: serializeCarouselCards(touchedCards),
+              },
         });
 
         try {
-          assertFunctionSuccess(result, "Falha ao enviar carrossel para o grupo.");
+          assertFunctionSuccess(
+            result,
+            hasTextOnlyMessage
+              ? "Falha ao enviar mensagem para o grupo."
+              : "Falha ao enviar carrossel para o grupo.",
+          );
           successCount += 1;
         } catch (error) {
           errorCount += 1;
-          failures.push(error instanceof Error ? error.message : "Falha ao enviar carrossel.");
+          failures.push(
+            error instanceof Error
+              ? error.message
+              : hasTextOnlyMessage
+                ? "Falha ao enviar mensagem."
+                : "Falha ao enviar carrossel.",
+          );
         }
       }
     } finally {
@@ -179,7 +216,11 @@ export default function GroupCarouselDispatch() {
     }
 
     if (successCount > 0) {
-      toast.success(`Carrossel enviado para ${successCount} grupo(s)`);
+      toast.success(
+        hasTextOnlyMessage
+          ? `Mensagem enviada para ${successCount} grupo(s)`
+          : `Carrossel enviado para ${successCount} grupo(s)`,
+      );
     }
 
     if (errorCount > 0) {
@@ -203,8 +244,8 @@ export default function GroupCarouselDispatch() {
       <Card>
         <CardContent className="pt-6">
           <p className="text-sm text-muted-foreground">
-            Aqui o sistema tenta enviar o <strong className="text-foreground">carrossel nativo</strong> com imagem e botões.
-            Se a UAZAPI/WhatsApp não aceitar carrossel em grupo, ele vai retornar erro e <strong className="text-foreground">não vai mais cair para mensagem comum</strong>.
+            Se houver cards preenchidos, o sistema tenta enviar o <strong className="text-foreground">carrossel nativo</strong>.
+            Se você preencher só o <strong className="text-foreground">Texto principal</strong>, ele envia uma <strong className="text-foreground">mensagem normal</strong> no grupo.
           </p>
         </CardContent>
       </Card>
@@ -344,7 +385,8 @@ export default function GroupCarouselDispatch() {
           </>
         ) : (
           <>
-            <Send className="mr-2 h-4 w-4" /> Enviar carrossel para {selectedGroups.length || 0} grupo(s)
+            <Send className="mr-2 h-4 w-4" />
+            {hasConfiguredCards ? "Enviar carrossel" : "Enviar mensagem"} para {selectedGroups.length || 0} grupo(s)
           </>
         )}
       </Button>
