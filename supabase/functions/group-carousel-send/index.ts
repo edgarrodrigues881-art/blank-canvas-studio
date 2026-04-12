@@ -510,6 +510,47 @@ async function fetchGroupDeliveryMode(baseUrl: string, headers: Record<string, s
   return "default";
 }
 
+async function toggleGroupAnnounce(baseUrl: string, headers: Record<string, string>, groupJid: string, announce: boolean): Promise<boolean> {
+  try {
+    console.log(`[group-carousel] Setting announce=${announce} for ${groupJid}`);
+    const response = await fetchWithTimeout(
+      `${baseUrl}/group/updateAnnounce`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ groupjid: groupJid, announce }),
+      },
+      10_000,
+    );
+    const raw = await response.text();
+    console.log(`[group-carousel] updateAnnounce response: ${response.status} ${raw.substring(0, 200)}`);
+    return response.ok;
+  } catch (error: any) {
+    console.warn(`[group-carousel] Failed to toggle announce for ${groupJid}:`, error?.message);
+    return false;
+  }
+}
+
+async function sendToRestrictedGroup(
+  baseUrl: string,
+  headers: Record<string, string>,
+  groupJid: string,
+  sendFn: () => Promise<void>,
+): Promise<void> {
+  const unlocked = await toggleGroupAnnounce(baseUrl, headers, groupJid, false);
+  if (unlocked) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+  try {
+    await sendFn();
+  } finally {
+    if (unlocked) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await toggleGroupAnnounce(baseUrl, headers, groupJid, true);
+    }
+  }
+}
+
 function renderCarouselAsTextFallback(headerText: string | undefined, cards: CarouselCard[]) {
   const normalizedCards = normalizeCarouselCards(cards);
   const parts: string[] = [];
@@ -666,10 +707,17 @@ Deno.serve(async (req) => {
 
       const deliveryMode = await fetchGroupDeliveryMode(baseUrl, headers, groupJid);
       if (deliveryMode === "restricted") {
-        const fallbackText = renderCarouselAsTextFallback(headerText, normalizedCarouselCards);
-        const textAttempts = buildMessageAttempts(baseUrl, groupJid, fallbackText, "text");
-        await sendWithFallbacks(textAttempts, headers, groupJid);
-        return json({ ok: true, mode: "restricted_text_fallback" });
+        const carouselAttempts = buildCarouselAttempts(baseUrl, groupJid, headerText, normalizedCarouselCards);
+        const textFallbackAttempts = buildMessageAttempts(
+          baseUrl, groupJid,
+          renderCarouselAsTextFallback(headerText, normalizedCarouselCards),
+          "text",
+        );
+        const allAttempts = [...carouselAttempts, ...textFallbackAttempts];
+        await sendToRestrictedGroup(baseUrl, headers, groupJid, () =>
+          sendWithFallbacks(allAttempts, headers, groupJid),
+        );
+        return json({ ok: true, mode: "restricted_unlocked" });
       }
 
       const attempts = buildCarouselAttempts(baseUrl, groupJid, headerText, normalizedCarouselCards);
