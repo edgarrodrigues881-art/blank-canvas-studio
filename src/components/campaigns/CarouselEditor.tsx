@@ -148,7 +148,11 @@ export function CarouselEditor({ cards, onChange }: CarouselEditorProps) {
 
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !session) return;
+    if (!file) return;
+    if (!session) {
+      toast({ title: "Sessão expirada", description: "Faça login novamente para enviar mídia.", variant: "destructive" });
+      return;
+    }
     if (file.size > 20 * 1024 * 1024) {
       toast({ title: "Arquivo muito grande", description: "Máximo 20MB.", variant: "destructive" });
       return;
@@ -168,6 +172,7 @@ export function CarouselEditor({ cards, onChange }: CarouselEditorProps) {
       });
       toast({ title: "Mídia enviada!" });
     } catch (err: any) {
+      console.error("[CarouselEditor] upload error:", err);
       toast({ title: "Erro no upload", description: err.message, variant: "destructive" });
     } finally {
       setUploading(false);
@@ -266,16 +271,17 @@ export function CarouselEditor({ cards, onChange }: CarouselEditorProps) {
         <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
           Mídia do Card {activeCardIndex + 1}
         </label>
-        <input type="file" ref={mediaRef} accept="image/*,video/*" className="hidden" onChange={handleMediaUpload} />
+        <input type="file" ref={mediaRef} accept="image/*,video/*,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mov" className="hidden" onChange={handleMediaUpload} />
         {!activeCard.mediaUrl ? (
           <button
-            onClick={() => mediaRef.current?.click()}
+            type="button"
+            onClick={() => { console.log("[CarouselEditor] upload click, ref:", !!mediaRef.current); mediaRef.current?.click(); }}
             disabled={uploading}
-            className="w-full py-4 rounded-xl border-2 border-dashed border-border/30 dark:border-border/15 hover:border-primary/40 bg-muted/5 dark:bg-muted/3 flex flex-col items-center justify-center gap-1.5 transition-colors duration-100 hover:bg-primary/5 group"
+            className="w-full py-6 rounded-xl border-2 border-dashed border-primary/30 hover:border-primary/50 bg-primary/5 flex flex-col items-center justify-center gap-2 transition-colors duration-100 hover:bg-primary/10 group cursor-pointer"
           >
-            {uploading ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <ImageIcon className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />}
-            <span className="text-[10px] text-muted-foreground/50 group-hover:text-muted-foreground transition-colors">
-              {uploading ? "Enviando..." : "Imagem ou vídeo"}
+            {uploading ? <Loader2 className="w-5 h-5 animate-spin text-primary" /> : <ImageIcon className="w-5 h-5 text-primary/60 group-hover:text-primary transition-colors" />}
+            <span className="text-xs font-medium text-primary/70 group-hover:text-primary transition-colors">
+              {uploading ? "Enviando..." : "Toque para adicionar imagem"}
             </span>
           </button>
         ) : (
