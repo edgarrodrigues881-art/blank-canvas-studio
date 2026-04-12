@@ -1686,46 +1686,9 @@ const Devices = () => {
     stopPolling();
     pauseKeepAlive();
 
-    // If no proxies and device has no proxy, skip proxy step → go straight to QR
-    const hasProxies = dbProxies.length > 0 || !!device.proxy_id;
-    if (!hasProxies) {
-      setConnectStep("qr");
-      setConnectOpen(true);
-      try {
-        const result = await callApi({
-          action: "connect",
-          deviceId: device.id,
-          forceReconnect: true,
-        });
-        if (!result) throw new Error("Falha ao conectar");
-        if (result.error) {
-          setConnectError(result.error);
-          if (result.code === "DUPLICATE_PHONE") setConnectStep("proxy");
-          queryClient.invalidateQueries({ queryKey: ["devices"] });
-          return;
-        }
-        if (result.alreadyConnected) {
-          queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
-            old ? old.map(d => d.id === device.id ? { ...d, status: "Ready" as const, number: result.phone || d.number } : d) : old
-          );
-          queryClient.invalidateQueries({ queryKey: ["devices"] });
-          queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
-          setConnectStep("done");
-          setConnectOpen(false); resumeKeepAlive();
-          return;
-        }
-        const b64 = result.base64 || result.qr;
-        if (b64) {
-          setQrCodeBase64(b64.startsWith("data:") ? b64 : `data:image/png;base64,${b64}`);
-        }
-        startPolling(device.id, null);
-      } catch (err: any) {
-        setConnectError(err?.message || "Erro ao conectar");
-      }
-    } else {
-      setConnectStep("proxy");
-      setConnectOpen(true);
-    }
+    // Always show proxy step with QR/Code options
+    setConnectStep("proxy");
+    setConnectOpen(true);
   };
 
   const handleConnect = (method: "qr" | "code") => {
