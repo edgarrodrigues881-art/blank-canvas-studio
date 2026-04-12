@@ -1609,14 +1609,14 @@ const Devices = () => {
   }, [connectStep, qrCodeBase64, connectingDevice]);
 
   // Poll connection status
-  const startPolling = (deviceId: string, proxyId: string | null) => {
+  const startPolling = (deviceId: string, _proxyId: string | null, connectionMode: "qr" | "code" = "qr") => {
     stopPolling();
     let inFlight = false;
     const interval = setInterval(async () => {
       if (inFlight) return;
       inFlight = true;
       try {
-        const result = await callApi({ action: "status", deviceId });
+          const result = await callApi({ action: "status", deviceId, connectionMode });
         // Check for duplicate phone error
         if (result?.error && result?.code === "DUPLICATE_PHONE") {
           clearInterval(interval);
@@ -1798,7 +1798,7 @@ const Devices = () => {
       }
 
       // Start polling for connection status
-      startPolling(connectingDevice.id, proxyId);
+      startPolling(connectingDevice.id, proxyId, "qr");
     } catch (err: any) {
       console.error("Connect error:", err);
       setConnectError(err?.message || "Erro ao conectar");
@@ -2587,11 +2587,14 @@ const Devices = () => {
               const isValid = rawDigits.length >= 12;
               const handleRequestCode = async () => {
                 if (!connectingDevice || !isValid) return;
+                const proxyId = selectedProxy && selectedProxy !== "none" ? selectedProxy : null;
+                const selectedProxyData = proxyId ? availableProxies.find(p => p.id === proxyId) : null;
                 setConnectStep("code");
+                setPairingCode("");
+                setConnectError("");
                 try {
-                  const pd = connectingDevice.proxy_id ? availableProxies.find(p => p.id === connectingDevice.proxy_id) : null;
-                  const pp = pd ? { host: pd.host, port: pd.port, username: pd.username, password: pd.password, type: pd.type } : undefined;
-                  const result = await callApi({ action: "requestPairingCode", deviceId: connectingDevice.id, phoneNumber: rawDigits, proxyConfig: pp, proxyId: connectingDevice.proxy_id || undefined });
+                  const pp = selectedProxyData ? { host: selectedProxyData.host, port: selectedProxyData.port, username: selectedProxyData.username, password: selectedProxyData.password, type: selectedProxyData.type } : undefined;
+                  const result = await callApi({ action: "requestPairingCode", deviceId: connectingDevice.id, phoneNumber: rawDigits, proxyConfig: pp, proxyId: proxyId || undefined });
                   void 0;
                   if (result?.error && result?.code === "PROXY_FAILED") {
                     setConnectError(result.error);
@@ -2602,13 +2605,18 @@ const Devices = () => {
                   }
                   if (result.alreadyConnected) { setConnectStep("done"); return; }
                   const code = result.pairingCode || result.pairing_code;
-                  if (code) { setPairingCode(code); startPolling(connectingDevice.id, null); }
-                  else if (result.suggestQr) { toast({ title: "Código não suportado", description: "Use o QR Code.", variant: "destructive" }); setConnectStep("qr"); if (result.qrCode) setQrCodeBase64(result.qrCode); startPolling(connectingDevice.id, null); }
-                  else { toast({ title: "Código não disponível", description: "Conecte via QR Code.", variant: "destructive" }); setConnectStep("qr"); startPolling(connectingDevice.id, null); }
-                } catch {
-                  toast({ title: "Código não disponível", description: "Conecte via QR Code.", variant: "destructive" });
-                  setConnectStep("qr");
-                  if (connectingDevice) startPolling(connectingDevice.id, null);
+                  if (code) {
+                    setPairingCode(code);
+                    startPolling(connectingDevice.id, null, "code");
+                  } else {
+                    const errorMessage = result?.error || "Não foi possível gerar o código agora. Tente novamente.";
+                    setConnectError(errorMessage);
+                    toast({ title: "Código não disponível", description: errorMessage, variant: "destructive" });
+                  }
+                } catch (err: any) {
+                  const errorMessage = err?.message || "Não foi possível gerar o código agora. Tente novamente.";
+                  setConnectError(errorMessage);
+                  toast({ title: "Código não disponível", description: errorMessage, variant: "destructive" });
                 }
               };
               return (
