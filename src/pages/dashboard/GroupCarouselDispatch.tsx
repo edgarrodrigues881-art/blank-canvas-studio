@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Layers, Send, Plus, Trash2, Loader2 } from "lucide-react";
+import { Layers, Send, Plus, Trash2, Loader2, Upload, X } from "lucide-react";
 import { Navigate } from "react-router-dom";
 
 const ALLOWED_EMAIL = "edgarrodrigues881@gmail.com";
@@ -18,7 +18,7 @@ interface CarouselCard {
   id: string;
   text: string;
   mediaUrl: string;
-  mediaType: "image" | "video" | "document" | null;
+  mediaType: "image" | "video" | "document" | "audio" | null;
 }
 
 export default function GroupCarouselDispatch() {
@@ -34,6 +34,7 @@ export default function GroupCarouselDispatch() {
   const [headerText, setHeaderText] = useState("");
   const [sending, setSending] = useState(false);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const [uploadingCardId, setUploadingCardId] = useState<string | null>(null);
 
   const isAllowed = user?.email === ALLOWED_EMAIL;
 
@@ -50,8 +51,10 @@ export default function GroupCarouselDispatch() {
 
   // Load groups when device selected
   useEffect(() => {
-    if (!selectedDevice) { setGroups([]); return; }
+    if (!selectedDevice) { setGroups([]); setSelectedGroups([]); setGroupSearch(""); return; }
     setLoadingGroups(true);
+    setSelectedGroups([]);
+    setGroupSearch("");
 
     // whapi-chats reads action & device_id from query params, returns { chats }
     const params = new URLSearchParams({ device_id: selectedDevice, action: "list_chats", quick: "true" });
@@ -60,10 +63,14 @@ export default function GroupCarouselDispatch() {
     }).then(({ data, error }) => {
       setLoadingGroups(false);
       if (error) { toast.error("Erro ao carregar grupos"); return; }
-      // chats are already filtered to groups by the edge function
-      setGroups(data?.chats || []);
+      const normalizedGroups = normalizeGroupOptions(data?.chats || []);
+      setGroups(normalizedGroups);
+      setSelectedGroups(prev => prev.filter(groupId => normalizedGroups.some(group => group.id === groupId)));
+    }).catch(() => {
+      setLoadingGroups(false);
+      toast.error("Erro ao carregar grupos");
     });
-  }, [selectedDevice, devices]);
+  }, [selectedDevice]);
 
   // Gate: only allowed email
   if (!isAllowed) {
@@ -81,17 +88,49 @@ export default function GroupCarouselDispatch() {
   };
 
   const updateCard = (id: string, field: keyof CarouselCard, value: string) => {
-    setCards(cards.map(c => {
+    setCards(prev => prev.map(c => {
       if (c.id !== id) return c;
       const updated = { ...c, [field]: value };
-      if (field === "mediaUrl" && value) {
-        const clean = value.toLowerCase().split("?")[0];
-        if (/(mp4|mov|webm|3gp)$/.test(clean)) updated.mediaType = "video";
-        else if (/(pdf|doc|docx|xls|xlsx)$/.test(clean)) updated.mediaType = "document";
-        else updated.mediaType = "image";
+      if (field === "mediaUrl") {
+        updated.mediaType = detectMediaType(value);
       }
       return updated;
     }));
+  };
+
+  const handleMediaUpload = async (cardId: string, file: File | null | undefined) => {
+    if (!file || !user) return;
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error("Máximo de 20MB por arquivo");
+      return;
+    }
+
+    setUploadingCardId(cardId);
+    try {
+      const ext = file.name.split(".").pop() || "bin";
+      const path = `${user.id}/group-carousel/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from("media").upload(path, file, {
+        upsert: true,
+        contentType: file.type || undefined,
+      });
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from("media").getPublicUrl(path);
+      setCards(prev => prev.map(card => card.id === cardId
+        ? { ...card, mediaUrl: urlData.publicUrl, mediaType: detectMediaType(urlData.publicUrl, file.type) }
+        : card));
+      toast.success("Mídia carregada");
+    } catch (err: any) {
+      toast.error(err?.message || "Erro no upload da mídia");
+    } finally {
+      setUploadingCardId(null);
+    }
+  };
+
+  const clearCardMedia = (cardId: string) => {
+    setCards(prev => prev.map(card => card.id === cardId
+      ? { ...card, mediaUrl: "", mediaType: null }
+      : card));
   };
 
   const toggleGroup = (groupId: string) => {
@@ -103,6 +142,7 @@ export default function GroupCarouselDispatch() {
   const filteredGroups = groups.filter(g =>
     !groupSearch || (g.name || g.id || "").toLowerCase().includes(groupSearch.toLowerCase())
   );
+  const selectedGroupDetails = groups.filter(group => selectedGroups.includes(group.id));
 
   const handleSend = async () => {
     if (!selectedDevice) { toast.error("Selecione uma instância"); return; }
@@ -190,10 +230,18 @@ export default function GroupCarouselDispatch() {
         </div>
         <div>
           <h1 className="text-xl font-bold">Carrossel em Grupos</h1>
-          <p className="text-sm text-muted-foreground">Envie cards simulados de carrossel dentro de grupos do WhatsApp</p>
+          <p className="text-sm text-muted-foreground">Envie uma sequência simulada de cards dentro do grupo selecionado</p>
         </div>
         <Badge variant="outline" className="ml-auto text-xs border-amber-500/50 text-amber-400">Beta</Badge>
       </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground">
+            Em grupos, a API não entrega o carrossel nativo do WhatsApp. Aqui o envio acontece como uma sequência de cards, um por vez, no grupo escolhido.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Instance selector */}
       <Card>
@@ -249,8 +297,17 @@ export default function GroupCarouselDispatch() {
               ))}
             </div>
           )}
-          {selectedGroups.length > 0 && (
-            <p className="text-xs text-muted-foreground">{selectedGroups.length} grupo(s) selecionado(s)</p>
+          {selectedGroupDetails.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">{selectedGroupDetails.length} grupo(s) selecionado(s)</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedGroupDetails.map(group => (
+                  <Badge key={group.id} variant="secondary" className="max-w-full">
+                    <span className="truncate">{group.name}</span>
+                  </Badge>
+                ))}
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -283,6 +340,7 @@ export default function GroupCarouselDispatch() {
         <CardContent className="space-y-4">
             {cards.map((card, i) => {
               const mediaHint = getObviousMediaUrlError(card.mediaUrl.trim());
+              const isUploading = uploadingCardId === card.id;
 
               return (
               <div key={card.id} className="border rounded-xl p-4 space-y-3 relative">
@@ -301,8 +359,54 @@ export default function GroupCarouselDispatch() {
                   value={card.mediaUrl}
                   onChange={e => updateCard(card.id, "mediaUrl", e.target.value)}
                 />
+                <div className="flex flex-wrap gap-2">
+                  <label
+                    htmlFor={`carousel-media-${card.id}`}
+                    className="inline-flex h-9 cursor-pointer items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enviando...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" /> Enviar arquivo
+                      </>
+                    )}
+                  </label>
+                  <input
+                    id={`carousel-media-${card.id}`}
+                    type="file"
+                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt"
+                    className="hidden"
+                    disabled={isUploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      void handleMediaUpload(card.id, file);
+                      e.currentTarget.value = "";
+                    }}
+                  />
+                  {card.mediaUrl && (
+                    <Button size="sm" type="button" variant="ghost" onClick={() => clearCardMedia(card.id)}>
+                      <X className="w-4 h-4 mr-1" /> Remover mídia
+                    </Button>
+                  )}
+                </div>
                 {mediaHint && (
                   <p className="text-xs text-destructive">{mediaHint}</p>
+                )}
+                {card.mediaUrl && (
+                  <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+                    {card.mediaType === "image" && (
+                      <img
+                        src={card.mediaUrl}
+                        alt={`Prévia da mídia do card ${i + 1}`}
+                        className="h-32 w-full rounded-md object-cover"
+                        loading="lazy"
+                      />
+                    )}
+                    <p className="text-xs text-muted-foreground break-all">{card.mediaUrl}</p>
+                  </div>
                 )}
               </div>
               <div className="space-y-2">
@@ -342,6 +446,31 @@ export default function GroupCarouselDispatch() {
 
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function normalizeGroupOptions(rawGroups: any[]) {
+  return rawGroups
+    .map((group) => {
+      const id = String(group?.id || group?.JID || group?.jid || group?.groupJid || group?.chatId || "").trim();
+      if (!id.endsWith("@g.us")) return null;
+
+      return {
+        ...group,
+        id,
+        name: String(group?.name || group?.Name || group?.Subject || group?.subject || group?.groupName || id || "Grupo sem nome").trim(),
+      };
+    })
+    .filter(Boolean);
+}
+
+function detectMediaType(value: string, mimeType?: string): CarouselCard["mediaType"] {
+  const clean = value.toLowerCase().split("?")[0];
+
+  if (!clean.trim()) return null;
+  if (mimeType?.startsWith("video/") || /(mp4|mov|webm|3gp)$/i.test(clean)) return "video";
+  if (mimeType?.startsWith("audio/") || /(mp3|ogg|wav|m4a|aac)$/i.test(clean)) return "audio";
+  if (mimeType?.startsWith("application/") || /(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv)$/i.test(clean)) return "document";
+  return "image";
 }
 
 function assertFunctionSuccess(result: { data: any; error: any }, fallbackMessage: string) {
