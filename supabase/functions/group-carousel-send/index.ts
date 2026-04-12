@@ -462,11 +462,11 @@ async function fetchGroupDeliveryMode(baseUrl: string, headers: Record<string, s
     {
       method: "POST",
       url: `${baseUrl}/group/info`,
-      body: JSON.stringify({ groupJid }),
+      body: JSON.stringify({ groupjid: groupJid }),
     },
     {
       method: "GET",
-      url: `${baseUrl}/group/info?groupJid=${encodeURIComponent(groupJid)}`,
+      url: `${baseUrl}/group/info?groupjid=${encodeURIComponent(groupJid)}`,
     },
     {
       method: "POST",
