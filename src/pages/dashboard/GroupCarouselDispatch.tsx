@@ -79,7 +79,6 @@ export default function GroupCarouselDispatch() {
     }
 
     setLoadingGroups(true);
-    setSelectedGroups([]);
     setGroupSearch("");
 
     const params = new URLSearchParams({
@@ -107,20 +106,20 @@ export default function GroupCarouselDispatch() {
       });
   }, [selectedDevice]);
 
-  if (!isAllowed) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  const filteredGroups = groups.filter(
-    (group) => !groupSearch || (group.name || group.id || "").toLowerCase().includes(groupSearch.toLowerCase()),
+  const filteredGroups = useMemo(
+    () => groups.filter((group) => !groupSearch || (group.name || group.id || "").toLowerCase().includes(groupSearch.toLowerCase())),
+    [groups, groupSearch],
   );
-  const selectedGroupDetails = groups.filter((group) => selectedGroups.includes(group.id));
+  const selectedGroupDetails = useMemo(
+    () => groups.filter((group) => selectedGroups.includes(group.id)),
+    [groups, selectedGroups],
+  );
 
-  const toggleGroup = (groupId: string) => {
+  const toggleGroup = useCallback((groupId: string) => {
     setSelectedGroups((prev) =>
       prev.includes(groupId) ? prev.filter((value) => value !== groupId) : [...prev, groupId],
     );
-  };
+  }, []);
 
   const handleSend = async () => {
     if (!selectedDevice) {
