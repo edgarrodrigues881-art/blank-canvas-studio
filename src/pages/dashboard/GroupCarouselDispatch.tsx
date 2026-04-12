@@ -35,14 +35,11 @@ export default function GroupCarouselDispatch() {
   const [sending, setSending] = useState(false);
   const [loadingGroups, setLoadingGroups] = useState(false);
 
-  // Gate: only allowed email
-  if (user?.email !== ALLOWED_EMAIL) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  const isAllowed = user?.email === ALLOWED_EMAIL;
 
   // Load devices
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isAllowed) return;
     supabase
       .from("devices")
       .select("id, name, number, status")
@@ -52,6 +49,11 @@ export default function GroupCarouselDispatch() {
   }, [user]);
 
   // Load groups when device selected
+  // Gate: only allowed email
+  if (!isAllowed) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   useEffect(() => {
     if (!selectedDevice) { setGroups([]); return; }
     setLoadingGroups(true);
