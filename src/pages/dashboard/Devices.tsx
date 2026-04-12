@@ -2589,10 +2589,6 @@ const Devices = () => {
                 if (!connectingDevice || !isValid) return;
                 setConnectStep("code");
                 try {
-                  if (!connectingDevice.has_api_config) {
-                    toast({ title: "Sem token configurado", description: "Solicite ao administrador a atribuição de um token.", variant: "destructive" });
-                    return;
-                  }
                   const pd = connectingDevice.proxy_id ? availableProxies.find(p => p.id === connectingDevice.proxy_id) : null;
                   const pp = pd ? { host: pd.host, port: pd.port, username: pd.username, password: pd.password, type: pd.type } : undefined;
                   const result = await callApi({ action: "requestPairingCode", deviceId: connectingDevice.id, phoneNumber: rawDigits, proxyConfig: pp, proxyId: connectingDevice.proxy_id || undefined });
