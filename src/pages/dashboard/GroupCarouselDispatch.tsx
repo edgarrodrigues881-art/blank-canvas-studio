@@ -24,6 +24,13 @@ import {
 const ALLOWED_EMAIL = "edgarrodrigues881@gmail.com";
 const STORAGE_KEY = "group-carousel-draft";
 
+type SendResultItem = {
+  groupId: string;
+  groupName: string;
+  status: "success" | "error";
+  message: string;
+};
+
 function loadDraft() {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
@@ -47,6 +54,50 @@ function isCarouselCardTouched(card: CarouselCard) {
   );
 }
 
+function isTruthyGroupFlag(value: unknown) {
+  if (value === true || value === 1 || value === "1") return true;
+  return typeof value === "string" && value.trim().toLowerCase() === "true";
+}
+
+function isFalsyGroupFlag(value: unknown) {
+  if (value === false || value === 0 || value === "0") return true;
+  return typeof value === "string" && value.trim().toLowerCase() === "false";
+}
+
+function isAdminsOnlyGroup(group: any) {
+  const positiveFlags = [
+    group?.adminOnlyMessage,
+    group?.adminOnlyMessages,
+    group?.adminOnly,
+    group?.onlyAdminsCanSend,
+    group?.onlyAdminCanSend,
+    group?.isGroupAnnouncement,
+    group?.isAnnouncement,
+    group?.announcement,
+    group?.announce,
+    group?.Announce,
+    group?.isAnnounce,
+    group?.IsAnnounce,
+    group?.restrictMessage,
+    group?.restrictMessages,
+    group?.sendMessagesAdminOnly,
+  ];
+
+  const negativeFlags = [
+    group?.OwnerCanSendMessage,
+    group?.ownerCanSendMessage,
+    group?.canSendMessage,
+    group?.canSendMessages,
+    group?.CanSendMessage,
+    group?.CanSendMessages,
+    group?.membersCanSendMessage,
+    group?.membersCanSendMessages,
+  ];
+
+  return positiveFlags.some((flag) => isTruthyGroupFlag(flag))
+    || negativeFlags.some((flag) => isFalsyGroupFlag(flag));
+}
+
 export default function GroupCarouselDispatch() {
   const { user } = useAuth();
   const draft = useRef(loadDraft());
@@ -60,6 +111,7 @@ export default function GroupCarouselDispatch() {
   const [cards, setCards] = useState<CarouselCard[]>(draft.current?.cards?.length ? draft.current.cards : [createEmptyCard(0)]);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [sending, setSending] = useState(false);
+  const [sendResults, setSendResults] = useState<SendResultItem[]>([]);
 
   // Persist draft to sessionStorage
   useEffect(() => {
@@ -120,9 +172,17 @@ export default function GroupCarouselDispatch() {
     [groups, groupSearch],
   );
   const hasConfiguredCards = useMemo(() => cards.some(isCarouselCardTouched), [cards]);
+  const groupNameMap = useMemo(
+    () => new Map(groups.map((group) => [group.id, group.name || group.id])),
+    [groups],
+  );
   const selectedGroupDetails = useMemo(
     () => groups.filter((group) => selectedGroups.includes(group.id)),
     [groups, selectedGroups],
+  );
+  const selectedRestrictedGroups = useMemo(
+    () => selectedGroupDetails.filter((group) => isAdminsOnlyGroup(group)),
+    [selectedGroupDetails],
   );
 
   const toggleGroup = useCallback((groupId: string) => {
@@ -170,12 +230,15 @@ export default function GroupCarouselDispatch() {
     }
 
     setSending(true);
+    setSendResults([]);
     let successCount = 0;
     let errorCount = 0;
     const failures: string[] = [];
+    const results: SendResultItem[] = [];
 
     try {
       for (const groupId of selectedGroups) {
+        const groupName = groupNameMap.get(groupId) || groupId;
         const result = await supabase.functions.invoke("group-carousel-send", {
           body: hasTextOnlyMessage
             ? {
@@ -200,20 +263,30 @@ export default function GroupCarouselDispatch() {
               : "Falha ao enviar carrossel para o grupo.",
           );
           successCount += 1;
+          results.push({
+            groupId,
+            groupName,
+            status: "success",
+            message: hasTextOnlyMessage
+              ? "Mensagem enviada com sucesso para este grupo."
+              : "Carrossel enviado com sucesso para este grupo.",
+          });
         } catch (error) {
           errorCount += 1;
-          failures.push(
-            error instanceof Error
-              ? error.message
-              : hasTextOnlyMessage
-                ? "Falha ao enviar mensagem."
-                : "Falha ao enviar carrossel.",
-          );
+          const message = error instanceof Error
+            ? error.message
+            : hasTextOnlyMessage
+              ? "Falha ao enviar mensagem."
+              : "Falha ao enviar carrossel.";
+          failures.push(message);
+          results.push({ groupId, groupName, status: "error", message });
         }
       }
     } finally {
       setSending(false);
     }
+
+    setSendResults(results);
 
     if (successCount > 0) {
       toast.success(
@@ -319,6 +392,11 @@ export default function GroupCarouselDispatch() {
                     {selectedGroupDetails.map((group) => (
                       <Badge key={group.id} variant="secondary" className="max-w-full flex items-center gap-1 pr-1">
                         <span className="truncate">{group.name}</span>
+                        {isAdminsOnlyGroup(group) && (
+                          <span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive">
+                            só admins
+                          </span>
+                        )}
                         <button
                           type="button"
                           onClick={() => toggleGroup(group.id)}
@@ -329,6 +407,16 @@ export default function GroupCarouselDispatch() {
                       </Badge>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {selectedRestrictedGroups.length > 0 && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
+                  <p className="text-sm font-semibold text-destructive">Atenção: grupo com envio restrito</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Pelo menos um grupo selecionado está marcado como <strong className="text-foreground">somente admins</strong>.
+                    Se a sua instância não for administradora desse grupo, o WhatsApp/UAZAPI vai bloquear o envio.
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -390,6 +478,39 @@ export default function GroupCarouselDispatch() {
           </>
         )}
       </Button>
+
+      {sendResults.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Resultado do último envio</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {sendResults.map((result) => (
+              <div
+                key={`${result.groupId}-${result.status}`}
+                className={result.status === "success"
+                  ? "rounded-lg border border-primary/20 bg-primary/5 p-3"
+                  : "rounded-lg border border-destructive/30 bg-destructive/10 p-3"
+                }
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-medium text-foreground">{result.groupName}</p>
+                  <Badge
+                    variant="outline"
+                    className={result.status === "success"
+                      ? "border-primary/30 text-primary"
+                      : "border-destructive/30 text-destructive"
+                    }
+                  >
+                    {result.status === "success" ? "enviado" : "falhou"}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">{result.message}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
