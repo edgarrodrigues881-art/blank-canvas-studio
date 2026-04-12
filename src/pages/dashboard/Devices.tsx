@@ -191,7 +191,7 @@ const Devices = () => {
   // Connect dialog
   const [connectOpen, setConnectOpen] = useState(false);
   const [connectingDevice, setConnectingDevice] = useState<Device | null>(null);
-  const [connectStep, setConnectStep] = useState<"choose" | "proxy" | "qr" | "code_phone" | "code" | "connecting" | "done">("proxy");
+  const [connectStep, setConnectStep] = useState<"choose" | "proxy" | "qr" | "code_phone" | "code" | "connecting" | "done">("choose");
   const [codePhone, setCodePhone] = useState("");
   const [qrCodeBase64, setQrCodeBase64] = useState("");
   const [pairingCode, setPairingCode] = useState("");
@@ -591,7 +591,7 @@ const Devices = () => {
             updated_at: data.device.updated_at || new Date().toISOString(),
             has_api_config: data.device.has_api_config || false,
           });
-          setConnectStep("proxy");
+          setConnectStep("choose");
           setQrCodeBase64("");
           setPairingCode("");
           setConnectError("");
@@ -1686,8 +1686,8 @@ const Devices = () => {
     stopPolling();
     pauseKeepAlive();
 
-    // Always show proxy step with QR/Code options
-    setConnectStep("proxy");
+    // Always open on the method chooser first
+    setConnectStep("choose");
     setConnectOpen(true);
   };
 
@@ -2354,7 +2354,7 @@ const Devices = () => {
       </Dialog>
 
       <Dialog open={connectOpen} onOpenChange={(open) => {
-        if (!open) { stopPolling(); setConnectStep("proxy"); setConnectOpen(false); resumeKeepAlive(); }
+        if (!open) { stopPolling(); setConnectStep("choose"); setConnectOpen(false); resumeKeepAlive(); }
       }}>
         <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
           {/* Header */}
@@ -2738,7 +2738,7 @@ const Devices = () => {
                   <p className="text-lg font-bold text-foreground">Conectado com sucesso!</p>
                   <p className="text-sm text-muted-foreground mt-1">Sua instância está pronta para uso</p>
                 </div>
-                <Button className="h-10 px-8" onClick={() => { stopPolling(); setConnectStep("proxy"); setConnectOpen(false); resumeKeepAlive(); }}>Fechar</Button>
+                <Button className="h-10 px-8" onClick={() => { stopPolling(); setConnectStep("choose"); setConnectOpen(false); resumeKeepAlive(); }}>Fechar</Button>
               </motion.div>
             )}
            </AnimatePresence>
