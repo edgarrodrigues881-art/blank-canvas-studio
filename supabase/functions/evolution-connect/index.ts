@@ -574,14 +574,17 @@ Deno.serve(async (req) => {
       const candidates = [
         payload?.pairingCode,
         payload?.pairing_code,
+        payload?.paircode,
         payload?.code,
         payload?.value,
         payload?.instance?.pairingCode,
         payload?.instance?.pairing_code,
+        payload?.instance?.paircode,
         payload?.instance?.code,
         payload?.instance?.pairing?.code,
         payload?.data?.pairingCode,
         payload?.data?.pairing_code,
+        payload?.data?.paircode,
         payload?.data?.code,
       ];
 
@@ -594,10 +597,10 @@ Deno.serve(async (req) => {
     };
 
     const buildPairingConnectVariants = (phoneNumber: string): { label: string; endpoint: string; method: "GET" | "POST"; payload?: any }[] => [
-      { label: "get_query_number", endpoint: `/instance/connect?number=${encodeURIComponent(phoneNumber)}`, method: "GET" },
-      { label: "post_query_number", endpoint: `/instance/connect?number=${encodeURIComponent(phoneNumber)}`, method: "POST" },
-      { label: "post_body_number", endpoint: "/instance/connect", method: "POST", payload: { number: phoneNumber } },
       { label: "post_body_phone", endpoint: "/instance/connect", method: "POST", payload: { phone: phoneNumber } },
+      { label: "post_body_number", endpoint: "/instance/connect", method: "POST", payload: { number: phoneNumber } },
+      { label: "post_query_number", endpoint: `/instance/connect?number=${encodeURIComponent(phoneNumber)}`, method: "POST" },
+      { label: "get_query_number", endpoint: `/instance/connect?number=${encodeURIComponent(phoneNumber)}`, method: "GET" },
     ];
 
     // ── Quick status check helper ──
@@ -649,8 +652,11 @@ Deno.serve(async (req) => {
       } = options || {};
 
       let latestCheck: ProviderStatusCheck | null = null;
+      const variants = buildPairingConnectVariants(phoneNumber).slice(0, maxVariants);
 
-      for (const variant of buildPairingConnectVariants(phoneNumber).slice(0, maxVariants)) {
+      for (let index = 0; index < variants.length; index += 1) {
+        const variant = variants[index];
+        const hasMoreVariants = index < variants.length - 1;
         const connectRes = await uazapi(instanceUrl, variant.endpoint, instanceToken, variant.method, variant.payload, {
           timeoutMs: connectTimeoutMs,
           retries: connectRetries,
@@ -711,6 +717,12 @@ Deno.serve(async (req) => {
           }
 
           console.log(`[${logPrefix}] poll attempt=${i + 1} variant=${variant.label} status=${poll.rawStatus || poll.status} hasCode=${!!poll.pairingCode}`);
+        }
+
+        if (hasMoreVariants && latestCheck?.qrcode && !latestCheck?.pairingCode) {
+          console.log(`[${logPrefix}] qr_only_reset variant=${variant.label}`);
+          await clearProviderSessionForQr(true);
+          latestCheck = await checkStatus(statusTimeoutMs, phoneNumber);
         }
       }
 
@@ -1284,13 +1296,13 @@ Deno.serve(async (req) => {
       const shouldRetryPairingCode = codeFlowActive
         && !isConnected
         && !pairingCode
-        && (effectiveCheck.status === "disconnected" || effectiveCheck.status === "transitional" || sawQr || deviceStatus === "pairing");
+        && (effectiveCheck.status === "disconnected" || effectiveCheck.status === "unknown");
 
       if (shouldRetryPairingCode) {
         const pairingAttempt = await requestPairingCodeFromProvider(phoneNumber, {
           pollAttempts: 1,
           pollDelayMs: 700,
-          maxVariants: 2,
+          maxVariants: 1,
           connectTimeoutMs: 5000,
           connectRetries: 0,
           statusTimeoutMs: 3000,
