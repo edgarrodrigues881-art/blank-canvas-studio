@@ -52,16 +52,16 @@ export default function GroupCarouselDispatch() {
   useEffect(() => {
     if (!selectedDevice) { setGroups([]); return; }
     setLoadingGroups(true);
-    const device = devices.find(d => d.id === selectedDevice);
-    if (!device) return;
 
-    // Fetch groups from the device via UAZAPI
-    supabase.functions.invoke("whapi-chats", {
-      body: { deviceId: selectedDevice, action: "list-groups" },
+    // whapi-chats reads action & device_id from query params, returns { chats }
+    const params = new URLSearchParams({ device_id: selectedDevice, action: "list_chats", quick: "true" });
+    supabase.functions.invoke(`whapi-chats?${params.toString()}`, {
+      method: "GET",
     }).then(({ data, error }) => {
       setLoadingGroups(false);
       if (error) { toast.error("Erro ao carregar grupos"); return; }
-      setGroups(data?.groups || []);
+      // chats are already filtered to groups by the edge function
+      setGroups(data?.chats || []);
     });
   }, [selectedDevice, devices]);
 
