@@ -1,0 +1,73 @@
+const PAIRING_MESSAGE_RE = /(?:pair(?:ing)?\s*code|c[óo]digo(?:\s+de)?\s*pareamento)[^a-z0-9]*([a-z0-9][a-z0-9\s-]{3,23})/i;
+const PAIRING_KEY_RE = /^(pairing|pairing_?code|pair_?code|code_?pairing|c[óo]digo_?pareamento|c[óo]digo_?de_?pareamento)$/i;
+const PAIRING_CONTEXT_VALUE_KEY_RE = /^(pairing_?code|code|value)$/i;
+const MESSAGE_LIKE_KEY_RE = /^(message|msg|error|details|detail|description|text)$/i;
+
+export function normalizePairingCode(value: string, phoneNumber = ""): string | null {
+  const normalized = String(value || "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .trim()
+    .toUpperCase();
+
+  if (!normalized) return null;
+
+  const normalizedPhone = String(phoneNumber || "").replace(/\D/g, "");
+  if (normalizedPhone && normalized === normalizedPhone) return null;
+  if (normalized.length < 6 || normalized.length > 12) return null;
+
+  return normalized;
+}
+
+export function extractPairingCode(payload: unknown, phoneNumber = "", depth = 0, inPairingContext = false): string | null {
+  if (!payload || depth > 6) return null;
+
+  if (typeof payload === "string") {
+    if (inPairingContext) return normalizePairingCode(payload, phoneNumber);
+    const match = payload.match(PAIRING_MESSAGE_RE);
+    return match ? normalizePairingCode(match[1], phoneNumber) : null;
+  }
+
+  if (Array.isArray(payload)) {
+    for (const item of payload) {
+      const nested = extractPairingCode(item, phoneNumber, depth + 1, inPairingContext);
+      if (nested) return nested;
+    }
+    return null;
+  }
+
+  if (typeof payload !== "object") return null;
+
+  const entries = Object.entries(payload as Record<string, unknown>);
+
+  for (const [key, value] of entries) {
+    if (!PAIRING_KEY_RE.test(key)) continue;
+
+    const direct = extractPairingCode(value, phoneNumber, depth + 1, true);
+    if (direct) return direct;
+  }
+
+  if (inPairingContext) {
+    for (const [key, value] of entries) {
+      if (!PAIRING_CONTEXT_VALUE_KEY_RE.test(key)) continue;
+
+      const direct = extractPairingCode(value, phoneNumber, depth + 1, true);
+      if (direct) return direct;
+    }
+  }
+
+  for (const [key, value] of entries) {
+    if (typeof value !== "string" || !MESSAGE_LIKE_KEY_RE.test(key)) continue;
+
+    const direct = extractPairingCode(value, phoneNumber, depth + 1, false);
+    if (direct) return direct;
+  }
+
+  for (const [, value] of entries) {
+    if (!value || typeof value !== "object") continue;
+
+    const nested = extractPairingCode(value, phoneNumber, depth + 1, false);
+    if (nested) return nested;
+  }
+
+  return null;
+}
