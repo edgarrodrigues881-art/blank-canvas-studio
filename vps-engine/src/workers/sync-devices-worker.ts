@@ -91,10 +91,10 @@ export async function syncDevicesTick() {
     return;
   }
 
-  // Filter out Loading devices
+  // Filter out devices that are actively connecting
   const syncable = (allDevices || []).filter(d => {
     const st = String(d.status || "").toLowerCase().trim();
-    return st !== "loading";
+    return st !== "loading" && st !== "pairing";
   });
 
   if (!syncable.length) return;

@@ -79,13 +79,63 @@ type ProviderStatusCheck = {
   status: string;
   rawStatus: string;
   qrcode?: string;
+  pairingCode?: string;
   owner?: string;
   profileName?: string;
   profilePicUrl?: string;
+  rawData?: any;
 };
 
 function getOwnerDigits(owner: string | null | undefined): string {
   return String(owner || "").replace(/\D/g, "");
+}
+
+function normalizePairingCode(value: string, phoneNumber = ""): string | null {
+  const normalized = String(value || "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .trim()
+    .toUpperCase();
+
+  if (!normalized) return null;
+
+  const normalizedPhone = String(phoneNumber || "").replace(/\D/g, "");
+  if (normalizedPhone && normalized === normalizedPhone) return null;
+  if (normalized.length < 4 || normalized.length > 20) return null;
+
+  return normalized;
+}
+
+function extractPairingCode(payload: any, phoneNumber = "", depth = 0): string | null {
+  if (!payload || depth > 5) return null;
+
+  if (typeof payload === "string") {
+    const fromMessage = payload.match(/(?:pair(?:ing)?\s*code|codigo|c[óo]digo)[^a-z0-9]*([a-z0-9\s-]{4,24})/i)?.[1];
+    return normalizePairingCode(fromMessage || payload, phoneNumber);
+  }
+
+  if (Array.isArray(payload)) {
+    for (const item of payload) {
+      const nested = extractPairingCode(item, phoneNumber, depth + 1);
+      if (nested) return nested;
+    }
+    return null;
+  }
+
+  if (typeof payload !== "object") return null;
+
+  for (const [key, value] of Object.entries(payload)) {
+    const isRelevantKey = /(pair|code|codigo|c[oó]digo)/i.test(key);
+
+    if (typeof value === "string" && isRelevantKey) {
+      const normalized = normalizePairingCode(value, phoneNumber);
+      if (normalized) return normalized;
+    }
+
+    const nested = extractPairingCode(value, phoneNumber, depth + 1);
+    if (nested) return nested;
+  }
+
+  return null;
 }
 
 function isConfirmedConnected(check: ProviderStatusCheck | null | undefined): boolean {
@@ -567,9 +617,11 @@ Deno.serve(async (req) => {
         status: normalized.state,
         rawStatus: normalized.rawStatus || normalized.state,
         qrcode: normalized.qrcode || undefined,
+        pairingCode: extractPairingCode(r.data),
         owner: normalized.owner || "",
         profileName: normalized.profileName || "",
         profilePicUrl: normalized.profilePicUrl || "",
+        rawData: r.data,
       };
     };
 
@@ -970,39 +1022,11 @@ Deno.serve(async (req) => {
       }
 
       await svc.from("devices").update({
-        status: "Loading",
+        status: "pairing",
         number: null,
         profile_name: null,
         updated_at: new Date().toISOString(),
       }).eq("id", deviceId);
-
-      const extractCode = (obj: any, depth = 0): string | null => {
-        if (!obj || depth > 4) return null;
-        if (Array.isArray(obj)) {
-          for (const item of obj) {
-            const nested = extractCode(item, depth + 1);
-            if (nested) return nested;
-          }
-          return null;
-        }
-        if (typeof obj !== "object") return null;
-
-        for (const [key, value] of Object.entries(obj)) {
-          if (!/(pair|code)/i.test(key)) continue;
-
-          if (typeof value === "string") {
-            const normalized = value.replace(/\s+/g, "").trim();
-            if (normalized && normalized !== phoneNumber && normalized.length >= 4 && normalized.length <= 20) {
-              return normalized;
-            }
-          }
-
-          const nested = extractCode(value, depth + 1);
-          if (nested) return nested;
-        }
-
-        return null;
-      };
 
       const connectVariants = [
         { label: "query_number", endpoint: `/instance/connect?number=${encodeURIComponent(phoneNumber)}`, payload: undefined },
@@ -1019,7 +1043,7 @@ Deno.serve(async (req) => {
           return json({ error: "Token inválido.", code: "TOKEN_INVALID" }, 401);
         }
 
-        pairingCode = extractCode(connectRes.data);
+        pairingCode = extractPairingCode(connectRes.data, phoneNumber);
         console.log(`[evolution-connect] requestPairingCode variant=${variant.label} status=${connectRes.status} hasCode=${!!pairingCode}`);
 
         const immediateState = normalizeProviderConnectionState(connectRes.data);
@@ -1035,7 +1059,7 @@ Deno.serve(async (req) => {
         for (let i = 0; i < 4 && !pairingCode; i++) {
           await new Promise(r => setTimeout(r, 800));
           const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 4000, retries: 0 });
-          pairingCode = extractCode(poll.data);
+          pairingCode = extractPairingCode(poll.data, phoneNumber);
           console.log(`[evolution-connect] requestPairingCode poll variant=${variant.label} attempt=${i + 1} hasCode=${!!pairingCode}`);
           if (pairingCode) break;
           const pollState = normalizeProviderConnectionState(poll.data);
@@ -1050,9 +1074,20 @@ Deno.serve(async (req) => {
         if (pairingCode) break;
       }
 
-      if (pairingCode) return json({ success: true, pairingCode, status: "connecting" });
+      const latestCheck = await checkStatus(5000);
+      const latestPairingCode = pairingCode || latestCheck.pairingCode || null;
 
-      return json({ success: false, error: "Não foi possível gerar o código agora. Tente novamente.", code: "PAIRING_CODE_UNAVAILABLE" }, 200);
+      if (latestPairingCode) {
+        return json({ success: true, pairingCode: latestPairingCode, pairing_code: latestPairingCode, status: "pairing" });
+      }
+
+      return json({
+        success: true,
+        pairingCode: null,
+        pairing_code: null,
+        status: "pairing_pending",
+        message: "Código ainda está sendo gerado.",
+      });
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -1154,7 +1189,8 @@ Deno.serve(async (req) => {
     // ── status — lightweight polling during QR scan ──
     // ════════════════════════════════════════════════════════════════════
     if (action === "status") {
-      const connectionMode = body.connectionMode === "code" ? "code" : "qr";
+      const deviceStatus = String(device?.status || "").toLowerCase().trim();
+      const connectionMode = body.connectionMode === "code" || deviceStatus === "pairing" ? "code" : "qr";
       const check = await checkStatus(5000);
       if (!check.valid) return json({ success: true, status: "token_invalid", tokenInvalid: true });
 
@@ -1169,8 +1205,13 @@ Deno.serve(async (req) => {
         isConnected = stability.confirmed;
       }
 
-      const hasQrCode = sawQr || Boolean(effectiveCheck.qrcode);
-      const isDisconnected = effectiveCheck.status === "disconnected" && !hasQrCode;
+      const providerHasQrCode = sawQr || Boolean(effectiveCheck.qrcode);
+      const pairingCode = connectionMode === "code"
+        ? (effectiveCheck.pairingCode || check.pairingCode || extractPairingCode(effectiveCheck.rawData) || extractPairingCode(check.rawData) || null)
+        : null;
+      const pairingPending = connectionMode === "code" && (Boolean(pairingCode) || providerHasQrCode || effectiveCheck.status === "transitional");
+      const hasQrCode = connectionMode !== "code" && providerHasQrCode;
+      const isDisconnected = effectiveCheck.status === "disconnected" && !providerHasQrCode && !pairingCode;
 
       if (isConnected) {
         const dup = await checkDuplicatePhone(svc, user.id, deviceId, effectiveCheck.owner || "");
@@ -1193,13 +1234,18 @@ Deno.serve(async (req) => {
         if (wasDisconnected && device?.login_type !== "report_wa") {
           notifyConnectionChange(svc, user.id, deviceName, fmt, effectiveCheck.profileName || "", true).catch(() => {});
         }
+      } else if (pairingPending) {
+        await svc.from("devices").update({
+          status: "pairing",
+          updated_at: new Date().toISOString(),
+        }).eq("id", deviceId);
       } else if (hasQrCode) {
         await svc.from("devices").update({
           status: "Loading",
           updated_at: new Date().toISOString(),
         }).eq("id", deviceId);
       } else if (isDisconnected) {
-        const recentlyConnecting = device?.status === "Loading";
+        const recentlyConnecting = deviceStatus === "loading" || deviceStatus === "pairing";
         if (recentlyConnecting && connectionMode !== "code") {
           const reconnect = await uazapi(instanceUrl, "/instance/connect", instanceToken, "POST", {}, { timeoutMs: 8000, retries: 0 });
           const reconnectState = normalizeProviderConnectionState(reconnect.data);
@@ -1222,14 +1268,18 @@ Deno.serve(async (req) => {
 
       const responseStatus = isConnected
         ? "authenticated"
-        : (hasQrCode ? "connecting" : (effectiveCheck.rawStatus || effectiveCheck.status || "waiting"));
+        : connectionMode === "code"
+          ? (pairingCode ? "pairing" : (pairingPending ? "pairing_pending" : (effectiveCheck.rawStatus || effectiveCheck.status || "waiting")))
+          : (hasQrCode ? "connecting" : (effectiveCheck.rawStatus || effectiveCheck.status || "waiting"));
 
       return json({
         success: true,
         status: responseStatus,
         phone: isConnected ? (effectiveCheck.owner || "") : "",
-        base64: effectiveCheck.qrcode || check.qrcode || null,
-        qr: effectiveCheck.qrcode || check.qrcode || null,
+        base64: connectionMode === "code" ? null : (effectiveCheck.qrcode || check.qrcode || null),
+        qr: connectionMode === "code" ? null : (effectiveCheck.qrcode || check.qrcode || null),
+        pairingCode: pairingCode || null,
+        pairing_code: pairingCode || null,
         profileName: effectiveCheck.profileName || check.profileName || "",
         profilePicUrl: effectiveCheck.profilePicUrl || check.profilePicUrl || "",
       });
