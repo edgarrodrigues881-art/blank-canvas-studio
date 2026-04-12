@@ -613,7 +613,7 @@ Deno.serve(async (req) => {
         status: normalized.state,
         rawStatus: normalized.rawStatus || normalized.state,
         qrcode: normalized.qrcode || undefined,
-        pairingCode: directPairingCode || extractPairingCode(r.data, phoneNumber),
+        pairingCode: directPairingCode || extractPairingCode(r.data, phoneNumber) || undefined,
         owner: normalized.owner || "",
         profileName: normalized.profileName || "",
         profilePicUrl: normalized.profilePicUrl || "",
