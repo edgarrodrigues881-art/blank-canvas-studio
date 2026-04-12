@@ -279,7 +279,7 @@ export default function GroupCarouselDispatch() {
               </div>
             </CardHeader>
             <CardContent>
-              <CarouselEditor cards={cards} onChange={setCards} />
+              <GroupCarouselEditor cards={cards} onChange={setCards} />
             </CardContent>
           </Card>
         </div>
