@@ -287,6 +287,22 @@ export default function GroupCarouselDispatch() {
                 </div>
               )}
 
+              <div className="border-t pt-3 mt-2">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Adicionar grupo por JID (grupos privados/restritos)</p>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Cole o JID do grupo (ex: 5511999...@g.us)"
+                    value={manualJid}
+                    onChange={(e) => setManualJid(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addManualJid()}
+                    className="text-xs"
+                  />
+                  <Button size="sm" variant="outline" onClick={addManualJid} disabled={!manualJid.trim()}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
               {selectedGroupDetails.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">{selectedGroupDetails.length} grupo(s) selecionado(s)</p>
