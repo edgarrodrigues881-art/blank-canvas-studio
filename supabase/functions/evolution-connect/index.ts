@@ -981,23 +981,41 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }).eq("id", deviceId);
 
-      const connectVariants = [
-        { label: "query_number", endpoint: `/instance/connect?number=${encodeURIComponent(phoneNumber)}`, payload: undefined },
-        { label: "body_number", endpoint: "/instance/connect", payload: { number: phoneNumber } },
-        { label: "body_phone", endpoint: "/instance/connect", payload: { phone: phoneNumber } },
+      // UAZAPI uses GET with query param for pairing code generation
+      const connectVariants: { label: string; endpoint: string; method: "GET" | "POST"; payload?: any }[] = [
+        { label: "get_query_number", endpoint: `/instance/connect?number=${encodeURIComponent(phoneNumber)}`, method: "GET" },
+        { label: "post_query_number", endpoint: `/instance/connect?number=${encodeURIComponent(phoneNumber)}`, method: "POST" },
+        { label: "post_body_number", endpoint: "/instance/connect", method: "POST", payload: { number: phoneNumber } },
+        { label: "post_body_phone", endpoint: "/instance/connect", method: "POST", payload: { phone: phoneNumber } },
       ];
 
       let pairingCode: string | null = null;
 
       for (const variant of connectVariants) {
-        const connectRes = await uazapi(instanceUrl, variant.endpoint, instanceToken, "POST", variant.payload, { timeoutMs: 10000, retries: 1 });
+        const connectRes = await uazapi(instanceUrl, variant.endpoint, instanceToken, variant.method, variant.payload, { timeoutMs: 12000, retries: 1 });
 
         if (connectRes.status === 401) {
           return json({ error: "Token inválido.", code: "TOKEN_INVALID" }, 401);
         }
 
+        // Log full raw response for debugging
+        const rawStr = JSON.stringify(connectRes.data).substring(0, 800);
+        console.log(`[requestPairingCode] variant=${variant.label} method=${variant.method} httpStatus=${connectRes.status} ok=${connectRes.ok} raw=${rawStr}`);
+
+        // Direct field check first (fastest path)
+        const directCode = connectRes.data?.pairingCode || connectRes.data?.pairing_code || connectRes.data?.instance?.pairingCode;
+        if (directCode && typeof directCode === "string") {
+          const normalized = directCode.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+          if (normalized.length >= 6 && normalized.length <= 12) {
+            pairingCode = normalized;
+            console.log(`[requestPairingCode] DIRECT HIT: ${pairingCode} from variant=${variant.label}`);
+            break;
+          }
+        }
+
+        // Fallback to recursive extraction
         pairingCode = extractPairingCode(connectRes.data, phoneNumber);
-        console.log(`[evolution-connect] requestPairingCode variant=${variant.label} status=${connectRes.status} hasCode=${!!pairingCode}`);
+        console.log(`[requestPairingCode] extractPairingCode result=${pairingCode} variant=${variant.label}`);
 
         const immediateState = normalizeProviderConnectionState(connectRes.data);
         const immediatePhone = immediateState.owner || connectRes.data?.instance?.owner || connectRes.data?.instance?.phone || "";
@@ -1009,12 +1027,27 @@ Deno.serve(async (req) => {
 
         if (pairingCode) break;
 
-        for (let i = 0; i < 4 && !pairingCode; i++) {
-          await new Promise(r => setTimeout(r, 800));
+        // Poll for delayed code generation (UAZAPI sometimes needs a few seconds)
+        for (let i = 0; i < 5 && !pairingCode; i++) {
+          await new Promise(r => setTimeout(r, 1000));
           const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 4000, retries: 0 });
+          const pollRaw = JSON.stringify(poll.data).substring(0, 500);
+          
+          // Direct check on poll response
+          const pollDirect = poll.data?.pairingCode || poll.data?.pairing_code || poll.data?.instance?.pairingCode;
+          if (pollDirect && typeof pollDirect === "string") {
+            const normalized = pollDirect.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+            if (normalized.length >= 6 && normalized.length <= 12) {
+              pairingCode = normalized;
+              console.log(`[requestPairingCode] POLL DIRECT HIT attempt=${i + 1}: ${pairingCode}`);
+              break;
+            }
+          }
+          
           pairingCode = extractPairingCode(poll.data, phoneNumber);
-          console.log(`[evolution-connect] requestPairingCode poll variant=${variant.label} attempt=${i + 1} hasCode=${!!pairingCode}`);
+          console.log(`[requestPairingCode] poll attempt=${i + 1} variant=${variant.label} hasCode=${!!pairingCode} raw=${pollRaw}`);
           if (pairingCode) break;
+          
           const pollState = normalizeProviderConnectionState(poll.data);
           const phone = pollState.owner || poll.data?.instance?.owner || poll.data?.instance?.phone || "";
           if (pollState.state === "connected" && phone) {
