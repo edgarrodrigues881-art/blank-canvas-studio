@@ -1,4 +1,4 @@
-const PAIRING_MESSAGE_RE = /(?:pair(?:ing)?\s*code|c[óo]digo(?:\s+de)?\s*pareamento)[^a-z0-9]*([a-z0-9][a-z0-9\s-]{3,23})/i;
+const PAIRING_MESSAGE_RE = /(?:pair(?:ing)?\s*code|c[óo]digo(?:\s+de)?\s*pareamento)(?:[^a-z0-9]+|.*?[:=-]\s*)([a-z0-9-]{6,16})\b/i;
 const PAIRING_KEY_RE = /^(pairing|pairing_?code|pair_?code|code_?pairing|c[óo]digo_?pareamento|c[óo]digo_?de_?pareamento)$/i;
 const PAIRING_CONTEXT_VALUE_KEY_RE = /^(pairing_?code|code|value)$/i;
 const MESSAGE_LIKE_KEY_RE = /^(message|msg|error|details|detail|description|text)$/i;
