@@ -558,24 +558,163 @@ Deno.serve(async (req) => {
       return json({ error: "Instância sem token. Conecte primeiro.", code: "NO_TOKEN" }, 400);
     }
 
+    const normalizeDirectPairingCode = (value: unknown, phoneNumber = ""): string | null => {
+      if (typeof value !== "string") return null;
+      const normalized = value.replace(/[^a-zA-Z0-9]/g, "").trim().toUpperCase();
+      if (!normalized) return null;
+
+      const normalizedPhone = String(phoneNumber || "").replace(/\D/g, "");
+      if (normalizedPhone && normalized === normalizedPhone) return null;
+      if (normalized.length < 6 || normalized.length > 12) return null;
+
+      return normalized;
+    };
+
+    const extractDirectPairingCode = (payload: any, phoneNumber = ""): string | null => {
+      const candidates = [
+        payload?.pairingCode,
+        payload?.pairing_code,
+        payload?.code,
+        payload?.value,
+        payload?.instance?.pairingCode,
+        payload?.instance?.pairing_code,
+        payload?.instance?.code,
+        payload?.instance?.pairing?.code,
+        payload?.data?.pairingCode,
+        payload?.data?.pairing_code,
+        payload?.data?.code,
+      ];
+
+      for (const candidate of candidates) {
+        const normalized = normalizeDirectPairingCode(candidate, phoneNumber);
+        if (normalized) return normalized;
+      }
+
+      return null;
+    };
+
+    const buildPairingConnectVariants = (phoneNumber: string): { label: string; endpoint: string; method: "GET" | "POST"; payload?: any }[] => [
+      { label: "get_query_number", endpoint: `/instance/connect?number=${encodeURIComponent(phoneNumber)}`, method: "GET" },
+      { label: "post_query_number", endpoint: `/instance/connect?number=${encodeURIComponent(phoneNumber)}`, method: "POST" },
+      { label: "post_body_number", endpoint: "/instance/connect", method: "POST", payload: { number: phoneNumber } },
+      { label: "post_body_phone", endpoint: "/instance/connect", method: "POST", payload: { phone: phoneNumber } },
+    ];
+
     // ── Quick status check helper ──
-    const checkStatus = async (timeout = 6000): Promise<ProviderStatusCheck> => {
+    const checkStatus = async (timeout = 6000, phoneNumber = ""): Promise<ProviderStatusCheck> => {
       if (!instanceToken) return { valid: false, status: "no_token", rawStatus: "no_token" };
       const r = await uazapi(instanceUrl, `/instance/status?t=${Date.now()}`, instanceToken, "GET", undefined, { timeoutMs: timeout, retries: 0 });
       if (r.status === 401) return { valid: false, status: "token_invalid", rawStatus: "token_invalid" };
       if (!r.ok) return { valid: false, status: "error", rawStatus: "error" };
       const normalized = normalizeProviderConnectionState(r.data);
+      const directPairingCode = extractDirectPairingCode(r.data, phoneNumber);
       return {
         valid: true,
         status: normalized.state,
         rawStatus: normalized.rawStatus || normalized.state,
         qrcode: normalized.qrcode || undefined,
-        pairingCode: extractPairingCode(r.data),
+        pairingCode: directPairingCode || extractPairingCode(r.data, phoneNumber),
         owner: normalized.owner || "",
         profileName: normalized.profileName || "",
         profilePicUrl: normalized.profilePicUrl || "",
         rawData: r.data,
       };
+    };
+
+    const requestPairingCodeFromProvider = async (
+      phoneNumber: string,
+      options?: {
+        pollAttempts?: number;
+        pollDelayMs?: number;
+        logPrefix?: string;
+        maxVariants?: number;
+        connectTimeoutMs?: number;
+        connectRetries?: number;
+        statusTimeoutMs?: number;
+      },
+    ): Promise<{
+      pairingCode: string | null;
+      connectedPhone: string;
+      latestCheck: ProviderStatusCheck | null;
+      tokenInvalid: boolean;
+    }> => {
+      const {
+        pollAttempts = 5,
+        pollDelayMs = 1000,
+        logPrefix = "pairingCode",
+        maxVariants = 4,
+        connectTimeoutMs = 12000,
+        connectRetries = 1,
+        statusTimeoutMs = 4000,
+      } = options || {};
+
+      let latestCheck: ProviderStatusCheck | null = null;
+
+      for (const variant of buildPairingConnectVariants(phoneNumber).slice(0, maxVariants)) {
+        const connectRes = await uazapi(instanceUrl, variant.endpoint, instanceToken, variant.method, variant.payload, {
+          timeoutMs: connectTimeoutMs,
+          retries: connectRetries,
+        });
+
+        if (connectRes.status === 401) {
+          return { pairingCode: null, connectedPhone: "", latestCheck, tokenInvalid: true };
+        }
+
+        const rawStr = JSON.stringify(connectRes.data).substring(0, 800);
+        console.log(`[${logPrefix}] variant=${variant.label} method=${variant.method} httpStatus=${connectRes.status} ok=${connectRes.ok} raw=${rawStr}`);
+
+        const directPairingCode = extractDirectPairingCode(connectRes.data, phoneNumber);
+        const extractedPairingCode = directPairingCode || extractPairingCode(connectRes.data, phoneNumber);
+        const immediateState = normalizeProviderConnectionState(connectRes.data);
+        const immediatePhone = immediateState.owner || connectRes.data?.instance?.owner || connectRes.data?.instance?.phone || "";
+
+        latestCheck = {
+          valid: connectRes.status !== 401,
+          status: immediateState.state,
+          rawStatus: immediateState.rawStatus || immediateState.state,
+          qrcode: immediateState.qrcode || undefined,
+          pairingCode: extractedPairingCode || undefined,
+          owner: immediatePhone,
+          profileName: immediateState.profileName || "",
+          profilePicUrl: immediateState.profilePicUrl || "",
+          rawData: connectRes.data,
+        };
+
+        if (immediateState.state === "connected" && immediatePhone) {
+          return { pairingCode: null, connectedPhone: immediatePhone, latestCheck, tokenInvalid: false };
+        }
+
+        if (extractedPairingCode) {
+          console.log(`[${logPrefix}] code_hit=${extractedPairingCode} variant=${variant.label}`);
+          return { pairingCode: extractedPairingCode, connectedPhone: "", latestCheck, tokenInvalid: false };
+        }
+
+        for (let i = 0; i < pollAttempts; i++) {
+          await sleep(pollDelayMs);
+          const poll = await checkStatus(statusTimeoutMs, phoneNumber);
+          latestCheck = poll;
+
+          if (!poll.valid) {
+            if (poll.status === "token_invalid") {
+              return { pairingCode: null, connectedPhone: "", latestCheck: poll, tokenInvalid: true };
+            }
+            break;
+          }
+
+          if (isConfirmedConnected(poll)) {
+            return { pairingCode: null, connectedPhone: poll.owner || "", latestCheck: poll, tokenInvalid: false };
+          }
+
+          if (poll.pairingCode) {
+            console.log(`[${logPrefix}] poll_code_hit attempt=${i + 1} variant=${variant.label} code=${poll.pairingCode}`);
+            return { pairingCode: poll.pairingCode, connectedPhone: "", latestCheck: poll, tokenInvalid: false };
+          }
+
+          console.log(`[${logPrefix}] poll attempt=${i + 1} variant=${variant.label} status=${poll.rawStatus || poll.status} hasCode=${!!poll.pairingCode}`);
+        }
+      }
+
+      return { pairingCode: null, connectedPhone: "", latestCheck, tokenInvalid: false };
     };
 
     const confirmStableConnected = async (
@@ -946,7 +1085,7 @@ Deno.serve(async (req) => {
       const phoneNumber = body.phoneNumber?.replace(/\D/g, "");
       if (!phoneNumber || phoneNumber.length < 10) return json({ error: "Número inválido." }, 400);
 
-      const currentCheck = await checkStatus(5000);
+      const currentCheck = await checkStatus(5000, phoneNumber);
       if (!currentCheck.valid) return json({ error: "Token inválido.", code: "TOKEN_INVALID" }, 401);
 
       // Set proxy if needed
@@ -981,87 +1120,24 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }).eq("id", deviceId);
 
-      // UAZAPI uses GET with query param for pairing code generation
-      const connectVariants: { label: string; endpoint: string; method: "GET" | "POST"; payload?: any }[] = [
-        { label: "get_query_number", endpoint: `/instance/connect?number=${encodeURIComponent(phoneNumber)}`, method: "GET" },
-        { label: "post_query_number", endpoint: `/instance/connect?number=${encodeURIComponent(phoneNumber)}`, method: "POST" },
-        { label: "post_body_number", endpoint: "/instance/connect", method: "POST", payload: { number: phoneNumber } },
-        { label: "post_body_phone", endpoint: "/instance/connect", method: "POST", payload: { phone: phoneNumber } },
-      ];
+      const pairingAttempt = await requestPairingCodeFromProvider(phoneNumber, {
+        pollAttempts: 5,
+        pollDelayMs: 1000,
+        logPrefix: "requestPairingCode",
+      });
 
-      let pairingCode: string | null = null;
-
-      for (const variant of connectVariants) {
-        const connectRes = await uazapi(instanceUrl, variant.endpoint, instanceToken, variant.method, variant.payload, { timeoutMs: 12000, retries: 1 });
-
-        if (connectRes.status === 401) {
-          return json({ error: "Token inválido.", code: "TOKEN_INVALID" }, 401);
-        }
-
-        // Log full raw response for debugging
-        const rawStr = JSON.stringify(connectRes.data).substring(0, 800);
-        console.log(`[requestPairingCode] variant=${variant.label} method=${variant.method} httpStatus=${connectRes.status} ok=${connectRes.ok} raw=${rawStr}`);
-
-        // Direct field check first (fastest path)
-        const directCode = connectRes.data?.pairingCode || connectRes.data?.pairing_code || connectRes.data?.instance?.pairingCode;
-        if (directCode && typeof directCode === "string") {
-          const normalized = directCode.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-          if (normalized.length >= 6 && normalized.length <= 12) {
-            pairingCode = normalized;
-            console.log(`[requestPairingCode] DIRECT HIT: ${pairingCode} from variant=${variant.label}`);
-            break;
-          }
-        }
-
-        // Fallback to recursive extraction
-        pairingCode = extractPairingCode(connectRes.data, phoneNumber);
-        console.log(`[requestPairingCode] extractPairingCode result=${pairingCode} variant=${variant.label}`);
-
-        const immediateState = normalizeProviderConnectionState(connectRes.data);
-        const immediatePhone = immediateState.owner || connectRes.data?.instance?.owner || connectRes.data?.instance?.phone || "";
-        if (immediateState.state === "connected" && immediatePhone) {
-          const fmt = immediatePhone ? formatBrPhone(immediatePhone) : "";
-          await svc.from("devices").update({ status: "Ready", number: fmt, updated_at: new Date().toISOString() }).eq("id", deviceId);
-          return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
-        }
-
-        if (pairingCode) break;
-
-        // Poll for delayed code generation (UAZAPI sometimes needs a few seconds)
-        for (let i = 0; i < 5 && !pairingCode; i++) {
-          await new Promise(r => setTimeout(r, 1000));
-          const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 4000, retries: 0 });
-          const pollRaw = JSON.stringify(poll.data).substring(0, 500);
-          
-          // Direct check on poll response
-          const pollDirect = poll.data?.pairingCode || poll.data?.pairing_code || poll.data?.instance?.pairingCode;
-          if (pollDirect && typeof pollDirect === "string") {
-            const normalized = pollDirect.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-            if (normalized.length >= 6 && normalized.length <= 12) {
-              pairingCode = normalized;
-              console.log(`[requestPairingCode] POLL DIRECT HIT attempt=${i + 1}: ${pairingCode}`);
-              break;
-            }
-          }
-          
-          pairingCode = extractPairingCode(poll.data, phoneNumber);
-          console.log(`[requestPairingCode] poll attempt=${i + 1} variant=${variant.label} hasCode=${!!pairingCode} raw=${pollRaw}`);
-          if (pairingCode) break;
-          
-          const pollState = normalizeProviderConnectionState(poll.data);
-          const phone = pollState.owner || poll.data?.instance?.owner || poll.data?.instance?.phone || "";
-          if (pollState.state === "connected" && phone) {
-            const fmt = phone ? formatBrPhone(phone) : "";
-            await svc.from("devices").update({ status: "Ready", number: fmt, updated_at: new Date().toISOString() }).eq("id", deviceId);
-            return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
-          }
-        }
-
-        if (pairingCode) break;
+      if (pairingAttempt.tokenInvalid) {
+        return json({ error: "Token inválido.", code: "TOKEN_INVALID" }, 401);
       }
 
-      const latestCheck = await checkStatus(5000);
-      const latestPairingCode = pairingCode || latestCheck.pairingCode || null;
+      if (pairingAttempt.connectedPhone) {
+        const fmt = pairingAttempt.connectedPhone ? formatBrPhone(pairingAttempt.connectedPhone) : "";
+        await svc.from("devices").update({ status: "Ready", number: fmt, updated_at: new Date().toISOString() }).eq("id", deviceId);
+        return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
+      }
+
+      const latestCheck = pairingAttempt.latestCheck || await checkStatus(5000, phoneNumber);
+      const latestPairingCode = pairingAttempt.pairingCode || latestCheck.pairingCode || null;
 
       if (latestPairingCode) {
         return json({ success: true, pairingCode: latestPairingCode, pairing_code: latestPairingCode, status: "pairing" });
@@ -1176,8 +1252,10 @@ Deno.serve(async (req) => {
     // ════════════════════════════════════════════════════════════════════
     if (action === "status") {
       const deviceStatus = String(device?.status || "").toLowerCase().trim();
+      const phoneNumber = String(body.phoneNumber || "").replace(/\D/g, "");
       const connectionMode = body.connectionMode === "code" || deviceStatus === "pairing" ? "code" : "qr";
-      const check = await checkStatus(5000);
+      const codeFlowActive = connectionMode === "code" && phoneNumber.length >= 10;
+      const check = await checkStatus(5000, phoneNumber);
       if (!check.valid) return json({ success: true, status: "token_invalid", tokenInvalid: true });
 
       let effectiveCheck = check;
@@ -1191,11 +1269,63 @@ Deno.serve(async (req) => {
         isConnected = stability.confirmed;
       }
 
-      const providerHasQrCode = sawQr || Boolean(effectiveCheck.qrcode);
-      const pairingCode = connectionMode === "code"
-        ? (effectiveCheck.pairingCode || check.pairingCode || extractPairingCode(effectiveCheck.rawData) || extractPairingCode(check.rawData) || null)
+      let pairingCode = connectionMode === "code"
+        ? (
+          effectiveCheck.pairingCode
+          || check.pairingCode
+          || extractDirectPairingCode(effectiveCheck.rawData, phoneNumber)
+          || extractDirectPairingCode(check.rawData, phoneNumber)
+          || extractPairingCode(effectiveCheck.rawData, phoneNumber)
+          || extractPairingCode(check.rawData, phoneNumber)
+          || null
+        )
         : null;
-      const pairingPending = connectionMode === "code" && (Boolean(pairingCode) || providerHasQrCode || effectiveCheck.status === "transitional");
+
+      const shouldRetryPairingCode = codeFlowActive
+        && !isConnected
+        && !pairingCode
+        && (effectiveCheck.status === "disconnected" || effectiveCheck.status === "transitional" || sawQr || deviceStatus === "pairing");
+
+      if (shouldRetryPairingCode) {
+        const pairingAttempt = await requestPairingCodeFromProvider(phoneNumber, {
+          pollAttempts: 1,
+          pollDelayMs: 700,
+          maxVariants: 2,
+          connectTimeoutMs: 5000,
+          connectRetries: 0,
+          statusTimeoutMs: 3000,
+          logPrefix: "statusPairing",
+        });
+
+        if (pairingAttempt.tokenInvalid) {
+          return json({ success: true, status: "token_invalid", tokenInvalid: true });
+        }
+
+        if (pairingAttempt.latestCheck) {
+          effectiveCheck = pairingAttempt.latestCheck;
+          sawQr = sawQr || Boolean(pairingAttempt.latestCheck.qrcode);
+        }
+
+        if (pairingAttempt.connectedPhone) {
+          const latestConnectedCheck = pairingAttempt.latestCheck && isConfirmedConnected(pairingAttempt.latestCheck)
+            ? pairingAttempt.latestCheck
+            : await checkStatus(3000, phoneNumber);
+
+          if (isConfirmedConnected(latestConnectedCheck)) {
+            const stability = await confirmStableConnected(latestConnectedCheck);
+            effectiveCheck = stability.latest;
+            sawQr = sawQr || stability.sawQr || Boolean(stability.latest.qrcode);
+            isConnected = stability.confirmed;
+          }
+        }
+
+        pairingCode = pairingAttempt.pairingCode
+          || effectiveCheck.pairingCode
+          || pairingCode;
+      }
+
+      const providerHasQrCode = sawQr || Boolean(effectiveCheck.qrcode);
+      const pairingPending = connectionMode === "code" && (Boolean(pairingCode) || providerHasQrCode || effectiveCheck.status === "transitional" || codeFlowActive);
       const hasQrCode = connectionMode !== "code" && providerHasQrCode;
       const isDisconnected = effectiveCheck.status === "disconnected" && !providerHasQrCode && !pairingCode;
 
