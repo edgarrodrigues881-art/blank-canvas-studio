@@ -78,8 +78,14 @@ function resolveContactStatus(
 
 function translateError(msg: string | null): string | null {
   if (!msg) return null;
-  if (msg.includes("not on Whats") || msg.includes("not registered") || msg.includes("not_exists")) return "Número inválido";
-  if (/disconnected|not connected|qr code|logout|unauthorized|not authenticated/i.test(msg)) return "WhatsApp desconectado";
+  const lower = msg.toLowerCase();
+  if (lower.includes("not on whats") || lower.includes("not registered") || lower.includes("not_exists")) return "Número inválido";
+  if (/disconnected|not connected|qr code|logout|unauthorized|not authenticated|desconectado/i.test(msg)) return "WhatsApp desconectado";
+  if (lower.includes("failed to get group members") || lower.includes("info query returned status 400")) return "Lead inválido (LID de comunidade)";
+  if (lower.includes("bad-request") && lower.includes("query")) return "Lead não encontrado";
+  if (lower.includes("rate limit") || lower.includes("too many requests") || lower.includes("429")) return "Limite de envio excedido";
+  if (lower.includes("timeout") || lower.includes("timed out")) return "API não respondeu a tempo";
+  if (msg.length > 80) return msg.substring(0, 77) + "...";
   return msg;
 }
 
