@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { Layers, Loader2, Send } from "lucide-react";
+import { Layers, Loader2, Plus, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth";
@@ -47,6 +47,7 @@ export default function GroupCarouselDispatch() {
   const [selectedDevice, setSelectedDevice] = useState(draft.current?.selectedDevice || "");
   const [selectedGroups, setSelectedGroups] = useState<string[]>(draft.current?.selectedGroups || []);
   const [groupSearch, setGroupSearch] = useState("");
+  const [manualJid, setManualJid] = useState("");
   const [headerText, setHeaderText] = useState(draft.current?.headerText || "");
   const [cards, setCards] = useState<CarouselCard[]>(draft.current?.cards?.length ? draft.current.cards : [createEmptyCard(0)]);
   const [loadingGroups, setLoadingGroups] = useState(false);
@@ -120,6 +121,25 @@ export default function GroupCarouselDispatch() {
       prev.includes(groupId) ? prev.filter((value) => value !== groupId) : [...prev, groupId],
     );
   }, []);
+
+  const addManualJid = useCallback(() => {
+    const raw = manualJid.trim();
+    if (!raw) return;
+    const jid = raw.includes("@g.us") ? raw : `${raw}@g.us`;
+    if (selectedGroups.includes(jid)) {
+      toast.info("Esse JID já foi adicionado");
+      setManualJid("");
+      return;
+    }
+    // Add to groups list if not present
+    setGroups((prev) => {
+      if (prev.some((g) => g.id === jid)) return prev;
+      return [...prev, { id: jid, name: `Manual: ${jid}` }];
+    });
+    setSelectedGroups((prev) => [...prev, jid]);
+    setManualJid("");
+    toast.success("JID adicionado com sucesso");
+  }, [manualJid, selectedGroups]);
 
   if (!isAllowed) {
     return <Navigate to="/dashboard" replace />;
@@ -266,6 +286,22 @@ export default function GroupCarouselDispatch() {
                   ))}
                 </div>
               )}
+
+              <div className="border-t pt-3 mt-2">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Adicionar grupo por JID (grupos privados/restritos)</p>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Cole o JID do grupo (ex: 5511999...@g.us)"
+                    value={manualJid}
+                    onChange={(e) => setManualJid(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addManualJid()}
+                    className="text-xs"
+                  />
+                  <Button size="sm" variant="outline" onClick={addManualJid} disabled={!manualJid.trim()}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
 
               {selectedGroupDetails.length > 0 && (
                 <div className="space-y-2">
