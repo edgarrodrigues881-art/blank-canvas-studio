@@ -1,7 +1,24 @@
-const PAIRING_MESSAGE_RE = /(?:pair(?:ing)?\s*code|c[óo]digo(?:\s+de)?\s*pareamento)(?:[^a-z0-9]+|.*?[:=-]\s*)([a-z0-9-]{6,16})\b/i;
+const PAIRING_PHRASE_RE = /(?:pair(?:ing)?\s*code|c[óo]digo(?:\s+de)?\s*pareamento)/i;
 const PAIRING_KEY_RE = /^(pairing|pairing_?code|pair_?code|code_?pairing|c[óo]digo_?pareamento|c[óo]digo_?de_?pareamento)$/i;
 const PAIRING_CONTEXT_VALUE_KEY_RE = /^(pairing_?code|code|value)$/i;
 const MESSAGE_LIKE_KEY_RE = /^(message|msg|error|details|detail|description|text)$/i;
+const NON_CODE_WORDS = new Set(["PAIRING", "CODE", "CODIGO", "PAREAMENTO", "GENERATED", "SUCCESSFULLY"]);
+
+function extractPairingCodeFromText(text: string, phoneNumber = ""): string | null {
+  const phraseMatch = text.match(PAIRING_PHRASE_RE);
+  if (!phraseMatch || phraseMatch.index === undefined) return null;
+
+  const tail = text.slice(phraseMatch.index + phraseMatch[0].length);
+  const candidates = tail.match(/[a-z0-9-]{6,16}/gi) || [];
+
+  for (let index = candidates.length - 1; index >= 0; index -= 1) {
+    const normalized = normalizePairingCode(candidates[index], phoneNumber);
+    if (!normalized || NON_CODE_WORDS.has(normalized)) continue;
+    return normalized;
+  }
+
+  return null;
+}
 
 export function normalizePairingCode(value: string, phoneNumber = ""): string | null {
   const normalized = String(value || "")
@@ -23,8 +40,7 @@ export function extractPairingCode(payload: unknown, phoneNumber = "", depth = 0
 
   if (typeof payload === "string") {
     if (inPairingContext) return normalizePairingCode(payload, phoneNumber);
-    const match = payload.match(PAIRING_MESSAGE_RE);
-    return match ? normalizePairingCode(match[1], phoneNumber) : null;
+    return extractPairingCodeFromText(payload, phoneNumber);
   }
 
   if (Array.isArray(payload)) {
