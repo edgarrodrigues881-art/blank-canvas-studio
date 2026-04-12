@@ -616,6 +616,14 @@ Deno.serve(async (req) => {
         }
       }
 
+      const deliveryMode = await fetchGroupDeliveryMode(baseUrl, headers, groupJid);
+      if (deliveryMode === "restricted") {
+        const fallbackText = renderCarouselAsTextFallback(headerText, normalizedCarouselCards);
+        const textAttempts = buildMessageAttempts(baseUrl, groupJid, fallbackText, "text");
+        await sendWithFallbacks(textAttempts, headers, groupJid);
+        return json({ ok: true, mode: "restricted_text_fallback" });
+      }
+
       const attempts = buildCarouselAttempts(baseUrl, groupJid, headerText, normalizedCarouselCards);
       await sendWithFallbacks(attempts, headers, groupJid);
       return json({ ok: true, mode: "carousel" });
