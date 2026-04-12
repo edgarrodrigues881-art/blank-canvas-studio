@@ -46,14 +46,9 @@ export default function GroupCarouselDispatch() {
       .eq("user_id", user.id)
       .in("status", ["Ready", "Connected", "authenticated"])
       .then(({ data }) => setDevices(data || []));
-  }, [user]);
+  }, [user, isAllowed]);
 
   // Load groups when device selected
-  // Gate: only allowed email
-  if (!isAllowed) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
   useEffect(() => {
     if (!selectedDevice) { setGroups([]); return; }
     setLoadingGroups(true);
