@@ -969,27 +969,74 @@ Deno.serve(async (req) => {
         await new Promise(r => setTimeout(r, 1000));
       }
 
-      // Request pairing code
-      const connectRes = await uazapi(instanceUrl, "/instance/connect", instanceToken, "POST", { phone: phoneNumber }, { timeoutMs: 10000, retries: 1 });
+      await svc.from("devices").update({
+        status: "Loading",
+        number: null,
+        profile_name: null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", deviceId);
 
-      const extractCode = (obj: any): string | null => {
-        if (!obj || typeof obj !== "object") return null;
-        for (const key of ["pairingCode", "pairing_code", "paircode", "code"]) {
-          const val = obj[key];
-          if (val && typeof val === "string" && val.length >= 4 && val.length <= 20) return val;
+      const extractCode = (obj: any, depth = 0): string | null => {
+        if (!obj || depth > 4) return null;
+        if (Array.isArray(obj)) {
+          for (const item of obj) {
+            const nested = extractCode(item, depth + 1);
+            if (nested) return nested;
+          }
+          return null;
         }
-        if (obj.instance) return extractCode(obj.instance);
+        if (typeof obj !== "object") return null;
+
+        for (const [key, value] of Object.entries(obj)) {
+          if (!/(pair|code)/i.test(key)) continue;
+
+          if (typeof value === "string") {
+            const normalized = value.replace(/\s+/g, "").trim();
+            if (normalized && normalized !== phoneNumber && normalized.length >= 4 && normalized.length <= 20) {
+              return normalized;
+            }
+          }
+
+          const nested = extractCode(value, depth + 1);
+          if (nested) return nested;
+        }
+
         return null;
       };
 
-      let pairingCode = extractCode(connectRes.data);
+      const connectVariants = [
+        { label: "query_number", endpoint: `/instance/connect?number=${encodeURIComponent(phoneNumber)}`, payload: undefined },
+        { label: "body_number", endpoint: "/instance/connect", payload: { number: phoneNumber } },
+        { label: "body_phone", endpoint: "/instance/connect", payload: { phone: phoneNumber } },
+      ];
 
-      // Poll 3 times max (reduced from 5)
-      if (!pairingCode) {
-        for (let i = 0; i < 3; i++) {
+      let pairingCode: string | null = null;
+
+      for (const variant of connectVariants) {
+        const connectRes = await uazapi(instanceUrl, variant.endpoint, instanceToken, "POST", variant.payload, { timeoutMs: 10000, retries: 1 });
+
+        if (connectRes.status === 401) {
+          return json({ error: "Token inválido.", code: "TOKEN_INVALID" }, 401);
+        }
+
+        pairingCode = extractCode(connectRes.data);
+        console.log(`[evolution-connect] requestPairingCode variant=${variant.label} status=${connectRes.status} hasCode=${!!pairingCode}`);
+
+        const immediateState = normalizeProviderConnectionState(connectRes.data);
+        const immediatePhone = immediateState.owner || connectRes.data?.instance?.owner || connectRes.data?.instance?.phone || "";
+        if (immediateState.state === "connected" && immediatePhone) {
+          const fmt = immediatePhone ? formatBrPhone(immediatePhone) : "";
+          await svc.from("devices").update({ status: "Ready", number: fmt, updated_at: new Date().toISOString() }).eq("id", deviceId);
+          return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
+        }
+
+        if (pairingCode) break;
+
+        for (let i = 0; i < 4 && !pairingCode; i++) {
           await new Promise(r => setTimeout(r, 800));
           const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 4000, retries: 0 });
           pairingCode = extractCode(poll.data);
+          console.log(`[evolution-connect] requestPairingCode poll variant=${variant.label} attempt=${i + 1} hasCode=${!!pairingCode}`);
           if (pairingCode) break;
           const pollState = normalizeProviderConnectionState(poll.data);
           const phone = pollState.owner || poll.data?.instance?.owner || poll.data?.instance?.phone || "";
@@ -999,17 +1046,13 @@ Deno.serve(async (req) => {
             return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
           }
         }
+
+        if (pairingCode) break;
       }
 
       if (pairingCode) return json({ success: true, pairingCode, status: "connecting" });
 
-      // Fallback: suggest QR
-      const fallback = await checkStatus(4000);
-      if (fallback.qrcode) {
-        return json({ success: false, error: "Servidor não suporta código de pareamento. Use QR Code.", suggestQr: true, qrCode: fallback.qrcode }, 200);
-      }
-
-      return json({ error: "Não foi possível gerar código. Use QR Code.", suggestQr: true }, 200);
+      return json({ success: false, error: "Não foi possível gerar o código agora. Tente novamente.", code: "PAIRING_CODE_UNAVAILABLE" }, 200);
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -1111,6 +1154,7 @@ Deno.serve(async (req) => {
     // ── status — lightweight polling during QR scan ──
     // ════════════════════════════════════════════════════════════════════
     if (action === "status") {
+      const connectionMode = body.connectionMode === "code" ? "code" : "qr";
       const check = await checkStatus(5000);
       if (!check.valid) return json({ success: true, status: "token_invalid", tokenInvalid: true });
 
@@ -1156,7 +1200,7 @@ Deno.serve(async (req) => {
         }).eq("id", deviceId);
       } else if (isDisconnected) {
         const recentlyConnecting = device?.status === "Loading";
-        if (recentlyConnecting) {
+        if (recentlyConnecting && connectionMode !== "code") {
           const reconnect = await uazapi(instanceUrl, "/instance/connect", instanceToken, "POST", {}, { timeoutMs: 8000, retries: 0 });
           const reconnectState = normalizeProviderConnectionState(reconnect.data);
           const reconnectQr = reconnectState.qrcode || reconnect.data?.instance?.qrcode || reconnect.data?.qrcode;
