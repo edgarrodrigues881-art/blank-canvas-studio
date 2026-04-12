@@ -121,6 +121,10 @@ export default function GroupCarouselDispatch() {
     );
   }, []);
 
+  if (!isAllowed) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   const handleSend = async () => {
     if (!selectedDevice) {
       toast.error("Selecione uma instância");
