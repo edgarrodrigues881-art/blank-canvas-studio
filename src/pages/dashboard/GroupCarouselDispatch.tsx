@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Layers, Send, Plus, Trash2, Image, FileText, Loader2 } from "lucide-react";
+import { Layers, Send, Plus, Trash2, Loader2 } from "lucide-react";
 import { Navigate } from "react-router-dom";
 
 const ALLOWED_EMAIL = "edgarrodrigues881@gmail.com";
@@ -111,54 +111,75 @@ export default function GroupCarouselDispatch() {
       toast.error("Adicione conteúdo aos cards"); return;
     }
 
+    const invalidMediaCard = cards
+      .map((card, index) => ({ index, error: getObviousMediaUrlError(card.mediaUrl.trim()) }))
+      .find(item => item.error);
+
+    if (invalidMediaCard?.error) {
+      toast.error(`Card ${invalidMediaCard.index + 1}: ${invalidMediaCard.error}`);
+      return;
+    }
+
     setSending(true);
     let successCount = 0;
     let errorCount = 0;
+    const failureMessages: string[] = [];
 
-    for (const groupId of selectedGroups) {
-      try {
-        // Send header text if exists
-        if (headerText.trim()) {
-          const { data } = await supabase.functions.invoke("group-carousel-send", {
-            body: { deviceId: selectedDevice, groupJid: groupId, content: headerText.trim(), type: "text" },
-          });
-          if (data && !data.ok && data.error) { console.warn("Header send warning:", data.error); }
-          await delay(1500);
-        }
-
-        // Send each card sequentially
-        for (const card of cards) {
-          if (card.mediaUrl.trim()) {
-            const { data } = await supabase.functions.invoke("group-carousel-send", {
-              body: {
-                deviceId: selectedDevice,
-                groupJid: groupId,
-                content: card.mediaUrl.trim(),
-                type: card.mediaType || "image",
-                caption: card.text.trim() || undefined,
-              },
+    try {
+      for (const [groupIndex, groupId] of selectedGroups.entries()) {
+        try {
+          if (headerText.trim()) {
+            const result = await supabase.functions.invoke("group-carousel-send", {
+              body: { deviceId: selectedDevice, groupJid: groupId, content: headerText.trim(), type: "text" },
             });
-            if (data && !data.ok && data.error) { console.warn("Card send warning:", data.error); }
-          } else if (card.text.trim()) {
-            const { data } = await supabase.functions.invoke("group-carousel-send", {
-              body: { deviceId: selectedDevice, groupJid: groupId, content: card.text.trim(), type: "text" },
-            });
-            if (data && !data.ok && data.error) { console.warn("Card send warning:", data.error); }
+            assertFunctionSuccess(result, "Falha ao enviar o texto de abertura");
+            await delay(1500);
           }
-          await delay(2000);
+
+          for (const [cardIndex, card] of cards.entries()) {
+            if (card.mediaUrl.trim()) {
+              const result = await supabase.functions.invoke("group-carousel-send", {
+                body: {
+                  deviceId: selectedDevice,
+                  groupJid: groupId,
+                  content: card.mediaUrl.trim(),
+                  type: card.mediaType || "image",
+                  caption: card.text.trim() || undefined,
+                },
+              });
+              assertFunctionSuccess(result, `Falha ao enviar o card ${cardIndex + 1}`);
+            } else if (card.text.trim()) {
+              const result = await supabase.functions.invoke("group-carousel-send", {
+                body: { deviceId: selectedDevice, groupJid: groupId, content: card.text.trim(), type: "text" },
+              });
+              assertFunctionSuccess(result, `Falha ao enviar o card ${cardIndex + 1}`);
+            }
+
+            if (cardIndex < cards.length - 1) {
+              await delay(2000);
+            }
+          }
+
+          successCount++;
+        } catch (err) {
+          console.error("Group send error:", err);
+          errorCount++;
+          failureMessages.push(err instanceof Error ? err.message : "Erro ao enviar carrossel");
         }
-        successCount++;
-      } catch (err) {
-        console.error("Group send error:", err);
-        errorCount++;
+
+        if (groupIndex < selectedGroups.length - 1) {
+          await delay(3000);
+        }
       }
-      // Delay between groups
-      await delay(3000);
+    } finally {
+      setSending(false);
     }
 
-    setSending(false);
     if (successCount > 0) toast.success(`Carrossel enviado para ${successCount} grupo(s)`);
-    if (errorCount > 0) toast.error(`Falha em ${errorCount} grupo(s)`);
+    if (errorCount > 0) {
+      const detail = failureMessages[0] ? `: ${failureMessages[0]}` : "";
+      toast.error(`Falha em ${errorCount} grupo(s)${detail}`);
+    }
   };
 
   return (
@@ -260,8 +281,11 @@ export default function GroupCarouselDispatch() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {cards.map((card, i) => (
-            <div key={card.id} className="border rounded-xl p-4 space-y-3 relative">
+            {cards.map((card, i) => {
+              const mediaHint = getObviousMediaUrlError(card.mediaUrl.trim());
+
+              return (
+              <div key={card.id} className="border rounded-xl p-4 space-y-3 relative">
               <div className="flex items-center justify-between">
                 <Badge variant="secondary" className="text-xs">Card {i + 1}</Badge>
                 {cards.length > 1 && (
@@ -271,12 +295,15 @@ export default function GroupCarouselDispatch() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">URL da mídia (imagem/vídeo)</Label>
+                <Label className="text-xs">URL direta da mídia</Label>
                 <Input
-                  placeholder="https://exemplo.com/imagem.jpg"
+                  placeholder="https://exemplo.com/banner.jpg"
                   value={card.mediaUrl}
                   onChange={e => updateCard(card.id, "mediaUrl", e.target.value)}
                 />
+                {mediaHint && (
+                  <p className="text-xs text-destructive">{mediaHint}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label className="text-xs">Texto / Legenda</Label>
@@ -288,7 +315,7 @@ export default function GroupCarouselDispatch() {
                 />
               </div>
             </div>
-          ))}
+          );})}
         </CardContent>
       </Card>
 
@@ -315,4 +342,33 @@ export default function GroupCarouselDispatch() {
 
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function assertFunctionSuccess(result: { data: any; error: any }, fallbackMessage: string) {
+  const message = result.error?.message || result.data?.error || fallbackMessage;
+
+  if (result.error || result.data?.ok === false) {
+    throw new Error(message);
+  }
+}
+
+function getObviousMediaUrlError(mediaUrl: string) {
+  if (!mediaUrl) return null;
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(mediaUrl);
+  } catch {
+    return "Use uma URL pública válida começando com http:// ou https://.";
+  }
+
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    return "Use uma URL pública válida começando com http:// ou https://.";
+  }
+
+  if (parsedUrl.pathname === "/" || parsedUrl.pathname.endsWith("/")) {
+    return "Esse link aponta para um site/página. Cole a URL direta do arquivo (.jpg, .png, .mp4, .pdf...).";
+  }
+
+  return null;
 }
