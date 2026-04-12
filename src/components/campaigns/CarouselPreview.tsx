@@ -10,7 +10,7 @@ interface CarouselPreviewProps {
   previewMode?: "sent" | "received";
 }
 
-export function CarouselPreview({ cards, message, previewMode = "received" }: CarouselPreviewProps) {
+export const CarouselPreview = React.memo(function CarouselPreview({ cards, message, previewMode = "received" }: CarouselPreviewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const isSent = previewMode === "sent";
