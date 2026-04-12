@@ -1617,6 +1617,13 @@ const Devices = () => {
       inFlight = true;
       try {
           const result = await callApi({ action: "status", deviceId, connectionMode });
+        if (connectionMode === "code") {
+          const nextCode = result?.pairingCode || result?.pairing_code;
+          if (nextCode) {
+            setPairingCode((prev) => prev === nextCode ? prev : nextCode);
+            setConnectError("");
+          }
+        }
         // Check for duplicate phone error
         if (result?.error && result?.code === "DUPLICATE_PHONE") {
           clearInterval(interval);
@@ -2607,6 +2614,10 @@ const Devices = () => {
                   const code = result.pairingCode || result.pairing_code;
                   if (code) {
                     setPairingCode(code);
+                    setConnectError("");
+                    startPolling(connectingDevice.id, null, "code");
+                  } else if (result?.success && ["pairing", "pairing_pending", "connecting", "waiting"].includes(String(result?.status || ""))) {
+                    setConnectError("");
                     startPolling(connectingDevice.id, null, "code");
                   } else {
                     const errorMessage = result?.error || "Não foi possível gerar o código agora. Tente novamente.";
