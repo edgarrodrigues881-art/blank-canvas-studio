@@ -148,7 +148,11 @@ export function CarouselEditor({ cards, onChange }: CarouselEditorProps) {
 
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !session) return;
+    if (!file) return;
+    if (!session) {
+      toast({ title: "Sessão expirada", description: "Faça login novamente para enviar mídia.", variant: "destructive" });
+      return;
+    }
     if (file.size > 20 * 1024 * 1024) {
       toast({ title: "Arquivo muito grande", description: "Máximo 20MB.", variant: "destructive" });
       return;
@@ -168,6 +172,7 @@ export function CarouselEditor({ cards, onChange }: CarouselEditorProps) {
       });
       toast({ title: "Mídia enviada!" });
     } catch (err: any) {
+      console.error("[CarouselEditor] upload error:", err);
       toast({ title: "Erro no upload", description: err.message, variant: "destructive" });
     } finally {
       setUploading(false);
