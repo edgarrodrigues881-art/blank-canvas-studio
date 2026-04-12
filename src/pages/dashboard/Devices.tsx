@@ -1609,14 +1609,14 @@ const Devices = () => {
   }, [connectStep, qrCodeBase64, connectingDevice]);
 
   // Poll connection status
-  const startPolling = (deviceId: string, _proxyId: string | null, connectionMode: "qr" | "code" = "qr") => {
+  const startPolling = (deviceId: string, _proxyId: string | null, connectionMode: "qr" | "code" = "qr", phoneNumber?: string) => {
     stopPolling();
     let inFlight = false;
     const interval = setInterval(async () => {
       if (inFlight) return;
       inFlight = true;
       try {
-          const result = await callApi({ action: "status", deviceId, connectionMode });
+          const result = await callApi({ action: "status", deviceId, connectionMode, phoneNumber });
         if (connectionMode === "code") {
           const nextCode = result?.pairingCode || result?.pairing_code;
           if (nextCode) {
@@ -1685,6 +1685,7 @@ const Devices = () => {
       return;
     }
     setConnectingDevice(device);
+    setCodePhone("");
     setQrCodeBase64("");
     setPairingCode("");
     setConnectError("");
@@ -2615,10 +2616,10 @@ const Devices = () => {
                   if (code) {
                     setPairingCode(code);
                     setConnectError("");
-                    startPolling(connectingDevice.id, null, "code");
+                    startPolling(connectingDevice.id, null, "code", rawDigits);
                   } else if (result?.success && ["pairing", "pairing_pending", "connecting", "waiting"].includes(String(result?.status || ""))) {
                     setConnectError("");
-                    startPolling(connectingDevice.id, null, "code");
+                    startPolling(connectingDevice.id, null, "code", rawDigits);
                   } else {
                     const errorMessage = result?.error || "Não foi possível gerar o código agora. Tente novamente.";
                     setConnectError(errorMessage);
