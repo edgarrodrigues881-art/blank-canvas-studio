@@ -318,19 +318,28 @@ function buildCarouselAttempts(baseUrl: string, groupJid: string, headerText: st
     throw new Error("Carrossel sem cards configurados.");
   }
 
-  const targetFields = { number: groupJid, chatId: groupJid };
+  const targetFields = { phone: groupJid, number: groupJid };
+  const legacyTargetFields = { number: groupJid, chatId: groupJid };
   const primaryText = headerText?.trim();
+
+  const structuredCards = normalizedCards.map((card) => ({
+    text: card.text,
+    ...(card.mediaUrl ? { image: card.mediaUrl } : {}),
+    buttons: card.buttons
+      .map((button, index) => buildCarouselButton(button, index))
+      .filter(Boolean),
+  }));
 
   const structuredPayload: Record<string, unknown> = {
     ...targetFields,
+    ...(primaryText ? { message: primaryText, text: primaryText } : {}),
+    carousel: structuredCards,
+  };
+
+  const legacyStructuredPayload: Record<string, unknown> = {
+    ...legacyTargetFields,
     ...(primaryText ? { text: primaryText } : {}),
-    carousel: normalizedCards.map((card) => ({
-      text: card.text,
-      ...(card.mediaUrl ? { image: card.mediaUrl } : {}),
-      buttons: card.buttons
-        .map((button, index) => buildCarouselButton(button, index))
-        .filter(Boolean),
-    })),
+    carousel: structuredCards,
   };
 
   const menuChoices = normalizedCards.flatMap((card, index) => {
@@ -354,16 +363,151 @@ function buildCarouselAttempts(baseUrl: string, groupJid: string, headerText: st
       label: "structured_carousel",
     },
     {
+      endpoint: `${baseUrl}/send/carousel`,
+      body: legacyStructuredPayload,
+      label: "structured_carousel_legacy",
+    },
+    {
       endpoint: `${baseUrl}/send/menu`,
       body: {
         ...targetFields,
         type: hasUrlButtons ? "list" : "carousel",
-        ...(primaryText ? { text: primaryText } : {}),
+        ...(primaryText ? { message: primaryText, text: primaryText } : {}),
         choices: menuChoices,
       },
       label: "menu_fallback",
     },
+    {
+      endpoint: `${baseUrl}/send/menu`,
+      body: {
+        ...legacyTargetFields,
+        type: hasUrlButtons ? "list" : "carousel",
+        ...(primaryText ? { text: primaryText } : {}),
+        choices: menuChoices,
+      },
+      label: "menu_fallback_legacy",
+    },
   ];
+}
+
+function extractGroupInfoPayload(raw: any) {
+  return raw?.group || raw?.data?.group || raw?.data || raw || null;
+}
+
+function isTruthyGroupFlag(value: unknown) {
+  if (value === true || value === 1 || value === "1") return true;
+  return typeof value === "string" && value.trim().toLowerCase() === "true";
+}
+
+function isRestrictedGroup(rawInfo: any) {
+  const info = extractGroupInfoPayload(rawInfo);
+  const flags = [
+    info?.adminOnlyMessage,
+    info?.adminOnlyMessages,
+    info?.adminOnly,
+    info?.onlyAdminsCanSend,
+    info?.onlyAdminCanSend,
+    info?.isGroupAnnouncement,
+    info?.isAnnouncement,
+    info?.announcement,
+    info?.announce,
+    info?.restrictMessage,
+    info?.restrictMessages,
+    info?.sendMessagesAdminOnly,
+  ];
+
+  return flags.some((flag) => isTruthyGroupFlag(flag));
+}
+
+async function fetchGroupDeliveryMode(baseUrl: string, headers: Record<string, string>, groupJid: string): Promise<"default" | "restricted"> {
+  const attempts = [
+    {
+      method: "POST",
+      url: `${baseUrl}/group/info`,
+      body: JSON.stringify({ groupJid }),
+    },
+    {
+      method: "GET",
+      url: `${baseUrl}/group/info?groupJid=${encodeURIComponent(groupJid)}`,
+    },
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const response = await fetchWithTimeout(
+        attempt.url,
+        {
+          method: attempt.method,
+          headers,
+          ...(attempt.body ? { body: attempt.body } : {}),
+        },
+        10_000,
+      );
+
+      if (!response.ok) continue;
+
+      const raw = await response.text();
+      if (!raw) continue;
+
+      const parsed = JSON.parse(raw);
+      if (isRestrictedGroup(parsed)) {
+        console.log(`[group-carousel] Restricted group detected for ${groupJid}`);
+        return "restricted";
+      }
+    } catch (error) {
+      console.warn(`[group-carousel] Failed to inspect group mode for ${groupJid}:`, error);
+    }
+  }
+
+  return "default";
+}
+
+function renderCarouselAsTextFallback(headerText: string | undefined, cards: CarouselCard[]) {
+  const normalizedCards = normalizeCarouselCards(cards);
+  const parts: string[] = [];
+  const intro = headerText?.trim();
+
+  if (intro) {
+    parts.push(intro);
+  }
+
+  normalizedCards.forEach((card, index) => {
+    const lines = [`*${index + 1}. ${card.text || `Card ${index + 1}`}*`];
+
+    if (card.mediaUrl) {
+      lines.push(card.mediaUrl);
+    }
+
+    card.buttons.forEach((button) => {
+      const label = (button.text || "").trim();
+      if (!label) return;
+
+      const normalizedType = (button.type || "reply").toLowerCase();
+      const rawValue = (button.value || "").trim();
+
+      if (normalizedType === "url") {
+        const normalizedUrl = normalizeCarouselUrl(rawValue);
+        if (normalizedUrl) lines.push(`${label}: ${normalizedUrl}`);
+        return;
+      }
+
+      if (normalizedType === "phone" || normalizedType === "call") {
+        if (rawValue) lines.push(`${label}: ${rawValue}`);
+        return;
+      }
+
+      if (normalizedType === "copy") {
+        lines.push(`${label}: ${rawValue || label}`);
+        return;
+      }
+
+      lines.push(rawValue ? `${label}: ${rawValue}` : label);
+    });
+
+    parts.push(lines.join("\n"));
+  });
+
+  return parts.filter(Boolean).join("\n\n");
 }
 
 function extractProviderError(raw: string) {
@@ -470,6 +614,14 @@ Deno.serve(async (req) => {
 
           card.mediaUrl = inspectedMedia.normalizedUrl;
         }
+      }
+
+      const deliveryMode = await fetchGroupDeliveryMode(baseUrl, headers, groupJid);
+      if (deliveryMode === "restricted") {
+        const fallbackText = renderCarouselAsTextFallback(headerText, normalizedCarouselCards);
+        const textAttempts = buildMessageAttempts(baseUrl, groupJid, fallbackText, "text");
+        await sendWithFallbacks(textAttempts, headers, groupJid);
+        return json({ ok: true, mode: "restricted_text_fallback" });
       }
 
       const attempts = buildCarouselAttempts(baseUrl, groupJid, headerText, normalizedCarouselCards);
