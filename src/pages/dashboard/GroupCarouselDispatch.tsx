@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { Layers, Loader2, Plus, Send } from "lucide-react";
+import { Layers, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth";
