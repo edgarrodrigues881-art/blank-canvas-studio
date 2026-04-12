@@ -1,5 +1,6 @@
 // evolution-connect v3.0 — optimized for 300 instances
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { extractPairingCode } from "../_shared/pairing-code.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -88,54 +89,6 @@ type ProviderStatusCheck = {
 
 function getOwnerDigits(owner: string | null | undefined): string {
   return String(owner || "").replace(/\D/g, "");
-}
-
-function normalizePairingCode(value: string, phoneNumber = ""): string | null {
-  const normalized = String(value || "")
-    .replace(/[^a-zA-Z0-9]/g, "")
-    .trim()
-    .toUpperCase();
-
-  if (!normalized) return null;
-
-  const normalizedPhone = String(phoneNumber || "").replace(/\D/g, "");
-  if (normalizedPhone && normalized === normalizedPhone) return null;
-  if (normalized.length < 4 || normalized.length > 20) return null;
-
-  return normalized;
-}
-
-function extractPairingCode(payload: any, phoneNumber = "", depth = 0): string | null {
-  if (!payload || depth > 5) return null;
-
-  if (typeof payload === "string") {
-    const fromMessage = payload.match(/(?:pair(?:ing)?\s*code|codigo|c[óo]digo)[^a-z0-9]*([a-z0-9\s-]{4,24})/i)?.[1];
-    return normalizePairingCode(fromMessage || payload, phoneNumber);
-  }
-
-  if (Array.isArray(payload)) {
-    for (const item of payload) {
-      const nested = extractPairingCode(item, phoneNumber, depth + 1);
-      if (nested) return nested;
-    }
-    return null;
-  }
-
-  if (typeof payload !== "object") return null;
-
-  for (const [key, value] of Object.entries(payload)) {
-    const isRelevantKey = /(pair|code|codigo|c[oó]digo)/i.test(key);
-
-    if (typeof value === "string" && isRelevantKey) {
-      const normalized = normalizePairingCode(value, phoneNumber);
-      if (normalized) return normalized;
-    }
-
-    const nested = extractPairingCode(value, phoneNumber, depth + 1);
-    if (nested) return nested;
-  }
-
-  return null;
 }
 
 function isConfirmedConnected(check: ProviderStatusCheck | null | undefined): boolean {
