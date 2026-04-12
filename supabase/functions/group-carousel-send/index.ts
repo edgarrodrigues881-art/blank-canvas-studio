@@ -49,12 +49,23 @@ type SendAttempt = {
   body: Record<string, unknown>;
   label?: string;
 };
+type ToggleGroupAnnounceResult = {
+  ok: boolean;
+  status: number;
+  error?: string;
+};
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function createHttpError(message: string, status = 400) {
+  const error = new Error(message) as Error & { status?: number };
+  error.status = status;
+  return error;
 }
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = API_TIMEOUT_MS): Promise<Response> {
@@ -405,6 +416,43 @@ function isFalsyGroupFlag(value: unknown) {
   return typeof value === "string" && value.trim().toLowerCase() === "false";
 }
 
+function extractProviderActionFailure(raw: string) {
+  try {
+    const parsed = JSON.parse(raw);
+    const flags = [
+      parsed?.ok,
+      parsed?.success,
+      parsed?.data?.ok,
+      parsed?.data?.success,
+      parsed?.result?.ok,
+      parsed?.result?.success,
+    ];
+
+    if (flags.some((flag) => isFalsyGroupFlag(flag))) {
+      return extractProviderError(raw);
+    }
+  } catch {
+    // ignore JSON parse errors
+  }
+
+  return null;
+}
+
+function isRestrictedGroupPermissionError(message?: string) {
+  const normalized = String(message || "").toLowerCase();
+  return [
+    "not-authorized",
+    "not authorized",
+    "forbidden",
+    "não é administrador",
+    "nao e administrador",
+    "administrator",
+    "only admins",
+    "somente administradores",
+    "apenas administradores",
+  ].some((term) => normalized.includes(term));
+}
+
 function getGroupInfoCandidates(rawInfo: any) {
   const root = extractGroupInfoPayload(rawInfo);
   return [
@@ -510,7 +558,12 @@ async function fetchGroupDeliveryMode(baseUrl: string, headers: Record<string, s
   return "default";
 }
 
-async function toggleGroupAnnounce(baseUrl: string, headers: Record<string, string>, groupJid: string, announce: boolean): Promise<boolean> {
+async function toggleGroupAnnounce(
+  baseUrl: string,
+  headers: Record<string, string>,
+  groupJid: string,
+  announce: boolean,
+): Promise<ToggleGroupAnnounceResult> {
   try {
     console.log(`[group-carousel] Setting announce=${announce} for ${groupJid}`);
     const response = await fetchWithTimeout(
@@ -524,10 +577,21 @@ async function toggleGroupAnnounce(baseUrl: string, headers: Record<string, stri
     );
     const raw = await response.text();
     console.log(`[group-carousel] updateAnnounce response: ${response.status} ${raw.substring(0, 200)}`);
-    return response.ok;
+    const providerFailure = extractProviderActionFailure(raw);
+
+    if (response.ok && !providerFailure) {
+      return { ok: true, status: response.status };
+    }
+
+    return {
+      ok: false,
+      status: response.status,
+      error: providerFailure || extractProviderError(raw),
+    };
   } catch (error: any) {
-    console.warn(`[group-carousel] Failed to toggle announce for ${groupJid}:`, error?.message);
-    return false;
+    const message = error?.message || "Falha ao alterar as permissões do grupo.";
+    console.warn(`[group-carousel] Failed to toggle announce for ${groupJid}:`, message);
+    return { ok: false, status: 0, error: message };
   }
 }
 
@@ -537,16 +601,33 @@ async function sendToRestrictedGroup(
   groupJid: string,
   sendFn: () => Promise<void>,
 ): Promise<void> {
-  const unlocked = await toggleGroupAnnounce(baseUrl, headers, groupJid, false);
-  if (unlocked) {
+  const unlockResult = await toggleGroupAnnounce(baseUrl, headers, groupJid, false);
+  if (!unlockResult.ok) {
+    const details = unlockResult.error || "Não foi possível alterar as permissões do grupo.";
+
+    if (unlockResult.status === 403 || isRestrictedGroupPermissionError(details)) {
+      throw createHttpError(
+        "Sua instância não é administradora deste grupo privado. Como o grupo está configurado para apenas admins enviarem mensagens, o WhatsApp/UAZAPI bloqueia o envio.",
+        403,
+      );
+    }
+
+    throw createHttpError(`Não foi possível liberar temporariamente o grupo para envio. ${details}`.trim(), 502);
+  }
+
+  if (unlockResult.ok) {
     await new Promise((resolve) => setTimeout(resolve, 1500));
   }
+
   try {
     await sendFn();
   } finally {
-    if (unlocked) {
+    if (unlockResult.ok) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      await toggleGroupAnnounce(baseUrl, headers, groupJid, true);
+      const relockResult = await toggleGroupAnnounce(baseUrl, headers, groupJid, true);
+      if (!relockResult.ok) {
+        console.warn(`[group-carousel] Failed to restore announce=true for ${groupJid}: ${relockResult.error || "unknown error"}`);
+      }
     }
   }
 }
@@ -747,6 +828,7 @@ Deno.serve(async (req) => {
     return json({ ok: true, mode: "message" });
   } catch (error: any) {
     console.error("[group-carousel] Error:", error);
-    return json({ ok: false, error: error?.message || "Erro interno ao enviar carrossel." }, 500);
+    const status = typeof error?.status === "number" ? error.status : 500;
+    return json({ ok: false, error: error?.message || "Erro interno ao enviar carrossel." }, status);
   }
 });
