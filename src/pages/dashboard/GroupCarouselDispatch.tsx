@@ -65,6 +65,11 @@ export default function GroupCarouselDispatch() {
     });
   }, [selectedDevice, devices]);
 
+  // Gate: only allowed email
+  if (!isAllowed) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   const addCard = () => {
     if (cards.length >= 4) { toast.error("Máximo 4 cards"); return; }
     setCards([...cards, { id: Date.now().toString(), text: "", mediaUrl: "", mediaType: null }]);
