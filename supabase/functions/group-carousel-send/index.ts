@@ -307,8 +307,9 @@ function buildMessageAttempts(
 
   const safeText = content.trim();
   return [
-    { endpoint: `${baseUrl}/chat/send-text`, body: { chatId: groupJid, text: safeText, body: safeText } },
-    { endpoint: `${baseUrl}/send/text`, body: { ...targetFields, text: safeText } },
+    { endpoint: `${baseUrl}/chat/send-text`, body: { phone: groupJid, chatId: groupJid, text: safeText, body: safeText, message: safeText } },
+    { endpoint: `${baseUrl}/send/text`, body: { ...targetFields, phone: groupJid, text: safeText, message: safeText } },
+    { endpoint: `${baseUrl}/message/sendText`, body: { phone: groupJid, chatId: groupJid, text: safeText, body: safeText, message: safeText } },
   ];
 }
 
@@ -399,24 +400,61 @@ function isTruthyGroupFlag(value: unknown) {
   return typeof value === "string" && value.trim().toLowerCase() === "true";
 }
 
-function isRestrictedGroup(rawInfo: any) {
-  const info = extractGroupInfoPayload(rawInfo);
-  const flags = [
-    info?.adminOnlyMessage,
-    info?.adminOnlyMessages,
-    info?.adminOnly,
-    info?.onlyAdminsCanSend,
-    info?.onlyAdminCanSend,
-    info?.isGroupAnnouncement,
-    info?.isAnnouncement,
-    info?.announcement,
-    info?.announce,
-    info?.restrictMessage,
-    info?.restrictMessages,
-    info?.sendMessagesAdminOnly,
-  ];
+function isFalsyGroupFlag(value: unknown) {
+  if (value === false || value === 0 || value === "0") return true;
+  return typeof value === "string" && value.trim().toLowerCase() === "false";
+}
 
-  return flags.some((flag) => isTruthyGroupFlag(flag));
+function getGroupInfoCandidates(rawInfo: any) {
+  const root = extractGroupInfoPayload(rawInfo);
+  return [
+    root,
+    root?.GroupInfo,
+    root?.group,
+    root?.data,
+    rawInfo?.group,
+    rawInfo?.data,
+    rawInfo?.data?.group,
+    rawInfo?.data?.GroupInfo,
+  ].filter((value, index, array) => value && typeof value === "object" && array.indexOf(value) === index);
+}
+
+function isRestrictedGroup(rawInfo: any) {
+  const candidates = getGroupInfoCandidates(rawInfo);
+
+  return candidates.some((info) => {
+    const positiveFlags = [
+      info?.adminOnlyMessage,
+      info?.adminOnlyMessages,
+      info?.adminOnly,
+      info?.onlyAdminsCanSend,
+      info?.onlyAdminCanSend,
+      info?.isGroupAnnouncement,
+      info?.isAnnouncement,
+      info?.announcement,
+      info?.announce,
+      info?.Announce,
+      info?.isAnnounce,
+      info?.IsAnnounce,
+      info?.restrictMessage,
+      info?.restrictMessages,
+      info?.sendMessagesAdminOnly,
+    ];
+
+    const negativeFlags = [
+      info?.OwnerCanSendMessage,
+      info?.ownerCanSendMessage,
+      info?.canSendMessage,
+      info?.canSendMessages,
+      info?.CanSendMessage,
+      info?.CanSendMessages,
+      info?.membersCanSendMessage,
+      info?.membersCanSendMessages,
+    ];
+
+    return positiveFlags.some((flag) => isTruthyGroupFlag(flag))
+      || negativeFlags.some((flag) => isFalsyGroupFlag(flag));
+  });
 }
 
 async function fetchGroupDeliveryMode(baseUrl: string, headers: Record<string, string>, groupJid: string): Promise<"default" | "restricted"> {
@@ -429,6 +467,11 @@ async function fetchGroupDeliveryMode(baseUrl: string, headers: Record<string, s
     {
       method: "GET",
       url: `${baseUrl}/group/info?groupJid=${encodeURIComponent(groupJid)}`,
+    },
+    {
+      method: "POST",
+      url: `${baseUrl}/chat/info`,
+      body: JSON.stringify({ chatId: groupJid }),
     },
   ];
 
@@ -450,6 +493,11 @@ async function fetchGroupDeliveryMode(baseUrl: string, headers: Record<string, s
       if (!raw) continue;
 
       const parsed = JSON.parse(raw);
+      const info = extractGroupInfoPayload(parsed);
+      const keyPreview = info && typeof info === "object"
+        ? Object.keys(info).slice(0, 12).join(",")
+        : "no-keys";
+      console.log(`[group-carousel] Group inspect ${attempt.method} ${new URL(attempt.url).pathname} keys=${keyPreview}`);
       if (isRestrictedGroup(parsed)) {
         console.log(`[group-carousel] Restricted group detected for ${groupJid}`);
         return "restricted";
