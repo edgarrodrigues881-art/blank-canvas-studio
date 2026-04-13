@@ -276,7 +276,7 @@ const AISettings = () => {
     setStrategy(preset.strategy);
     setTone(preset.tone);
     setResponseStyle(preset.responseStyle);
-    setFlowSteps(preset.flowSteps);
+    setFlowSteps(preset.flowSteps as typeof flowSteps);
     setAutoFlow(true);
     const prompt = generatePrompt(preset.objective, preset.commStyle, preset.insistence, preset.strategy);
     setAiInstructions(prompt);
