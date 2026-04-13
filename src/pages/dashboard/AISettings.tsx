@@ -31,7 +31,6 @@ interface LeadMemory {
   last_interaction_at: string | null;
 }
 
-import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
 interface KnowledgeDoc {
   id: string; title: string; type: string; fileName: string; active: boolean; addedAt: string;
 }
