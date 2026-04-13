@@ -17,7 +17,7 @@ import {
   Sparkles, Key, CheckCircle2, AlertTriangle, Eye, EyeOff, Loader2, Send,
   FileText, File, Power, Save,
 } from "lucide-react";
-
+import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
 interface KnowledgeDoc {
   id: string; title: string; type: string; fileName: string; active: boolean; addedAt: string;
 }
@@ -59,6 +59,8 @@ const AISettings = () => {
   const [newDocType, setNewDocType] = useState("pdf");
   const [newDocFile, setNewDocFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [settingsExist, setSettingsExist] = useState(false);
 
   // Load settings from DB
   useEffect(() => {
@@ -73,6 +75,7 @@ const AISettings = () => {
         .maybeSingle();
 
       if (data) {
+        setSettingsExist(true);
         setIaActive(data.ia_active);
         setApiKey(data.api_key || "");
         setAiModel(data.ai_model);
@@ -98,10 +101,76 @@ const AISettings = () => {
         setRequireHumanForSale(data.require_human_for_sale);
         setCreativity([data.creativity]);
         setMaxResponseLength(data.max_response_length);
+      } else {
+        setShowOnboarding(true);
       }
       setLoading(false);
     })();
   }, []);
+
+  const handleOnboardingComplete = async (result: { businessType: string; objective: string; tone: string; businessName: string; businessDescription: string; businessHours: string }) => {
+    setBusinessType(result.businessType);
+    setTone(result.tone);
+    setBusinessName(result.businessName);
+    setBusinessDescription(result.businessDescription);
+    setBusinessHours(result.businessHours);
+    setIaActive(true);
+
+    // Map objective to attendance mode
+    const modeMap: Record<string, string> = {
+      atendimento: "knowledge",
+      vendas: "knowledge",
+      suporte: "knowledge",
+      agendamento: "scheduling",
+    };
+    setAttendanceMode(modeMap[result.objective] || "knowledge");
+
+    // Generate instructions based on choices
+    const toneLabels: Record<string, string> = { friendly: "amigável", professional: "profissional", direct: "direto e objetivo" };
+    const objLabels: Record<string, string> = { atendimento: "atendimento ao cliente", vendas: "conversão de vendas", suporte: "suporte técnico", agendamento: "agendamento de horários" };
+    const instructions = `Você é um assistente de ${objLabels[result.objective] || "atendimento"} da empresa ${result.businessName}. Seja ${toneLabels[result.tone] || "profissional"}. ${result.businessDescription ? "Sobre a empresa: " + result.businessDescription : ""}`;
+    setAiInstructions(instructions);
+
+    setShowOnboarding(false);
+
+    // Auto-save
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const payload = {
+        user_id: user.id,
+        ia_active: true,
+        api_key: apiKey,
+        ai_model: aiModel,
+        tone: result.tone,
+        response_style: responseStyle,
+        ai_instructions: instructions,
+        business_name: result.businessName,
+        business_type: result.businessType,
+        business_hours: result.businessHours,
+        business_segment: businessSegment,
+        business_description: result.businessDescription,
+        fallback_image: fallbackImage,
+        fallback_audio: fallbackAudio,
+        pause_words: pauseWords,
+        reactivate_words: reactivateWords,
+        auto_transfer_human: autoTransferHuman,
+        simulate_typing: simulateTyping,
+        split_long_messages: splitLongMessages,
+        conversation_memory: conversationMemory,
+        min_delay_seconds: minDelay,
+        max_delay_seconds: maxDelay,
+        block_sensitive: blockSensitive,
+        require_human_for_sale: requireHumanForSale,
+        creativity: creativity[0],
+        max_response_length: maxResponseLength,
+      };
+      await supabase.from("ai_settings").upsert(payload, { onConflict: "user_id" });
+      toast.success("IA configurada e ativada com sucesso! 🎉");
+    } catch {
+      toast.error("Erro ao salvar configurações");
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -226,6 +295,13 @@ const AISettings = () => {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
+      <AIOnboardingWizard
+        open={showOnboarding}
+        onComplete={handleOnboardingComplete}
+        onSkip={() => setShowOnboarding(false)}
+        apiKey={apiKey}
+        aiModel={aiModel}
+      />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
