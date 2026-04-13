@@ -849,10 +849,10 @@ function buildMentionFields(mentionParticipants: string[]) {
   const aliases = Array.from(new Set([...numbers, ...jids]));
   const payload: Record<string, unknown> = {
     mentionsEveryOne: true,
+    mentions: "all",
   };
 
   if (numbers.length > 0) {
-    payload.mentions = numbers;
     payload.mentionUsers = numbers.join(",");
   }
 
@@ -877,6 +877,16 @@ function buildMentionFields(mentionParticipants: string[]) {
     jids,
     mentionUsers: numbers.join(","),
     payload,
+  };
+}
+
+function buildBlindMentionFields() {
+  return {
+    mentions: "all",
+    mentionsEveryOne: true,
+    contextInfo: {
+      mentionsEveryOne: true,
+    },
   };
 }
 
