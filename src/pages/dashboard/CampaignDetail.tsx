@@ -1245,9 +1245,9 @@ const CampaignDetail = () => {
           <div className="max-h-[440px] overflow-y-auto overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="border-border/10 hover:bg-transparent">
-                  <TableHead className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-widest w-[140px]">Contato</TableHead>
-                  <TableHead className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-widest">Número</TableHead>
+               <TableRow className="border-border/10 hover:bg-transparent">
+                  <TableHead className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-widest w-[140px]">{isGroupCampaign ? "Grupo" : "Contato"}</TableHead>
+                  {!isGroupCampaign && <TableHead className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-widest">Número</TableHead>}
                   <TableHead className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-widest text-center w-[100px]">Status</TableHead>
                   <TableHead className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-widest w-[120px]">Horário</TableHead>
                   <TableHead className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-widest">Erro</TableHead>
