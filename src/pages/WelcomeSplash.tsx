@@ -87,12 +87,12 @@ const WelcomeSplash = () => {
               transition={{ duration: 0.5, delay: 0.1 }}
             >
               <h1
-                className="text-2xl sm:text-5xl font-black tracking-tight text-center text-black dark:text-foreground"
+                className="text-2xl sm:text-5xl font-black tracking-tight text-center text-white/90"
                 style={{ fontFamily: "'Space Grotesk', sans-serif" }}
               >
-                <span className="text-primary">DG</span>{" "}
+                <span style={{ color: "#2d8c3c" }}>DG</span>{" "}
                 CONTINGÊNCIA{" "}
-                <span className="text-primary">PRO</span>
+                <span style={{ color: "#2d8c3c" }}>PRO</span>
               </h1>
               <motion.span
                 className="text-[10px] sm:text-xs tracking-[0.4em] uppercase text-slate-600 dark:text-muted-foreground/40 font-bold"
