@@ -395,8 +395,9 @@ export default function GroupCarouselDispatch() {
         const plan = { text: dispatchType === "carousel" ? trimmedCarouselHeader : trimmedText, withExtras: true };
 
         try {
+            let body: Record<string, any>;
             if (dispatchType === "text") {
-              if (plan.withExtras && trimmedMediaUrl) {
+              if (trimmedMediaUrl) {
                 body = {
                   deviceId: selectedDevice,
                   groupJid: gid,
@@ -408,16 +409,14 @@ export default function GroupCarouselDispatch() {
                 body = { deviceId: selectedDevice, groupJid: gid, content: plan.text.trim(), type: "text" };
               }
             } else if (dispatchType === "buttons") {
-              body = plan.withExtras
-                ? {
-                    deviceId: selectedDevice,
-                    groupJid: gid,
-                    content: plan.text.trim(),
-                    type: "buttons",
-                    buttons: activeButtons,
-                    ...(trimmedMediaUrl ? { mediaUrl: trimmedMediaUrl } : {}),
-                  }
-                : { deviceId: selectedDevice, groupJid: gid, content: plan.text.trim(), type: "text" };
+              body = {
+                deviceId: selectedDevice,
+                groupJid: gid,
+                content: plan.text.trim(),
+                type: "buttons",
+                buttons: activeButtons,
+                ...(trimmedMediaUrl ? { mediaUrl: trimmedMediaUrl } : {}),
+              };
             } else {
               body = touchedCards.length > 0
                 ? { deviceId: selectedDevice, groupJid: gid, headerText: plan.text.trim() || undefined, cards: serializeCarouselCards(touchedCards) }
@@ -428,7 +427,6 @@ export default function GroupCarouselDispatch() {
             if (res.error || res.data?.ok === false) {
               throw new Error(res.error?.message || res.data?.error || "Falha ao enviar.");
             }
-          }
 
           const sentAt = new Date().toISOString();
           ok++;
