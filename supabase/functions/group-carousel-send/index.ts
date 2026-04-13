@@ -1450,24 +1450,12 @@ Deno.serve(async (req) => {
     const isRestricted = groupInfo.mode === "restricted";
 
     // Helper: wrap send function with restricted group unlock/relock when needed.
-    // If the instance is NOT admin, the unlock will fail — in that case, just send directly
-    // and rely on the API processing the message anyway (blind send strategy).
+    // If the group only allows admins to send and this instance is not admin,
+    // we must fail the request instead of reporting a false positive delivery.
     const wrapSend = async (fn: () => Promise<void>) => {
       if (isRestricted) {
-        console.log(`[group-carousel] Group is restricted — attempting unlock/relock flow for ${groupJid}`);
-        try {
-          await sendToRestrictedGroup(baseUrl, headers, groupJid, fn);
-        } catch (unlockErr: any) {
-          // If unlock fails (not admin), send directly anyway — the API may still deliver
-          const errMsg = unlockErr?.message || String(unlockErr);
-          const isPermissionError = unlockErr?.status === 403 || isRestrictedGroupPermissionError(errMsg);
-          if (isPermissionError) {
-            console.log(`[group-carousel] Not admin — bypassing unlock, sending directly to restricted group ${groupJid}`);
-            await fn();
-          } else {
-            throw unlockErr;
-          }
-        }
+        console.log(`[group-carousel] Using restricted-group unlock/relock flow for ${groupJid}`);
+        await sendToRestrictedGroup(baseUrl, headers, groupJid, fn);
       } else {
         await fn();
       }
