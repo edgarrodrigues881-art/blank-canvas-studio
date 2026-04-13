@@ -41,6 +41,24 @@ interface GroupListItem {
 
 /* ─── Helpers ──────────────────────────────────────────── */
 
+// Known false-positive strings that look like invite codes but aren't
+const INVITE_CODE_BLACKLIST = new Set([
+  "DefaultMembershipApprovalMode",
+  "defaultmembershipapprovalmode",
+  "MembershipApprovalMode",
+  "membershipapprovalmode",
+]);
+
+function isValidInviteCode(code: string): boolean {
+  if (!code || code.length < 10) return false;
+  if (INVITE_CODE_BLACKLIST.has(code)) return false;
+  // Real invite codes are typically 22-24 chars of base64url; reject if it looks like a camelCase field name
+  if (/^[a-z]+[A-Z]/.test(code) && code.length > 30) return false;
+  // Reject if it's all lowercase letters (likely a field name, not a code)
+  if (/^[a-z]+$/.test(code) && code.length > 20) return false;
+  return true;
+}
+
 async function fetchWithTimeout(url: string, opts: RequestInit, timeout = TIMEOUT_MS) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
@@ -83,7 +101,8 @@ function findInviteCode(obj: any, depth = 0): string | null {
   if (!obj || depth > 4) return null;
   if (typeof obj === "string") {
     const clean = obj.replace(/^https?:\/\/chat\.whatsapp\.com\//i, "").split(/[/?#\s]/)[0].trim();
-    return /^[A-Za-z0-9_-]{10,}$/.test(clean) ? clean : null;
+    if (!/^[A-Za-z0-9_-]{10,}$/.test(clean)) return null;
+    return isValidInviteCode(clean) ? clean : null;
   }
   if (typeof obj !== "object") return null;
 
@@ -112,7 +131,7 @@ function parseInviteLinkFromRaw(raw: string): string | null {
 
   // Direct URL match
   const fullMatch = text.match(/https?:\/\/chat\.whatsapp\.com\/([A-Za-z0-9_-]{10,})/i);
-  if (fullMatch?.[1]) return `https://chat.whatsapp.com/${fullMatch[1]}`;
+  if (fullMatch?.[1] && isValidInviteCode(fullMatch[1])) return `https://chat.whatsapp.com/${fullMatch[1]}`;
 
   // JSON deep search
   try {
@@ -123,7 +142,7 @@ function parseInviteLinkFromRaw(raw: string): string | null {
 
   // Regex for bare invite code in the raw text
   const bareMatch = text.match(/"([A-Za-z0-9_-]{18,})"/);
-  if (bareMatch?.[1] && !bareMatch[1].includes("@") && !bareMatch[1].includes(".")) {
+  if (bareMatch?.[1] && !bareMatch[1].includes("@") && !bareMatch[1].includes(".") && isValidInviteCode(bareMatch[1])) {
     return `https://chat.whatsapp.com/${bareMatch[1]}`;
   }
 
