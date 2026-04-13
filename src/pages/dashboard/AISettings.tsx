@@ -15,8 +15,10 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Bot, Building2, BookOpen, Headset, Brain, ShieldCheck, Upload, Plus, Trash2,
   Sparkles, Key, CheckCircle2, AlertTriangle, Eye, EyeOff, Loader2, Send,
-  FileText, File, Power, Target, Zap, Activity, Circle,
+  FileText, File, Power, Target, Zap, Activity, Circle, Timer, MessageSquare,
+  UserCheck, PhoneCall, LifeBuoy,
 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
 interface KnowledgeDoc {
   id: string; title: string; type: string; fileName: string; active: boolean; addedAt: string;
@@ -66,6 +68,13 @@ const AISettings = () => {
   const [autoTransferHuman, setAutoTransferHuman] = useState(false);
   const [minDelay, setMinDelay] = useState(1);
   const [maxDelay, setMaxDelay] = useState(3);
+  const [maxResponseTime, setMaxResponseTime] = useState(30);
+  const [maxConsecutiveMessages, setMaxConsecutiveMessages] = useState(3);
+  const [smartDelay, setSmartDelay] = useState(true);
+  const [forceCollectName, setForceCollectName] = useState(false);
+  const [forceCollectPhone, setForceCollectPhone] = useState(false);
+  const [fallbackAskContext, setFallbackAskContext] = useState(true);
+  const [fallbackTransferAfter, setFallbackTransferAfter] = useState(2);
   const [knowledgeDocs, setKnowledgeDocs] = useState<KnowledgeDoc[]>([]);
   const [kbProducts, setKbProducts] = useState("");
   const [kbPrices, setKbPrices] = useState("");
@@ -1053,6 +1062,123 @@ const AISettings = () => {
               <p className="text-xs text-muted-foreground">Transfere para atendente antes de fechar venda</p>
             </div>
             <Switch checked={requireHumanForSale} onCheckedChange={setRequireHumanForSale} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Controle Avançado de Comportamento */}
+      <Card className="transition-all duration-200 hover:shadow-md">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Timer className="h-4 w-4 text-primary" strokeWidth={1.5} />
+            <CardTitle className="text-base">Controle Avançado</CardTitle>
+          </div>
+          <CardDescription>Limites de tempo, mensagens e coleta de dados</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* Tempo máximo de resposta */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-1.5">
+                <Timer className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} />
+                Tempo máximo de resposta
+              </Label>
+              <Badge variant="outline" className="text-xs">{maxResponseTime}s</Badge>
+            </div>
+            <Slider
+              value={[maxResponseTime]}
+              onValueChange={(v) => setMaxResponseTime(v[0])}
+              min={10}
+              max={120}
+              step={5}
+            />
+            <p className="text-[10px] text-muted-foreground">Se a IA demorar mais que {maxResponseTime}s, envia mensagem de espera</p>
+          </div>
+
+          {/* Limite de mensagens seguidas */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} />
+                Limite de mensagens seguidas
+              </Label>
+              <Badge variant="outline" className="text-xs">{maxConsecutiveMessages} msgs</Badge>
+            </div>
+            <Slider
+              value={[maxConsecutiveMessages]}
+              onValueChange={(v) => setMaxConsecutiveMessages(v[0])}
+              min={1}
+              max={10}
+              step={1}
+            />
+            <p className="text-[10px] text-muted-foreground">Máximo de mensagens que a IA envia sem resposta do cliente</p>
+          </div>
+
+          {/* Delay inteligente */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">Delay inteligente</p>
+              <p className="text-xs text-muted-foreground">Delay baseado no tamanho da mensagem (maior texto = mais delay)</p>
+            </div>
+            <Switch checked={smartDelay} onCheckedChange={setSmartDelay} />
+          </div>
+
+          {/* Coleta de dados */}
+          <div className="border-t border-border/30 pt-4 space-y-3">
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Coleta de dados</Label>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UserCheck className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Forçar coleta de nome</p>
+                  <p className="text-xs text-muted-foreground">IA pergunta o nome antes de continuar</p>
+                </div>
+              </div>
+              <Switch checked={forceCollectName} onCheckedChange={setForceCollectName} />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <PhoneCall className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Forçar coleta de telefone</p>
+                  <p className="text-xs text-muted-foreground">IA solicita o telefone para contato</p>
+                </div>
+              </div>
+              <Switch checked={forceCollectPhone} onCheckedChange={setForceCollectPhone} />
+            </div>
+          </div>
+
+          {/* Fallback inteligente */}
+          <div className="border-t border-border/30 pt-4 space-y-3">
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <LifeBuoy className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Fallback inteligente
+            </Label>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">Pedir mais contexto</p>
+                <p className="text-xs text-muted-foreground">Se não souber responder, pede mais informações</p>
+              </div>
+              <Switch checked={fallbackAskContext} onCheckedChange={setFallbackAskContext} />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Transferir após tentativas sem sucesso</Label>
+                <Badge variant="outline" className="text-xs">{fallbackTransferAfter}x</Badge>
+              </div>
+              <Slider
+                value={[fallbackTransferAfter]}
+                onValueChange={(v) => setFallbackTransferAfter(v[0])}
+                min={1}
+                max={5}
+                step={1}
+              />
+              <p className="text-[10px] text-muted-foreground">Após {fallbackTransferAfter} tentativa{fallbackTransferAfter > 1 ? "s" : ""} sem conseguir responder, transfere para humano</p>
+            </div>
           </div>
         </CardContent>
       </Card>
