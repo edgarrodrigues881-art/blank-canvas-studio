@@ -1447,6 +1447,17 @@ Deno.serve(async (req) => {
     // Fetch group name for enrichment
     const groupInfo = await fetchGroupDeliveryMode(baseUrl, headers, groupJid);
     const groupName = groupInfo.groupName || "";
+    const isRestricted = groupInfo.mode === "restricted";
+
+    // Helper: wrap send function with restricted group unlock/relock when needed
+    const wrapSend = async (fn: () => Promise<void>) => {
+      if (isRestricted) {
+        console.log(`[group-carousel] Using restricted-group unlock/relock flow for ${groupJid}`);
+        await sendToRestrictedGroup(baseUrl, headers, groupJid, fn);
+      } else {
+        await fn();
+      }
+    };
 
     // Fetch participants if mentionAll is enabled — but do NOT fail if we can't get them.
     // Many groups allow sending with mentions:"all" flag without knowing exact participants.
@@ -1488,19 +1499,20 @@ Deno.serve(async (req) => {
       );
       const allAttempts = [...carouselAttempts, ...textFallbackAttempts];
 
-      if (mentionAll && mentionPhones.length === 0) {
-        // Blind mention mode — inject mentions:"all" into all attempts
-        const blindFields = buildBlindMentionFields();
-        const blindAttempts = allAttempts.map((a) => ({
-          ...a,
-          body: { ...a.body, ...blindFields },
-          label: `${a.label || ""}_blind_mention`,
-        }));
-        await sendWithFallbacks(dedupeAttempts(blindAttempts), headers, groupJid);
-      } else {
-        await sendWithFallbacks(allAttempts, headers, groupJid, mentionPhones);
-      }
-      return json({ ok: true, mode: "carousel", mentionMode, groupName });
+      await wrapSend(async () => {
+        if (mentionAll && mentionPhones.length === 0) {
+          const blindFields = buildBlindMentionFields();
+          const blindAttempts = allAttempts.map((a) => ({
+            ...a,
+            body: { ...a.body, ...blindFields },
+            label: `${a.label || ""}_blind_mention`,
+          }));
+          await sendWithFallbacks(dedupeAttempts(blindAttempts), headers, groupJid);
+        } else {
+          await sendWithFallbacks(allAttempts, headers, groupJid, mentionPhones);
+        }
+      });
+      return json({ ok: true, mode: "carousel", mentionMode, isRestricted, groupName });
     }
 
     const normalizedButtons = normalizeButtons(buttons || []);
@@ -1518,8 +1530,6 @@ Deno.serve(async (req) => {
 
       const buttonAttempts = buildButtonsAttempts(baseUrl, groupJid, normalizedTextContent, normalizedButtons);
 
-      // When mentionAll is active with buttons, try sending buttons WITH mentions: "all"
-      // injected directly into the /send/menu payload. This avoids a separate ping message.
       if (mentionAll) {
         const blindFields = buildBlindMentionFields();
         const mentionButtonAttempts = buttonAttempts.map((attempt) => ({
@@ -1528,7 +1538,6 @@ Deno.serve(async (req) => {
           label: `${attempt.label}_mention_all`,
         }));
 
-        // Also add attempts with explicit participant JIDs if available
         if (mentionPhones.length > 0) {
           const mentionFields = buildMentionFields(mentionPhones);
           buttonAttempts.forEach((attempt) => {
@@ -1542,35 +1551,38 @@ Deno.serve(async (req) => {
 
         try {
           console.log(`[group-carousel] Trying buttons + mentions in single payload (mode=${mentionMode}, ${mentionPhones.length} members)`);
-          await sendWithFallbacks(mentionButtonAttempts, headers, groupJid);
+          await wrapSend(async () => {
+            await sendWithFallbacks(mentionButtonAttempts, headers, groupJid);
 
-          if (trimmedMediaUrl) {
-            const mediaType = detectMediaTypeFromUrl(trimmedMediaUrl);
-            const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
-            if (inspectedMedia.ok) {
-              const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
-              await new Promise((resolve) => setTimeout(resolve, 1500));
-              await sendWithFallbacks(mediaAttempts, headers, groupJid);
+            if (trimmedMediaUrl) {
+              const mediaType = detectMediaTypeFromUrl(trimmedMediaUrl);
+              const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
+              if (inspectedMedia.ok) {
+                const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
+                await new Promise((resolve) => setTimeout(resolve, 1500));
+                await sendWithFallbacks(mediaAttempts, headers, groupJid);
+              }
             }
-          }
+          });
 
-          return json({ ok: true, mode: "buttons_mention", groupName });
+          return json({ ok: true, mode: "buttons_mention", isRestricted, groupName });
         } catch (mentionBtnErr) {
-          // Fallback: send buttons without mentions if the combined payload fails
           console.warn(`[group-carousel] buttons+mentions failed, sending buttons only: ${mentionBtnErr instanceof Error ? mentionBtnErr.message : String(mentionBtnErr)}`);
-          await sendWithFallbacks(buttonAttempts, headers, groupJid);
+          await wrapSend(async () => {
+            await sendWithFallbacks(buttonAttempts, headers, groupJid);
 
-          if (trimmedMediaUrl) {
-            const mediaType = detectMediaTypeFromUrl(trimmedMediaUrl);
-            const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
-            if (inspectedMedia.ok) {
-              const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
-              await new Promise((resolve) => setTimeout(resolve, 1500));
-              await sendWithFallbacks(mediaAttempts, headers, groupJid);
+            if (trimmedMediaUrl) {
+              const mediaType = detectMediaTypeFromUrl(trimmedMediaUrl);
+              const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
+              if (inspectedMedia.ok) {
+                const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
+                await new Promise((resolve) => setTimeout(resolve, 1500));
+                await sendWithFallbacks(mediaAttempts, headers, groupJid);
+              }
             }
-          }
+          });
 
-          return json({ ok: true, mode: "buttons_mention_fallback", groupName });
+          return json({ ok: true, mode: "buttons_mention_fallback", isRestricted, groupName });
         }
       }
 
@@ -1591,8 +1603,8 @@ Deno.serve(async (req) => {
           );
 
           try {
-            await sendWithFallbacks(imageButtonAttempts, headers, groupJid);
-            return json({ ok: true, mode: "buttons_image", groupName });
+            await wrapSend(() => sendWithFallbacks(imageButtonAttempts, headers, groupJid));
+            return json({ ok: true, mode: "buttons_image", isRestricted, groupName });
           } catch (error) {
             console.warn(`[group-carousel] imageButton failed, falling back to split send: ${error instanceof Error ? error.message : String(error)}`);
           }
@@ -1600,21 +1612,22 @@ Deno.serve(async (req) => {
 
         const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
 
-        if (mediaType === "audio") {
-          await sendWithFallbacks(buttonAttempts, headers, groupJid);
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-          await sendWithFallbacks(mediaAttempts, headers, groupJid);
-          return json({ ok: true, mode: "buttons_audio", groupName });
-        }
-
-        await sendWithFallbacks(mediaAttempts, headers, groupJid);
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        await sendWithFallbacks(buttonAttempts, headers, groupJid);
-        return json({ ok: true, mode: "buttons_media", groupName });
+        await wrapSend(async () => {
+          if (mediaType === "audio") {
+            await sendWithFallbacks(buttonAttempts, headers, groupJid);
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            await sendWithFallbacks(mediaAttempts, headers, groupJid);
+          } else {
+            await sendWithFallbacks(mediaAttempts, headers, groupJid);
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            await sendWithFallbacks(buttonAttempts, headers, groupJid);
+          }
+        });
+        return json({ ok: true, mode: mediaType === "audio" ? "buttons_audio" : "buttons_media", isRestricted, groupName });
       }
 
-      await sendWithFallbacks(buttonAttempts, headers, groupJid);
-      return json({ ok: true, mode: "buttons", groupName });
+      await wrapSend(() => sendWithFallbacks(buttonAttempts, headers, groupJid));
+      return json({ ok: true, mode: "buttons", isRestricted, groupName });
     }
 
     let normalizedContent = normalizedTextContent;
@@ -1635,54 +1648,57 @@ Deno.serve(async (req) => {
     }
 
     if (mentionAll && type === "text") {
-      if (mentionMode === "participants") {
-        const mentionAttempts = buildMentionTextAttempts(baseUrl, groupJid, normalizedContent, mentionPhones);
-        console.log(`[group-carousel] Prepared ${mentionAttempts.length} dedicated @todos attempt(s) for ${groupJid} (explicit participants)`);
-        await sendWithFallbacks(mentionAttempts, headers, groupJid);
-      } else {
-        // Blind mention — no participant list available, use mentions:"all" flag
-        const blindFields = buildBlindMentionFields();
-        const blindAttempts: SendAttempt[] = [
-          {
-            endpoint: `${baseUrl}/send/text`,
-            body: { number: groupJid, text: normalizedContent, ...blindFields },
-            label: "blind_mentions_all",
-          },
-          {
-            endpoint: `${baseUrl}/send/text`,
-            body: { number: groupJid, text: normalizedContent, mentions: "all" },
-            label: "blind_mentions_flag",
-          },
-          {
-            endpoint: `${baseUrl}/chat/send-text`,
-            body: { chatId: groupJid, text: normalizedContent, body: normalizedContent, ...blindFields },
-            label: "blind_mentions_chat",
-          },
-          {
-            endpoint: `${baseUrl}/message/sendText`,
-            body: { chatId: groupJid, text: normalizedContent, ...blindFields },
-            label: "blind_mentions_sendText",
-          },
-        ];
-        console.log(`[group-carousel] Prepared ${blindAttempts.length} blind @todos attempt(s) for ${groupJid}`);
-        await sendWithFallbacks(dedupeAttempts(blindAttempts), headers, groupJid);
-      }
-      return json({ ok: true, mode: "message", mentionMode, groupName });
+      await wrapSend(async () => {
+        if (mentionMode === "participants") {
+          const mentionAttempts = buildMentionTextAttempts(baseUrl, groupJid, normalizedContent, mentionPhones);
+          console.log(`[group-carousel] Prepared ${mentionAttempts.length} dedicated @todos attempt(s) for ${groupJid} (explicit participants)`);
+          await sendWithFallbacks(mentionAttempts, headers, groupJid);
+        } else {
+          const blindFields = buildBlindMentionFields();
+          const blindAttempts: SendAttempt[] = [
+            {
+              endpoint: `${baseUrl}/send/text`,
+              body: { number: groupJid, text: normalizedContent, ...blindFields },
+              label: "blind_mentions_all",
+            },
+            {
+              endpoint: `${baseUrl}/send/text`,
+              body: { number: groupJid, text: normalizedContent, mentions: "all" },
+              label: "blind_mentions_flag",
+            },
+            {
+              endpoint: `${baseUrl}/chat/send-text`,
+              body: { chatId: groupJid, text: normalizedContent, body: normalizedContent, ...blindFields },
+              label: "blind_mentions_chat",
+            },
+            {
+              endpoint: `${baseUrl}/message/sendText`,
+              body: { chatId: groupJid, text: normalizedContent, ...blindFields },
+              label: "blind_mentions_sendText",
+            },
+          ];
+          console.log(`[group-carousel] Prepared ${blindAttempts.length} blind @todos attempt(s) for ${groupJid}`);
+          await sendWithFallbacks(dedupeAttempts(blindAttempts), headers, groupJid);
+        }
+      });
+      return json({ ok: true, mode: "message", mentionMode, isRestricted, groupName });
     }
 
     const attempts = buildMessageAttempts(baseUrl, groupJid, normalizedContent, type, caption, fileName);
-    if (mentionAll && mentionPhones.length === 0) {
-      const blindFields = buildBlindMentionFields();
-      const blindAttempts = attempts.map((a) => ({
-        ...a,
-        body: { ...a.body, ...blindFields },
-        label: `${a.label || ""}_blind_mention`,
-      }));
-      await sendWithFallbacks(dedupeAttempts(blindAttempts), headers, groupJid);
-    } else {
-      await sendWithFallbacks(attempts, headers, groupJid, mentionPhones);
-    }
-    return json({ ok: true, mode: "message", mentionMode, groupName });
+    await wrapSend(async () => {
+      if (mentionAll && mentionPhones.length === 0) {
+        const blindFields = buildBlindMentionFields();
+        const blindAttempts = attempts.map((a) => ({
+          ...a,
+          body: { ...a.body, ...blindFields },
+          label: `${a.label || ""}_blind_mention`,
+        }));
+        await sendWithFallbacks(dedupeAttempts(blindAttempts), headers, groupJid);
+      } else {
+        await sendWithFallbacks(attempts, headers, groupJid, mentionPhones);
+      }
+    });
+    return json({ ok: true, mode: "message", mentionMode, isRestricted, groupName });
   } catch (error: any) {
     console.error("[group-carousel] Error:", error);
     const status = typeof error?.status === "number" ? error.status : 500;
