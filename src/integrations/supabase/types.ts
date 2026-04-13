@@ -301,6 +301,48 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_lead_memory: {
+        Row: {
+          contact_name: string | null
+          created_at: string
+          id: string
+          interaction_count: number
+          interest: string | null
+          last_interaction_at: string | null
+          notes: string | null
+          remote_jid: string
+          stage: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          interaction_count?: number
+          interest?: string | null
+          last_interaction_at?: string | null
+          notes?: string | null
+          remote_jid: string
+          stage?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          interaction_count?: number
+          interest?: string | null
+          last_interaction_at?: string | null
+          notes?: string | null
+          remote_jid?: string
+          stage?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_settings: {
         Row: {
           ai_instructions: string | null
