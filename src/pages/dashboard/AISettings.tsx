@@ -112,6 +112,20 @@ const AISettings = () => {
     })();
   }, []);
 
+
+  const generatePrompt = (obj: string, style: string, ins: number, strat: string) => {
+    const objMap: Record<string, string> = { vender: "converter leads em vendas e fechar negócios", atender: "atender dúvidas dos clientes de forma completa", suporte: "resolver problemas técnicos e dar suporte" };
+    const styleMap: Record<string, string> = { persuasivo: "persuasivo e convincente", tecnico: "técnico e detalhado", amigavel: "amigável e acolhedor", direto: "direto e objetivo" };
+    const insMap: Record<number, string> = { 1: "Nunca insista, aceite a primeira negativa.", 2: "Seja discreto, sugira no máximo uma vez.", 3: "Tenha persistência moderada, tente até 2 vezes.", 4: "Seja persistente, tente convencer com argumentos.", 5: "Seja muito insistente, não desista fácil e use gatilhos de urgência." };
+    const stratMap: Record<string, string> = { perguntas: "Faça perguntas para entender a necessidade antes de responder.", direto: "Vá direto ao ponto sem muitas perguntas.", fechamento: "Conduza a conversa sempre para o fechamento/conversão." };
+    return `Seu objetivo é ${objMap[obj] || objMap.atender}. Comunique-se de forma ${styleMap[style] || styleMap.amigavel}. ${insMap[ins] || insMap[3]} Estratégia: ${stratMap[strat] || stratMap.perguntas} Use o nome do cliente quando disponível. Responda de forma natural e curta.`;
+  };
+
+  const updateBehavior = (obj: string, style: string, ins: number, strat: string) => {
+    const prompt = generatePrompt(obj, style, ins, strat);
+    setAiInstructions(prompt);
+  };
+
   const handleOnboardingComplete = async (result: { businessType: string; objective: string; tone: string; businessName: string; businessDescription: string; businessHours: string }) => {
     setBusinessType(result.businessType);
     setTone(result.tone);
