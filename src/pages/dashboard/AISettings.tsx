@@ -17,7 +17,7 @@ import {
   Sparkles, Key, CheckCircle2, AlertTriangle, Eye, EyeOff, Loader2, Send,
   FileText, File, Power, Save,
 } from "lucide-react";
-
+import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
 interface KnowledgeDoc {
   id: string; title: string; type: string; fileName: string; active: boolean; addedAt: string;
 }
