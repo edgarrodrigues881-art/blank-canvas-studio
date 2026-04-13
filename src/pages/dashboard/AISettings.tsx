@@ -704,6 +704,7 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
+      {expertMode && (<>
       {/* Delay de resposta */}
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
