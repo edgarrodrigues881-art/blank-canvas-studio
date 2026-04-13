@@ -34,14 +34,16 @@ const BodySchema = z.object({
   deviceId: z.string().uuid("deviceId inválido"),
   groupJid: z.string().trim().regex(/@g\.us$/, "groupJid inválido"),
   content: z.string().optional().default(""),
-  type: z.enum(["text", "image", "video", "document", "audio"]).optional().default("text"),
+  type: z.enum(["text", "image", "video", "document", "audio", "buttons"]).optional().default("text"),
   caption: z.string().optional(),
   headerText: z.string().optional(),
+  mediaUrl: z.string().optional(),
+  buttons: z.array(CarouselButtonSchema).optional().default([]),
   cards: z.array(CarouselCardSchema).max(4, "Máximo de 4 cards").optional(),
 });
 
 type MediaType = z.infer<typeof BodySchema>["type"];
-type MediaOnlyType = Exclude<MediaType, "text">;
+type MediaOnlyType = Exclude<MediaType, "text" | "buttons">;
 type CarouselButton = z.infer<typeof CarouselButtonSchema>;
 type CarouselCard = z.infer<typeof CarouselCardSchema>;
 type SendAttempt = {
@@ -101,6 +103,14 @@ function getMediaTypeLabel(type: MediaOnlyType) {
   if (type === "video") return "vídeo";
   if (type === "audio") return "áudio";
   return "documento";
+}
+
+function detectMediaTypeFromUrl(url: string): MediaOnlyType {
+  const lower = (url || "").toLowerCase().split("?")[0];
+  if (/\.(ogg|mp3|wav|m4a|aac|opus|mpeg)$/.test(lower)) return "audio";
+  if (/\.(mp4|mov|avi|mkv|webm|3gp)$/.test(lower)) return "video";
+  if (/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|csv|txt)$/.test(lower)) return "document";
+  return "image";
 }
 
 function matchesContentType(type: MediaOnlyType, contentType: string, extension: string) {
@@ -398,6 +408,81 @@ function buildCarouselAttempts(baseUrl: string, groupJid: string, headerText: st
         choices: menuChoices,
       },
       label: "menu_fallback_legacy",
+    },
+  ];
+}
+
+function normalizeButtons(rawButtons: CarouselButton[] = []) {
+  return rawButtons
+    .map((button) => ({
+      type: typeof button.type === "string" ? button.type : "reply",
+      text: typeof button.text === "string" ? button.text.trim() : "",
+      value: typeof button.value === "string" ? button.value.trim() : "",
+    }))
+    .filter((button) => button.text);
+}
+
+function buildMenuChoice(button: CarouselButton, index: number) {
+  const text = (button.text || "").trim();
+  if (!text) return null;
+
+  const normalizedType = (button.type || "reply").toLowerCase();
+  const rawValue = (button.value || "").trim();
+
+  if (normalizedType === "url") {
+    const normalizedUrl = normalizeCarouselUrl(rawValue);
+    return normalizedUrl ? `${text}|url:${normalizedUrl}` : text;
+  }
+
+  if (normalizedType === "phone" || normalizedType === "call") {
+    return rawValue ? `${text}|call:${rawValue}` : text;
+  }
+
+  if (normalizedType === "copy") {
+    return `${text}|copy:${rawValue || text}`;
+  }
+
+  return `${text}|${rawValue || `btn_${index + 1}`}`;
+}
+
+function buildButtonsAttempts(baseUrl: string, groupJid: string, content: string, buttons: CarouselButton[]): SendAttempt[] {
+  const text = content.trim();
+  if (!text) {
+    throw new Error("Mensagens com botão exigem copy/texto principal.");
+  }
+
+  const choices = normalizeButtons(buttons)
+    .map((button, index) => buildMenuChoice(button, index))
+    .filter((choice): choice is string => Boolean(choice));
+
+  if (choices.length === 0) {
+    throw new Error("Adicione pelo menos um botão válido.");
+  }
+
+  const targetFields = { phone: groupJid, number: groupJid };
+  const legacyTargetFields = { number: groupJid, chatId: groupJid };
+
+  return [
+    {
+      endpoint: `${baseUrl}/send/menu`,
+      body: {
+        ...targetFields,
+        type: "button",
+        text,
+        message: text,
+        choices,
+      },
+      label: "buttons_menu",
+    },
+    {
+      endpoint: `${baseUrl}/send/menu`,
+      body: {
+        ...legacyTargetFields,
+        type: "button",
+        text,
+        choices,
+      },
+      label: "buttons_menu_legacy",
     },
   ];
 }
@@ -748,7 +833,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) return json({ ok: false, error: "Unauthorized" }, 401);
 
-    const { deviceId, groupJid, content, type, caption, headerText, cards } = parsedBody.data;
+    const { deviceId, groupJid, content, type, caption, headerText, mediaUrl, buttons, cards } = parsedBody.data;
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: device, error: deviceError } = await admin
@@ -806,7 +891,48 @@ Deno.serve(async (req) => {
       return json({ ok: true, mode: "carousel" });
     }
 
-    let normalizedContent = content.trim();
+    const normalizedButtons = normalizeButtons(buttons || []);
+    const trimmedMediaUrl = typeof mediaUrl === "string" ? mediaUrl.trim() : "";
+    const normalizedTextContent = content.trim();
+
+    if (type === "buttons") {
+      if (!normalizedTextContent) {
+        return json({ ok: false, error: "Mensagens com botão exigem copy/texto principal." }, 400);
+      }
+
+      if (normalizedButtons.length === 0) {
+        return json({ ok: false, error: "Adicione pelo menos um botão válido." }, 400);
+      }
+
+      const buttonAttempts = buildButtonsAttempts(baseUrl, groupJid, normalizedTextContent, normalizedButtons);
+
+      if (trimmedMediaUrl) {
+        const mediaType = detectMediaTypeFromUrl(trimmedMediaUrl);
+        const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
+        if (!inspectedMedia.ok) {
+          return json({ ok: false, error: inspectedMedia.error }, 400);
+        }
+
+        const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
+
+        if (mediaType === "audio") {
+          await sendWithFallbacks(buttonAttempts, headers, groupJid);
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          await sendWithFallbacks(mediaAttempts, headers, groupJid);
+          return json({ ok: true, mode: "buttons_audio" });
+        }
+
+        await sendWithFallbacks(mediaAttempts, headers, groupJid);
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await sendWithFallbacks(buttonAttempts, headers, groupJid);
+        return json({ ok: true, mode: "buttons_media" });
+      }
+
+      await sendWithFallbacks(buttonAttempts, headers, groupJid);
+      return json({ ok: true, mode: "buttons" });
+    }
+
+    let normalizedContent = normalizedTextContent;
     let fileName: string | undefined;
 
     if (!normalizedContent) {
