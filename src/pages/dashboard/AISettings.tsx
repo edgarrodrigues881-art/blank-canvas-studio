@@ -75,6 +75,7 @@ const AISettings = () => {
         .maybeSingle();
 
       if (data) {
+        setSettingsExist(true);
         setIaActive(data.ia_active);
         setApiKey(data.api_key || "");
         setAiModel(data.ai_model);
@@ -100,6 +101,8 @@ const AISettings = () => {
         setRequireHumanForSale(data.require_human_for_sale);
         setCreativity([data.creativity]);
         setMaxResponseLength(data.max_response_length);
+      } else {
+        setShowOnboarding(true);
       }
       setLoading(false);
     })();
