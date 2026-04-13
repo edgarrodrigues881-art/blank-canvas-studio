@@ -92,6 +92,7 @@ export function useConversations() {
     conversationsRef: sync.conversationsRef,
     selectedConvIdRef: sync.selectedConvIdRef,
     setConversations: sync.setConversations,
+    setArchivedConversations: sync.setArchivedConversations,
     setMessages: sync.setMessages,
     upsertConversationInState: sync.upsertConversationInState,
     sortConversations: sync.sortConversations,
