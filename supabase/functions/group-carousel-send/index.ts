@@ -1448,10 +1448,18 @@ Deno.serve(async (req) => {
     const groupInfo = await fetchGroupDeliveryMode(baseUrl, headers, groupJid);
     const groupName = groupInfo.groupName || "";
 
-    // Fetch participants if mentionAll is enabled
-    const mentionPhones = mentionAll ? await fetchGroupParticipants(baseUrl, headers, groupJid) : [];
-    if (mentionAll && mentionPhones.length === 0) {
-      return json({ ok: false, error: "Não consegui carregar os membros desse grupo para montar o @todos. A UAZAPI dessa instância não retornou a lista de participantes." }, 422);
+    // Fetch participants if mentionAll is enabled — but do NOT fail if we can't get them.
+    // Many groups allow sending with mentions:"all" flag without knowing exact participants.
+    let mentionPhones: string[] = [];
+    let mentionMode: "participants" | "blind" = "blind";
+    if (mentionAll) {
+      mentionPhones = await fetchGroupParticipants(baseUrl, headers, groupJid);
+      if (mentionPhones.length > 0) {
+        mentionMode = "participants";
+        console.log(`[group-carousel] Fetched ${mentionPhones.length} participants for explicit mentions`);
+      } else {
+        console.log(`[group-carousel] Could not fetch participants — will use blind mentions:"all" strategy`);
+      }
     }
 
     const normalizedCarouselCards = normalizeCarouselCards(cards || []);
