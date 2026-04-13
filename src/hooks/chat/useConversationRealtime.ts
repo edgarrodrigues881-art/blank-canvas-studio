@@ -7,6 +7,7 @@ interface UseConversationRealtimeParams {
   conversationsRef: React.MutableRefObject<RealConversation[]>;
   selectedConvIdRef: React.MutableRefObject<string | null>;
   setConversations: React.Dispatch<React.SetStateAction<RealConversation[]>>;
+  setArchivedConversations: React.Dispatch<React.SetStateAction<RealConversation[]>>;
   setMessages: React.Dispatch<React.SetStateAction<RealMessage[]>>;
   upsertConversationInState: (items: RealConversation[], row: any) => RealConversation[];
   sortConversations: (items: RealConversation[]) => RealConversation[];
@@ -26,6 +27,7 @@ export function useConversationRealtime({
   conversationsRef,
   selectedConvIdRef,
   setConversations,
+  setArchivedConversations,
   setMessages,
   upsertConversationInState,
   sortConversations,
