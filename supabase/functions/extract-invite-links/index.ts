@@ -369,6 +369,7 @@ async function fetchInviteCode(
   let lastError = "";
   let lastStatus = 0;
   let hitPermissionDenied = false;
+  let permissionDeniedMessage = "";
 
   for (const attempt of attempts) {
     // If we already got a permission denied on the main endpoint, skip other invite-specific endpoints
@@ -416,6 +417,9 @@ async function fetchInviteCode(
           // Permission denied
           if (providerMsg.toLowerCase().includes("permission")) {
             hitPermissionDenied = true;
+            if (!permissionDeniedMessage && providerMsg) {
+              permissionDeniedMessage = providerMsg;
+            }
             break; // skip to next attempt (will be info/chat endpoints)
           }
 
@@ -450,8 +454,8 @@ async function fetchInviteCode(
   if (hitPermissionDenied) {
     return {
       ok: false, link: null,
-      error: "Só admins do grupo podem gerar o link. Peça o link a um admin ou entre no grupo por outra conta que seja admin.",
-      diagnostics: { error_stage: "permission_denied", provider_message: lastError, processing_time_ms: elapsed },
+      error: "Não consegui ler o link atual desse grupo pela conexão atual. Se esse link já tiver sido salvo antes, ele aparece automaticamente pelo histórico.",
+      diagnostics: { error_stage: "permission_denied", provider_message: permissionDeniedMessage || lastError, processing_time_ms: elapsed },
     };
   }
 
