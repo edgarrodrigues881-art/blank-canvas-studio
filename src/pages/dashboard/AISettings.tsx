@@ -565,6 +565,79 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
+      {/* Modo de Operação */}
+      <Card className="transition-all duration-200 hover:shadow-md">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Rocket className="h-4 w-4 text-primary" strokeWidth={1.5} />
+            <CardTitle className="text-base">Escolha como sua IA deve operar</CardTitle>
+          </div>
+          <CardDescription>Selecione um modo e todas as configurações serão ajustadas automaticamente</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {(Object.entries(MODE_PRESETS) as [AiMode, ModePreset][]).map(([key, preset]) => (
+              <button
+                key={key}
+                onClick={() => applyMode(key)}
+                className={`relative rounded-xl border p-4 text-left transition-all duration-200 hover:scale-[1.01] ${
+                  selectedMode === key
+                    ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
+                    : "border-border/50 hover:border-border hover:shadow-sm"
+                }`}
+              >
+                {preset.recommended && (
+                  <Badge className="absolute -top-2 right-3 text-[10px] px-1.5 py-0 bg-primary text-primary-foreground">
+                    Recomendado
+                  </Badge>
+                )}
+                <span className="text-2xl">{preset.icon}</span>
+                <p className="text-sm font-semibold text-foreground mt-2">{preset.label}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{preset.desc}</p>
+                {selectedMode === key && (
+                  <CheckCircle2 className="absolute top-3 right-3 h-4 w-4 text-primary" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Preview */}
+          {selectedMode && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2 animate-fade-in">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" strokeWidth={1.5} />
+                <p className="text-xs font-semibold text-primary">Como sua IA vai agir</p>
+              </div>
+              <p className="text-sm text-foreground/80 leading-relaxed">{MODE_PRESETS[selectedMode].preview}</p>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                <Badge variant="outline" className="text-[10px]">
+                  {MODE_PRESETS[selectedMode].commStyle === "persuasivo" ? "🎯 Persuasivo" :
+                   MODE_PRESETS[selectedMode].commStyle === "tecnico" ? "🔬 Técnico" :
+                   MODE_PRESETS[selectedMode].commStyle === "amigavel" ? "😊 Amigável" : "⚡ Direto"}
+                </Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  Insistência {MODE_PRESETS[selectedMode].insistence}/5
+                </Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  {MODE_PRESETS[selectedMode].strategy === "fechamento" ? "🤝 Foco em fechamento" :
+                   MODE_PRESETS[selectedMode].strategy === "direto" ? "🎯 Direto ao ponto" : "❓ Faz perguntas"}
+                </Badge>
+              </div>
+            </div>
+          )}
+
+          {/* Expert mode toggle */}
+          <button
+            onClick={() => setExpertMode(!expertMode)}
+            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full justify-center pt-1"
+          >
+            <Settings2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+            <span>{expertMode ? "Ocultar configurações avançadas" : "Modo expert — editar manualmente"}</span>
+            {expertMode ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          </button>
+        </CardContent>
+      </Card>
+
       {/* Configuração da IA — API & Modelo */}
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
