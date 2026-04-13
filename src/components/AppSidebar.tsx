@@ -579,7 +579,7 @@ export function AppSidebar() {
                 );
               })()}
               {renderNavItem({ title: "Comunidade", url: "/dashboard/community", icon: UsersRound })}
-              {renderNavItem({ title: "Tutoriais", url: "/dashboard/tutorials", icon: PlayCircle })}
+              {renderNavItem({ title: "Tutoriais", url: "/dashboard/tutorials", icon: PlayCircle, locked: true })}
               {renderNavItem({ title: "Ajuda", url: "/dashboard/custom-module", icon: HelpCircle })}
             </SidebarMenu>
           </SidebarGroupContent>
