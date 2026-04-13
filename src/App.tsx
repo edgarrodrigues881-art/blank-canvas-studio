@@ -75,6 +75,7 @@ const ActivityHistory = lazyWithPreload(() => import("@/pages/dashboard/Activity
 const ConversationQueue = lazyWithPreload(() => import("@/pages/dashboard/ConversationQueue"));
 const ServiceReports = lazyWithPreload(() => import("@/pages/dashboard/ServiceReports"));
 const GroupCarouselDispatch = lazyWithPreload(() => import("@/pages/dashboard/GroupCarouselDispatch"));
+const Tutorials = lazyWithPreload(() => import("@/pages/dashboard/Tutorials"));
 
 // Backoffice pages
 const BOCampaigns = lazyWithPreload(() => import("@/pages/backoffice/BOCampaigns"));
@@ -111,6 +112,7 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/service-contacts": () => { (ServiceContacts as any).__preload?.(); },
   "/dashboard/schedules": () => { (Schedules as any).__preload?.(); },
   "/dashboard/group-carousel": () => { (GroupCarouselDispatch as any).__preload?.(); },
+  "/dashboard/tutorials": () => { (Tutorials as any).__preload?.(); },
 };
 
 const queryClient = new QueryClient({
@@ -242,6 +244,7 @@ const App = () => (
                 <Route path="/dashboard/my-plan" element={<ProtectedRoute><DashboardLayout><MyPlan /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/proxy" element={<ProtectedRoute><DashboardLayout><Proxy /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/custom-module" element={<ProtectedRoute><DashboardLayout><CustomModule /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/tutorials" element={<ProtectedRoute><DashboardLayout><Tutorials /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/prospeccao" element={<ProtectedRoute><DashboardLayout><Prospeccao /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/conversations" element={<ProtectedRoute><DashboardLayout><Conversations /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/ai-settings" element={<ProtectedRoute><DashboardLayout><AISettings /></DashboardLayout></ProtectedRoute>} />
