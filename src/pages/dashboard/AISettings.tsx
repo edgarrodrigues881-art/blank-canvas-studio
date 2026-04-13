@@ -211,6 +211,8 @@ const AISettings = () => {
   const [leads, setLeads] = useState<LeadMemory[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(false);
   const [aiMessagesToday, setAiMessagesToday] = useState(0);
+  const [aiLeadsToday, setAiLeadsToday] = useState(0);
+  const [aiActiveConvos, setAiActiveConvos] = useState(0);
 
   // Load settings from DB
   useEffect(() => {
@@ -275,19 +277,36 @@ const AISettings = () => {
     })();
   }, []);
 
-  // Count AI messages today
+  // Count AI activity today
   useEffect(() => {
     const fetchCount = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
-      const { count } = await supabase
-        .from("conversation_messages")
-        .select("*", { count: "exact", head: true })
-        .eq("is_ai_response", true)
-        .gte("created_at", todayStart.toISOString());
-      setAiMessagesToday(count || 0);
+      const todayISO = todayStart.toISOString();
+
+      const [msgRes, leadsRes, convosRes] = await Promise.all([
+        supabase
+          .from("conversation_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("is_ai_response", true)
+          .gte("created_at", todayISO),
+        supabase
+          .from("ai_lead_memory")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .gte("last_interaction_at", todayISO),
+        supabase
+          .from("conversations")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .gte("last_message_at", todayISO),
+      ]);
+
+      setAiMessagesToday(msgRes.count || 0);
+      setAiLeadsToday(leadsRes.count || 0);
+      setAiActiveConvos(convosRes.count || 0);
     };
     fetchCount();
     const interval = setInterval(fetchCount, 30000);
