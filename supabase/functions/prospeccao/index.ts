@@ -369,7 +369,22 @@ async function adaptiveSearch(
   const roiStop = () => isRoiDegraded(places.length, credits);
   const shouldStop = () => done() || budgetExceeded() || roiStop();
 
-  console.log(`[prospeccao] Budget: hardCap=${hardCap} API credits for target=${target} | userBalance=${creditBudget}`);
+  console.log(`[prospeccao] Budget: hardCap=${hardCap} API credits for target=${target} | userBalance=${creditBudget} | allBiz=${isAllBusinesses}`);
+
+  // === ALL BUSINESSES MODE: 1 query per category at center ===
+  if (isAllBusinesses) {
+    const zoomAll = radiusKm < 5 ? 15 : radiusKm < 12 ? 14 : 13;
+    const llStr = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomAll}z`;
+    for (const cat of nichos) {
+      if (shouldStop()) break;
+      const added = await query(cat, llStr, apiKey, seen, places);
+      credits++;
+      logs.add("all-biz-cat", cat, llStr, added, places.length, 1);
+      console.log(`[prospeccao] ALL-BIZ "${cat}" → +${added} (total: ${places.length})`);
+    }
+    console.log(`[prospeccao] ALL-BIZ DONE: ${places.length} leads, ${credits} cr`);
+    return { places, creditsUsed: credits };
+  }
 
   // === FAST PATH: Small targets (≤20) — 1 API call ===
   if (target <= 20) {
