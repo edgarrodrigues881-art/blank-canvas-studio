@@ -154,6 +154,8 @@ const AISettings = () => {
   const [insistence, setInsistence] = useState(3);
   const [strategy, setStrategy] = useState("perguntas");
   const [autoFlow, setAutoFlow] = useState(true);
+  const [selectedMode, setSelectedMode] = useState<AiMode | null>(null);
+  const [expertMode, setExpertMode] = useState(false);
   const [flowSteps, setFlowSteps] = useState({
     saudacao: "Olá! Seja bem-vindo(a)! Como posso te ajudar hoje? 😊",
     diagnostico: "Para te ajudar melhor, me conta: o que você está buscando exatamente? Qual sua principal necessidade?",
