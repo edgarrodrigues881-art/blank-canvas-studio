@@ -412,7 +412,7 @@ const AISettings = () => {
       </Card>
 
       {/* Configuração da IA — API & Modelo */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Key className="h-4 w-4 text-primary" />
@@ -478,7 +478,7 @@ const AISettings = () => {
       </Card>
 
       {/* Delay de resposta */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Bot className="h-4 w-4 text-primary" />
@@ -502,7 +502,7 @@ const AISettings = () => {
       </Card>
 
       {/* Comportamento da IA */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Brain className="h-4 w-4 text-primary" />
@@ -676,7 +676,7 @@ const AISettings = () => {
       </Card>
 
       {/* Fluxo de Conversão */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Target className="h-4 w-4 text-primary" />
@@ -757,7 +757,7 @@ const AISettings = () => {
       </Card>
 
       {/* Informações do Negócio */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-primary" />
@@ -800,7 +800,7 @@ const AISettings = () => {
       </Card>
 
       {/* Base de Conhecimento */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-primary" />
@@ -980,7 +980,7 @@ const AISettings = () => {
       </Dialog>
 
       {/* Modo de Atendimento */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Headset className="h-4 w-4 text-primary" />
@@ -1031,7 +1031,7 @@ const AISettings = () => {
       </Card>
 
       {/* Segurança e Controle */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-primary" />
@@ -1058,7 +1058,7 @@ const AISettings = () => {
       </Card>
 
       {/* Controle da IA */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-primary" />
