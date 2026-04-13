@@ -555,7 +555,7 @@ const AISettings = () => {
         </div>
         <Button size="sm" onClick={handleSave} disabled={saving} className="gap-2 transition-all duration-200 hover:shadow-lg hover:scale-[1.02]">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" strokeWidth={1.5} />}
-          {iaActive ? "Salvar Alterações" : "Ativar IA"}
+          {iaActive ? "Salvar Alterações" : "Colocar IA para atender clientes"}
         </Button>
       </div>
 
@@ -575,9 +575,35 @@ const AISettings = () => {
             <Switch checked={iaActive} onCheckedChange={setIaActive} />
           </div>
           {iaActive && apiKeyStatus === "valid" && (
-            <div className="mt-3 pt-3 border-t border-primary/10 flex items-center gap-2 animate-fade-in">
-              <Circle className="h-2.5 w-2.5 fill-emerald-400 text-emerald-400 animate-pulse" />
-              <span className="text-xs font-medium text-emerald-400">IA pronta para responder clientes</span>
+            <div className="mt-3 pt-3 border-t border-primary/10 space-y-2 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                  </span>
+                  <span className="text-xs font-medium text-emerald-400">IA ativa e respondendo automaticamente</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  <span className="text-[10px] text-muted-foreground">Online</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Brain className="h-3 w-3 text-primary" strokeWidth={1.5} />
+                  <span className="text-[10px] text-muted-foreground">Aprendendo</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Zap className="h-3 w-3 text-amber-400" strokeWidth={1.5} />
+                  <span className="text-[10px] text-muted-foreground">Respondendo</span>
+                </div>
+                <div className="ml-auto flex items-center gap-1.5 bg-primary/10 rounded-full px-2.5 py-1">
+                  <MessageSquare className="h-3 w-3 text-primary" strokeWidth={1.5} />
+                  <span className="text-[11px] font-bold text-primary">{aiMessagesToday}</span>
+                  <span className="text-[10px] text-muted-foreground">hoje</span>
+                </div>
+              </div>
             </div>
           )}
           {iaActive && apiKeyStatus !== "valid" && (
