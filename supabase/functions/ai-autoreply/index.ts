@@ -139,6 +139,9 @@ Deno.serve(async (req) => {
       detailed: "Responda de forma detalhada quando necessário.",
     };
 
+    // Build flow steps context for intelligent conversion
+    const flowSteps = settings.ai_instructions?.match(/FLOW_STEPS:(.*?)END_FLOW_STEPS/s)?.[1] || "";
+
     const systemParts = [
       `Você é um assistente virtual de atendimento ao cliente.`,
       toneMap[settings.tone] || toneMap.professional,
@@ -147,21 +150,42 @@ Deno.serve(async (req) => {
       settings.business_type ? `Tipo de negócio: ${settings.business_type}.` : "",
       settings.business_hours ? `Horário de atendimento: ${settings.business_hours}.` : "",
       settings.business_description ? `Descrição: ${settings.business_description}.` : "",
-      settings.ai_instructions ? `Instruções adicionais: ${settings.ai_instructions}` : "",
+      // Custom instructions (excluding FLOW_STEPS block)
+      settings.ai_instructions ? `Instruções adicionais: ${settings.ai_instructions.replace(/FLOW_STEPS:.*?END_FLOW_STEPS/s, "").trim()}` : "",
       // Lead memory context
       leadMemory.contact_name ? `O nome do cliente é "${leadMemory.contact_name}". Use o nome dele quando apropriado para personalizar.` : (contact_name ? `O nome do cliente é "${contact_name}".` : ""),
       leadMemory.interest ? `O cliente demonstrou interesse em: "${leadMemory.interest}". Referencie isso naturalmente, ex: "Você mencionou que queria ${leadMemory.interest}..."` : "",
       leadMemory.stage === "hot" ? `Este é um lead QUENTE (${leadMemory.interaction_count} interações). Seja mais direto e conduza para conversão.` : "",
       leadMemory.stage === "warm" ? `Este é um lead MORNO (${leadMemory.interaction_count} interações). Aprofunde o interesse e apresente benefícios.` : "",
       leadMemory.stage === "cold" ? `Este é um lead FRIO (primeiro contato ou poucas interações). Seja acolhedor e descubra a necessidade.` : "",
+      // Intent detection + conversion flow
+      `DETECÇÃO DE INTENÇÃO:`,
+      `Antes de responder, analise a mensagem do cliente e classifique a intenção:`,
+      `- "curious": Está apenas explorando, sem compromisso. Perguntas vagas.`,
+      `- "interested": Demonstra interesse real. Faz perguntas específicas sobre produto/serviço.`,
+      `- "ready_to_buy": Quer comprar/agendar/fechar agora. Pergunta preço, link, como pagar.`,
+      `- "objection": Tem dúvida, preocupação ou barreira. Menciona preço alto, concorrente, desconfiança.`,
+      ``,
+      `FLUXO DE CONVERSÃO INTELIGENTE:`,
+      `Com base na intenção detectada, escolha a etapa adequada:`,
+      `- curious → Use a etapa "saudacao" ou "diagnostico" para acolher e descobrir mais.`,
+      `- interested → Use "diagnostico" ou "apresentacao" para aprofundar e apresentar solução.`,
+      `- ready_to_buy → Use "fechamento" para conduzir à conversão imediata.`,
+      `- objection → Use "objecao" para contornar e depois tente avançar uma etapa.`,
+      ``,
+      `FALLBACK: Se a conversa não avançou bem, volte uma etapa. Ex: se tentou fechar e o cliente recuou, volte para "apresentacao" ou "objecao".`,
+      ``,
+      flowSteps ? `MENSAGENS-BASE POR ETAPA:\n${flowSteps}` : "",
+      ``,
       `REGRAS IMPORTANTES:`,
       `- Responda de forma natural como um atendente humano`,
       `- Evite respostas longas demais`,
-      `- Se não souber a resposta, diga que vai verificar e retornar`,
+      `- Se não souber a resposta, peça mais contexto antes de inventar`,
+      `- Se o cliente insistir em algo que você não sabe, sugira transferência para humano`,
       `- Nunca invente informações sobre produtos, preços ou disponibilidade`,
-      `- Ao final da resposta, inclua um JSON oculto para atualizar a memória do lead no formato: <!--LEAD_UPDATE:{"interest":"...","stage":"cold|warm|hot"}-->`,
-      `- Atualize "interest" com o que o cliente está buscando`,
-      `- Atualize "stage": cold (sem interesse claro), warm (demonstrou interesse), hot (quer comprar/agendar)`,
+      `- Ao final da resposta, inclua um JSON oculto: <!--LEAD_UPDATE:{"interest":"...","stage":"cold|warm|hot","intent":"curious|interested|ready_to_buy|objection","flow_step":"saudacao|diagnostico|apresentacao|objecao|fechamento"}-->`,
+      `- "intent" é a intenção detectada na mensagem atual do cliente`,
+      `- "flow_step" é a etapa do fluxo que você usou na resposta`,
       settings.require_human_for_sale ? `- Para vendas ou negociações, sugira que um atendente humano pode ajudar melhor` : "",
       settings.block_sensitive ? `- Nunca compartilhe dados sensíveis como CPF, senhas ou dados bancários` : "",
     ].filter(Boolean).join("\n");
@@ -207,15 +231,22 @@ Deno.serve(async (req) => {
     if (leadUpdateMatch) {
       try {
         const update = JSON.parse(leadUpdateMatch[1]);
-        await admin.from("ai_lead_memory").update({
+        const updateData: Record<string, unknown> = {
           interest: update.interest || leadMemory.interest,
           stage: update.stage || leadMemory.stage,
           contact_name: leadMemory.contact_name || contact_name || null,
-        }).eq("id", leadMemory.id);
+        };
+        // Store intent and flow_step in notes for dashboard
+        if (update.intent || update.flow_step) {
+          const notesObj = (() => { try { return JSON.parse(leadMemory.notes || "{}"); } catch { return {}; } })();
+          if (update.intent) notesObj.last_intent = update.intent;
+          if (update.flow_step) notesObj.last_flow_step = update.flow_step;
+          updateData.notes = JSON.stringify(notesObj);
+        }
+        await admin.from("ai_lead_memory").update(updateData).eq("id", leadMemory.id);
       } catch (e) {
         console.error("Failed to parse lead update:", e);
       }
-      // Remove the hidden tag from the visible reply
       aiReply = aiReply.replace(/<!--LEAD_UPDATE:.*?-->/s, "").trim();
     }
 

@@ -127,6 +127,7 @@ interface LeadMemory {
   stage: string;
   interaction_count: number;
   last_interaction_at: string | null;
+  notes: string | null;
 }
 
 interface KnowledgeDoc {
@@ -971,13 +972,24 @@ const AISettings = () => {
           </div>
 
           {autoFlow && (
-            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
-              <div className="flex items-start gap-2">
-                <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs font-medium text-primary">Fluxo automático ativo</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">A IA analisa cada mensagem do cliente, identifica a intenção e escolhe a etapa adequada automaticamente</p>
-                </div>
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3 animate-fade-in">
+              <div className="flex items-center gap-2">
+                <Brain className="h-4 w-4 text-primary" strokeWidth={1.5} />
+                <p className="text-xs font-semibold text-primary">Fluxo inteligente ativo</p>
+              </div>
+              <p className="text-[11px] text-foreground/70 leading-relaxed">A IA detecta a intenção do cliente em cada mensagem e escolhe a etapa ideal automaticamente. Se o cliente recuar, a IA volta uma etapa.</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { icon: "🔎", label: "Curioso", desc: "→ Saudação / Diagnóstico" },
+                  { icon: "💡", label: "Interessado", desc: "→ Diagnóstico / Apresentação" },
+                  { icon: "🔥", label: "Pronto p/ comprar", desc: "→ Fechamento" },
+                  { icon: "🛡️", label: "Objeção", desc: "→ Contornar + Avançar" },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-lg border border-border/30 bg-background/50 px-3 py-2">
+                    <p className="text-xs font-medium">{item.icon} {item.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -1499,21 +1511,42 @@ const AISettings = () => {
                       <p className="text-sm font-medium text-foreground truncate">
                         {lead.contact_name || lead.remote_jid.replace("@s.whatsapp.net", "")}
                       </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {lead.interest && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">{lead.interest}</Badge>
-                        )}
-                        <span className="text-[10px] text-muted-foreground">{lead.interaction_count} interações</span>
-                      </div>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${
-                    lead.stage === "hot" ? "border-red-500/40 text-red-400" :
-                    lead.stage === "warm" ? "border-amber-500/40 text-amber-400" :
-                    "border-blue-500/40 text-blue-400"
-                  }`}>
-                    {lead.stage === "hot" ? "Quente" : lead.stage === "warm" ? "Morno" : "Frio"}
-                  </Badge>
+                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                         {lead.interest && (
+                           <Badge variant="outline" className="text-[10px] px-1.5 py-0">{lead.interest}</Badge>
+                         )}
+                         {(() => {
+                           try {
+                             const notes = JSON.parse(lead.notes || "{}");
+                             const intentLabels: Record<string, string> = { curious: "🔎 Curioso", interested: "💡 Interessado", ready_to_buy: "🔥 Pronto p/ comprar", objection: "🛡️ Objeção" };
+                             const stepLabels: Record<string, string> = { saudacao: "Saudação", diagnostico: "Diagnóstico", apresentacao: "Apresentação", objecao: "Objeção", fechamento: "Fechamento" };
+                             return (
+                               <>
+                                 {notes.last_intent && (
+                                   <Badge className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20">
+                                     {intentLabels[notes.last_intent] || notes.last_intent}
+                                   </Badge>
+                                 )}
+                                 {notes.last_flow_step && (
+                                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-dashed">
+                                     📍 {stepLabels[notes.last_flow_step] || notes.last_flow_step}
+                                   </Badge>
+                                 )}
+                               </>
+                             );
+                           } catch { return null; }
+                         })()}
+                         <span className="text-[10px] text-muted-foreground">{lead.interaction_count} interações</span>
+                       </div>
+                     </div>
+                   </div>
+                   <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${
+                     lead.stage === "hot" ? "border-red-500/40 text-red-400" :
+                     lead.stage === "warm" ? "border-amber-500/40 text-amber-400" :
+                     "border-blue-500/40 text-blue-400"
+                   }`}>
+                     {lead.stage === "hot" ? "Quente" : lead.stage === "warm" ? "Morno" : "Frio"}
+                   </Badge>
                 </div>
               ))}
             </div>
