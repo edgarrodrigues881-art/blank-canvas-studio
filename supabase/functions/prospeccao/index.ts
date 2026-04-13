@@ -371,17 +371,38 @@ async function adaptiveSearch(
 
   console.log(`[prospeccao] Budget: hardCap=${hardCap} API credits for target=${target} | userBalance=${creditBudget} | allBiz=${isAllBusinesses}`);
 
-  // === ALL BUSINESSES MODE: 1 query per category at center ===
+  // === ALL BUSINESSES MODE: query each category at center + ring for bigger cities ===
   if (isAllBusinesses) {
     const zoomAll = radiusKm < 5 ? 15 : radiusKm < 12 ? 14 : 13;
-    const llStr = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomAll}z`;
+    const llCenter = `@${center.lat.toFixed(6)},${center.lng.toFixed(6)},${zoomAll}z`;
+
+    // For each category, search at center point
     for (const cat of nichos) {
       if (shouldStop()) break;
-      const added = await query(cat, llStr, apiKey, seen, places);
+      const added = await query(cat, llCenter, apiKey, seen, places);
       credits++;
-      logs.add("all-biz-cat", cat, llStr, added, places.length, 1);
-      console.log(`[prospeccao] ALL-BIZ "${cat}" → +${added} (total: ${places.length})`);
+      logs.add("all-biz-center", cat, llCenter, added, places.length, 1);
     }
+
+    // If city is large (>8km) and budget allows, add a ring of 4 points to cover more area
+    if (radiusKm > 8 && !shouldStop()) {
+      const ringDist = Math.min(radiusKm * 0.5, 10);
+      const ringPts = generateRing(center, ringDist, 4);
+      const zoomRing = radiusKm < 12 ? 14 : 13;
+      // Pick top 8 most productive categories to re-query on ring (save credits)
+      const topCats = nichos.slice(0, 8);
+      for (const pt of ringPts) {
+        if (shouldStop()) break;
+        const llRing = `@${pt.lat.toFixed(6)},${pt.lng.toFixed(6)},${zoomRing}z`;
+        for (const cat of topCats) {
+          if (shouldStop()) break;
+          const added = await query(cat, llRing, apiKey, seen, places);
+          credits++;
+          logs.add("all-biz-ring", cat, llRing, added, places.length, 1);
+        }
+      }
+    }
+
     console.log(`[prospeccao] ALL-BIZ DONE: ${places.length} leads, ${credits} cr`);
     return { places, creditsUsed: credits };
   }
