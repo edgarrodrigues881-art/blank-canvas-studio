@@ -928,15 +928,6 @@ export default function GroupCarouselDispatch() {
               </div>
             )}
 
-            {/* Campaign Name (bottom of step 1) */}
-            <SurfaceCard className="p-4 sm:p-5 space-y-3">
-              <SectionLabel>Nome da Campanha</SectionLabel>
-              <Input
-                placeholder="Ex: Promoção Black Friday - Grupos"
-                value={campaignName}
-                onChange={(e) => setCampaignName(e.target.value)}
-              />
-            </SurfaceCard>
 
           </div>
         )}
