@@ -1205,9 +1205,41 @@ export default function GroupCarouselDispatch() {
           </div>
         )}
       </div>
-    </div>
-  );
-}
+
+      {/* ═══ Bottom Navigation (identical to Campaigns) ═══ */}
+      <div className="mt-6 sm:mt-8 mb-6">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs gap-1.5 h-9 w-full sm:w-[170px] justify-center border-border/40 text-muted-foreground hover:text-foreground hover:bg-destructive/10 hover:border-destructive/30 transition-colors duration-100 order-3 sm:order-1"
+            onClick={clearAll}
+          >
+            <Eraser className="w-3.5 h-3.5" /> Limpar tudo
+          </Button>
+          <div className="flex items-center gap-2 sm:gap-3 order-1 sm:order-2">
+            {step > 1 && (
+              <Button variant="outline" onClick={() => setStep(step - 1)} className="gap-1.5 sm:gap-2.5 h-10 sm:h-11 flex-1 sm:flex-none sm:px-10 text-xs sm:text-sm font-bold tracking-wide">
+                ← VOLTAR
+              </Button>
+            )}
+            {step < 4 ? (
+              <Button onClick={() => setStep(step + 1)} className="gap-1.5 sm:gap-3 h-10 sm:h-11 flex-1 sm:flex-none sm:px-14 text-xs sm:text-[15px] font-bold tracking-wide shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 hover:brightness-110 transition-all duration-150">
+                CONTINUAR <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSend}
+                disabled={sending || !selectedDevice || selectedGroups.length === 0 || !campaignName.trim()}
+                className="gap-1.5 sm:gap-2.5 h-10 sm:h-11 flex-1 sm:flex-none sm:px-10 text-xs sm:text-sm font-bold tracking-wide shadow-lg shadow-primary/25 bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                ENVIAR AGORA
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
 
 function normalizeGroupOptions(raw: any[]) {
   return raw.map((g) => {
