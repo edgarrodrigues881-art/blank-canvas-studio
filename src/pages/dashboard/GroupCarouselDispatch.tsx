@@ -772,12 +772,13 @@ export default function GroupCarouselDispatch() {
                           if (tmpl) {
                             setCarouselMessage(tmpl.message || "");
                             if (Array.isArray(tmpl.cards) && tmpl.cards.length > 0) {
-                              setCards(tmpl.cards.map((c: any, i: number) => ({
+                            setCards(tmpl.cards.map((c: any, i: number) => ({
                                 id: c.id || `card-${i}`,
                                 position: c.position ?? i,
                                 text: c.text || "",
                                 mediaUrl: c.mediaUrl || "",
                                 mediaType: c.mediaType || null,
+                                mediaFileName: c.mediaFileName || "",
                                 buttons: Array.isArray(c.buttons) ? c.buttons : [],
                               })));
                             } else {
