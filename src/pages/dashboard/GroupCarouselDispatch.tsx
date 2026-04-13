@@ -1211,6 +1211,22 @@ export default function GroupCarouselDispatch() {
                 )}
               </div>
             </SurfaceCard>
+
+            {/* Mention All Toggle */}
+            <SurfaceCard className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                    <Users className="w-4.5 h-4.5 text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-bold text-foreground">Marcar todos</p>
+                    <p className="text-[10px] text-muted-foreground/50 mt-0.5">Menciona (@) todos os membros do grupo</p>
+                  </div>
+                </div>
+                <Switch checked={mentionAll} onCheckedChange={setMentionAll} />
+              </div>
+            </SurfaceCard>
           </div>
         )}
 
