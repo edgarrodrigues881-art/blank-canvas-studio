@@ -2293,6 +2293,7 @@ export type Database = {
       }
       extracted_invite_links: {
         Row: {
+          campaign_id: string | null
           created_at: string
           device_id: string | null
           device_name: string | null
@@ -2304,6 +2305,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          campaign_id?: string | null
           created_at?: string
           device_id?: string | null
           device_name?: string | null
@@ -2315,6 +2317,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          campaign_id?: string | null
           created_at?: string
           device_id?: string | null
           device_name?: string | null
@@ -2326,6 +2329,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "extracted_invite_links_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "invite_extract_campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "extracted_invite_links_device_id_fkey"
             columns: ["device_id"]
@@ -2812,6 +2822,54 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "group_join_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invite_extract_campaigns: {
+        Row: {
+          created_at: string
+          device_id: string | null
+          device_name: string | null
+          id: string
+          name: string
+          total_links: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id?: string | null
+          device_name?: string | null
+          id?: string
+          name: string
+          total_links?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string | null
+          device_name?: string | null
+          id?: string
+          name?: string
+          total_links?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invite_extract_campaigns_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_extract_campaigns_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
             referencedColumns: ["id"]
           },
         ]
