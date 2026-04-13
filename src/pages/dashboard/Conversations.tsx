@@ -408,7 +408,11 @@ const Conversations = () => {
                 ? "hidden md:flex flex-col shrink-0 overflow-hidden"
                 : "flex flex-col w-full"
             }`}
-            style={{ width: selectedConversation ? `${sidebarWidth}px` : undefined, maxWidth: selectedConversation ? `${sidebarWidth}px` : '400px', minWidth: selectedConversation ? `${sidebarWidth}px` : undefined }}
+            style={{
+              width: selectedConversation ? "400px" : undefined,
+              minWidth: selectedConversation ? "400px" : undefined,
+              maxWidth: "400px",
+            }}
           >
             {/* Clean top header */}
             <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/30 shrink-0 bg-card/30">
