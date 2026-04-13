@@ -59,6 +59,8 @@ const AISettings = () => {
   const [newDocType, setNewDocType] = useState("pdf");
   const [newDocFile, setNewDocFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [settingsExist, setSettingsExist] = useState(false);
 
   // Load settings from DB
   useEffect(() => {
