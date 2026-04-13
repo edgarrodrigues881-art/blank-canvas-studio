@@ -93,12 +93,21 @@ function isLidPhone(phone: string | null | undefined): boolean {
   return /@lid$/i.test((phone || "").trim());
 }
 
+function isGroupJid(phone: string | null | undefined): boolean {
+  return /@g\.us$/i.test((phone || "").trim());
+}
+
 function formatPhoneDisplay(phone: string): string {
   const d = phone.replace(/\D/g, "");
   if (d.length === 13) return `+${d.slice(0,2)} (${d.slice(2,4)}) ${d.slice(4,9)}-${d.slice(9)}`;
   if (d.length === 12) return `+${d.slice(0,2)} (${d.slice(2,4)}) ${d.slice(4,8)}-${d.slice(8)}`;
   if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
   return phone;
+}
+
+function formatGroupName(name: string | null, phone: string): string {
+  if (!name || name === phone || isGroupJid(name)) return "Grupo sem nome";
+  return name;
 }
 
 /* ── Stat Card Component ─────────────────────────────────────── */
@@ -752,6 +761,7 @@ const CampaignDetail = () => {
   };
 
   const successRate = stats.total > 0 ? Math.round((stats.sent / stats.total) * 100) : 0;
+  const isGroupCampaign = contacts.length > 0 && contacts.some(c => isGroupJid(c.phone));
 
   if (campLoading) {
     return (
@@ -885,7 +895,7 @@ const CampaignDetail = () => {
 
       {/* ── Stat Cards ───────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Total de contatos" value={stats.total} icon={Send} colorClass="bg-primary/10 text-primary" />
+        <StatCard label={isGroupCampaign ? "Total de grupos" : "Total de contatos"} value={stats.total} icon={Send} colorClass="bg-primary/10 text-primary" />
         <StatCard label="Enviadas" value={stats.sent} icon={CheckCircle2} colorClass="bg-primary/10 text-primary" />
         <StatCard label="Pendentes" value={stats.pending} icon={Clock} colorClass="bg-yellow-500/10 text-yellow-400" />
         <StatCard label="Falhas" value={stats.failed} icon={XCircle} colorClass="bg-destructive/10 text-destructive" />
@@ -1235,9 +1245,9 @@ const CampaignDetail = () => {
           <div className="max-h-[440px] overflow-y-auto overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="border-border/10 hover:bg-transparent">
-                  <TableHead className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-widest w-[140px]">Contato</TableHead>
-                  <TableHead className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-widest">Número</TableHead>
+               <TableRow className="border-border/10 hover:bg-transparent">
+                  <TableHead className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-widest w-[140px]">{isGroupCampaign ? "Grupo" : "Contato"}</TableHead>
+                  {!isGroupCampaign && <TableHead className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-widest">Número</TableHead>}
                   <TableHead className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-widest text-center w-[100px]">Status</TableHead>
                   <TableHead className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-widest w-[120px]">Horário</TableHead>
                   <TableHead className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-widest">Erro</TableHead>
@@ -1248,14 +1258,14 @@ const CampaignDetail = () => {
                 {contactsLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 6 }).map((_, j) => (
+                      {Array.from({ length: isGroupCampaign ? 5 : 6 }).map((_, j) => (
                         <TableCell key={j}><Skeleton className="h-3.5 w-full" /></TableCell>
                       ))}
                     </TableRow>
                   ))
                 ) : filteredContacts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-[11px] text-muted-foreground/50 py-14">
+                    <TableCell colSpan={isGroupCampaign ? 5 : 6} className="text-center text-[11px] text-muted-foreground/50 py-14">
                       Nenhum registro encontrado
                     </TableCell>
                   </TableRow>
@@ -1264,10 +1274,20 @@ const CampaignDetail = () => {
                     const ccfg = contactStatusConfig[c.status] || contactStatusConfig.pending;
                     const Icon = ccfg.icon;
                     const errCount = c.error_message?.match(/\((\d+) tentativa/)?.[1];
+                    const isGroup = isGroupJid(c.phone);
                     return (
                       <TableRow key={c.id} className="border-border/5 hover:bg-muted/10 transition-colors">
-                        <TableCell className="text-[11px] font-medium text-foreground/80 py-2.5">{c.name || "—"}</TableCell>
-                        <TableCell className="text-[11px] text-muted-foreground font-mono tracking-tight py-2.5">{formatPhoneDisplay(c.phone)}</TableCell>
+                        <TableCell className="text-[11px] font-medium text-foreground/80 py-2.5">
+                          {isGroup ? (
+                            <div className="flex items-center gap-1.5">
+                              <Users className="w-3 h-3 text-muted-foreground/50 shrink-0" />
+                              <span>{formatGroupName(c.name, c.phone)}</span>
+                            </div>
+                          ) : (c.name || "—")}
+                        </TableCell>
+                        {!isGroupCampaign && (
+                          <TableCell className="text-[11px] text-muted-foreground font-mono tracking-tight py-2.5">{formatPhoneDisplay(c.phone)}</TableCell>
+                        )}
                         <TableCell className="text-center py-2.5">
                           <span className={cn("inline-flex items-center gap-1", ccfg.className)}>
                             <Icon className="w-3 h-3" />
@@ -1316,7 +1336,7 @@ const CampaignDetail = () => {
           {totalContactPages > 1 && (
             <div className="flex items-center justify-between px-4 py-2.5 border-t border-border/10">
               <span className="text-[10px] text-muted-foreground/50">
-                Página {contactPage + 1} de {totalContactPages} • {totalContacts} contatos
+                Página {contactPage + 1} de {totalContactPages} • {totalContacts} {isGroupCampaign ? "grupos" : "contatos"}
               </span>
               <div className="flex items-center gap-1.5">
                 <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2"
