@@ -372,6 +372,7 @@ const Conversations = () => {
     [selectConversation]
   );
 
+  /* Fluxos de automação temporariamente ocultos
   if (showFlows) {
     return (
       <div className="flex flex-col h-[calc(100vh-theme(spacing.14)-theme(spacing.5)*2)] sm:h-[calc(100vh-theme(spacing.14)-theme(spacing.10))] -m-2.5 sm:-m-5 md:-m-8">
@@ -395,6 +396,7 @@ const Conversations = () => {
       </div>
     );
   }
+  */
 
   return (
     <>
@@ -474,6 +476,7 @@ const Conversations = () => {
                 >
                   <Bell className="w-4 h-4" />
                 </Button>
+                {/* Botão de fluxos de automação temporariamente oculto
                 <Button
                   variant="ghost"
                   size="icon"
@@ -483,6 +486,7 @@ const Conversations = () => {
                 >
                   <Zap className="w-4 h-4" />
                 </Button>
+                */}
                 <button
                   onClick={() => setNewConversationOpen(true)}
                   className="inline-flex items-center gap-1 h-[28px] px-2.5 rounded-md bg-primary text-primary-foreground text-[11px] font-medium hover:bg-primary/85 transition-colors ml-1 shrink-0"
