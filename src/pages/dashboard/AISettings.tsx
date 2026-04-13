@@ -58,6 +58,13 @@ const AISettings = () => {
   const [minDelay, setMinDelay] = useState(1);
   const [maxDelay, setMaxDelay] = useState(3);
   const [knowledgeDocs, setKnowledgeDocs] = useState<KnowledgeDoc[]>([]);
+  const [kbProducts, setKbProducts] = useState("");
+  const [kbPrices, setKbPrices] = useState("");
+  const [kbDifferentials, setKbDifferentials] = useState("");
+  const [kbFaq, setKbFaq] = useState("");
+  const [kbPreview, setKbPreview] = useState("");
+  const [generatingPreview, setGeneratingPreview] = useState(false);
+  const [kbTab, setKbTab] = useState<"structured" | "upload">("structured");
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState("");
   const [newDocType, setNewDocType] = useState("pdf");
@@ -271,6 +278,34 @@ const AISettings = () => {
     } finally {
       setTestingAi(false);
     }
+  };
+
+  const generateKbPreview = () => {
+    if (!kbProducts.trim() && !kbPrices.trim() && !kbDifferentials.trim() && !kbFaq.trim()) {
+      toast.error("Preencha pelo menos um campo da base de conhecimento");
+      return;
+    }
+    setGeneratingPreview(true);
+    setTimeout(() => {
+      const parts: string[] = [];
+      if (kbProducts.trim()) parts.push(`Nossos produtos/serviços incluem: ${kbProducts.trim()}`);
+      if (kbPrices.trim()) parts.push(`Sobre preços: ${kbPrices.trim()}`);
+      if (kbDifferentials.trim()) parts.push(`Nossos diferenciais: ${kbDifferentials.trim()}`);
+      
+      const faqLines = kbFaq.trim().split("\n").filter(Boolean);
+      if (faqLines.length > 0) {
+        const sampleQ = faqLines[0];
+        parts.push(`Exemplo de resposta para "${sampleQ}": Com base no que sabemos, ${kbDifferentials.trim() ? `nosso diferencial é ${kbDifferentials.trim().split(",")[0]?.trim()}` : "oferecemos a melhor solução para você"}.`);
+      }
+
+      setKbPreview(
+        parts.length > 0
+          ? `🤖 Exemplo de como a IA responderia:\n\n"${tone === "friendly" ? "Oi! 😊 " : tone === "direct" ? "" : "Olá! "}${parts[0]}. ${parts.length > 1 ? parts[1] + "." : ""} Posso te ajudar com mais alguma coisa?"`
+          : ""
+      );
+      setGeneratingPreview(false);
+      toast.success("Preview gerado! Base de conhecimento aplicada automaticamente.");
+    }, 800);
   };
 
   const handleAddDoc = () => {
@@ -661,45 +696,142 @@ const AISettings = () => {
       {/* Base de Conhecimento */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base">Base de Conhecimento</CardTitle>
-            </div>
-            <Button size="sm" variant="outline" className="gap-2" onClick={() => setUploadModalOpen(true)}>
-              <Plus className="h-4 w-4" /> Adicionar documento
-            </Button>
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-primary" />
+            <CardTitle className="text-base">Base de Conhecimento</CardTitle>
           </div>
-          <CardDescription>Documentos que a IA pode consultar para responder (PDF, TXT, DOCX)</CardDescription>
+          <CardDescription>Ensine a IA sobre seu negócio para respostas precisas</CardDescription>
         </CardHeader>
-        <CardContent>
-          {knowledgeDocs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <File className="h-10 w-10 text-muted-foreground/40 mb-3" />
-              <p className="text-sm text-muted-foreground">Nenhum documento adicionado ainda</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Adicione PDFs, TXTs ou DOCXs para a IA usar como referência</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {knowledgeDocs.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2.5">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <FileText className="h-4 w-4 text-primary shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{doc.title}</p>
-                      <p className="text-xs text-muted-foreground">{doc.fileName} · {doc.type.toUpperCase()} · {doc.addedAt}</p>
-                    </div>
+        <CardContent className="space-y-4">
+          {/* Tabs */}
+          <div className="flex gap-1 p-1 rounded-lg bg-muted/40">
+            <button
+              onClick={() => setKbTab("structured")}
+              className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
+                kbTab === "structured" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              📝 Campos estruturados
+            </button>
+            <button
+              onClick={() => setKbTab("upload")}
+              className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
+                kbTab === "upload" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              📄 Upload de arquivos
+            </button>
+          </div>
+
+          {kbTab === "structured" && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <span>🛍️</span> Produtos / Serviços
+                </Label>
+                <Textarea
+                  value={kbProducts}
+                  onChange={(e) => setKbProducts(e.target.value)}
+                  placeholder="Ex: Plano Básico - automação de mensagens&#10;Plano Pro - automação + IA&#10;Plano Enterprise - tudo incluso + suporte dedicado"
+                  rows={3}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <span>💲</span> Preços
+                </Label>
+                <Textarea
+                  value={kbPrices}
+                  onChange={(e) => setKbPrices(e.target.value)}
+                  placeholder="Ex: Básico R$97/mês, Pro R$197/mês, Enterprise R$497/mês"
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <span>⭐</span> Diferenciais
+                </Label>
+                <Textarea
+                  value={kbDifferentials}
+                  onChange={(e) => setKbDifferentials(e.target.value)}
+                  placeholder="Ex: Suporte 24h, Setup gratuito, Garantia de 30 dias, Integração com WhatsApp"
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <span>❓</span> Perguntas frequentes
+                </Label>
+                <Textarea
+                  value={kbFaq}
+                  onChange={(e) => setKbFaq(e.target.value)}
+                  placeholder="Coloque uma pergunta por linha:&#10;Qual o prazo de entrega?&#10;Vocês aceitam cartão?&#10;Como funciona a garantia?"
+                  rows={4}
+                />
+                <p className="text-[10px] text-muted-foreground">Uma pergunta por linha — a IA aprenderá a responder cada uma</p>
+              </div>
+
+              <Button
+                onClick={generateKbPreview}
+                disabled={generatingPreview}
+                className="w-full gap-2"
+              >
+                {generatingPreview ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Gerar respostas automaticamente
+              </Button>
+
+              {kbPreview && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Bot className="h-4 w-4 text-primary" />
+                    <Label className="text-xs text-primary font-medium">Preview — Como a IA responderia</Label>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Button variant="ghost" size="icon" className={`h-7 w-7 ${doc.active ? "text-emerald-400" : "text-muted-foreground/40"}`} onClick={() => toggleDocActive(doc.id)} title={doc.active ? "Ativo" : "Inativo"}>
-                      <Power className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeDoc(doc.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+                  <p className="text-sm text-foreground/80 whitespace-pre-line leading-relaxed">{kbPreview}</p>
                 </div>
-              ))}
+              )}
+            </div>
+          )}
+
+          {kbTab === "upload" && (
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <Button size="sm" variant="outline" className="gap-2" onClick={() => setUploadModalOpen(true)}>
+                  <Plus className="h-4 w-4" /> Adicionar documento
+                </Button>
+              </div>
+              {knowledgeDocs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <File className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                  <p className="text-sm text-muted-foreground">Nenhum documento adicionado ainda</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">Adicione PDFs, TXTs ou DOCXs para a IA usar como referência</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {knowledgeDocs.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2.5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FileText className="h-4 w-4 text-primary shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{doc.title}</p>
+                          <p className="text-xs text-muted-foreground">{doc.fileName} · {doc.type.toUpperCase()} · {doc.addedAt}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button variant="ghost" size="icon" className={`h-7 w-7 ${doc.active ? "text-emerald-400" : "text-muted-foreground/40"}`} onClick={() => toggleDocActive(doc.id)} title={doc.active ? "Ativo" : "Inativo"}>
+                          <Power className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeDoc(doc.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </CardContent>
