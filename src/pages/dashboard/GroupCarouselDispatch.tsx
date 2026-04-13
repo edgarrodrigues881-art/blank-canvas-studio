@@ -373,11 +373,17 @@ export default function GroupCarouselDispatch() {
       if (targetsErr) throw targetsErr;
 
       const campaignRoute = `/dashboard/campaign/${campaign.id}`;
-      toast.success("Campanha iniciada!", {
-        description: "Você já pode acompanhar os envios na tela da campanha.",
-        action: { label: "Abrir campanha", onClick: () => navigate(campaignRoute) },
-        duration: 8000,
-      });
+      toast.success(
+        `${selectedGroups.length} grupo(s). Iniciando envio...`,
+        {
+          description: "Campanha criada com sucesso!",
+          action: {
+            label: "Ver campanha",
+            onClick: () => navigate(campaignRoute),
+          },
+          duration: 10000,
+        }
+      );
       navigate(campaignRoute);
       await wait(0);
     } catch (err: any) {
