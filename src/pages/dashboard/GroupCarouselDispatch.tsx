@@ -904,9 +904,10 @@ export default function GroupCarouselDispatch() {
             {/* Device */}
             <SurfaceCard className="p-4 sm:p-5 space-y-3">
               <SectionLabel>Instância</SectionLabel>
-              <Select value={selectedDevice} onValueChange={setSelectedDevice}>
+              <Select value={selectedDevice || "__none__"} onValueChange={(v) => setSelectedDevice(v === "__none__" ? "" : v)}>
                 <SelectTrigger><SelectValue placeholder="Escolha uma instância conectada" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">Sem instância (selecionar depois)</SelectItem>
                   {devices.map((d) => (
                     <SelectItem key={d.id} value={d.id}>{d.name} {d.number ? `(${d.number})` : ""}</SelectItem>
                   ))}
