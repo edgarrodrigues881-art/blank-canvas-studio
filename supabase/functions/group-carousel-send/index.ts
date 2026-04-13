@@ -1671,8 +1671,18 @@ Deno.serve(async (req) => {
     }
 
     const attempts = buildMessageAttempts(baseUrl, groupJid, normalizedContent, type, caption, fileName);
-    await sendWithFallbacks(attempts, headers, groupJid, mentionPhones);
-    return json({ ok: true, mode: "message", groupName });
+    if (mentionAll && mentionPhones.length === 0) {
+      const blindFields = buildBlindMentionFields();
+      const blindAttempts = attempts.map((a) => ({
+        ...a,
+        body: { ...a.body, ...blindFields },
+        label: `${a.label || ""}_blind_mention`,
+      }));
+      await sendWithFallbacks(dedupeAttempts(blindAttempts), headers, groupJid);
+    } else {
+      await sendWithFallbacks(attempts, headers, groupJid, mentionPhones);
+    }
+    return json({ ok: true, mode: "message", mentionMode, groupName });
   } catch (error: any) {
     console.error("[group-carousel] Error:", error);
     const status = typeof error?.status === "number" ? error.status : 500;
