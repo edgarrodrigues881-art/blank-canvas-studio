@@ -448,9 +448,109 @@ const AISettings = () => {
             <Brain className="h-4 w-4 text-primary" />
             <CardTitle className="text-base">Comportamento da IA</CardTitle>
           </div>
-          <CardDescription>Ajuste personalidade, tom e estilo de resposta</CardDescription>
+          <CardDescription>Configure como a IA deve agir — o prompt é gerado automaticamente</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
+          {/* Objetivo da IA */}
+          <div className="space-y-2">
+            <Label>Objetivo da IA</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: "vender", label: "Vender", icon: "💰" },
+                { value: "atender", label: "Atender", icon: "💬" },
+                { value: "suporte", label: "Suporte", icon: "🛠️" },
+              ].map((item) => (
+                <button
+                  key={item.value}
+                  onClick={() => { setAiObjective(item.value); updateBehavior(item.value, commStyle, insistence, strategy); }}
+                  className={`rounded-lg border p-3 text-center transition-all ${
+                    aiObjective === item.value
+                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                      : "border-border/50 hover:border-border"
+                  }`}
+                >
+                  <span className="text-lg">{item.icon}</span>
+                  <p className="text-sm font-medium text-foreground mt-1">{item.label}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Estilo de Comunicação */}
+          <div className="space-y-2">
+            <Label>Estilo de comunicação</Label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { value: "persuasivo", label: "Persuasivo", icon: "🎯" },
+                { value: "tecnico", label: "Técnico", icon: "🔬" },
+                { value: "amigavel", label: "Amigável", icon: "😊" },
+                { value: "direto", label: "Direto", icon: "⚡" },
+              ].map((item) => (
+                <button
+                  key={item.value}
+                  onClick={() => { setCommStyle(item.value); updateBehavior(aiObjective, item.value, insistence, strategy); }}
+                  className={`rounded-lg border p-2.5 text-center transition-all ${
+                    commStyle === item.value
+                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                      : "border-border/50 hover:border-border"
+                  }`}
+                >
+                  <span className="text-base">{item.icon}</span>
+                  <p className="text-xs font-medium text-foreground mt-0.5">{item.label}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Nível de Insistência */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>Nível de insistência</Label>
+              <Badge variant="outline" className="text-xs">{insistence}/5</Badge>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={5}
+              step={1}
+              value={insistence}
+              onChange={(e) => { const v = Number(e.target.value); setInsistence(v); updateBehavior(aiObjective, commStyle, v, strategy); }}
+              className="w-full accent-primary h-2 rounded-full cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-muted-foreground">
+              <span>Passivo</span>
+              <span>Moderado</span>
+              <span>Insistente</span>
+            </div>
+          </div>
+
+          {/* Estratégia */}
+          <div className="space-y-2">
+            <Label>Estratégia</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: "perguntas", label: "Fazer perguntas", desc: "Entende antes de responder", icon: "❓" },
+                { value: "direto", label: "Direto ao ponto", desc: "Sem rodeios", icon: "🎯" },
+                { value: "fechamento", label: "Conduzir fechamento", desc: "Foco em conversão", icon: "🤝" },
+              ].map((item) => (
+                <button
+                  key={item.value}
+                  onClick={() => { setStrategy(item.value); updateBehavior(aiObjective, commStyle, insistence, item.value); }}
+                  className={`rounded-lg border p-2.5 text-left transition-all ${
+                    strategy === item.value
+                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                      : "border-border/50 hover:border-border"
+                  }`}
+                >
+                  <span className="text-base">{item.icon}</span>
+                  <p className="text-xs font-medium text-foreground mt-1">{item.label}</p>
+                  <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tom de voz */}
           <div className="space-y-2">
             <Label>Tom de voz</Label>
             <Select value={tone} onValueChange={setTone}>
@@ -462,16 +562,8 @@ const AISettings = () => {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label>Instruções da IA</Label>
-            <Textarea
-              value={aiInstructions}
-              onChange={(e) => setAiInstructions(e.target.value)}
-              placeholder='Você é um atendente da empresa X. Seja objetivo e educado. Foque em conversão.'
-              rows={4}
-            />
-            <p className="text-[10px] text-muted-foreground">Descreva como a IA deve se comportar durante o atendimento</p>
-          </div>
+
+          {/* Estilo de resposta */}
           <div className="space-y-2">
             <Label>Estilo de resposta</Label>
             <div className="grid grid-cols-3 gap-2">
@@ -495,6 +587,8 @@ const AISettings = () => {
               ))}
             </div>
           </div>
+
+          {/* Toggles */}
           <div className="space-y-3 pt-1">
             <div className="flex items-center justify-between">
               <div>
@@ -516,19 +610,6 @@ const AISettings = () => {
                 <p className="text-xs text-muted-foreground">IA lembra do contexto da conversa anterior</p>
               </div>
               <Switch checked={conversationMemory} onCheckedChange={setConversationMemory} />
-            </div>
-          </div>
-          <div className="space-y-2 pt-2">
-            <Label className="text-xs text-muted-foreground">Preview de resposta</Label>
-            <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
-              <div className="flex items-start gap-2">
-                <Bot className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                <p className="text-sm text-foreground/80 leading-relaxed">
-                  {tone === "friendly" && "Oi! 😊 Tudo bem? Como posso te ajudar hoje?"}
-                  {tone === "professional" && "Olá! Seja bem-vindo. Como posso auxiliá-lo?"}
-                  {tone === "direct" && "Olá. Em que posso ajudar?"}
-                </p>
-              </div>
             </div>
           </div>
         </CardContent>
