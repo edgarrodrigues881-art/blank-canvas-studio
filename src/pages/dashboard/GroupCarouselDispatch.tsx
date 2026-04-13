@@ -581,44 +581,6 @@ export default function GroupCarouselDispatch() {
 
     return (
       <div className="flex items-center gap-0.5 flex-wrap p-1.5 rounded-xl bg-muted/15 dark:bg-muted/8 border border-border/10">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 text-[11px] gap-1.5 text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium rounded-lg">
-              <FileText className="w-3.5 h-3.5" /> Variável
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-48 p-1.5 bg-popover border-border z-50" align="start">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 px-2 py-1">Contato</p>
-            {[{ label: "Nome", tag: "{{nome}}" }, { label: "Número", tag: "{{numero}}" }].map(v => (
-              <button key={v.tag} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-accent transition-colors flex items-center justify-between"
-                onClick={() => insertFn(v.tag)}>
-                <span>{v.label}</span>
-                <code className="text-[9px] text-muted-foreground">{v.tag}</code>
-              </button>
-            ))}
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 px-2 py-1 mt-1">Personalizadas</p>
-            {["Variável 1", "Variável 2", "Variável 3", "Variável 4", "Variável 5", "Variável 6", "Variável 7"].map((v, i) => (
-              <button key={v} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-accent transition-colors flex items-center justify-between"
-                onClick={() => insertFn(`{{var${i + 1}}}`)}>
-                <span>{v}</span>
-                <code className="text-[9px] text-muted-foreground">{`{{var${i + 1}}}`}</code>
-              </button>
-            ))}
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 px-2 py-1 mt-1">Dinâmicas</p>
-            {[
-              { label: "Número Aleatório (4 dígitos)", tag: "{{rand4}}" },
-              { label: "Texto Aleatório (3 letras)", tag: "{{rand3}}" },
-            ].map(v => (
-              <button key={v.tag} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-accent transition-colors flex items-center justify-between"
-                onClick={() => insertFn(v.tag)}>
-                <span>{v.label}</span>
-                <code className="text-[9px] text-muted-foreground">{v.tag}</code>
-              </button>
-            ))}
-          </PopoverContent>
-        </Popover>
-
-        <div className="h-5 w-px bg-border/20 mx-0.5" />
         {[
           { icon: Bold, label: "Negrito", wrap: ["*", "*"] },
           { icon: Italic, label: "Itálico", wrap: ["_", "_"] },
