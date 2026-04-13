@@ -516,6 +516,7 @@ export function AppSidebar() {
               {renderNavItem({ title: "Verificador WhatsApp", url: "/dashboard/whatsapp-verifier", icon: Phone })}
               {renderNavItem({ title: "Prospecção", url: "/dashboard/prospeccao", icon: Building2 })}
               {renderNavItem({ title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn })}
+              {renderNavItem({ title: "Extrator de Links", url: "/dashboard/group-invite-extractor", icon: Link2 })}
               {renderNavItem({ title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus })}
               {/* Boas-vindas oculto */}
               {renderNavItem({ title: "Grupos", url: "/dashboard/groups", icon: UsersRound })}
