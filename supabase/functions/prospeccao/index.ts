@@ -570,11 +570,15 @@ Deno.serve(async (req) => {
     const estadoTrimmed = (estado || "").trim();
     const cidadeTrimmed = cidade.trim();
 
-    // Broad categories for "all businesses" mode — diverse terms to maximize coverage with few API calls
+    // Broad categories for "all businesses" mode — maximize coverage with diverse terms
     const ALL_BIZ_CATEGORIES = [
       "restaurante", "loja", "comércio", "serviços", "clínica",
       "salão de beleza", "oficina", "escola", "farmácia", "mercado",
       "academia", "hotel", "imobiliária", "pet shop", "escritório",
+      "padaria", "bar", "supermercado", "posto de gasolina", "banco",
+      "dentista", "médico", "veterinário", "borracharia", "lavanderia",
+      "papelaria", "ótica", "joalheria", "floricultura", "construtora",
+      "contabilidade", "advocacia", "consultório", "distribuidora", "atacado",
     ];
 
     // --- CACHE ---

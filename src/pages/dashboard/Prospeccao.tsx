@@ -559,7 +559,7 @@ export default function Prospeccao() {
                     className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                   />
                   <Label htmlFor="allBusinesses" className="cursor-pointer text-sm font-medium">
-                    Todos os comércios — Puxa todos os estabelecimentos da região (lojas, restaurantes, serviços, etc.)
+                    Todos os comércios
                   </Label>
                 </div>
 
