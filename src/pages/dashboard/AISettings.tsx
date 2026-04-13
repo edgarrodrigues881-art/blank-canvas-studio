@@ -16,9 +16,21 @@ import {
   Bot, Building2, BookOpen, Headset, Brain, ShieldCheck, Upload, Plus, Trash2,
   Sparkles, Key, CheckCircle2, AlertTriangle, Eye, EyeOff, Loader2, Send,
   FileText, File, Power, Target, Zap, Activity, Circle, Timer, MessageSquare,
-  UserCheck, PhoneCall, LifeBuoy,
+  UserCheck, PhoneCall, LifeBuoy, Users, Flame, Snowflake, TrendingUp,
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
+import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
+
+interface LeadMemory {
+  id: string;
+  remote_jid: string;
+  contact_name: string | null;
+  interest: string | null;
+  stage: string;
+  interaction_count: number;
+  last_interaction_at: string | null;
+}
+
 import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
 interface KnowledgeDoc {
   id: string; title: string; type: string; fileName: string; active: boolean; addedAt: string;
