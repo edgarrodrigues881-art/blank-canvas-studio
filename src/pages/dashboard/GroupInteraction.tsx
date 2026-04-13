@@ -225,6 +225,51 @@ export default function GroupInteractionPage() {
     enabled: !!user,
   });
 
+  const { data: systemWarmupGroups = [], isLoading: systemWarmupGroupsLoading } = useQuery({
+    queryKey: ["warmup-system-groups-gi"],
+    queryFn: async () => {
+      const [wgRes, poolRes] = await Promise.all([
+        supabase
+          .from("warmup_groups" as any)
+          .select("id, name, link, is_custom, user_id, created_at")
+          .is("user_id", null)
+          .eq("is_custom", false)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("warmup_groups_pool")
+          .select("id, name, external_group_ref, is_active, created_at")
+          .eq("is_active", true)
+          .order("created_at", { ascending: false }),
+      ]);
+
+      if (wgRes.error) throw wgRes.error;
+      if (poolRes.error) throw poolRes.error;
+
+      const wgData = (wgRes.data || []) as any[];
+      const poolData = (poolRes.data || []).map((group: any) => ({
+        id: group.external_group_ref || group.id,
+        name: group.name,
+        link: group.external_group_ref || "",
+        is_custom: false,
+        user_id: null,
+        created_at: group.created_at,
+      }));
+
+      const seen = new Set<string>();
+      const merged: any[] = [];
+      for (const group of [...wgData, ...poolData]) {
+        const key = String(group?.name || "").trim().toLowerCase();
+        if (key && seen.has(key)) continue;
+        if (key) seen.add(key);
+        merged.push(group);
+      }
+
+      return merged;
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
   const warmupGroupsById = useMemo(() => {
     return new Map(allWarmupGroups.map((group: any) => [String(group.id), group]));
   }, [allWarmupGroups]);
@@ -281,10 +326,10 @@ export default function GroupInteractionPage() {
 
   const warmupGroups = useMemo(() => {
     if (groupSource === "system") {
-      return allWarmupGroups.filter((g: any) => !g.is_custom && !g.user_id);
+      return systemWarmupGroups;
     }
     return allWarmupGroups.filter((g: any) => g.user_id === user?.id);
-  }, [allWarmupGroups, groupSource, user?.id]);
+  }, [allWarmupGroups, groupSource, systemWarmupGroups, user?.id]);
 
   const currentFormDeviceId = useMemo(() => {
     if (showBulkCreate) return null;
@@ -317,9 +362,8 @@ export default function GroupInteractionPage() {
   );
 
   const availableWarmupGroups = useMemo(() => {
-    if (!currentFormDeviceId) return warmupGroups;
-    return warmupGroups.filter((group: any) => joinedGroupIds.has(String(group.id)));
-  }, [currentFormDeviceId, warmupGroups, joinedGroupIds]);
+    return warmupGroups;
+  }, [warmupGroups]);
 
   const normalizedSelectedGroupIds = useMemo(
     () => normalizeInteractionGroupIds(Array.isArray(form.group_ids) ? form.group_ids : [], groupSource),
@@ -487,15 +531,6 @@ export default function GroupInteractionPage() {
     if (!form.device_id && !showBulkCreate) return "Selecione um dispositivo";
     if (!showBulkCreate && form.device_id && !eligibleDevices.some((device: any) => device.id === form.device_id)) return "A instância selecionada está desconectada";
     if (!normalizedGroupIds.length) return "Selecione pelo menos um grupo válido";
-    if (!showBulkCreate && currentFormDeviceId) {
-      if (deviceJoinedGroupsLoading) return "Carregando grupos vinculados da instância";
-      if (availableWarmupGroups.length === 0) return "Essa instância ainda não possui grupos vinculados no Aquecimento";
-      if (unavailableSelectedGroupCount > 0) {
-        return unavailableSelectedGroupCount === 1
-          ? "1 grupo selecionado ainda não está vinculado a essa instância"
-          : `${unavailableSelectedGroupCount} grupos selecionados ainda não estão vinculados a essa instância`;
-      }
-    }
     if (!form.start_hour || !form.end_hour) return "Defina os horários";
     if (usePeriod2 && (!form.start_hour_2 || !form.end_hour_2)) return "Defina início e término do 2º período";
     // Auto-correct delays instead of blocking
@@ -1176,11 +1211,13 @@ export default function GroupInteractionPage() {
                         ? showBulkCreate
                           ? "Selecione os grupos que serão usados. O vínculo com cada instância será validado ao criar."
                           : "Selecione uma instância para listar apenas os grupos realmente vinculados a ela."
-                        : deviceJoinedGroupsLoading
-                          ? "Carregando grupos vinculados da instância..."
+                        : groupSource === "system" && systemWarmupGroupsLoading
+                          ? "Carregando grupos do sistema..."
+                          : deviceJoinedGroupsLoading
+                            ? "Carregando vínculos da instância..."
                           : groupSource === "custom"
                             ? "Essa instância ainda não possui grupos próprios vinculados no Aquecimento."
-                            : "Essa instância ainda não possui grupos do sistema vinculados no Aquecimento."}
+                            : "Nenhum grupo do sistema disponível no momento."}
                     </p>
               ) : (
                 availableWarmupGroups.map((g: any) => (
@@ -1194,11 +1231,15 @@ export default function GroupInteractionPage() {
                 ))
               )}
             </div>
-            {currentFormDeviceId && unavailableSelectedGroupCount > 0 && (
+            {currentFormDeviceId && (
               <p className="text-[11px] text-amber-400">
-                {unavailableSelectedGroupCount === 1
-                  ? "1 grupo salvo nesta automação não está mais vinculado à instância selecionada."
-                  : `${unavailableSelectedGroupCount} grupos salvos nesta automação não estão mais vinculados à instância selecionada.`}
+                {joinedGroupIds.size === 0
+                  ? "Os grupos do sistema estão visíveis, mas essa instância ainda não entrou em nenhum deles; a automação só envia após o Aquecimento registrar o grupo com JID."
+                  : unavailableSelectedGroupCount > 0
+                    ? unavailableSelectedGroupCount === 1
+                      ? "1 grupo selecionado ainda não está vinculado a essa instância, então ele não poderá receber mensagens agora."
+                      : `${unavailableSelectedGroupCount} grupos selecionados ainda não estão vinculados a essa instância, então eles não poderão receber mensagens agora.`
+                    : "Essa instância já tem grupos vinculados e pode enviar normalmente dentro do dia/horário ativo."}
               </p>
             )}
           </div>
