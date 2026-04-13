@@ -761,6 +761,44 @@ export default function GroupCarouselDispatch() {
               <div className="lg:col-span-3 space-y-4 sm:space-y-8">
                 {/* Carousel Editor */}
                 {dispatchType === "carousel" ? (
+                  <div className="space-y-4 sm:space-y-5">
+                    {/* Modelo Base (Carrossel) */}
+                    <SurfaceCard className="p-5 space-y-3">
+                      <SectionLabel>Modelo Base</SectionLabel>
+                      <Select value={selectedTemplate} onValueChange={(val) => {
+                        setSelectedTemplate(val);
+                        if (val !== "nova") {
+                          const tmpl = carouselTemplates.find(t => t.id === val);
+                          if (tmpl) {
+                            setCarouselMessage(tmpl.message || "");
+                            if (Array.isArray(tmpl.cards) && tmpl.cards.length > 0) {
+                              setCards(tmpl.cards.map((c: any, i: number) => ({
+                                id: c.id || `card-${i}`,
+                                position: c.position ?? i,
+                                text: c.text || "",
+                                mediaUrl: c.mediaUrl || "",
+                                mediaType: c.mediaType || null,
+                                buttons: Array.isArray(c.buttons) ? c.buttons : [],
+                              })));
+                            } else {
+                              setCards([createEmptyCard(0)]);
+                            }
+                          }
+                        } else {
+                          setCarouselMessage("");
+                          setCards([createEmptyCard(0)]);
+                        }
+                      }}>
+                        <SelectTrigger className="h-11 text-sm font-medium bg-background/50 dark:bg-muted/20 border-border/30 hover:border-primary/40 transition-colors">
+                          <SelectValue placeholder="Template Padrão" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover border-border z-50">
+                          <SelectItem value="nova">Template Padrão</SelectItem>
+                          {carouselTemplates.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </SurfaceCard>
+
                   <SurfaceCard className="p-4 sm:p-6 space-y-4 sm:space-y-5">
                     <SectionLabel>Mensagem do Carrossel</SectionLabel>
                     <p className="text-xs text-muted-foreground -mt-2">Texto enviado junto com o carrossel (aparece acima dos cards)</p>
