@@ -500,6 +500,16 @@ function extractGroupInfoPayload(raw: any) {
   return raw?.group || raw?.data?.group || raw?.data || raw || null;
 }
 
+function extractGroupName(rawInfo: any): string {
+  const candidates = getGroupInfoCandidates(rawInfo);
+  for (const info of candidates) {
+    const name = info?.Subject || info?.subject || info?.Name || info?.name || info?.groupName || info?.title || "";
+    const trimmed = String(name).trim();
+    if (trimmed && !trimmed.includes("@g.us")) return trimmed;
+  }
+  return "";
+}
+
 function isTruthyGroupFlag(value: unknown) {
   if (value === true || value === 1 || value === "1") return true;
   return typeof value === "string" && value.trim().toLowerCase() === "true";
