@@ -129,6 +129,7 @@ export default function Prospeccao() {
   const navigate = useNavigate();
   const [nicho, setNicho] = useState("");
   const [nichosRelacionados, setNichosRelacionados] = useState("");
+  const [allBusinesses, setAllBusinesses] = useState(false);
   const [pais, setPais] = useState("BR");
   const [estado, setEstado] = useState("");
   const [cidade, setCidade] = useState("");
@@ -363,8 +364,8 @@ export default function Prospeccao() {
   };
 
   const handleSearch = async (forceRefresh = false) => {
-    if (!nicho.trim() || !cidade.trim()) {
-      toast.error("Preencha nicho e cidade"); return;
+    if (!allBusinesses && !nicho.trim() || !cidade.trim()) {
+      toast.error(allBusinesses ? "Preencha a cidade" : "Preencha nicho e cidade"); return;
     }
     if (pais === "BR" && !estado) {
       toast.error("Selecione o estado"); return;
@@ -376,7 +377,15 @@ export default function Prospeccao() {
     setLoading(true); setSearched(true);
     try {
       const relacionados = nichosRelacionados.split(",").map(n => n.trim()).filter(Boolean);
-      const body: any = { nicho: nicho.trim(), nichosRelacionados: relacionados, estado: pais === "BR" ? estado : "", cidade: cidade.trim(), maxResults: Number(maxResults), forceRefresh, pais };
+      const body: any = {
+        nicho: allBusinesses ? "todos os comércios" : nicho.trim(),
+        nichosRelacionados: relacionados,
+        estado: pais === "BR" ? estado : "",
+        cidade: cidade.trim(),
+        maxResults: Number(maxResults),
+        forceRefresh, pais,
+        allBusinesses,
+      };
       if (searchLat !== null && searchLng !== null) {
         body.customCenter = { lat: searchLat, lng: searchLng };
         body.customRadiusKm = searchRadius;
@@ -532,13 +541,35 @@ export default function Prospeccao() {
             <CardHeader><CardTitle className="text-lg">Filtros de Busca</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* All businesses toggle */}
+                <div className="col-span-full flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
+                  <input
+                    type="checkbox"
+                    id="allBusinesses"
+                    checked={allBusinesses}
+                    onChange={e => {
+                      setAllBusinesses(e.target.checked);
+                      if (e.target.checked) {
+                        setNicho("todos os comércios");
+                        setNichosRelacionados("");
+                      } else {
+                        setNicho("");
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor="allBusinesses" className="cursor-pointer text-sm font-medium">
+                    Todos os comércios — Puxa todos os estabelecimentos da região (lojas, restaurantes, serviços, etc.)
+                  </Label>
+                </div>
+
                 <div className="space-y-2">
-                  <Label>Nicho / Segmento *</Label>
-                  <Input placeholder="Ex: pizzaria, dentista..." value={nicho} onChange={e => setNicho(e.target.value)} />
+                  <Label>Nicho / Segmento {!allBusinesses && "*"}</Label>
+                  <Input placeholder="Ex: pizzaria, dentista..." value={nicho} onChange={e => setNicho(e.target.value)} disabled={allBusinesses} className={allBusinesses ? "opacity-50" : ""} />
                 </div>
                 <div className="space-y-2">
                   <Label>Nichos relacionados</Label>
-                  <Input placeholder="Ex: hamburgueria, restaurante..." value={nichosRelacionados} onChange={e => setNichosRelacionados(e.target.value)} />
+                  <Input placeholder="Ex: hamburgueria, restaurante..." value={nichosRelacionados} onChange={e => setNichosRelacionados(e.target.value)} disabled={allBusinesses} className={allBusinesses ? "opacity-50" : ""} />
                 </div>
                 <div className="space-y-2">
                   <Label>País *</Label>
