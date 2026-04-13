@@ -205,7 +205,7 @@ const Auth = () => {
               }}>
                 <img src={logo} alt="DG Contingência Pro" className="w-full h-full object-cover" />
               </div>
-              <h1 className="text-[20px] font-semibold text-white/90 tracking-tight">DG Contingência Pro</h1>
+              <h1 className="text-[20px] font-semibold text-white/90 tracking-tight"><span style={{ color: "#2d8c3c" }}>DG</span> Contingência <span style={{ color: "#2d8c3c" }}>Pro</span></h1>
               <p className="text-[13px] text-white/25 mt-1 font-light">
                 {isLogin ? "Entre na sua conta" : "Crie sua conta"}
               </p>
