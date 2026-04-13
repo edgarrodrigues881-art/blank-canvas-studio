@@ -17,9 +17,107 @@ import {
   Sparkles, Key, CheckCircle2, AlertTriangle, Eye, EyeOff, Loader2, Send,
   FileText, File, Power, Target, Zap, Activity, Circle, Timer, MessageSquare,
   UserCheck, PhoneCall, LifeBuoy, Users, Flame, Snowflake, TrendingUp,
+  Rocket, Calendar, Settings2, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
+
+type AiMode = "vendas" | "atendimento" | "suporte" | "agendamento";
+
+interface ModePreset {
+  label: string;
+  icon: string;
+  desc: string;
+  recommended?: boolean;
+  objective: string;
+  commStyle: string;
+  insistence: number;
+  strategy: string;
+  tone: string;
+  responseStyle: string;
+  flowSteps: Record<string, string>;
+  preview: string;
+}
+
+const MODE_PRESETS: Record<AiMode, ModePreset> = {
+  vendas: {
+    label: "Vendas Automáticas",
+    icon: "🚀",
+    desc: "IA focada em converter leads em clientes",
+    recommended: true,
+    objective: "vender",
+    commStyle: "persuasivo",
+    insistence: 4,
+    strategy: "fechamento",
+    tone: "friendly",
+    responseStyle: "medium",
+    flowSteps: {
+      saudacao: "Olá! Que bom ter você aqui! 😊 Posso te mostrar algo incrível?",
+      diagnostico: "Me conta: o que você está buscando? Assim consigo te indicar a melhor opção!",
+      apresentacao: "Perfeito! Tenho exatamente o que você precisa. Olha só os benefícios...",
+      objecao: "Entendo! Mas olha, muitos clientes tinham essa mesma dúvida e hoje são super satisfeitos porque...",
+      fechamento: "Vamos garantir o seu? Posso enviar o link agora mesmo! 🔥",
+    },
+    preview: "A IA vai cumprimentar, descobrir a necessidade, apresentar a solução, contornar objeções e conduzir para o fechamento — tudo de forma natural e persuasiva.",
+  },
+  atendimento: {
+    label: "Atendimento Inteligente",
+    icon: "💬",
+    desc: "IA que responde dúvidas e acolhe o cliente",
+    objective: "atender",
+    commStyle: "amigavel",
+    insistence: 2,
+    strategy: "perguntas",
+    tone: "friendly",
+    responseStyle: "medium",
+    flowSteps: {
+      saudacao: "Olá! Seja bem-vindo(a)! Como posso te ajudar hoje? 😊",
+      diagnostico: "Para te ajudar da melhor forma, me conta mais detalhes sobre o que você precisa.",
+      apresentacao: "Entendi! Com base no que você me disse, vou te explicar tudo direitinho...",
+      objecao: "Compreendo sua dúvida! Vou esclarecer isso para você...",
+      fechamento: "Consegui te ajudar? Se tiver mais alguma dúvida, é só mandar! 😊",
+    },
+    preview: "A IA vai acolher o cliente, entender a necessidade com perguntas, fornecer informações claras e garantir que todas as dúvidas foram resolvidas.",
+  },
+  suporte: {
+    label: "Suporte ao Cliente",
+    icon: "🛠️",
+    desc: "IA técnica para resolver problemas",
+    objective: "suporte",
+    commStyle: "tecnico",
+    insistence: 1,
+    strategy: "perguntas",
+    tone: "professional",
+    responseStyle: "detailed",
+    flowSteps: {
+      saudacao: "Olá! Sou o assistente de suporte. Como posso ajudá-lo?",
+      diagnostico: "Para resolver seu problema, preciso de algumas informações: O que exatamente está acontecendo?",
+      apresentacao: "Identifiquei o problema. Vou te guiar na solução passo a passo...",
+      objecao: "Entendo que é frustrante. Vamos tentar uma abordagem alternativa...",
+      fechamento: "O problema foi resolvido? Se precisar de mais ajuda, estou aqui.",
+    },
+    preview: "A IA vai diagnosticar o problema com perguntas técnicas, oferecer soluções passo a passo e verificar se o problema foi resolvido.",
+  },
+  agendamento: {
+    label: "Agendamento",
+    icon: "📅",
+    desc: "IA focada em marcar horários",
+    objective: "atender",
+    commStyle: "direto",
+    insistence: 3,
+    strategy: "direto",
+    tone: "professional",
+    responseStyle: "short",
+    flowSteps: {
+      saudacao: "Olá! Vamos agendar seu horário? 📅",
+      diagnostico: "Qual serviço você gostaria de agendar? E qual sua preferência de dia e horário?",
+      apresentacao: "Temos disponibilidade nos seguintes horários...",
+      objecao: "Se esse horário não funciona, posso verificar outras opções para você.",
+      fechamento: "Perfeito! Seu agendamento está confirmado! Te envio um lembrete antes. ✅",
+    },
+    preview: "A IA vai perguntar o serviço desejado, verificar disponibilidade, confirmar o horário e enviar lembretes — tudo de forma objetiva.",
+  },
+};
 
 interface LeadMemory {
   id: string;
@@ -56,6 +154,8 @@ const AISettings = () => {
   const [insistence, setInsistence] = useState(3);
   const [strategy, setStrategy] = useState("perguntas");
   const [autoFlow, setAutoFlow] = useState(true);
+  const [selectedMode, setSelectedMode] = useState<AiMode | null>(null);
+  const [expertMode, setExpertMode] = useState(false);
   const [flowSteps, setFlowSteps] = useState({
     saudacao: "Olá! Seja bem-vindo(a)! Como posso te ajudar hoje? 😊",
     diagnostico: "Para te ajudar melhor, me conta: o que você está buscando exatamente? Qual sua principal necessidade?",
@@ -166,6 +266,22 @@ const AISettings = () => {
       setLoadingLeads(false);
     })();
   }, []);
+
+  const applyMode = (mode: AiMode) => {
+    const preset = MODE_PRESETS[mode];
+    setSelectedMode(mode);
+    setAiObjective(preset.objective);
+    setCommStyle(preset.commStyle);
+    setInsistence(preset.insistence);
+    setStrategy(preset.strategy);
+    setTone(preset.tone);
+    setResponseStyle(preset.responseStyle);
+    setFlowSteps(preset.flowSteps as typeof flowSteps);
+    setAutoFlow(true);
+    const prompt = generatePrompt(preset.objective, preset.commStyle, preset.insistence, preset.strategy);
+    setAiInstructions(prompt);
+    toast.success(`Modo "${preset.label}" aplicado!`);
+  };
 
   const generatePrompt = (obj: string, style: string, ins: number, strat: string) => {
     const objMap: Record<string, string> = { vender: "converter leads em vendas e fechar negócios", atender: "atender dúvidas dos clientes de forma completa", suporte: "resolver problemas técnicos e dar suporte" };
@@ -449,6 +565,79 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
+      {/* Modo de Operação */}
+      <Card className="transition-all duration-200 hover:shadow-md">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Rocket className="h-4 w-4 text-primary" strokeWidth={1.5} />
+            <CardTitle className="text-base">Escolha como sua IA deve operar</CardTitle>
+          </div>
+          <CardDescription>Selecione um modo e todas as configurações serão ajustadas automaticamente</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {(Object.entries(MODE_PRESETS) as [AiMode, ModePreset][]).map(([key, preset]) => (
+              <button
+                key={key}
+                onClick={() => applyMode(key)}
+                className={`relative rounded-xl border p-4 text-left transition-all duration-200 hover:scale-[1.01] ${
+                  selectedMode === key
+                    ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
+                    : "border-border/50 hover:border-border hover:shadow-sm"
+                }`}
+              >
+                {preset.recommended && (
+                  <Badge className="absolute -top-2 right-3 text-[10px] px-1.5 py-0 bg-primary text-primary-foreground">
+                    Recomendado
+                  </Badge>
+                )}
+                <span className="text-2xl">{preset.icon}</span>
+                <p className="text-sm font-semibold text-foreground mt-2">{preset.label}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{preset.desc}</p>
+                {selectedMode === key && (
+                  <CheckCircle2 className="absolute top-3 right-3 h-4 w-4 text-primary" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Preview */}
+          {selectedMode && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2 animate-fade-in">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" strokeWidth={1.5} />
+                <p className="text-xs font-semibold text-primary">Como sua IA vai agir</p>
+              </div>
+              <p className="text-sm text-foreground/80 leading-relaxed">{MODE_PRESETS[selectedMode].preview}</p>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                <Badge variant="outline" className="text-[10px]">
+                  {MODE_PRESETS[selectedMode].commStyle === "persuasivo" ? "🎯 Persuasivo" :
+                   MODE_PRESETS[selectedMode].commStyle === "tecnico" ? "🔬 Técnico" :
+                   MODE_PRESETS[selectedMode].commStyle === "amigavel" ? "😊 Amigável" : "⚡ Direto"}
+                </Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  Insistência {MODE_PRESETS[selectedMode].insistence}/5
+                </Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  {MODE_PRESETS[selectedMode].strategy === "fechamento" ? "🤝 Foco em fechamento" :
+                   MODE_PRESETS[selectedMode].strategy === "direto" ? "🎯 Direto ao ponto" : "❓ Faz perguntas"}
+                </Badge>
+              </div>
+            </div>
+          )}
+
+          {/* Expert mode toggle */}
+          <button
+            onClick={() => setExpertMode(!expertMode)}
+            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full justify-center pt-1"
+          >
+            <Settings2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+            <span>{expertMode ? "Ocultar configurações avançadas" : "Modo expert — editar manualmente"}</span>
+            {expertMode ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          </button>
+        </CardContent>
+      </Card>
+
       {/* Configuração da IA — API & Modelo */}
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
@@ -515,6 +704,7 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
+      {expertMode && (<>
       {/* Delay de resposta */}
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
@@ -1067,6 +1257,8 @@ const AISettings = () => {
           </TooltipProvider>
         </CardContent>
       </Card>
+
+      </>)}
 
       {/* Segurança e Controle */}
       <Card className="transition-all duration-200 hover:shadow-md">
