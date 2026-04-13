@@ -22,11 +22,11 @@ interface Props {
 const METHODS = ["PIX", "Cartão"];
 
 const INSTANCE_PLANS = [
-  { name: "Essencial — 5 instâncias", price: 99.00 },
-  { name: "Start — 10 instâncias", price: 187.00 },
-  { name: "Pro — 30 instâncias", price: 397.00 },
-  { name: "Scale — 50 instâncias", price: 597.00 },
-  { name: "Elite — 100 instâncias", price: 1197.00 },
+  { name: "Essencial — 5 instâncias", price: 99.99 },
+  { name: "Start — 10 instâncias", price: 187.99 },
+  { name: "Pro — 30 instâncias", price: 397.99 },
+  { name: "Scale — 50 instâncias", price: 597.99 },
+  { name: "Elite — 100 instâncias", price: 1097.99 },
 ];
 
 const NOTIFICATION_PRICE = 18.90;

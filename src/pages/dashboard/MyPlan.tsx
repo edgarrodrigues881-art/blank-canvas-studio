@@ -26,7 +26,7 @@ const plans = [
   {
     name: "Essencial",
     instances: 5,
-    price: "99,00",
+    price: "99,99",
     subtitle: "Ideal para quem está começando com poucas instâncias.",
     extraCopy: null,
     cta: "Começar agora",
@@ -40,7 +40,7 @@ const plans = [
   {
     name: "Start",
     instances: 10,
-    price: "187,00",
+    price: "187,99",
     subtitle: "Ideal para quem quer aumentar a capacidade.",
     extraCopy: null,
     cta: "Começar agora",
@@ -54,7 +54,7 @@ const plans = [
   {
     name: "Pro",
     instances: 30,
-    price: "397,00",
+    price: "397,99",
     subtitle: "Ideal para operações em crescimento.",
     extraCopy: "Mais escolhido",
     cta: "Escalar operação",
@@ -68,7 +68,7 @@ const plans = [
   {
     name: "Scale",
     instances: 50,
-    price: "597,00",
+    price: "597,99",
     subtitle: "Para quem precisa escalar com múltiplas instâncias.",
     extraCopy: null,
     cta: "Escalar operação",
@@ -82,7 +82,7 @@ const plans = [
   {
     name: "Elite",
     instances: 100,
-    price: "1.197,00",
+    price: "1.097,99",
     subtitle: "Alta capacidade para operações grandes.",
     extraCopy: null,
     cta: "Ir para o Elite",

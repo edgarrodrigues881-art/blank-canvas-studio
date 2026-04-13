@@ -235,7 +235,7 @@ const standardPlanFeatures = [
 
 const allPlans = [
   {
-    name: "Essencial", instances: 5, price: "99,00", popular: false, whatsappReports: false,
+    name: "Essencial", instances: 5, price: "99,99", popular: false, whatsappReports: false,
     subtitle: "Ideal para quem está começando com poucas instâncias.",
     extraCopy: null, cta: "Começar",
     features: [...standardPlanFeatures],
@@ -243,7 +243,7 @@ const allPlans = [
     whatsappIncluded: false,
   },
   {
-    name: "Start", instances: 10, price: "187,00", popular: false, whatsappReports: false,
+    name: "Start", instances: 10, price: "187,99", popular: false, whatsappReports: false,
     subtitle: "Ideal para quem quer aumentar a capacidade.",
     extraCopy: null, cta: "Começar",
     features: [...standardPlanFeatures],
@@ -251,7 +251,7 @@ const allPlans = [
     whatsappIncluded: false,
   },
   {
-    name: "Pro", instances: 30, price: "397,00", popular: true, whatsappReports: true,
+    name: "Pro", instances: 30, price: "397,99", popular: true, whatsappReports: true,
     subtitle: "Ideal para operações em crescimento.",
     extraCopy: "Mais escolhido", cta: "Escalar",
     features: [...standardPlanFeatures],
@@ -259,7 +259,7 @@ const allPlans = [
     whatsappIncluded: true,
   },
   {
-    name: "Scale", instances: 50, price: "597,00", popular: false, whatsappReports: true,
+    name: "Scale", instances: 50, price: "597,99", popular: false, whatsappReports: true,
     subtitle: "Para quem precisa escalar com múltiplas instâncias.",
     extraCopy: null, cta: "Escalar",
     features: [...standardPlanFeatures],
@@ -267,7 +267,7 @@ const allPlans = [
     whatsappIncluded: true,
   },
   {
-    name: "Elite", instances: 100, price: "1.197,00", popular: false, whatsappReports: true,
+    name: "Elite", instances: 100, price: "1.097,99", popular: false, whatsappReports: true,
     subtitle: "Alta capacidade para operações grandes.",
     extraCopy: null, cta: "Contratar",
     features: [...standardPlanFeatures],
