@@ -292,12 +292,22 @@ export default function GroupCarouselDispatch() {
   const hasButtons = buttons.filter(b => b.text.trim()).length > 0;
 
   const clearAll = () => {
-    setCampaignName(""); setMessage("");
-    setMediaUrl(""); setMediaFileName(""); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]);
-    setCards([createEmptyCard(0)]); setCarouselMessage("");
-    setSelectedGroups([]); setSendResults([]); setStep(1);
+    if (step === 1) {
+      setCampaignName(""); setMessage("");
+      setMediaUrl(""); setMediaFileName(""); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]);
+      setCards([createEmptyCard(0)]); setCarouselMessage("");
+      toast.success("Conteúdo limpo!");
+    } else if (step === 2) {
+      setSelectedDevice(""); setSelectedGroups([]);
+      toast.success("Público limpo!");
+    } else if (step === 3) {
+      setMinDelay(15); setMaxDelay(45);
+      setPauseEveryMin(5); setPauseEveryMax(10);
+      setPauseDurationMin(30); setPauseDurationMax(60);
+      toast.success("Parâmetros resetados!");
+    }
+    setSendResults([]);
     sessionStorage.removeItem(STORAGE_KEY);
-    toast.success("Tudo limpo!");
   };
 
   if (!isAllowed) return <Navigate to="/dashboard" replace />;
