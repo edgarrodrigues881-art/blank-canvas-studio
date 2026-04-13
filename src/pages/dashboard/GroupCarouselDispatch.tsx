@@ -192,11 +192,11 @@ export default function GroupCarouselDispatch() {
 
   useEffect(() => {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
-      selectedDevice, selectedGroups, dispatchType, campaignName, messages, rotationMode,
+      selectedDevice, selectedGroups, dispatchType, campaignName, message,
       mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax,
-      pauseDurationMin, pauseDurationMax, carouselMessages,
+      pauseDurationMin, pauseDurationMax, carouselMessage,
     }));
-  }, [selectedDevice, selectedGroups, dispatchType, campaignName, messages, rotationMode, mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, carouselMessages]);
+  }, [selectedDevice, selectedGroups, dispatchType, campaignName, message, mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, carouselMessage]);
 
   useEffect(() => {
     if (!user || !isAllowed) return;
@@ -292,9 +292,9 @@ export default function GroupCarouselDispatch() {
   const hasButtons = buttons.filter(b => b.text.trim()).length > 0;
 
   const clearAll = () => {
-    setCampaignName(""); setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random");
+    setCampaignName(""); setMessage("");
     setMediaUrl(""); setMediaFileName(""); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]);
-    setCards([createEmptyCard(0)]); setCarouselMessages(["", "", "", "", ""]); setActiveCarouselMsgTab(0);
+    setCards([createEmptyCard(0)]); setCarouselMessage("");
     setSelectedGroups([]); setSendResults([]); setStep(1);
     sessionStorage.removeItem(STORAGE_KEY);
     toast.success("Tudo limpo!");
@@ -309,19 +309,17 @@ export default function GroupCarouselDispatch() {
     if (selectedGroups.length === 0) { toast.error("Selecione ao menos um grupo"); setStep(2); return; }
 
     const storedHeaderText = dispatchType === "carousel"
-      ? (allCarouselMessages.length > 1
-          ? (carouselRotationMode === "random" ? allCarouselMessages.join("|||") : allCarouselMessages.join("|&&|"))
-          : allCarouselMessages[0] || "")
+      ? carouselMessage.trim()
       : combinedMessage;
 
-    const textVariants = allMessages.map((item) => item.trim()).filter(Boolean);
-    const carouselHeaderVariants = allCarouselMessages.map((item) => item.trim()).filter(Boolean);
+    const trimmedText = message.trim();
+    const trimmedCarouselHeader = carouselMessage.trim();
     const touchedCards = dispatchType === "carousel" ? cards.filter(isCarouselCardTouched) : [];
     const trimmedMediaUrl = mediaUrl.trim();
 
     if (dispatchType === "text" && !storedHeaderText.trim() && !trimmedMediaUrl) { toast.error("Digite a mensagem ou adicione mídia"); setStep(1); return; }
     if (dispatchType === "buttons") {
-      if (textVariants.length === 0) { toast.error("Digite a mensagem"); setStep(1); return; }
+      if (!trimmedText) { toast.error("Digite a mensagem"); setStep(1); return; }
       if (buttons.filter(b => b.text.trim()).length === 0) { toast.error("Adicione pelo menos um botão"); setStep(1); return; }
     }
     if (dispatchType === "carousel") {
@@ -330,6 +328,11 @@ export default function GroupCarouselDispatch() {
     }
 
     setSending(true); setSendResults([]); setProgress({ sent: 0, total: selectedGroups.length });
+    toast.success("Campanha iniciada!", {
+      description: "Acompanhe o progresso na página de campanhas.",
+      action: { label: "Ver Campanha", onClick: () => navigate("/dashboard/campaigns") },
+      duration: 8000,
+    });
 
     let campaignId: string | null = null;
     const activeButtons = buttons
