@@ -1458,11 +1458,12 @@ Deno.serve(async (req) => {
 
       const buttonAttempts = buildButtonsAttempts(baseUrl, groupJid, normalizedTextContent, normalizedButtons);
 
-      // When mentionAll is active, send mentions as a separate text message FIRST,
-      // then send buttons WITHOUT mentions to avoid "invalid payload" from UAZAPI
+      // When mentionAll is active, send a short mention-only ping FIRST,
+      // then send the full message with buttons separately to avoid duplicating content
       if (mentionAll && mentionPhones.length > 0) {
-        const mentionAttempts = buildMentionTextAttempts(baseUrl, groupJid, normalizedTextContent, mentionPhones);
-        console.log(`[group-carousel] Sending @todos text first (${mentionPhones.length} members), then buttons separately`);
+        const mentionPing = "📢";
+        const mentionAttempts = buildMentionTextAttempts(baseUrl, groupJid, mentionPing, mentionPhones);
+        console.log(`[group-carousel] Sending short @todos ping (${mentionPhones.length} members), then buttons with full content`);
         await sendWithFallbacks(mentionAttempts, headers, groupJid);
         await new Promise((resolve) => setTimeout(resolve, 1500));
         await sendWithFallbacks(buttonAttempts, headers, groupJid);
