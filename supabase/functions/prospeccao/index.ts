@@ -537,12 +537,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { nicho, nichosRelacionados, estado, cidade, maxResults, forceRefresh, customCenter, customRadiusKm, pais: paisParam } = await req.json();
+    const { nicho, nichosRelacionados, estado, cidade, maxResults, forceRefresh, customCenter, customRadiusKm, pais: paisParam, allBusinesses } = await req.json();
     const pais = (paisParam || "BR").toUpperCase();
 
-    if (!nicho || !cidade) {
+    if (!allBusinesses && !nicho || !cidade) {
       return new Response(
-        JSON.stringify({ error: "nicho e cidade são obrigatórios" }),
+        JSON.stringify({ error: allBusinesses ? "cidade é obrigatória" : "nicho e cidade são obrigatórios" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
