@@ -331,21 +331,25 @@ export default function GroupCarouselDispatch() {
     if (!selectedDevice) { toast.error("Selecione uma instância"); setStep(2); return; }
     if (selectedGroups.length === 0) { toast.error("Selecione ao menos um grupo"); setStep(2); return; }
 
-    const headerText = dispatchType === "carousel"
+    const storedHeaderText = dispatchType === "carousel"
       ? (allCarouselMessages.length > 1
           ? (carouselRotationMode === "random" ? allCarouselMessages.join("|||") : allCarouselMessages.join("|&&|"))
           : allCarouselMessages[0] || "")
       : combinedMessage;
 
-    if (dispatchType === "text" && !headerText.trim() && !mediaUrl.trim()) { toast.error("Digite a mensagem ou adicione mídia"); setStep(1); return; }
+    const textVariants = allMessages.map((item) => item.trim()).filter(Boolean);
+    const carouselHeaderVariants = allCarouselMessages.map((item) => item.trim()).filter(Boolean);
+    const touchedCards = dispatchType === "carousel" ? cards.filter(isCarouselCardTouched) : [];
+    const trimmedMediaUrl = mediaUrl.trim();
+
+    if (dispatchType === "text" && !storedHeaderText.trim() && !trimmedMediaUrl) { toast.error("Digite a mensagem ou adicione mídia"); setStep(1); return; }
     if (dispatchType === "buttons") {
-      if (!headerText.trim()) { toast.error("Digite a mensagem"); setStep(1); return; }
+      if (textVariants.length === 0) { toast.error("Digite a mensagem"); setStep(1); return; }
       if (buttons.filter(b => b.text.trim()).length === 0) { toast.error("Adicione pelo menos um botão"); setStep(1); return; }
     }
     if (dispatchType === "carousel") {
-      const tc = cards.filter(isCarouselCardTouched);
-      if (!tc.length && !headerText.trim()) { toast.error("Preencha o conteúdo"); setStep(1); return; }
-      if (tc.length > 0) { const e = validateCarouselCards(tc); if (e.length > 0) { toast.error(e[0]); setStep(1); return; } }
+      if (!touchedCards.length && !storedHeaderText.trim()) { toast.error("Preencha o conteúdo"); setStep(1); return; }
+      if (touchedCards.length > 0) { const e = validateCarouselCards(touchedCards); if (e.length > 0) { toast.error(e[0]); setStep(1); return; } }
     }
 
     setSending(true); setSendResults([]); setProgress({ sent: 0, total: selectedGroups.length });
@@ -360,9 +364,9 @@ export default function GroupCarouselDispatch() {
       const { data: campaign, error: campErr } = await supabase.from("campaigns")
         .insert({
           user_id: user!.id, name: campaignName.trim(), message_type: msgType,
-          message_content: headerText.trim() || null, media_url: mediaUrl.trim() || null,
+          message_content: storedHeaderText.trim() || null, media_url: trimmedMediaUrl || null,
           buttons: dispatchType === "buttons" ? activeButtons as any : null,
-          carousel_cards: dispatchType === "carousel" ? serializeCarouselCards(cards.filter(isCarouselCardTouched)) as any : null,
+          carousel_cards: dispatchType === "carousel" ? serializeCarouselCards(touchedCards) as any : null,
           device_id: selectedDevice, status: "processing", total_contacts: selectedGroups.length,
           min_delay_seconds: minDelay, max_delay_seconds: maxDelay,
           pause_every_min: pauseEveryMin, pause_every_max: pauseEveryMax,
@@ -395,6 +399,35 @@ export default function GroupCarouselDispatch() {
     const results: SendResultItem[] = [];
     const pauseEvery = rand(pauseEveryMin, pauseEveryMax);
     let sinceLastPause = 0;
+    let lastRandomMessageIndex = -1;
+    let lastRandomCarouselIndex = -1;
+
+    const pickRandomIndex = (total: number, lastIndex: number) => {
+      if (total <= 1) return 0;
+      let picked = 0;
+      do {
+        picked = Math.floor(Math.random() * total);
+      } while (picked === lastIndex);
+      return picked;
+    };
+
+    const resolveTextPlan = () => {
+      if (textVariants.length === 0) return [{ text: "", withExtras: true }];
+      if (rotationMode === "all" && textVariants.length > 1) {
+        return textVariants.map((text, index) => ({ text, withExtras: index === 0 }));
+      }
+      const nextIndex = pickRandomIndex(textVariants.length, lastRandomMessageIndex);
+      lastRandomMessageIndex = nextIndex;
+      return [{ text: textVariants[nextIndex] || "", withExtras: true }];
+    };
+
+    const resolveCarouselHeader = () => {
+      if (carouselHeaderVariants.length === 0) return "";
+      if (carouselHeaderVariants.length === 1) return carouselHeaderVariants[0] || "";
+      const nextIndex = pickRandomIndex(carouselHeaderVariants.length, lastRandomCarouselIndex);
+      lastRandomCarouselIndex = nextIndex;
+      return carouselHeaderVariants[nextIndex] || "";
+    };
 
     try {
       for (let i = 0; i < selectedGroups.length; i++) {
@@ -408,39 +441,51 @@ export default function GroupCarouselDispatch() {
           await wait(p); sinceLastPause = 0;
         }
 
-        let body: Record<string, any>;
-        if (dispatchType === "text") {
-          const trimmedMediaUrl = mediaUrl.trim();
-          if (trimmedMediaUrl) {
-            body = {
-              deviceId: selectedDevice,
-              groupJid: gid,
-              content: trimmedMediaUrl,
-              caption: headerText.trim() || undefined,
-              type: detectMediaType(trimmedMediaUrl) || "image",
-            };
-          } else {
-            body = { deviceId: selectedDevice, groupJid: gid, content: headerText.trim(), type: "text" };
-          }
-        } else if (dispatchType === "buttons") {
-          body = {
-            deviceId: selectedDevice,
-            groupJid: gid,
-            content: headerText.trim(),
-            type: "buttons",
-            buttons: activeButtons,
-            ...(mediaUrl.trim() ? { mediaUrl: mediaUrl.trim() } : {}),
-          };
-        } else {
-          const tc = cards.filter(isCarouselCardTouched);
-          body = tc.length > 0
-            ? { deviceId: selectedDevice, groupJid: gid, headerText: headerText.trim() || undefined, cards: serializeCarouselCards(tc) }
-            : { deviceId: selectedDevice, groupJid: gid, content: headerText.trim(), type: "text" };
-        }
+        const groupPlan = dispatchType === "carousel"
+          ? [{ text: resolveCarouselHeader(), withExtras: true }]
+          : resolveTextPlan();
 
-        const res = await supabase.functions.invoke("group-carousel-send", { body });
         try {
-          if (res.error || res.data?.ok === false) throw new Error(res.error?.message || res.data?.error || "Falha ao enviar.");
+          for (let planIndex = 0; planIndex < groupPlan.length; planIndex++) {
+            const plan = groupPlan[planIndex];
+            if (planIndex > 0) await wait(1250);
+
+            let body: Record<string, any>;
+            if (dispatchType === "text") {
+              if (plan.withExtras && trimmedMediaUrl) {
+                body = {
+                  deviceId: selectedDevice,
+                  groupJid: gid,
+                  content: trimmedMediaUrl,
+                  caption: plan.text.trim() || undefined,
+                  type: detectMediaType(trimmedMediaUrl) || "image",
+                };
+              } else {
+                body = { deviceId: selectedDevice, groupJid: gid, content: plan.text.trim(), type: "text" };
+              }
+            } else if (dispatchType === "buttons") {
+              body = plan.withExtras
+                ? {
+                    deviceId: selectedDevice,
+                    groupJid: gid,
+                    content: plan.text.trim(),
+                    type: "buttons",
+                    buttons: activeButtons,
+                    ...(trimmedMediaUrl ? { mediaUrl: trimmedMediaUrl } : {}),
+                  }
+                : { deviceId: selectedDevice, groupJid: gid, content: plan.text.trim(), type: "text" };
+            } else {
+              body = touchedCards.length > 0
+                ? { deviceId: selectedDevice, groupJid: gid, headerText: plan.text.trim() || undefined, cards: serializeCarouselCards(touchedCards) }
+                : { deviceId: selectedDevice, groupJid: gid, content: plan.text.trim(), type: "text" };
+            }
+
+            const res = await supabase.functions.invoke("group-carousel-send", { body });
+            if (res.error || res.data?.ok === false) {
+              throw new Error(res.error?.message || res.data?.error || "Falha ao enviar.");
+            }
+          }
+
           const sentAt = new Date().toISOString();
           ok++;
           results.push({ groupId: gid, groupName: gname, status: "success", message: "Enviado com sucesso." });
@@ -460,6 +505,7 @@ export default function GroupCarouselDispatch() {
             device_id: selectedDevice,
           } as any).eq("campaign_id", campaignId).eq("phone", gid);
         }
+
         setProgress({ sent: i + 1, total: selectedGroups.length });
         setSendResults([...results]);
       }

@@ -445,7 +445,13 @@ function buildMenuChoice(button: CarouselButton, index: number) {
   return `${text}|${rawValue || `btn_${index + 1}`}`;
 }
 
-function buildButtonsAttempts(baseUrl: string, groupJid: string, content: string, buttons: CarouselButton[]): SendAttempt[] {
+function buildButtonsAttempts(
+  baseUrl: string,
+  groupJid: string,
+  content: string,
+  buttons: CarouselButton[],
+  imageButton?: string,
+) {
   const text = content.trim();
   if (!text) {
     throw new Error("Mensagens com botão exigem copy/texto principal.");
@@ -461,6 +467,7 @@ function buildButtonsAttempts(baseUrl: string, groupJid: string, content: string
 
   const targetFields = { phone: groupJid, number: groupJid };
   const legacyTargetFields = { number: groupJid, chatId: groupJid };
+  const imageFields = imageButton ? { imageButton } : {};
 
   return [
     {
@@ -471,8 +478,9 @@ function buildButtonsAttempts(baseUrl: string, groupJid: string, content: string
         text,
         message: text,
         choices,
+        ...imageFields,
       },
-      label: "buttons_menu",
+      label: imageButton ? "buttons_menu_image" : "buttons_menu",
     },
     {
       endpoint: `${baseUrl}/send/menu`,
@@ -481,8 +489,9 @@ function buildButtonsAttempts(baseUrl: string, groupJid: string, content: string
         type: "button",
         text,
         choices,
+        ...imageFields,
       },
-      label: "buttons_menu_legacy",
+      label: imageButton ? "buttons_menu_image_legacy" : "buttons_menu_legacy",
     },
   ];
 }
