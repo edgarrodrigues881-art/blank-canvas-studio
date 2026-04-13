@@ -1588,6 +1588,91 @@ const AISettings = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Lead History Dialog */}
+      <Dialog open={!!selectedLead} onOpenChange={(open) => !open && setSelectedLead(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-primary" strokeWidth={1.5} />
+              Histórico do Lead
+            </DialogTitle>
+          </DialogHeader>
+          {selectedLead && (() => {
+            let notesObj: Record<string, string> = {};
+            try { notesObj = JSON.parse(selectedLead.notes || "{}"); } catch {}
+            const intentLabels: Record<string, string> = { curious: "🔎 Curioso", interested: "💡 Interessado", ready_to_buy: "🔥 Pronto p/ comprar", objection: "🛡️ Objeção" };
+            const stepLabels: Record<string, string> = { saudacao: "Saudação", diagnostico: "Diagnóstico", apresentacao: "Apresentação", objecao: "Objeção", fechamento: "Fechamento" };
+            return (
+              <div className="space-y-4">
+                {/* Header */}
+                <div className="flex items-center gap-3">
+                  <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
+                    selectedLead.stage === "hot" ? "bg-red-500/15" : selectedLead.stage === "warm" ? "bg-amber-500/15" : "bg-blue-500/15"
+                  }`}>
+                    {selectedLead.stage === "hot" ? <Flame className="h-6 w-6 text-red-400" /> :
+                     selectedLead.stage === "warm" ? <TrendingUp className="h-6 w-6 text-amber-400" /> :
+                     <Snowflake className="h-6 w-6 text-blue-400" />}
+                  </div>
+                  <div>
+                    <p className="text-base font-semibold">{selectedLead.contact_name || selectedLead.remote_jid.replace("@s.whatsapp.net", "")}</p>
+                    <p className="text-xs text-muted-foreground">{selectedLead.remote_jid.replace("@s.whatsapp.net", "")}</p>
+                  </div>
+                </div>
+
+                {/* Info grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: "Estágio", value: selectedLead.stage === "hot" ? "🔥 Quente" : selectedLead.stage === "warm" ? "📈 Morno" : "❄️ Frio" },
+                    { label: "Interações", value: `${selectedLead.interaction_count}` },
+                    { label: "Interesse", value: selectedLead.interest || "—" },
+                    { label: "Produto citado", value: selectedLead.product_cited || "—" },
+                    { label: "Intenção", value: notesObj.last_intent ? intentLabels[notesObj.last_intent] || notesObj.last_intent : "—" },
+                    { label: "Etapa atual", value: notesObj.last_flow_step ? `📍 ${stepLabels[notesObj.last_flow_step] || notesObj.last_flow_step}` : "—" },
+                  ].map((item) => (
+                    <div key={item.label} className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{item.label}</p>
+                      <p className="text-sm font-medium text-foreground mt-0.5">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Last message */}
+                {selectedLead.last_message_preview && (
+                  <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Última mensagem</p>
+                    <p className="text-sm text-foreground italic">"{selectedLead.last_message_preview}"</p>
+                  </div>
+                )}
+
+                {/* Last interaction date */}
+                {selectedLead.last_interaction_at && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Última interação: {new Date(selectedLead.last_interaction_at).toLocaleString("pt-BR")}
+                  </p>
+                )}
+
+                {/* AI usage note */}
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <div className="flex items-start gap-2">
+                    <Brain className="h-4 w-4 text-primary mt-0.5 shrink-0" strokeWidth={1.5} />
+                    <div>
+                      <p className="text-xs font-medium text-primary">Como a IA usa esses dados</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {selectedLead.product_cited
+                          ? `"Sobre o ${selectedLead.product_cited} que você perguntou..."`
+                          : selectedLead.interest
+                          ? `"Na última conversa você mostrou interesse em ${selectedLead.interest}..."`
+                          : "A IA personaliza a conversa com base no histórico do lead"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
