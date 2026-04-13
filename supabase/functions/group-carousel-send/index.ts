@@ -804,6 +804,113 @@ function extractProviderError(raw: string) {
   return raw.trim() || "Falha ao enviar mensagem para o grupo.";
 }
 
+function normalizeMentionPhone(raw: unknown): string {
+  const digits = String(raw || "").replace(/@.*$/, "").replace(/\D/g, "");
+  return digits.length >= 8 && digits.length <= 15 ? digits : "";
+}
+
+function extractGroupJid(value: any): string {
+  const candidate = [
+    value?.JID,
+    value?.jid,
+    value?.id,
+    value?.groupId,
+    value?.groupJid,
+    value?.chatId,
+    value?.remoteJid,
+  ].find((entry) => typeof entry === "string" && entry.trim());
+
+  return candidate ? String(candidate).trim() : "";
+}
+
+function tryExtractParticipantPhone(value: any): string | null {
+  if (!value || typeof value !== "object") return null;
+
+  const candidates = [
+    value?.PhoneNumber,
+    value?.phoneNumber,
+    value?.phone,
+    value?.number,
+    value?.Phone,
+    value?.Number,
+    value?.wid,
+    value?.wa_id,
+    value?.waId,
+    value?.pn,
+    value?.user,
+    value?.participant,
+    value?.id,
+    value?.jid,
+    value?.JID,
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = normalizeMentionPhone(candidate);
+    if (normalized) return normalized;
+  }
+
+  const displayName = String(
+    value?.DisplayName || value?.displayName || value?.name || value?.pushName || value?.notify || value?.Name || "",
+  );
+  const digitsFromDisplayName = normalizeMentionPhone(displayName);
+  return digitsFromDisplayName || null;
+}
+
+function collectParticipantsFromValue(value: any, participants: Set<string>) {
+  if (!value) return;
+
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectParticipantsFromValue(entry, participants));
+    return;
+  }
+
+  if (typeof value !== "object") return;
+
+  const nestedParticipants = [
+    value?.Participants,
+    value?.participants,
+    value?.members,
+    value?.data?.participants,
+    value?.data?.Participants,
+    value?.group?.participants,
+    value?.data?.group?.participants,
+  ].find((entry) => Array.isArray(entry));
+
+  if (Array.isArray(nestedParticipants)) {
+    nestedParticipants.forEach((entry) => collectParticipantsFromValue(entry, participants));
+    return;
+  }
+
+  const phone = tryExtractParticipantPhone(value);
+  if (phone) participants.add(phone);
+}
+
+function extractGroupsCollection(payload: any): any[] {
+  const groups = [
+    payload,
+    payload?.groups,
+    payload?.data,
+    payload?.data?.groups,
+    payload?.result,
+    payload?.result?.groups,
+    payload?.chats,
+    payload?.data?.chats,
+  ].find((entry) => Array.isArray(entry));
+
+  return Array.isArray(groups) ? groups : [];
+}
+
+function prependMentionPrefix(value: string, prefix: string) {
+  const cleanValue = String(value || "").trim();
+  const cleanPrefix = String(prefix || "").trim();
+
+  if (!cleanPrefix) return cleanValue;
+  if (!cleanValue) return cleanPrefix;
+  if (cleanValue.startsWith(cleanPrefix)) return cleanValue;
+
+  return `${cleanPrefix}\n\n${cleanValue}`;
+}
+
 async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string, string>, expectedGroupJid: string, mentionPhones: string[] = []) {
   const finalAttempts = mentionPhones.length > 0 ? injectMentionsIntoAttempts(attempts, mentionPhones) : attempts;
   let lastError = "Falha ao enviar mensagem para o grupo.";
@@ -841,10 +948,80 @@ async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string
 
 async function fetchGroupParticipants(baseUrl: string, headers: Record<string, string>, groupJid: string): Promise<string[]> {
   const attempts = [
-    { method: "POST", url: `${baseUrl}/group/participants`, body: JSON.stringify({ groupjid: groupJid }) },
-    { method: "GET", url: `${baseUrl}/group/participants?groupjid=${encodeURIComponent(groupJid)}` },
-    { method: "POST", url: `${baseUrl}/group/info`, body: JSON.stringify({ groupjid: groupJid }) },
+    {
+      label: "GET /group/list?GetParticipants=true&count=500",
+      method: "GET",
+      url: `${baseUrl}/group/list?GetParticipants=true&count=500`,
+      resolve: (payload: any) => extractGroupsCollection(payload).find((group) => extractGroupJid(group) === groupJid) || null,
+    },
+    {
+      label: "GET /group/fetchAllGroups",
+      method: "GET",
+      url: `${baseUrl}/group/fetchAllGroups`,
+      resolve: (payload: any) => extractGroupsCollection(payload).find((group) => extractGroupJid(group) === groupJid) || null,
+    },
+    {
+      label: "POST /group/info (groupJid)",
+      method: "POST",
+      url: `${baseUrl}/group/info`,
+      body: JSON.stringify({ groupJid: groupJid }),
+      resolve: (payload: any) => payload,
+    },
+    {
+      label: "POST /group/info (groupjid)",
+      method: "POST",
+      url: `${baseUrl}/group/info`,
+      body: JSON.stringify({ groupjid: groupJid }),
+      resolve: (payload: any) => payload,
+    },
+    {
+      label: "GET /group/info?groupJid=",
+      method: "GET",
+      url: `${baseUrl}/group/info?groupJid=${encodeURIComponent(groupJid)}`,
+      resolve: (payload: any) => payload,
+    },
+    {
+      label: "GET /group/info?groupjid=",
+      method: "GET",
+      url: `${baseUrl}/group/info?groupjid=${encodeURIComponent(groupJid)}`,
+      resolve: (payload: any) => payload,
+    },
+    {
+      label: "POST /chat/info",
+      method: "POST",
+      url: `${baseUrl}/chat/info`,
+      body: JSON.stringify({ chatId: groupJid }),
+      resolve: (payload: any) => payload,
+    },
+    {
+      label: "POST /group/participants (groupJid)",
+      method: "POST",
+      url: `${baseUrl}/group/participants`,
+      body: JSON.stringify({ groupJid: groupJid }),
+      resolve: (payload: any) => payload,
+    },
+    {
+      label: "POST /group/participants (groupjid)",
+      method: "POST",
+      url: `${baseUrl}/group/participants`,
+      body: JSON.stringify({ groupjid: groupJid }),
+      resolve: (payload: any) => payload,
+    },
+    {
+      label: "GET /group/participants?groupJid=",
+      method: "GET",
+      url: `${baseUrl}/group/participants?groupJid=${encodeURIComponent(groupJid)}`,
+      resolve: (payload: any) => payload,
+    },
+    {
+      label: "GET /group/participants?groupjid=",
+      method: "GET",
+      url: `${baseUrl}/group/participants?groupjid=${encodeURIComponent(groupJid)}`,
+      resolve: (payload: any) => payload,
+    },
   ];
+
+  const diagnostics: string[] = [];
 
   for (const attempt of attempts) {
     try {
@@ -854,54 +1031,76 @@ async function fetchGroupParticipants(baseUrl: string, headers: Record<string, s
         ...(attempt.body ? { body: attempt.body } : {}),
       }, 10_000);
 
-      if (!response.ok) continue;
+      if (!response.ok) {
+        diagnostics.push(`${attempt.label}: HTTP ${response.status}`);
+        continue;
+      }
+
       const raw = await response.text();
-      if (!raw) continue;
+      if (!raw) {
+        diagnostics.push(`${attempt.label}: resposta vazia`);
+        continue;
+      }
 
       const parsed = JSON.parse(raw);
-      
-      // Try multiple paths to find participants array
-      const participantsArr = 
-        parsed?.participants || 
-        parsed?.data?.participants || 
-        parsed?.group?.participants ||
-        parsed?.data?.group?.participants ||
-        parsed?.Participants ||
-        [];
-
-      if (Array.isArray(participantsArr) && participantsArr.length > 0) {
-        const phones = participantsArr
-          .map((p: any) => {
-            const id = p?.id || p?.jid || p?.number || p?.phone || "";
-            return String(id).replace(/@.*$/, "").trim();
-          })
-          .filter((n: string) => n && /^\d+$/.test(n));
-        
-        if (phones.length > 0) {
-          console.log(`[group-carousel] Found ${phones.length} participants for ${groupJid}`);
-          return phones;
-        }
+      const source = attempt.resolve(parsed);
+      if (!source) {
+        diagnostics.push(`${attempt.label}: grupo não encontrado`);
+        continue;
       }
+
+      const participants = new Set<string>();
+      collectParticipantsFromValue(source, participants);
+
+      if (participants.size > 0) {
+        const phones = Array.from(participants);
+        console.log(`[group-carousel] Found ${phones.length} participants for ${groupJid} via ${attempt.label}`);
+        return phones;
+      }
+
+      diagnostics.push(`${attempt.label}: resposta sem participantes`);
     } catch (error) {
-      console.warn(`[group-carousel] Failed to fetch participants for ${groupJid}:`, error);
+      diagnostics.push(`${attempt.label}: ${error instanceof Error ? error.message : "erro"}`);
     }
   }
 
-  console.warn(`[group-carousel] Could not fetch participants for ${groupJid}`);
+  console.warn(`[group-carousel] Could not fetch participants for ${groupJid}: ${diagnostics.join(" | ")}`);
   return [];
 }
 
 function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: string[]): SendAttempt[] {
   if (mentionPhones.length === 0) return attempts;
-  // Build both formats: plain numbers and full JIDs for maximum API compatibility
-  const mentionJids = mentionPhones.map((p) => p.includes("@") ? p : `${p}@s.whatsapp.net`);
+
+  const mentionJids = Array.from(new Set(
+    mentionPhones
+      .map((phone) => normalizeMentionPhone(phone))
+      .filter(Boolean)
+      .map((phone) => `${phone}@s.whatsapp.net`),
+  ));
+
+  const mentionPrefix = mentionJids
+    .map((jid) => `@${jid.replace(/@.*$/, "")}`)
+    .join(" ");
+
+  console.log(`[group-carousel] Injecting ${mentionJids.length} mentions into ${attempts.length} attempt(s)`);
+
   return attempts.map((a) => ({
     ...a,
     body: {
       ...a.body,
+      ...(typeof a.body?.text === "string" ? { text: prependMentionPrefix(a.body.text, mentionPrefix) } : {}),
+      ...(typeof a.body?.message === "string" ? { message: prependMentionPrefix(a.body.message, mentionPrefix) } : {}),
+      ...(typeof a.body?.body === "string" ? { body: prependMentionPrefix(a.body.body, mentionPrefix) } : {}),
+      ...(typeof a.body?.caption === "string" ? { caption: prependMentionPrefix(a.body.caption, mentionPrefix) } : {}),
+      ...(typeof a.body?.headerText === "string" ? { headerText: prependMentionPrefix(a.body.headerText, mentionPrefix) } : {}),
       mentions: mentionJids,
       mentionsEveryOne: true,
       mentionedJidList: mentionJids,
+      mentionedJid: mentionJids,
+      contextInfo: {
+        ...((a.body?.contextInfo && typeof a.body.contextInfo === "object") ? a.body.contextInfo as Record<string, unknown> : {}),
+        mentionedJid: mentionJids,
+      },
     },
   }));
 }
@@ -955,6 +1154,9 @@ Deno.serve(async (req) => {
 
     // Fetch participants if mentionAll is enabled
     const mentionPhones = mentionAll ? await fetchGroupParticipants(baseUrl, headers, groupJid) : [];
+    if (mentionAll && mentionPhones.length === 0) {
+      return json({ ok: false, error: "Não consegui carregar os membros desse grupo para montar o @todos. A UAZAPI dessa instância não retornou a lista de participantes." }, 422);
+    }
 
     const normalizedCarouselCards = normalizeCarouselCards(cards || []);
     if (normalizedCarouselCards.length > 0) {
