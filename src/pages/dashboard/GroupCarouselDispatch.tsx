@@ -221,18 +221,12 @@ export default function GroupCarouselDispatch() {
         : [{ id: Date.now(), type: "reply" as const, text: "", value: "" }]
     );
 
-    if (normalizedTemplate.messageVariants.length > 1) {
-      toast.info(`Esse template tem ${normalizedTemplate.messageVariants.length} variações; no Disparo em Grupo carreguei só a primeira copy.`);
-    }
   }, []);
 
   const applyImportedCarouselTemplate = useCallback((template: any) => {
     const splitMessage = splitStoredMessageContent(template?.message);
     setCarouselMessage(splitMessage.messageVariants[0] || "");
 
-    if (splitMessage.messageVariants.length > 1) {
-      toast.info(`Esse template de carrossel tem ${splitMessage.messageVariants.length} variações; carreguei só a primeira copy neste fluxo.`);
-    }
 
     if (Array.isArray(template?.cards) && template.cards.length > 0) {
       setCards(template.cards.map((card: any, index: number) => ({
