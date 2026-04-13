@@ -1458,27 +1458,47 @@ Deno.serve(async (req) => {
 
       const buttonAttempts = buildButtonsAttempts(baseUrl, groupJid, normalizedTextContent, normalizedButtons);
 
-      // When mentionAll is active, send a short mention-only ping FIRST,
-      // then send the full message with buttons separately to avoid duplicating content
+      // When mentionAll is active with buttons, try sending buttons WITH mentions: "all"
+      // injected directly into the /send/menu payload. This avoids a separate ping message.
       if (mentionAll && mentionPhones.length > 0) {
-        const mentionPing = "📢";
-        const mentionAttempts = buildMentionTextAttempts(baseUrl, groupJid, mentionPing, mentionPhones);
-        console.log(`[group-carousel] Sending short @todos ping (${mentionPhones.length} members), then buttons with full content`);
-        await sendWithFallbacks(mentionAttempts, headers, groupJid);
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        await sendWithFallbacks(buttonAttempts, headers, groupJid);
+        const mentionButtonAttempts = buttonAttempts.map((attempt) => ({
+          ...attempt,
+          body: { ...attempt.body, mentions: "all" },
+          label: `${attempt.label}_mention_all`,
+        }));
 
-        if (trimmedMediaUrl) {
-          const mediaType = detectMediaTypeFromUrl(trimmedMediaUrl);
-          const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
-          if (inspectedMedia.ok) {
-            const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-            await sendWithFallbacks(mediaAttempts, headers, groupJid);
+        try {
+          console.log(`[group-carousel] Trying buttons + mentions:"all" in single payload (${mentionPhones.length} members)`);
+          await sendWithFallbacks(mentionButtonAttempts, headers, groupJid);
+
+          if (trimmedMediaUrl) {
+            const mediaType = detectMediaTypeFromUrl(trimmedMediaUrl);
+            const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
+            if (inspectedMedia.ok) {
+              const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
+              await new Promise((resolve) => setTimeout(resolve, 1500));
+              await sendWithFallbacks(mediaAttempts, headers, groupJid);
+            }
           }
-        }
 
-        return json({ ok: true, mode: "buttons_mention", groupName });
+          return json({ ok: true, mode: "buttons_mention", groupName });
+        } catch (mentionBtnErr) {
+          // Fallback: send buttons without mentions if the combined payload fails
+          console.warn(`[group-carousel] buttons+mentions failed, sending buttons only: ${mentionBtnErr instanceof Error ? mentionBtnErr.message : String(mentionBtnErr)}`);
+          await sendWithFallbacks(buttonAttempts, headers, groupJid);
+
+          if (trimmedMediaUrl) {
+            const mediaType = detectMediaTypeFromUrl(trimmedMediaUrl);
+            const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
+            if (inspectedMedia.ok) {
+              const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
+              await new Promise((resolve) => setTimeout(resolve, 1500));
+              await sendWithFallbacks(mediaAttempts, headers, groupJid);
+            }
+          }
+
+          return json({ ok: true, mode: "buttons_mention_fallback", groupName });
+        }
       }
 
       if (trimmedMediaUrl) {
