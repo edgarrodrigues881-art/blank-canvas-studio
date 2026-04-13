@@ -1,15 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
   Layers, Loader2, Send, X, Trash2, Type, MousePointerClick,
-  Clock, Pause, MessageSquare, Users, Settings2, Rocket,
-  CheckCircle2, XCircle, ChevronRight, ChevronLeft,
+  Clock, Pause, MessageSquare, Users, Settings2,
+  Check, Plus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,40 +33,50 @@ const ALLOWED_EMAIL = "edgarrodrigues881@gmail.com";
 const STORAGE_KEY = "group-dispatch-draft";
 
 type DispatchType = "text" | "buttons" | "carousel";
-type StepKey = "content" | "groups" | "params" | "launch";
 type ButtonItem = { id: string; type: "reply" | "url" | "phone"; text: string; value: string };
 type SendResultItem = { groupId: string; groupName: string; status: "success" | "error"; message: string };
 
-const STEPS: { key: StepKey; label: string; icon: typeof MessageSquare }[] = [
-  { key: "content", label: "Conteúdo", icon: MessageSquare },
-  { key: "groups", label: "Público", icon: Users },
-  { key: "params", label: "Parâmetros", icon: Settings2 },
-  { key: "launch", label: "Lançamento", icon: Rocket },
+// ─── Surface Card (same as Campaigns) ───
+const SurfaceCard = ({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div
+    className={cn(
+      "rounded-xl sm:rounded-2xl border border-border/50 bg-card shadow-sm",
+      "dark:border-[hsl(220_10%_16%)] dark:bg-[hsl(220_13%_9%)] dark:shadow-lg dark:shadow-black/30",
+      className
+    )}
+    {...props}
+  >{children}</div>
+);
+
+const SectionLabel = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+  <h3 className={cn("text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/70", className)}>
+    {children}
+  </h3>
+);
+
+const STEPS = [
+  { num: 1, label: "Conteúdo", desc: "Mensagem & Mídia", icon: MessageSquare },
+  { num: 2, label: "Público", desc: "Grupos & Instância", icon: Users },
+  { num: 3, label: "Parâmetros", desc: "Controle de Envio", icon: Settings2 },
+  { num: 4, label: "Lançamento", desc: "Revisão & Envio", icon: Send },
 ];
 
 function loadDraft() {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch { return null; }
+  try { const r = sessionStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : null; } catch { return null; }
 }
 
-function isCarouselCardTouched(card: CarouselCard) {
-  return Boolean(card.text.trim() || card.mediaUrl.trim() || card.buttons.some((b) => b.text.trim() || b.value.trim()));
+function isCarouselCardTouched(c: CarouselCard) {
+  return Boolean(c.text.trim() || c.mediaUrl.trim() || c.buttons.some((b) => b.text.trim() || b.value.trim()));
 }
-
 function isTruthyGroupFlag(v: unknown) { return v === true || v === 1 || v === "1" || (typeof v === "string" && v.trim().toLowerCase() === "true"); }
 function isFalsyGroupFlag(v: unknown) { return v === false || v === 0 || v === "0" || (typeof v === "string" && v.trim().toLowerCase() === "false"); }
-
-function isAdminsOnlyGroup(group: any) {
-  const pos = [group?.adminOnlyMessage, group?.adminOnlyMessages, group?.adminOnly, group?.onlyAdminsCanSend, group?.onlyAdminCanSend, group?.isGroupAnnouncement, group?.isAnnouncement, group?.announcement, group?.announce, group?.Announce, group?.isAnnounce, group?.IsAnnounce, group?.restrictMessage, group?.restrictMessages, group?.sendMessagesAdminOnly];
-  const neg = [group?.OwnerCanSendMessage, group?.ownerCanSendMessage, group?.canSendMessage, group?.canSendMessages, group?.CanSendMessage, group?.CanSendMessages, group?.membersCanSendMessage, group?.membersCanSendMessages];
+function isAdminsOnlyGroup(g: any) {
+  const pos = [g?.adminOnlyMessage, g?.adminOnlyMessages, g?.adminOnly, g?.onlyAdminsCanSend, g?.onlyAdminCanSend, g?.isGroupAnnouncement, g?.isAnnouncement, g?.announcement, g?.announce, g?.Announce, g?.isAnnounce, g?.IsAnnounce, g?.restrictMessage, g?.restrictMessages, g?.sendMessagesAdminOnly];
+  const neg = [g?.OwnerCanSendMessage, g?.ownerCanSendMessage, g?.canSendMessage, g?.canSendMessages, g?.CanSendMessage, g?.CanSendMessages, g?.membersCanSendMessage, g?.membersCanSendMessages];
   return pos.some(isTruthyGroupFlag) || neg.some(isFalsyGroupFlag);
 }
-
-function delayMs(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
-function randomBetween(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function wait(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
+function rand(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
 // ── Button Editor ──
 function ButtonEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange: (b: ButtonItem[]) => void }) {
@@ -77,7 +87,7 @@ function ButtonEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange: 
   return (
     <div className="space-y-3">
       {buttons.map((btn, i) => (
-        <div key={btn.id} className="rounded-lg border p-3 space-y-2">
+        <div key={btn.id} className="rounded-lg border border-border/30 p-3 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Botão {i + 1}</span>
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => remove(btn.id)}><X className="h-3 w-3" /></Button>
@@ -96,17 +106,23 @@ function ButtonEditor({ buttons, onChange }: { buttons: ButtonItem[]; onChange: 
           )}
         </div>
       ))}
-      {buttons.length < 3 && <Button variant="outline" size="sm" className="w-full" onClick={add}>+ Adicionar botão</Button>}
+      {buttons.length < 3 && (
+        <Button variant="outline" size="sm" className="w-full" onClick={add}>
+          <Plus className="w-4 h-4 mr-1" /> Adicionar Botão
+        </Button>
+      )}
     </div>
   );
 }
 
-// ── Main Component ──
+// ═══════════════════════════════════════════════
+// MAIN
+// ═══════════════════════════════════════════════
 export default function GroupCarouselDispatch() {
   const { user } = useAuth();
   const draft = useRef(loadDraft());
 
-  const [activeStep, setActiveStep] = useState<StepKey>("content");
+  const [step, setStep] = useState(1);
   const [devices, setDevices] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [selectedDevice, setSelectedDevice] = useState(draft.current?.selectedDevice || "");
@@ -131,7 +147,6 @@ export default function GroupCarouselDispatch() {
 
   const isAllowed = user?.email === ALLOWED_EMAIL;
 
-  // Persist draft
   useEffect(() => {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
       selectedDevice, selectedGroups, dispatchType, campaignName, headerText,
@@ -150,8 +165,8 @@ export default function GroupCarouselDispatch() {
   useEffect(() => {
     if (!selectedDevice) { setGroups([]); setSelectedGroups([]); setGroupSearch(""); return; }
     setLoadingGroups(true); setGroupSearch("");
-    const params = new URLSearchParams({ device_id: selectedDevice, action: "list_chats", quick: "true" });
-    supabase.functions.invoke(`whapi-chats?${params.toString()}`, { method: "GET" })
+    const p = new URLSearchParams({ device_id: selectedDevice, action: "list_chats", quick: "true" });
+    supabase.functions.invoke(`whapi-chats?${p.toString()}`, { method: "GET" })
       .then(({ data, error }) => {
         setLoadingGroups(false);
         if (error) { toast.error("Erro ao carregar grupos"); return; }
@@ -173,34 +188,28 @@ export default function GroupCarouselDispatch() {
 
   const clearAll = () => {
     setCampaignName(""); setHeaderText(""); setMediaUrl(""); setButtons([]); setCards([createEmptyCard(0)]);
-    setSelectedGroups([]); setSendResults([]); setActiveStep("content");
+    setSelectedGroups([]); setSendResults([]); setStep(1);
     sessionStorage.removeItem(STORAGE_KEY);
     toast.success("Tudo limpo!");
   };
 
   if (!isAllowed) return <Navigate to="/dashboard" replace />;
 
-  const stepIndex = STEPS.findIndex((s) => s.key === activeStep);
-  const canGoNext = stepIndex < STEPS.length - 1;
-  const canGoPrev = stepIndex > 0;
-  const goNext = () => { if (canGoNext) setActiveStep(STEPS[stepIndex + 1].key); };
-  const goPrev = () => { if (canGoPrev) setActiveStep(STEPS[stepIndex - 1].key); };
-
   // ── Send Logic ──
   const handleSend = async () => {
-    if (!selectedDevice) { toast.error("Selecione uma instância"); setActiveStep("groups"); return; }
-    if (selectedGroups.length === 0) { toast.error("Selecione ao menos um grupo"); setActiveStep("groups"); return; }
-    if (!campaignName.trim()) { toast.error("Dê um nome para a campanha"); setActiveStep("content"); return; }
-    if (dispatchType === "text" && !headerText.trim()) { toast.error("Digite a mensagem"); setActiveStep("content"); return; }
+    if (!campaignName.trim()) { toast.error("Dê um nome para a campanha"); setStep(1); return; }
+    if (!selectedDevice) { toast.error("Selecione uma instância"); setStep(2); return; }
+    if (selectedGroups.length === 0) { toast.error("Selecione ao menos um grupo"); setStep(2); return; }
+    if (dispatchType === "text" && !headerText.trim()) { toast.error("Digite a mensagem"); setStep(1); return; }
     if (dispatchType === "buttons") {
-      if (!headerText.trim()) { toast.error("Digite a mensagem para os botões"); setActiveStep("content"); return; }
-      if (buttons.length === 0) { toast.error("Adicione pelo menos um botão"); setActiveStep("content"); return; }
-      if (buttons.some((b) => !b.text.trim())) { toast.error("Preencha o texto de todos os botões"); setActiveStep("content"); return; }
+      if (!headerText.trim()) { toast.error("Digite a mensagem"); setStep(1); return; }
+      if (buttons.length === 0) { toast.error("Adicione pelo menos um botão"); setStep(1); return; }
+      if (buttons.some((b) => !b.text.trim())) { toast.error("Preencha todos os botões"); setStep(1); return; }
     }
     if (dispatchType === "carousel") {
       const tc = cards.filter(isCarouselCardTouched);
-      if (!tc.length && !headerText.trim()) { toast.error("Preencha o conteúdo"); setActiveStep("content"); return; }
-      if (tc.length > 0) { const e = validateCarouselCards(tc); if (e.length > 0) { toast.error(e[0]); setActiveStep("content"); return; } }
+      if (!tc.length && !headerText.trim()) { toast.error("Preencha o conteúdo"); setStep(1); return; }
+      if (tc.length > 0) { const e = validateCarouselCards(tc); if (e.length > 0) { toast.error(e[0]); setStep(1); return; } }
     }
 
     setSending(true); setSendResults([]); setProgress({ sent: 0, total: selectedGroups.length });
@@ -227,19 +236,19 @@ export default function GroupCarouselDispatch() {
 
     let ok = 0, fail = 0;
     const results: SendResultItem[] = [];
-    const pauseEvery = randomBetween(pauseEveryMin, pauseEveryMax);
+    const pauseEvery = rand(pauseEveryMin, pauseEveryMax);
     let sinceLastPause = 0;
 
     try {
       for (let i = 0; i < selectedGroups.length; i++) {
         const gid = selectedGroups[i];
         const gname = groupNameMap.get(gid) || gid;
-        if (i > 0) await delayMs(randomBetween(minDelay, maxDelay) * 1000);
+        if (i > 0) await wait(rand(minDelay, maxDelay) * 1000);
         sinceLastPause++;
         if (sinceLastPause >= pauseEvery && i < selectedGroups.length - 1) {
-          const p = randomBetween(pauseDurationMin, pauseDurationMax) * 1000;
+          const p = rand(pauseDurationMin, pauseDurationMax) * 1000;
           toast.info(`Pausando por ${Math.round(p / 1000)}s...`);
-          await delayMs(p); sinceLastPause = 0;
+          await wait(p); sinceLastPause = 0;
         }
 
         let body: Record<string, any>;
@@ -257,11 +266,10 @@ export default function GroupCarouselDispatch() {
 
         const res = await supabase.functions.invoke("group-carousel-send", { body });
         try {
-          assertFnSuccess(res, "Falha ao enviar."); ok++;
-          results.push({ groupId: gid, groupName: gname, status: "success", message: "Enviado com sucesso." });
+          if (res.error || res.data?.ok === false) throw new Error(res.error?.message || res.data?.error || "Falha ao enviar.");
+          ok++; results.push({ groupId: gid, groupName: gname, status: "success", message: "Enviado com sucesso." });
         } catch (e) {
-          fail++;
-          results.push({ groupId: gid, groupName: gname, status: "error", message: e instanceof Error ? e.message : "Falha." });
+          fail++; results.push({ groupId: gid, groupName: gname, status: "error", message: e instanceof Error ? e.message : "Falha." });
         }
         setProgress({ sent: i + 1, total: selectedGroups.length });
         setSendResults([...results]);
@@ -278,178 +286,201 @@ export default function GroupCarouselDispatch() {
     if (fail > 0) toast.error(`Falha em ${fail} grupo(s)`);
   };
 
-  // ── Dispatch type options ──
-  const dtOpts: { value: DispatchType; label: string; icon: typeof Type; desc: string }[] = [
-    { value: "text", label: "Texto Normal", icon: Type, desc: "Mensagem de texto simples" },
-    { value: "buttons", label: "Botões Interativos", icon: MousePointerClick, desc: "Mensagem com botões" },
-    { value: "carousel", label: "Carrossel", icon: Layers, desc: "Cards com mídia" },
+  const dtOpts: { value: DispatchType; label: string; icon: React.ReactNode; desc: string }[] = [
+    { value: "text", label: "Texto Normal", icon: <Type className="w-4 h-4 mr-1.5" />, desc: "Mensagem de texto simples" },
+    { value: "buttons", label: "Botões Interativos", icon: <MousePointerClick className="w-4 h-4 mr-1.5" />, desc: "Mensagem com botões de ação" },
+    { value: "carousel", label: "Carrossel", icon: <Layers className="w-4 h-4 mr-1.5" />, desc: "Cards com mídia e botões" },
   ];
 
-  // ── Render ──
+  // ═══════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">Configuração de Campanha</h1>
-        <p className="text-sm text-muted-foreground">Controle total sobre sua entrega e performance.</p>
+    <div className="w-full pb-16">
+      {/* ═══ Header ═══ */}
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <div>
+          <h1 className="text-lg sm:text-2xl font-bold text-foreground tracking-tight leading-tight">
+            Configuração de Campanha
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground/60 mt-1 sm:mt-1.5">Controle total sobre sua entrega e performance.</p>
+        </div>
       </div>
 
-      {/* Step Navigation */}
-      <Card>
-        <CardContent className="p-2">
-          <div className="flex">
-            {STEPS.map((step, i) => {
-              const isActive = step.key === activeStep;
-              const isPast = i < stepIndex;
+      {/* ═══ Stepper ═══ */}
+      <div className="mb-4 sm:mb-8">
+        <SurfaceCard className="px-2.5 py-2 sm:p-5">
+          <div className="items-start justify-center flex flex-row">
+            {STEPS.map((s, i) => {
+              const isActive = step === s.num;
+              const isDone = step > s.num;
+              const Icon = s.icon;
               return (
-                <button
-                  key={step.key}
-                  onClick={() => setActiveStep(step.key)}
-                  className={`flex-1 flex flex-col items-center gap-2 py-4 rounded-xl transition-all ${
-                    isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted/50"
-                  }`}
-                >
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
-                    isActive ? "bg-primary-foreground/20" : isPast ? "bg-primary/10" : "bg-muted"
-                  }`}>
-                    {isPast ? (
-                      <CheckCircle2 className={`h-5 w-5 ${isActive ? "text-primary-foreground" : "text-primary"}`} />
-                    ) : (
-                      <step.icon className={`h-5 w-5 ${isActive ? "text-primary-foreground" : "text-muted-foreground"}`} />
-                    )}
-                  </div>
-                  <span className={`text-xs font-medium ${isActive ? "text-primary-foreground" : "text-muted-foreground"}`}>
-                    {step.label}
-                  </span>
-                </button>
+                <React.Fragment key={s.num}>
+                  <button
+                    onClick={() => setStep(s.num)}
+                    className="flex flex-col items-center gap-0.5 sm:gap-2 group transition-all duration-150 cursor-pointer"
+                  >
+                    <div className={cn(
+                      "w-7 h-7 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shrink-0 transition-all duration-200",
+                      isActive && "bg-primary text-primary-foreground shadow-lg shadow-primary/30 scale-110",
+                      isDone && "bg-primary/15 text-primary",
+                      !isActive && !isDone && "bg-muted/20 dark:bg-muted/10 text-muted-foreground/30 group-hover:bg-muted/40 group-hover:text-muted-foreground/60",
+                    )}>
+                      {isDone ? <Check className="w-3 h-3 sm:w-5 sm:h-5" strokeWidth={2.5} /> : <Icon className="w-3 h-3 sm:w-5 sm:h-5" />}
+                    </div>
+                    <span className={cn(
+                      "text-[9px] sm:text-[11px] font-medium transition-colors leading-tight",
+                      isActive ? "text-foreground" : isDone ? "text-foreground/60" : "text-muted-foreground/30 group-hover:text-muted-foreground/60"
+                    )}>{s.label}</span>
+                  </button>
+                  {i < STEPS.length - 1 && (
+                    <div className="flex-1 mx-1 sm:mx-3">
+                      <div className={cn(
+                        "h-[2px] rounded-full transition-colors duration-300",
+                        isDone ? "bg-primary/40" : "bg-muted/15 dark:bg-muted/10"
+                      )} />
+                    </div>
+                  )}
+                </React.Fragment>
               );
             })}
           </div>
-        </CardContent>
-      </Card>
+        </SurfaceCard>
+      </div>
 
-      {/* ═══════════ STEP: CONTEÚDO ═══════════ */}
-      {activeStep === "content" && (
-        <div className="space-y-6">
-          {/* Campaign Name */}
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-sm">Nome da Campanha</CardTitle></CardHeader>
-            <CardContent>
-              <Input placeholder="Ex: Promoção Black Friday - Grupos" value={campaignName} onChange={(e) => setCampaignName(e.target.value)} />
-            </CardContent>
-          </Card>
+      {/* ═══ Step Content ═══ */}
+      <div key={step} className="animate-fade-in">
 
-          {/* Dispatch Type */}
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-sm">Tipo de Conteúdo</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-3">
+        {/* ===== STEP 1: Conteúdo ===== */}
+        {step === 1 && (
+          <div className="space-y-6 sm:space-y-8">
+            {/* Campaign Name */}
+            <SurfaceCard className="p-4 sm:p-5 space-y-3">
+              <SectionLabel>Nome da Campanha</SectionLabel>
+              <Input
+                placeholder="Ex: Promoção Black Friday - Grupos"
+                value={campaignName}
+                onChange={(e) => setCampaignName(e.target.value)}
+              />
+            </SurfaceCard>
+
+            {/* Content Type */}
+            <SurfaceCard className="p-4 sm:p-5">
+              <SectionLabel className="mb-3">Tipo de Conteúdo</SectionLabel>
+              <div className="flex gap-2">
                 {dtOpts.map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => setDispatchType(opt.value)}
-                    className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${
-                      dispatchType === opt.value ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/40 hover:bg-muted/30"
-                    }`}
+                    className={cn(
+                      "flex-1 text-center p-3 rounded-xl border text-xs transition-all",
+                      dispatchType === opt.value
+                        ? "border-primary bg-primary/10 text-primary font-semibold"
+                        : "border-border/20 text-muted-foreground hover:border-border/40"
+                    )}
                   >
-                    <opt.icon className={`h-5 w-5 ${dispatchType === opt.value ? "text-primary" : "text-muted-foreground"}`} />
-                    <span className={`text-xs font-medium ${dispatchType === opt.value ? "text-primary" : "text-foreground"}`}>{opt.label}</span>
-                    <span className="text-[10px] text-muted-foreground text-center">{opt.desc}</span>
+                    <div className="flex items-center justify-center">{opt.icon}{opt.label}</div>
+                    <p className="text-[9px] text-muted-foreground/50 mt-1">{opt.desc}</p>
                   </button>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            </SurfaceCard>
 
-          {/* Message */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">{dispatchType === "carousel" ? "Texto principal" : "Mensagem"}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            {/* Message */}
+            <SurfaceCard className="p-4 sm:p-6 space-y-4 sm:space-y-5">
+              <SectionLabel>{dispatchType === "carousel" ? "Texto Principal" : "Mensagem"}</SectionLabel>
               <Textarea
                 placeholder={dispatchType === "carousel" ? "Texto que acompanha o carrossel..." : "Digite sua mensagem..."}
-                value={headerText} onChange={(e) => setHeaderText(e.target.value)} rows={4}
+                value={headerText} onChange={(e) => setHeaderText(e.target.value)} rows={5}
+                className="min-h-[120px] resize-none"
               />
-              {dispatchType === "text" && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">URL de mídia (opcional - imagem, vídeo, PDF)</Label>
-                  <Input placeholder="https://exemplo.com/imagem.jpg" value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} className="mt-1" />
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            </SurfaceCard>
 
-          {/* Buttons / Carousel editors */}
-          {dispatchType === "buttons" && (
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm">Botões interativos</CardTitle>
-                  <Badge variant="secondary">até 3</Badge>
-                </div>
-              </CardHeader>
-              <CardContent><ButtonEditor buttons={buttons} onChange={setButtons} /></CardContent>
-            </Card>
-          )}
-
-          {dispatchType === "carousel" && (
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between gap-3">
-                  <CardTitle className="text-sm">Cards do carrossel</CardTitle>
-                  <Badge variant="secondary">até {MAX_CAROUSEL_CARDS}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent><GroupCarouselEditor cards={cards} onChange={setCards} /></CardContent>
-            </Card>
-          )}
-
-          {/* Preview */}
-          {dispatchType === "carousel" && (
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm">Preview</CardTitle></CardHeader>
-              <CardContent><CarouselPreview cards={cards} message={headerText} previewMode="sent" /></CardContent>
-            </Card>
-          )}
-          {dispatchType === "buttons" && buttons.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm">Preview dos Botões</CardTitle></CardHeader>
-              <CardContent>
-                <div className="rounded-lg bg-muted/30 p-4 space-y-3">
-                  {headerText && <p className="text-sm whitespace-pre-wrap">{headerText}</p>}
-                  <div className="space-y-2">
-                    {buttons.map((b) => (
-                      <div key={b.id} className="rounded-lg border bg-background px-4 py-2 text-center text-sm font-medium text-primary">
-                        {b.text || "Botão sem texto"}
-                      </div>
-                    ))}
+            {/* Media (text mode) */}
+            {dispatchType === "text" && (
+              <SurfaceCard className="p-4 sm:p-5 space-y-3">
+                <SectionLabel>Mídia</SectionLabel>
+                <Input
+                  placeholder="URL da mídia (imagem, vídeo, PDF) — opcional"
+                  value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)}
+                />
+                {mediaUrl && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>📎 {mediaUrl.split("/").pop()?.substring(0, 40)}</span>
+                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setMediaUrl("")}><X className="h-3 w-3" /></Button>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          {dispatchType === "text" && (
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm">Preview</CardTitle></CardHeader>
-              <CardContent>
-                <div className="rounded-lg bg-muted/30 p-4 space-y-3">
-                  {mediaUrl && <div className="rounded-lg overflow-hidden border"><div className="bg-muted/50 p-3 text-center text-xs text-muted-foreground">📎 Mídia: {mediaUrl.split("/").pop()?.substring(0, 30) || "arquivo"}</div></div>}
-                  <p className="text-sm whitespace-pre-wrap">{headerText || "Nenhuma mensagem digitada..."}</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+                )}
+              </SurfaceCard>
+            )}
 
-      {/* ═══════════ STEP: PÚBLICO (GRUPOS) ═══════════ */}
-      {activeStep === "groups" && (
-        <div className="space-y-6">
-          {/* Device */}
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-sm">Instância</CardTitle></CardHeader>
-            <CardContent>
+            {/* Buttons (buttons mode) */}
+            {dispatchType === "buttons" && (
+              <SurfaceCard className="p-4 sm:p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <SectionLabel>Botões Interativos</SectionLabel>
+                  <Badge variant="secondary" className="text-[10px]">até 3</Badge>
+                </div>
+                <ButtonEditor buttons={buttons} onChange={setButtons} />
+              </SurfaceCard>
+            )}
+
+            {/* Carousel (carousel mode) */}
+            {dispatchType === "carousel" && (
+              <>
+                <SurfaceCard className="p-4 sm:p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <SectionLabel>Cards do Carrossel</SectionLabel>
+                    <Badge variant="secondary" className="text-[10px]">até {MAX_CAROUSEL_CARDS}</Badge>
+                  </div>
+                  <GroupCarouselEditor cards={cards} onChange={setCards} />
+                </SurfaceCard>
+                <SurfaceCard className="p-4 sm:p-5">
+                  <SectionLabel className="mb-3">Preview</SectionLabel>
+                  <CarouselPreview cards={cards} message={headerText} previewMode="sent" />
+                </SurfaceCard>
+              </>
+            )}
+
+            {/* Preview (text/buttons) */}
+            {dispatchType !== "carousel" && (
+              <SurfaceCard className="p-4 sm:p-5">
+                <SectionLabel className="mb-3">Preview</SectionLabel>
+                <div className="rounded-lg bg-muted/20 dark:bg-black/20 p-4 space-y-3">
+                  {mediaUrl && (
+                    <div className="rounded-lg overflow-hidden border border-border/30">
+                      <div className="bg-muted/30 p-3 text-center text-xs text-muted-foreground">📎 Mídia: {mediaUrl.split("/").pop()?.substring(0, 30)}</div>
+                    </div>
+                  )}
+                  <p className="text-sm whitespace-pre-wrap">{headerText || "Nenhuma mensagem digitada..."}</p>
+                  {dispatchType === "buttons" && buttons.length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-border/20">
+                      {buttons.map((b) => (
+                        <div key={b.id} className="rounded-lg border bg-background px-4 py-2 text-center text-sm font-medium text-primary">
+                          {b.text || "Botão sem texto"}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </SurfaceCard>
+            )}
+
+            {/* Next */}
+            <div className="flex justify-end">
+              <Button onClick={() => setStep(2)} className="px-8">
+                Próximo <Send className="ml-2 w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ===== STEP 2: Público (Grupos) ===== */}
+        {step === 2 && (
+          <div className="space-y-6 sm:space-y-8">
+            {/* Device */}
+            <SurfaceCard className="p-4 sm:p-5 space-y-3">
+              <SectionLabel>Instância</SectionLabel>
               <Select value={selectedDevice} onValueChange={setSelectedDevice}>
                 <SelectTrigger><SelectValue placeholder="Escolha uma instância conectada" /></SelectTrigger>
                 <SelectContent>
@@ -458,39 +489,37 @@ export default function GroupCarouselDispatch() {
                   ))}
                 </SelectContent>
               </Select>
-            </CardContent>
-          </Card>
+            </SurfaceCard>
 
-          {/* Groups */}
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-sm">Grupos</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
+            {/* Groups */}
+            <SurfaceCard className="p-4 sm:p-5 space-y-3">
+              <SectionLabel>Grupos</SectionLabel>
               <Input placeholder="Buscar grupo..." value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} />
               {loadingGroups ? (
                 <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Carregando grupos...</div>
               ) : (
-                <div className="max-h-64 space-y-1 overflow-y-auto">
+                <div className="max-h-72 space-y-1 overflow-y-auto">
                   {filteredGroups.length === 0 && selectedDevice && <p className="py-2 text-sm text-muted-foreground">Nenhum grupo encontrado</p>}
-                  {filteredGroups.map((group) => (
-                    <label key={group.id} className="flex cursor-pointer items-center gap-2 rounded-lg p-2 text-sm hover:bg-muted/30">
-                      <input type="checkbox" checked={selectedGroups.includes(group.id)} onChange={() => toggleGroup(group.id)} className="rounded" />
-                      <span className="truncate">{group.name || group.id}</span>
+                  {filteredGroups.map((g) => (
+                    <label key={g.id} className="flex cursor-pointer items-center gap-2 rounded-lg p-2 text-sm hover:bg-muted/30">
+                      <input type="checkbox" checked={selectedGroups.includes(g.id)} onChange={() => toggleGroup(g.id)} className="rounded" />
+                      <span className="truncate">{g.name || g.id}</span>
                     </label>
                   ))}
                 </div>
               )}
 
               {selectedGroupDetails.length > 0 && (
-                <div className="space-y-2">
+                <div className="space-y-2 pt-3 border-t border-border/20">
                   <p className="text-xs text-muted-foreground">{selectedGroupDetails.length} grupo(s) selecionado(s)</p>
                   <div className="flex flex-wrap gap-2">
-                    {selectedGroupDetails.map((group) => (
-                      <Badge key={group.id} variant="secondary" className="max-w-full flex items-center gap-1 pr-1">
-                        <span className="truncate">{group.name}</span>
-                        {isAdminsOnlyGroup(group) && (
+                    {selectedGroupDetails.map((g) => (
+                      <Badge key={g.id} variant="secondary" className="max-w-full flex items-center gap-1 pr-1">
+                        <span className="truncate">{g.name}</span>
+                        {isAdminsOnlyGroup(g) && (
                           <span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive">só admins</span>
                         )}
-                        <button type="button" onClick={() => toggleGroup(group.id)} className="ml-1 rounded-full p-0.5 hover:bg-destructive/20 hover:text-destructive transition-colors">
+                        <button type="button" onClick={() => toggleGroup(g.id)} className="ml-1 rounded-full p-0.5 hover:bg-destructive/20 hover:text-destructive transition-colors">
                           <X className="h-3 w-3" />
                         </button>
                       </Badge>
@@ -507,134 +536,141 @@ export default function GroupCarouselDispatch() {
                   </p>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </SurfaceCard>
 
-      {/* ═══════════ STEP: PARÂMETROS ═══════════ */}
-      {activeStep === "params" && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2"><Clock className="h-4 w-4" /> Delay entre cada grupo</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Label className="text-xs mb-3 block">{minDelay}s - {maxDelay}s</Label>
-              <div className="flex gap-4">
-                <div className="flex-1 space-y-1">
-                  <span className="text-[10px] text-muted-foreground">Mínimo</span>
-                  <Slider min={1} max={120} step={1} value={[minDelay]} onValueChange={([v]) => { setMinDelay(v); if (v > maxDelay) setMaxDelay(v); }} />
-                </div>
-                <div className="flex-1 space-y-1">
-                  <span className="text-[10px] text-muted-foreground">Máximo</span>
-                  <Slider min={1} max={120} step={1} value={[maxDelay]} onValueChange={([v]) => { setMaxDelay(v); if (v < minDelay) setMinDelay(v); }} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            <div className="flex justify-between">
+              <Button variant="outline" onClick={() => setStep(1)}>Voltar</Button>
+              <Button onClick={() => setStep(3)} className="px-8">
+                Próximo <Send className="ml-2 w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2"><Pause className="h-4 w-4" /> Pausa automática</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="space-y-2">
-                <Label className="text-xs">Pausar a cada: {pauseEveryMin} - {pauseEveryMax} disparos</Label>
-                <div className="flex gap-4">
-                  <div className="flex-1 space-y-1">
-                    <span className="text-[10px] text-muted-foreground">Mínimo</span>
+        {/* ===== STEP 3: Parâmetros ===== */}
+        {step === 3 && (
+          <div className="space-y-6 sm:space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {/* Delay */}
+              <SurfaceCard className="p-6 space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Clock className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">Delay entre grupos</p>
+                    <p className="text-[10px] text-muted-foreground">{minDelay}s - {maxDelay}s</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground">Mínimo ({minDelay}s)</span>
+                    <Slider min={1} max={120} step={1} value={[minDelay]} onValueChange={([v]) => { setMinDelay(v); if (v > maxDelay) setMaxDelay(v); }} />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground">Máximo ({maxDelay}s)</span>
+                    <Slider min={1} max={120} step={1} value={[maxDelay]} onValueChange={([v]) => { setMaxDelay(v); if (v < minDelay) setMinDelay(v); }} />
+                  </div>
+                </div>
+              </SurfaceCard>
+
+              {/* Pause every */}
+              <SurfaceCard className="p-6 space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Pause className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">Pausa automática</p>
+                    <p className="text-[10px] text-muted-foreground">A cada {pauseEveryMin}-{pauseEveryMax} disparos</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground">Mínimo ({pauseEveryMin})</span>
                     <Slider min={1} max={50} step={1} value={[pauseEveryMin]} onValueChange={([v]) => { setPauseEveryMin(v); if (v > pauseEveryMax) setPauseEveryMax(v); }} />
                   </div>
-                  <div className="flex-1 space-y-1">
-                    <span className="text-[10px] text-muted-foreground">Máximo</span>
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground">Máximo ({pauseEveryMax})</span>
                     <Slider min={1} max={50} step={1} value={[pauseEveryMax]} onValueChange={([v]) => { setPauseEveryMax(v); if (v < pauseEveryMin) setPauseEveryMin(v); }} />
                   </div>
                 </div>
-              </div>
+              </SurfaceCard>
 
-              <div className="space-y-2">
-                <Label className="text-xs">Duração da pausa: {pauseDurationMin}s - {pauseDurationMax}s</Label>
-                <div className="flex gap-4">
-                  <div className="flex-1 space-y-1">
-                    <span className="text-[10px] text-muted-foreground">Mínimo</span>
+              {/* Pause duration */}
+              <SurfaceCard className="p-6 space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Clock className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">Duração da pausa</p>
+                    <p className="text-[10px] text-muted-foreground">{pauseDurationMin}s - {pauseDurationMax}s</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground">Mínimo ({pauseDurationMin}s)</span>
                     <Slider min={5} max={300} step={5} value={[pauseDurationMin]} onValueChange={([v]) => { setPauseDurationMin(v); if (v > pauseDurationMax) setPauseDurationMax(v); }} />
                   </div>
-                  <div className="flex-1 space-y-1">
-                    <span className="text-[10px] text-muted-foreground">Máximo</span>
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground">Máximo ({pauseDurationMax}s)</span>
                     <Slider min={5} max={300} step={5} value={[pauseDurationMax]} onValueChange={([v]) => { setPauseDurationMax(v); if (v < pauseDurationMin) setPauseDurationMin(v); }} />
                   </div>
                 </div>
+              </SurfaceCard>
+            </div>
+
+            <div className="flex justify-between">
+              <Button variant="outline" onClick={() => setStep(2)}>Voltar</Button>
+              <Button onClick={() => setStep(4)} className="px-8">
+                Próximo <Send className="ml-2 w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ===== STEP 4: Lançamento ===== */}
+        {step === 4 && (
+          <div className="space-y-6 sm:space-y-8">
+            {/* Summary */}
+            <SurfaceCard className="p-5 sm:p-6 space-y-4">
+              <SectionLabel>Resumo da Campanha</SectionLabel>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                <div><span className="text-muted-foreground text-xs">Nome</span><p className="font-medium">{campaignName || "—"}</p></div>
+                <div><span className="text-muted-foreground text-xs">Tipo</span><p className="font-medium capitalize">{dispatchType === "text" ? "Texto" : dispatchType === "buttons" ? "Botões" : "Carrossel"}</p></div>
+                <div><span className="text-muted-foreground text-xs">Grupos</span><p className="font-medium">{selectedGroups.length} selecionado(s)</p></div>
+                <div><span className="text-muted-foreground text-xs">Instância</span><p className="font-medium">{devices.find((d) => d.id === selectedDevice)?.name || "—"}</p></div>
+                <div><span className="text-muted-foreground text-xs">Delay</span><p className="font-medium">{minDelay}s - {maxDelay}s</p></div>
+                <div><span className="text-muted-foreground text-xs">Pausa</span><p className="font-medium">A cada {pauseEveryMin}-{pauseEveryMax} · {pauseDurationMin}s-{pauseDurationMax}s</p></div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </SurfaceCard>
 
-      {/* ═══════════ STEP: LANÇAMENTO ═══════════ */}
-      {activeStep === "launch" && (
-        <div className="space-y-6">
-          {/* Summary */}
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-sm">Resumo da Campanha</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Nome:</span>
-                  <p className="font-medium">{campaignName || "—"}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Tipo:</span>
-                  <p className="font-medium capitalize">{dispatchType === "text" ? "Texto" : dispatchType === "buttons" ? "Botões" : "Carrossel"}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Grupos:</span>
-                  <p className="font-medium">{selectedGroups.length} selecionado(s)</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Instância:</span>
-                  <p className="font-medium">{devices.find((d) => d.id === selectedDevice)?.name || "—"}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Delay:</span>
-                  <p className="font-medium">{minDelay}s - {maxDelay}s</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Pausa:</span>
-                  <p className="font-medium">A cada {pauseEveryMin}-{pauseEveryMax} · {pauseDurationMin}s-{pauseDurationMax}s</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Send */}
+            <Button className="w-full h-12 text-base" onClick={handleSend} disabled={sending || !selectedDevice || selectedGroups.length === 0}>
+              {sending ? (
+                <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Enviando {progress.sent}/{progress.total}...</>
+              ) : (
+                <><Send className="mr-2 h-5 w-5" />Lançar campanha para {selectedGroups.length} grupo(s)</>
+              )}
+            </Button>
 
-          {/* Send button */}
-          <Button className="w-full" size="lg" onClick={handleSend} disabled={sending || !selectedDevice || selectedGroups.length === 0}>
-            {sending ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando {progress.sent}/{progress.total}...</>
-            ) : (
-              <><Rocket className="mr-2 h-4 w-4" />Lançar campanha para {selectedGroups.length} grupo(s)</>
-            )}
-          </Button>
-
-          {/* Progress */}
-          {sending && (
-            <Card>
-              <CardContent className="pt-6">
+            {/* Progress */}
+            {sending && (
+              <SurfaceCard className="p-5">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm"><span>Progresso</span><span>{progress.sent}/{progress.total}</span></div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
                     <div className="h-full bg-primary transition-all rounded-full" style={{ width: `${progress.total > 0 ? (progress.sent / progress.total) * 100 : 0}%` }} />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              </SurfaceCard>
+            )}
 
-          {/* Results */}
-          {sendResults.length > 0 && !sending && (
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm">Resultado do envio</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
+            {/* Results */}
+            {sendResults.length > 0 && !sending && (
+              <SurfaceCard className="p-5 space-y-3">
+                <SectionLabel>Resultado do envio</SectionLabel>
                 {sendResults.map((r) => (
                   <div key={`${r.groupId}-${r.status}`} className={r.status === "success" ? "rounded-lg border border-primary/20 bg-primary/5 p-3" : "rounded-lg border border-destructive/30 bg-destructive/10 p-3"}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -646,42 +682,26 @@ export default function GroupCarouselDispatch() {
                     <p className="mt-2 text-sm text-muted-foreground">{r.message}</p>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+              </SurfaceCard>
+            )}
 
-      {/* Bottom navigation */}
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="sm" onClick={clearAll} className="flex items-center gap-2">
-          <Trash2 className="h-4 w-4" /> Limpar tudo
-        </Button>
-        <div className="flex-1" />
-        {canGoPrev && (
-          <Button variant="outline" onClick={goPrev} className="flex items-center gap-2">
-            <ChevronLeft className="h-4 w-4" /> {STEPS[stepIndex - 1].label}
-          </Button>
-        )}
-        {canGoNext && (
-          <Button onClick={goNext} className="flex items-center gap-2">
-            {STEPS[stepIndex + 1].label} <ChevronRight className="h-4 w-4" />
-          </Button>
+            <div className="flex justify-between">
+              <Button variant="outline" onClick={() => setStep(3)}>Voltar</Button>
+              <Button variant="outline" size="sm" onClick={clearAll} className="flex items-center gap-2">
+                <Trash2 className="h-4 w-4" /> Limpar tudo
+              </Button>
+            </div>
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-function normalizeGroupOptions(rawGroups: any[]) {
-  return rawGroups.map((g) => {
+function normalizeGroupOptions(raw: any[]) {
+  return raw.map((g) => {
     const id = String(g?.id || g?.JID || g?.jid || g?.groupJid || g?.chatId || "").trim();
     if (!id.endsWith("@g.us")) return null;
     return { ...g, id, name: String(g?.name || g?.Name || g?.Subject || g?.subject || g?.groupName || id || "Grupo sem nome").trim() };
   }).filter(Boolean);
-}
-
-function assertFnSuccess(r: { data: any; error: any }, fb: string) {
-  const m = r.error?.message || r.data?.error || fb;
-  if (r.error || r.data?.ok === false) throw new Error(m);
 }
