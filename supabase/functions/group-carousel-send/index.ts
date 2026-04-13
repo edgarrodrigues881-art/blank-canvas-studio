@@ -1308,6 +1308,36 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: stri
     const text = extractAttemptText(a.body);
     const messageFields = { text, body: text, message: text, ...mentionFields.payload };
 
+    if (endpointPath === "/send/carousel" || endpointPath === "/send/menu") {
+      enrichedAttempts.push({
+        ...a,
+        label: `${a.label || ""}_mention_all`.replace(/^_/, ""),
+        body: { ...a.body, mentions: "all" },
+      });
+
+      if (mentionFields.mentionUsers) {
+        enrichedAttempts.push({
+          ...a,
+          label: `${a.label || ""}_mention_users`.replace(/^_/, ""),
+          body: { ...a.body, mentionUsers: mentionFields.mentionUsers },
+        });
+      }
+
+      if (mentionFields.jids.length > 0) {
+        enrichedAttempts.push({
+          ...a,
+          label: `${a.label || ""}_mentioned_jid`.replace(/^_/, ""),
+          body: {
+            ...a.body,
+            mentionedJid: mentionFields.jids,
+            mentionedJidList: mentionFields.jids,
+          },
+        });
+      }
+
+      continue;
+    }
+
     if (endpointPath === "/message/sendText") {
       enrichedAttempts.push(
         {
@@ -1358,7 +1388,7 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: stri
     });
   }
 
-  return enrichedAttempts;
+  return dedupeAttempts(enrichedAttempts);
 }
 
 Deno.serve(async (req) => {
