@@ -31,9 +31,12 @@ const normalizePhone = (value: string) => value.replace(/\D/g, "");
 const Auth = () => {
   const { backendDown, retryConnection } = useAuth();
   const [searchParams] = useSearchParams();
+  const [isLogin, setIsLogin] = useState(searchParams.get("mode") !== "signup");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -42,6 +45,10 @@ const Auth = () => {
   const [resolvedLoginEmail, setResolvedLoginEmail] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    setIsLogin(searchParams.get("mode") !== "signup");
+  }, [searchParams]);
 
   const redirectTo = searchParams.get("redirect") || "/dashboard";
 
