@@ -681,6 +681,50 @@ const AISettings = () => {
         </div>
       )}
 
+      {/* Atividade da IA */}
+      {iaActive && (
+        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent transition-all duration-300">
+          <CardHeader className="pb-2 pt-4 px-5">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-primary" strokeWidth={1.5} />
+              <CardTitle className="text-sm font-semibold">Atividade da IA</CardTitle>
+              <span className="ml-auto text-[10px] text-muted-foreground flex items-center gap-1">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
+                </span>
+                Atualização em tempo real
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="px-5 pb-4 pt-0">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-lg bg-background/80 border border-border/50 p-3 text-center space-y-1">
+                <div className="flex items-center justify-center gap-1.5">
+                  <MessageSquare className="h-3.5 w-3.5 text-primary" strokeWidth={1.5} />
+                  <span className="text-lg font-bold text-foreground">{aiMessagesToday}</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground font-medium">Mensagens respondidas</p>
+              </div>
+              <div className="rounded-lg bg-background/80 border border-border/50 p-3 text-center space-y-1">
+                <div className="flex items-center justify-center gap-1.5">
+                  <Users className="h-3.5 w-3.5 text-primary" strokeWidth={1.5} />
+                  <span className="text-lg font-bold text-foreground">{aiLeadsToday}</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground font-medium">Leads atendidos</p>
+              </div>
+              <div className="rounded-lg bg-background/80 border border-border/50 p-3 text-center space-y-1">
+                <div className="flex items-center justify-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5 text-primary" strokeWidth={1.5} />
+                  <span className="text-lg font-bold text-foreground">{aiActiveConvos}</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground font-medium">Conversas ativas</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Simulador de IA */}
       {iaActive && apiKeyStatus === "valid" && <AISimulator />}
 
