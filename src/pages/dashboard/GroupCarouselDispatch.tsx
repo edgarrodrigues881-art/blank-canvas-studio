@@ -103,7 +103,7 @@ const compressImage = (file: File, maxWidth = 1200, quality = 0.8): Promise<File
 
       canvas.toBlob(
         (blob) => {
-          if (blob && blob.size < file.size) {
+          if (blob) {
             resolve(new File([blob], file.name.replace(/\.[^.]+$/, outputExt), { type: outputType }));
           } else {
             resolve(file);

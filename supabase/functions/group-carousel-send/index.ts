@@ -156,7 +156,7 @@ async function inspectMediaUrl(value: string, type: MediaOnlyType) {
   }
 
   const extension = getUrlExtension(parsedUrl.toString());
-  if (type === "image" && ["webp", "svg", "avif"].includes(extension)) {
+  if (type === "image" && ["svg", "avif"].includes(extension)) {
     return { ok: false as const, error: "A UAZAPI não aceitou esse formato de imagem. Use um link direto JPG, JPEG, PNG ou GIF." };
   }
 
