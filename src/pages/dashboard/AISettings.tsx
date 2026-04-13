@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Bot, Building2, BookOpen, Headset, Brain, ShieldCheck, Upload, Plus, Trash2,
   Sparkles, Key, CheckCircle2, AlertTriangle, Eye, EyeOff, Loader2, Send,
-  FileText, File, Power, Save,
+  FileText, File, Power, Save, Target,
 } from "lucide-react";
 import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
 interface KnowledgeDoc {
