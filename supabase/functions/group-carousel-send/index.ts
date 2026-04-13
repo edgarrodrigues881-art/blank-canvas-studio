@@ -1078,26 +1078,16 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: stri
       .map((phone) => `${phone}@s.whatsapp.net`),
   ));
 
-  const mentionPrefix = mentionJids
-    .map((jid) => `@${jid.replace(/@.*$/, "")}`)
-    .join(" ");
-
   console.log(`[group-carousel] Injecting ${mentionJids.length} mentions into ${attempts.length} attempt(s)`);
 
   const enrichedAttempts: SendAttempt[] = [];
 
   for (const a of attempts) {
-    const textFields: Record<string, string> = {};
-    if (typeof a.body?.text === "string") textFields.text = prependMentionPrefix(a.body.text, mentionPrefix);
-    if (typeof a.body?.message === "string") textFields.message = prependMentionPrefix(a.body.message, mentionPrefix);
-    if (typeof a.body?.body === "string") textFields.body = prependMentionPrefix(a.body.body, mentionPrefix);
-    if (typeof a.body?.caption === "string") textFields.caption = prependMentionPrefix(a.body.caption, mentionPrefix);
-
     // Strategy 1: mentions + mentionsEveryOne (UAZAPI native)
     enrichedAttempts.push({
       ...a,
       label: `${a.label || ""}_mentions_native`.replace(/^_/, ""),
-      body: { ...a.body, ...textFields, mentions: mentionJids, mentionsEveryOne: true },
+      body: { ...a.body, mentions: mentionJids, mentionsEveryOne: true },
     });
 
     // Strategy 2: contextInfo.mentionedJid (Baileys-style)
@@ -1106,7 +1096,6 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: stri
       label: `${a.label || ""}_mentions_baileys`.replace(/^_/, ""),
       body: {
         ...a.body,
-        ...textFields,
         contextInfo: {
           ...((a.body?.contextInfo && typeof a.body.contextInfo === "object") ? a.body.contextInfo as Record<string, unknown> : {}),
           mentionedJid: mentionJids,
@@ -1114,11 +1103,11 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: stri
       },
     });
 
-    // Strategy 3: just text with @numbers (fallback — at least the message goes through)
+    // Strategy 3: clean fallback (message goes through without mention noise)
     enrichedAttempts.push({
       ...a,
-      label: `${a.label || ""}_mentions_textonly`.replace(/^_/, ""),
-      body: { ...a.body, ...textFields },
+      label: `${a.label || ""}_fallback_clean`.replace(/^_/, ""),
+      body: { ...a.body },
     });
   }
 
