@@ -44,6 +44,18 @@ function isRateLimitedResult(result: ExtractedLink) {
     || (result.error || "").toLowerCase().includes("limite temporário da uazapi");
 }
 
+function getFriendlyErrorMessage(result: ExtractedLink) {
+  if (isPermissionDeniedResult(result)) {
+    return "Esse grupo não liberou o link nesta leitura. Se já existir um link salvo no histórico, ele aparece automaticamente.";
+  }
+
+  if (isRateLimitedResult(result)) {
+    return "A leitura desse grupo entrou em limite temporário. Tente novamente em instantes.";
+  }
+
+  return result.error || "Não foi possível extrair o link";
+}
+
 export default function GroupInviteExtractor() {
   const [selectedDevice, setSelectedDevice] = useState("");
   const [groups, setGroups] = useState<GroupInfo[]>([]);
@@ -88,8 +100,8 @@ export default function GroupInviteExtractor() {
   const otherFailedCount = failedLinks.length - permissionDeniedCount - rateLimitedCount;
   const failureSummary = useMemo(() => {
     const parts: string[] = [];
-    if (permissionDeniedCount > 0) parts.push(`${permissionDeniedCount} grupo(s) onde você não é admin`);
-    if (rateLimitedCount > 0) parts.push(`${rateLimitedCount} em limite temporário da UAZAPI`);
+    if (permissionDeniedCount > 0) parts.push(`${permissionDeniedCount} grupo(s) sem link disponível agora`);
+    if (rateLimitedCount > 0) parts.push(`${rateLimitedCount} em limite temporário`);
     if (otherFailedCount > 0) parts.push(`${otherFailedCount} com outro erro`);
     return parts.join(" • ");
   }, [otherFailedCount, permissionDeniedCount, rateLimitedCount]);
@@ -149,17 +161,17 @@ export default function GroupInviteExtractor() {
       ).length;
       const otherErrors = failed - permissionDenied - rateLimited;
       const failureParts = [
-        permissionDenied > 0 ? `${permissionDenied} grupo(s) onde você não é admin` : null,
-        rateLimited > 0 ? `${rateLimited} com limite da UAZAPI` : null,
+        permissionDenied > 0 ? `${permissionDenied} grupo(s) sem link disponível agora` : null,
+        rateLimited > 0 ? `${rateLimited} em limite temporário` : null,
         otherErrors > 0 ? `${otherErrors} com outro erro` : null,
       ].filter(Boolean).join(" • ");
 
       if (ok === items.length) {
         toast.success(`${ok}/${items.length} links extraídos com sucesso`);
       } else if (ok > 0) {
-        toast.warning(`${ok}/${items.length} links extraídos. ${failed} grupo(s) não foi possível — veja abaixo.`);
+        toast.warning(`${ok}/${items.length} links extraídos. ${failed} grupo(s) ficaram pendentes — veja abaixo.`);
       } else {
-        toast.error(`Não foi possível extrair os links. ${failureParts || "Veja o motivo abaixo."}`);
+        toast.error(`Nenhum link foi extraído agora. ${failureParts || "Veja os detalhes abaixo."}`);
       }
     } catch (e: any) {
       toast.error(e?.message || "Erro ao extrair links");
@@ -344,7 +356,7 @@ export default function GroupInviteExtractor() {
           <CardContent>
             {failedLinks.length > 0 && failureSummary && (
               <p className="mb-3 text-xs text-muted-foreground">
-                Diagnóstico: {failureSummary}.
+                Resumo: {failureSummary}.
               </p>
             )}
             <ScrollArea className="h-[400px]">
@@ -364,7 +376,7 @@ export default function GroupInviteExtractor() {
                       {r.link ? (
                         <p className="text-xs text-muted-foreground font-mono truncate">{r.link}</p>
                       ) : (
-                        <p className="text-xs text-destructive">{r.error || "Não foi possível extrair o link"}</p>
+                        <p className="text-xs text-destructive">{getFriendlyErrorMessage(r)}</p>
                       )}
                     </div>
                     {r.link && (
