@@ -609,7 +609,7 @@ function isRestrictedGroup(rawInfo: any) {
   });
 }
 
-async function fetchGroupDeliveryMode(baseUrl: string, headers: Record<string, string>, groupJid: string): Promise<"default" | "restricted"> {
+async function fetchGroupDeliveryMode(baseUrl: string, headers: Record<string, string>, groupJid: string): Promise<{ mode: "default" | "restricted"; groupName: string }> {
   const attempts = [
     {
       method: "POST",
@@ -626,6 +626,8 @@ async function fetchGroupDeliveryMode(baseUrl: string, headers: Record<string, s
       body: JSON.stringify({ chatId: groupJid }),
     },
   ];
+
+  let resolvedName = "";
 
   for (const attempt of attempts) {
     try {
@@ -650,16 +652,21 @@ async function fetchGroupDeliveryMode(baseUrl: string, headers: Record<string, s
         ? Object.keys(info).slice(0, 12).join(",")
         : "no-keys";
       console.log(`[group-carousel] Group inspect ${attempt.method} ${new URL(attempt.url).pathname} keys=${keyPreview}`);
+
+      if (!resolvedName) {
+        resolvedName = extractGroupName(parsed);
+      }
+
       if (isRestrictedGroup(parsed)) {
         console.log(`[group-carousel] Restricted group detected for ${groupJid}`);
-        return "restricted";
+        return { mode: "restricted", groupName: resolvedName };
       }
     } catch (error) {
       console.warn(`[group-carousel] Failed to inspect group mode for ${groupJid}:`, error);
     }
   }
 
-  return "default";
+  return { mode: "default", groupName: resolvedName };
 }
 
 async function toggleGroupAnnounce(
