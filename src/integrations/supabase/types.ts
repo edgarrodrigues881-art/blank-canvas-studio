@@ -309,7 +309,9 @@ export type Database = {
           interaction_count: number
           interest: string | null
           last_interaction_at: string | null
+          last_message_preview: string | null
           notes: string | null
+          product_cited: string | null
           remote_jid: string
           stage: string
           updated_at: string
@@ -322,7 +324,9 @@ export type Database = {
           interaction_count?: number
           interest?: string | null
           last_interaction_at?: string | null
+          last_message_preview?: string | null
           notes?: string | null
+          product_cited?: string | null
           remote_jid: string
           stage?: string
           updated_at?: string
@@ -335,7 +339,9 @@ export type Database = {
           interaction_count?: number
           interest?: string | null
           last_interaction_at?: string | null
+          last_message_preview?: string | null
           notes?: string | null
+          product_cited?: string | null
           remote_jid?: string
           stage?: string
           updated_at?: string
