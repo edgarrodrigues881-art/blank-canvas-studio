@@ -317,10 +317,8 @@ export default function GroupCarouselDispatch() {
     const touchedCards = dispatchType === "carousel" ? cards.filter(isCarouselCardTouched) : [];
     const trimmedMediaUrl = mediaUrl.trim();
 
-    if (dispatchType === "text" && !storedHeaderText.trim() && !trimmedMediaUrl) { toast.error("Digite a mensagem ou adicione mídia"); setStep(1); return; }
     if (dispatchType === "buttons") {
-      if (!trimmedText) { toast.error("Digite a mensagem"); setStep(1); return; }
-      if (buttons.filter(b => b.text.trim()).length === 0) { toast.error("Adicione pelo menos um botão"); setStep(1); return; }
+      if (!trimmedText && !trimmedMediaUrl) { toast.error("Digite a mensagem ou adicione mídia"); setStep(1); return; }
     }
     if (dispatchType === "carousel") {
       if (!touchedCards.length && !storedHeaderText.trim()) { toast.error("Preencha o conteúdo"); setStep(1); return; }
@@ -335,13 +333,14 @@ export default function GroupCarouselDispatch() {
       .map((b) => ({ type: b.type, text: b.text.trim(), value: b.value.trim() }));
 
     try {
-      const msgType = dispatchType === "carousel" ? "carousel" : dispatchType === "buttons" ? "buttons" : "text";
+      const hasActiveButtons = activeButtons.length > 0;
+      const msgType = dispatchType === "carousel" ? "carousel" : hasActiveButtons ? "buttons" : "text";
       const startedAt = new Date().toISOString();
       const { data: campaign, error: campErr } = await supabase.from("campaigns")
         .insert({
           user_id: user!.id, name: campaignName.trim(), message_type: msgType,
           message_content: storedHeaderText.trim() || null, media_url: trimmedMediaUrl || null,
-          buttons: dispatchType === "buttons" ? activeButtons as any : null,
+          buttons: hasActiveButtons ? activeButtons as any : null,
           carousel_cards: dispatchType === "carousel" ? serializeCarouselCards(touchedCards) as any : null,
           device_id: selectedDevice, status: "processing", total_contacts: selectedGroups.length,
           started_at: startedAt,
@@ -402,7 +401,16 @@ export default function GroupCarouselDispatch() {
 
         try {
             let body: Record<string, any>;
-            if (dispatchType === "text") {
+            if (dispatchType === "buttons" && activeButtons.length > 0) {
+              body = {
+                deviceId: selectedDevice,
+                groupJid: gid,
+                content: plan.text.trim(),
+                type: "buttons",
+                buttons: activeButtons,
+                ...(trimmedMediaUrl ? { mediaUrl: trimmedMediaUrl } : {}),
+              };
+            } else if (dispatchType !== "carousel") {
               if (trimmedMediaUrl) {
                 body = {
                   deviceId: selectedDevice,
@@ -414,15 +422,6 @@ export default function GroupCarouselDispatch() {
               } else {
                 body = { deviceId: selectedDevice, groupJid: gid, content: plan.text.trim(), type: "text" };
               }
-            } else if (dispatchType === "buttons") {
-              body = {
-                deviceId: selectedDevice,
-                groupJid: gid,
-                content: plan.text.trim(),
-                type: "buttons",
-                buttons: activeButtons,
-                ...(trimmedMediaUrl ? { mediaUrl: trimmedMediaUrl } : {}),
-              };
             } else {
               body = touchedCards.length > 0
                 ? { deviceId: selectedDevice, groupJid: gid, headerText: plan.text.trim() || undefined, cards: serializeCarouselCards(touchedCards) }
