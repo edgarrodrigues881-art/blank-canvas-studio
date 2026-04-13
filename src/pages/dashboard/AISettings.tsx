@@ -58,6 +58,13 @@ const AISettings = () => {
   const [minDelay, setMinDelay] = useState(1);
   const [maxDelay, setMaxDelay] = useState(3);
   const [knowledgeDocs, setKnowledgeDocs] = useState<KnowledgeDoc[]>([]);
+  const [kbProducts, setKbProducts] = useState("");
+  const [kbPrices, setKbPrices] = useState("");
+  const [kbDifferentials, setKbDifferentials] = useState("");
+  const [kbFaq, setKbFaq] = useState("");
+  const [kbPreview, setKbPreview] = useState("");
+  const [generatingPreview, setGeneratingPreview] = useState(false);
+  const [kbTab, setKbTab] = useState<"structured" | "upload">("structured");
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState("");
   const [newDocType, setNewDocType] = useState("pdf");
