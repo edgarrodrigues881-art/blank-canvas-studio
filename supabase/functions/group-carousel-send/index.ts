@@ -1084,25 +1084,45 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: stri
 
   console.log(`[group-carousel] Injecting ${mentionJids.length} mentions into ${attempts.length} attempt(s)`);
 
-  return attempts.map((a) => ({
-    ...a,
-    body: {
-      ...a.body,
-      ...(typeof a.body?.text === "string" ? { text: prependMentionPrefix(a.body.text, mentionPrefix) } : {}),
-      ...(typeof a.body?.message === "string" ? { message: prependMentionPrefix(a.body.message, mentionPrefix) } : {}),
-      ...(typeof a.body?.body === "string" ? { body: prependMentionPrefix(a.body.body, mentionPrefix) } : {}),
-      ...(typeof a.body?.caption === "string" ? { caption: prependMentionPrefix(a.body.caption, mentionPrefix) } : {}),
-      ...(typeof a.body?.headerText === "string" ? { headerText: prependMentionPrefix(a.body.headerText, mentionPrefix) } : {}),
-      mentions: mentionJids,
-      mentionsEveryOne: true,
-      mentionedJidList: mentionJids,
-      mentionedJid: mentionJids,
-      contextInfo: {
-        ...((a.body?.contextInfo && typeof a.body.contextInfo === "object") ? a.body.contextInfo as Record<string, unknown> : {}),
-        mentionedJid: mentionJids,
+  const enrichedAttempts: SendAttempt[] = [];
+
+  for (const a of attempts) {
+    const textFields: Record<string, string> = {};
+    if (typeof a.body?.text === "string") textFields.text = prependMentionPrefix(a.body.text, mentionPrefix);
+    if (typeof a.body?.message === "string") textFields.message = prependMentionPrefix(a.body.message, mentionPrefix);
+    if (typeof a.body?.body === "string") textFields.body = prependMentionPrefix(a.body.body, mentionPrefix);
+    if (typeof a.body?.caption === "string") textFields.caption = prependMentionPrefix(a.body.caption, mentionPrefix);
+
+    // Strategy 1: mentions + mentionsEveryOne (UAZAPI native)
+    enrichedAttempts.push({
+      ...a,
+      label: `${a.label || ""}_mentions_native`.replace(/^_/, ""),
+      body: { ...a.body, ...textFields, mentions: mentionJids, mentionsEveryOne: true },
+    });
+
+    // Strategy 2: contextInfo.mentionedJid (Baileys-style)
+    enrichedAttempts.push({
+      ...a,
+      label: `${a.label || ""}_mentions_baileys`.replace(/^_/, ""),
+      body: {
+        ...a.body,
+        ...textFields,
+        contextInfo: {
+          ...((a.body?.contextInfo && typeof a.body.contextInfo === "object") ? a.body.contextInfo as Record<string, unknown> : {}),
+          mentionedJid: mentionJids,
+        },
       },
-    },
-  }));
+    });
+
+    // Strategy 3: just text with @numbers (fallback — at least the message goes through)
+    enrichedAttempts.push({
+      ...a,
+      label: `${a.label || ""}_mentions_textonly`.replace(/^_/, ""),
+      body: { ...a.body, ...textFields },
+    });
+  }
+
+  return enrichedAttempts;
 }
 
 Deno.serve(async (req) => {
