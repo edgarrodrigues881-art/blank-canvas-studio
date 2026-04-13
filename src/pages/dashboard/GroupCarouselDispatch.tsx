@@ -205,8 +205,12 @@ export default function GroupCarouselDispatch() {
       .then(({ data }) => setDevices(data || []));
   }, [user, isAllowed]);
 
+  const prevDeviceRef = useRef(selectedDevice);
   useEffect(() => {
-    if (!selectedDevice) { setGroups([]); setSelectedGroups([]); setGroupSearch(""); return; }
+    const deviceChanged = prevDeviceRef.current !== selectedDevice;
+    prevDeviceRef.current = selectedDevice;
+    if (!selectedDevice) { setGroups([]); if (deviceChanged) setSelectedGroups([]); setGroupSearch(""); return; }
+    if (deviceChanged) setSelectedGroups([]);
     setLoadingGroups(true); setGroupSearch("");
     const p = new URLSearchParams({ device_id: selectedDevice, action: "list_chats", quick: "true" });
     supabase.functions.invoke(`whapi-chats?${p.toString()}`, { method: "GET" })
@@ -215,7 +219,6 @@ export default function GroupCarouselDispatch() {
         if (error) { toast.error("Erro ao carregar grupos"); return; }
         const ng = normalizeGroupOptions(data?.chats || []);
         setGroups(ng);
-        setSelectedGroups((prev) => prev.filter((id) => ng.some((g: any) => g.id === id)));
       })
       .catch(() => { setLoadingGroups(false); toast.error("Erro ao carregar grupos"); });
   }, [selectedDevice]);
@@ -971,17 +974,6 @@ export default function GroupCarouselDispatch() {
                 </div>
               )}
 
-              {selectedGroups.length > 0 && (
-                <div className="pt-3 border-t border-border/20">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedGroups([])}
-                    className="text-xs text-destructive/70 hover:text-destructive transition-colors"
-                  >
-                    Limpar seleção ({selectedGroups.length})
-                  </button>
-                </div>
-              )}
 
               {selectedRestrictedGroups.length > 0 && (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
@@ -1294,6 +1286,8 @@ function normalizeGroupOptions(raw: any[]) {
   return raw.map((g) => {
     const id = String(g?.id || g?.JID || g?.jid || g?.groupJid || g?.chatId || "").trim();
     if (!id.endsWith("@g.us")) return null;
-    return { ...g, id, name: String(g?.name || g?.Name || g?.Subject || g?.subject || g?.groupName || id || "Grupo sem nome").trim() };
+    const rawName = String(g?.name || g?.Name || g?.Subject || g?.subject || g?.groupName || "").trim();
+    const name = rawName && rawName !== id ? rawName : "Grupo sem nome";
+    return { ...g, id, name };
   }).filter(Boolean);
 }
