@@ -1230,7 +1230,7 @@ export default function GroupCarouselDispatch() {
             className="text-xs gap-1.5 h-9 w-full sm:w-[170px] justify-center border-border/40 text-muted-foreground hover:text-foreground hover:bg-destructive/10 hover:border-destructive/30 transition-colors duration-100 order-3 sm:order-1"
             onClick={clearAll}
           >
-            <Eraser className="w-3.5 h-3.5" /> Limpar tudo
+            <Eraser className="w-3.5 h-3.5" /> Limpar {step === 1 ? "conteúdo" : step === 2 ? "público" : step === 3 ? "parâmetros" : "tudo"}
           </Button>
           <div className="flex items-center gap-2 sm:gap-3 order-1 sm:order-2">
             {step > 1 && (
