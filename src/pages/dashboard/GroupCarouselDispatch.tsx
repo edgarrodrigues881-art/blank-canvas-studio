@@ -200,9 +200,9 @@ export default function GroupCarouselDispatch() {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
       selectedDevice, selectedGroups, dispatchType, campaignName, message,
       mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax,
-      pauseDurationMin, pauseDurationMax, carouselMessage,
+      pauseDurationMin, pauseDurationMax, carouselMessage, mentionAll,
     }));
-  }, [selectedDevice, selectedGroups, dispatchType, campaignName, message, mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, carouselMessage]);
+  }, [selectedDevice, selectedGroups, dispatchType, campaignName, message, mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, carouselMessage, mentionAll]);
 
   useEffect(() => {
     if (!user || !isAllowed) return;
