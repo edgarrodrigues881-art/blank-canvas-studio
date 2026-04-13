@@ -1529,7 +1529,7 @@ Deno.serve(async (req) => {
         }
 
         try {
-          console.log(`[group-carousel] Trying buttons + mentions:"all" in single payload (${mentionPhones.length} members)`);
+          console.log(`[group-carousel] Trying buttons + mentions in single payload (mode=${mentionMode}, ${mentionPhones.length} members)`);
           await sendWithFallbacks(mentionButtonAttempts, headers, groupJid);
 
           if (trimmedMediaUrl) {
