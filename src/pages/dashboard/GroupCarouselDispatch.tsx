@@ -190,6 +190,7 @@ export default function GroupCarouselDispatch() {
   const [buttonAddedFlash, setButtonAddedFlash] = useState(false);
   const [previewMode, setPreviewMode] = useState<"sent" | "received">("sent");
   const [selectedTemplate, setSelectedTemplate] = useState<string>("nova");
+  const [mentionAll, setMentionAll] = useState(draft.current?.mentionAll ?? false);
 
   const { data: savedTemplates = [] } = useTemplates();
   const { data: carouselTemplates = [] } = useCarouselTemplates();
