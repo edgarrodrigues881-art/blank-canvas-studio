@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Bot, Building2, BookOpen, Headset, Brain, ShieldCheck, Upload, Plus, Trash2,
   Sparkles, Key, CheckCircle2, AlertTriangle, Eye, EyeOff, Loader2, Send,
-  FileText, File, Power, Save,
+  FileText, File, Power, Save, Target,
 } from "lucide-react";
 import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
 interface KnowledgeDoc {
@@ -42,6 +42,15 @@ const AISettings = () => {
   const [commStyle, setCommStyle] = useState("amigavel");
   const [insistence, setInsistence] = useState(3);
   const [strategy, setStrategy] = useState("perguntas");
+  const [autoFlow, setAutoFlow] = useState(true);
+  const [flowSteps, setFlowSteps] = useState({
+    saudacao: "Olá! Seja bem-vindo(a)! Como posso te ajudar hoje? 😊",
+    diagnostico: "Para te ajudar melhor, me conta: o que você está buscando exatamente? Qual sua principal necessidade?",
+    apresentacao: "Com base no que você me disse, tenho a solução perfeita! Deixa eu te apresentar...",
+    objecao: "Entendo sua preocupação! Muitos clientes tinham a mesma dúvida. O que posso te garantir é que...",
+    fechamento: "Ótimo! Vamos fechar então? Posso te enviar o link de pagamento ou agendar uma demonstração?",
+  });
+  const [editingStep, setEditingStep] = useState<string | null>(null);
   const [responseStyle, setResponseStyle] = useState("medium");
   const [splitLongMessages, setSplitLongMessages] = useState(true);
   const [simulateTyping, setSimulateTyping] = useState(true);
@@ -647,6 +656,87 @@ const AISettings = () => {
               <Switch checked={conversationMemory} onCheckedChange={setConversationMemory} />
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Fluxo de Conversão */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Target className="h-4 w-4 text-primary" />
+            <CardTitle className="text-base">Fluxo de Conversão</CardTitle>
+          </div>
+          <CardDescription>Configure as etapas que a IA segue para converter clientes</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between pb-2">
+            <div>
+              <p className="text-sm font-medium text-foreground">Seguir fluxo automaticamente</p>
+              <p className="text-xs text-muted-foreground">IA detecta a intenção e avança nas etapas sozinha</p>
+            </div>
+            <Switch checked={autoFlow} onCheckedChange={setAutoFlow} />
+          </div>
+
+          <div className="space-y-2">
+            {[
+              { key: "saudacao", label: "Saudação", icon: "👋", desc: "Primeiro contato com o cliente" },
+              { key: "diagnostico", label: "Diagnóstico", icon: "🔍", desc: "Entender a necessidade do cliente" },
+              { key: "apresentacao", label: "Apresentação", icon: "🎯", desc: "Apresentar a solução ideal" },
+              { key: "objecao", label: "Objeção", icon: "🛡️", desc: "Contornar dúvidas e objeções" },
+              { key: "fechamento", label: "Fechamento", icon: "🤝", desc: "Conduzir para a conversão" },
+            ].map((step, idx) => (
+              <div
+                key={step.key}
+                className="rounded-lg border border-border/50 bg-muted/20 overflow-hidden"
+              >
+                <button
+                  onClick={() => setEditingStep(editingStep === step.key ? null : step.key)}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/30 transition-colors"
+                >
+                  <div className="flex items-center justify-center h-7 w-7 rounded-full bg-primary/10 text-xs font-bold text-primary shrink-0">
+                    {idx + 1}
+                  </div>
+                  <span className="text-lg shrink-0">{step.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">{step.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{step.desc}</p>
+                  </div>
+                  <svg
+                    className={`h-4 w-4 text-muted-foreground transition-transform ${editingStep === step.key ? "rotate-180" : ""}`}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {editingStep === step.key && (
+                  <div className="px-4 pb-4 pt-1 border-t border-border/30">
+                    <Textarea
+                      value={flowSteps[step.key as keyof typeof flowSteps]}
+                      onChange={(e) => setFlowSteps((prev) => ({ ...prev, [step.key]: e.target.value }))}
+                      rows={3}
+                      placeholder={`Mensagem para a etapa de ${step.label.toLowerCase()}...`}
+                      className="text-sm"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1.5">
+                      A IA usará esta mensagem como base ao identificar que o cliente está nesta etapa
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {autoFlow && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+              <div className="flex items-start gap-2">
+                <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-medium text-primary">Fluxo automático ativo</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">A IA analisa cada mensagem do cliente, identifica a intenção e escolhe a etapa adequada automaticamente</p>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
