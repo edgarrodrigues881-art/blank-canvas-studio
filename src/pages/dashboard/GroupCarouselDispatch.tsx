@@ -717,40 +717,13 @@ export default function GroupCarouselDispatch() {
                     <p className="text-xs text-muted-foreground -mt-2">Texto enviado junto com o carrossel (aparece acima dos cards)</p>
                     <p className="text-[11px] text-muted-foreground/70 -mt-1">Limite atual: até {MAX_CAROUSEL_CARDS} cards por envio compatível.</p>
 
-                    {/* Carousel Message Tabs */}
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {[0, 1, 2, 3, 4].map(i => {
-                        const hasText = carouselMessages[i]?.trim();
-                        return (
-                          <button
-                            key={i}
-                            onClick={() => setActiveCarouselMsgTab(i)}
-                            className={cn(
-                              "px-3 py-1.5 text-[11px] transition-all border-0 rounded-sm opacity-100 font-sans font-extrabold",
-                              activeCarouselMsgTab === i
-                                ? "bg-primary/15 text-primary border-primary/30"
-                                : hasText
-                                  ? "bg-muted/20 text-foreground/70 border-border/20 hover:bg-muted/30"
-                                  : "bg-muted/8 text-muted-foreground/40 border-border/10 hover:bg-muted/15"
-                            )}
-                          >
-                            Msg {i + 1}
-                            {hasText && <span className="ml-1 w-1.5 h-1.5 rounded-full bg-primary inline-block" />}
-                          </button>
-                        );
-                      })}
-                      <span className="text-[9px] text-muted-foreground/40 ml-2">
-                        {allCarouselMessages.length}/5 ativas
-                      </span>
-                    </div>
-
                     <MessageToolbar mode="carousel" />
 
                     <Textarea
                       ref={carouselTextareaRef}
                       value={carouselMessage}
                       onChange={e => setCarouselMessage(e.target.value)}
-                      placeholder="Olá, {{nome}}. \n\nEscreva sua mensagem aqui..."
+                      placeholder="Escreva a mensagem do carrossel aqui..."
                       rows={5}
                       className="text-sm leading-[1.8] bg-muted/8 dark:bg-muted/4 border-border/15 resize-none focus-visible:ring-1 focus-visible:ring-primary/30 px-4 py-3 text-foreground/90 placeholder:text-muted-foreground/30 rounded-xl"
                     />
@@ -763,67 +736,13 @@ export default function GroupCarouselDispatch() {
                   <SurfaceCard className="p-4 sm:p-6 space-y-4 sm:space-y-5">
                     <SectionLabel>Mensagem</SectionLabel>
 
-                    {/* Message Tabs */}
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {[0, 1, 2, 3, 4].map(i => {
-                        const hasText = messages[i]?.trim();
-                        return (
-                          <button
-                            key={i}
-                            onClick={() => setActiveMessageTab(i)}
-                            className={cn(
-                              "px-3 py-1.5 text-[11px] transition-all border-0 rounded-sm opacity-100 font-sans font-extrabold",
-                              activeMessageTab === i
-                                ? "bg-primary/15 text-primary border-primary/30"
-                                : hasText
-                                  ? "bg-muted/20 text-foreground/70 border-border/20 hover:bg-muted/30"
-                                  : "bg-muted/8 text-muted-foreground/40 border-border/10 hover:bg-muted/15"
-                            )}
-                          >
-                            Msg {i + 1}
-                            {hasText && <span className="ml-1 w-1.5 h-1.5 rounded-full bg-primary inline-block" />}
-                          </button>
-                        );
-                      })}
-                      <span className="text-[9px] text-muted-foreground/40 ml-2">
-                        {allMessages.length}/5 ativas
-                      </span>
-                    </div>
-
-                    {/* Rotation mode (when multiple messages) */}
-                    {allMessages.length > 1 && (
-                      <div className="flex flex-col gap-2 p-3 rounded-xl bg-muted/10 border border-border/10">
-                        <p className="text-[11px] font-medium text-foreground/70">Modo de envio das mensagens</p>
-                        <div className="flex gap-2">
-                          {([
-                            { value: "random" as const, label: "Aleatório", icon: <Layers className="w-3 h-3 mr-1" />, desc: "Uma mensagem aleatória para cada grupo" },
-                            { value: "all" as const, label: "Todas", icon: <ArrowDown className="w-3 h-3 mr-1" />, desc: "Todas as mensagens para cada grupo" },
-                          ]).map(opt => (
-                            <button
-                              key={opt.value}
-                              onClick={() => setRotationMode(opt.value)}
-                              className={cn(
-                                "flex-1 text-center p-2 rounded-lg border text-[10px] transition-all",
-                                rotationMode === opt.value
-                                  ? "border-primary bg-primary/10 text-primary font-medium"
-                                  : "border-border/20 text-muted-foreground hover:border-border/40"
-                              )}
-                            >
-                              <div className="flex items-center justify-center">{opt.icon}{opt.label}</div>
-                              <p className="text-[9px] text-muted-foreground/50 mt-1">{opt.desc}</p>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     <MessageToolbar mode="text" />
 
                     <Textarea
                       ref={textareaRef}
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
-                      placeholder="Olá, {{nome}}.\n\nEscreva sua mensagem aqui..."
+                      placeholder="Escreva sua mensagem aqui..."
                       rows={10}
                       className="text-sm leading-[1.8] bg-muted/8 dark:bg-muted/4 border-border/15 resize-none focus-visible:ring-1 focus-visible:ring-primary/30 px-4 py-3 text-foreground/90 placeholder:text-muted-foreground/30 rounded-xl"
                     />
