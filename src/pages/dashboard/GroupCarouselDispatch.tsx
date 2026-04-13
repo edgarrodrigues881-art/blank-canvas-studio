@@ -1196,12 +1196,6 @@ export default function GroupCarouselDispatch() {
               </SurfaceCard>
             )}
 
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep(3)}>Voltar</Button>
-              <Button variant="outline" size="sm" onClick={clearAll} className="flex items-center gap-2">
-                <Trash2 className="h-4 w-4" /> Limpar tudo
-              </Button>
-            </div>
           </div>
         )}
       </div>
@@ -1240,6 +1234,9 @@ export default function GroupCarouselDispatch() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
 
 function normalizeGroupOptions(raw: any[]) {
   return raw.map((g) => {
