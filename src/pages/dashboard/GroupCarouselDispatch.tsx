@@ -387,6 +387,22 @@ export default function GroupCarouselDispatch() {
           duration: 10000,
         }
       );
+
+      // Clear draft so the form is clean when user returns
+      sessionStorage.removeItem(STORAGE_KEY);
+      setCampaignName("");
+      setMessage("");
+      setCarouselMessage("");
+      setMediaUrl("");
+      setMediaFileName("");
+      setButtons([{ id: Date.now(), type: "reply" as const, text: "", value: "" }]);
+      setCards([createEmptyCard(0)]);
+      setSelectedGroups([]);
+      setDispatchType("buttons");
+      setStep(1);
+      setSendResults([]);
+      setProgress({ sent: 0, total: 0 });
+
       navigate(campaignRoute);
       await wait(0);
     } catch (err: any) {
