@@ -93,12 +93,21 @@ function isLidPhone(phone: string | null | undefined): boolean {
   return /@lid$/i.test((phone || "").trim());
 }
 
+function isGroupJid(phone: string | null | undefined): boolean {
+  return /@g\.us$/i.test((phone || "").trim());
+}
+
 function formatPhoneDisplay(phone: string): string {
   const d = phone.replace(/\D/g, "");
   if (d.length === 13) return `+${d.slice(0,2)} (${d.slice(2,4)}) ${d.slice(4,9)}-${d.slice(9)}`;
   if (d.length === 12) return `+${d.slice(0,2)} (${d.slice(2,4)}) ${d.slice(4,8)}-${d.slice(8)}`;
   if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
   return phone;
+}
+
+function formatGroupName(name: string | null, phone: string): string {
+  if (!name || name === phone || isGroupJid(name)) return "Grupo sem nome";
+  return name;
 }
 
 /* ── Stat Card Component ─────────────────────────────────────── */
