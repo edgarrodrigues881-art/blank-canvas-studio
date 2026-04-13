@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Bot, Building2, BookOpen, Headset, Brain, ShieldCheck, Upload, Plus, Trash2,
   Sparkles, Key, CheckCircle2, AlertTriangle, Eye, EyeOff, Loader2, Send,
-  FileText, File, Power, Save, Target,
+  FileText, File, Power, Target, Zap, Activity, Circle,
 } from "lucide-react";
 import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
 interface KnowledgeDoc {
@@ -368,38 +368,54 @@ const AISettings = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Sparkles className="h-5 w-5 text-primary" />
+            <Sparkles className="h-5 w-5 text-primary" strokeWidth={1.5} />
           </div>
           <div>
             <h1 className="text-xl font-bold text-foreground">Inteligência Artificial</h1>
             <p className="text-sm text-muted-foreground">Configure o atendimento automático com IA</p>
           </div>
         </div>
-        <Button size="sm" onClick={handleSave} disabled={saving} className="gap-2">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Salvar Configurações
+        <Button size="sm" onClick={handleSave} disabled={saving} className="gap-2 transition-all duration-200 hover:shadow-lg hover:scale-[1.02]">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" strokeWidth={1.5} />}
+          {iaActive ? "Salvar Alterações" : "Ativar IA"}
         </Button>
       </div>
 
-      {/* Toggle principal */}
-      <Card className={iaActive ? "border-primary/40 bg-primary/5" : ""}>
-        <CardContent className="flex items-center justify-between py-5 px-5">
-          <div className="flex items-center gap-3">
-            <Bot className="h-5 w-5 text-primary" />
-            <div>
-              <p className="font-semibold text-foreground">IA Ativa</p>
-              <p className="text-xs text-muted-foreground">A IA responderá automaticamente os clientes</p>
+      {/* Toggle principal + Status */}
+      <Card className={`transition-all duration-300 ${iaActive ? "border-primary/40 bg-primary/5 shadow-[0_0_20px_-5px_hsl(var(--primary)/0.15)]" : "border-border/50"}`}>
+        <CardContent className="py-4 px-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`h-9 w-9 rounded-lg flex items-center justify-center transition-all duration-300 ${iaActive ? "bg-primary/15" : "bg-muted/50"}`}>
+                <Bot className={`h-5 w-5 transition-colors duration-300 ${iaActive ? "text-primary" : "text-muted-foreground"}`} strokeWidth={1.5} />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground text-sm">IA Ativa</p>
+                <p className="text-xs text-muted-foreground">Respostas automáticas para seus clientes</p>
+              </div>
             </div>
+            <Switch checked={iaActive} onCheckedChange={setIaActive} />
           </div>
-          <Switch checked={iaActive} onCheckedChange={setIaActive} />
+          {iaActive && apiKeyStatus === "valid" && (
+            <div className="mt-3 pt-3 border-t border-primary/10 flex items-center gap-2 animate-fade-in">
+              <Circle className="h-2.5 w-2.5 fill-emerald-400 text-emerald-400 animate-pulse" />
+              <span className="text-xs font-medium text-emerald-400">IA pronta para responder clientes</span>
+            </div>
+          )}
+          {iaActive && apiKeyStatus !== "valid" && (
+            <div className="mt-3 pt-3 border-t border-border/30 flex items-center gap-2 animate-fade-in">
+              <Circle className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+              <span className="text-xs font-medium text-amber-400">Configure a chave de API para ativar</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Configuração da IA — API & Modelo */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Key className="h-4 w-4 text-primary" />
+            <Key className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Configuração da IA</CardTitle>
           </div>
           <CardDescription>Conecte sua chave de API e escolha o modelo</CardDescription>
@@ -462,10 +478,10 @@ const AISettings = () => {
       </Card>
 
       {/* Delay de resposta */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Bot className="h-4 w-4 text-primary" />
+            <Bot className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Delay de Resposta</CardTitle>
           </div>
           <CardDescription>Tempo de espera antes de enviar a resposta (simula digitação)</CardDescription>
@@ -486,10 +502,10 @@ const AISettings = () => {
       </Card>
 
       {/* Comportamento da IA */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Brain className="h-4 w-4 text-primary" />
+            <Brain className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Comportamento da IA</CardTitle>
           </div>
           <CardDescription>Configure como a IA deve agir — o prompt é gerado automaticamente</CardDescription>
@@ -660,10 +676,10 @@ const AISettings = () => {
       </Card>
 
       {/* Fluxo de Conversão */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Target className="h-4 w-4 text-primary" />
+            <Target className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Fluxo de Conversão</CardTitle>
           </div>
           <CardDescription>Configure as etapas que a IA segue para converter clientes</CardDescription>
@@ -741,10 +757,10 @@ const AISettings = () => {
       </Card>
 
       {/* Informações do Negócio */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-primary" />
+            <Building2 className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Informações do Negócio</CardTitle>
           </div>
           <CardDescription>Esses dados serão usados pela IA nas respostas</CardDescription>
@@ -784,10 +800,10 @@ const AISettings = () => {
       </Card>
 
       {/* Base de Conhecimento */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-primary" />
+            <BookOpen className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Base de Conhecimento</CardTitle>
           </div>
           <CardDescription>Ensine a IA sobre seu negócio para respostas precisas</CardDescription>
@@ -877,7 +893,7 @@ const AISettings = () => {
               {kbPreview && (
                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-2">
                   <div className="flex items-center gap-2">
-                    <Bot className="h-4 w-4 text-primary" />
+                    <Bot className="h-4 w-4 text-primary" strokeWidth={1.5} />
                     <Label className="text-xs text-primary font-medium">Preview — Como a IA responderia</Label>
                   </div>
                   <p className="text-sm text-foreground/80 whitespace-pre-line leading-relaxed">{kbPreview}</p>
@@ -964,10 +980,10 @@ const AISettings = () => {
       </Dialog>
 
       {/* Modo de Atendimento */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Headset className="h-4 w-4 text-primary" />
+            <Headset className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Modo de Atendimento</CardTitle>
           </div>
           <CardDescription>Selecione um ou mais modos de atendimento da IA</CardDescription>
@@ -1015,10 +1031,10 @@ const AISettings = () => {
       </Card>
 
       {/* Segurança e Controle */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-primary" />
+            <ShieldCheck className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Segurança e Controle</CardTitle>
           </div>
           <CardDescription>Limites e restrições da IA</CardDescription>
@@ -1042,10 +1058,10 @@ const AISettings = () => {
       </Card>
 
       {/* Controle da IA */}
-      <Card>
+      <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-primary" />
+            <ShieldCheck className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Controle da IA</CardTitle>
           </div>
           <CardDescription>Palavras-chave e respostas de fallback</CardDescription>
