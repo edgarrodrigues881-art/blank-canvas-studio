@@ -880,24 +880,6 @@ function buildMentionFields(mentionParticipants: string[]) {
   };
 }
 
-function buildVisibleMentionText(baseText: string, numbers: string[]) {
-  const handles = Array.from(new Set(
-    numbers
-      .map((number) => String(number || "").trim())
-      .filter(Boolean)
-      .map((number) => `@${number}`),
-  ));
-
-  if (handles.length === 0) return null;
-
-  const composed = [baseText.trim(), handles.join(" ")]
-    .filter(Boolean)
-    .join("\n\n")
-    .trim();
-
-  return composed.length <= 3_800 ? composed : null;
-}
-
 function dedupeAttempts(attempts: SendAttempt[]) {
   const seen = new Set<string>();
 
@@ -912,7 +894,6 @@ function dedupeAttempts(attempts: SendAttempt[]) {
 function buildMentionTextAttempts(baseUrl: string, groupJid: string, text: string, mentionParticipants: string[]): SendAttempt[] {
   const cleanText = text.trim();
   const mentionFields = buildMentionFields(mentionParticipants);
-  const visibleText = buildVisibleMentionText(cleanText, mentionFields.numbers);
   const attempts: SendAttempt[] = [];
 
   const pushAttempt = (label: string, body: Record<string, unknown>) => {
@@ -923,11 +904,17 @@ function buildMentionTextAttempts(baseUrl: string, groupJid: string, text: strin
     });
   };
 
-  if (mentionFields.mentionUsers && visibleText) {
-    pushAttempt("mention_users_visible", {
+  pushAttempt("mentions_all", {
+    number: groupJid,
+    text: cleanText,
+    mentions: "all",
+  });
+
+  if (mentionFields.mentionUsers) {
+    pushAttempt("mentions_explicit_numbers", {
       number: groupJid,
-      text: visibleText,
-      mentionUsers: mentionFields.mentionUsers,
+      text: cleanText,
+      mentions: mentionFields.mentionUsers,
     });
   }
 
@@ -939,11 +926,11 @@ function buildMentionTextAttempts(baseUrl: string, groupJid: string, text: strin
     });
   }
 
-  if (mentionFields.mentionUsers && mentionFields.jids.length > 0 && visibleText) {
-    pushAttempt("mention_users_context_visible", {
+  if (mentionFields.mentionUsers && mentionFields.jids.length > 0) {
+    pushAttempt("mentions_all_with_context", {
       number: groupJid,
-      text: visibleText,
-      mentionUsers: mentionFields.mentionUsers,
+      text: cleanText,
+      mentions: "all",
       contextInfo: {
         mentionedJid: mentionFields.jids,
         mentionedJidList: mentionFields.jids,
@@ -960,15 +947,6 @@ function buildMentionTextAttempts(baseUrl: string, groupJid: string, text: strin
         mentionedJid: mentionFields.jids,
         mentionedJidList: mentionFields.jids,
       },
-    });
-  }
-
-  if (mentionFields.jids.length > 0 && visibleText) {
-    pushAttempt("mentioned_jid_visible", {
-      number: groupJid,
-      text: visibleText,
-      mentionedJid: mentionFields.jids,
-      mentionedJidList: mentionFields.jids,
     });
   }
 
