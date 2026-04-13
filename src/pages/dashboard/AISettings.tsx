@@ -15,8 +15,10 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Bot, Building2, BookOpen, Headset, Brain, ShieldCheck, Upload, Plus, Trash2,
   Sparkles, Key, CheckCircle2, AlertTriangle, Eye, EyeOff, Loader2, Send,
-  FileText, File, Power, Target, Zap, Activity, Circle,
+  FileText, File, Power, Target, Zap, Activity, Circle, Timer, MessageSquare,
+  UserCheck, PhoneCall, LifeBuoy,
 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
 interface KnowledgeDoc {
   id: string; title: string; type: string; fileName: string; active: boolean; addedAt: string;
