@@ -292,12 +292,22 @@ export default function GroupCarouselDispatch() {
   const hasButtons = buttons.filter(b => b.text.trim()).length > 0;
 
   const clearAll = () => {
-    setCampaignName(""); setMessage("");
-    setMediaUrl(""); setMediaFileName(""); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]);
-    setCards([createEmptyCard(0)]); setCarouselMessage("");
-    setSelectedGroups([]); setSendResults([]); setStep(1);
+    if (step === 1) {
+      setCampaignName(""); setMessage("");
+      setMediaUrl(""); setMediaFileName(""); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]);
+      setCards([createEmptyCard(0)]); setCarouselMessage("");
+      toast.success("Conteúdo limpo!");
+    } else if (step === 2) {
+      setSelectedDevice(""); setSelectedGroups([]);
+      toast.success("Público limpo!");
+    } else if (step === 3) {
+      setMinDelay(15); setMaxDelay(45);
+      setPauseEveryMin(5); setPauseEveryMax(10);
+      setPauseDurationMin(30); setPauseDurationMax(60);
+      toast.success("Parâmetros resetados!");
+    }
+    setSendResults([]);
     sessionStorage.removeItem(STORAGE_KEY);
-    toast.success("Tudo limpo!");
   };
 
   if (!isAllowed) return <Navigate to="/dashboard" replace />;
@@ -894,9 +904,10 @@ export default function GroupCarouselDispatch() {
             {/* Device */}
             <SurfaceCard className="p-4 sm:p-5 space-y-3">
               <SectionLabel>Instância</SectionLabel>
-              <Select value={selectedDevice} onValueChange={setSelectedDevice}>
+              <Select value={selectedDevice || "__none__"} onValueChange={(v) => setSelectedDevice(v === "__none__" ? "" : v)}>
                 <SelectTrigger><SelectValue placeholder="Escolha uma instância conectada" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">Sem instância (selecionar depois)</SelectItem>
                   {devices.map((d) => (
                     <SelectItem key={d.id} value={d.id}>{d.name} {d.number ? `(${d.number})` : ""}</SelectItem>
                   ))}
@@ -1219,7 +1230,7 @@ export default function GroupCarouselDispatch() {
             className="text-xs gap-1.5 h-9 w-full sm:w-[170px] justify-center border-border/40 text-muted-foreground hover:text-foreground hover:bg-destructive/10 hover:border-destructive/30 transition-colors duration-100 order-3 sm:order-1"
             onClick={clearAll}
           >
-            <Eraser className="w-3.5 h-3.5" /> Limpar tudo
+            <Eraser className="w-3.5 h-3.5" /> Limpar {step === 1 ? "conteúdo" : step === 2 ? "público" : step === 3 ? "parâmetros" : "tudo"}
           </Button>
           <div className="flex items-center gap-2 sm:gap-3 order-1 sm:order-2">
             {step > 1 && (
