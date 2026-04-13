@@ -236,13 +236,13 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
       msg.content.includes("view_once")
     );
 
-    if (isViewOnce) {
+    if (isViewOnce && msg.type === "received") {
       return (
         <div>
           <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} />
           <div className="flex items-center gap-2 py-1">
-            <Eye className={cn("w-4 h-4 shrink-0", msg.type === "sent" ? "text-white/70" : "text-muted-foreground/70")} />
-            <span className={cn("text-[13px] italic", msg.type === "sent" ? "text-white/80" : "text-muted-foreground/80")}>
+            <Eye className="w-4 h-4 shrink-0 text-muted-foreground/70" />
+            <span className="text-[13px] italic text-muted-foreground/80">
               Mensagem de visualização única. Abra o WhatsApp no celular para visualizar.
             </span>
           </div>
