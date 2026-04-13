@@ -40,6 +40,7 @@ const BodySchema = z.object({
   mediaUrl: z.string().optional(),
   buttons: z.array(CarouselButtonSchema).optional().default([]),
   cards: z.array(CarouselCardSchema).max(4, "Máximo de 4 cards").optional(),
+  mentionAll: z.boolean().optional().default(false),
 });
 
 type MediaType = z.infer<typeof BodySchema>["type"];
@@ -803,12 +804,13 @@ function extractProviderError(raw: string) {
   return raw.trim() || "Falha ao enviar mensagem para o grupo.";
 }
 
-async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string, string>, expectedGroupJid: string) {
+async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string, string>, expectedGroupJid: string, mentionPhones: string[] = []) {
+  const finalAttempts = mentionPhones.length > 0 ? injectMentionsIntoAttempts(attempts, mentionPhones) : attempts;
   let lastError = "Falha ao enviar mensagem para o grupo.";
 
-  for (const attempt of attempts) {
+  for (const attempt of finalAttempts) {
     try {
-      console.log(`[group-carousel] Sending via ${attempt.endpoint}${attempt.label ? ` (${attempt.label})` : ""}`);
+      console.log(`[group-carousel] Sending via ${attempt.endpoint}${attempt.label ? ` (${attempt.label})` : ""}${mentionPhones.length > 0 ? ` (mentioning ${mentionPhones.length})` : ""}`);
       const response = await fetchWithTimeout(attempt.endpoint, {
         method: "POST",
         headers,
@@ -837,6 +839,66 @@ async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string
   throw new Error(lastError);
 }
 
+async function fetchGroupParticipants(baseUrl: string, headers: Record<string, string>, groupJid: string): Promise<string[]> {
+  const attempts = [
+    { method: "POST", url: `${baseUrl}/group/participants`, body: JSON.stringify({ groupjid: groupJid }) },
+    { method: "GET", url: `${baseUrl}/group/participants?groupjid=${encodeURIComponent(groupJid)}` },
+    { method: "POST", url: `${baseUrl}/group/info`, body: JSON.stringify({ groupjid: groupJid }) },
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const response = await fetchWithTimeout(attempt.url, {
+        method: attempt.method,
+        headers,
+        ...(attempt.body ? { body: attempt.body } : {}),
+      }, 10_000);
+
+      if (!response.ok) continue;
+      const raw = await response.text();
+      if (!raw) continue;
+
+      const parsed = JSON.parse(raw);
+      
+      // Try multiple paths to find participants array
+      const participantsArr = 
+        parsed?.participants || 
+        parsed?.data?.participants || 
+        parsed?.group?.participants ||
+        parsed?.data?.group?.participants ||
+        parsed?.Participants ||
+        [];
+
+      if (Array.isArray(participantsArr) && participantsArr.length > 0) {
+        const phones = participantsArr
+          .map((p: any) => {
+            const id = p?.id || p?.jid || p?.number || p?.phone || "";
+            return String(id).replace(/@.*$/, "").trim();
+          })
+          .filter((n: string) => n && /^\d+$/.test(n));
+        
+        if (phones.length > 0) {
+          console.log(`[group-carousel] Found ${phones.length} participants for ${groupJid}`);
+          return phones;
+        }
+      }
+    } catch (error) {
+      console.warn(`[group-carousel] Failed to fetch participants for ${groupJid}:`, error);
+    }
+  }
+
+  console.warn(`[group-carousel] Could not fetch participants for ${groupJid}`);
+  return [];
+}
+
+function injectMentionsIntoAttempts(attempts: SendAttempt[], mentions: string[]): SendAttempt[] {
+  if (mentions.length === 0) return attempts;
+  return attempts.map((a) => ({
+    ...a,
+    body: { ...a.body, mentions, mentionsEveryOne: true },
+  }));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -859,7 +921,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) return json({ ok: false, error: "Unauthorized" }, 401);
 
-    const { deviceId, groupJid, content, type, caption, headerText, mediaUrl, buttons, cards } = parsedBody.data;
+    const { deviceId, groupJid, content, type, caption, headerText, mediaUrl, buttons, cards, mentionAll } = parsedBody.data;
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: device, error: deviceError } = await admin
@@ -883,6 +945,9 @@ Deno.serve(async (req) => {
     // Fetch group name for enrichment
     const groupInfo = await fetchGroupDeliveryMode(baseUrl, headers, groupJid);
     const groupName = groupInfo.groupName || "";
+
+    // Fetch participants if mentionAll is enabled
+    const mentionPhones = mentionAll ? await fetchGroupParticipants(baseUrl, headers, groupJid) : [];
 
     const normalizedCarouselCards = normalizeCarouselCards(cards || []);
     if (normalizedCarouselCards.length > 0) {
@@ -909,7 +974,7 @@ Deno.serve(async (req) => {
         "text",
       );
       const allAttempts = [...carouselAttempts, ...textFallbackAttempts];
-      await sendWithFallbacks(allAttempts, headers, groupJid);
+      await sendWithFallbacks(allAttempts, headers, groupJid, mentionPhones);
       return json({ ok: true, mode: "carousel", groupName });
     }
 
@@ -945,7 +1010,7 @@ Deno.serve(async (req) => {
           );
 
           try {
-            await sendWithFallbacks(imageButtonAttempts, headers, groupJid);
+            await sendWithFallbacks(imageButtonAttempts, headers, groupJid, mentionPhones);
             return json({ ok: true, mode: "buttons_image", groupName });
           } catch (error) {
             console.warn(`[group-carousel] imageButton failed, falling back to split send: ${error instanceof Error ? error.message : String(error)}`);
@@ -955,19 +1020,19 @@ Deno.serve(async (req) => {
         const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
 
         if (mediaType === "audio") {
-          await sendWithFallbacks(buttonAttempts, headers, groupJid);
+          await sendWithFallbacks(buttonAttempts, headers, groupJid, mentionPhones);
           await new Promise((resolve) => setTimeout(resolve, 1500));
-          await sendWithFallbacks(mediaAttempts, headers, groupJid);
+          await sendWithFallbacks(mediaAttempts, headers, groupJid, mentionPhones);
           return json({ ok: true, mode: "buttons_audio", groupName });
         }
 
-        await sendWithFallbacks(mediaAttempts, headers, groupJid);
+        await sendWithFallbacks(mediaAttempts, headers, groupJid, mentionPhones);
         await new Promise((resolve) => setTimeout(resolve, 1500));
-        await sendWithFallbacks(buttonAttempts, headers, groupJid);
+        await sendWithFallbacks(buttonAttempts, headers, groupJid, mentionPhones);
         return json({ ok: true, mode: "buttons_media", groupName });
       }
 
-      await sendWithFallbacks(buttonAttempts, headers, groupJid);
+      await sendWithFallbacks(buttonAttempts, headers, groupJid, mentionPhones);
       return json({ ok: true, mode: "buttons", groupName });
     }
 
@@ -989,7 +1054,7 @@ Deno.serve(async (req) => {
     }
 
     const attempts = buildMessageAttempts(baseUrl, groupJid, normalizedContent, type, caption, fileName);
-    await sendWithFallbacks(attempts, headers, groupJid);
+    await sendWithFallbacks(attempts, headers, groupJid, mentionPhones);
     return json({ ok: true, mode: "message", groupName });
   } catch (error: any) {
     console.error("[group-carousel] Error:", error);

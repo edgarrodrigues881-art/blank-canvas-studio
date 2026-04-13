@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -190,6 +191,7 @@ export default function GroupCarouselDispatch() {
   const [buttonAddedFlash, setButtonAddedFlash] = useState(false);
   const [previewMode, setPreviewMode] = useState<"sent" | "received">("sent");
   const [selectedTemplate, setSelectedTemplate] = useState<string>("nova");
+  const [mentionAll, setMentionAll] = useState(draft.current?.mentionAll ?? false);
 
   const { data: savedTemplates = [] } = useTemplates();
   const { data: carouselTemplates = [] } = useCarouselTemplates();
@@ -199,9 +201,9 @@ export default function GroupCarouselDispatch() {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
       selectedDevice, selectedGroups, dispatchType, campaignName, message,
       mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax,
-      pauseDurationMin, pauseDurationMax, carouselMessage,
+      pauseDurationMin, pauseDurationMax, carouselMessage, mentionAll,
     }));
-  }, [selectedDevice, selectedGroups, dispatchType, campaignName, message, mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, carouselMessage]);
+  }, [selectedDevice, selectedGroups, dispatchType, campaignName, message, mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, carouselMessage, mentionAll]);
 
   useEffect(() => {
     if (!user || !isAllowed) return;
@@ -466,6 +468,11 @@ export default function GroupCarouselDispatch() {
               body = touchedCards.length > 0
                 ? { deviceId: selectedDevice, groupJid: gid, headerText: plan.text.trim() || undefined, cards: serializeCarouselCards(touchedCards) }
                 : { deviceId: selectedDevice, groupJid: gid, content: plan.text.trim(), type: "text" };
+            }
+
+            // Inject mentionAll flag
+            if (mentionAll) {
+              body.mentionAll = true;
             }
 
             const res = await supabase.functions.invoke("group-carousel-send", { body });
@@ -1203,6 +1210,22 @@ export default function GroupCarouselDispatch() {
                 {selectedGroups.length > 0 && (
                   <p className="text-[10px] text-muted-foreground/40">{selectedGroups.length} grupo{selectedGroups.length !== 1 ? "s" : ""} • 1 instância</p>
                 )}
+              </div>
+            </SurfaceCard>
+
+            {/* Mention All Toggle */}
+            <SurfaceCard className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                    <Users className="w-4.5 h-4.5 text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-bold text-foreground">Marcar todos</p>
+                    <p className="text-[10px] text-muted-foreground/50 mt-0.5">Menciona (@) todos os membros do grupo</p>
+                  </div>
+                </div>
+                <Switch checked={mentionAll} onCheckedChange={setMentionAll} />
               </div>
             </SurfaceCard>
           </div>
