@@ -18,9 +18,13 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
+      injectRegister: "auto",
       workbox: {
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
         navigateFallbackDenylist: [/^\/~oauth/, /^\/install-bo\.html/, /^\/backoffice\/install\.html/],
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        skipWaiting: true,
       },
       manifest: false,
     }),
