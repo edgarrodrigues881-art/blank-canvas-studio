@@ -192,6 +192,7 @@ export default function GroupCarouselDispatch() {
   const [selectedTemplate, setSelectedTemplate] = useState<string>("nova");
 
   const { data: savedTemplates = [] } = useTemplates();
+  const { data: carouselTemplates = [] } = useCarouselTemplates();
   const isAllowed = user?.email === ALLOWED_EMAIL;
 
   useEffect(() => {
