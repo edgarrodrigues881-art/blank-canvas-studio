@@ -146,6 +146,7 @@ const AISettings = () => {
   const [apiKey, setApiKey] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [aiModel, setAiModel] = useState("gpt-4o-mini");
+  const [aiProvider, setAiProvider] = useState("openai");
   const [testingAi, setTestingAi] = useState(false);
   const [businessName, setBusinessName] = useState("");
   const [businessType, setBusinessType] = useState("");
@@ -231,6 +232,7 @@ const AISettings = () => {
         setIaActive(data.ia_active);
         setApiKey(data.api_key || "");
         setAiModel(data.ai_model);
+        setAiProvider((data as any).ai_provider || "openai");
         setTone(data.tone);
         setResponseStyle(data.response_style);
         setAiInstructions(data.ai_instructions || "");
@@ -376,6 +378,7 @@ const AISettings = () => {
         ia_active: true,
         api_key: apiKey,
         ai_model: aiModel,
+        ai_provider: aiProvider,
         tone: result.tone,
         response_style: responseStyle,
         ai_instructions: instructions,
@@ -428,6 +431,7 @@ const AISettings = () => {
         ia_active: isActivating ? true : iaActive,
         api_key: apiKey,
         ai_model: aiModel,
+        ai_provider: aiProvider,
         tone,
         response_style: responseStyle,
         ai_instructions: aiInstructions,
@@ -476,9 +480,34 @@ const AISettings = () => {
 
   const apiKeyStatus: "empty" | "valid" | "invalid" = !apiKey
     ? "empty"
-    : apiKey.startsWith("sk-") && apiKey.length > 20
+    : apiKey.length > 10
     ? "valid"
     : "invalid";
+
+  const getProviderTestConfig = () => {
+    switch (aiProvider) {
+      case "gemini":
+        return {
+          url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+          headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        };
+      case "deepseek":
+        return {
+          url: "https://api.deepseek.com/v1/chat/completions",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        };
+      case "groq":
+        return {
+          url: "https://api.groq.com/openai/v1/chat/completions",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        };
+      default:
+        return {
+          url: "https://api.openai.com/v1/chat/completions",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        };
+    }
+  };
 
   const handleTestAi = async () => {
     if (apiKeyStatus !== "valid") {
@@ -487,9 +516,10 @@ const AISettings = () => {
     }
     setTestingAi(true);
     try {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      const config = getProviderTestConfig();
+      const res = await fetch(config.url, {
         method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        headers: config.headers,
         body: JSON.stringify({
           model: aiModel,
           messages: [{ role: "user", content: "Responda com 'OK' apenas." }],
@@ -813,14 +843,37 @@ const AISettings = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Chave da API (OpenAI)</Label>
+            <Label>Provedor de IA</Label>
+            <Select value={aiProvider} onValueChange={(v) => {
+              setAiProvider(v);
+              // Set default model for provider
+              const defaults: Record<string, string> = {
+                openai: "gpt-4o-mini",
+                gemini: "gemini-2.0-flash",
+                deepseek: "deepseek-chat",
+                groq: "llama-3.3-70b-versatile",
+              };
+              setAiModel(defaults[v] || "gpt-4o-mini");
+            }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="openai">OpenAI (ChatGPT)</SelectItem>
+                <SelectItem value="gemini">Google Gemini</SelectItem>
+                <SelectItem value="deepseek">DeepSeek</SelectItem>
+                <SelectItem value="groq">Groq (Llama)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Chave da API ({aiProvider === "openai" ? "OpenAI" : aiProvider === "gemini" ? "Google AI" : aiProvider === "deepseek" ? "DeepSeek" : "Groq"})</Label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
                   type={showApiKey ? "text" : "password"}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="sk-..."
+                  placeholder={aiProvider === "openai" ? "sk-..." : aiProvider === "gemini" ? "AIza..." : "Sua chave de API..."}
                   className="pr-10"
                 />
                 <button
@@ -856,8 +909,26 @@ const AISettings = () => {
             <Select value={aiModel} onValueChange={setAiModel}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="gpt-4o-mini">GPT-4o Mini (rápido)</SelectItem>
-                <SelectItem value="gpt-4o">GPT-4o (mais inteligente)</SelectItem>
+                {aiProvider === "openai" && (<>
+                  <SelectItem value="gpt-4o-mini">GPT-4o Mini (rápido)</SelectItem>
+                  <SelectItem value="gpt-4o">GPT-4o (mais inteligente)</SelectItem>
+                  <SelectItem value="gpt-4.1-mini">GPT-4.1 Mini</SelectItem>
+                  <SelectItem value="gpt-4.1">GPT-4.1</SelectItem>
+                </>)}
+                {aiProvider === "gemini" && (<>
+                  <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash (rápido)</SelectItem>
+                  <SelectItem value="gemini-2.5-flash-preview-05-20">Gemini 2.5 Flash</SelectItem>
+                  <SelectItem value="gemini-2.5-pro-preview-05-06">Gemini 2.5 Pro (avançado)</SelectItem>
+                </>)}
+                {aiProvider === "deepseek" && (<>
+                  <SelectItem value="deepseek-chat">DeepSeek Chat (V3)</SelectItem>
+                  <SelectItem value="deepseek-reasoner">DeepSeek Reasoner (R1)</SelectItem>
+                </>)}
+                {aiProvider === "groq" && (<>
+                  <SelectItem value="llama-3.3-70b-versatile">Llama 3.3 70B (rápido)</SelectItem>
+                  <SelectItem value="llama-3.1-8b-instant">Llama 3.1 8B (ultra rápido)</SelectItem>
+                  <SelectItem value="mixtral-8x7b-32768">Mixtral 8x7B</SelectItem>
+                </>)}
               </SelectContent>
             </Select>
           </div>
