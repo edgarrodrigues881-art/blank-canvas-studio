@@ -27,6 +27,7 @@ import {
   CarouselCard,
   MAX_CAROUSEL_CARDS,
   createEmptyCard,
+  detectMediaType,
   serializeCarouselCards,
   validateCarouselCards,
 } from "@/components/campaigns/carousel-types";
@@ -73,23 +74,52 @@ const commonEmojis = {
 // Compress images client-side before uploading
 const compressImage = (file: File, maxWidth = 1200, quality = 0.8): Promise<File> => {
   return new Promise((resolve) => {
-    if (!file.type.startsWith("image/") || file.type === "image/gif") { resolve(file); return; }
+    if (!file.type.startsWith("image/") || file.type === "image/gif") {
+      resolve(file);
+      return;
+    }
+
     const img = new window.Image();
+    const objectUrl = URL.createObjectURL(file);
+
     img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
       const scale = Math.min(1, maxWidth / img.width);
       const w = Math.round(img.width * scale);
       const h = Math.round(img.height * scale);
       const canvas = document.createElement("canvas");
-      canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext("2d")!;
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+
       ctx.drawImage(img, 0, 0, w, h);
+      const outputType = file.type === "image/png" ? "image/png" : "image/jpeg";
+      const outputExt = outputType === "image/png" ? ".png" : ".jpg";
+
       canvas.toBlob(
-        (blob) => { if (blob && blob.size < file.size) { resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), { type: "image/webp" })); } else { resolve(file); } },
-        "image/webp", quality
+        (blob) => {
+          if (blob && blob.size < file.size) {
+            resolve(new File([blob], file.name.replace(/\.[^.]+$/, outputExt), { type: outputType }));
+          } else {
+            resolve(file);
+          }
+        },
+        outputType,
+        outputType === "image/jpeg" ? quality : undefined,
       );
     };
-    img.onerror = () => resolve(file);
-    img.src = URL.createObjectURL(file);
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(file);
+    };
+
+    img.src = objectUrl;
   });
 };
 
@@ -321,13 +351,17 @@ export default function GroupCarouselDispatch() {
     setSending(true); setSendResults([]); setProgress({ sent: 0, total: selectedGroups.length });
 
     let campaignId: string | null = null;
+    const activeButtons = buttons
+      .filter((b) => b.text.trim())
+      .map((b) => ({ type: b.type, text: b.text.trim(), value: b.value.trim() }));
+
     try {
       const msgType = dispatchType === "carousel" ? "carousel" : dispatchType === "buttons" ? "buttons" : "text";
       const { data: campaign, error: campErr } = await supabase.from("campaigns")
         .insert({
           user_id: user!.id, name: campaignName.trim(), message_type: msgType,
           message_content: headerText.trim() || null, media_url: mediaUrl.trim() || null,
-          buttons: dispatchType === "buttons" ? buttons.filter(b => b.text.trim()).map((b) => ({ type: b.type, text: b.text, value: b.value })) as any : null,
+          buttons: dispatchType === "buttons" ? activeButtons as any : null,
           carousel_cards: dispatchType === "carousel" ? serializeCarouselCards(cards.filter(isCarouselCardTouched)) as any : null,
           device_id: selectedDevice, status: "processing", total_contacts: selectedGroups.length,
           min_delay_seconds: minDelay, max_delay_seconds: maxDelay,
@@ -336,7 +370,24 @@ export default function GroupCarouselDispatch() {
         } as any).select("id").single();
       if (campErr) throw campErr;
       campaignId = campaign.id;
+
+      const { error: targetsErr } = await supabase.from("campaign_contacts").insert(
+        selectedGroups.map((gid) => ({
+          campaign_id: campaign.id,
+          phone: gid,
+          name: groupNameMap.get(gid) || gid,
+          status: "pending",
+          device_id: selectedDevice,
+        })) as any,
+      );
+      if (targetsErr) throw targetsErr;
     } catch (err: any) {
+      if (campaignId) {
+        await supabase.from("campaigns").update({
+          status: "failed",
+          completed_at: new Date().toISOString(),
+        }).eq("id", campaignId);
+      }
       toast.error("Erro ao criar campanha: " + (err?.message || "")); setSending(false); return;
     }
 
@@ -359,10 +410,27 @@ export default function GroupCarouselDispatch() {
 
         let body: Record<string, any>;
         if (dispatchType === "text") {
-          body = { deviceId: selectedDevice, groupJid: gid, content: headerText.trim(), type: "text" };
-          if (mediaUrl.trim()) body.mediaUrl = mediaUrl.trim();
+          const trimmedMediaUrl = mediaUrl.trim();
+          if (trimmedMediaUrl) {
+            body = {
+              deviceId: selectedDevice,
+              groupJid: gid,
+              content: trimmedMediaUrl,
+              caption: headerText.trim() || undefined,
+              type: detectMediaType(trimmedMediaUrl) || "image",
+            };
+          } else {
+            body = { deviceId: selectedDevice, groupJid: gid, content: headerText.trim(), type: "text" };
+          }
         } else if (dispatchType === "buttons") {
-          body = { deviceId: selectedDevice, groupJid: gid, content: headerText.trim(), type: "buttons", buttons: buttons.filter(b => b.text.trim()).map((b) => ({ type: b.type, text: b.text, value: b.value })) };
+          body = {
+            deviceId: selectedDevice,
+            groupJid: gid,
+            content: headerText.trim(),
+            type: "buttons",
+            buttons: activeButtons,
+            ...(mediaUrl.trim() ? { mediaUrl: mediaUrl.trim() } : {}),
+          };
         } else {
           const tc = cards.filter(isCarouselCardTouched);
           body = tc.length > 0
@@ -373,9 +441,24 @@ export default function GroupCarouselDispatch() {
         const res = await supabase.functions.invoke("group-carousel-send", { body });
         try {
           if (res.error || res.data?.ok === false) throw new Error(res.error?.message || res.data?.error || "Falha ao enviar.");
-          ok++; results.push({ groupId: gid, groupName: gname, status: "success", message: "Enviado com sucesso." });
+          const sentAt = new Date().toISOString();
+          ok++;
+          results.push({ groupId: gid, groupName: gname, status: "success", message: "Enviado com sucesso." });
+          await supabase.from("campaign_contacts").update({
+            status: "sent",
+            sent_at: sentAt,
+            error_message: null,
+            device_id: selectedDevice,
+          } as any).eq("campaign_id", campaignId).eq("phone", gid);
         } catch (e) {
-          fail++; results.push({ groupId: gid, groupName: gname, status: "error", message: e instanceof Error ? e.message : "Falha." });
+          const errorMessage = e instanceof Error ? e.message : "Falha.";
+          fail++;
+          results.push({ groupId: gid, groupName: gname, status: "error", message: errorMessage });
+          await supabase.from("campaign_contacts").update({
+            status: "failed",
+            error_message: errorMessage,
+            device_id: selectedDevice,
+          } as any).eq("campaign_id", campaignId).eq("phone", gid);
         }
         setProgress({ sent: i + 1, total: selectedGroups.length });
         setSendResults([...results]);
