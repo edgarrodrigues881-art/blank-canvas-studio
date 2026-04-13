@@ -140,6 +140,8 @@ interface KnowledgeDoc {
 const AISettings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [activating, setActivating] = useState(false);
+  const [justActivated, setJustActivated] = useState(false);
   const [iaActive, setIaActive] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
@@ -386,14 +388,25 @@ const AISettings = () => {
   };
 
   const handleSave = async () => {
+    const wasInactive = !iaActive || activating;
+    const isActivating = !saving && wasInactive;
+    
+    if (isActivating && !iaActive) {
+      setIaActive(true);
+    }
+    
     setSaving(true);
+    if (isActivating) {
+      setActivating(true);
+    }
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { toast.error("Não autenticado"); return; }
 
       const payload = {
         user_id: user.id,
-        ia_active: iaActive,
+        ia_active: isActivating ? true : iaActive,
         api_key: apiKey,
         ai_model: aiModel,
         tone,
@@ -425,9 +438,18 @@ const AISettings = () => {
         .upsert(payload, { onConflict: "user_id" });
 
       if (error) throw error;
+      
+      if (isActivating) {
+        await new Promise(r => setTimeout(r, 2000));
+        setActivating(false);
+        setJustActivated(true);
+        setTimeout(() => setJustActivated(false), 5000);
+      }
+      
       toast.success("Configurações salvas com sucesso!");
     } catch (err: any) {
       toast.error("Erro ao salvar: " + (err.message || "Erro desconhecido"));
+      setActivating(false);
     } finally {
       setSaving(false);
     }
@@ -565,9 +587,9 @@ const AISettings = () => {
             <p className="text-sm text-muted-foreground">Automatize conversas, responda clientes e aumente suas vendas no piloto automático</p>
           </div>
         </div>
-        <Button size="sm" onClick={handleSave} disabled={saving} className="gap-2 transition-all duration-200 hover:shadow-lg hover:scale-[1.02]">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" strokeWidth={1.5} />}
-          {iaActive ? "Salvar Alterações" : "Colocar IA para atender clientes"}
+        <Button size="sm" onClick={handleSave} disabled={saving || activating} className="gap-2 transition-all duration-200 hover:shadow-lg hover:scale-[1.02]">
+          {activating ? <Loader2 className="h-4 w-4 animate-spin" /> : saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" strokeWidth={1.5} />}
+          {activating ? "Ativando IA..." : iaActive ? "Salvar Alterações" : "Ativar atendimento automático agora"}
         </Button>
       </div>
 
