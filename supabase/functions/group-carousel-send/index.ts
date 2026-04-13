@@ -805,6 +805,11 @@ function extractProviderError(raw: string) {
   return raw.trim() || "Falha ao enviar mensagem para o grupo.";
 }
 
+function isMethodNotAllowedProviderError(message?: string) {
+  const normalized = String(message || "").trim().toLowerCase();
+  return normalized.includes("method not allowed") || normalized === "405";
+}
+
 function normalizeMentionPhone(raw: unknown): string {
   const digits = String(raw || "").replace(/@.*$/, "").replace(/\D/g, "");
   return digits.length >= 8 && digits.length <= 15 ? digits : "";
@@ -947,6 +952,7 @@ function responseContainsMentionEvidence(raw: string): boolean {
 async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string, string>, expectedGroupJid: string, mentionPhones: string[] = []) {
   const finalAttempts = mentionPhones.length > 0 ? injectMentionsIntoAttempts(attempts, mentionPhones) : attempts;
   let lastError = "Falha ao enviar mensagem para o grupo.";
+  let mentionCapabilityError = "";
 
   for (const attempt of finalAttempts) {
     try {
@@ -962,7 +968,7 @@ async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string
 
       if (response.ok) {
         if (mentionPhones.length > 0 && !responseContainsMentionEvidence(raw)) {
-          lastError = "A UAZAPI entregou a mensagem, mas sem aplicar a menção em grupo.";
+          mentionCapabilityError ||= "A UAZAPI dessa instância enviou a mensagem, mas removeu a menção em grupo. Nesse provedor, o \"Marcar todos\" oculto não é suportado; para mencionar de verdade, a mensagem precisa exibir os @números.";
           console.warn(`[group-carousel] Mention payload was ignored by provider for ${attempt.endpoint}${attempt.label ? ` (${attempt.label})` : ""}`);
           continue;
         }
@@ -975,11 +981,21 @@ async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string
         }
         return;
       }
-      lastError = extractProviderError(raw);
+      const providerError = extractProviderError(raw);
+      if (!(mentionCapabilityError && isMethodNotAllowedProviderError(providerError))) {
+        lastError = providerError;
+      }
     } catch (error: any) {
-      lastError = error?.message || "Falha ao enviar mensagem para o grupo.";
+      const currentError = error?.message || "Falha ao enviar mensagem para o grupo.";
+      if (!(mentionCapabilityError && isMethodNotAllowedProviderError(currentError))) {
+        lastError = currentError;
+      }
       console.error(`[group-carousel] Attempt failed: ${attempt.endpoint}`, error);
     }
+  }
+
+  if (mentionCapabilityError) {
+    throw createHttpError(mentionCapabilityError, 422);
   }
 
   throw new Error(lastError);

@@ -477,7 +477,19 @@ export default function GroupCarouselDispatch() {
 
             const res = await supabase.functions.invoke("group-carousel-send", { body });
             if (res.error || res.data?.ok === false) {
-              throw new Error(res.error?.message || res.data?.error || "Falha ao enviar.");
+              let detailedError = res.data?.error;
+              const errorContext = (res.error as any)?.context;
+
+              if (!detailedError && errorContext && typeof errorContext.clone === "function") {
+                try {
+                  const errorPayload = await errorContext.clone().json();
+                  detailedError = errorPayload?.error || errorPayload?.message;
+                } catch {
+                  // ignore response body parse failures and fallback below
+                }
+              }
+
+              throw new Error(detailedError || res.error?.message || "Falha ao enviar.");
             }
 
           const sentAt = new Date().toISOString();
