@@ -128,6 +128,8 @@ interface LeadMemory {
   interaction_count: number;
   last_interaction_at: string | null;
   notes: string | null;
+  product_cited: string | null;
+  last_message_preview: string | null;
 }
 
 interface KnowledgeDoc {
