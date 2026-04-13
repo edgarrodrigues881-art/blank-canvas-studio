@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import logo from "@/assets/dg-contingencia-avatar.png";
+import logo from "@/assets/dg-contingencia-pro-logo.jpeg";
 
 const WelcomeSplash = () => {
   const navigate = useNavigate();
