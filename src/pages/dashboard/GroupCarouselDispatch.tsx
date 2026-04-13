@@ -188,7 +188,9 @@ export default function GroupCarouselDispatch() {
   const [emojiCategory, setEmojiCategory] = useState<string>("Mais usados");
   const [buttonAddedFlash, setButtonAddedFlash] = useState(false);
   const [previewMode, setPreviewMode] = useState<"sent" | "received">("sent");
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("nova");
 
+  const { data: savedTemplates = [] } = useTemplates();
   const isAllowed = user?.email === ALLOWED_EMAIL;
 
   useEffect(() => {
