@@ -731,11 +731,21 @@ const AISettings = () => {
       {/* Modo de Operação */}
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Rocket className="h-4 w-4 text-primary" strokeWidth={1.5} />
-            <CardTitle className="text-base">Escolha como sua IA deve operar</CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Rocket className="h-4 w-4 text-primary" strokeWidth={1.5} />
+              <CardTitle className="text-base">Escolha como sua IA deve operar</CardTitle>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="advanced-toggle" className="text-xs text-muted-foreground cursor-pointer">Modo avançado</Label>
+              <Switch id="advanced-toggle" checked={expertMode} onCheckedChange={setExpertMode} />
+            </div>
           </div>
-          <CardDescription>Selecione um modo e todas as configurações serão ajustadas automaticamente</CardDescription>
+          <CardDescription>
+            {expertMode
+              ? "Todas as configurações detalhadas estão visíveis para edição manual"
+              : "Selecione um modo e todas as configurações serão ajustadas automaticamente"}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -789,15 +799,6 @@ const AISettings = () => {
             </div>
           )}
 
-          {/* Expert mode toggle */}
-          <button
-            onClick={() => setExpertMode(!expertMode)}
-            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full justify-center pt-1"
-          >
-            <Settings2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-            <span>{expertMode ? "Ocultar configurações avançadas" : "Modo expert — editar manualmente"}</span>
-            {expertMode ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          </button>
         </CardContent>
       </Card>
 
