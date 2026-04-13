@@ -1447,6 +1447,17 @@ Deno.serve(async (req) => {
     // Fetch group name for enrichment
     const groupInfo = await fetchGroupDeliveryMode(baseUrl, headers, groupJid);
     const groupName = groupInfo.groupName || "";
+    const isRestricted = groupInfo.mode === "restricted";
+
+    // Helper: wrap send function with restricted group unlock/relock when needed
+    const wrapSend = async (fn: () => Promise<void>) => {
+      if (isRestricted) {
+        console.log(`[group-carousel] Using restricted-group unlock/relock flow for ${groupJid}`);
+        await sendToRestrictedGroup(baseUrl, headers, groupJid, fn);
+      } else {
+        await fn();
+      }
+    };
 
     // Fetch participants if mentionAll is enabled — but do NOT fail if we can't get them.
     // Many groups allow sending with mentions:"all" flag without knowing exact participants.
@@ -1488,19 +1499,20 @@ Deno.serve(async (req) => {
       );
       const allAttempts = [...carouselAttempts, ...textFallbackAttempts];
 
-      if (mentionAll && mentionPhones.length === 0) {
-        // Blind mention mode — inject mentions:"all" into all attempts
-        const blindFields = buildBlindMentionFields();
-        const blindAttempts = allAttempts.map((a) => ({
-          ...a,
-          body: { ...a.body, ...blindFields },
-          label: `${a.label || ""}_blind_mention`,
-        }));
-        await sendWithFallbacks(dedupeAttempts(blindAttempts), headers, groupJid);
-      } else {
-        await sendWithFallbacks(allAttempts, headers, groupJid, mentionPhones);
-      }
-      return json({ ok: true, mode: "carousel", mentionMode, groupName });
+      await wrapSend(async () => {
+        if (mentionAll && mentionPhones.length === 0) {
+          const blindFields = buildBlindMentionFields();
+          const blindAttempts = allAttempts.map((a) => ({
+            ...a,
+            body: { ...a.body, ...blindFields },
+            label: `${a.label || ""}_blind_mention`,
+          }));
+          await sendWithFallbacks(dedupeAttempts(blindAttempts), headers, groupJid);
+        } else {
+          await sendWithFallbacks(allAttempts, headers, groupJid, mentionPhones);
+        }
+      });
+      return json({ ok: true, mode: "carousel", mentionMode, isRestricted, groupName });
     }
 
     const normalizedButtons = normalizeButtons(buttons || []);
