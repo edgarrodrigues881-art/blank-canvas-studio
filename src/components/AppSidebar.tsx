@@ -81,6 +81,7 @@ const menuGroups = [
       { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, exact: true },
       { title: "Instâncias", url: "/dashboard/devices", icon: Smartphone },
       { title: "Enviar Mensagem", url: "/dashboard/campaigns", icon: Send },
+      { title: "Disparo em Grupo", url: "/dashboard/group-carousel", icon: Layers },
       { title: "Campanhas", url: "/dashboard/campaign-list", icon: Megaphone, badgeKey: "activeCampaigns" as const },
       { title: "Template", url: "/dashboard/templates", icon: FileText },
       { title: "Template Carrossel", url: "/dashboard/carousel-templates", icon: Layers },
@@ -519,7 +520,7 @@ export function AppSidebar() {
               {renderNavItem({ title: "Grupos", url: "/dashboard/groups", icon: UsersRound })}
               {renderNavItem({ title: "Auto Save", url: "/dashboard/autosave", icon: SaveAll })}
               {renderNavItem({ title: "Relatório Via WhatsApp", url: "/dashboard/reports/whatsapp", icon: ScrollText })}
-              {user?.email === "edgarrodrigues881@gmail.com" && renderNavItem({ title: "Carrossel em Grupos", url: "/dashboard/group-carousel", icon: Layers })}
+              
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

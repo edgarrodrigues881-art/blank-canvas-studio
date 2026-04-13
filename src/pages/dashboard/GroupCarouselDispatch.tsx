@@ -308,20 +308,12 @@ export default function GroupCarouselDispatch() {
           <Layers className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-xl font-bold">Carrossel em Grupos</h1>
-          <p className="text-sm text-muted-foreground">Mesmo editor do carrossel principal, em uma área separada no menu.</p>
+          <h1 className="text-xl font-bold">Disparo em Grupo</h1>
+          <p className="text-sm text-muted-foreground">Envie mensagens e carrosséis diretamente para seus grupos.</p>
         </div>
         <Badge variant="outline" className="ml-auto">Experimental</Badge>
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <p className="text-sm text-muted-foreground">
-            Se houver cards preenchidos, o sistema tenta enviar o <strong className="text-foreground">carrossel nativo</strong>.
-            Se você preencher só o <strong className="text-foreground">Texto principal</strong>, ele envia uma <strong className="text-foreground">mensagem normal</strong> no grupo.
-          </p>
-        </CardContent>
-      </Card>
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-6">
