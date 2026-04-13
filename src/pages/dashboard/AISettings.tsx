@@ -150,6 +150,22 @@ const AISettings = () => {
     })();
   }, []);
 
+  // Load leads
+  useEffect(() => {
+    (async () => {
+      setLoadingLeads(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setLoadingLeads(false); return; }
+      const { data } = await supabase
+        .from("ai_lead_memory")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("last_interaction_at", { ascending: false })
+        .limit(50);
+      if (data) setLeads(data as LeadMemory[]);
+      setLoadingLeads(false);
+    })();
+  }, []);
 
   const generatePrompt = (obj: string, style: string, ins: number, strat: string) => {
     const objMap: Record<string, string> = { vender: "converter leads em vendas e fechar negócios", atender: "atender dúvidas dos clientes de forma completa", suporte: "resolver problemas técnicos e dar suporte" };
