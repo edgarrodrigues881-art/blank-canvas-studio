@@ -1127,10 +1127,10 @@ export default function GroupCarouselDispatch() {
 
 
               {selectedRestrictedGroups.length > 0 && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
-                  <p className="text-sm font-semibold text-destructive">Atenção: grupo com envio restrito</p>
+                <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3">
+                  <p className="text-sm font-semibold text-yellow-600 dark:text-yellow-400">Aviso: grupo com envio restrito</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Pelo menos um grupo selecionado está marcado como <strong className="text-foreground">somente admins</strong>.
+                    Pelo menos um grupo está como <strong className="text-foreground">somente admins</strong>. O sistema tentará enviar mesmo assim — se sua instância não for admin, a mensagem pode não ser entregue nesse grupo.
                   </p>
                 </div>
               )}

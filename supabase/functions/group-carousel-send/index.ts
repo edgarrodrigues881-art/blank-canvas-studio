@@ -849,10 +849,10 @@ function buildMentionFields(mentionParticipants: string[]) {
   const aliases = Array.from(new Set([...numbers, ...jids]));
   const payload: Record<string, unknown> = {
     mentionsEveryOne: true,
+    mentions: "all",
   };
 
   if (numbers.length > 0) {
-    payload.mentions = numbers;
     payload.mentionUsers = numbers.join(",");
   }
 
@@ -877,6 +877,16 @@ function buildMentionFields(mentionParticipants: string[]) {
     jids,
     mentionUsers: numbers.join(","),
     payload,
+  };
+}
+
+function buildBlindMentionFields() {
+  return {
+    mentions: "all",
+    mentionsEveryOne: true,
+    contextInfo: {
+      mentionsEveryOne: true,
+    },
   };
 }
 
@@ -1438,10 +1448,18 @@ Deno.serve(async (req) => {
     const groupInfo = await fetchGroupDeliveryMode(baseUrl, headers, groupJid);
     const groupName = groupInfo.groupName || "";
 
-    // Fetch participants if mentionAll is enabled
-    const mentionPhones = mentionAll ? await fetchGroupParticipants(baseUrl, headers, groupJid) : [];
-    if (mentionAll && mentionPhones.length === 0) {
-      return json({ ok: false, error: "Não consegui carregar os membros desse grupo para montar o @todos. A UAZAPI dessa instância não retornou a lista de participantes." }, 422);
+    // Fetch participants if mentionAll is enabled — but do NOT fail if we can't get them.
+    // Many groups allow sending with mentions:"all" flag without knowing exact participants.
+    let mentionPhones: string[] = [];
+    let mentionMode: "participants" | "blind" = "blind";
+    if (mentionAll) {
+      mentionPhones = await fetchGroupParticipants(baseUrl, headers, groupJid);
+      if (mentionPhones.length > 0) {
+        mentionMode = "participants";
+        console.log(`[group-carousel] Fetched ${mentionPhones.length} participants for explicit mentions`);
+      } else {
+        console.log(`[group-carousel] Could not fetch participants — will use blind mentions:"all" strategy`);
+      }
     }
 
     const normalizedCarouselCards = normalizeCarouselCards(cards || []);
@@ -1461,7 +1479,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Send carousel directly — admins can send in restricted groups without toggling settings
+      // Send carousel directly — try even if not admin
       const carouselAttempts = buildCarouselAttempts(baseUrl, groupJid, headerText, normalizedCarouselCards);
       const textFallbackAttempts = buildMessageAttempts(
         baseUrl, groupJid,
@@ -1469,8 +1487,20 @@ Deno.serve(async (req) => {
         "text",
       );
       const allAttempts = [...carouselAttempts, ...textFallbackAttempts];
-      await sendWithFallbacks(allAttempts, headers, groupJid, mentionPhones);
-      return json({ ok: true, mode: "carousel", groupName });
+
+      if (mentionAll && mentionPhones.length === 0) {
+        // Blind mention mode — inject mentions:"all" into all attempts
+        const blindFields = buildBlindMentionFields();
+        const blindAttempts = allAttempts.map((a) => ({
+          ...a,
+          body: { ...a.body, ...blindFields },
+          label: `${a.label || ""}_blind_mention`,
+        }));
+        await sendWithFallbacks(dedupeAttempts(blindAttempts), headers, groupJid);
+      } else {
+        await sendWithFallbacks(allAttempts, headers, groupJid, mentionPhones);
+      }
+      return json({ ok: true, mode: "carousel", mentionMode, groupName });
     }
 
     const normalizedButtons = normalizeButtons(buttons || []);
@@ -1490,15 +1520,28 @@ Deno.serve(async (req) => {
 
       // When mentionAll is active with buttons, try sending buttons WITH mentions: "all"
       // injected directly into the /send/menu payload. This avoids a separate ping message.
-      if (mentionAll && mentionPhones.length > 0) {
+      if (mentionAll) {
+        const blindFields = buildBlindMentionFields();
         const mentionButtonAttempts = buttonAttempts.map((attempt) => ({
           ...attempt,
-          body: { ...attempt.body, mentions: "all" },
+          body: { ...attempt.body, ...blindFields, mentions: "all" },
           label: `${attempt.label}_mention_all`,
         }));
 
+        // Also add attempts with explicit participant JIDs if available
+        if (mentionPhones.length > 0) {
+          const mentionFields = buildMentionFields(mentionPhones);
+          buttonAttempts.forEach((attempt) => {
+            mentionButtonAttempts.push({
+              ...attempt,
+              body: { ...attempt.body, ...mentionFields.payload },
+              label: `${attempt.label}_mention_jids`,
+            });
+          });
+        }
+
         try {
-          console.log(`[group-carousel] Trying buttons + mentions:"all" in single payload (${mentionPhones.length} members)`);
+          console.log(`[group-carousel] Trying buttons + mentions in single payload (mode=${mentionMode}, ${mentionPhones.length} members)`);
           await sendWithFallbacks(mentionButtonAttempts, headers, groupJid);
 
           if (trimmedMediaUrl) {
@@ -1592,15 +1635,54 @@ Deno.serve(async (req) => {
     }
 
     if (mentionAll && type === "text") {
-      const mentionAttempts = buildMentionTextAttempts(baseUrl, groupJid, normalizedContent, mentionPhones);
-      console.log(`[group-carousel] Prepared ${mentionAttempts.length} dedicated @todos attempt(s) for ${groupJid}`);
-      await sendWithFallbacks(mentionAttempts, headers, groupJid);
-      return json({ ok: true, mode: "message", groupName });
+      if (mentionMode === "participants") {
+        const mentionAttempts = buildMentionTextAttempts(baseUrl, groupJid, normalizedContent, mentionPhones);
+        console.log(`[group-carousel] Prepared ${mentionAttempts.length} dedicated @todos attempt(s) for ${groupJid} (explicit participants)`);
+        await sendWithFallbacks(mentionAttempts, headers, groupJid);
+      } else {
+        // Blind mention — no participant list available, use mentions:"all" flag
+        const blindFields = buildBlindMentionFields();
+        const blindAttempts: SendAttempt[] = [
+          {
+            endpoint: `${baseUrl}/send/text`,
+            body: { number: groupJid, text: normalizedContent, ...blindFields },
+            label: "blind_mentions_all",
+          },
+          {
+            endpoint: `${baseUrl}/send/text`,
+            body: { number: groupJid, text: normalizedContent, mentions: "all" },
+            label: "blind_mentions_flag",
+          },
+          {
+            endpoint: `${baseUrl}/chat/send-text`,
+            body: { chatId: groupJid, text: normalizedContent, body: normalizedContent, ...blindFields },
+            label: "blind_mentions_chat",
+          },
+          {
+            endpoint: `${baseUrl}/message/sendText`,
+            body: { chatId: groupJid, text: normalizedContent, ...blindFields },
+            label: "blind_mentions_sendText",
+          },
+        ];
+        console.log(`[group-carousel] Prepared ${blindAttempts.length} blind @todos attempt(s) for ${groupJid}`);
+        await sendWithFallbacks(dedupeAttempts(blindAttempts), headers, groupJid);
+      }
+      return json({ ok: true, mode: "message", mentionMode, groupName });
     }
 
     const attempts = buildMessageAttempts(baseUrl, groupJid, normalizedContent, type, caption, fileName);
-    await sendWithFallbacks(attempts, headers, groupJid, mentionPhones);
-    return json({ ok: true, mode: "message", groupName });
+    if (mentionAll && mentionPhones.length === 0) {
+      const blindFields = buildBlindMentionFields();
+      const blindAttempts = attempts.map((a) => ({
+        ...a,
+        body: { ...a.body, ...blindFields },
+        label: `${a.label || ""}_blind_mention`,
+      }));
+      await sendWithFallbacks(dedupeAttempts(blindAttempts), headers, groupJid);
+    } else {
+      await sendWithFallbacks(attempts, headers, groupJid, mentionPhones);
+    }
+    return json({ ok: true, mode: "message", mentionMode, groupName });
   } catch (error: any) {
     console.error("[group-carousel] Error:", error);
     const status = typeof error?.status === "number" ? error.status : 500;
