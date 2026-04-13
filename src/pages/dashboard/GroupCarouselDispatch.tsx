@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTemplates } from "@/hooks/useTemplates";
+import { useCarouselTemplates } from "@/hooks/useCarouselTemplates";
 import { cn } from "@/lib/utils";
 
 import { useAuth } from "@/lib/auth";
