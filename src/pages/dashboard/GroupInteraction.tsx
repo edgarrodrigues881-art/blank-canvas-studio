@@ -494,38 +494,6 @@ export default function GroupInteractionPage() {
     return null;
   }, []);
 
-  const getPersistedGroupBindingError = useCallback(async (deviceId: string | null | undefined, groupIds: string[]) => {
-    const normalizedDeviceId = String(deviceId || "").trim();
-    const normalizedGroupIds = Array.from(new Set(groupIds.map((groupId) => String(groupId || "").trim()).filter(Boolean)));
-
-    if (!user || !normalizedDeviceId || normalizedGroupIds.length === 0) return null;
-
-    const { data, error } = await supabase
-      .from("warmup_instance_groups" as any)
-      .select("group_id")
-      .eq("user_id", user.id)
-      .eq("device_id", normalizedDeviceId)
-      .eq("join_status", "joined")
-      .not("group_jid", "is", null)
-      .in("group_id", normalizedGroupIds);
-
-    if (error) throw error;
-
-    const linkedCount = new Set((data || []).map((row: any) => String(row.group_id || "").trim()).filter(Boolean)).size;
-    if (linkedCount === 0) {
-      return "Essa instância ainda não entrou em nenhum dos grupos selecionados. Vincule os grupos no Aquecimento primeiro.";
-    }
-
-    if (linkedCount < normalizedGroupIds.length) {
-      const missingCount = normalizedGroupIds.length - linkedCount;
-      return missingCount === 1
-        ? "1 grupo selecionado ainda não está vinculado a essa instância."
-        : `${missingCount} grupos selecionados ainda não estão vinculados a essa instância.`;
-    }
-
-    return null;
-  }, [user, user?.id]);
-
   const validate = (): string | null => {
     const normalizedGroupIds = normalizedSelectedGroupIds;
     if (!form.device_id && !showBulkCreate) return "Selecione um dispositivo";
@@ -550,8 +518,6 @@ export default function GroupInteractionPage() {
     if (!(payload.group_ids || []).length) return toast.error("Selecione pelo menos um grupo válido");
     const scheduleError = getStartScheduleError(payload);
     if (scheduleError) return toast.error(scheduleError);
-    const bindingError = await getPersistedGroupBindingError(payload.device_id, payload.group_ids || []);
-    if (bindingError) return toast.error(bindingError);
     await createInteraction.mutateAsync(payload as any);
     setShowConfig(false);
   };
@@ -571,11 +537,6 @@ export default function GroupInteractionPage() {
       for (const deviceId of bulkDeviceIds) {
         const device = eligibleDevices.find((d: any) => d.id === deviceId);
         const deviceName = device ? device.name : "Dispositivo";
-        const bindingError = await getPersistedGroupBindingError(deviceId, payload.group_ids || []);
-        if (bindingError) {
-          toast.error(`${deviceName}: ${bindingError}`);
-          return;
-        }
         await createInteraction.mutateAsync({
           ...payload,
           device_id: deviceId,
@@ -623,9 +584,6 @@ export default function GroupInteractionPage() {
         const scheduleError = getStartScheduleError(payload);
         if (scheduleError) return toast.error(scheduleError);
 
-        const bindingError = await getPersistedGroupBindingError(payload.device_id, payload.group_ids || []);
-        if (bindingError) return toast.error(bindingError);
-
         await updateInteraction.mutateAsync({ id: selectedId, ...payload } as any);
       }
 
@@ -645,16 +603,13 @@ export default function GroupInteractionPage() {
       const scheduleError = getStartScheduleError(interaction as any);
       if (scheduleError) return toast.error(scheduleError);
 
-      const bindingError = await getPersistedGroupBindingError(interaction.device_id, interaction.group_ids || []);
-      if (bindingError) return toast.error(bindingError);
-
       await invokeAction.mutateAsync({ interactionId: interaction.id, action: "start" });
     };
 
     run().catch((error: any) => {
       toast.error(error?.message || "Não foi possível iniciar a automação");
     });
-  }, [deviceMap, getPersistedGroupBindingError, getStartScheduleError, invokeAction]);
+  }, [deviceMap, getStartScheduleError, invokeAction]);
 
   const selectedLogs = useMemo(
     () => (selectedId ? logs.filter((l) => l.interaction_id === selectedId) : []),
@@ -1210,7 +1165,7 @@ export default function GroupInteractionPage() {
                       {!currentFormDeviceId
                         ? showBulkCreate
                           ? "Selecione os grupos que serão usados. O vínculo com cada instância será validado ao criar."
-                          : "Selecione uma instância para listar apenas os grupos realmente vinculados a ela."
+                          : "Selecione uma instância para sincronizar os grupos reais dela ao iniciar a automação."
                         : groupSource === "system" && systemWarmupGroupsLoading
                           ? "Carregando grupos do sistema..."
                           : deviceJoinedGroupsLoading
@@ -1234,11 +1189,11 @@ export default function GroupInteractionPage() {
             {currentFormDeviceId && (
               <p className="text-[11px] text-amber-400">
                 {joinedGroupIds.size === 0
-                  ? "Os grupos do sistema estão visíveis, mas essa instância ainda não entrou em nenhum deles; a automação só envia após o Aquecimento registrar o grupo com JID."
+                  ? "Ainda não existem vínculos salvos dessa instância no sistema; ao iniciar, a automação vai conferir os grupos reais da instância e tentar entrar automaticamente nos links que faltarem."
                   : unavailableSelectedGroupCount > 0
                     ? unavailableSelectedGroupCount === 1
-                      ? "1 grupo selecionado ainda não está vinculado a essa instância, então ele não poderá receber mensagens agora."
-                      : `${unavailableSelectedGroupCount} grupos selecionados ainda não estão vinculados a essa instância, então eles não poderão receber mensagens agora.`
+                      ? "1 grupo selecionado ainda não tem vínculo salvo; ao iniciar, a automação vai tentar reconciliar esse grupo e entrar nele automaticamente se necessário."
+                      : `${unavailableSelectedGroupCount} grupos selecionados ainda não têm vínculo salvo; ao iniciar, a automação vai tentar reconciliar esses grupos e entrar neles automaticamente se necessário.`
                     : "Essa instância já tem grupos vinculados e pode enviar normalmente dentro do dia/horário ativo."}
               </p>
             )}
