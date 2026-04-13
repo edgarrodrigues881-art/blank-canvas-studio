@@ -125,6 +125,18 @@ const Auth = () => {
         background: "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%)",
       }} />
 
+      {/* Back button */}
+      <motion.button
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+        onClick={() => navigate("/")}
+        className="absolute top-6 left-6 z-20 flex items-center gap-1.5 text-xs font-medium text-white/30 hover:text-white/60 transition-colors group"
+      >
+        <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+        Voltar
+      </motion.button>
+
       <div className="w-full max-w-[400px] flex flex-col items-center relative z-10">
         {/* Card */}
         <motion.div
