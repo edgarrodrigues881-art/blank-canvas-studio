@@ -61,22 +61,42 @@ async function fetchInviteCode(baseUrl: string, token: string, groupJid: string)
   const headers: Record<string, string> = { token, Accept: "application/json", "Content-Type": "application/json" };
   const encodedJid = encodeURIComponent(groupJid);
 
-  // Strategy: try many endpoint patterns used across UAZAPI versions
+  // First try /group/info which returns 200 — check if it contains invite code
+  const infoAttempts = [
+    { method: "POST", url: `${baseUrl}/group/info`, body: JSON.stringify({ groupJid: groupJid }) },
+    { method: "POST", url: `${baseUrl}/group/info`, body: JSON.stringify({ groupjid: groupJid }) },
+  ];
+
+  for (const attempt of infoAttempts) {
+    try {
+      const res = await fetchWithTimeout(attempt.url, { method: attempt.method, headers, body: attempt.body }, 6_000);
+      if (!res.ok) continue;
+      const raw = await res.text();
+      // Log full response to see all fields
+      console.log(`[invite] /group/info FULL (${raw.length} chars): ${raw.substring(0, 800)}`);
+      if (raw.length > 800) console.log(`[invite] /group/info FULL pt2: ${raw.substring(800, 1600)}`);
+      
+      const linkMatch = raw.match(/chat\.whatsapp\.com\/([A-Za-z0-9_-]{10,})/);
+      if (linkMatch?.[1]) return `https://chat.whatsapp.com/${linkMatch[1]}`;
+
+      let parsed: any;
+      try { parsed = JSON.parse(raw); } catch { continue; }
+      const code = findInviteCode(parsed);
+      if (code) return `https://chat.whatsapp.com/${code}`;
+      
+      // Log all keys at top level for debugging
+      console.log(`[invite] /group/info keys: ${Object.keys(parsed || {}).join(", ")}`);
+    } catch { continue; }
+  }
+
+  // Then try dedicated invite endpoints
   const attempts: Array<{ method: string; url: string; body?: string; label: string }> = [
-    // Path param patterns (most common in newer UAZAPI)
     { method: "GET", label: "GET /group/inviteCode/{jid}", url: `${baseUrl}/group/inviteCode/${encodedJid}` },
     { method: "GET", label: "GET /group/inviteLink/{jid}", url: `${baseUrl}/group/inviteLink/${encodedJid}` },
-    // POST with body (common UAZAPI pattern)
-    { method: "POST", label: "POST /group/inviteCode body", url: `${baseUrl}/group/inviteCode`, body: JSON.stringify({ groupJid: groupJid }) },
-    { method: "POST", label: "POST /group/inviteCode body2", url: `${baseUrl}/group/inviteCode`, body: JSON.stringify({ groupjid: groupJid }) },
-    { method: "POST", label: "POST /group/inviteLink body", url: `${baseUrl}/group/inviteLink`, body: JSON.stringify({ groupJid: groupJid }) },
-    // group/info may include invite code in response
-    { method: "POST", label: "POST /group/info", url: `${baseUrl}/group/info`, body: JSON.stringify({ groupJid: groupJid }) },
-    { method: "POST", label: "POST /group/info body2", url: `${baseUrl}/group/info`, body: JSON.stringify({ groupjid: groupJid }) },
-    { method: "GET", label: "GET /group/info?jid", url: `${baseUrl}/group/info?groupJid=${encodedJid}` },
-    // getInviteCode patterns
+    { method: "PUT", label: "PUT /group/inviteCode", url: `${baseUrl}/group/inviteCode`, body: JSON.stringify({ groupJid: groupJid }) },
+    { method: "PUT", label: "PUT /group/inviteLink", url: `${baseUrl}/group/inviteLink`, body: JSON.stringify({ groupJid: groupJid }) },
     { method: "GET", label: "GET /group/getInviteCode/{jid}", url: `${baseUrl}/group/getInviteCode/${encodedJid}` },
-    { method: "POST", label: "POST /group/getInviteCode", url: `${baseUrl}/group/getInviteCode`, body: JSON.stringify({ groupJid: groupJid }) },
+    { method: "GET", label: "GET /group/inviteCode?groupJid", url: `${baseUrl}/group/inviteCode?groupJid=${encodedJid}` },
   ];
 
   for (const attempt of attempts) {
