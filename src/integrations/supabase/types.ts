@@ -353,6 +353,7 @@ export type Database = {
         Row: {
           ai_instructions: string | null
           ai_model: string
+          ai_provider: string
           api_key: string | null
           auto_transfer_human: boolean
           block_sensitive: boolean
@@ -384,6 +385,7 @@ export type Database = {
         Insert: {
           ai_instructions?: string | null
           ai_model?: string
+          ai_provider?: string
           api_key?: string | null
           auto_transfer_human?: boolean
           block_sensitive?: boolean
@@ -415,6 +417,7 @@ export type Database = {
         Update: {
           ai_instructions?: string | null
           ai_model?: string
+          ai_provider?: string
           api_key?: string | null
           auto_transfer_human?: boolean
           block_sensitive?: boolean

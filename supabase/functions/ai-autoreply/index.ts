@@ -12,6 +12,37 @@ function json(data: unknown, status = 200) {
   });
 }
 
+/** Map provider to API endpoint */
+function getProviderConfig(provider: string, apiKey: string, model: string) {
+  switch (provider) {
+    case "gemini":
+      return {
+        url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        model: model || "gemini-2.0-flash",
+      };
+    case "deepseek":
+      return {
+        url: "https://api.deepseek.com/v1/chat/completions",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        model: model || "deepseek-chat",
+      };
+    case "groq":
+      return {
+        url: "https://api.groq.com/openai/v1/chat/completions",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        model: model || "llama-3.3-70b-versatile",
+      };
+    case "openai":
+    default:
+      return {
+        url: "https://api.openai.com/v1/chat/completions",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        model: model || "gpt-4o-mini",
+      };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -139,7 +170,6 @@ Deno.serve(async (req) => {
       detailed: "Responda de forma detalhada quando necessário.",
     };
 
-    // Build flow steps context for intelligent conversion
     const flowSteps = settings.ai_instructions?.match(/FLOW_STEPS:(.*?)END_FLOW_STEPS/s)?.[1] || "";
 
     const systemParts = [
@@ -150,49 +180,43 @@ Deno.serve(async (req) => {
       settings.business_type ? `Tipo de negócio: ${settings.business_type}.` : "",
       settings.business_hours ? `Horário de atendimento: ${settings.business_hours}.` : "",
       settings.business_description ? `Descrição: ${settings.business_description}.` : "",
-      // Custom instructions (excluding FLOW_STEPS block)
       settings.ai_instructions ? `Instruções adicionais: ${settings.ai_instructions.replace(/FLOW_STEPS:.*?END_FLOW_STEPS/s, "").trim()}` : "",
-      // Lead memory context
       leadMemory.contact_name ? `O nome do cliente é "${leadMemory.contact_name}". Use o nome dele quando apropriado para personalizar.` : (contact_name ? `O nome do cliente é "${contact_name}".` : ""),
-      leadMemory.interest ? `O cliente demonstrou interesse em: "${leadMemory.interest}". Referencie isso naturalmente, ex: "Na última conversa você mostrou interesse em ${leadMemory.interest}..."` : "",
-      leadMemory.product_cited ? `O cliente mencionou o produto/serviço: "${leadMemory.product_cited}". Use isso para personalizar: "Sobre o ${leadMemory.product_cited} que você perguntou..."` : "",
+      leadMemory.interest ? `O cliente demonstrou interesse em: "${leadMemory.interest}". Referencie isso naturalmente.` : "",
+      leadMemory.product_cited ? `O cliente mencionou o produto/serviço: "${leadMemory.product_cited}".` : "",
       leadMemory.stage === "hot" ? `Este é um lead QUENTE (${leadMemory.interaction_count} interações). Seja mais direto e conduza para conversão.` : "",
       leadMemory.stage === "warm" ? `Este é um lead MORNO (${leadMemory.interaction_count} interações). Aprofunde o interesse e apresente benefícios.` : "",
       leadMemory.stage === "cold" ? `Este é um lead FRIO (primeiro contato ou poucas interações). Seja acolhedor e descubra a necessidade.` : "",
-      // Intent detection + conversion flow
       `DETECÇÃO DE INTENÇÃO:`,
       `Antes de responder, analise a mensagem do cliente e classifique a intenção:`,
-      `- "curious": Está apenas explorando, sem compromisso. Perguntas vagas.`,
-      `- "interested": Demonstra interesse real. Faz perguntas específicas sobre produto/serviço.`,
-      `- "ready_to_buy": Quer comprar/agendar/fechar agora. Pergunta preço, link, como pagar.`,
-      `- "objection": Tem dúvida, preocupação ou barreira. Menciona preço alto, concorrente, desconfiança.`,
+      `- "curious": Está apenas explorando, sem compromisso.`,
+      `- "interested": Demonstra interesse real. Faz perguntas específicas.`,
+      `- "ready_to_buy": Quer comprar/agendar/fechar agora.`,
+      `- "objection": Tem dúvida, preocupação ou barreira.`,
       ``,
       `FLUXO DE CONVERSÃO INTELIGENTE:`,
       `Com base na intenção detectada, escolha a etapa adequada:`,
-      `- curious → Use a etapa "saudacao" ou "diagnostico" para acolher e descobrir mais.`,
-      `- interested → Use "diagnostico" ou "apresentacao" para aprofundar e apresentar solução.`,
-      `- ready_to_buy → Use "fechamento" para conduzir à conversão imediata.`,
-      `- objection → Use "objecao" para contornar e depois tente avançar uma etapa.`,
-      ``,
-      `FALLBACK: Se a conversa não avançou bem, volte uma etapa. Ex: se tentou fechar e o cliente recuou, volte para "apresentacao" ou "objecao".`,
+      `- curious → "saudacao" ou "diagnostico"`,
+      `- interested → "diagnostico" ou "apresentacao"`,
+      `- ready_to_buy → "fechamento"`,
+      `- objection → "objecao"`,
       ``,
       flowSteps ? `MENSAGENS-BASE POR ETAPA:\n${flowSteps}` : "",
       ``,
       `REGRAS IMPORTANTES:`,
       `- Responda de forma natural como um atendente humano`,
       `- Evite respostas longas demais`,
-      `- Se não souber a resposta, peça mais contexto antes de inventar`,
-      `- Se o cliente insistir em algo que você não sabe, sugira transferência para humano`,
+      `- Se não souber a resposta, peça mais contexto`,
       `- Nunca invente informações sobre produtos, preços ou disponibilidade`,
-      `- Ao final da resposta, inclua um JSON oculto: <!--LEAD_UPDATE:{"interest":"...","stage":"cold|warm|hot","intent":"curious|interested|ready_to_buy|objection","flow_step":"saudacao|diagnostico|apresentacao|objecao|fechamento","product_cited":"..."}-->`,
-      `- "intent" é a intenção detectada na mensagem atual do cliente`,
-      `- "flow_step" é a etapa do fluxo que você usou na resposta`,
-      `- "product_cited" é o produto/serviço específico mencionado pelo cliente (se houver)`,
-      settings.require_human_for_sale ? `- Para vendas ou negociações, sugira que um atendente humano pode ajudar melhor` : "",
+      `- Ao final da resposta, inclua: <!--LEAD_UPDATE:{"interest":"...","stage":"cold|warm|hot","intent":"curious|interested|ready_to_buy|objection","flow_step":"saudacao|diagnostico|apresentacao|objecao|fechamento","product_cited":"..."}-->`,
+      settings.require_human_for_sale ? `- Para vendas, sugira que um atendente humano pode ajudar melhor` : "",
       settings.block_sensitive ? `- Nunca compartilhe dados sensíveis como CPF, senhas ou dados bancários` : "",
     ].filter(Boolean).join("\n");
 
-    // 8. Call OpenAI
+    // 8. Call AI provider
+    const provider = settings.ai_provider || "openai";
+    const providerConfig = getProviderConfig(provider, settings.api_key, settings.ai_model);
+
     const messages = [
       { role: "system", content: systemParts },
       ...conversationHistory,
@@ -201,34 +225,31 @@ Deno.serve(async (req) => {
 
     const temperature = (settings.creativity || 50) / 100;
 
-    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+    const aiRes = await fetch(providerConfig.url, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${settings.api_key}`,
-        "Content-Type": "application/json",
-      },
+      headers: providerConfig.headers,
       body: JSON.stringify({
-        model: settings.ai_model || "gpt-4o-mini",
+        model: providerConfig.model,
         messages,
         temperature,
         max_tokens: settings.max_response_length === "short" ? 150 : settings.max_response_length === "detailed" ? 800 : 400,
       }),
     });
 
-    if (!openaiRes.ok) {
-      const errText = await openaiRes.text();
-      console.error("OpenAI error:", openaiRes.status, errText);
-      return json({ error: "OpenAI API error", status: openaiRes.status }, 500);
+    if (!aiRes.ok) {
+      const errText = await aiRes.text();
+      console.error(`${provider} API error:`, aiRes.status, errText);
+      return json({ error: `${provider} API error`, status: aiRes.status }, 500);
     }
 
-    const aiData = await openaiRes.json();
+    const aiData = await aiRes.json();
     let aiReply = aiData.choices?.[0]?.message?.content?.trim() || "";
 
     if (!aiReply) {
       return json({ skipped: "empty_ai_response" });
     }
 
-    // 9. Extract and apply lead memory update from AI response
+    // 9. Extract and apply lead memory update
     const leadUpdateMatch = aiReply.match(/<!--LEAD_UPDATE:(.*?)-->/s);
     if (leadUpdateMatch) {
       try {
@@ -240,7 +261,6 @@ Deno.serve(async (req) => {
           product_cited: update.product_cited || leadMemory.product_cited || null,
           last_message_preview: (message_content || "").substring(0, 200),
         };
-        // Store intent and flow_step in notes for dashboard
         if (update.intent || update.flow_step) {
           const notesObj = (() => { try { return JSON.parse(leadMemory.notes || "{}"); } catch { return {}; } })();
           if (update.intent) notesObj.last_intent = update.intent;
@@ -299,7 +319,6 @@ async function loadOrCreateLeadMemory(
     .maybeSingle();
 
   if (existing) {
-    // Update interaction count
     await admin.from("ai_lead_memory").update({
       interaction_count: (existing.interaction_count || 0) + 1,
       last_interaction_at: new Date().toISOString(),
@@ -310,7 +329,6 @@ async function loadOrCreateLeadMemory(
     return { ...existing, interaction_count: (existing.interaction_count || 0) + 1 };
   }
 
-  // Create new lead memory
   const { data: newLead } = await admin.from("ai_lead_memory").insert({
     user_id: userId,
     remote_jid: remoteJid,
