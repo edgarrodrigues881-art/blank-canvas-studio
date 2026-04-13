@@ -761,6 +761,7 @@ const CampaignDetail = () => {
   };
 
   const successRate = stats.total > 0 ? Math.round((stats.sent / stats.total) * 100) : 0;
+  const isGroupCampaign = contacts.length > 0 && contacts.some(c => isGroupJid(c.phone));
 
   if (campLoading) {
     return (
