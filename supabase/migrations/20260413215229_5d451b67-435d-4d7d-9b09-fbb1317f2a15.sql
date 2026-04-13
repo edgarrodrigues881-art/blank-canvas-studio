@@ -1,0 +1,1 @@
+ALTER TABLE public.ai_settings ADD COLUMN IF NOT EXISTS ai_provider text NOT NULL DEFAULT 'openai';
