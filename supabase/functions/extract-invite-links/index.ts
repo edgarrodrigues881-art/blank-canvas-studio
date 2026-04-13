@@ -61,42 +61,17 @@ async function fetchInviteCode(baseUrl: string, token: string, groupJid: string)
   const headers: Record<string, string> = { token, Accept: "application/json", "Content-Type": "application/json" };
   const encodedJid = encodeURIComponent(groupJid);
 
-  // First try /group/info which returns 200 — check if it contains invite code
-  const infoAttempts = [
-    { method: "POST", url: `${baseUrl}/group/info`, body: JSON.stringify({ groupJid: groupJid }) },
-    { method: "POST", url: `${baseUrl}/group/info`, body: JSON.stringify({ groupjid: groupJid }) },
-  ];
-
-  for (const attempt of infoAttempts) {
-    try {
-      const res = await fetchWithTimeout(attempt.url, { method: attempt.method, headers, body: attempt.body }, 6_000);
-      if (!res.ok) continue;
-      const raw = await res.text();
-      // Log full response to see all fields
-      console.log(`[invite] /group/info FULL (${raw.length} chars): ${raw.substring(0, 800)}`);
-      if (raw.length > 800) console.log(`[invite] /group/info FULL pt2: ${raw.substring(800, 1600)}`);
-      
-      const linkMatch = raw.match(/chat\.whatsapp\.com\/([A-Za-z0-9_-]{10,})/);
-      if (linkMatch?.[1]) return `https://chat.whatsapp.com/${linkMatch[1]}`;
-
-      let parsed: any;
-      try { parsed = JSON.parse(raw); } catch { continue; }
-      const code = findInviteCode(parsed);
-      if (code) return `https://chat.whatsapp.com/${code}`;
-      
-      // Log all keys at top level for debugging
-      console.log(`[invite] /group/info keys: ${Object.keys(parsed || {}).join(", ")}`);
-    } catch { continue; }
-  }
-
-  // Then try dedicated invite endpoints
+  // Official/public UAZAPI reference uses GET /group/invitelink/{groupJid}
   const attempts: Array<{ method: string; url: string; body?: string; label: string }> = [
-    { method: "GET", label: "GET /group/inviteCode/{jid}", url: `${baseUrl}/group/inviteCode/${encodedJid}` },
+    { method: "GET", label: "GET /group/invitelink/{jid}", url: `${baseUrl}/group/invitelink/${groupJid}` },
+    { method: "GET", label: "GET /group/invitelink/{encodedJid}", url: `${baseUrl}/group/invitelink/${encodedJid}` },
+    // Legacy / compatibility fallbacks
     { method: "GET", label: "GET /group/inviteLink/{jid}", url: `${baseUrl}/group/inviteLink/${encodedJid}` },
-    { method: "PUT", label: "PUT /group/inviteCode", url: `${baseUrl}/group/inviteCode`, body: JSON.stringify({ groupJid: groupJid }) },
-    { method: "PUT", label: "PUT /group/inviteLink", url: `${baseUrl}/group/inviteLink`, body: JSON.stringify({ groupJid: groupJid }) },
+    { method: "GET", label: "GET /group/inviteCode/{jid}", url: `${baseUrl}/group/inviteCode/${encodedJid}` },
     { method: "GET", label: "GET /group/getInviteCode/{jid}", url: `${baseUrl}/group/getInviteCode/${encodedJid}` },
     { method: "GET", label: "GET /group/inviteCode?groupJid", url: `${baseUrl}/group/inviteCode?groupJid=${encodedJid}` },
+    { method: "PUT", label: "PUT /group/inviteLink", url: `${baseUrl}/group/inviteLink`, body: JSON.stringify({ groupJid: groupJid }) },
+    { method: "PUT", label: "PUT /group/inviteCode", url: `${baseUrl}/group/inviteCode`, body: JSON.stringify({ groupJid: groupJid }) },
   ];
 
   for (const attempt of attempts) {
@@ -114,20 +89,42 @@ async function fetchInviteCode(baseUrl: string, token: string, groupJid: string)
       if (!res.ok) continue;
       if (!raw || raw.length < 5) continue;
 
-      // Try regex first — fastest way to find a link in any response shape
       const linkMatch = raw.match(/chat\.whatsapp\.com\/([A-Za-z0-9_-]{10,})/);
-      if (linkMatch?.[1]) {
-        return `https://chat.whatsapp.com/${linkMatch[1]}`;
-      }
+      if (linkMatch?.[1]) return `https://chat.whatsapp.com/${linkMatch[1]}`;
 
       let parsed: any;
       try { parsed = JSON.parse(raw); } catch { continue; }
-
-      // Deep search for invite code in parsed response
       const code = findInviteCode(parsed);
       if (code) return `https://chat.whatsapp.com/${code}`;
     } catch (err: any) {
       console.log(`[invite] ${attempt.label} err: ${err?.message}`);
+      continue;
+    }
+  }
+
+  // Fallback: inspect group/info to confirm whether this UAZAPI build exposes invite data at all
+  const infoAttempts = [
+    { method: "POST", url: `${baseUrl}/group/info`, body: JSON.stringify({ groupJid: groupJid }) },
+    { method: "POST", url: `${baseUrl}/group/info`, body: JSON.stringify({ groupjid: groupJid }) },
+  ];
+
+  for (const attempt of infoAttempts) {
+    try {
+      const res = await fetchWithTimeout(attempt.url, { method: attempt.method, headers, body: attempt.body }, 6_000);
+      if (!res.ok) continue;
+      const raw = await res.text();
+      console.log(`[invite] /group/info fallback (${raw.length} chars)`);
+
+      const linkMatch = raw.match(/chat\.whatsapp\.com\/([A-Za-z0-9_-]{10,})/);
+      if (linkMatch?.[1]) return `https://chat.whatsapp.com/${linkMatch[1]}`;
+
+      let parsed: any;
+      try { parsed = JSON.parse(raw); } catch { continue; }
+      const code = findInviteCode(parsed);
+      if (code) return `https://chat.whatsapp.com/${code}`;
+
+      console.log(`[invite] /group/info keys: ${Object.keys(parsed || {}).join(", ")}`);
+    } catch {
       continue;
     }
   }
