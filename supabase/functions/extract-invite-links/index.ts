@@ -58,19 +58,25 @@ async function fetchGroupsList(baseUrl: string, token: string): Promise<any[]> {
 }
 
 async function fetchInviteCode(baseUrl: string, token: string, groupJid: string): Promise<string | null> {
-  const headers = { token, Accept: "application/json", "Content-Type": "application/json" };
+  const headers: Record<string, string> = { token, Accept: "application/json", "Content-Type": "application/json" };
+  const encodedJid = encodeURIComponent(groupJid);
 
-  // UaZapi documented endpoints for getting invite link — try fastest first, stop on first success
-  const attempts: Array<{ method: string; url: string; body?: string }> = [
-    // UaZapi V2 primary: GET with query param
-    { method: "GET", url: `${baseUrl}/group/inviteCode?groupjid=${encodeURIComponent(groupJid)}` },
-    // POST variant
-    { method: "POST", url: `${baseUrl}/group/inviteCode`, body: JSON.stringify({ groupjid: groupJid }) },
-    // Alternative field name
-    { method: "POST", url: `${baseUrl}/group/inviteCode`, body: JSON.stringify({ groupJid }) },
-    // inviteLink endpoint
-    { method: "GET", url: `${baseUrl}/group/inviteLink?groupjid=${encodeURIComponent(groupJid)}` },
-    { method: "POST", url: `${baseUrl}/group/inviteLink`, body: JSON.stringify({ groupjid: groupJid }) },
+  // Strategy: try many endpoint patterns used across UAZAPI versions
+  const attempts: Array<{ method: string; url: string; body?: string; label: string }> = [
+    // Path param patterns (most common in newer UAZAPI)
+    { method: "GET", label: "GET /group/inviteCode/{jid}", url: `${baseUrl}/group/inviteCode/${encodedJid}` },
+    { method: "GET", label: "GET /group/inviteLink/{jid}", url: `${baseUrl}/group/inviteLink/${encodedJid}` },
+    // POST with body (common UAZAPI pattern)
+    { method: "POST", label: "POST /group/inviteCode body", url: `${baseUrl}/group/inviteCode`, body: JSON.stringify({ groupJid: groupJid }) },
+    { method: "POST", label: "POST /group/inviteCode body2", url: `${baseUrl}/group/inviteCode`, body: JSON.stringify({ groupjid: groupJid }) },
+    { method: "POST", label: "POST /group/inviteLink body", url: `${baseUrl}/group/inviteLink`, body: JSON.stringify({ groupJid: groupJid }) },
+    // group/info may include invite code in response
+    { method: "POST", label: "POST /group/info", url: `${baseUrl}/group/info`, body: JSON.stringify({ groupJid: groupJid }) },
+    { method: "POST", label: "POST /group/info body2", url: `${baseUrl}/group/info`, body: JSON.stringify({ groupjid: groupJid }) },
+    { method: "GET", label: "GET /group/info?jid", url: `${baseUrl}/group/info?groupJid=${encodedJid}` },
+    // getInviteCode patterns
+    { method: "GET", label: "GET /group/getInviteCode/{jid}", url: `${baseUrl}/group/getInviteCode/${encodedJid}` },
+    { method: "POST", label: "POST /group/getInviteCode", url: `${baseUrl}/group/getInviteCode`, body: JSON.stringify({ groupJid: groupJid }) },
   ];
 
   for (const attempt of attempts) {
@@ -82,51 +88,57 @@ async function fetchInviteCode(baseUrl: string, token: string, groupJid: string)
       }, 6_000);
 
       const raw = await res.text();
-      console.log(`[invite] ${attempt.method} ${new URL(attempt.url).pathname}?... => ${res.status} ${raw.substring(0, 200)}`);
+      const snippet = raw.substring(0, 300);
+      console.log(`[invite] ${attempt.label} => ${res.status} ${snippet}`);
 
       if (!res.ok) continue;
-      if (!raw) continue;
+      if (!raw || raw.length < 5) continue;
 
-      let parsed: any;
-      try { parsed = JSON.parse(raw); } catch { continue; }
-
-      // Extract invite code/link from various response shapes
-      const candidates = [
-        parsed?.inviteCode, parsed?.invite, parsed?.inviteLink, parsed?.inviteUrl,
-        parsed?.code, parsed?.link, parsed?.url,
-        parsed?.data?.inviteCode, parsed?.data?.invite, parsed?.data?.inviteLink,
-        parsed?.data?.code, parsed?.data?.link, parsed?.data?.url,
-        parsed?.group?.inviteCode, parsed?.group?.invite, parsed?.group?.inviteLink,
-      ];
-
-      for (const candidate of candidates) {
-        if (typeof candidate !== "string" || !candidate.trim()) continue;
-        const value = candidate.trim();
-
-        // If it's already a full URL
-        if (value.startsWith("https://chat.whatsapp.com/")) {
-          const code = value.replace("https://chat.whatsapp.com/", "").split(/[/?#\s]/)[0].trim();
-          if (code.length >= 10) return `https://chat.whatsapp.com/${code}`;
-        }
-
-        // If it's just the code
-        const clean = value
-          .replace(/^https?:\/\/chat\.whatsapp\.com\//i, "")
-          .split(/[/?#\s]/)[0]
-          .trim();
-        if (/^[A-Za-z0-9_-]{10,}$/.test(clean)) {
-          return `https://chat.whatsapp.com/${clean}`;
-        }
-      }
-
-      // Last resort: search for whatsapp.com link in raw response
+      // Try regex first — fastest way to find a link in any response shape
       const linkMatch = raw.match(/chat\.whatsapp\.com\/([A-Za-z0-9_-]{10,})/);
       if (linkMatch?.[1]) {
         return `https://chat.whatsapp.com/${linkMatch[1]}`;
       }
+
+      let parsed: any;
+      try { parsed = JSON.parse(raw); } catch { continue; }
+
+      // Deep search for invite code in parsed response
+      const code = findInviteCode(parsed);
+      if (code) return `https://chat.whatsapp.com/${code}`;
     } catch (err: any) {
-      console.log(`[invite] ${attempt.method} failed: ${err?.message}`);
+      console.log(`[invite] ${attempt.label} err: ${err?.message}`);
       continue;
+    }
+  }
+
+  return null;
+}
+
+function findInviteCode(obj: any, depth = 0): string | null {
+  if (!obj || depth > 3) return null;
+  if (typeof obj === "string") {
+    const clean = obj.replace(/^https?:\/\/chat\.whatsapp\.com\//i, "").split(/[/?#\s]/)[0].trim();
+    if (/^[A-Za-z0-9_-]{10,}$/.test(clean)) return clean;
+    return null;
+  }
+  if (typeof obj !== "object") return null;
+
+  // Check known keys first
+  const keys = ["inviteCode", "invite", "inviteLink", "inviteUrl", "code", "link", "url", "invite_code", "invite_link"];
+  for (const key of keys) {
+    if (obj[key]) {
+      const result = findInviteCode(obj[key], depth + 1);
+      if (result) return result;
+    }
+  }
+
+  // Check nested objects (data, group, etc.)
+  const nested = ["data", "group", "result", "response"];
+  for (const key of nested) {
+    if (obj[key] && typeof obj[key] === "object") {
+      const result = findInviteCode(obj[key], depth + 1);
+      if (result) return result;
     }
   }
 
