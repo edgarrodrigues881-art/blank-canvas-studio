@@ -329,9 +329,10 @@ function buildMessageAttempts(
 
   const safeText = content.trim();
   return [
-    { endpoint: `${baseUrl}/chat/send-text`, body: { phone: groupJid, chatId: groupJid, text: safeText, body: safeText, message: safeText } },
-    { endpoint: `${baseUrl}/send/text`, body: { ...targetFields, phone: groupJid, text: safeText, message: safeText } },
-    { endpoint: `${baseUrl}/message/sendText`, body: { phone: groupJid, chatId: groupJid, text: safeText, body: safeText, message: safeText } },
+    { endpoint: `${baseUrl}/chat/send-text`, body: { chatId: groupJid, text: safeText, body: safeText } },
+    { endpoint: `${baseUrl}/message/sendText`, body: { chatId: groupJid, text: safeText } },
+    { endpoint: `${baseUrl}/send/text`, body: { ...targetFields, text: safeText } },
+    { endpoint: `${baseUrl}/message/sendText`, body: { to: groupJid, text: safeText } },
   ];
 }
 
@@ -900,15 +901,47 @@ function extractGroupsCollection(payload: any): any[] {
   return Array.isArray(groups) ? groups : [];
 }
 
-function prependMentionPrefix(value: string, prefix: string) {
-  const cleanValue = String(value || "").trim();
-  const cleanPrefix = String(prefix || "").trim();
+function extractAttemptText(body: Record<string, unknown>): string {
+  const candidate = [body.text, body.body, body.message, body.caption, body.headerText]
+    .find((value) => typeof value === "string" && value.trim());
 
-  if (!cleanPrefix) return cleanValue;
-  if (!cleanValue) return cleanPrefix;
-  if (cleanValue.startsWith(cleanPrefix)) return cleanValue;
+  return candidate ? String(candidate).trim() : "";
+}
 
-  return `${cleanPrefix}\n\n${cleanValue}`;
+function extractAttemptTarget(body: Record<string, unknown>): string {
+  const candidate = [body.number, body.chatId, body.to, body.phone]
+    .find((value) => typeof value === "string" && value.trim());
+
+  return candidate ? String(candidate).trim() : "";
+}
+
+function responseContainsMentionEvidence(raw: string): boolean {
+  try {
+    const parsed = JSON.parse(raw);
+    const candidates = [
+      parsed?.contextInfo,
+      parsed?.content?.contextInfo,
+      parsed?.message?.extendedTextMessage?.contextInfo,
+      parsed?.message?.imageMessage?.contextInfo,
+      parsed?.message?.videoMessage?.contextInfo,
+      parsed?.message?.documentMessage?.contextInfo,
+      parsed?.message?.conversation?.contextInfo,
+      parsed?.data?.contextInfo,
+    ].filter(Boolean);
+
+    return candidates.some((context) => {
+      const mentioned = [
+        context?.mentionedJid,
+        context?.mentionedJidList,
+        context?.groupMentions,
+        context?.mentions,
+      ].find((value) => Array.isArray(value) && value.length > 0);
+
+      return Boolean(mentioned) || context?.mentionsEveryOne === true;
+    });
+  } catch {
+    return false;
+  }
 }
 
 async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string, string>, expectedGroupJid: string, mentionPhones: string[] = []) {
@@ -928,6 +961,12 @@ async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string
       console.log(`[group-carousel] Response: ${response.status} ${raw.substring(0, 200)}`);
 
       if (response.ok) {
+        if (mentionPhones.length > 0 && !responseContainsMentionEvidence(raw)) {
+          lastError = "A UAZAPI entregou a mensagem, mas sem aplicar a menção em grupo.";
+          console.warn(`[group-carousel] Mention payload was ignored by provider for ${attempt.endpoint}${attempt.label ? ` (${attempt.label})` : ""}`);
+          continue;
+        }
+
         const actualChatId = extractResponseChatId(raw);
         if (actualChatId && actualChatId !== expectedGroupJid) {
           lastError = `A API respondeu com outro grupo (${actualChatId}).`;
@@ -1071,43 +1110,88 @@ async function fetchGroupParticipants(baseUrl: string, headers: Record<string, s
 function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: string[]): SendAttempt[] {
   if (mentionPhones.length === 0) return attempts;
 
-  const mentionJids = Array.from(new Set(
+  const mentionNumbers = Array.from(new Set(
     mentionPhones
       .map((phone) => normalizeMentionPhone(phone))
       .filter(Boolean)
-      .map((phone) => `${phone}@s.whatsapp.net`),
   ));
 
-  console.log(`[group-carousel] Injecting ${mentionJids.length} mentions into ${attempts.length} attempt(s)`);
+  console.log(`[group-carousel] Injecting ${mentionNumbers.length} mentions into ${attempts.length} attempt(s)`);
 
   const enrichedAttempts: SendAttempt[] = [];
 
   for (const a of attempts) {
-    // Strategy 1: mentions + mentionsEveryOne (UAZAPI native)
-    enrichedAttempts.push({
-      ...a,
-      label: `${a.label || ""}_mentions_native`.replace(/^_/, ""),
-      body: { ...a.body, mentions: mentionJids, mentionsEveryOne: true },
-    });
+    const endpointPath = new URL(a.endpoint).pathname;
+    const target = extractAttemptTarget(a.body);
+    const text = extractAttemptText(a.body);
 
-    // Strategy 2: contextInfo.mentionedJid (Baileys-style)
-    enrichedAttempts.push({
-      ...a,
-      label: `${a.label || ""}_mentions_baileys`.replace(/^_/, ""),
-      body: {
-        ...a.body,
-        contextInfo: {
-          ...((a.body?.contextInfo && typeof a.body.contextInfo === "object") ? a.body.contextInfo as Record<string, unknown> : {}),
-          mentionedJid: mentionJids,
+    if (endpointPath === "/message/sendText") {
+      enrichedAttempts.push(
+        {
+          ...a,
+          label: `${a.label || ""}_everyone_number`.replace(/^_/, ""),
+          body: { number: target, text, mentionsEveryOne: true },
         },
-      },
-    });
+        {
+          ...a,
+          label: `${a.label || ""}_everyone_mentioned_number`.replace(/^_/, ""),
+          body: { number: target, text, mentioned: mentionNumbers, mentionsEveryOne: true },
+        },
+        {
+          ...a,
+          label: `${a.label || ""}_mentioned_chatid`.replace(/^_/, ""),
+          body: { chatId: target, text, mentioned: mentionNumbers },
+        },
+      );
+      continue;
+    }
 
-    // Strategy 3: clean fallback (message goes through without mention noise)
+    if (endpointPath === "/send/text") {
+      enrichedAttempts.push(
+        {
+          ...a,
+          label: `${a.label || ""}_everyone`.replace(/^_/, ""),
+          body: { number: target, text, mentionsEveryOne: true },
+        },
+        {
+          ...a,
+          label: `${a.label || ""}_everyone_mentioned`.replace(/^_/, ""),
+          body: { number: target, text, mentioned: mentionNumbers, mentionsEveryOne: true },
+        },
+        {
+          ...a,
+          label: `${a.label || ""}_mentioned`.replace(/^_/, ""),
+          body: { number: target, text, mentioned: mentionNumbers },
+        },
+      );
+      continue;
+    }
+
+    if (endpointPath === "/chat/send-text") {
+      enrichedAttempts.push(
+        {
+          ...a,
+          label: `${a.label || ""}_everyone_chatid`.replace(/^_/, ""),
+          body: { chatId: target, text, body: text, mentionsEveryOne: true },
+        },
+        {
+          ...a,
+          label: `${a.label || ""}_everyone_mentioned_chatid`.replace(/^_/, ""),
+          body: { chatId: target, text, body: text, mentioned: mentionNumbers, mentionsEveryOne: true },
+        },
+        {
+          ...a,
+          label: `${a.label || ""}_mentioned_chatid`.replace(/^_/, ""),
+          body: { chatId: target, text, body: text, mentioned: mentionNumbers },
+        },
+      );
+      continue;
+    }
+
     enrichedAttempts.push({
       ...a,
-      label: `${a.label || ""}_fallback_clean`.replace(/^_/, ""),
-      body: { ...a.body },
+      label: `${a.label || ""}_mentioned_generic`.replace(/^_/, ""),
+      body: { ...a.body, mentioned: mentionNumbers, mentionsEveryOne: true },
     });
   }
 
