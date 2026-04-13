@@ -306,26 +306,27 @@ export default function GroupCarouselDispatch() {
     let campaignId: string | null = null;
     try {
       const msgType = dispatchType === "carousel" ? "carousel" : dispatchType === "buttons" ? "buttons" : "text";
+      const insertPayload = {
+        user_id: user!.id,
+        name: campaignName.trim(),
+        message_type: msgType,
+        message_content: headerText.trim() || null,
+        media_url: mediaUrl.trim() || null,
+        buttons: dispatchType === "buttons" ? buttons.map((b) => ({ type: b.type, text: b.text, value: b.value })) as any : null,
+        carousel_cards: dispatchType === "carousel" ? serializeCarouselCards(cards.filter(isCarouselCardTouched)) as any : null,
+        device_id: selectedDevice,
+        status: "processing",
+        total_contacts: selectedGroups.length,
+        min_delay_seconds: minDelay,
+        max_delay_seconds: maxDelay,
+        pause_every_min: pauseEveryMin,
+        pause_every_max: pauseEveryMax,
+        pause_duration_min: pauseDurationMin,
+        pause_duration_max: pauseDurationMax,
+      };
       const { data: campaign, error: campErr } = await supabase
         .from("campaigns")
-        .insert({
-          user_id: user!.id,
-          name: campaignName.trim(),
-          message_type: msgType,
-          message_content: headerText.trim() || null,
-          media_url: mediaUrl.trim() || null,
-          buttons: dispatchType === "buttons" ? buttons.map((b) => ({ type: b.type, text: b.text, value: b.value })) : null,
-          carousel_cards: dispatchType === "carousel" ? serializeCarouselCards(cards.filter(isCarouselCardTouched)) : null,
-          device_id: selectedDevice,
-          status: "processing",
-          total_contacts: selectedGroups.length,
-          min_delay_seconds: minDelay,
-          max_delay_seconds: maxDelay,
-          pause_every_min: pauseEveryMin,
-          pause_every_max: pauseEveryMax,
-          pause_duration_min: pauseDurationMin,
-          pause_duration_max: pauseDurationMax,
-        })
+        .insert(insertPayload)
         .select("id")
         .single();
 
