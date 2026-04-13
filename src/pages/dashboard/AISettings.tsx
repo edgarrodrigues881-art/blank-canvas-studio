@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
+import { AISimulator } from "@/components/ai/AISimulator";
 
 type AiMode = "vendas" | "atendimento" | "suporte" | "agendamento";
 
@@ -614,6 +615,9 @@ const AISettings = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Simulador de IA */}
+      {iaActive && apiKeyStatus === "valid" && <AISimulator />}
 
       {/* Modo de Operação */}
       <Card className="transition-all duration-200 hover:shadow-md">
