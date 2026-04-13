@@ -7,11 +7,13 @@ const corsHeaders = {
 };
 
 const TIMEOUT_MS = 8_000;
-const BETWEEN_GROUPS_DELAY_MS = 1_100;
-const RATE_LIMIT_MAX_RETRIES = 3;
-const RATE_LIMIT_BASE_DELAY_MS = 2_000;
-const RATE_LIMIT_MAX_DELAY_MS = 8_000;
-const RATE_LIMIT_JITTER_MS = 400;
+const BETWEEN_GROUPS_DELAY_MS = 1_500;
+const RATE_LIMIT_MAX_RETRIES = 4;
+const RATE_LIMIT_BASE_DELAY_MS = 3_000;
+const RATE_LIMIT_MAX_DELAY_MS = 15_000;
+const RATE_LIMIT_JITTER_MS = 600;
+
+/* ─── Types ────────────────────────────────────────────── */
 
 interface InviteDiagnostics {
   requested_url?: string;
@@ -30,6 +32,15 @@ interface InviteFetchResult {
   diagnostics?: InviteDiagnostics;
 }
 
+interface GroupListItem {
+  jid: string;
+  name: string;
+  participants_count: number;
+  cached_invite_link?: string;
+}
+
+/* ─── Helpers ──────────────────────────────────────────── */
+
 async function fetchWithTimeout(url: string, opts: RequestInit, timeout = TIMEOUT_MS) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
@@ -44,227 +55,251 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isRateLimit(status: number, msg: string) {
+  const lower = msg.toLowerCase();
+  return status === 429 || lower.includes("rate-overlimit") || lower.includes("too many requests");
+}
+
 function extractProviderMessage(raw: string): string {
   const text = String(raw || "").trim();
   if (!text) return "";
-
   try {
     const parsed = JSON.parse(text);
-    const candidates = [
-      parsed?.error,
-      parsed?.message,
-      parsed?.details,
-      parsed?.data?.error,
-      parsed?.data?.message,
-      parsed?.data?.details,
-    ];
-
-    for (const candidate of candidates) {
-      if (typeof candidate === "string" && candidate.trim()) {
-        return candidate.trim();
-      }
+    for (const c of [parsed?.error, parsed?.message, parsed?.details, parsed?.data?.error, parsed?.data?.message, parsed?.data?.details]) {
+      if (typeof c === "string" && c.trim()) return c.trim();
     }
-  } catch {
-    // ignore JSON parse failures
+  } catch { /* */ }
+  return text.replace(/\s+/g, " ").slice(0, 250);
+}
+
+function getRetryDelay(attemptIndex: number): number {
+  const delay = Math.min(RATE_LIMIT_MAX_DELAY_MS, RATE_LIMIT_BASE_DELAY_MS * (2 ** attemptIndex));
+  return delay + Math.floor(Math.random() * RATE_LIMIT_JITTER_MS);
+}
+
+/* ─── Invite code extraction from any JSON ─────────────── */
+
+function findInviteCode(obj: any, depth = 0): string | null {
+  if (!obj || depth > 4) return null;
+  if (typeof obj === "string") {
+    const clean = obj.replace(/^https?:\/\/chat\.whatsapp\.com\//i, "").split(/[/?#\s]/)[0].trim();
+    return /^[A-Za-z0-9_-]{10,}$/.test(clean) ? clean : null;
   }
+  if (typeof obj !== "object") return null;
 
-  return text.replace(/\s+/g, " ").slice(0, 220);
-}
-
-function isPermissionError(providerMessage: string) {
-  const msg = providerMessage.toLowerCase();
-  return (
-    msg.includes("you don't have the permission") ||
-    msg.includes("permission to get the group's invite link")
-  );
-}
-
-function isRateLimitError(status: number, providerMessage: string) {
-  const msg = providerMessage.toLowerCase();
-  return status === 429 || msg.includes("rate-overlimit") || msg.includes("too many requests");
-}
-
-function getRetryDelayMs(response: Response, attemptIndex: number) {
-  const retryAfterHeader = response.headers.get("retry-after")?.trim();
-  if (retryAfterHeader) {
-    const numericDelay = Number(retryAfterHeader);
-    if (Number.isFinite(numericDelay) && numericDelay > 0) {
-      return numericDelay > 100 ? Math.round(numericDelay) : Math.round(numericDelay * 1000);
-    }
-
-    const retryDate = Date.parse(retryAfterHeader);
-    if (!Number.isNaN(retryDate)) {
-      return Math.max(1_000, retryDate - Date.now());
+  // Check specific known keys first
+  for (const key of ["inviteCode", "invite", "inviteLink", "inviteUrl", "InviteLink", "InviteCode",
+    "invite_code", "invite_link", "code", "link", "url"]) {
+    if (obj[key]) {
+      const r = findInviteCode(obj[key], depth + 1);
+      if (r) return r;
     }
   }
 
-  const exponentialDelay = Math.min(
-    RATE_LIMIT_MAX_DELAY_MS,
-    RATE_LIMIT_BASE_DELAY_MS * (2 ** attemptIndex),
-  );
+  // Walk nested objects
+  for (const key of ["data", "group", "result", "response", "chat", "info"]) {
+    if (obj[key] && typeof obj[key] === "object") {
+      const r = findInviteCode(obj[key], depth + 1);
+      if (r) return r;
+    }
+  }
 
-  return exponentialDelay + Math.floor(Math.random() * RATE_LIMIT_JITTER_MS);
+  return null;
 }
 
-function translateInviteError(status: number, providerMessage: string) {
-  const msg = providerMessage.toLowerCase();
+function parseInviteLinkFromRaw(raw: string): string | null {
+  const text = String(raw || "");
 
-  if (isPermissionError(providerMessage)) {
-    return "Sem permissão: essa instância não é admin deste grupo, então a UAZAPI não libera o link de convite.";
+  // Direct URL match
+  const fullMatch = text.match(/https?:\/\/chat\.whatsapp\.com\/([A-Za-z0-9_-]{10,})/i);
+  if (fullMatch?.[1]) return `https://chat.whatsapp.com/${fullMatch[1]}`;
+
+  // JSON deep search
+  try {
+    const parsed = JSON.parse(text);
+    const code = findInviteCode(parsed);
+    if (code) return `https://chat.whatsapp.com/${code}`;
+  } catch { /* */ }
+
+  // Regex for bare invite code in the raw text
+  const bareMatch = text.match(/"([A-Za-z0-9_-]{18,})"/);
+  if (bareMatch?.[1] && !bareMatch[1].includes("@") && !bareMatch[1].includes(".")) {
+    return `https://chat.whatsapp.com/${bareMatch[1]}`;
   }
 
-  if (isRateLimitError(status, providerMessage)) {
-    return "Limite temporário da UAZAPI atingido. Tente novamente com poucos grupos por vez.";
-  }
-
-  if (status === 404 || msg.includes("not found")) {
-    return "A sua versão da UAZAPI não expõe esse endpoint de link de convite.";
-  }
-
-  if (status >= 500) {
-    return providerMessage
-      ? `Erro interno da UAZAPI: ${providerMessage}`
-      : "Erro interno da UAZAPI ao consultar o link de convite.";
-  }
-
-  return providerMessage || `Erro da UAZAPI (status ${status}).`;
+  return null;
 }
 
-async function fetchGroupsList(baseUrl: string, token: string): Promise<any[]> {
+function extractInviteFromGroupObject(g: any): string | null {
+  for (const key of ["inviteCode", "InviteCode", "invite", "inviteLink", "InviteLink",
+    "invite_code", "invite_link", "inviteUrl", "InviteUrl"]) {
+    const val = g?.[key];
+    if (typeof val === "string" && val.trim()) {
+      const code = findInviteCode(val);
+      if (code) return `https://chat.whatsapp.com/${code}`;
+    }
+  }
+  return null;
+}
+
+/* ─── Group listing (also captures pre-existing invite links) ── */
+
+async function fetchGroupsList(baseUrl: string, token: string): Promise<{ groups: GroupListItem[]; inviteCache: Map<string, string> }> {
   const headers = { token, Accept: "application/json", "Content-Type": "application/json" };
   const endpoints = [
     `${baseUrl}/group/list?GetParticipants=false&count=500`,
     `${baseUrl}/group/list?GetParticipants=false&page=1&count=500`,
     `${baseUrl}/group/fetchAllGroups?getParticipants=false`,
+    `${baseUrl}/group/fetchAllGroups`,
     `${baseUrl}/group/listAll`,
     `${baseUrl}/chats?type=group&count=500`,
+    `${baseUrl}/chat/list?type=group&count=500`,
   ];
 
-  const allGroups: any[] = [];
+  const allGroups: GroupListItem[] = [];
   const seenJids = new Set<string>();
+  const inviteCache = new Map<string, string>();
 
   for (const endpoint of endpoints) {
     try {
       const res = await fetchWithTimeout(endpoint, { method: "GET", headers });
       if (!res.ok) continue;
       const data = await res.json();
-      const arr = Array.isArray(data?.groups || data?.data || data) ? (data?.groups || data?.data || data) : [];
-      for (const g of arr) {
-        const jid = g.JID || g.jid || g.id || g.groupJid || g.chatId || "";
-        if (jid && jid.includes("@g.us") && !seenJids.has(jid)) {
-          seenJids.add(jid);
-          allGroups.push({
-            jid,
-            name: g.Subject || g.subject || g.Name || g.name || g.groupName || g.title || "",
-            participants_count: g.ParticipantCount || g.Participants?.length || g.participants?.length || g.participantsCount || g.size || 0,
-          });
-        }
+
+      const candidates = [data?.groups, data?.data?.groups, data?.data, data];
+      const rows: any[] = [];
+      for (const c of candidates) {
+        if (Array.isArray(c)) { rows.push(...c); break; }
       }
-      if (allGroups.length > 0) break;
-    } catch {
-      continue;
-    }
+
+      for (const g of rows) {
+        const jid = g.JID || g.jid || g.id || g.groupJid || g.chatId || "";
+        if (!jid || !jid.includes("@g.us") || seenJids.has(jid)) continue;
+        seenJids.add(jid);
+
+        const cachedLink = extractInviteFromGroupObject(g);
+        if (cachedLink) inviteCache.set(jid, cachedLink);
+
+        allGroups.push({
+          jid,
+          name: g.Subject || g.subject || g.Name || g.name || g.groupName || g.title || "",
+          participants_count: g.ParticipantCount || g.Participants?.length || g.participants?.length || g.participantsCount || g.size || 0,
+          cached_invite_link: cachedLink || undefined,
+        });
+      }
+
+      if (allGroups.length > 0) {
+        console.log(`[list_groups] Found ${allGroups.length} groups, ${inviteCache.size} pre-cached invite links from ${endpoint}`);
+        break;
+      }
+    } catch { continue; }
   }
 
-  return allGroups;
+  return { groups: allGroups, inviteCache };
 }
 
-function parseInviteLinkFromRaw(raw: string): string | null {
-  const text = String(raw || "");
-  const fullLinkMatch = text.match(/https?:\/\/chat\.whatsapp\.com\/([A-Za-z0-9_-]{10,})/i);
-  if (fullLinkMatch?.[1]) {
-    return `https://chat.whatsapp.com/${fullLinkMatch[1]}`;
-  }
+/* ─── Single-group invite extraction with many fallbacks ─────── */
 
-  try {
-    const parsed = JSON.parse(text);
-    const code = findInviteCode(parsed);
-    if (code) return `https://chat.whatsapp.com/${code}`;
-  } catch {
-    // ignore JSON parse failures
-  }
-
-  return null;
-}
-
-async function fetchInviteCode(baseUrl: string, token: string, groupJid: string): Promise<InviteFetchResult> {
+async function fetchInviteCode(
+  baseUrl: string,
+  token: string,
+  groupJid: string,
+  cachedLink: string | undefined,
+): Promise<InviteFetchResult> {
   const startedAt = Date.now();
+
+  // 0) If we already have it from the listing phase, return immediately
+  if (cachedLink) {
+    console.log(`[invite] ${groupJid} => cached: ${cachedLink}`);
+    return { ok: true, link: cachedLink, diagnostics: { error_stage: "cached", processing_time_ms: 0 } };
+  }
+
   const headers: Record<string, string> = { token, Accept: "application/json", "Content-Type": "application/json" };
   const encodedJid = encodeURIComponent(groupJid);
 
-  const attempts = [
-    { label: "GET /group/invitelink/{jid}", url: `${baseUrl}/group/invitelink/${groupJid}` },
-    { label: "GET /group/invitelink/{encodedJid}", url: `${baseUrl}/group/invitelink/${encodedJid}` },
+  // Build the full list of attempts in order of priority
+  const attempts: Array<{ label: string; method: string; url: string; body?: string }> = [
+    // 1) Standard UAZAPI invite link endpoint
+    { label: "GET /group/invitelink/{jid}", method: "GET", url: `${baseUrl}/group/invitelink/${groupJid}` },
+    { label: "GET /group/invitelink/{enc}", method: "GET", url: `${baseUrl}/group/invitelink/${encodedJid}` },
+    // 2) Alternative casing variants
+    { label: "GET /group/inviteLink/{jid}", method: "GET", url: `${baseUrl}/group/inviteLink/${groupJid}` },
+    { label: "GET /group/InviteLink/{jid}", method: "GET", url: `${baseUrl}/group/InviteLink/${groupJid}` },
+    { label: "GET /group/inviteCode/{jid}", method: "GET", url: `${baseUrl}/group/inviteCode/${groupJid}` },
+    { label: "GET /group/getInviteCode/{jid}", method: "GET", url: `${baseUrl}/group/getInviteCode/${groupJid}` },
+    // 3) POST variants
+    { label: "POST /group/invitelink", method: "POST", url: `${baseUrl}/group/invitelink`, body: JSON.stringify({ groupJid }) },
+    { label: "POST /group/invitelink (jid)", method: "POST", url: `${baseUrl}/group/invitelink`, body: JSON.stringify({ jid: groupJid }) },
+    { label: "POST /group/inviteCode", method: "POST", url: `${baseUrl}/group/inviteCode`, body: JSON.stringify({ groupJid }) },
+    // 4) Group info endpoints (may contain invite link in the response)
+    { label: "POST /group/info", method: "POST", url: `${baseUrl}/group/info`, body: JSON.stringify({ groupjid: groupJid }) },
+    { label: "POST /group/info (jid)", method: "POST", url: `${baseUrl}/group/info`, body: JSON.stringify({ jid: groupJid }) },
+    { label: "GET /group/{jid}", method: "GET", url: `${baseUrl}/group/${encodedJid}` },
+    // 5) Chat-level endpoints
+    { label: "GET /chat/{jid}", method: "GET", url: `${baseUrl}/chat/${encodedJid}` },
   ];
 
-  for (const attempt of attempts) {
-    for (let retryIndex = 0; retryIndex <= RATE_LIMIT_MAX_RETRIES; retryIndex++) {
-      try {
-        const res = await fetchWithTimeout(attempt.url, { method: "GET", headers }, 6_000);
-        const raw = await res.text();
-        const providerMessage = extractProviderMessage(raw);
-        const logSuffix = retryIndex === 0 ? "" : ` retry ${retryIndex}/${RATE_LIMIT_MAX_RETRIES}`;
-        console.log(`[invite] ${attempt.label}${logSuffix} => ${res.status} ${raw.substring(0, 300)}`);
+  let lastError = "";
+  let lastStatus = 0;
+  let hitPermissionDenied = false;
 
+  for (const attempt of attempts) {
+    // If we already got a permission denied on the main endpoint, skip other invite-specific endpoints
+    // but still try info/chat endpoints which may embed the link
+    if (hitPermissionDenied && (attempt.url.includes("/invitelink") || attempt.url.includes("/inviteCode") || attempt.url.includes("/inviteLink") || attempt.url.includes("/InviteLink") || attempt.url.includes("/getInviteCode"))) {
+      continue;
+    }
+
+    for (let retry = 0; retry <= RATE_LIMIT_MAX_RETRIES; retry++) {
+      try {
+        const fetchOpts: RequestInit = { method: attempt.method, headers };
+        if (attempt.body) fetchOpts.body = attempt.body;
+
+        const res = await fetchWithTimeout(attempt.url, fetchOpts, 6_000);
+        const raw = await res.text();
+        const providerMsg = extractProviderMessage(raw);
+        const suffix = retry > 0 ? ` retry${retry}` : "";
+        console.log(`[invite] ${attempt.label}${suffix} => ${res.status} ${raw.substring(0, 200)}`);
+
+        // Success?
         const link = parseInviteLinkFromRaw(raw);
-        if (res.ok && link) {
+        if (link) {
           return {
-            ok: true,
-            link,
-            diagnostics: {
-              requested_url: attempt.url,
-              http_status: res.status,
-              processing_time_ms: Date.now() - startedAt,
-            },
+            ok: true, link,
+            diagnostics: { requested_url: attempt.url, http_status: res.status, processing_time_ms: Date.now() - startedAt },
           };
         }
 
         if (!res.ok) {
-          if (isRateLimitError(res.status, providerMessage)) {
-            const retryDelayMs = getRetryDelayMs(res, retryIndex);
+          lastStatus = res.status;
+          lastError = providerMsg;
 
-            if (retryIndex < RATE_LIMIT_MAX_RETRIES) {
-              console.log(`[invite] ${attempt.label} rate limited; waiting ${retryDelayMs}ms before retry`);
-              await sleep(retryDelayMs);
+          // Rate limit → retry with backoff
+          if (isRateLimit(res.status, providerMsg)) {
+            if (retry < RATE_LIMIT_MAX_RETRIES) {
+              const delay = getRetryDelay(retry);
+              console.log(`[invite] ${attempt.label} rate-limited; waiting ${delay}ms`);
+              await sleep(delay);
               continue;
             }
-
-            return {
-              ok: false,
-              link: null,
-              error: translateInviteError(res.status, providerMessage),
-              diagnostics: {
-                requested_url: attempt.url,
-                http_status: res.status,
-                error_stage: "rate_limited",
-                provider_message: providerMessage || undefined,
-                processing_time_ms: Date.now() - startedAt,
-                rate_limited: true,
-                retry_after_ms: retryDelayMs,
-              },
-            };
-          }
-
-          const error = translateInviteError(res.status, providerMessage);
-
-          if (res.status === 404) {
+            // Exhausted retries for this attempt, move to next
             break;
           }
 
-          return {
-            ok: false,
-            link: null,
-            error,
-            diagnostics: {
-              requested_url: attempt.url,
-              http_status: res.status,
-              error_stage: "uazapi_response",
-              provider_message: providerMessage || undefined,
-              processing_time_ms: Date.now() - startedAt,
-            },
-          };
+          // Permission denied
+          if (providerMsg.toLowerCase().includes("permission")) {
+            hitPermissionDenied = true;
+            break; // skip to next attempt (will be info/chat endpoints)
+          }
+
+          // 404/405 → skip to next attempt
+          if (res.status === 404 || res.status === 405) break;
+
+          // Other errors → skip to next attempt
+          break;
         }
 
+        // res.ok but no link found → move to next attempt
         break;
       } catch (err: any) {
         console.log(`[invite] ${attempt.label} err: ${err?.message}`);
@@ -273,92 +308,34 @@ async function fetchInviteCode(baseUrl: string, token: string, groupJid: string)
     }
   }
 
-  try {
-    const infoRes = await fetchWithTimeout(`${baseUrl}/group/info`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ groupjid: groupJid }),
-    }, 6_000);
+  // All attempts exhausted
+  const elapsed = Date.now() - startedAt;
+  const isRL = isRateLimit(lastStatus, lastError);
 
-    const infoRaw = await infoRes.text();
-    const infoLink = parseInviteLinkFromRaw(infoRaw);
-    if (infoRes.ok && infoLink) {
-      return {
-        ok: true,
-        link: infoLink,
-        diagnostics: {
-          requested_url: `${baseUrl}/group/info`,
-          http_status: infoRes.status,
-          processing_time_ms: Date.now() - startedAt,
-        },
-      };
-    }
+  if (isRL) {
+    return {
+      ok: false, link: null,
+      error: "Limite temporário da UAZAPI. Será re-tentado automaticamente.",
+      diagnostics: { error_stage: "rate_limited", http_status: lastStatus, provider_message: lastError, processing_time_ms: elapsed, rate_limited: true, retry_after_ms: RATE_LIMIT_BASE_DELAY_MS },
+    };
+  }
 
-    if (infoRes.ok) {
-      const providerMessage = extractProviderMessage(infoRaw);
-      console.log(`[invite] /group/info fallback (${infoRaw.length} chars)`);
-      try {
-        const parsed = JSON.parse(infoRaw);
-        console.log(`[invite] /group/info keys: ${Object.keys(parsed || {}).join(", ")}`);
-      } catch {
-        // ignore JSON parse failures
-      }
-
-      return {
-        ok: false,
-        link: null,
-        error: "A UAZAPI reconheceu o grupo, mas não retornou o link de convite para ele.",
-        diagnostics: {
-          requested_url: `${baseUrl}/group/info`,
-          http_status: infoRes.status,
-          error_stage: "missing_invite_data",
-          provider_message: providerMessage || undefined,
-          processing_time_ms: Date.now() - startedAt,
-        },
-      };
-    }
-  } catch (err: any) {
-    console.log(`[invite] /group/info fallback err: ${err?.message}`);
+  if (hitPermissionDenied) {
+    return {
+      ok: false, link: null,
+      error: "Essa instância não é admin do grupo. Tentamos rotas alternativas, mas nenhuma retornou o link.",
+      diagnostics: { error_stage: "permission_denied", provider_message: lastError, processing_time_ms: elapsed },
+    };
   }
 
   return {
-    ok: false,
-    link: null,
-    error: "Não foi possível consultar o link de convite na UAZAPI.",
-    diagnostics: {
-      error_stage: "request_failed",
-      processing_time_ms: Date.now() - startedAt,
-    },
+    ok: false, link: null,
+    error: lastError || "Não foi possível extrair o link de convite.",
+    diagnostics: { error_stage: "all_attempts_failed", http_status: lastStatus, provider_message: lastError, processing_time_ms: elapsed },
   };
 }
 
-function findInviteCode(obj: any, depth = 0): string | null {
-  if (!obj || depth > 3) return null;
-  if (typeof obj === "string") {
-    const clean = obj.replace(/^https?:\/\/chat\.whatsapp\.com\//i, "").split(/[/?#\s]/)[0].trim();
-    if (/^[A-Za-z0-9_-]{10,}$/.test(clean)) return clean;
-    return null;
-  }
-  if (typeof obj !== "object") return null;
-
-  const keys = ["inviteCode", "invite", "inviteLink", "inviteUrl", "code", "link", "url", "invite_code", "invite_link"];
-  for (const key of keys) {
-    if (obj[key]) {
-      const result = findInviteCode(obj[key], depth + 1);
-      if (result) return result;
-    }
-  }
-
-  const nested = ["data", "group", "result", "response"];
-  for (const key of nested) {
-    if (obj[key] && typeof obj[key] === "object") {
-      const result = findInviteCode(obj[key], depth + 1);
-      if (result) return result;
-    }
-  }
-
-  return null;
-}
+/* ─── Main handler ─────────────────────────────────────── */
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -366,29 +343,19 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
-
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const body = await req.json().catch(() => ({}));
     const { action, device_id, group_jids } = body;
 
     const serviceClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-
     const { data: device } = await serviceClient
       .from("devices")
       .select("uazapi_token, uazapi_base_url, name, number")
@@ -397,120 +364,85 @@ Deno.serve(async (req) => {
       .single();
 
     if (!device?.uazapi_token || !device?.uazapi_base_url) {
-      return new Response(JSON.stringify({ error: "Dispositivo não configurado" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ error: "Dispositivo não configurado" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
     const token = device.uazapi_token;
 
+    /* ── list_groups ─────────────────────────────────── */
     if (action === "list_groups") {
-      const groups = await fetchGroupsList(baseUrl, token);
-      return new Response(JSON.stringify({ groups }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const { groups, inviteCache } = await fetchGroupsList(baseUrl, token);
+      console.log(`[list_groups] ${groups.length} groups, ${inviteCache.size} cached invite links`);
+      return new Response(JSON.stringify({ groups }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    /* ── extract_links ───────────────────────────────── */
     if (action === "extract_links") {
       if (!Array.isArray(group_jids) || group_jids.length === 0) {
-        return new Response(JSON.stringify({ error: "Selecione pelo menos um grupo" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(JSON.stringify({ error: "Selecione pelo menos um grupo" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      console.log(`[extract-invite-links] Extracting ${group_jids.length} groups for device ${device_id}`);
+      console.log(`[extract] Starting ${group_jids.length} groups for device ${device_id}`);
 
-      const results: Array<{
-        jid: string;
-        name: string;
-        link: string | null;
-        error?: string;
-        diagnostics?: InviteDiagnostics;
-      }> = [];
-      const rateLimitedQueue: Array<{ resultIndex: number; jid: string; name: string; retryAfterMs: number }> = [];
+      // Pre-fetch group list to get cached invite links
+      const { inviteCache } = await fetchGroupsList(baseUrl, token);
+      console.log(`[extract] Pre-cached ${inviteCache.size} invite links from group listing`);
+
+      const results: Array<{ jid: string; name: string; link: string | null; error?: string; diagnostics?: InviteDiagnostics }> = [];
+      const failedQueue: Array<{ idx: number; jid: string; name: string; reason: string }> = [];
 
       for (const [index, item] of group_jids.entries()) {
         const jid = typeof item === "string" ? item : item?.jid;
         const name = typeof item === "string" ? "" : item?.name || "";
+        const cached = inviteCache.get(jid);
 
         try {
-          const result = await fetchInviteCode(baseUrl, token, jid);
-          console.log(`[extract-invite-links] ${name || jid}: ${result.link || result.error || "NO LINK"}`);
-          results.push({
-            jid,
-            name,
-            link: result.link,
-            error: result.error,
-            diagnostics: result.diagnostics,
-          });
+          const result = await fetchInviteCode(baseUrl, token, jid, cached);
+          console.log(`[extract] ${name || jid}: ${result.link || result.error || "NO LINK"}`);
+          results.push({ jid, name, link: result.link, error: result.error, diagnostics: result.diagnostics });
 
-          if (result.diagnostics?.rate_limited) {
-            rateLimitedQueue.push({
-              resultIndex: results.length - 1,
-              jid,
-              name,
-              retryAfterMs: result.diagnostics.retry_after_ms ?? RATE_LIMIT_BASE_DELAY_MS,
-            });
+          if (!result.ok) {
+            failedQueue.push({ idx: results.length - 1, jid, name, reason: result.diagnostics?.error_stage || "unknown" });
           }
         } catch (err: any) {
-          console.error(`[extract-invite-links] Error for ${jid}: ${err?.message}`);
+          console.error(`[extract] Error ${jid}: ${err?.message}`);
           results.push({ jid, name, link: null, error: err?.message || "Erro" });
+          failedQueue.push({ idx: results.length - 1, jid, name, reason: "exception" });
         }
 
         if (index < group_jids.length - 1) {
-          const lastResult = results[results.length - 1];
-          const nextDelayMs = lastResult?.diagnostics?.rate_limited
-            ? Math.max(lastResult.diagnostics.retry_after_ms ?? RATE_LIMIT_BASE_DELAY_MS, RATE_LIMIT_BASE_DELAY_MS)
-            : BETWEEN_GROUPS_DELAY_MS;
-          await sleep(nextDelayMs);
+          const lastDiag = results[results.length - 1]?.diagnostics;
+          const nextDelay = lastDiag?.rate_limited ? Math.max(RATE_LIMIT_BASE_DELAY_MS, lastDiag.retry_after_ms ?? RATE_LIMIT_BASE_DELAY_MS) : BETWEEN_GROUPS_DELAY_MS;
+          await sleep(nextDelay);
         }
       }
 
-      if (rateLimitedQueue.length > 0) {
-        const cooldownMs = Math.min(
-          RATE_LIMIT_MAX_DELAY_MS,
-          Math.max(
-            RATE_LIMIT_BASE_DELAY_MS,
-            ...rateLimitedQueue.map((entry) => entry.retryAfterMs),
-          ),
-        );
+      // Retry round for rate-limited and failed groups
+      const retryable = failedQueue.filter((f) => f.reason === "rate_limited" || f.reason === "all_attempts_failed");
+      if (retryable.length > 0) {
+        const cooldown = Math.max(RATE_LIMIT_BASE_DELAY_MS * 2, 6_000);
+        console.log(`[extract] Retrying ${retryable.length} failed group(s) after ${cooldown}ms cooldown`);
+        await sleep(cooldown);
 
-        console.log(`[extract-invite-links] Retrying ${rateLimitedQueue.length} rate-limited group(s) after ${cooldownMs}ms cooldown`);
-        await sleep(cooldownMs);
+        for (const [qi, queued] of retryable.entries()) {
+          const retryResult = await fetchInviteCode(baseUrl, token, queued.jid, undefined);
+          console.log(`[extract] RETRY ${queued.name || queued.jid}: ${retryResult.link || retryResult.error || "NO LINK"}`);
+          results[queued.idx] = { jid: queued.jid, name: queued.name, link: retryResult.link, error: retryResult.error, diagnostics: retryResult.diagnostics };
 
-        for (const [queueIndex, queued] of rateLimitedQueue.entries()) {
-          const retryResult = await fetchInviteCode(baseUrl, token, queued.jid);
-          console.log(`[extract-invite-links] retry ${queued.name || queued.jid}: ${retryResult.link || retryResult.error || "NO LINK"}`);
-          results[queued.resultIndex] = {
-            jid: queued.jid,
-            name: queued.name,
-            link: retryResult.link,
-            error: retryResult.error,
-            diagnostics: retryResult.diagnostics,
-          };
-
-          if (queueIndex < rateLimitedQueue.length - 1) {
-            await sleep(BETWEEN_GROUPS_DELAY_MS);
-          }
+          if (qi < retryable.length - 1) await sleep(BETWEEN_GROUPS_DELAY_MS * 2);
         }
       }
 
       const okCount = results.filter((r) => r.link).length;
-      console.log(`[extract-invite-links] Done: ${okCount}/${results.length} links extracted`);
+      console.log(`[extract] Done: ${okCount}/${results.length} links extracted`);
 
-      return new Response(JSON.stringify({ results }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ results }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    return new Response(JSON.stringify({ error: "Ação inválida" }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: "Ação inválida" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
     console.error("[extract-invite-links] Error:", err);
-    return new Response(JSON.stringify({ error: err?.message || "Erro interno" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: err?.message || "Erro interno" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
