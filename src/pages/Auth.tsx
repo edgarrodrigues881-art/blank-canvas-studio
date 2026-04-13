@@ -112,11 +112,15 @@ const Auth = () => {
         setResolvedLoginEmail(null);
         const loginEmail = await resolveLoginEmail(email, password);
         setResolvedLoginEmail(loginEmail);
-        const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
+        const { data: signInData, error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
         if (error) throw error;
         localStorage.setItem("dg_remember_me", rememberMe ? "true" : "false");
         if (!rememberMe) sessionStorage.setItem("dg_session_alive", "true");
         else sessionStorage.removeItem("dg_session_alive");
+        // Mark welcome as shown BEFORE navigating to prevent onAuthStateChange from doing a competing full-page reload
+        if (signInData?.user) {
+          localStorage.setItem(`dg_welcome_shown_${signInData.user.id}`, "true");
+        }
         navigate(`/welcome?to=${encodeURIComponent(redirectTo)}`);
       } else {
         const trimmedPhone = phone.trim().replace(/\D/g, "");
