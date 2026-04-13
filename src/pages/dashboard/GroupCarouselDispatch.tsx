@@ -590,7 +590,7 @@ export default function GroupCarouselDispatch() {
   ];
 
   // ── WhatsApp Preview ──
-  const WhatsAppPreview = () => {
+  const renderWhatsAppPreview = () => {
     const displayMessage = dispatchType === "carousel" ? carouselMessage : message;
     const hasContent = displayMessage || mediaUrl;
     const hasAnyButtons = dispatchType !== "carousel" && buttons.filter(b => b.text.trim()).length > 0;
@@ -902,7 +902,7 @@ export default function GroupCarouselDispatch() {
                 {dispatchType === "carousel" ? (
                   <CarouselPreview cards={cards} message={carouselMessage} />
                 ) : (
-                  <WhatsAppPreview />
+                  renderWhatsAppPreview()
                 )}
               </div>
             </div>
@@ -1350,7 +1350,7 @@ export default function GroupCarouselDispatch() {
                 {dispatchType === "carousel" ? (
                   <CarouselPreview cards={cards} message={carouselMessage} />
                 ) : (
-                  <WhatsAppPreview />
+                  renderWhatsAppPreview()
                 )}
               </div>
             </div>
