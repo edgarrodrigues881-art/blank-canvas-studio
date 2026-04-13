@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useCarouselTemplates } from "@/hooks/useCarouselTemplates";
 import { cn } from "@/lib/utils";
+import { normalizeComposerMessage, splitStoredMessageContent } from "@/lib/campaign-message";
 
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -196,6 +197,57 @@ export default function GroupCarouselDispatch() {
   const { data: savedTemplates = [] } = useTemplates();
   const { data: carouselTemplates = [] } = useCarouselTemplates();
   const isAllowed = user?.email === ALLOWED_EMAIL;
+
+  const applyImportedTextTemplate = useCallback((template: any) => {
+    const normalizedTemplate = normalizeComposerMessage({
+      content: template?.content,
+      media_url: template?.media_url,
+      buttons: template?.buttons,
+      source: "template_import",
+      templateId: template?.id,
+    });
+
+    setMessage(normalizedTemplate.primaryText);
+    setMediaUrl(normalizedTemplate.mediaUrl);
+    setMediaFileName(normalizedTemplate.mediaName);
+    setButtons(
+      normalizedTemplate.buttons.length > 0
+        ? normalizedTemplate.buttons.map((button, index) => ({
+            id: Date.now() + index,
+            type: button.type,
+            text: button.text,
+            value: button.value,
+          }))
+        : [{ id: Date.now(), type: "reply" as const, text: "", value: "" }]
+    );
+
+    if (normalizedTemplate.messageVariants.length > 1) {
+      toast.info(`Esse template tem ${normalizedTemplate.messageVariants.length} variações; no Disparo em Grupo carreguei só a primeira copy.`);
+    }
+  }, []);
+
+  const applyImportedCarouselTemplate = useCallback((template: any) => {
+    const splitMessage = splitStoredMessageContent(template?.message);
+    setCarouselMessage(splitMessage.messageVariants[0] || "");
+
+    if (splitMessage.messageVariants.length > 1) {
+      toast.info(`Esse template de carrossel tem ${splitMessage.messageVariants.length} variações; carreguei só a primeira copy neste fluxo.`);
+    }
+
+    if (Array.isArray(template?.cards) && template.cards.length > 0) {
+      setCards(template.cards.map((card: any, index: number) => ({
+        id: card.id || `card-${index}`,
+        position: card.position ?? index,
+        text: card.text || "",
+        mediaUrl: card.mediaUrl || "",
+        mediaType: card.mediaType || null,
+        mediaFileName: card.mediaFileName || "",
+        buttons: Array.isArray(card.buttons) ? card.buttons : [],
+      })));
+    } else {
+      setCards([createEmptyCard(0)]);
+    }
+  }, []);
 
   useEffect(() => {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -789,20 +841,7 @@ export default function GroupCarouselDispatch() {
                         if (val !== "nova") {
                           const tmpl = carouselTemplates.find(t => t.id === val);
                           if (tmpl) {
-                            setCarouselMessage(tmpl.message || "");
-                            if (Array.isArray(tmpl.cards) && tmpl.cards.length > 0) {
-                            setCards(tmpl.cards.map((c: any, i: number) => ({
-                                id: c.id || `card-${i}`,
-                                position: c.position ?? i,
-                                text: c.text || "",
-                                mediaUrl: c.mediaUrl || "",
-                                mediaType: c.mediaType || null,
-                                mediaFileName: c.mediaFileName || "",
-                                buttons: Array.isArray(c.buttons) ? c.buttons : [],
-                              })));
-                            } else {
-                              setCards([createEmptyCard(0)]);
-                            }
+                            applyImportedCarouselTemplate(tmpl);
                           }
                         } else {
                           setCarouselMessage("");
@@ -879,14 +918,8 @@ export default function GroupCarouselDispatch() {
                     if (val !== "nova") {
                       const tmpl = savedTemplates.find(t => t.id === val);
                       if (tmpl) {
-                        setMessage(tmpl.content || "");
-                        setMediaUrl(tmpl.media_url || "");
-                        setMediaFileName(tmpl.media_url ? "Mídia do template" : "");
-                        const tmplButtons = Array.isArray(tmpl.buttons) && tmpl.buttons.length > 0
-                          ? tmpl.buttons.map((b: any, i: number) => ({ id: Date.now() + i, type: b.type || "reply", text: b.text || "", value: b.value || "" }))
-                          : [{ id: Date.now(), type: "reply" as const, text: "", value: "" }];
-                        setButtons(tmplButtons);
-                      }
+                          applyImportedTextTemplate(tmpl);
+                        }
                     } else {
                       setMessage("");
                       setMediaUrl("");
