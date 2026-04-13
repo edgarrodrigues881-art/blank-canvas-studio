@@ -270,6 +270,21 @@ const Auth = () => {
                 </motion.div>
               )}
             </form>
+
+            {/* Divider */}
+            <div className="my-5 h-[1px]" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)" }} />
+
+            {/* Signup link */}
+            <div className="text-center">
+              <p className="text-[12px] text-white/25 mb-2.5">Não tem conta?</p>
+              <button
+                onClick={() => navigate("/auth?mode=signup")}
+                className="w-full py-2.5 rounded-xl text-[13px] font-semibold border transition-all duration-150 hover:bg-white/[0.03] text-white/60 hover:text-white/80"
+                style={{ borderColor: "rgba(255,255,255,0.08)" }}
+              >
+                Criar conta gratuita
+              </button>
+            </div>
           </div>
         </motion.div>
 
