@@ -267,6 +267,22 @@ const AISettings = () => {
     })();
   }, []);
 
+  const applyMode = (mode: AiMode) => {
+    const preset = MODE_PRESETS[mode];
+    setSelectedMode(mode);
+    setAiObjective(preset.objective);
+    setCommStyle(preset.commStyle);
+    setInsistence(preset.insistence);
+    setStrategy(preset.strategy);
+    setTone(preset.tone);
+    setResponseStyle(preset.responseStyle);
+    setFlowSteps(preset.flowSteps);
+    setAutoFlow(true);
+    const prompt = generatePrompt(preset.objective, preset.commStyle, preset.insistence, preset.strategy);
+    setAiInstructions(prompt);
+    toast.success(`Modo "${preset.label}" aplicado!`);
+  };
+
   const generatePrompt = (obj: string, style: string, ins: number, strat: string) => {
     const objMap: Record<string, string> = { vender: "converter leads em vendas e fechar negócios", atender: "atender dúvidas dos clientes de forma completa", suporte: "resolver problemas técnicos e dar suporte" };
     const styleMap: Record<string, string> = { persuasivo: "persuasivo e convincente", tecnico: "técnico e detalhado", amigavel: "amigável e acolhedor", direto: "direto e objetivo" };
