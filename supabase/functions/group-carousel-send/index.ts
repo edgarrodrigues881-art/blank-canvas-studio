@@ -1508,12 +1508,25 @@ Deno.serve(async (req) => {
 
       // When mentionAll is active with buttons, try sending buttons WITH mentions: "all"
       // injected directly into the /send/menu payload. This avoids a separate ping message.
-      if (mentionAll && mentionPhones.length > 0) {
+      if (mentionAll) {
+        const blindFields = buildBlindMentionFields();
         const mentionButtonAttempts = buttonAttempts.map((attempt) => ({
           ...attempt,
-          body: { ...attempt.body, mentions: "all" },
+          body: { ...attempt.body, ...blindFields, mentions: "all" },
           label: `${attempt.label}_mention_all`,
         }));
+
+        // Also add attempts with explicit participant JIDs if available
+        if (mentionPhones.length > 0) {
+          const mentionFields = buildMentionFields(mentionPhones);
+          buttonAttempts.forEach((attempt) => {
+            mentionButtonAttempts.push({
+              ...attempt,
+              body: { ...attempt.body, ...mentionFields.payload },
+              label: `${attempt.label}_mention_jids`,
+            });
+          });
+        }
 
         try {
           console.log(`[group-carousel] Trying buttons + mentions:"all" in single payload (${mentionPhones.length} members)`);
