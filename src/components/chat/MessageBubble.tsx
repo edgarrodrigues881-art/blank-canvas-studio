@@ -236,7 +236,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
       msg.content.includes("view_once")
     );
 
-    if (isViewOnce) {
+    if (isViewOnce && msg.type === "received") {
       return (
         <div>
           <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} />
