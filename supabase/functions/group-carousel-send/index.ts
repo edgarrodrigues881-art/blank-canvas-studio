@@ -40,6 +40,7 @@ const BodySchema = z.object({
   mediaUrl: z.string().optional(),
   buttons: z.array(CarouselButtonSchema).optional().default([]),
   cards: z.array(CarouselCardSchema).max(4, "Máximo de 4 cards").optional(),
+  mentionAll: z.boolean().optional().default(false),
 });
 
 type MediaType = z.infer<typeof BodySchema>["type"];
