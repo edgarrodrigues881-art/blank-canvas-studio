@@ -1499,21 +1499,42 @@ const AISettings = () => {
                       <p className="text-sm font-medium text-foreground truncate">
                         {lead.contact_name || lead.remote_jid.replace("@s.whatsapp.net", "")}
                       </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {lead.interest && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">{lead.interest}</Badge>
-                        )}
-                        <span className="text-[10px] text-muted-foreground">{lead.interaction_count} interações</span>
-                      </div>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${
-                    lead.stage === "hot" ? "border-red-500/40 text-red-400" :
-                    lead.stage === "warm" ? "border-amber-500/40 text-amber-400" :
-                    "border-blue-500/40 text-blue-400"
-                  }`}>
-                    {lead.stage === "hot" ? "Quente" : lead.stage === "warm" ? "Morno" : "Frio"}
-                  </Badge>
+                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                         {lead.interest && (
+                           <Badge variant="outline" className="text-[10px] px-1.5 py-0">{lead.interest}</Badge>
+                         )}
+                         {(() => {
+                           try {
+                             const notes = JSON.parse(lead.notes || "{}");
+                             const intentLabels: Record<string, string> = { curious: "🔎 Curioso", interested: "💡 Interessado", ready_to_buy: "🔥 Pronto p/ comprar", objection: "🛡️ Objeção" };
+                             const stepLabels: Record<string, string> = { saudacao: "Saudação", diagnostico: "Diagnóstico", apresentacao: "Apresentação", objecao: "Objeção", fechamento: "Fechamento" };
+                             return (
+                               <>
+                                 {notes.last_intent && (
+                                   <Badge className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20">
+                                     {intentLabels[notes.last_intent] || notes.last_intent}
+                                   </Badge>
+                                 )}
+                                 {notes.last_flow_step && (
+                                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-dashed">
+                                     📍 {stepLabels[notes.last_flow_step] || notes.last_flow_step}
+                                   </Badge>
+                                 )}
+                               </>
+                             );
+                           } catch { return null; }
+                         })()}
+                         <span className="text-[10px] text-muted-foreground">{lead.interaction_count} interações</span>
+                       </div>
+                     </div>
+                   </div>
+                   <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${
+                     lead.stage === "hot" ? "border-red-500/40 text-red-400" :
+                     lead.stage === "warm" ? "border-amber-500/40 text-amber-400" :
+                     "border-blue-500/40 text-blue-400"
+                   }`}>
+                     {lead.stage === "hot" ? "Quente" : lead.stage === "warm" ? "Morno" : "Frio"}
+                   </Badge>
                 </div>
               ))}
             </div>
