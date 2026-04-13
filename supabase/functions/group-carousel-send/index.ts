@@ -1458,6 +1458,28 @@ Deno.serve(async (req) => {
 
       const buttonAttempts = buildButtonsAttempts(baseUrl, groupJid, normalizedTextContent, normalizedButtons);
 
+      // When mentionAll is active, send mentions as a separate text message FIRST,
+      // then send buttons WITHOUT mentions to avoid "invalid payload" from UAZAPI
+      if (mentionAll && mentionPhones.length > 0) {
+        const mentionAttempts = buildMentionTextAttempts(baseUrl, groupJid, normalizedTextContent, mentionPhones);
+        console.log(`[group-carousel] Sending @todos text first (${mentionPhones.length} members), then buttons separately`);
+        await sendWithFallbacks(mentionAttempts, headers, groupJid);
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await sendWithFallbacks(buttonAttempts, headers, groupJid);
+
+        if (trimmedMediaUrl) {
+          const mediaType = detectMediaTypeFromUrl(trimmedMediaUrl);
+          const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
+          if (inspectedMedia.ok) {
+            const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            await sendWithFallbacks(mediaAttempts, headers, groupJid);
+          }
+        }
+
+        return json({ ok: true, mode: "buttons_mention", groupName });
+      }
+
       if (trimmedMediaUrl) {
         const mediaType = detectMediaTypeFromUrl(trimmedMediaUrl);
         const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
@@ -1475,7 +1497,7 @@ Deno.serve(async (req) => {
           );
 
           try {
-            await sendWithFallbacks(imageButtonAttempts, headers, groupJid, mentionPhones);
+            await sendWithFallbacks(imageButtonAttempts, headers, groupJid);
             return json({ ok: true, mode: "buttons_image", groupName });
           } catch (error) {
             console.warn(`[group-carousel] imageButton failed, falling back to split send: ${error instanceof Error ? error.message : String(error)}`);
@@ -1485,19 +1507,19 @@ Deno.serve(async (req) => {
         const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
 
         if (mediaType === "audio") {
-          await sendWithFallbacks(buttonAttempts, headers, groupJid, mentionPhones);
+          await sendWithFallbacks(buttonAttempts, headers, groupJid);
           await new Promise((resolve) => setTimeout(resolve, 1500));
-          await sendWithFallbacks(mediaAttempts, headers, groupJid, mentionPhones);
+          await sendWithFallbacks(mediaAttempts, headers, groupJid);
           return json({ ok: true, mode: "buttons_audio", groupName });
         }
 
-        await sendWithFallbacks(mediaAttempts, headers, groupJid, mentionPhones);
+        await sendWithFallbacks(mediaAttempts, headers, groupJid);
         await new Promise((resolve) => setTimeout(resolve, 1500));
-        await sendWithFallbacks(buttonAttempts, headers, groupJid, mentionPhones);
+        await sendWithFallbacks(buttonAttempts, headers, groupJid);
         return json({ ok: true, mode: "buttons_media", groupName });
       }
 
-      await sendWithFallbacks(buttonAttempts, headers, groupJid, mentionPhones);
+      await sendWithFallbacks(buttonAttempts, headers, groupJid);
       return json({ ok: true, mode: "buttons", groupName });
     }
 
