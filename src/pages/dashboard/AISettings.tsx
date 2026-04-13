@@ -68,6 +68,13 @@ const AISettings = () => {
   const [autoTransferHuman, setAutoTransferHuman] = useState(false);
   const [minDelay, setMinDelay] = useState(1);
   const [maxDelay, setMaxDelay] = useState(3);
+  const [maxResponseTime, setMaxResponseTime] = useState(30);
+  const [maxConsecutiveMessages, setMaxConsecutiveMessages] = useState(3);
+  const [smartDelay, setSmartDelay] = useState(true);
+  const [forceCollectName, setForceCollectName] = useState(false);
+  const [forceCollectPhone, setForceCollectPhone] = useState(false);
+  const [fallbackAskContext, setFallbackAskContext] = useState(true);
+  const [fallbackTransferAfter, setFallbackTransferAfter] = useState(2);
   const [knowledgeDocs, setKnowledgeDocs] = useState<KnowledgeDoc[]>([]);
   const [kbProducts, setKbProducts] = useState("");
   const [kbPrices, setKbPrices] = useState("");
