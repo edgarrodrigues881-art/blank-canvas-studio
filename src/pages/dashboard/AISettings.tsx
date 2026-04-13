@@ -167,6 +167,7 @@ const AISettings = () => {
     fechamento: "Ótimo! Vamos fechar então? Posso te enviar o link de pagamento ou agendar uma demonstração?",
   });
   const [editingStep, setEditingStep] = useState<string | null>(null);
+  const [selectedLead, setSelectedLead] = useState<LeadMemory | null>(null);
   const [responseStyle, setResponseStyle] = useState("medium");
   const [splitLongMessages, setSplitLongMessages] = useState(true);
   const [simulateTyping, setSimulateTyping] = useState(true);
