@@ -469,6 +469,11 @@ export default function GroupCarouselDispatch() {
                 : { deviceId: selectedDevice, groupJid: gid, content: plan.text.trim(), type: "text" };
             }
 
+            // Inject mentionAll flag
+            if (mentionAll) {
+              body.mentionAll = true;
+            }
+
             const res = await supabase.functions.invoke("group-carousel-send", { body });
             if (res.error || res.data?.ok === false) {
               throw new Error(res.error?.message || res.data?.error || "Falha ao enviar.");
