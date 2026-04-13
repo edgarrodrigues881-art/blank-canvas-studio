@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import {
-  Search, Link2, Download, Loader2, Smartphone, Copy,
-  CheckCircle2, AlertCircle, RefreshCw, Users, ExternalLink, Check,
+  Search, Link2, Download, Loader2, Smartphone, Copy, Trash2,
+  CheckCircle2, AlertCircle, RefreshCw, Users, ExternalLink, Check, History,
 } from "lucide-react";
 
 interface GroupInfo {
@@ -65,6 +65,8 @@ export default function GroupInviteExtractor() {
   const [results, setResults] = useState<ExtractedLink[]>([]);
   const [searchGroups, setSearchGroups] = useState("");
   const [copiedJid, setCopiedJid] = useState<string | null>(null);
+  const [searchHistory, setSearchHistory] = useState("");
+  const queryClient = useQueryClient();
 
   const { data: devices = [] } = useQuery({
     queryKey: ["devices-for-invite-extractor"],
@@ -80,6 +82,58 @@ export default function GroupInviteExtractor() {
     },
     staleTime: 30_000,
   });
+
+  // ─── History query ───
+  const { data: historyLinks = [], isLoading: loadingHistory } = useQuery({
+    queryKey: ["extracted-invite-links-history"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("extracted_invite_links")
+        .select("*")
+        .order("extracted_at", { ascending: false });
+      return data || [];
+    },
+    staleTime: 10_000,
+  });
+
+  const filteredHistory = useMemo(() => {
+    if (!searchHistory) return historyLinks;
+    const q = searchHistory.toLowerCase();
+    return historyLinks.filter((h: any) =>
+      (h.group_name || "").toLowerCase().includes(q) ||
+      (h.invite_link || "").toLowerCase().includes(q) ||
+      (h.device_name || "").toLowerCase().includes(q)
+    );
+  }, [historyLinks, searchHistory]);
+
+  // ─── Save extracted links to history ───
+  const saveLinksToHistory = useCallback(async (links: ExtractedLink[], deviceId: string) => {
+    const device = devices.find((d: any) => d.id === deviceId);
+    const rows = links
+      .filter((r) => r.link)
+      .map((r) => ({
+        user_id: undefined as any, // RLS handles this
+        device_id: deviceId,
+        device_name: device?.name || device?.number || deviceId,
+        group_jid: r.jid,
+        group_name: r.name || null,
+        invite_link: r.link!,
+        extracted_at: new Date().toISOString(),
+      }));
+
+    if (rows.length === 0) return;
+
+    // Get current user id for the rows
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    for (const row of rows) row.user_id = user.id;
+
+    await supabase
+      .from("extracted_invite_links")
+      .upsert(rows, { onConflict: "user_id,group_jid,invite_link", ignoreDuplicates: false });
+
+    queryClient.invalidateQueries({ queryKey: ["extracted-invite-links-history"] });
+  }, [devices, queryClient]);
 
   const filteredGroups = useMemo(() => {
     if (!searchGroups) return groups;
@@ -151,6 +205,13 @@ export default function GroupInviteExtractor() {
       if (data?.error) throw new Error(data.error);
       const nextResults = data.results || [];
       setResults(nextResults);
+
+      // Auto-save successful links to history
+      const successfulLinks = nextResults.filter((r: ExtractedLink) => r.link);
+      if (successfulLinks.length > 0) {
+        saveLinksToHistory(successfulLinks, selectedDevice).catch(console.error);
+      }
+
       const ok = nextResults.filter((r: ExtractedLink) => r.link).length;
       const failed = items.length - ok;
       const permissionDenied = nextResults.filter(
@@ -230,6 +291,50 @@ export default function GroupInviteExtractor() {
     const a = document.createElement("a");
     a.href = url;
     a.download = "invite-links.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const deleteHistoryLink = async (id: string) => {
+    await supabase.from("extracted_invite_links").delete().eq("id", id);
+    queryClient.invalidateQueries({ queryKey: ["extracted-invite-links-history"] });
+    toast.success("Link removido do histórico");
+  };
+
+  const deleteAllHistory = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("extracted_invite_links").delete().eq("user_id", user.id);
+    queryClient.invalidateQueries({ queryKey: ["extracted-invite-links-history"] });
+    toast.success("Histórico limpo");
+  };
+
+  const copyHistoryLinks = async () => {
+    const text = filteredHistory.map((h: any) => h.invite_link).join("\n");
+    await navigator.clipboard.writeText(text);
+    toast.success(`${filteredHistory.length} links copiados!`);
+  };
+
+  const copyHistoryWithNames = async () => {
+    const text = filteredHistory.map((h: any) => `${h.group_name || h.group_jid}: ${h.invite_link}`).join("\n");
+    await navigator.clipboard.writeText(text);
+    toast.success(`${filteredHistory.length} links copiados!`);
+  };
+
+  const exportHistoryCSV = () => {
+    const rows = [
+      ["Grupo", "JID", "Link", "Instância", "Data"],
+      ...filteredHistory.map((h: any) => [
+        h.group_name || "", h.group_jid, h.invite_link,
+        h.device_name || "", new Date(h.extracted_at).toLocaleString("pt-BR"),
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((c: string) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "historico-invite-links.csv";
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -423,6 +528,116 @@ export default function GroupInviteExtractor() {
           </CardContent>
         </Card>
       )}
+
+      {/* Step 4 - History */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <History className="w-4 h-4" />
+              Histórico de Links Extraídos
+              <Badge variant="secondary" className="ml-1">{historyLinks.length}</Badge>
+            </CardTitle>
+            <div className="flex gap-2 flex-wrap">
+              {filteredHistory.length > 0 && (
+                <>
+                  <Button variant="outline" size="sm" onClick={copyHistoryLinks}>
+                    <Copy className="w-3.5 h-3.5 mr-1.5" /> Só Links
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={copyHistoryWithNames}>
+                    <Copy className="w-3.5 h-3.5 mr-1.5" /> Links + Nomes
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={exportHistoryCSV}>
+                    <Download className="w-3.5 h-3.5 mr-1.5" /> CSV
+                  </Button>
+                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={deleteAllHistory}>
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Limpar
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {historyLinks.length > 5 && (
+            <div className="relative mb-3">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar no histórico..."
+                value={searchHistory}
+                onChange={(e) => setSearchHistory(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          )}
+          {loadingHistory ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredHistory.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-8">
+              {historyLinks.length === 0 ? "Nenhum link salvo ainda. Extraia links acima e eles serão salvos automaticamente aqui." : "Nenhum resultado para essa busca."}
+            </p>
+          ) : (
+            <ScrollArea className="h-[400px]">
+              <div className="space-y-1">
+                {filteredHistory.map((h: any) => (
+                  <div
+                    key={h.id}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border/30 hover:bg-muted/20"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">{h.group_name || "Grupo sem nome"}</p>
+                        {h.device_name && (
+                          <Badge variant="outline" className="text-[10px] shrink-0">{h.device_name}</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground font-mono truncate">{h.invite_link}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {new Date(h.extracted_at).toLocaleString("pt-BR")}
+                      </p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => copyLink(h.invite_link, h.id)}
+                      >
+                        {copiedJid === h.id ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        asChild
+                      >
+                        <a href={h.invite_link} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => deleteHistoryLink(h.id)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

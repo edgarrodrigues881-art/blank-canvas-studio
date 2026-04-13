@@ -2291,6 +2291,57 @@ export type Database = {
           },
         ]
       }
+      extracted_invite_links: {
+        Row: {
+          created_at: string
+          device_id: string | null
+          device_name: string | null
+          extracted_at: string
+          group_jid: string
+          group_name: string | null
+          id: string
+          invite_link: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id?: string | null
+          device_name?: string | null
+          extracted_at?: string
+          group_jid: string
+          group_name?: string | null
+          id?: string
+          invite_link: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string | null
+          device_name?: string | null
+          extracted_at?: string
+          group_jid?: string
+          group_name?: string | null
+          id?: string
+          invite_link?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extracted_invite_links_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extracted_invite_links_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_controls: {
         Row: {
           feature_description: string
