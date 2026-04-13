@@ -616,6 +616,9 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
+      {/* Simulador de IA */}
+      {iaActive && apiKeyStatus === "valid" && <AISimulator />}
+
       {/* Modo de Operação */}
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
