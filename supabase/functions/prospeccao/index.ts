@@ -682,7 +682,7 @@ Deno.serve(async (req) => {
     let searchResult: { places: any[]; creditsUsed: number };
 
     if (cityGeo) {
-      searchResult = await adaptiveSearch(allNichos, cityGeo, requestedTotal, cidadeTrimmed, estadoTrimmed, bairros, SERPER_API_KEY, logs, currentBalance);
+      searchResult = await adaptiveSearch(allNichos, cityGeo, requestedTotal, cidadeTrimmed, estadoTrimmed, bairros, SERPER_API_KEY, logs, currentBalance, !!allBusinesses);
     } else {
       const seen = new Set<string>();
       const places: any[] = [];
