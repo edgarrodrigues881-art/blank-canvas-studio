@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import {
   Layers, Loader2, Send, X, Trash2, Type, MousePointerClick,
   Clock, Pause, MessageSquare, Users, Settings2, Zap, Activity,
@@ -145,6 +145,7 @@ function rand(min: number, max: number) { return Math.floor(Math.random() * (max
 // ═══════════════════════════════════════════════
 export default function GroupCarouselDispatch() {
   const { user, session } = useAuth();
+  const navigate = useNavigate();
   const draft = useRef(loadDraft());
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const carouselTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -159,36 +160,12 @@ export default function GroupCarouselDispatch() {
   const [dispatchType, setDispatchType] = useState<DispatchType>(draft.current?.dispatchType || "text");
   const [campaignName, setCampaignName] = useState(draft.current?.campaignName || "");
 
-  // Multi-message tabs (5 slots, same as Campaigns)
-  const [messages, setMessages] = useState<string[]>(draft.current?.messages || ["", "", "", "", ""]);
-  const [activeMessageTab, setActiveMessageTab] = useState(0);
-  const message = messages[activeMessageTab];
-  const setMessage = (val: string | ((prev: string) => string)) => {
-    setMessages(prev => {
-      const copy = [...prev];
-      copy[activeMessageTab] = typeof val === "function" ? val(copy[activeMessageTab]) : val;
-      return copy;
-    });
-  };
-  const allMessages = messages.filter(m => m.trim());
-  const [rotationMode, setRotationMode] = useState<"random" | "all">(draft.current?.rotationMode || "random");
-  const combinedMessage = allMessages.length > 1
-    ? (rotationMode === "random" ? allMessages.join("|||") : allMessages.join("|&&|"))
-    : allMessages[0] || "";
+  // Single message
+  const [message, setMessage] = useState<string>(draft.current?.message || draft.current?.messages?.[0] || "");
+  const combinedMessage = message.trim();
 
-  // Carousel message tabs
-  const [carouselMessages, setCarouselMessages] = useState<string[]>(draft.current?.carouselMessages || ["", "", "", "", ""]);
-  const [activeCarouselMsgTab, setActiveCarouselMsgTab] = useState(0);
-  const carouselMessage = carouselMessages[activeCarouselMsgTab];
-  const setCarouselMessage = (val: string | ((prev: string) => string)) => {
-    setCarouselMessages(prev => {
-      const copy = [...prev];
-      copy[activeCarouselMsgTab] = typeof val === "function" ? val(copy[activeCarouselMsgTab]) : val;
-      return copy;
-    });
-  };
-  const allCarouselMessages = carouselMessages.filter(m => m.trim());
-  const [carouselRotationMode, setCarouselRotationMode] = useState<"random" | "all">("random");
+  // Carousel message
+  const [carouselMessage, setCarouselMessage] = useState<string>(draft.current?.carouselMessage || draft.current?.carouselMessages?.[0] || "");
 
   const [mediaUrl, setMediaUrl] = useState(draft.current?.mediaUrl || "");
   const [mediaFileName, setMediaFileName] = useState(draft.current?.mediaFileName || "");
