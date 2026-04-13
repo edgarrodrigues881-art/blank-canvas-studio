@@ -352,7 +352,8 @@ async function searchAndScore(
 async function adaptiveSearch(
   nichos: string[], cityGeo: CityGeo, target: number,
   cidade: string, estado: string, bairros: string[], apiKey: string,
-  logs: LogCollector, creditBudget: number = Infinity
+  logs: LogCollector, creditBudget: number = Infinity,
+  isAllBusinesses: boolean = false
 ): Promise<{ places: any[]; creditsUsed: number }> {
   const seen = new Set<string>();
   const places: any[] = [];
