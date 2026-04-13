@@ -17,9 +17,107 @@ import {
   Sparkles, Key, CheckCircle2, AlertTriangle, Eye, EyeOff, Loader2, Send,
   FileText, File, Power, Target, Zap, Activity, Circle, Timer, MessageSquare,
   UserCheck, PhoneCall, LifeBuoy, Users, Flame, Snowflake, TrendingUp,
+  Rocket, Calendar, Settings2, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
+
+type AiMode = "vendas" | "atendimento" | "suporte" | "agendamento";
+
+interface ModePreset {
+  label: string;
+  icon: string;
+  desc: string;
+  recommended?: boolean;
+  objective: string;
+  commStyle: string;
+  insistence: number;
+  strategy: string;
+  tone: string;
+  responseStyle: string;
+  flowSteps: Record<string, string>;
+  preview: string;
+}
+
+const MODE_PRESETS: Record<AiMode, ModePreset> = {
+  vendas: {
+    label: "Vendas Automáticas",
+    icon: "🚀",
+    desc: "IA focada em converter leads em clientes",
+    recommended: true,
+    objective: "vender",
+    commStyle: "persuasivo",
+    insistence: 4,
+    strategy: "fechamento",
+    tone: "friendly",
+    responseStyle: "medium",
+    flowSteps: {
+      saudacao: "Olá! Que bom ter você aqui! 😊 Posso te mostrar algo incrível?",
+      diagnostico: "Me conta: o que você está buscando? Assim consigo te indicar a melhor opção!",
+      apresentacao: "Perfeito! Tenho exatamente o que você precisa. Olha só os benefícios...",
+      objecao: "Entendo! Mas olha, muitos clientes tinham essa mesma dúvida e hoje são super satisfeitos porque...",
+      fechamento: "Vamos garantir o seu? Posso enviar o link agora mesmo! 🔥",
+    },
+    preview: "A IA vai cumprimentar, descobrir a necessidade, apresentar a solução, contornar objeções e conduzir para o fechamento — tudo de forma natural e persuasiva.",
+  },
+  atendimento: {
+    label: "Atendimento Inteligente",
+    icon: "💬",
+    desc: "IA que responde dúvidas e acolhe o cliente",
+    objective: "atender",
+    commStyle: "amigavel",
+    insistence: 2,
+    strategy: "perguntas",
+    tone: "friendly",
+    responseStyle: "medium",
+    flowSteps: {
+      saudacao: "Olá! Seja bem-vindo(a)! Como posso te ajudar hoje? 😊",
+      diagnostico: "Para te ajudar da melhor forma, me conta mais detalhes sobre o que você precisa.",
+      apresentacao: "Entendi! Com base no que você me disse, vou te explicar tudo direitinho...",
+      objecao: "Compreendo sua dúvida! Vou esclarecer isso para você...",
+      fechamento: "Consegui te ajudar? Se tiver mais alguma dúvida, é só mandar! 😊",
+    },
+    preview: "A IA vai acolher o cliente, entender a necessidade com perguntas, fornecer informações claras e garantir que todas as dúvidas foram resolvidas.",
+  },
+  suporte: {
+    label: "Suporte ao Cliente",
+    icon: "🛠️",
+    desc: "IA técnica para resolver problemas",
+    objective: "suporte",
+    commStyle: "tecnico",
+    insistence: 1,
+    strategy: "perguntas",
+    tone: "professional",
+    responseStyle: "detailed",
+    flowSteps: {
+      saudacao: "Olá! Sou o assistente de suporte. Como posso ajudá-lo?",
+      diagnostico: "Para resolver seu problema, preciso de algumas informações: O que exatamente está acontecendo?",
+      apresentacao: "Identifiquei o problema. Vou te guiar na solução passo a passo...",
+      objecao: "Entendo que é frustrante. Vamos tentar uma abordagem alternativa...",
+      fechamento: "O problema foi resolvido? Se precisar de mais ajuda, estou aqui.",
+    },
+    preview: "A IA vai diagnosticar o problema com perguntas técnicas, oferecer soluções passo a passo e verificar se o problema foi resolvido.",
+  },
+  agendamento: {
+    label: "Agendamento",
+    icon: "📅",
+    desc: "IA focada em marcar horários",
+    objective: "atender",
+    commStyle: "direto",
+    insistence: 3,
+    strategy: "direto",
+    tone: "professional",
+    responseStyle: "short",
+    flowSteps: {
+      saudacao: "Olá! Vamos agendar seu horário? 📅",
+      diagnostico: "Qual serviço você gostaria de agendar? E qual sua preferência de dia e horário?",
+      apresentacao: "Temos disponibilidade nos seguintes horários...",
+      objecao: "Se esse horário não funciona, posso verificar outras opções para você.",
+      fechamento: "Perfeito! Seu agendamento está confirmado! Te envio um lembrete antes. ✅",
+    },
+    preview: "A IA vai perguntar o serviço desejado, verificar disponibilidade, confirmar o horário e enviar lembretes — tudo de forma objetiva.",
+  },
+};
 
 interface LeadMemory {
   id: string;
