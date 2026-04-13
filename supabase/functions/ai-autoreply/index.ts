@@ -231,15 +231,22 @@ Deno.serve(async (req) => {
     if (leadUpdateMatch) {
       try {
         const update = JSON.parse(leadUpdateMatch[1]);
-        await admin.from("ai_lead_memory").update({
+        const updateData: Record<string, unknown> = {
           interest: update.interest || leadMemory.interest,
           stage: update.stage || leadMemory.stage,
           contact_name: leadMemory.contact_name || contact_name || null,
-        }).eq("id", leadMemory.id);
+        };
+        // Store intent and flow_step in notes for dashboard
+        if (update.intent || update.flow_step) {
+          const notesObj = (() => { try { return JSON.parse(leadMemory.notes || "{}"); } catch { return {}; } })();
+          if (update.intent) notesObj.last_intent = update.intent;
+          if (update.flow_step) notesObj.last_flow_step = update.flow_step;
+          updateData.notes = JSON.stringify(notesObj);
+        }
+        await admin.from("ai_lead_memory").update(updateData).eq("id", leadMemory.id);
       } catch (e) {
         console.error("Failed to parse lead update:", e);
       }
-      // Remove the hidden tag from the visible reply
       aiReply = aiReply.replace(/<!--LEAD_UPDATE:.*?-->/s, "").trim();
     }
 
