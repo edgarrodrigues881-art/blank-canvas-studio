@@ -1140,6 +1140,38 @@ const AISettings = () => {
                 <Brain className="h-4 w-4 text-primary" strokeWidth={1.5} />
                 <p className="text-xs font-semibold text-primary">Fluxo inteligente ativo</p>
               </div>
+
+              {/* Indicador de análise em tempo real */}
+              <div className="rounded-lg border border-primary/10 bg-background/60 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                  </span>
+                  <p className="text-[11px] font-medium text-foreground/80">IA analisando intenção do cliente...</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { intent: "Curioso", step: "Saudação", color: "bg-muted" },
+                    { intent: "Interessado", step: "Apresentação", color: "bg-primary/15" },
+                    { intent: "Pronto p/ comprar", step: "Fechamento", color: "bg-primary/20" },
+                    { intent: "Objeção", step: "Objeção", color: "bg-muted" },
+                  ].map((item) => (
+                    <div key={item.intent} className={`rounded-md ${item.color} border border-border/30 px-2.5 py-1.5 flex items-center gap-1.5`}>
+                      <span className="text-[10px] font-medium text-foreground/70">{item.intent}</span>
+                      <span className="text-[10px] text-muted-foreground">→</span>
+                      <span className="text-[10px] font-semibold text-primary">{item.step}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-1 rounded-md bg-muted/40 border border-border/20 px-3 py-2 flex items-center gap-2">
+                  <TrendingUp className="h-3.5 w-3.5 text-primary shrink-0" strokeWidth={1.5} />
+                  <p className="text-[10px] text-foreground/70">
+                    <span className="font-semibold text-foreground">Exemplo:</span> Cliente interessado → indo para <span className="font-semibold text-primary">Apresentação</span>
+                  </p>
+                </div>
+              </div>
+
               <p className="text-[11px] text-foreground/70 leading-relaxed">A IA detecta a intenção do cliente em cada mensagem e escolhe a etapa ideal automaticamente. Se o cliente recuar, a IA volta uma etapa.</p>
               <div className="grid grid-cols-2 gap-2">
                 {[
