@@ -129,7 +129,7 @@ export function useConversationRealtime({
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user, upsertConversationInState, sortConversations, getConversationContactKey, setConversations, selectedConvIdRef, isOwnDevice]);
+  }, [user, upsertConversationInState, sortConversations, getConversationContactKey, setConversations, setArchivedConversations, selectedConvIdRef, isOwnDevice]);
 
   // Real-time — messages table
   useEffect(() => {
