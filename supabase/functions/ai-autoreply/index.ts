@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
       return json({ skipped: "human_assigned" });
     }
 
-    // 3. Check pause words — if the incoming message contains a pause word, skip
+    // 3. Check pause words
     const pauseWords = (settings.pause_words || "")
       .split(",")
       .map((w: string) => w.trim().toLowerCase())
@@ -71,7 +71,6 @@ Deno.serve(async (req) => {
     const msgLower = (message_content || "").toLowerCase();
     if (pauseWords.some((w: string) => msgLower.includes(w))) {
       console.log("Pause word detected, skipping AI");
-      // Auto-transfer to human if configured
       if (settings.auto_transfer_human) {
         await admin
           .from("conversations")
@@ -104,7 +103,10 @@ Deno.serve(async (req) => {
       return json({ sent: true, type: "fallback_document" });
     }
 
-    // 5. Build conversation history for context
+    // 5. Load/update lead memory
+    const leadMemory = await loadOrCreateLeadMemory(admin, user_id, remote_jid, contact_name, message_content);
+
+    // 6. Build conversation history for context
     let conversationHistory: { role: string; content: string }[] = [];
     if (settings.conversation_memory) {
       const { data: history } = await admin
@@ -124,7 +126,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 6. Build system prompt
+    // 7. Build system prompt
     const toneMap: Record<string, string> = {
       friendly: "Seja amigável, caloroso e use emojis com moderação.",
       professional: "Seja profissional, educado e objetivo.",
@@ -146,17 +148,25 @@ Deno.serve(async (req) => {
       settings.business_hours ? `Horário de atendimento: ${settings.business_hours}.` : "",
       settings.business_description ? `Descrição: ${settings.business_description}.` : "",
       settings.ai_instructions ? `Instruções adicionais: ${settings.ai_instructions}` : "",
-      contact_name ? `O nome do cliente é "${contact_name}". Use o nome dele quando apropriado para personalizar.` : "",
+      // Lead memory context
+      leadMemory.contact_name ? `O nome do cliente é "${leadMemory.contact_name}". Use o nome dele quando apropriado para personalizar.` : (contact_name ? `O nome do cliente é "${contact_name}".` : ""),
+      leadMemory.interest ? `O cliente demonstrou interesse em: "${leadMemory.interest}". Referencie isso naturalmente, ex: "Você mencionou que queria ${leadMemory.interest}..."` : "",
+      leadMemory.stage === "hot" ? `Este é um lead QUENTE (${leadMemory.interaction_count} interações). Seja mais direto e conduza para conversão.` : "",
+      leadMemory.stage === "warm" ? `Este é um lead MORNO (${leadMemory.interaction_count} interações). Aprofunde o interesse e apresente benefícios.` : "",
+      leadMemory.stage === "cold" ? `Este é um lead FRIO (primeiro contato ou poucas interações). Seja acolhedor e descubra a necessidade.` : "",
       `REGRAS IMPORTANTES:`,
       `- Responda de forma natural como um atendente humano`,
       `- Evite respostas longas demais`,
       `- Se não souber a resposta, diga que vai verificar e retornar`,
       `- Nunca invente informações sobre produtos, preços ou disponibilidade`,
+      `- Ao final da resposta, inclua um JSON oculto para atualizar a memória do lead no formato: <!--LEAD_UPDATE:{"interest":"...","stage":"cold|warm|hot"}-->`,
+      `- Atualize "interest" com o que o cliente está buscando`,
+      `- Atualize "stage": cold (sem interesse claro), warm (demonstrou interesse), hot (quer comprar/agendar)`,
       settings.require_human_for_sale ? `- Para vendas ou negociações, sugira que um atendente humano pode ajudar melhor` : "",
       settings.block_sensitive ? `- Nunca compartilhe dados sensíveis como CPF, senhas ou dados bancários` : "",
     ].filter(Boolean).join("\n");
 
-    // 7. Call OpenAI
+    // 8. Call OpenAI
     const messages = [
       { role: "system", content: systemParts },
       ...conversationHistory,
@@ -192,7 +202,24 @@ Deno.serve(async (req) => {
       return json({ skipped: "empty_ai_response" });
     }
 
-    // 8. Apply delay (simulate typing)
+    // 9. Extract and apply lead memory update from AI response
+    const leadUpdateMatch = aiReply.match(/<!--LEAD_UPDATE:(.*?)-->/s);
+    if (leadUpdateMatch) {
+      try {
+        const update = JSON.parse(leadUpdateMatch[1]);
+        await admin.from("ai_lead_memory").update({
+          interest: update.interest || leadMemory.interest,
+          stage: update.stage || leadMemory.stage,
+          contact_name: leadMemory.contact_name || contact_name || null,
+        }).eq("id", leadMemory.id);
+      } catch (e) {
+        console.error("Failed to parse lead update:", e);
+      }
+      // Remove the hidden tag from the visible reply
+      aiReply = aiReply.replace(/<!--LEAD_UPDATE:.*?-->/s, "").trim();
+    }
+
+    // 10. Apply delay (simulate typing)
     if (settings.simulate_typing) {
       const minDelay = (settings.min_delay_seconds || 1) * 1000;
       const maxDelay = (settings.max_delay_seconds || 3) * 1000;
@@ -200,12 +227,11 @@ Deno.serve(async (req) => {
       await new Promise((r) => setTimeout(r, delay));
     }
 
-    // 9. Split long messages if enabled
+    // 11. Split long messages if enabled
     if (settings.split_long_messages && aiReply.length > 300) {
       const parts = splitMessage(aiReply);
       for (let i = 0; i < parts.length; i++) {
         if (i > 0) {
-          // Small delay between parts
           await new Promise((r) => setTimeout(r, 800 + Math.random() * 1200));
         }
         await sendAiReply(admin, supabaseUrl, serviceKey, conversation_id, user_id, device_id, remote_jid, parts[i], settings);
@@ -220,6 +246,48 @@ Deno.serve(async (req) => {
     return json({ error: err.message || "Erro interno" }, 500);
   }
 });
+
+// --- Lead Memory ---
+
+async function loadOrCreateLeadMemory(
+  admin: any,
+  userId: string,
+  remoteJid: string,
+  contactName: string | null,
+  messageContent: string,
+) {
+  const { data: existing } = await admin
+    .from("ai_lead_memory")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("remote_jid", remoteJid)
+    .maybeSingle();
+
+  if (existing) {
+    // Update interaction count
+    await admin.from("ai_lead_memory").update({
+      interaction_count: (existing.interaction_count || 0) + 1,
+      last_interaction_at: new Date().toISOString(),
+      contact_name: existing.contact_name || contactName || null,
+    }).eq("id", existing.id);
+
+    return { ...existing, interaction_count: (existing.interaction_count || 0) + 1 };
+  }
+
+  // Create new lead memory
+  const { data: newLead } = await admin.from("ai_lead_memory").insert({
+    user_id: userId,
+    remote_jid: remoteJid,
+    contact_name: contactName || null,
+    stage: "cold",
+    interaction_count: 1,
+    last_interaction_at: new Date().toISOString(),
+  }).select("*").single();
+
+  return newLead || { id: null, contact_name: contactName, interest: null, stage: "cold", interaction_count: 1 };
+}
+
+// --- Helpers ---
 
 function splitMessage(text: string): string[] {
   const sentences = text.split(/(?<=[.!?])\s+/);
@@ -249,7 +317,6 @@ async function sendAiReply(
   content: string,
   settings: any,
 ) {
-  // Insert message in DB first
   const { data: msg } = await admin.from("conversation_messages").insert({
     conversation_id: conversationId,
     user_id: userId,
@@ -261,7 +328,6 @@ async function sendAiReply(
     is_ai_response: true,
   }).select("id").single();
 
-  // Send via chat-send edge function
   try {
     const sendRes = await fetch(`${supabaseUrl}/functions/v1/chat-send`, {
       method: "POST",
@@ -287,7 +353,6 @@ async function sendAiReply(
     }
   }
 
-  // Update conversation
   await admin.from("conversations").update({
     last_message: content.substring(0, 500),
     last_message_at: new Date().toISOString(),

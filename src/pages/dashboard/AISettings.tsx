@@ -16,10 +16,21 @@ import {
   Bot, Building2, BookOpen, Headset, Brain, ShieldCheck, Upload, Plus, Trash2,
   Sparkles, Key, CheckCircle2, AlertTriangle, Eye, EyeOff, Loader2, Send,
   FileText, File, Power, Target, Zap, Activity, Circle, Timer, MessageSquare,
-  UserCheck, PhoneCall, LifeBuoy,
+  UserCheck, PhoneCall, LifeBuoy, Users, Flame, Snowflake, TrendingUp,
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
+
+interface LeadMemory {
+  id: string;
+  remote_jid: string;
+  contact_name: string | null;
+  interest: string | null;
+  stage: string;
+  interaction_count: number;
+  last_interaction_at: string | null;
+}
+
 interface KnowledgeDoc {
   id: string; title: string; type: string; fileName: string; active: boolean; addedAt: string;
 }
@@ -90,6 +101,8 @@ const AISettings = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [settingsExist, setSettingsExist] = useState(false);
+  const [leads, setLeads] = useState<LeadMemory[]>([]);
+  const [loadingLeads, setLoadingLeads] = useState(false);
 
   // Load settings from DB
   useEffect(() => {
@@ -137,6 +150,22 @@ const AISettings = () => {
     })();
   }, []);
 
+  // Load leads
+  useEffect(() => {
+    (async () => {
+      setLoadingLeads(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setLoadingLeads(false); return; }
+      const { data } = await supabase
+        .from("ai_lead_memory")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("last_interaction_at", { ascending: false })
+        .limit(50);
+      if (data) setLeads(data as LeadMemory[]);
+      setLoadingLeads(false);
+    })();
+  }, []);
 
   const generatePrompt = (obj: string, style: string, ins: number, strat: string) => {
     const objMap: Record<string, string> = { vender: "converter leads em vendas e fechar negócios", atender: "atender dúvidas dos clientes de forma completa", suporte: "resolver problemas técnicos e dar suporte" };
@@ -1222,6 +1251,90 @@ const AISettings = () => {
               <p className="text-xs text-muted-foreground">Quando a IA não souber responder, transfere para um atendente</p>
             </div>
             <Switch checked={autoTransferHuman} onCheckedChange={setAutoTransferHuman} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Memória de Leads */}
+      <Card className="transition-all duration-200 hover:shadow-md">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-primary" strokeWidth={1.5} />
+            <CardTitle className="text-base">Memória de Leads</CardTitle>
+          </div>
+          <CardDescription>A IA aprende e lembra informações de cada lead automaticamente</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: "Frios", count: leads.filter(l => l.stage === "cold").length, icon: Snowflake, color: "text-blue-400" },
+              { label: "Mornos", count: leads.filter(l => l.stage === "warm").length, icon: TrendingUp, color: "text-amber-400" },
+              { label: "Quentes", count: leads.filter(l => l.stage === "hot").length, icon: Flame, color: "text-red-400" },
+            ].map((stat) => (
+              <div key={stat.label} className="rounded-lg border border-border/50 bg-muted/20 p-3 text-center">
+                <stat.icon className={`h-4 w-4 mx-auto ${stat.color}`} strokeWidth={1.5} />
+                <p className="text-lg font-bold text-foreground mt-1">{stat.count}</p>
+                <p className="text-[10px] text-muted-foreground">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Lead list */}
+          {loadingLeads ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : leads.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Users className="h-10 w-10 text-muted-foreground/40 mb-3" />
+              <p className="text-sm text-muted-foreground">Nenhum lead registrado ainda</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">A IA criará memórias automaticamente ao conversar com clientes</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+              {leads.map((lead) => (
+                <div key={lead.id} className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${
+                      lead.stage === "hot" ? "bg-red-500/15" : lead.stage === "warm" ? "bg-amber-500/15" : "bg-blue-500/15"
+                    }`}>
+                      {lead.stage === "hot" ? <Flame className="h-4 w-4 text-red-400" /> :
+                       lead.stage === "warm" ? <TrendingUp className="h-4 w-4 text-amber-400" /> :
+                       <Snowflake className="h-4 w-4 text-blue-400" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {lead.contact_name || lead.remote_jid.replace("@s.whatsapp.net", "")}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {lead.interest && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">{lead.interest}</Badge>
+                        )}
+                        <span className="text-[10px] text-muted-foreground">{lead.interaction_count} interações</span>
+                      </div>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${
+                    lead.stage === "hot" ? "border-red-500/40 text-red-400" :
+                    lead.stage === "warm" ? "border-amber-500/40 text-amber-400" :
+                    "border-blue-500/40 text-blue-400"
+                  }`}>
+                    {lead.stage === "hot" ? "Quente" : lead.stage === "warm" ? "Morno" : "Frio"}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+            <div className="flex items-start gap-2">
+              <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-primary">Memória ativa</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">A IA usa o nome, interesse e estágio para personalizar: "Você mencionou que queria X..." — tudo automático</p>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
