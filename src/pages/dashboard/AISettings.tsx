@@ -272,6 +272,25 @@ const AISettings = () => {
     })();
   }, []);
 
+  // Count AI messages today
+  useEffect(() => {
+    const fetchCount = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const { count } = await supabase
+        .from("conversation_messages")
+        .select("*", { count: "exact", head: true })
+        .eq("is_ai_response", true)
+        .gte("created_at", todayStart.toISOString());
+      setAiMessagesToday(count || 0);
+    };
+    fetchCount();
+    const interval = setInterval(fetchCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const applyMode = (mode: AiMode) => {
     const preset = MODE_PRESETS[mode];
     setSelectedMode(mode);
