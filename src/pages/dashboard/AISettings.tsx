@@ -415,7 +415,7 @@ const AISettings = () => {
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Key className="h-4 w-4 text-primary" />
+            <Key className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Configuração da IA</CardTitle>
           </div>
           <CardDescription>Conecte sua chave de API e escolha o modelo</CardDescription>
@@ -481,7 +481,7 @@ const AISettings = () => {
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Bot className="h-4 w-4 text-primary" />
+            <Bot className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Delay de Resposta</CardTitle>
           </div>
           <CardDescription>Tempo de espera antes de enviar a resposta (simula digitação)</CardDescription>
@@ -505,7 +505,7 @@ const AISettings = () => {
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Brain className="h-4 w-4 text-primary" />
+            <Brain className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Comportamento da IA</CardTitle>
           </div>
           <CardDescription>Configure como a IA deve agir — o prompt é gerado automaticamente</CardDescription>
@@ -679,7 +679,7 @@ const AISettings = () => {
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Target className="h-4 w-4 text-primary" />
+            <Target className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Fluxo de Conversão</CardTitle>
           </div>
           <CardDescription>Configure as etapas que a IA segue para converter clientes</CardDescription>
@@ -760,7 +760,7 @@ const AISettings = () => {
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-primary" />
+            <Building2 className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Informações do Negócio</CardTitle>
           </div>
           <CardDescription>Esses dados serão usados pela IA nas respostas</CardDescription>
@@ -803,7 +803,7 @@ const AISettings = () => {
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-primary" />
+            <BookOpen className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Base de Conhecimento</CardTitle>
           </div>
           <CardDescription>Ensine a IA sobre seu negócio para respostas precisas</CardDescription>
@@ -893,7 +893,7 @@ const AISettings = () => {
               {kbPreview && (
                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-2">
                   <div className="flex items-center gap-2">
-                    <Bot className="h-4 w-4 text-primary" />
+                    <Bot className="h-4 w-4 text-primary" strokeWidth={1.5} />
                     <Label className="text-xs text-primary font-medium">Preview — Como a IA responderia</Label>
                   </div>
                   <p className="text-sm text-foreground/80 whitespace-pre-line leading-relaxed">{kbPreview}</p>
@@ -983,7 +983,7 @@ const AISettings = () => {
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Headset className="h-4 w-4 text-primary" />
+            <Headset className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Modo de Atendimento</CardTitle>
           </div>
           <CardDescription>Selecione um ou mais modos de atendimento da IA</CardDescription>
@@ -1034,7 +1034,7 @@ const AISettings = () => {
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-primary" />
+            <ShieldCheck className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Segurança e Controle</CardTitle>
           </div>
           <CardDescription>Limites e restrições da IA</CardDescription>
@@ -1061,7 +1061,7 @@ const AISettings = () => {
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-primary" />
+            <ShieldCheck className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Controle da IA</CardTitle>
           </div>
           <CardDescription>Palavras-chave e respostas de fallback</CardDescription>
