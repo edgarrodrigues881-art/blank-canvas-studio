@@ -878,7 +878,10 @@ Deno.serve(async (req) => {
       Accept: "application/json",
       "Content-Type": "application/json",
     };
-    const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
+
+    // Fetch group name for enrichment
+    const groupInfo = await fetchGroupDeliveryMode(baseUrl, headers, groupJid);
+    const groupName = groupInfo.groupName || "";
 
     const normalizedCarouselCards = normalizeCarouselCards(cards || []);
     if (normalizedCarouselCards.length > 0) {
