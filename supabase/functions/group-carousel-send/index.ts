@@ -880,23 +880,15 @@ Deno.serve(async (req) => {
         }
       }
 
-      const deliveryMode = await fetchGroupDeliveryMode(baseUrl, headers, groupJid);
-      if (deliveryMode === "restricted") {
-        const carouselAttempts = buildCarouselAttempts(baseUrl, groupJid, headerText, normalizedCarouselCards);
-        const textFallbackAttempts = buildMessageAttempts(
-          baseUrl, groupJid,
-          renderCarouselAsTextFallback(headerText, normalizedCarouselCards),
-          "text",
-        );
-        const allAttempts = [...carouselAttempts, ...textFallbackAttempts];
-        await sendToRestrictedGroup(baseUrl, headers, groupJid, () =>
-          sendWithFallbacks(allAttempts, headers, groupJid),
-        );
-        return json({ ok: true, mode: "restricted_unlocked" });
-      }
-
-      const attempts = buildCarouselAttempts(baseUrl, groupJid, headerText, normalizedCarouselCards);
-      await sendWithFallbacks(attempts, headers, groupJid);
+      // Send carousel directly — admins can send in restricted groups without toggling settings
+      const carouselAttempts = buildCarouselAttempts(baseUrl, groupJid, headerText, normalizedCarouselCards);
+      const textFallbackAttempts = buildMessageAttempts(
+        baseUrl, groupJid,
+        renderCarouselAsTextFallback(headerText, normalizedCarouselCards),
+        "text",
+      );
+      const allAttempts = [...carouselAttempts, ...textFallbackAttempts];
+      await sendWithFallbacks(allAttempts, headers, groupJid);
       return json({ ok: true, mode: "carousel" });
     }
 
