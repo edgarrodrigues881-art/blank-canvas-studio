@@ -550,9 +550,16 @@ Deno.serve(async (req) => {
     // Set country for Serper queries
     setQueryCountry(pais);
 
-    const nichoTrimmed = nicho.trim();
+    const nichoTrimmed = allBusinesses ? "todos os comércios" : (nicho || "").trim();
     const estadoTrimmed = (estado || "").trim();
     const cidadeTrimmed = cidade.trim();
+
+    // Broad categories for "all businesses" mode — diverse terms to maximize coverage with few API calls
+    const ALL_BIZ_CATEGORIES = [
+      "restaurante", "loja", "comércio", "serviços", "clínica",
+      "salão de beleza", "oficina", "escola", "farmácia", "mercado",
+      "academia", "hotel", "imobiliária", "pet shop", "escritório",
+    ];
 
     // --- CACHE ---
     if (!forceRefresh) {
