@@ -8,6 +8,7 @@ import {
   ArrowUp, ArrowDown, Pencil, Eye,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTemplates } from "@/hooks/useTemplates";
 import { cn } from "@/lib/utils";
 
 import { useAuth } from "@/lib/auth";
