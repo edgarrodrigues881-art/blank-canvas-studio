@@ -280,6 +280,34 @@ const AISettings = () => {
     }
   };
 
+  const generateKbPreview = () => {
+    if (!kbProducts.trim() && !kbPrices.trim() && !kbDifferentials.trim() && !kbFaq.trim()) {
+      toast.error("Preencha pelo menos um campo da base de conhecimento");
+      return;
+    }
+    setGeneratingPreview(true);
+    setTimeout(() => {
+      const parts: string[] = [];
+      if (kbProducts.trim()) parts.push(`Nossos produtos/serviços incluem: ${kbProducts.trim()}`);
+      if (kbPrices.trim()) parts.push(`Sobre preços: ${kbPrices.trim()}`);
+      if (kbDifferentials.trim()) parts.push(`Nossos diferenciais: ${kbDifferentials.trim()}`);
+      
+      const faqLines = kbFaq.trim().split("\n").filter(Boolean);
+      if (faqLines.length > 0) {
+        const sampleQ = faqLines[0];
+        parts.push(`Exemplo de resposta para "${sampleQ}": Com base no que sabemos, ${kbDifferentials.trim() ? `nosso diferencial é ${kbDifferentials.trim().split(",")[0]?.trim()}` : "oferecemos a melhor solução para você"}.`);
+      }
+
+      setKbPreview(
+        parts.length > 0
+          ? `🤖 Exemplo de como a IA responderia:\n\n"${tone === "friendly" ? "Oi! 😊 " : tone === "direct" ? "" : "Olá! "}${parts[0]}. ${parts.length > 1 ? parts[1] + "." : ""} Posso te ajudar com mais alguma coisa?"`
+          : ""
+      );
+      setGeneratingPreview(false);
+      toast.success("Preview gerado! Base de conhecimento aplicada automaticamente.");
+    }, 800);
+  };
+
   const handleAddDoc = () => {
     if (!newDocTitle.trim() || !newDocFile) {
       toast.error("Preencha o título e selecione um arquivo");
