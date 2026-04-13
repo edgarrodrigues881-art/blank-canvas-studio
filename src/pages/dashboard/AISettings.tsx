@@ -38,6 +38,10 @@ const AISettings = () => {
   const [tone, setTone] = useState("professional");
   const [attendanceMode, setAttendanceMode] = useState("knowledge");
   const [aiInstructions, setAiInstructions] = useState("");
+  const [aiObjective, setAiObjective] = useState("atender");
+  const [commStyle, setCommStyle] = useState("amigavel");
+  const [insistence, setInsistence] = useState(3);
+  const [strategy, setStrategy] = useState("perguntas");
   const [responseStyle, setResponseStyle] = useState("medium");
   const [splitLongMessages, setSplitLongMessages] = useState(true);
   const [simulateTyping, setSimulateTyping] = useState(true);
