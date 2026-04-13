@@ -920,7 +920,7 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentions: string[])
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) return json({ ok: false, error: "Unauthorized" }, 401);
 
-    const { deviceId, groupJid, content, type, caption, headerText, mediaUrl, buttons, cards } = parsedBody.data;
+    const { deviceId, groupJid, content, type, caption, headerText, mediaUrl, buttons, cards, mentionAll } = parsedBody.data;
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: device, error: deviceError } = await admin
