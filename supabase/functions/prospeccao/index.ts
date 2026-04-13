@@ -616,7 +616,7 @@ Deno.serve(async (req) => {
 
     const requestedTotal = isFreePull ? Math.min(maxResults || 10, freeMaxResults) : Math.min(maxResults || 50, 5000);
     const relatedNiches = Array.isArray(nichosRelacionados) ? nichosRelacionados.filter(Boolean) : [];
-    const allNichos = [nichoTrimmed, ...relatedNiches];
+    const allNichos = allBusinesses ? ALL_BIZ_CATEGORIES : [nichoTrimmed, ...relatedNiches];
     const startTime = Date.now();
 
     // Create campaign
