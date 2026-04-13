@@ -379,35 +379,6 @@ export default function GroupCarouselDispatch() {
     const results: SendResultItem[] = [];
     const pauseEvery = rand(pauseEveryMin, pauseEveryMax);
     let sinceLastPause = 0;
-    let lastRandomMessageIndex = -1;
-    let lastRandomCarouselIndex = -1;
-
-    const pickRandomIndex = (total: number, lastIndex: number) => {
-      if (total <= 1) return 0;
-      let picked = 0;
-      do {
-        picked = Math.floor(Math.random() * total);
-      } while (picked === lastIndex);
-      return picked;
-    };
-
-    const resolveTextPlan = () => {
-      if (textVariants.length === 0) return [{ text: "", withExtras: true }];
-      if (rotationMode === "all" && textVariants.length > 1) {
-        return textVariants.map((text, index) => ({ text, withExtras: index === 0 }));
-      }
-      const nextIndex = pickRandomIndex(textVariants.length, lastRandomMessageIndex);
-      lastRandomMessageIndex = nextIndex;
-      return [{ text: textVariants[nextIndex] || "", withExtras: true }];
-    };
-
-    const resolveCarouselHeader = () => {
-      if (carouselHeaderVariants.length === 0) return "";
-      if (carouselHeaderVariants.length === 1) return carouselHeaderVariants[0] || "";
-      const nextIndex = pickRandomIndex(carouselHeaderVariants.length, lastRandomCarouselIndex);
-      lastRandomCarouselIndex = nextIndex;
-      return carouselHeaderVariants[nextIndex] || "";
-    };
 
     try {
       for (let i = 0; i < selectedGroups.length; i++) {
@@ -421,16 +392,9 @@ export default function GroupCarouselDispatch() {
           await wait(p); sinceLastPause = 0;
         }
 
-        const groupPlan = dispatchType === "carousel"
-          ? [{ text: resolveCarouselHeader(), withExtras: true }]
-          : resolveTextPlan();
+        const plan = { text: dispatchType === "carousel" ? trimmedCarouselHeader : trimmedText, withExtras: true };
 
         try {
-          for (let planIndex = 0; planIndex < groupPlan.length; planIndex++) {
-            const plan = groupPlan[planIndex];
-            if (planIndex > 0) await wait(1250);
-
-            let body: Record<string, any>;
             if (dispatchType === "text") {
               if (plan.withExtras && trimmedMediaUrl) {
                 body = {
