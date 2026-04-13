@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Navigate } from "react-router-dom";
 import {
   Layers, Loader2, Send, X, Trash2, Type, MousePointerClick,
-  Clock, Pause, MessageSquare, Users, Settings2,
-  Check, Plus, Bold, Italic, Strikethrough, Code, Smile,
+  Clock, Pause, MessageSquare, Users, Settings2, Zap, Activity,
+  Check, Plus, Bold, Italic, Strikethrough, Code, Smile, Timer, Eraser, ChevronRight,
   FileText, ImageIcon, Link, Phone, Smartphone,
   ArrowUp, ArrowDown, Pencil, Eye,
 } from "lucide-react";
