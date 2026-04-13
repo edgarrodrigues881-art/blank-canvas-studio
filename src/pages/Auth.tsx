@@ -260,7 +260,7 @@ const Auth = () => {
                     className="w-full h-12 px-4 rounded-xl text-sm text-white placeholder:text-white/30 outline-none transition-all duration-150 focus:ring-2 focus:ring-white/10"
                     style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
                   />
-                  <p className="text-[10px] text-white/25 mt-1.5 ml-1">Coloque um número válido com DDD</p>
+                  
                 </div>
               )}
 
