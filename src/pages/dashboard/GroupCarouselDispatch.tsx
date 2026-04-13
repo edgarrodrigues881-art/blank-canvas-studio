@@ -1184,17 +1184,6 @@ export default function GroupCarouselDispatch() {
               </div>
             </SurfaceCard>
 
-            {/* Progress */}
-            {sending && (
-              <SurfaceCard className="p-5">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm"><span>Progresso</span><span>{progress.sent}/{progress.total}</span></div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full bg-primary transition-all rounded-full" style={{ width: `${progress.total > 0 ? (progress.sent / progress.total) * 100 : 0}%` }} />
-                  </div>
-                </div>
-              </SurfaceCard>
-            )}
 
             {/* Results */}
             {sendResults.length > 0 && !sending && (
