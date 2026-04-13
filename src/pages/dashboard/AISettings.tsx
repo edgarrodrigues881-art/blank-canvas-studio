@@ -127,6 +127,7 @@ interface LeadMemory {
   stage: string;
   interaction_count: number;
   last_interaction_at: string | null;
+  notes: string | null;
 }
 
 interface KnowledgeDoc {
