@@ -873,8 +873,122 @@ function buildMentionFields(mentionParticipants: string[]) {
 
   return {
     count: Math.max(numbers.length, jids.length),
+    numbers,
+    jids,
+    mentionUsers: numbers.join(","),
     payload,
   };
+}
+
+function buildVisibleMentionText(baseText: string, numbers: string[]) {
+  const handles = Array.from(new Set(
+    numbers
+      .map((number) => String(number || "").trim())
+      .filter(Boolean)
+      .map((number) => `@${number}`),
+  ));
+
+  if (handles.length === 0) return null;
+
+  const composed = [baseText.trim(), handles.join(" ")]
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+
+  return composed.length <= 3_800 ? composed : null;
+}
+
+function dedupeAttempts(attempts: SendAttempt[]) {
+  const seen = new Set<string>();
+
+  return attempts.filter((attempt) => {
+    const key = `${attempt.endpoint}::${JSON.stringify(attempt.body)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function buildMentionTextAttempts(baseUrl: string, groupJid: string, text: string, mentionParticipants: string[]): SendAttempt[] {
+  const cleanText = text.trim();
+  const mentionFields = buildMentionFields(mentionParticipants);
+  const visibleText = buildVisibleMentionText(cleanText, mentionFields.numbers);
+  const attempts: SendAttempt[] = [];
+
+  const pushAttempt = (label: string, body: Record<string, unknown>) => {
+    attempts.push({
+      endpoint: `${baseUrl}/send/text`,
+      body,
+      label,
+    });
+  };
+
+  if (mentionFields.mentionUsers && visibleText) {
+    pushAttempt("mention_users_visible", {
+      number: groupJid,
+      text: visibleText,
+      mentionUsers: mentionFields.mentionUsers,
+    });
+  }
+
+  if (mentionFields.mentionUsers) {
+    pushAttempt("mention_users_hidden", {
+      number: groupJid,
+      text: cleanText,
+      mentionUsers: mentionFields.mentionUsers,
+    });
+  }
+
+  if (mentionFields.mentionUsers && mentionFields.jids.length > 0 && visibleText) {
+    pushAttempt("mention_users_context_visible", {
+      number: groupJid,
+      text: visibleText,
+      mentionUsers: mentionFields.mentionUsers,
+      contextInfo: {
+        mentionedJid: mentionFields.jids,
+        mentionedJidList: mentionFields.jids,
+      },
+    });
+  }
+
+  if (mentionFields.mentionUsers && mentionFields.jids.length > 0) {
+    pushAttempt("mention_users_context_hidden", {
+      number: groupJid,
+      text: cleanText,
+      mentionUsers: mentionFields.mentionUsers,
+      contextInfo: {
+        mentionedJid: mentionFields.jids,
+        mentionedJidList: mentionFields.jids,
+      },
+    });
+  }
+
+  if (mentionFields.jids.length > 0 && visibleText) {
+    pushAttempt("mentioned_jid_visible", {
+      number: groupJid,
+      text: visibleText,
+      mentionedJid: mentionFields.jids,
+      mentionedJidList: mentionFields.jids,
+    });
+  }
+
+  if (mentionFields.jids.length > 0) {
+    pushAttempt("mentioned_jid_hidden", {
+      number: groupJid,
+      text: cleanText,
+      mentionedJid: mentionFields.jids,
+      mentionedJidList: mentionFields.jids,
+    });
+  }
+
+  if (attempts.length === 0) {
+    pushAttempt("plain_text_fallback", {
+      number: groupJid,
+      text: cleanText,
+    });
+  }
+
+  return dedupeAttempts(attempts);
 }
 
 function extractGroupJid(value: any): string {
@@ -1426,12 +1540,19 @@ Deno.serve(async (req) => {
       fileName = inspectedMedia.fileName;
     }
 
+    if (mentionAll && type === "text") {
+      const mentionAttempts = buildMentionTextAttempts(baseUrl, groupJid, normalizedContent, mentionPhones);
+      console.log(`[group-carousel] Prepared ${mentionAttempts.length} dedicated @todos attempt(s) for ${groupJid}`);
+      await sendWithFallbacks(mentionAttempts, headers, groupJid);
+      return json({ ok: true, mode: "message", groupName });
+    }
+
     const attempts = buildMessageAttempts(baseUrl, groupJid, normalizedContent, type, caption, fileName);
     await sendWithFallbacks(attempts, headers, groupJid, mentionPhones);
     return json({ ok: true, mode: "message", groupName });
   } catch (error: any) {
     console.error("[group-carousel] Error:", error);
     const status = typeof error?.status === "number" ? error.status : 500;
-    return json({ ok: false, error: error?.message || "Erro interno ao enviar carrossel." }, status);
+    return json({ ok: false, error: error?.message || "Erro interno ao enviar carrossel.", status }, status >= 500 ? 200 : status);
   }
 });
