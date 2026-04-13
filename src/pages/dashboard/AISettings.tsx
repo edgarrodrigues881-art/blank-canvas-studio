@@ -101,6 +101,8 @@ const AISettings = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [settingsExist, setSettingsExist] = useState(false);
+  const [leads, setLeads] = useState<LeadMemory[]>([]);
+  const [loadingLeads, setLoadingLeads] = useState(false);
 
   // Load settings from DB
   useEffect(() => {
