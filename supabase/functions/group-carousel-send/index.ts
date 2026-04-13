@@ -1449,16 +1449,13 @@ Deno.serve(async (req) => {
     const groupName = groupInfo.groupName || "";
     const isRestricted = groupInfo.mode === "restricted";
 
-    // Helper: wrap send function with restricted group unlock/relock when needed.
-    // If the group only allows admins to send and this instance is not admin,
-    // we must fail the request instead of reporting a false positive delivery.
+    // Helper: dispatch without ever changing group permissions.
+    // Restricted/private groups must keep their own settings untouched.
     const wrapSend = async (fn: () => Promise<void>) => {
       if (isRestricted) {
-        console.log(`[group-carousel] Using restricted-group unlock/relock flow for ${groupJid}`);
-        await sendToRestrictedGroup(baseUrl, headers, groupJid, fn);
-      } else {
-        await fn();
+        console.log(`[group-carousel] Restricted group detected for ${groupJid} — skipping any announce toggle/unlock flow`);
       }
+      await fn();
     };
 
     // Fetch participants if mentionAll is enabled — but do NOT fail if we can't get them.
