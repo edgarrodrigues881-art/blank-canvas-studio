@@ -891,11 +891,18 @@ async function fetchGroupParticipants(baseUrl: string, headers: Record<string, s
   return [];
 }
 
-function injectMentionsIntoAttempts(attempts: SendAttempt[], mentions: string[]): SendAttempt[] {
-  if (mentions.length === 0) return attempts;
+function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: string[]): SendAttempt[] {
+  if (mentionPhones.length === 0) return attempts;
+  // Build both formats: plain numbers and full JIDs for maximum API compatibility
+  const mentionJids = mentionPhones.map((p) => p.includes("@") ? p : `${p}@s.whatsapp.net`);
   return attempts.map((a) => ({
     ...a,
-    body: { ...a.body, mentions, mentionsEveryOne: true },
+    body: {
+      ...a.body,
+      mentions: mentionJids,
+      mentionsEveryOne: true,
+      mentionedJidList: mentionJids,
+    },
   }));
 }
 
