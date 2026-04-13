@@ -157,7 +157,7 @@ export default function GroupCarouselDispatch() {
   const [selectedDevice, setSelectedDevice] = useState(draft.current?.selectedDevice || "");
   const [selectedGroups, setSelectedGroups] = useState<string[]>(draft.current?.selectedGroups || []);
   const [groupSearch, setGroupSearch] = useState("");
-  const [dispatchType, setDispatchType] = useState<DispatchType>(draft.current?.dispatchType || "text");
+  const [dispatchType, setDispatchType] = useState<DispatchType>(draft.current?.dispatchType === "text" ? "buttons" : (draft.current?.dispatchType || "buttons"));
   const [campaignName, setCampaignName] = useState(draft.current?.campaignName || "");
 
   // Single message
@@ -470,8 +470,7 @@ export default function GroupCarouselDispatch() {
   };
 
   const dtOpts: { value: DispatchType; label: string; icon: React.ReactNode; desc: string }[] = [
-    { value: "text", label: "Texto Normal", icon: <Type className="w-4 h-4 mr-1.5" />, desc: "Mensagem com variantes e mídia" },
-    { value: "buttons", label: "Botões Interativos", icon: <MousePointerClick className="w-4 h-4 mr-1.5" />, desc: "Mensagem com botões de ação" },
+    { value: "buttons", label: "Texto / Botões", icon: <MousePointerClick className="w-4 h-4 mr-1.5" />, desc: "Mensagem com mídia e botões opcionais" },
     { value: "carousel", label: "Carrossel", icon: <Layers className="w-4 h-4 mr-1.5" />, desc: "Cards com imagem, texto e botões" },
   ];
 
