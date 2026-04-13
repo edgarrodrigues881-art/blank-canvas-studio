@@ -317,7 +317,7 @@ export default function GroupInteractionPage() {
   );
 
   const availableWarmupGroups = useMemo(() => {
-    if (!currentFormDeviceId) return [];
+    if (!currentFormDeviceId) return warmupGroups;
     return warmupGroups.filter((group: any) => joinedGroupIds.has(String(group.id)));
   }, [currentFormDeviceId, warmupGroups, joinedGroupIds]);
 
@@ -397,7 +397,7 @@ export default function GroupInteractionPage() {
     });
   }, []);
 
-  const buildInteractionPayload = useCallback((base: Record<string, any>, preferredSource = groupSource) => {
+  const buildInteractionPayload = useCallback((base: Record<string, any>, preferredSource = groupSource): Record<string, any> => {
     return {
       ...base,
       group_ids: normalizeInteractionGroupIds(Array.isArray(base.group_ids) ? base.group_ids : [], preferredSource),
@@ -515,6 +515,8 @@ export default function GroupInteractionPage() {
     if (!(payload.group_ids || []).length) return toast.error("Selecione pelo menos um grupo válido");
     const scheduleError = getStartScheduleError(payload);
     if (scheduleError) return toast.error(scheduleError);
+    const bindingError = await getPersistedGroupBindingError(payload.device_id, payload.group_ids || []);
+    if (bindingError) return toast.error(bindingError);
     await createInteraction.mutateAsync(payload as any);
     setShowConfig(false);
   };
@@ -534,6 +536,11 @@ export default function GroupInteractionPage() {
       for (const deviceId of bulkDeviceIds) {
         const device = eligibleDevices.find((d: any) => d.id === deviceId);
         const deviceName = device ? device.name : "Dispositivo";
+        const bindingError = await getPersistedGroupBindingError(deviceId, payload.group_ids || []);
+        if (bindingError) {
+          toast.error(`${deviceName}: ${bindingError}`);
+          return;
+        }
         await createInteraction.mutateAsync({
           ...payload,
           device_id: deviceId,
@@ -1003,7 +1010,7 @@ export default function GroupInteractionPage() {
                 <Smartphone className="w-3.5 h-3.5" />
                 <span className="text-xs font-semibold uppercase tracking-wider">Dispositivo</span>
               </div>
-              <Select value={form.device_id || ""} onValueChange={(v) => updateForm({ device_id: v })}>
+                <Select value={form.device_id || ""} onValueChange={updateDeviceInForm}>
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="Selecionar instância" />
                 </SelectTrigger>
@@ -1166,7 +1173,9 @@ export default function GroupInteractionPage() {
               {warmupGroups.length === 0 ? (
                     <p className="text-xs text-muted-foreground p-2 col-span-full">
                       {!currentFormDeviceId
-                        ? "Selecione uma instância para listar apenas os grupos realmente vinculados a ela."
+                        ? showBulkCreate
+                          ? "Selecione os grupos que serão usados. O vínculo com cada instância será validado ao criar."
+                          : "Selecione uma instância para listar apenas os grupos realmente vinculados a ela."
                         : deviceJoinedGroupsLoading
                           ? "Carregando grupos vinculados da instância..."
                           : groupSource === "custom"
