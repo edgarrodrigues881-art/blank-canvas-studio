@@ -1258,6 +1258,8 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
+      </>)}
+
       {/* Segurança e Controle */}
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
