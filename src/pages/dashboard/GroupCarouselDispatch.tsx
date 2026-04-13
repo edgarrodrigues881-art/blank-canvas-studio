@@ -7,7 +7,7 @@ import {
   FileText, ImageIcon, Link, Phone, Smartphone,
   ArrowUp, ArrowDown, Pencil, Eye,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast as sonnerToast } from "sonner";
 import { cn } from "@/lib/utils";
 
 import { useAuth } from "@/lib/auth";
