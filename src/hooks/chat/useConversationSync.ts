@@ -168,19 +168,44 @@ export function useConversationSync() {
         .map((value: string) => normalizePhone(value))
         .filter(Boolean);
 
-      // Check if remote phone matches any own device
       if (candidates.some((candidate) => isOwnDevice(candidate))) return true;
-      // Fallback: filter known internal conversation names
       const name = (row.name || "").toLowerCase();
       if (name.includes("blessed company") || name.includes("blessed campany")) return true;
       return false;
     };
 
-    const filterSelf = (rows: any[]) => rows.filter((r) => !isSelfConversation(r));
+    // Auto-archive self/warmup conversations instead of hiding them
+    const activeRows = activeRes.data || [];
+    const selfActiveIds: string[] = [];
+    const normalActive: any[] = [];
+    for (const row of activeRows) {
+      if (isSelfConversation(row)) {
+        selfActiveIds.push(row.id);
+      } else {
+        normalActive.push(row);
+      }
+    }
 
-    const mapped = sortConversations(filterSelf(activeRes.data || []).map(mapConversationRow));
+    // Archive self-conversations silently in the DB
+    if (selfActiveIds.length > 0) {
+      supabase
+        .from("conversations")
+        .update({ status: "archived" } as any)
+        .in("id", selfActiveIds)
+        .then(() => {});
+    }
+
+    // Merge self-conversations into archived list
+    const selfConvsMapped = activeRows
+      .filter((r: any) => selfActiveIds.includes(r.id))
+      .map(mapConversationRow);
+
+    const archivedRows = (archivedRes.data || []).map(mapConversationRow);
+    const allArchived = [...selfConvsMapped, ...archivedRows];
+
+    const mapped = sortConversations(normalActive.map(mapConversationRow));
     setConversations(mapped);
-    setArchivedConversations(filterSelf(archivedRes.data || []).map(mapConversationRow));
+    setArchivedConversations(allArchived);
     setLoading(false);
   }, [user, mapConversationRow, sortConversations, isOwnDevice, ownPhonesLoaded, normalizePhone]);
 
@@ -203,7 +228,6 @@ export function useConversationSync() {
     });
 
     const nextMessages = (data || [])
-      .filter((m: any) => m.origin !== "warmup")
       .map((m: any) => ({
         ...m,
         direction: m.direction as "sent" | "received",

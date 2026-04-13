@@ -51,7 +51,10 @@ export function useConversationRealtime({
         (payload) => {
           const row = payload.new as any;
           if (isInternalConversation(row)) {
+            // Auto-archive warmup conversations instead of hiding
+            supabase.from("conversations").update({ status: "archived" } as any).eq("id", row.id).then(() => {});
             setConversations((prev) => prev.filter((c) => c.id !== row.id));
+            setArchivedConversations((prev) => upsertConversationInState(prev, row));
             return;
           }
           setConversations((prev) => upsertConversationInState(prev.filter((c) => c.id !== row.id), row));
@@ -63,7 +66,17 @@ export function useConversationRealtime({
         (payload) => {
           const row = payload.new as any;
           if (isInternalConversation(row)) {
+            // If it's already archived, just update in archived list
+            if (row.status === "archived") {
+              setConversations((prev) => prev.filter((c) => c.id !== row.id));
+              setArchivedConversations((prev) => upsertConversationInState(prev.filter((c) => c.id !== row.id), row));
+              return;
+            }
+            // If user unarchived it, let it stay in active but re-archive on next message
+            // For now, auto-archive again
+            supabase.from("conversations").update({ status: "archived" } as any).eq("id", row.id).then(() => {});
             setConversations((prev) => prev.filter((c) => c.id !== row.id));
+            setArchivedConversations((prev) => upsertConversationInState(prev, row));
             return;
           }
           setConversations((prev) => {
@@ -130,8 +143,6 @@ export function useConversationRealtime({
         { event: "INSERT", schema: "public", table: "conversation_messages", filter: `user_id=eq.${user.id}` },
         (payload) => {
           const newMsg = payload.new as RealMessage & { origin?: string };
-          // Skip warmup/autosave messages
-          if ((newMsg as any).origin === "warmup") return;
           const selectedId = selectedConvIdRef.current;
           const isOpenConversation = Boolean(
             selectedId && (
