@@ -26,6 +26,7 @@ import GIStatusPanel from "@/components/group-interaction/GIStatusPanel";
 import GILogs from "@/components/group-interaction/GILogs";
 import GIPresets from "@/components/group-interaction/GIPresets";
 import GIContentConfig from "@/components/group-interaction/GIContentConfig";
+import { getBrazilNow } from "@/lib/brazilTime";
 
 const DAYS = [
   { key: "mon", label: "Seg" },
@@ -52,7 +53,7 @@ const defaultForm: Partial<GroupInteraction> & Record<string, any> = {
   pause_duration_max: 420,
   start_hour: "07:00",
   end_hour: "21:00",
-  active_days: ["mon", "tue", "wed", "thu", "fri"],
+  active_days: DAYS.map((day) => day.key),
   daily_limit_per_group: 0,
   daily_limit_total: 0,
   duration_hours: 0,
@@ -77,6 +78,40 @@ const statusLabels: Record<string, string> = {
 
 const defaultContentTypes = { text: true, image: true, audio: true, sticker: true };
 const defaultPeriod2 = { start_hour_2: "13:00", end_hour_2: "19:00" };
+
+function parseTimeToMinutes(value: string | null | undefined): number | null {
+  if (!value || typeof value !== "string") return null;
+  const [hoursRaw, minutesRaw = "0"] = value.split(":");
+  const hours = Number(hoursRaw);
+  const minutes = Number(minutesRaw);
+
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+}
+
+function isTimeWithinWindow(currentMinutes: number, start: string, end: string): boolean {
+  const startMinutes = parseTimeToMinutes(start);
+  const endMinutes = parseTimeToMinutes(end);
+
+  if (startMinutes === null || endMinutes === null) return false;
+  if (startMinutes <= endMinutes) return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+  return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
+}
+
+function getWindowDayKey(now: Date, currentMinutes: number, start: string, end: string): string {
+  const startMinutes = parseTimeToMinutes(start);
+  const endMinutes = parseTimeToMinutes(end);
+  const currentDay = now.getDay();
+
+  if (startMinutes !== null && endMinutes !== null && startMinutes > endMinutes && currentMinutes <= endMinutes) {
+    return DAYS[(currentDay + 6) % 7]?.key ?? DAYS[currentDay]?.key ?? "sun";
+  }
+
+  return DAYS[currentDay]?.key ?? "sun";
+}
 
 function normalizeWarmupGroupLink(value: unknown): string {
   return String(value ?? "").trim();
@@ -251,6 +286,51 @@ export default function GroupInteractionPage() {
     return allWarmupGroups.filter((g: any) => g.user_id === user?.id);
   }, [allWarmupGroups, groupSource, user?.id]);
 
+  const currentFormDeviceId = useMemo(() => {
+    if (showBulkCreate) return null;
+    return String(form.device_id || "").trim() || null;
+  }, [form.device_id, showBulkCreate]);
+
+  const { data: deviceJoinedGroups = [], isLoading: deviceJoinedGroupsLoading } = useQuery({
+    queryKey: ["gi-device-joined-groups", user?.id, currentFormDeviceId],
+    queryFn: async () => {
+      if (!user || !currentFormDeviceId) return [];
+
+      const { data, error } = await supabase
+        .from("warmup_instance_groups" as any)
+        .select("group_id, group_name, group_jid")
+        .eq("user_id", user.id)
+        .eq("device_id", currentFormDeviceId)
+        .eq("join_status", "joined")
+        .not("group_jid", "is", null);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user && !!currentFormDeviceId,
+    staleTime: 30_000,
+  });
+
+  const joinedGroupIds = useMemo(
+    () => new Set((deviceJoinedGroups || []).map((group: any) => String(group.group_id || "").trim()).filter(Boolean)),
+    [deviceJoinedGroups]
+  );
+
+  const availableWarmupGroups = useMemo(() => {
+    if (!currentFormDeviceId) return warmupGroups;
+    return warmupGroups.filter((group: any) => joinedGroupIds.has(String(group.id)));
+  }, [currentFormDeviceId, warmupGroups, joinedGroupIds]);
+
+  const normalizedSelectedGroupIds = useMemo(
+    () => normalizeInteractionGroupIds(Array.isArray(form.group_ids) ? form.group_ids : [], groupSource),
+    [form.group_ids, groupSource, normalizeInteractionGroupIds]
+  );
+
+  const unavailableSelectedGroupCount = useMemo(() => {
+    if (!currentFormDeviceId || joinedGroupIds.size === 0) return normalizedSelectedGroupIds.length;
+    return normalizedSelectedGroupIds.filter((groupId) => !joinedGroupIds.has(groupId)).length;
+  }, [currentFormDeviceId, joinedGroupIds, normalizedSelectedGroupIds]);
+
   const selected = useMemo(
     () => interactions.find((i) => i.id === selectedId) || null,
     [interactions, selectedId]
@@ -304,7 +384,20 @@ export default function GroupInteractionPage() {
     setForm((f) => ({ ...f, ...patch }));
   }, []);
 
-  const buildInteractionPayload = useCallback((base: Record<string, any>, preferredSource = groupSource) => {
+  const updateDeviceInForm = useCallback((deviceId: string) => {
+    setForm((current) => {
+      const nextDeviceId = String(deviceId || "").trim() || null;
+      const deviceChanged = current.device_id !== nextDeviceId;
+
+      return {
+        ...current,
+        device_id: nextDeviceId,
+        group_ids: deviceChanged ? [] : current.group_ids,
+      };
+    });
+  }, []);
+
+  const buildInteractionPayload = useCallback((base: Record<string, any>, preferredSource = groupSource): Record<string, any> => {
     return {
       ...base,
       group_ids: normalizeInteractionGroupIds(Array.isArray(base.group_ids) ? base.group_ids : [], preferredSource),
@@ -331,11 +424,78 @@ export default function GroupInteractionPage() {
     });
   }, []);
 
+  const getStartScheduleError = useCallback((payload: Record<string, any>) => {
+    const brNow = getBrazilNow();
+    const currentMinutes = brNow.getHours() * 60 + brNow.getMinutes();
+    const period2Start = payload.start_hour_2 || (payload.end_hour_2 ? defaultPeriod2.start_hour_2 : null);
+    const period2End = payload.end_hour_2 || (payload.start_hour_2 ? defaultPeriod2.end_hour_2 : null);
+    const inPeriod1 = isTimeWithinWindow(currentMinutes, payload.start_hour, payload.end_hour);
+    const inPeriod2 = period2Start && period2End
+      ? isTimeWithinWindow(currentMinutes, period2Start, period2End)
+      : false;
+
+    if (!inPeriod1 && !inPeriod2) {
+      return "Agora está fora do horário configurado para essa automação.";
+    }
+
+    const activeDays: string[] = Array.isArray(payload.active_days) ? payload.active_days : [];
+    const validDayKeys = new Set<string>();
+    if (inPeriod1) validDayKeys.add(getWindowDayKey(brNow, currentMinutes, payload.start_hour, payload.end_hour));
+    if (inPeriod2 && period2Start && period2End) validDayKeys.add(getWindowDayKey(brNow, currentMinutes, period2Start, period2End));
+
+    if (activeDays.length > 0 && !Array.from(validDayKeys).some((dayKey) => activeDays.includes(dayKey))) {
+      return "O dia atual não está marcado nos dias ativos dessa automação.";
+    }
+
+    return null;
+  }, []);
+
+  const getPersistedGroupBindingError = useCallback(async (deviceId: string | null | undefined, groupIds: string[]) => {
+    const normalizedDeviceId = String(deviceId || "").trim();
+    const normalizedGroupIds = Array.from(new Set(groupIds.map((groupId) => String(groupId || "").trim()).filter(Boolean)));
+
+    if (!user || !normalizedDeviceId || normalizedGroupIds.length === 0) return null;
+
+    const { data, error } = await supabase
+      .from("warmup_instance_groups" as any)
+      .select("group_id")
+      .eq("user_id", user.id)
+      .eq("device_id", normalizedDeviceId)
+      .eq("join_status", "joined")
+      .not("group_jid", "is", null)
+      .in("group_id", normalizedGroupIds);
+
+    if (error) throw error;
+
+    const linkedCount = new Set((data || []).map((row: any) => String(row.group_id || "").trim()).filter(Boolean)).size;
+    if (linkedCount === 0) {
+      return "Essa instância ainda não entrou em nenhum dos grupos selecionados. Vincule os grupos no Aquecimento primeiro.";
+    }
+
+    if (linkedCount < normalizedGroupIds.length) {
+      const missingCount = normalizedGroupIds.length - linkedCount;
+      return missingCount === 1
+        ? "1 grupo selecionado ainda não está vinculado a essa instância."
+        : `${missingCount} grupos selecionados ainda não estão vinculados a essa instância.`;
+    }
+
+    return null;
+  }, [user, user?.id]);
+
   const validate = (): string | null => {
-    const normalizedGroupIds = normalizeInteractionGroupIds(Array.isArray(form.group_ids) ? form.group_ids : [], groupSource);
+    const normalizedGroupIds = normalizedSelectedGroupIds;
     if (!form.device_id && !showBulkCreate) return "Selecione um dispositivo";
     if (!showBulkCreate && form.device_id && !eligibleDevices.some((device: any) => device.id === form.device_id)) return "A instância selecionada está desconectada";
     if (!normalizedGroupIds.length) return "Selecione pelo menos um grupo válido";
+    if (!showBulkCreate && currentFormDeviceId) {
+      if (deviceJoinedGroupsLoading) return "Carregando grupos vinculados da instância";
+      if (availableWarmupGroups.length === 0) return "Essa instância ainda não possui grupos vinculados no Aquecimento";
+      if (unavailableSelectedGroupCount > 0) {
+        return unavailableSelectedGroupCount === 1
+          ? "1 grupo selecionado ainda não está vinculado a essa instância"
+          : `${unavailableSelectedGroupCount} grupos selecionados ainda não estão vinculados a essa instância`;
+      }
+    }
     if (!form.start_hour || !form.end_hour) return "Defina os horários";
     if (usePeriod2 && (!form.start_hour_2 || !form.end_hour_2)) return "Defina início e término do 2º período";
     // Auto-correct delays instead of blocking
@@ -353,6 +513,10 @@ export default function GroupInteractionPage() {
     if (err) return toast.error(err);
     const payload = buildInteractionPayload(form);
     if (!(payload.group_ids || []).length) return toast.error("Selecione pelo menos um grupo válido");
+    const scheduleError = getStartScheduleError(payload);
+    if (scheduleError) return toast.error(scheduleError);
+    const bindingError = await getPersistedGroupBindingError(payload.device_id, payload.group_ids || []);
+    if (bindingError) return toast.error(bindingError);
     await createInteraction.mutateAsync(payload as any);
     setShowConfig(false);
   };
@@ -365,11 +529,18 @@ export default function GroupInteractionPage() {
     if (err) return toast.error(err);
     const payload = buildInteractionPayload(form);
     if (!(payload.group_ids || []).length) return toast.error("Selecione pelo menos um grupo válido");
+    const scheduleError = getStartScheduleError(payload);
+    if (scheduleError) return toast.error(scheduleError);
     bulkCreatingRef.current = true;
     try {
       for (const deviceId of bulkDeviceIds) {
         const device = eligibleDevices.find((d: any) => d.id === deviceId);
         const deviceName = device ? device.name : "Dispositivo";
+        const bindingError = await getPersistedGroupBindingError(deviceId, payload.group_ids || []);
+        if (bindingError) {
+          toast.error(`${deviceName}: ${bindingError}`);
+          return;
+        }
         await createInteraction.mutateAsync({
           ...payload,
           device_id: deviceId,
@@ -406,13 +577,49 @@ export default function GroupInteractionPage() {
   };
 
   const handleAction = (action: string) => {
-    if (!selectedId) return;
-    if (action === "start") {
-      const err = validate();
-      if (err) return toast.error(err);
-    }
-    invokeAction.mutate({ interactionId: selectedId, action });
+    const run = async () => {
+      if (!selectedId) return;
+
+      if (action === "start") {
+        const err = validate();
+        if (err) return toast.error(err);
+
+        const payload = buildInteractionPayload(form);
+        const scheduleError = getStartScheduleError(payload);
+        if (scheduleError) return toast.error(scheduleError);
+
+        const bindingError = await getPersistedGroupBindingError(payload.device_id, payload.group_ids || []);
+        if (bindingError) return toast.error(bindingError);
+
+        await updateInteraction.mutateAsync({ id: selectedId, ...payload } as any);
+      }
+
+      await invokeAction.mutateAsync({ interactionId: selectedId, action });
+    };
+
+    run().catch((error: any) => {
+      toast.error(error?.message || "Não foi possível iniciar a automação");
+    });
   };
+
+  const handleCardStart = useCallback((interaction: GroupInteraction) => {
+    const run = async () => {
+      const invalidReason = getInteractionInvalidReason(interaction, deviceMap);
+      if (invalidReason) return toast.error(invalidReason);
+
+      const scheduleError = getStartScheduleError(interaction as any);
+      if (scheduleError) return toast.error(scheduleError);
+
+      const bindingError = await getPersistedGroupBindingError(interaction.device_id, interaction.group_ids || []);
+      if (bindingError) return toast.error(bindingError);
+
+      await invokeAction.mutateAsync({ interactionId: interaction.id, action: "start" });
+    };
+
+    run().catch((error: any) => {
+      toast.error(error?.message || "Não foi possível iniciar a automação");
+    });
+  }, [deviceMap, getPersistedGroupBindingError, getStartScheduleError, invokeAction]);
 
   const selectedLogs = useMemo(
     () => (selectedId ? logs.filter((l) => l.interaction_id === selectedId) : []),
@@ -621,7 +828,7 @@ export default function GroupInteractionPage() {
                         <button
                           disabled={Boolean(invalidReason)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition-all"
-                          onClick={() => invokeAction.mutate({ interactionId: inter.id, action: "start" })}
+                          onClick={() => handleCardStart(inter)}
                         >
                           <Play className="w-3.5 h-3.5" strokeWidth={1.8} /> {isPaused ? "Retomar" : "Iniciar"}
                         </button>
@@ -803,7 +1010,7 @@ export default function GroupInteractionPage() {
                 <Smartphone className="w-3.5 h-3.5" />
                 <span className="text-xs font-semibold uppercase tracking-wider">Dispositivo</span>
               </div>
-              <Select value={form.device_id || ""} onValueChange={(v) => updateForm({ device_id: v })}>
+                <Select value={form.device_id || ""} onValueChange={updateDeviceInForm}>
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="Selecionar instância" />
                 </SelectTrigger>
@@ -964,13 +1171,19 @@ export default function GroupInteractionPage() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 max-h-44 overflow-y-auto border border-border/30 rounded-lg p-2">
               {warmupGroups.length === 0 ? (
-                <p className="text-xs text-muted-foreground p-2 col-span-full">
-                  {groupSource === "custom"
-                    ? "Nenhum grupo próprio cadastrado. Adicione em Aquecimento > Grupos."
-                    : "Nenhum grupo do sistema disponível."}
-                </p>
+                    <p className="text-xs text-muted-foreground p-2 col-span-full">
+                      {!currentFormDeviceId
+                        ? showBulkCreate
+                          ? "Selecione os grupos que serão usados. O vínculo com cada instância será validado ao criar."
+                          : "Selecione uma instância para listar apenas os grupos realmente vinculados a ela."
+                        : deviceJoinedGroupsLoading
+                          ? "Carregando grupos vinculados da instância..."
+                          : groupSource === "custom"
+                            ? "Essa instância ainda não possui grupos próprios vinculados no Aquecimento."
+                            : "Essa instância ainda não possui grupos do sistema vinculados no Aquecimento."}
+                    </p>
               ) : (
-                warmupGroups.map((g: any) => (
+                availableWarmupGroups.map((g: any) => (
                   <label key={g.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/40 cursor-pointer">
                     <Checkbox
                       checked={(form.group_ids || []).includes(g.id)}
@@ -981,6 +1194,13 @@ export default function GroupInteractionPage() {
                 ))
               )}
             </div>
+            {currentFormDeviceId && unavailableSelectedGroupCount > 0 && (
+              <p className="text-[11px] text-amber-400">
+                {unavailableSelectedGroupCount === 1
+                  ? "1 grupo salvo nesta automação não está mais vinculado à instância selecionada."
+                  : `${unavailableSelectedGroupCount} grupos salvos nesta automação não estão mais vinculados à instância selecionada.`}
+              </p>
+            )}
           </div>
         </div>
       </div>
