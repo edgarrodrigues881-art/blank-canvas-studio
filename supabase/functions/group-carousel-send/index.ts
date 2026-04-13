@@ -974,7 +974,7 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentions: string[])
         "text",
       );
       const allAttempts = [...carouselAttempts, ...textFallbackAttempts];
-      await sendWithFallbacks(allAttempts, headers, groupJid);
+      await sendWithFallbacks(allAttempts, headers, groupJid, mentionPhones);
       return json({ ok: true, mode: "carousel", groupName });
     }
 
@@ -1010,7 +1010,7 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentions: string[])
           );
 
           try {
-            await sendWithFallbacks(imageButtonAttempts, headers, groupJid);
+            await sendWithFallbacks(imageButtonAttempts, headers, groupJid, mentionPhones);
             return json({ ok: true, mode: "buttons_image", groupName });
           } catch (error) {
             console.warn(`[group-carousel] imageButton failed, falling back to split send: ${error instanceof Error ? error.message : String(error)}`);
@@ -1020,19 +1020,19 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentions: string[])
         const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
 
         if (mediaType === "audio") {
-          await sendWithFallbacks(buttonAttempts, headers, groupJid);
+          await sendWithFallbacks(buttonAttempts, headers, groupJid, mentionPhones);
           await new Promise((resolve) => setTimeout(resolve, 1500));
-          await sendWithFallbacks(mediaAttempts, headers, groupJid);
+          await sendWithFallbacks(mediaAttempts, headers, groupJid, mentionPhones);
           return json({ ok: true, mode: "buttons_audio", groupName });
         }
 
-        await sendWithFallbacks(mediaAttempts, headers, groupJid);
+        await sendWithFallbacks(mediaAttempts, headers, groupJid, mentionPhones);
         await new Promise((resolve) => setTimeout(resolve, 1500));
-        await sendWithFallbacks(buttonAttempts, headers, groupJid);
+        await sendWithFallbacks(buttonAttempts, headers, groupJid, mentionPhones);
         return json({ ok: true, mode: "buttons_media", groupName });
       }
 
-      await sendWithFallbacks(buttonAttempts, headers, groupJid);
+      await sendWithFallbacks(buttonAttempts, headers, groupJid, mentionPhones);
       return json({ ok: true, mode: "buttons", groupName });
     }
 
@@ -1054,7 +1054,7 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentions: string[])
     }
 
     const attempts = buildMessageAttempts(baseUrl, groupJid, normalizedContent, type, caption, fileName);
-    await sendWithFallbacks(attempts, headers, groupJid);
+    await sendWithFallbacks(attempts, headers, groupJid, mentionPhones);
     return json({ ok: true, mode: "message", groupName });
   } catch (error: any) {
     console.error("[group-carousel] Error:", error);
