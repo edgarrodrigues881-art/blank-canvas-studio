@@ -39,6 +39,7 @@ import {
   ListOrdered,
   BarChart3,
   Download,
+  Link2,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
