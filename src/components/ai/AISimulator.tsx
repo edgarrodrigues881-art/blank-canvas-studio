@@ -52,72 +52,31 @@ export function AISimulator() {
 
       const { data: settings } = await supabase
         .from("ai_settings")
-        .select("api_key, ai_model, tone, response_style, ai_instructions, business_name, business_type, business_description, business_hours, creativity, max_response_length")
+        .select("tone, ai_instructions, business_name, business_type, business_description, business_hours, creativity")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (!settings?.api_key) {
-        setMessages((prev) => [...prev, { role: "assistant", content: "⚠️ Configure sua chave de API primeiro para testar a IA." }]);
-        setLoading(false);
-        return;
-      }
-
-      // Build a lightweight system prompt for simulation
-      const toneMap: Record<string, string> = { friendly: "amigável", professional: "profissional", direct: "direto" };
       const history = [...messages, userMsg].map((m) => ({ role: m.role, content: m.content }));
 
-      const systemPrompt = [
-        `Você é um assistente virtual de atendimento${settings.business_name ? ` da empresa "${settings.business_name}"` : ""}.`,
-        `Tom: ${toneMap[settings.tone] || "profissional"}.`,
-        settings.business_type ? `Tipo: ${settings.business_type}.` : "",
-        settings.business_description ? `Sobre: ${settings.business_description}.` : "",
-        settings.business_hours ? `Horário: ${settings.business_hours}.` : "",
-        settings.ai_instructions ? `Instruções: ${settings.ai_instructions.replace(/FLOW_STEPS:.*?END_FLOW_STEPS/s, "").trim()}` : "",
-        `IMPORTANTE: Ao final da resposta, inclua: <!--SIM_META:{"intent":"curious|interested|ready_to_buy|objection","flow_step":"saudacao|diagnostico|apresentacao|objecao|fechamento"}-->`,
-        `- "intent": intenção detectada na mensagem do cliente`,
-        `- "flow_step": etapa do fluxo de conversão que você usou`,
-        `Responda de forma natural e curta.`,
-      ].filter(Boolean).join("\n");
-
-      const apiMessages = [
-        { role: "system", content: systemPrompt },
-        ...history,
-      ];
-
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${settings.api_key}`,
-          "Content-Type": "application/json",
+      const { data, error } = await supabase.functions.invoke("test-ai-simulator", {
+        body: {
+          messages: history,
+          settings: settings || {},
         },
-        body: JSON.stringify({
-          model: settings.ai_model || "gpt-4o-mini",
-          messages: apiMessages,
-          temperature: (settings.creativity || 50) / 100,
-          max_tokens: 300,
-        }),
       });
 
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`API error ${res.status}: ${err.slice(0, 100)}`);
-      }
+      if (error) throw new Error(error.message || "Erro na simulação");
 
-      const data = await res.json();
-      let reply = data.choices?.[0]?.message?.content?.trim() || "Sem resposta";
-
-      // Extract metadata
-      let meta: SimMessage["meta"] = {};
-      const metaMatch = reply.match(/<!--SIM_META:(.*?)-->/s);
-      if (metaMatch) {
-        try { meta = JSON.parse(metaMatch[1]); } catch {}
-        reply = reply.replace(/<!--SIM_META:.*?-->/s, "").trim();
-      }
-
-      setMessages((prev) => [...prev, { role: "assistant", content: reply, meta }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: data.reply, meta: data.meta },
+      ]);
     } catch (err: any) {
       console.error("Simulator error:", err);
-      setMessages((prev) => [...prev, { role: "assistant", content: `❌ Erro: ${err.message || "Falha na simulação"}` }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: `❌ Erro: ${err.message || "Falha na simulação"}` },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -133,7 +92,6 @@ export function AISimulator() {
         <CardDescription>Simule uma conversa como cliente e veja como a IA responde</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* Chat area */}
         <div
           ref={scrollRef}
           className="h-[280px] rounded-xl border border-border/50 bg-background overflow-y-auto p-3 space-y-3"
@@ -163,7 +121,6 @@ export function AISimulator() {
                 >
                   {msg.content}
                 </div>
-                {/* Meta badges */}
                 {msg.meta && (msg.meta.intent || msg.meta.flow_step) && (
                   <div className="flex items-center gap-1.5 px-1">
                     {msg.meta.intent && (
@@ -205,7 +162,6 @@ export function AISimulator() {
           )}
         </div>
 
-        {/* Input */}
         <div className="flex gap-2">
           <Input
             value={input}
