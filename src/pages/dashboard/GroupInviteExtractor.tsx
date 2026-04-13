@@ -205,6 +205,14 @@ export default function GroupInviteExtractor() {
 
   const copyAllLinks = async () => {
     const text = successLinks
+      .map((r) => r.link)
+      .join("\n");
+    await navigator.clipboard.writeText(text);
+    toast.success(`${successLinks.length} links copiados!`);
+  };
+
+  const copyAllWithNames = async () => {
+    const text = successLinks
       .map((r) => `${r.name || r.jid}: ${r.link}`)
       .join("\n");
     await navigator.clipboard.writeText(text);
@@ -343,7 +351,10 @@ export default function GroupInviteExtractor() {
                 {successLinks.length > 0 && (
                   <>
                     <Button variant="outline" size="sm" onClick={copyAllLinks}>
-                      <Copy className="w-3.5 h-3.5 mr-1.5" /> Copiar Todos
+                      <Copy className="w-3.5 h-3.5 mr-1.5" /> Só Links
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={copyAllWithNames}>
+                      <Copy className="w-3.5 h-3.5 mr-1.5" /> Links + Nomes
                     </Button>
                     <Button variant="outline" size="sm" onClick={exportCSV}>
                       <Download className="w-3.5 h-3.5 mr-1.5" /> CSV
