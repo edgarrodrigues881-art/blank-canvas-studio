@@ -945,6 +945,9 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentions: string[])
     const groupInfo = await fetchGroupDeliveryMode(baseUrl, headers, groupJid);
     const groupName = groupInfo.groupName || "";
 
+    // Fetch participants if mentionAll is enabled
+    const mentionPhones = mentionAll ? await fetchGroupParticipants(baseUrl, headers, groupJid) : [];
+
     const normalizedCarouselCards = normalizeCarouselCards(cards || []);
     if (normalizedCarouselCards.length > 0) {
       for (const [index, card] of normalizedCarouselCards.entries()) {
