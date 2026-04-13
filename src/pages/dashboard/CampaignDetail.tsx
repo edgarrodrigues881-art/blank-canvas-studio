@@ -1336,7 +1336,7 @@ const CampaignDetail = () => {
           {totalContactPages > 1 && (
             <div className="flex items-center justify-between px-4 py-2.5 border-t border-border/10">
               <span className="text-[10px] text-muted-foreground/50">
-                Página {contactPage + 1} de {totalContactPages} • {totalContacts} contatos
+                Página {contactPage + 1} de {totalContactPages} • {totalContacts} {isGroupCampaign ? "grupos" : "contatos"}
               </span>
               <div className="flex items-center gap-1.5">
                 <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2"
