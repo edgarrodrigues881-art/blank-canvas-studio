@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Navigate } from "react-router-dom";
 import {
   Layers, Loader2, Send, X, Trash2, Type, MousePointerClick,
-  Clock, Pause, MessageSquare, Users, Settings2,
-  Check, Plus, Bold, Italic, Strikethrough, Code, Smile,
+  Clock, Pause, MessageSquare, Users, Settings2, Zap, Activity,
+  Check, Plus, Bold, Italic, Strikethrough, Code, Smile, Timer, Eraser, ChevronRight,
   FileText, ImageIcon, Link, Phone, Smartphone,
   ArrowUp, ArrowDown, Pencil, Eye,
 } from "lucide-react";
@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -939,12 +938,6 @@ export default function GroupCarouselDispatch() {
               />
             </SurfaceCard>
 
-            {/* Next */}
-            <div className="flex justify-end">
-              <Button onClick={() => setStep(2)} className="px-8">
-                Próximo <Send className="ml-2 w-4 h-4" />
-              </Button>
-            </div>
           </div>
         )}
 
@@ -1011,122 +1004,242 @@ export default function GroupCarouselDispatch() {
               )}
             </SurfaceCard>
 
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep(1)}>Voltar</Button>
-              <Button onClick={() => setStep(3)} className="px-8">
-                Próximo <Send className="ml-2 w-4 h-4" />
-              </Button>
-            </div>
           </div>
         )}
 
-        {/* ===== STEP 3: Parâmetros ===== */}
+        {/* ===== STEP 3: Parâmetros (identical to Campaigns) ===== */}
         {step === 3 && (
-          <div className="space-y-6 sm:space-y-8">
+          <div className="space-y-8">
+            {/* Send Control Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {/* Delay */}
               <SurfaceCard className="p-6 space-y-5">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Clock className="w-4 h-4 text-primary" />
+                  <div className="w-10 h-10 rounded-xl bg-teal-500/10 flex items-center justify-center">
+                    <Clock className="w-4.5 h-4.5 text-teal-400" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold">Delay entre grupos</p>
-                    <p className="text-[10px] text-muted-foreground">{minDelay}s - {maxDelay}s</p>
+                    <p className="text-[13px] font-bold text-foreground">Intervalo</p>
+                    <p className="text-[10px] text-muted-foreground/50 mt-0.5">Entre cada grupo</p>
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-muted-foreground">Mínimo ({minDelay}s)</span>
-                    <Slider min={1} max={120} step={1} value={[minDelay]} onValueChange={([v]) => { setMinDelay(v); if (v > maxDelay) setMaxDelay(v); }} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-muted-foreground/50 font-medium">Mín (s)</label>
+                      <Input type="number" value={minDelay || ""} onChange={(e) => { const v = e.target.value === "" ? 0 : parseInt(e.target.value); if (!isNaN(v)) setMinDelay(v); }} onBlur={() => { const v = Math.max(minDelay || 1, 1); setMinDelay(v); if (v > maxDelay) setMaxDelay(v); }} className="h-9 text-xs bg-muted/15 dark:bg-muted/8 border-border/15 tabular-nums" min={1} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-muted-foreground/50 font-medium">Máx (s)</label>
+                      <Input type="number" value={maxDelay || ""} onChange={(e) => { const v = e.target.value === "" ? 0 : parseInt(e.target.value); if (!isNaN(v)) setMaxDelay(v); }} onBlur={() => { const v = Math.max(maxDelay || 1, 1); setMaxDelay(v < minDelay ? minDelay : v); }} className="h-9 text-xs bg-muted/15 dark:bg-muted/8 border-border/15 tabular-nums" min={1} />
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-muted-foreground">Máximo ({maxDelay}s)</span>
-                    <Slider min={1} max={120} step={1} value={[maxDelay]} onValueChange={([v]) => { setMaxDelay(v); if (v < minDelay) setMinDelay(v); }} />
-                  </div>
+                  <p className="text-[10px] text-muted-foreground/40 tabular-nums">{minDelay}s – {maxDelay}s a cada envio</p>
                 </div>
               </SurfaceCard>
 
-              {/* Pause every */}
+              {/* Pause every X */}
               <SurfaceCard className="p-6 space-y-5">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Pause className="w-4 h-4 text-primary" />
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                    <Zap className="w-4.5 h-4.5 text-amber-400" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold">Pausa automática</p>
-                    <p className="text-[10px] text-muted-foreground">A cada {pauseEveryMin}-{pauseEveryMax} disparos</p>
+                    <p className="text-[13px] font-bold text-foreground">Pausa</p>
+                    <p className="text-[10px] text-muted-foreground/50 mt-0.5">A cada X grupos</p>
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-muted-foreground">Mínimo ({pauseEveryMin})</span>
-                    <Slider min={1} max={50} step={1} value={[pauseEveryMin]} onValueChange={([v]) => { setPauseEveryMin(v); if (v > pauseEveryMax) setPauseEveryMax(v); }} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-muted-foreground/50 font-medium">Mín</label>
+                      <Input type="number" value={pauseEveryMin || ""} onChange={(e) => { const v = e.target.value === "" ? 0 : parseInt(e.target.value); if (!isNaN(v)) setPauseEveryMin(v); }} onBlur={() => { const v = Math.max(pauseEveryMin || 1, 1); setPauseEveryMin(v); if (v > pauseEveryMax) setPauseEveryMax(v); }} className="h-9 text-xs bg-muted/15 dark:bg-muted/8 border-border/15 tabular-nums" min={1} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-muted-foreground/50 font-medium">Máx</label>
+                      <Input type="number" value={pauseEveryMax || ""} onChange={(e) => { const v = e.target.value === "" ? 0 : parseInt(e.target.value); if (!isNaN(v)) setPauseEveryMax(v); }} onBlur={() => { const v = Math.max(pauseEveryMax || 1, 1); setPauseEveryMax(v < pauseEveryMin ? pauseEveryMin : v); }} className="h-9 text-xs bg-muted/15 dark:bg-muted/8 border-border/15 tabular-nums" min={1} />
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-muted-foreground">Máximo ({pauseEveryMax})</span>
-                    <Slider min={1} max={50} step={1} value={[pauseEveryMax]} onValueChange={([v]) => { setPauseEveryMax(v); if (v < pauseEveryMin) setPauseEveryMin(v); }} />
-                  </div>
+                  <p className="text-[10px] text-muted-foreground/40 tabular-nums">A cada {pauseEveryMin}–{pauseEveryMax} grupos</p>
                 </div>
               </SurfaceCard>
 
               {/* Pause duration */}
               <SurfaceCard className="p-6 space-y-5">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Clock className="w-4 h-4 text-primary" />
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                    <Activity className="w-4.5 h-4.5 text-purple-400" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold">Duração da pausa</p>
-                    <p className="text-[10px] text-muted-foreground">{pauseDurationMin}s - {pauseDurationMax}s</p>
+                    <p className="text-[13px] font-bold text-foreground">Duração</p>
+                    <p className="text-[10px] text-muted-foreground/50 mt-0.5">Tempo da pausa</p>
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-muted-foreground">Mínimo ({pauseDurationMin}s)</span>
-                    <Slider min={5} max={300} step={5} value={[pauseDurationMin]} onValueChange={([v]) => { setPauseDurationMin(v); if (v > pauseDurationMax) setPauseDurationMax(v); }} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-muted-foreground/50 font-medium">Mín (s)</label>
+                      <Input type="number" value={pauseDurationMin || ""} onChange={(e) => { const v = e.target.value === "" ? 0 : parseInt(e.target.value); if (!isNaN(v)) setPauseDurationMin(v); }} onBlur={() => { const v = Math.max(pauseDurationMin || 1, 1); setPauseDurationMin(v); if (v > pauseDurationMax) setPauseDurationMax(v); }} className="h-9 text-xs bg-muted/15 dark:bg-muted/8 border-border/15 tabular-nums" min={1} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-muted-foreground/50 font-medium">Máx (s)</label>
+                      <Input type="number" value={pauseDurationMax || ""} onChange={(e) => { const v = e.target.value === "" ? 0 : parseInt(e.target.value); if (!isNaN(v)) setPauseDurationMax(v); }} onBlur={() => { const v = Math.max(pauseDurationMax || 1, 1); setPauseDurationMax(v < pauseDurationMin ? pauseDurationMin : v); }} className="h-9 text-xs bg-muted/15 dark:bg-muted/8 border-border/15 tabular-nums" min={1} />
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-muted-foreground">Máximo ({pauseDurationMax}s)</span>
-                    <Slider min={5} max={300} step={5} value={[pauseDurationMax]} onValueChange={([v]) => { setPauseDurationMax(v); if (v < pauseDurationMin) setPauseDurationMin(v); }} />
-                  </div>
+                  <p className="text-[10px] text-muted-foreground/40 tabular-nums">{pauseDurationMin}s – {pauseDurationMax}s de pausa</p>
                 </div>
               </SurfaceCard>
             </div>
 
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep(2)}>Voltar</Button>
-              <Button onClick={() => setStep(4)} className="px-8">
-                Próximo <Send className="ml-2 w-4 h-4" />
-              </Button>
-            </div>
+            {/* Estimated Time */}
+            <SurfaceCard className="relative p-5 flex flex-col items-center justify-center text-center overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-accent/[0.06] to-transparent pointer-events-none" />
+              <div className="relative z-10 flex flex-col items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center">
+                  <Timer className="w-5 h-5 text-accent-foreground/70" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider font-semibold mb-1.5">Tempo estimado</p>
+                  <p className="text-3xl font-black text-foreground tabular-nums tracking-tight">
+                    {(() => {
+                      const count = selectedGroups.length;
+                      if (count === 0) return "—";
+                      const avgDelay = (minDelay + maxDelay) / 2;
+                      const avgPauseEvery = (pauseEveryMin + pauseEveryMax) / 2;
+                      const avgPauseDur = (pauseDurationMin + pauseDurationMax) / 2;
+                      const numPauses = avgPauseEvery > 0 ? Math.floor(count / avgPauseEvery) : 0;
+                      const totalSeconds = (count * avgDelay) + (numPauses * avgPauseDur);
+                      const hours = Math.floor(totalSeconds / 3600);
+                      const minutes = Math.floor((totalSeconds % 3600) / 60);
+                      const days = Math.floor(hours / 24);
+                      const remainingHours = hours % 24;
+                      if (days > 0) return `≈ ${days}d ${remainingHours}h ${minutes}min`;
+                      if (hours > 0) return `≈ ${hours}h ${minutes}min`;
+                      if (minutes > 0) return `≈ ${minutes}min`;
+                      return "≈ < 1min";
+                    })()}
+                  </p>
+                </div>
+                {selectedGroups.length > 0 && (
+                  <p className="text-[10px] text-muted-foreground/40">{selectedGroups.length} grupo{selectedGroups.length !== 1 ? "s" : ""} • 1 instância</p>
+                )}
+              </div>
+            </SurfaceCard>
           </div>
         )}
 
-        {/* ===== STEP 4: Lançamento ===== */}
+        {/* ===== STEP 4: Lançamento (identical to Campaigns) ===== */}
         {step === 4 && (
-          <div className="space-y-6 sm:space-y-8">
-            {/* Summary */}
-            <SurfaceCard className="p-5 sm:p-6 space-y-4">
-              <SectionLabel>Resumo da Campanha</SectionLabel>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-                <div><span className="text-muted-foreground text-xs">Nome</span><p className="font-medium">{campaignName || "—"}</p></div>
-                <div><span className="text-muted-foreground text-xs">Tipo</span><p className="font-medium capitalize">{dispatchType === "text" ? "Texto" : dispatchType === "buttons" ? "Botões" : "Carrossel"}</p></div>
-                <div><span className="text-muted-foreground text-xs">Grupos</span><p className="font-medium">{selectedGroups.length} selecionado(s)</p></div>
-                <div><span className="text-muted-foreground text-xs">Instância</span><p className="font-medium">{devices.find((d) => d.id === selectedDevice)?.name || "—"}</p></div>
-                <div><span className="text-muted-foreground text-xs">Delay</span><p className="font-medium">{minDelay}s - {maxDelay}s</p></div>
-                <div><span className="text-muted-foreground text-xs">Pausa</span><p className="font-medium">A cada {pauseEveryMin}-{pauseEveryMax} · {pauseDurationMin}s-{pauseDurationMax}s</p></div>
-              </div>
+          <div className="space-y-8">
+            {/* Campaign name */}
+            <SurfaceCard className="p-6 space-y-3">
+              <SectionLabel>Nome da Campanha</SectionLabel>
+              <Input value={campaignName} onChange={(e) => setCampaignName(e.target.value)} placeholder="Ex: Promoção Black Friday - Grupos"
+                className="h-13 text-base font-semibold bg-muted/15 dark:bg-muted/8 border-border/15 focus-visible:ring-primary/30 px-4" />
             </SurfaceCard>
 
-            {/* Send */}
-            <Button className="w-full h-12 text-base" onClick={handleSend} disabled={sending || !selectedDevice || selectedGroups.length === 0}>
-              {sending ? (
-                <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Enviando {progress.sent}/{progress.total}...</>
-              ) : (
-                <><Send className="mr-2 h-5 w-5" />Lançar campanha para {selectedGroups.length} grupo(s)</>
-              )}
-            </Button>
+            {/* Review panel */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+              {/* Technical summary */}
+              <SurfaceCard className="lg:col-span-3 p-6 space-y-5 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.03] to-transparent pointer-events-none" />
+                <div className="relative z-10 space-y-5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Eye className="w-4 h-4 text-primary" />
+                    </div>
+                    <h3 className="text-sm font-bold text-foreground">Resumo Técnico</h3>
+                  </div>
+
+                  {/* Top stats row */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: "Grupos", value: String(selectedGroups.length), icon: Users, accent: "text-primary" },
+                      { label: "Instância", value: devices.find(d => d.id === selectedDevice)?.name || "—", icon: Smartphone, accent: "text-emerald-400" },
+                      { label: "Tipo", value: dispatchType === "text" ? "Texto" : dispatchType === "buttons" ? "Botões" : "Carrossel", icon: MessageSquare, accent: "text-amber-400" },
+                    ].map(item => (
+                      <div key={item.label} className="text-center p-4 rounded-xl bg-card border border-border/15">
+                        <item.icon className={cn("w-4 h-4 mx-auto mb-2", item.accent)} />
+                        <p className="text-lg font-black text-foreground tabular-nums">{item.value}</p>
+                        <p className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground/40 font-semibold mt-1">{item.label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Delay config row */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: "Intervalo", value: `${minDelay}–${maxDelay}s`, icon: Clock },
+                      { label: "Pausa a cada", value: `${pauseEveryMin}–${pauseEveryMax} grupos`, icon: Zap },
+                      { label: "Duração pausa", value: `${pauseDurationMin}–${pauseDurationMax}s`, icon: Activity },
+                    ].map(item => (
+                      <div key={item.label} className="flex items-center gap-2.5 p-3 rounded-lg bg-muted/8 border border-border/10">
+                        <item.icon className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[9px] uppercase tracking-wider text-muted-foreground/35 font-semibold">{item.label}</p>
+                          <p className="text-[12px] font-bold text-foreground tabular-nums">{item.value}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Warnings */}
+                  {(!campaignName || !selectedDevice || selectedGroups.length === 0 || (!combinedMessage && !mediaUrl && dispatchType !== "carousel")) && (
+                    <div className="flex items-center gap-3 text-sm text-destructive bg-destructive/5 border border-destructive/10 rounded-xl px-4 py-3">
+                      <span className="text-[12px]">
+                        {!campaignName && "Nome ausente. "}
+                        {!selectedDevice && "Sem instância. "}
+                        {selectedGroups.length === 0 && "Sem grupos. "}
+                        {!combinedMessage && !mediaUrl && dispatchType !== "carousel" && "Mensagem vazia."}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </SurfaceCard>
+
+              {/* Preview */}
+              <div className="lg:col-span-2 space-y-3">
+                {dispatchType === "carousel" ? (
+                  <CarouselPreview cards={cards} message={carouselMessage} />
+                ) : (
+                  <WhatsAppPreview />
+                )}
+              </div>
+            </div>
+
+            {/* Security checklist */}
+            <SurfaceCard className="relative p-6 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.02] to-transparent pointer-events-none" />
+              <div className="relative z-10 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Check className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-bold text-foreground">Pronto para enviar</p>
+                    <p className="text-[11px] text-muted-foreground/50">Revise e inicie sua campanha</p>
+                  </div>
+                </div>
+                <div className="space-y-2 pl-[52px]">
+                  {[
+                    { ok: !!campaignName.trim(), text: "Nome definido" },
+                    { ok: !!selectedDevice, text: "Instância selecionada" },
+                    { ok: selectedGroups.length > 0, text: `${selectedGroups.length} grupo(s) selecionado(s)` },
+                    { ok: dispatchType === "carousel" ? cards.some(c => c.text.trim() || c.mediaUrl) : (!!combinedMessage || !!mediaUrl), text: "Mensagem configurada" },
+                  ].map((c, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      {c.ok ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <X className="w-3.5 h-3.5 text-destructive/50" />
+                      )}
+                      <span className={cn("text-[11px] font-medium", c.ok ? "text-foreground/70" : "text-muted-foreground/40")}>{c.text}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground/30 pl-[52px]">O envio pode ser cancelado a qualquer momento.</p>
+              </div>
+            </SurfaceCard>
 
             {/* Progress */}
             {sending && (
@@ -1157,15 +1270,43 @@ export default function GroupCarouselDispatch() {
                 ))}
               </SurfaceCard>
             )}
-
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep(3)}>Voltar</Button>
-              <Button variant="outline" size="sm" onClick={clearAll} className="flex items-center gap-2">
-                <Trash2 className="h-4 w-4" /> Limpar tudo
-              </Button>
-            </div>
           </div>
         )}
+      </div>
+
+      {/* ═══ Bottom Navigation (identical to Campaigns) ═══ */}
+      <div className="mt-6 sm:mt-8 mb-6">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs gap-1.5 h-9 w-full sm:w-[170px] justify-center border-border/40 text-muted-foreground hover:text-foreground hover:bg-destructive/10 hover:border-destructive/30 transition-colors duration-100 order-3 sm:order-1"
+            onClick={clearAll}
+          >
+            <Eraser className="w-3.5 h-3.5" /> Limpar tudo
+          </Button>
+          <div className="flex items-center gap-2 sm:gap-3 order-1 sm:order-2">
+            {step > 1 && (
+              <Button variant="outline" onClick={() => setStep(step - 1)} className="gap-1.5 sm:gap-2.5 h-10 sm:h-11 flex-1 sm:flex-none sm:px-10 text-xs sm:text-sm font-bold tracking-wide">
+                ← VOLTAR
+              </Button>
+            )}
+            {step < 4 ? (
+              <Button onClick={() => setStep(step + 1)} className="gap-1.5 sm:gap-3 h-10 sm:h-11 flex-1 sm:flex-none sm:px-14 text-xs sm:text-[15px] font-bold tracking-wide shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 hover:brightness-110 transition-all duration-150">
+                CONTINUAR <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSend}
+                disabled={sending || !selectedDevice || selectedGroups.length === 0 || !campaignName.trim()}
+                className="gap-1.5 sm:gap-2.5 h-10 sm:h-11 flex-1 sm:flex-none sm:px-10 text-xs sm:text-sm font-bold tracking-wide shadow-lg shadow-primary/25 bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                ENVIAR AGORA
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
