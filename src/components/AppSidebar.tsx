@@ -483,13 +483,15 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
               {(() => {
+                const isUnlocked = user?.email === "edgarrodrigues881@gmail.com";
+                const lk = !isUnlocked;
                 return (
                   <>
                     {renderNavItem({ title: "Conversas", url: "/dashboard/conversations", icon: MessageSquare })}
-                    {renderNavItem({ title: "Base de Dados", url: "/dashboard/service-contacts", icon: Headset })}
-                    {renderNavItem({ title: "Agendamentos", url: "/dashboard/schedules", icon: CalendarClock })}
-                    {renderNavItem({ title: "IA", url: "/dashboard/ai-settings", icon: BotMessageSquare })}
-                    {renderNavItem({ title: "Relatório", url: "/dashboard/service-reports", icon: BarChart3 })}
+                    {renderNavItem({ title: "Base de Dados", url: "/dashboard/service-contacts", icon: Headset, locked: lk })}
+                    {renderNavItem({ title: "Agendamentos", url: "/dashboard/schedules", icon: CalendarClock, locked: lk })}
+                    {renderNavItem({ title: "IA", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: lk })}
+                    {renderNavItem({ title: "Relatório", url: "/dashboard/service-reports", icon: BarChart3, locked: lk })}
                   </>
                 );
               })()}
