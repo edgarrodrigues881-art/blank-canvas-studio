@@ -1174,6 +1174,13 @@ async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string
 
       lastError = extractProviderError(raw);
     } catch (error: any) {
+      const isTimeout = error?.message?.includes("Timeout");
+      if (isTimeout) {
+        // CRITICAL: On timeout the provider likely DID send the message but was slow to respond.
+        // Do NOT retry with the next fallback — that would cause duplicate messages.
+        console.warn(`[group-carousel] Timeout on ${attempt.endpoint}${attempt.label ? ` (${attempt.label})` : ""} — treating as probable success to avoid duplicate messages`);
+        return;
+      }
       lastError = error?.message || "Falha ao enviar mensagem para o grupo.";
       console.error(`[group-carousel] Attempt failed: ${attempt.endpoint}`, error);
     }
