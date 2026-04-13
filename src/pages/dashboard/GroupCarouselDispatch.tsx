@@ -1129,30 +1129,118 @@ export default function GroupCarouselDispatch() {
           </div>
         )}
 
-        {/* ===== STEP 4: Lançamento ===== */}
+        {/* ===== STEP 4: Lançamento (identical to Campaigns) ===== */}
         {step === 4 && (
-          <div className="space-y-6 sm:space-y-8">
-            {/* Summary */}
-            <SurfaceCard className="p-5 sm:p-6 space-y-4">
-              <SectionLabel>Resumo da Campanha</SectionLabel>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-                <div><span className="text-muted-foreground text-xs">Nome</span><p className="font-medium">{campaignName || "—"}</p></div>
-                <div><span className="text-muted-foreground text-xs">Tipo</span><p className="font-medium capitalize">{dispatchType === "text" ? "Texto" : dispatchType === "buttons" ? "Botões" : "Carrossel"}</p></div>
-                <div><span className="text-muted-foreground text-xs">Grupos</span><p className="font-medium">{selectedGroups.length} selecionado(s)</p></div>
-                <div><span className="text-muted-foreground text-xs">Instância</span><p className="font-medium">{devices.find((d) => d.id === selectedDevice)?.name || "—"}</p></div>
-                <div><span className="text-muted-foreground text-xs">Delay</span><p className="font-medium">{minDelay}s - {maxDelay}s</p></div>
-                <div><span className="text-muted-foreground text-xs">Pausa</span><p className="font-medium">A cada {pauseEveryMin}-{pauseEveryMax} · {pauseDurationMin}s-{pauseDurationMax}s</p></div>
-              </div>
+          <div className="space-y-8">
+            {/* Campaign name */}
+            <SurfaceCard className="p-6 space-y-3">
+              <SectionLabel>Nome da Campanha</SectionLabel>
+              <Input value={campaignName} onChange={(e) => setCampaignName(e.target.value)} placeholder="Ex: Promoção Black Friday - Grupos"
+                className="h-13 text-base font-semibold bg-muted/15 dark:bg-muted/8 border-border/15 focus-visible:ring-primary/30 px-4" />
             </SurfaceCard>
 
-            {/* Send */}
-            <Button className="w-full h-12 text-base" onClick={handleSend} disabled={sending || !selectedDevice || selectedGroups.length === 0}>
-              {sending ? (
-                <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Enviando {progress.sent}/{progress.total}...</>
-              ) : (
-                <><Send className="mr-2 h-5 w-5" />Lançar campanha para {selectedGroups.length} grupo(s)</>
-              )}
-            </Button>
+            {/* Review panel */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+              {/* Technical summary */}
+              <SurfaceCard className="lg:col-span-3 p-6 space-y-5 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.03] to-transparent pointer-events-none" />
+                <div className="relative z-10 space-y-5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Eye className="w-4 h-4 text-primary" />
+                    </div>
+                    <h3 className="text-sm font-bold text-foreground">Resumo Técnico</h3>
+                  </div>
+
+                  {/* Top stats row */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: "Grupos", value: String(selectedGroups.length), icon: Users, accent: "text-primary" },
+                      { label: "Instância", value: devices.find(d => d.id === selectedDevice)?.name || "—", icon: Smartphone, accent: "text-emerald-400" },
+                      { label: "Tipo", value: dispatchType === "text" ? "Texto" : dispatchType === "buttons" ? "Botões" : "Carrossel", icon: MessageSquare, accent: "text-amber-400" },
+                    ].map(item => (
+                      <div key={item.label} className="text-center p-4 rounded-xl bg-card border border-border/15">
+                        <item.icon className={cn("w-4 h-4 mx-auto mb-2", item.accent)} />
+                        <p className="text-lg font-black text-foreground tabular-nums">{item.value}</p>
+                        <p className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground/40 font-semibold mt-1">{item.label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Delay config row */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: "Intervalo", value: `${minDelay}–${maxDelay}s`, icon: Clock },
+                      { label: "Pausa a cada", value: `${pauseEveryMin}–${pauseEveryMax} grupos`, icon: Zap },
+                      { label: "Duração pausa", value: `${pauseDurationMin}–${pauseDurationMax}s`, icon: Activity },
+                    ].map(item => (
+                      <div key={item.label} className="flex items-center gap-2.5 p-3 rounded-lg bg-muted/8 border border-border/10">
+                        <item.icon className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[9px] uppercase tracking-wider text-muted-foreground/35 font-semibold">{item.label}</p>
+                          <p className="text-[12px] font-bold text-foreground tabular-nums">{item.value}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Warnings */}
+                  {(!campaignName || !selectedDevice || selectedGroups.length === 0 || (!combinedMessage && !mediaUrl && dispatchType !== "carousel")) && (
+                    <div className="flex items-center gap-3 text-sm text-destructive bg-destructive/5 border border-destructive/10 rounded-xl px-4 py-3">
+                      <span className="text-[12px]">
+                        {!campaignName && "Nome ausente. "}
+                        {!selectedDevice && "Sem instância. "}
+                        {selectedGroups.length === 0 && "Sem grupos. "}
+                        {!combinedMessage && !mediaUrl && dispatchType !== "carousel" && "Mensagem vazia."}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </SurfaceCard>
+
+              {/* Preview */}
+              <div className="lg:col-span-2 space-y-3">
+                {dispatchType === "carousel" ? (
+                  <CarouselPreview cards={cards} message={carouselMessage} />
+                ) : (
+                  <WhatsAppPreview />
+                )}
+              </div>
+            </div>
+
+            {/* Security checklist */}
+            <SurfaceCard className="relative p-6 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.02] to-transparent pointer-events-none" />
+              <div className="relative z-10 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Check className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-bold text-foreground">Pronto para enviar</p>
+                    <p className="text-[11px] text-muted-foreground/50">Revise e inicie sua campanha</p>
+                  </div>
+                </div>
+                <div className="space-y-2 pl-[52px]">
+                  {[
+                    { ok: !!campaignName.trim(), text: "Nome definido" },
+                    { ok: !!selectedDevice, text: "Instância selecionada" },
+                    { ok: selectedGroups.length > 0, text: `${selectedGroups.length} grupo(s) selecionado(s)` },
+                    { ok: dispatchType === "carousel" ? cards.some(c => c.text.trim() || c.mediaUrl) : (!!combinedMessage || !!mediaUrl), text: "Mensagem configurada" },
+                  ].map((c, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      {c.ok ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <X className="w-3.5 h-3.5 text-destructive/50" />
+                      )}
+                      <span className={cn("text-[11px] font-medium", c.ok ? "text-foreground/70" : "text-muted-foreground/40")}>{c.text}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground/30 pl-[52px]">O envio pode ser cancelado a qualquer momento.</p>
+              </div>
+            </SurfaceCard>
 
             {/* Progress */}
             {sending && (
@@ -1183,7 +1271,6 @@ export default function GroupCarouselDispatch() {
                 ))}
               </SurfaceCard>
             )}
-
           </div>
         )}
       </div>
