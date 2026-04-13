@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, ArrowLeft, User, Phone, Mail, Lock } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { AlertTriangle, RefreshCw } from "lucide-react";
-import logo from "@/assets/dg-contingencia-avatar.png";
+import logo from "@/assets/dg-contingencia-pro-logo.jpeg";
 
 const translateAuthError = (msg: string): string => {
   const map: Record<string, string> = {
