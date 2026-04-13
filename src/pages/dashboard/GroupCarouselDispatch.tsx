@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import {
   Layers, Loader2, Send, X, Trash2, Type, MousePointerClick,
   Clock, Pause, MessageSquare, Users, Settings2, Zap, Activity,
@@ -145,6 +145,7 @@ function rand(min: number, max: number) { return Math.floor(Math.random() * (max
 // ═══════════════════════════════════════════════
 export default function GroupCarouselDispatch() {
   const { user, session } = useAuth();
+  const navigate = useNavigate();
   const draft = useRef(loadDraft());
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const carouselTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -159,36 +160,12 @@ export default function GroupCarouselDispatch() {
   const [dispatchType, setDispatchType] = useState<DispatchType>(draft.current?.dispatchType || "text");
   const [campaignName, setCampaignName] = useState(draft.current?.campaignName || "");
 
-  // Multi-message tabs (5 slots, same as Campaigns)
-  const [messages, setMessages] = useState<string[]>(draft.current?.messages || ["", "", "", "", ""]);
-  const [activeMessageTab, setActiveMessageTab] = useState(0);
-  const message = messages[activeMessageTab];
-  const setMessage = (val: string | ((prev: string) => string)) => {
-    setMessages(prev => {
-      const copy = [...prev];
-      copy[activeMessageTab] = typeof val === "function" ? val(copy[activeMessageTab]) : val;
-      return copy;
-    });
-  };
-  const allMessages = messages.filter(m => m.trim());
-  const [rotationMode, setRotationMode] = useState<"random" | "all">(draft.current?.rotationMode || "random");
-  const combinedMessage = allMessages.length > 1
-    ? (rotationMode === "random" ? allMessages.join("|||") : allMessages.join("|&&|"))
-    : allMessages[0] || "";
+  // Single message
+  const [message, setMessage] = useState<string>(draft.current?.message || draft.current?.messages?.[0] || "");
+  const combinedMessage = message.trim();
 
-  // Carousel message tabs
-  const [carouselMessages, setCarouselMessages] = useState<string[]>(draft.current?.carouselMessages || ["", "", "", "", ""]);
-  const [activeCarouselMsgTab, setActiveCarouselMsgTab] = useState(0);
-  const carouselMessage = carouselMessages[activeCarouselMsgTab];
-  const setCarouselMessage = (val: string | ((prev: string) => string)) => {
-    setCarouselMessages(prev => {
-      const copy = [...prev];
-      copy[activeCarouselMsgTab] = typeof val === "function" ? val(copy[activeCarouselMsgTab]) : val;
-      return copy;
-    });
-  };
-  const allCarouselMessages = carouselMessages.filter(m => m.trim());
-  const [carouselRotationMode, setCarouselRotationMode] = useState<"random" | "all">("random");
+  // Carousel message
+  const [carouselMessage, setCarouselMessage] = useState<string>(draft.current?.carouselMessage || draft.current?.carouselMessages?.[0] || "");
 
   const [mediaUrl, setMediaUrl] = useState(draft.current?.mediaUrl || "");
   const [mediaFileName, setMediaFileName] = useState(draft.current?.mediaFileName || "");
@@ -215,11 +192,11 @@ export default function GroupCarouselDispatch() {
 
   useEffect(() => {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
-      selectedDevice, selectedGroups, dispatchType, campaignName, messages, rotationMode,
+      selectedDevice, selectedGroups, dispatchType, campaignName, message,
       mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax,
-      pauseDurationMin, pauseDurationMax, carouselMessages,
+      pauseDurationMin, pauseDurationMax, carouselMessage,
     }));
-  }, [selectedDevice, selectedGroups, dispatchType, campaignName, messages, rotationMode, mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, carouselMessages]);
+  }, [selectedDevice, selectedGroups, dispatchType, campaignName, message, mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, carouselMessage]);
 
   useEffect(() => {
     if (!user || !isAllowed) return;
@@ -315,9 +292,9 @@ export default function GroupCarouselDispatch() {
   const hasButtons = buttons.filter(b => b.text.trim()).length > 0;
 
   const clearAll = () => {
-    setCampaignName(""); setMessages(["", "", "", "", ""]); setActiveMessageTab(0); setRotationMode("random");
+    setCampaignName(""); setMessage("");
     setMediaUrl(""); setMediaFileName(""); setButtons([{ id: Date.now(), type: "reply", text: "", value: "" }]);
-    setCards([createEmptyCard(0)]); setCarouselMessages(["", "", "", "", ""]); setActiveCarouselMsgTab(0);
+    setCards([createEmptyCard(0)]); setCarouselMessage("");
     setSelectedGroups([]); setSendResults([]); setStep(1);
     sessionStorage.removeItem(STORAGE_KEY);
     toast.success("Tudo limpo!");
@@ -332,19 +309,17 @@ export default function GroupCarouselDispatch() {
     if (selectedGroups.length === 0) { toast.error("Selecione ao menos um grupo"); setStep(2); return; }
 
     const storedHeaderText = dispatchType === "carousel"
-      ? (allCarouselMessages.length > 1
-          ? (carouselRotationMode === "random" ? allCarouselMessages.join("|||") : allCarouselMessages.join("|&&|"))
-          : allCarouselMessages[0] || "")
+      ? carouselMessage.trim()
       : combinedMessage;
 
-    const textVariants = allMessages.map((item) => item.trim()).filter(Boolean);
-    const carouselHeaderVariants = allCarouselMessages.map((item) => item.trim()).filter(Boolean);
+    const trimmedText = message.trim();
+    const trimmedCarouselHeader = carouselMessage.trim();
     const touchedCards = dispatchType === "carousel" ? cards.filter(isCarouselCardTouched) : [];
     const trimmedMediaUrl = mediaUrl.trim();
 
     if (dispatchType === "text" && !storedHeaderText.trim() && !trimmedMediaUrl) { toast.error("Digite a mensagem ou adicione mídia"); setStep(1); return; }
     if (dispatchType === "buttons") {
-      if (textVariants.length === 0) { toast.error("Digite a mensagem"); setStep(1); return; }
+      if (!trimmedText) { toast.error("Digite a mensagem"); setStep(1); return; }
       if (buttons.filter(b => b.text.trim()).length === 0) { toast.error("Adicione pelo menos um botão"); setStep(1); return; }
     }
     if (dispatchType === "carousel") {
@@ -353,6 +328,11 @@ export default function GroupCarouselDispatch() {
     }
 
     setSending(true); setSendResults([]); setProgress({ sent: 0, total: selectedGroups.length });
+    toast.success("Campanha iniciada!", {
+      description: "Acompanhe o progresso na página de campanhas.",
+      action: { label: "Ver Campanha", onClick: () => navigate("/dashboard/campaigns") },
+      duration: 8000,
+    });
 
     let campaignId: string | null = null;
     const activeButtons = buttons
@@ -399,35 +379,6 @@ export default function GroupCarouselDispatch() {
     const results: SendResultItem[] = [];
     const pauseEvery = rand(pauseEveryMin, pauseEveryMax);
     let sinceLastPause = 0;
-    let lastRandomMessageIndex = -1;
-    let lastRandomCarouselIndex = -1;
-
-    const pickRandomIndex = (total: number, lastIndex: number) => {
-      if (total <= 1) return 0;
-      let picked = 0;
-      do {
-        picked = Math.floor(Math.random() * total);
-      } while (picked === lastIndex);
-      return picked;
-    };
-
-    const resolveTextPlan = () => {
-      if (textVariants.length === 0) return [{ text: "", withExtras: true }];
-      if (rotationMode === "all" && textVariants.length > 1) {
-        return textVariants.map((text, index) => ({ text, withExtras: index === 0 }));
-      }
-      const nextIndex = pickRandomIndex(textVariants.length, lastRandomMessageIndex);
-      lastRandomMessageIndex = nextIndex;
-      return [{ text: textVariants[nextIndex] || "", withExtras: true }];
-    };
-
-    const resolveCarouselHeader = () => {
-      if (carouselHeaderVariants.length === 0) return "";
-      if (carouselHeaderVariants.length === 1) return carouselHeaderVariants[0] || "";
-      const nextIndex = pickRandomIndex(carouselHeaderVariants.length, lastRandomCarouselIndex);
-      lastRandomCarouselIndex = nextIndex;
-      return carouselHeaderVariants[nextIndex] || "";
-    };
 
     try {
       for (let i = 0; i < selectedGroups.length; i++) {
@@ -441,18 +392,12 @@ export default function GroupCarouselDispatch() {
           await wait(p); sinceLastPause = 0;
         }
 
-        const groupPlan = dispatchType === "carousel"
-          ? [{ text: resolveCarouselHeader(), withExtras: true }]
-          : resolveTextPlan();
+        const plan = { text: dispatchType === "carousel" ? trimmedCarouselHeader : trimmedText, withExtras: true };
 
         try {
-          for (let planIndex = 0; planIndex < groupPlan.length; planIndex++) {
-            const plan = groupPlan[planIndex];
-            if (planIndex > 0) await wait(1250);
-
             let body: Record<string, any>;
             if (dispatchType === "text") {
-              if (plan.withExtras && trimmedMediaUrl) {
+              if (trimmedMediaUrl) {
                 body = {
                   deviceId: selectedDevice,
                   groupJid: gid,
@@ -464,16 +409,14 @@ export default function GroupCarouselDispatch() {
                 body = { deviceId: selectedDevice, groupJid: gid, content: plan.text.trim(), type: "text" };
               }
             } else if (dispatchType === "buttons") {
-              body = plan.withExtras
-                ? {
-                    deviceId: selectedDevice,
-                    groupJid: gid,
-                    content: plan.text.trim(),
-                    type: "buttons",
-                    buttons: activeButtons,
-                    ...(trimmedMediaUrl ? { mediaUrl: trimmedMediaUrl } : {}),
-                  }
-                : { deviceId: selectedDevice, groupJid: gid, content: plan.text.trim(), type: "text" };
+              body = {
+                deviceId: selectedDevice,
+                groupJid: gid,
+                content: plan.text.trim(),
+                type: "buttons",
+                buttons: activeButtons,
+                ...(trimmedMediaUrl ? { mediaUrl: trimmedMediaUrl } : {}),
+              };
             } else {
               body = touchedCards.length > 0
                 ? { deviceId: selectedDevice, groupJid: gid, headerText: plan.text.trim() || undefined, cards: serializeCarouselCards(touchedCards) }
@@ -484,7 +427,6 @@ export default function GroupCarouselDispatch() {
             if (res.error || res.data?.ok === false) {
               throw new Error(res.error?.message || res.data?.error || "Falha ao enviar.");
             }
-          }
 
           const sentAt = new Date().toISOString();
           ok++;
@@ -639,44 +581,6 @@ export default function GroupCarouselDispatch() {
 
     return (
       <div className="flex items-center gap-0.5 flex-wrap p-1.5 rounded-xl bg-muted/15 dark:bg-muted/8 border border-border/10">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 text-[11px] gap-1.5 text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium rounded-lg">
-              <FileText className="w-3.5 h-3.5" /> Variável
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-48 p-1.5 bg-popover border-border z-50" align="start">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 px-2 py-1">Contato</p>
-            {[{ label: "Nome", tag: "{{nome}}" }, { label: "Número", tag: "{{numero}}" }].map(v => (
-              <button key={v.tag} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-accent transition-colors flex items-center justify-between"
-                onClick={() => insertFn(v.tag)}>
-                <span>{v.label}</span>
-                <code className="text-[9px] text-muted-foreground">{v.tag}</code>
-              </button>
-            ))}
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 px-2 py-1 mt-1">Personalizadas</p>
-            {["Variável 1", "Variável 2", "Variável 3", "Variável 4", "Variável 5", "Variável 6", "Variável 7"].map((v, i) => (
-              <button key={v} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-accent transition-colors flex items-center justify-between"
-                onClick={() => insertFn(`{{var${i + 1}}}`)}>
-                <span>{v}</span>
-                <code className="text-[9px] text-muted-foreground">{`{{var${i + 1}}}`}</code>
-              </button>
-            ))}
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60 px-2 py-1 mt-1">Dinâmicas</p>
-            {[
-              { label: "Número Aleatório (4 dígitos)", tag: "{{rand4}}" },
-              { label: "Texto Aleatório (3 letras)", tag: "{{rand3}}" },
-            ].map(v => (
-              <button key={v.tag} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-accent transition-colors flex items-center justify-between"
-                onClick={() => insertFn(v.tag)}>
-                <span>{v.label}</span>
-                <code className="text-[9px] text-muted-foreground">{v.tag}</code>
-              </button>
-            ))}
-          </PopoverContent>
-        </Popover>
-
-        <div className="h-5 w-px bg-border/20 mx-0.5" />
         {[
           { icon: Bold, label: "Negrito", wrap: ["*", "*"] },
           { icon: Italic, label: "Itálico", wrap: ["_", "_"] },
@@ -813,40 +717,13 @@ export default function GroupCarouselDispatch() {
                     <p className="text-xs text-muted-foreground -mt-2">Texto enviado junto com o carrossel (aparece acima dos cards)</p>
                     <p className="text-[11px] text-muted-foreground/70 -mt-1">Limite atual: até {MAX_CAROUSEL_CARDS} cards por envio compatível.</p>
 
-                    {/* Carousel Message Tabs */}
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {[0, 1, 2, 3, 4].map(i => {
-                        const hasText = carouselMessages[i]?.trim();
-                        return (
-                          <button
-                            key={i}
-                            onClick={() => setActiveCarouselMsgTab(i)}
-                            className={cn(
-                              "px-3 py-1.5 text-[11px] transition-all border-0 rounded-sm opacity-100 font-sans font-extrabold",
-                              activeCarouselMsgTab === i
-                                ? "bg-primary/15 text-primary border-primary/30"
-                                : hasText
-                                  ? "bg-muted/20 text-foreground/70 border-border/20 hover:bg-muted/30"
-                                  : "bg-muted/8 text-muted-foreground/40 border-border/10 hover:bg-muted/15"
-                            )}
-                          >
-                            Msg {i + 1}
-                            {hasText && <span className="ml-1 w-1.5 h-1.5 rounded-full bg-primary inline-block" />}
-                          </button>
-                        );
-                      })}
-                      <span className="text-[9px] text-muted-foreground/40 ml-2">
-                        {allCarouselMessages.length}/5 ativas
-                      </span>
-                    </div>
-
                     <MessageToolbar mode="carousel" />
 
                     <Textarea
                       ref={carouselTextareaRef}
                       value={carouselMessage}
                       onChange={e => setCarouselMessage(e.target.value)}
-                      placeholder="Olá, {{nome}}. \n\nEscreva sua mensagem aqui..."
+                      placeholder="Escreva a mensagem do carrossel aqui..."
                       rows={5}
                       className="text-sm leading-[1.8] bg-muted/8 dark:bg-muted/4 border-border/15 resize-none focus-visible:ring-1 focus-visible:ring-primary/30 px-4 py-3 text-foreground/90 placeholder:text-muted-foreground/30 rounded-xl"
                     />
@@ -859,67 +736,13 @@ export default function GroupCarouselDispatch() {
                   <SurfaceCard className="p-4 sm:p-6 space-y-4 sm:space-y-5">
                     <SectionLabel>Mensagem</SectionLabel>
 
-                    {/* Message Tabs */}
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {[0, 1, 2, 3, 4].map(i => {
-                        const hasText = messages[i]?.trim();
-                        return (
-                          <button
-                            key={i}
-                            onClick={() => setActiveMessageTab(i)}
-                            className={cn(
-                              "px-3 py-1.5 text-[11px] transition-all border-0 rounded-sm opacity-100 font-sans font-extrabold",
-                              activeMessageTab === i
-                                ? "bg-primary/15 text-primary border-primary/30"
-                                : hasText
-                                  ? "bg-muted/20 text-foreground/70 border-border/20 hover:bg-muted/30"
-                                  : "bg-muted/8 text-muted-foreground/40 border-border/10 hover:bg-muted/15"
-                            )}
-                          >
-                            Msg {i + 1}
-                            {hasText && <span className="ml-1 w-1.5 h-1.5 rounded-full bg-primary inline-block" />}
-                          </button>
-                        );
-                      })}
-                      <span className="text-[9px] text-muted-foreground/40 ml-2">
-                        {allMessages.length}/5 ativas
-                      </span>
-                    </div>
-
-                    {/* Rotation mode (when multiple messages) */}
-                    {allMessages.length > 1 && (
-                      <div className="flex flex-col gap-2 p-3 rounded-xl bg-muted/10 border border-border/10">
-                        <p className="text-[11px] font-medium text-foreground/70">Modo de envio das mensagens</p>
-                        <div className="flex gap-2">
-                          {([
-                            { value: "random" as const, label: "Aleatório", icon: <Layers className="w-3 h-3 mr-1" />, desc: "Uma mensagem aleatória para cada grupo" },
-                            { value: "all" as const, label: "Todas", icon: <ArrowDown className="w-3 h-3 mr-1" />, desc: "Todas as mensagens para cada grupo" },
-                          ]).map(opt => (
-                            <button
-                              key={opt.value}
-                              onClick={() => setRotationMode(opt.value)}
-                              className={cn(
-                                "flex-1 text-center p-2 rounded-lg border text-[10px] transition-all",
-                                rotationMode === opt.value
-                                  ? "border-primary bg-primary/10 text-primary font-medium"
-                                  : "border-border/20 text-muted-foreground hover:border-border/40"
-                              )}
-                            >
-                              <div className="flex items-center justify-center">{opt.icon}{opt.label}</div>
-                              <p className="text-[9px] text-muted-foreground/50 mt-1">{opt.desc}</p>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     <MessageToolbar mode="text" />
 
                     <Textarea
                       ref={textareaRef}
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
-                      placeholder="Olá, {{nome}}.\n\nEscreva sua mensagem aqui..."
+                      placeholder="Escreva sua mensagem aqui..."
                       rows={10}
                       className="text-sm leading-[1.8] bg-muted/8 dark:bg-muted/4 border-border/15 resize-none focus-visible:ring-1 focus-visible:ring-primary/30 px-4 py-3 text-foreground/90 placeholder:text-muted-foreground/30 rounded-xl"
                     />
@@ -1361,17 +1184,6 @@ export default function GroupCarouselDispatch() {
               </div>
             </SurfaceCard>
 
-            {/* Progress */}
-            {sending && (
-              <SurfaceCard className="p-5">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm"><span>Progresso</span><span>{progress.sent}/{progress.total}</span></div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full bg-primary transition-all rounded-full" style={{ width: `${progress.total > 0 ? (progress.sent / progress.total) * 100 : 0}%` }} />
-                  </div>
-                </div>
-              </SurfaceCard>
-            )}
 
             {/* Results */}
             {sendResults.length > 0 && !sending && (
