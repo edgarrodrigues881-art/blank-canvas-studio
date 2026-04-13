@@ -972,13 +972,24 @@ const AISettings = () => {
           </div>
 
           {autoFlow && (
-            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
-              <div className="flex items-start gap-2">
-                <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs font-medium text-primary">Fluxo automático ativo</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">A IA analisa cada mensagem do cliente, identifica a intenção e escolhe a etapa adequada automaticamente</p>
-                </div>
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3 animate-fade-in">
+              <div className="flex items-center gap-2">
+                <Brain className="h-4 w-4 text-primary" strokeWidth={1.5} />
+                <p className="text-xs font-semibold text-primary">Fluxo inteligente ativo</p>
+              </div>
+              <p className="text-[11px] text-foreground/70 leading-relaxed">A IA detecta a intenção do cliente em cada mensagem e escolhe a etapa ideal automaticamente. Se o cliente recuar, a IA volta uma etapa.</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { icon: "🔎", label: "Curioso", desc: "→ Saudação / Diagnóstico" },
+                  { icon: "💡", label: "Interessado", desc: "→ Diagnóstico / Apresentação" },
+                  { icon: "🔥", label: "Pronto p/ comprar", desc: "→ Fechamento" },
+                  { icon: "🛡️", label: "Objeção", desc: "→ Contornar + Avançar" },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-lg border border-border/30 bg-background/50 px-3 py-2">
+                    <p className="text-xs font-medium">{item.icon} {item.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                  </div>
+                ))}
               </div>
             </div>
           )}
