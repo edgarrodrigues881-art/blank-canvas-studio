@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import logo from "@/assets/dg-contingencia-avatar.png";
@@ -124,6 +124,18 @@ const Auth = () => {
       <div className="pointer-events-none absolute inset-0" style={{
         background: "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%)",
       }} />
+
+      {/* Back button */}
+      <motion.button
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+        onClick={() => navigate("/")}
+        className="absolute top-6 left-6 z-20 flex items-center gap-1.5 text-xs font-medium text-white/30 hover:text-white/60 transition-colors group"
+      >
+        <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+        Voltar
+      </motion.button>
 
       <div className="w-full max-w-[400px] flex flex-col items-center relative z-10">
         {/* Card */}
@@ -258,6 +270,21 @@ const Auth = () => {
                 </motion.div>
               )}
             </form>
+
+            {/* Divider */}
+            <div className="my-5 h-[1px]" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)" }} />
+
+            {/* Signup link */}
+            <div className="text-center">
+              <p className="text-[12px] text-white/25 mb-2.5">Não tem conta?</p>
+              <button
+                onClick={() => navigate("/auth?mode=signup")}
+                className="w-full py-2.5 rounded-xl text-[13px] font-semibold border transition-all duration-150 hover:bg-white/[0.03] text-white/60 hover:text-white/80"
+                style={{ borderColor: "rgba(255,255,255,0.08)" }}
+              >
+                Criar conta gratuita
+              </button>
+            </div>
           </div>
         </motion.div>
 
