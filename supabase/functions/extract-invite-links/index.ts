@@ -7,8 +7,11 @@ const corsHeaders = {
 };
 
 const TIMEOUT_MS = 8_000;
-const BETWEEN_GROUPS_DELAY_MS = 350;
-const RATE_LIMIT_RETRY_DELAY_MS = 900;
+const BETWEEN_GROUPS_DELAY_MS = 1_100;
+const RATE_LIMIT_MAX_RETRIES = 3;
+const RATE_LIMIT_BASE_DELAY_MS = 2_000;
+const RATE_LIMIT_MAX_DELAY_MS = 8_000;
+const RATE_LIMIT_JITTER_MS = 400;
 
 interface InviteDiagnostics {
   requested_url?: string;
@@ -16,6 +19,8 @@ interface InviteDiagnostics {
   error_stage?: string;
   provider_message?: string;
   processing_time_ms?: number;
+  rate_limited?: boolean;
+  retry_after_ms?: number;
 }
 
 interface InviteFetchResult {
@@ -66,17 +71,49 @@ function extractProviderMessage(raw: string): string {
   return text.replace(/\s+/g, " ").slice(0, 220);
 }
 
+function isPermissionError(providerMessage: string) {
+  const msg = providerMessage.toLowerCase();
+  return (
+    msg.includes("you don't have the permission") ||
+    msg.includes("permission to get the group's invite link")
+  );
+}
+
+function isRateLimitError(status: number, providerMessage: string) {
+  const msg = providerMessage.toLowerCase();
+  return status === 429 || msg.includes("rate-overlimit") || msg.includes("too many requests");
+}
+
+function getRetryDelayMs(response: Response, attemptIndex: number) {
+  const retryAfterHeader = response.headers.get("retry-after")?.trim();
+  if (retryAfterHeader) {
+    const numericDelay = Number(retryAfterHeader);
+    if (Number.isFinite(numericDelay) && numericDelay > 0) {
+      return numericDelay > 100 ? Math.round(numericDelay) : Math.round(numericDelay * 1000);
+    }
+
+    const retryDate = Date.parse(retryAfterHeader);
+    if (!Number.isNaN(retryDate)) {
+      return Math.max(1_000, retryDate - Date.now());
+    }
+  }
+
+  const exponentialDelay = Math.min(
+    RATE_LIMIT_MAX_DELAY_MS,
+    RATE_LIMIT_BASE_DELAY_MS * (2 ** attemptIndex),
+  );
+
+  return exponentialDelay + Math.floor(Math.random() * RATE_LIMIT_JITTER_MS);
+}
+
 function translateInviteError(status: number, providerMessage: string) {
   const msg = providerMessage.toLowerCase();
 
-  if (
-    msg.includes("you don't have the permission") ||
-    msg.includes("permission to get the group's invite link")
-  ) {
+  if (isPermissionError(providerMessage)) {
     return "Sem permissão: essa instância não é admin deste grupo, então a UAZAPI não libera o link de convite.";
   }
 
-  if (status === 429 || msg.includes("rate-overlimit") || msg.includes("too many requests")) {
+  if (isRateLimitError(status, providerMessage)) {
     return "Limite temporário da UAZAPI atingido. Tente novamente com poucos grupos por vez.";
   }
 
@@ -161,55 +198,78 @@ async function fetchInviteCode(baseUrl: string, token: string, groupJid: string)
   ];
 
   for (const attempt of attempts) {
-    try {
-      let res = await fetchWithTimeout(attempt.url, { method: "GET", headers }, 6_000);
-      let raw = await res.text();
-      let providerMessage = extractProviderMessage(raw);
-      console.log(`[invite] ${attempt.label} => ${res.status} ${raw.substring(0, 300)}`);
+    for (let retryIndex = 0; retryIndex <= RATE_LIMIT_MAX_RETRIES; retryIndex++) {
+      try {
+        const res = await fetchWithTimeout(attempt.url, { method: "GET", headers }, 6_000);
+        const raw = await res.text();
+        const providerMessage = extractProviderMessage(raw);
+        const logSuffix = retryIndex === 0 ? "" : ` retry ${retryIndex}/${RATE_LIMIT_MAX_RETRIES}`;
+        console.log(`[invite] ${attempt.label}${logSuffix} => ${res.status} ${raw.substring(0, 300)}`);
 
-      if (!res.ok && (res.status === 429 || providerMessage.toLowerCase().includes("rate-overlimit"))) {
-        await sleep(RATE_LIMIT_RETRY_DELAY_MS);
-        res = await fetchWithTimeout(attempt.url, { method: "GET", headers }, 6_000);
-        raw = await res.text();
-        providerMessage = extractProviderMessage(raw);
-        console.log(`[invite] ${attempt.label} retry => ${res.status} ${raw.substring(0, 300)}`);
-      }
-
-      const link = parseInviteLinkFromRaw(raw);
-      if (res.ok && link) {
-        return {
-          ok: true,
-          link,
-          diagnostics: {
-            requested_url: attempt.url,
-            http_status: res.status,
-            processing_time_ms: Date.now() - startedAt,
-          },
-        };
-      }
-
-      if (!res.ok) {
-        const error = translateInviteError(res.status, providerMessage);
-
-        if (res.status === 404) {
-          continue;
+        const link = parseInviteLinkFromRaw(raw);
+        if (res.ok && link) {
+          return {
+            ok: true,
+            link,
+            diagnostics: {
+              requested_url: attempt.url,
+              http_status: res.status,
+              processing_time_ms: Date.now() - startedAt,
+            },
+          };
         }
 
-        return {
-          ok: false,
-          link: null,
-          error,
-          diagnostics: {
-            requested_url: attempt.url,
-            http_status: res.status,
-            error_stage: "uazapi_response",
-            provider_message: providerMessage || undefined,
-            processing_time_ms: Date.now() - startedAt,
-          },
-        };
+        if (!res.ok) {
+          if (isRateLimitError(res.status, providerMessage)) {
+            const retryDelayMs = getRetryDelayMs(res, retryIndex);
+
+            if (retryIndex < RATE_LIMIT_MAX_RETRIES) {
+              console.log(`[invite] ${attempt.label} rate limited; waiting ${retryDelayMs}ms before retry`);
+              await sleep(retryDelayMs);
+              continue;
+            }
+
+            return {
+              ok: false,
+              link: null,
+              error: translateInviteError(res.status, providerMessage),
+              diagnostics: {
+                requested_url: attempt.url,
+                http_status: res.status,
+                error_stage: "rate_limited",
+                provider_message: providerMessage || undefined,
+                processing_time_ms: Date.now() - startedAt,
+                rate_limited: true,
+                retry_after_ms: retryDelayMs,
+              },
+            };
+          }
+
+          const error = translateInviteError(res.status, providerMessage);
+
+          if (res.status === 404) {
+            break;
+          }
+
+          return {
+            ok: false,
+            link: null,
+            error,
+            diagnostics: {
+              requested_url: attempt.url,
+              http_status: res.status,
+              error_stage: "uazapi_response",
+              provider_message: providerMessage || undefined,
+              processing_time_ms: Date.now() - startedAt,
+            },
+          };
+        }
+
+        break;
+      } catch (err: any) {
+        console.log(`[invite] ${attempt.label} err: ${err?.message}`);
+        break;
       }
-    } catch (err: any) {
-      console.log(`[invite] ${attempt.label} err: ${err?.message}`);
     }
   }
 
@@ -368,6 +428,7 @@ Deno.serve(async (req) => {
         error?: string;
         diagnostics?: InviteDiagnostics;
       }> = [];
+      const rateLimitedQueue: Array<{ resultIndex: number; jid: string; name: string; retryAfterMs: number }> = [];
 
       for (const [index, item] of group_jids.entries()) {
         const jid = typeof item === "string" ? item : item?.jid;
@@ -383,13 +444,55 @@ Deno.serve(async (req) => {
             error: result.error,
             diagnostics: result.diagnostics,
           });
+
+          if (result.diagnostics?.rate_limited) {
+            rateLimitedQueue.push({
+              resultIndex: results.length - 1,
+              jid,
+              name,
+              retryAfterMs: result.diagnostics.retry_after_ms ?? RATE_LIMIT_BASE_DELAY_MS,
+            });
+          }
         } catch (err: any) {
           console.error(`[extract-invite-links] Error for ${jid}: ${err?.message}`);
           results.push({ jid, name, link: null, error: err?.message || "Erro" });
         }
 
         if (index < group_jids.length - 1) {
-          await sleep(BETWEEN_GROUPS_DELAY_MS);
+          const lastResult = results[results.length - 1];
+          const nextDelayMs = lastResult?.diagnostics?.rate_limited
+            ? Math.max(lastResult.diagnostics.retry_after_ms ?? RATE_LIMIT_BASE_DELAY_MS, RATE_LIMIT_BASE_DELAY_MS)
+            : BETWEEN_GROUPS_DELAY_MS;
+          await sleep(nextDelayMs);
+        }
+      }
+
+      if (rateLimitedQueue.length > 0) {
+        const cooldownMs = Math.min(
+          RATE_LIMIT_MAX_DELAY_MS,
+          Math.max(
+            RATE_LIMIT_BASE_DELAY_MS,
+            ...rateLimitedQueue.map((entry) => entry.retryAfterMs),
+          ),
+        );
+
+        console.log(`[extract-invite-links] Retrying ${rateLimitedQueue.length} rate-limited group(s) after ${cooldownMs}ms cooldown`);
+        await sleep(cooldownMs);
+
+        for (const [queueIndex, queued] of rateLimitedQueue.entries()) {
+          const retryResult = await fetchInviteCode(baseUrl, token, queued.jid);
+          console.log(`[extract-invite-links] retry ${queued.name || queued.jid}: ${retryResult.link || retryResult.error || "NO LINK"}`);
+          results[queued.resultIndex] = {
+            jid: queued.jid,
+            name: queued.name,
+            link: retryResult.link,
+            error: retryResult.error,
+            diagnostics: retryResult.diagnostics,
+          };
+
+          if (queueIndex < rateLimitedQueue.length - 1) {
+            await sleep(BETWEEN_GROUPS_DELAY_MS);
+          }
         }
       }
 

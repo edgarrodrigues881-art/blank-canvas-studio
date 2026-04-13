@@ -65,6 +65,22 @@ export default function GroupInviteExtractor() {
 
   const successLinks = useMemo(() => results.filter((r) => r.link), [results]);
   const failedLinks = useMemo(() => results.filter((r) => !r.link), [results]);
+  const permissionDeniedCount = useMemo(
+    () => failedLinks.filter((r) => (r.error || "").toLowerCase().includes("sem permissão")).length,
+    [failedLinks],
+  );
+  const rateLimitedCount = useMemo(
+    () => failedLinks.filter((r) => (r.error || "").toLowerCase().includes("limite temporário da uazapi")).length,
+    [failedLinks],
+  );
+  const otherFailedCount = failedLinks.length - permissionDeniedCount - rateLimitedCount;
+  const failureSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (permissionDeniedCount > 0) parts.push(`${permissionDeniedCount} sem permissão de admin`);
+    if (rateLimitedCount > 0) parts.push(`${rateLimitedCount} em limite temporário da UAZAPI`);
+    if (otherFailedCount > 0) parts.push(`${otherFailedCount} com outro erro`);
+    return parts.join(" • ");
+  }, [otherFailedCount, permissionDeniedCount, rateLimitedCount]);
 
   const handleLoadGroups = async () => {
     if (!selectedDevice) return;
@@ -109,11 +125,23 @@ export default function GroupInviteExtractor() {
       setResults(nextResults);
       const ok = nextResults.filter((r: ExtractedLink) => r.link).length;
       const failed = items.length - ok;
+      const permissionDenied = nextResults.filter(
+        (r: ExtractedLink) => !r.link && (r.error || "").toLowerCase().includes("sem permissão"),
+      ).length;
+      const rateLimited = nextResults.filter(
+        (r: ExtractedLink) => !r.link && (r.error || "").toLowerCase().includes("limite temporário da uazapi"),
+      ).length;
+      const otherErrors = failed - permissionDenied - rateLimited;
+      const failureParts = [
+        permissionDenied > 0 ? `${permissionDenied} sem permissão` : null,
+        rateLimited > 0 ? `${rateLimited} com limite da UAZAPI` : null,
+        otherErrors > 0 ? `${otherErrors} com outro erro` : null,
+      ].filter(Boolean).join(" • ");
 
       if (ok === items.length) {
         toast.success(`${ok}/${items.length} links extraídos com sucesso`);
       } else if (ok > 0) {
-        toast.warning(`${ok}/${items.length} links extraídos. ${failed} grupo(s) falharam — veja o motivo abaixo.`);
+        toast.warning(`${ok}/${items.length} links extraídos. ${failureParts || `${failed} grupo(s) falharam`} — veja o motivo abaixo.`);
       } else {
         toast.error("Nenhum link foi extraído — veja o motivo detalhado abaixo.");
       }
@@ -298,6 +326,11 @@ export default function GroupInviteExtractor() {
             </div>
           </CardHeader>
           <CardContent>
+            {failedLinks.length > 0 && failureSummary && (
+              <p className="mb-3 text-xs text-muted-foreground">
+                Diagnóstico: {failureSummary}.
+              </p>
+            )}
             <ScrollArea className="h-[400px]">
               <div className="space-y-1">
                 {results.map((r) => (
