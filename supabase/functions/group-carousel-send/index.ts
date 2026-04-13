@@ -804,12 +804,13 @@ function extractProviderError(raw: string) {
   return raw.trim() || "Falha ao enviar mensagem para o grupo.";
 }
 
-async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string, string>, expectedGroupJid: string) {
+async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string, string>, expectedGroupJid: string, mentionPhones: string[] = []) {
+  const finalAttempts = mentionPhones.length > 0 ? injectMentionsIntoAttempts(attempts, mentionPhones) : attempts;
   let lastError = "Falha ao enviar mensagem para o grupo.";
 
-  for (const attempt of attempts) {
+  for (const attempt of finalAttempts) {
     try {
-      console.log(`[group-carousel] Sending via ${attempt.endpoint}${attempt.label ? ` (${attempt.label})` : ""}`);
+      console.log(`[group-carousel] Sending via ${attempt.endpoint}${attempt.label ? ` (${attempt.label})` : ""}${mentionPhones.length > 0 ? ` (mentioning ${mentionPhones.length})` : ""}`);
       const response = await fetchWithTimeout(attempt.endpoint, {
         method: "POST",
         headers,
