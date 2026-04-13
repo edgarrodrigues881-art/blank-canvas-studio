@@ -550,8 +550,19 @@ const AISettings = () => {
             <Sparkles className="h-5 w-5 text-primary" strokeWidth={1.5} />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Inteligência Artificial</h1>
-            <p className="text-sm text-muted-foreground">Configure o atendimento automático com IA</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-foreground">Sua IA de Atendimento e Vendas</h1>
+              {iaActive && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-xs font-medium text-primary">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                  </span>
+                  IA ativa: pronta para responder
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">Automatize conversas, responda clientes e aumente suas vendas no piloto automático</p>
           </div>
         </div>
         <Button size="sm" onClick={handleSave} disabled={saving} className="gap-2 transition-all duration-200 hover:shadow-lg hover:scale-[1.02]">
