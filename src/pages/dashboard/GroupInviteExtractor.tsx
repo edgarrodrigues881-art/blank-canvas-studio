@@ -25,6 +25,11 @@ interface ExtractedLink {
   name: string;
   link: string | null;
   error?: string;
+  diagnostics?: {
+    http_status?: number;
+    error_stage?: string;
+    provider_message?: string;
+  };
 }
 
 export default function GroupInviteExtractor() {
@@ -100,9 +105,18 @@ export default function GroupInviteExtractor() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      setResults(data.results || []);
-      const ok = (data.results || []).filter((r: any) => r.link).length;
-      toast.success(`${ok}/${items.length} links extraídos com sucesso`);
+      const nextResults = data.results || [];
+      setResults(nextResults);
+      const ok = nextResults.filter((r: ExtractedLink) => r.link).length;
+      const failed = items.length - ok;
+
+      if (ok === items.length) {
+        toast.success(`${ok}/${items.length} links extraídos com sucesso`);
+      } else if (ok > 0) {
+        toast.warning(`${ok}/${items.length} links extraídos. ${failed} grupo(s) falharam — veja o motivo abaixo.`);
+      } else {
+        toast.error("Nenhum link foi extraído — veja o motivo detalhado abaixo.");
+      }
     } catch (e: any) {
       toast.error(e?.message || "Erro ao extrair links");
     } finally {
