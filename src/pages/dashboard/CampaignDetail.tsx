@@ -1258,14 +1258,14 @@ const CampaignDetail = () => {
                 {contactsLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 6 }).map((_, j) => (
+                      {Array.from({ length: isGroupCampaign ? 5 : 6 }).map((_, j) => (
                         <TableCell key={j}><Skeleton className="h-3.5 w-full" /></TableCell>
                       ))}
                     </TableRow>
                   ))
                 ) : filteredContacts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-[11px] text-muted-foreground/50 py-14">
+                    <TableCell colSpan={isGroupCampaign ? 5 : 6} className="text-center text-[11px] text-muted-foreground/50 py-14">
                       Nenhum registro encontrado
                     </TableCell>
                   </TableRow>
@@ -1274,10 +1274,20 @@ const CampaignDetail = () => {
                     const ccfg = contactStatusConfig[c.status] || contactStatusConfig.pending;
                     const Icon = ccfg.icon;
                     const errCount = c.error_message?.match(/\((\d+) tentativa/)?.[1];
+                    const isGroup = isGroupJid(c.phone);
                     return (
                       <TableRow key={c.id} className="border-border/5 hover:bg-muted/10 transition-colors">
-                        <TableCell className="text-[11px] font-medium text-foreground/80 py-2.5">{c.name || "—"}</TableCell>
-                        <TableCell className="text-[11px] text-muted-foreground font-mono tracking-tight py-2.5">{formatPhoneDisplay(c.phone)}</TableCell>
+                        <TableCell className="text-[11px] font-medium text-foreground/80 py-2.5">
+                          {isGroup ? (
+                            <div className="flex items-center gap-1.5">
+                              <Users className="w-3 h-3 text-muted-foreground/50 shrink-0" />
+                              <span>{formatGroupName(c.name, c.phone)}</span>
+                            </div>
+                          ) : (c.name || "—")}
+                        </TableCell>
+                        {!isGroupCampaign && (
+                          <TableCell className="text-[11px] text-muted-foreground font-mono tracking-tight py-2.5">{formatPhoneDisplay(c.phone)}</TableCell>
+                        )}
                         <TableCell className="text-center py-2.5">
                           <span className={cn("inline-flex items-center gap-1", ccfg.className)}>
                             <Icon className="w-3 h-3" />
