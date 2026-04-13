@@ -99,17 +99,46 @@ const Auth = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isLogin && password.length < 8) {
+      toast({ title: "Senha muito curta", description: "A senha deve ter no mínimo 8 caracteres.", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     try {
-      setResolvedLoginEmail(null);
-      const loginEmail = await resolveLoginEmail(email, password);
-      setResolvedLoginEmail(loginEmail);
-      const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
-      if (error) throw error;
-      localStorage.setItem("dg_remember_me", rememberMe ? "true" : "false");
-      if (!rememberMe) sessionStorage.setItem("dg_session_alive", "true");
-      else sessionStorage.removeItem("dg_session_alive");
-      navigate(`/welcome?to=${encodeURIComponent(redirectTo)}`);
+      if (isLogin) {
+        setResolvedLoginEmail(null);
+        const loginEmail = await resolveLoginEmail(email, password);
+        setResolvedLoginEmail(loginEmail);
+        const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
+        if (error) throw error;
+        localStorage.setItem("dg_remember_me", rememberMe ? "true" : "false");
+        if (!rememberMe) sessionStorage.setItem("dg_session_alive", "true");
+        else sessionStorage.removeItem("dg_session_alive");
+        navigate(`/welcome?to=${encodeURIComponent(redirectTo)}`);
+      } else {
+        const trimmedPhone = phone.trim().replace(/\D/g, "");
+        if (!trimmedPhone || trimmedPhone.length < 10) {
+          toast({ title: "Telefone inválido", description: "Informe um número de telefone válido.", variant: "destructive" });
+          setLoading(false);
+          return;
+        }
+        const { data: phoneAvailable } = await supabase.rpc("check_phone_available", { _phone: trimmedPhone });
+        if (phoneAvailable === false) {
+          toast({ title: "Telefone já cadastrado", description: "Este número já está vinculado a outra conta.", variant: "destructive" });
+          setLoading(false);
+          return;
+        }
+        const { error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            data: { full_name: fullName.trim(), phone: trimmedPhone },
+            emailRedirectTo: window.location.origin,
+          },
+        });
+        if (error) throw error;
+        toast({ title: "Conta criada!", description: "Verifique seu email para confirmar o cadastro." });
+      }
     } catch (error: any) {
       const rawMsg = error.message || "";
       if (isTimeoutError(rawMsg)) {
