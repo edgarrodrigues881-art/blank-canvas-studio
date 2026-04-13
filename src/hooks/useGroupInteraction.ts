@@ -165,12 +165,18 @@ export function useGroupInteraction(selectedInteractionId: string | null = null)
       if (!inserted?._silent) toast.success("Interação criada");
       if (inserted?.id) {
         try {
-          await supabase.functions.invoke("group-interaction", {
+          const { data, error } = await supabase.functions.invoke("group-interaction", {
             body: { interactionId: inserted.id, action: "start" },
           });
+          if (error) throw error;
+          if ((data as any)?.error) throw new Error((data as any).error);
           qc.invalidateQueries({ queryKey: ["group-interactions"] });
           if (!inserted._silent) toast.success("Automação iniciada automaticamente");
-        } catch { /* silent - user can start manually */ }
+        } catch (error: any) {
+          if (!inserted._silent) {
+            toast.error(error?.message || "Interação criada, mas não foi possível iniciar automaticamente");
+          }
+        }
       }
     },
     onError: (err: any) => toast.error(err.message),
