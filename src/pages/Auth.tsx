@@ -15,7 +15,7 @@ const translateAuthError = (msg: string): string => {
     "Email rate limit exceeded": "Muitas tentativas. Aguarde alguns minutos.",
     "For security purposes, you can only request this after 60 seconds.": "Aguarde 60 segundos antes de tentar novamente.",
     "User not found": "Usuário não encontrado.",
-    "User already registered": "Este e-mail já está cadastrado. Faça login.",
+    "User already registered": "Este e-mail já está cadastrado.",
     "Signup requires a valid password": "Informe uma senha válida.",
     "Password should be at least 6 characters": "A senha deve ter no mínimo 6 caracteres.",
   };
