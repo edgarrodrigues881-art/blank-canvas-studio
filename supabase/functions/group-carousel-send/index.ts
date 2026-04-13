@@ -909,7 +909,7 @@ Deno.serve(async (req) => {
       );
       const allAttempts = [...carouselAttempts, ...textFallbackAttempts];
       await sendWithFallbacks(allAttempts, headers, groupJid);
-      return json({ ok: true, mode: "carousel" });
+      return json({ ok: true, mode: "carousel", groupName });
     }
 
     const normalizedButtons = normalizeButtons(buttons || []);
@@ -945,7 +945,7 @@ Deno.serve(async (req) => {
 
           try {
             await sendWithFallbacks(imageButtonAttempts, headers, groupJid);
-            return json({ ok: true, mode: "buttons_image" });
+            return json({ ok: true, mode: "buttons_image", groupName });
           } catch (error) {
             console.warn(`[group-carousel] imageButton failed, falling back to split send: ${error instanceof Error ? error.message : String(error)}`);
           }
@@ -957,17 +957,17 @@ Deno.serve(async (req) => {
           await sendWithFallbacks(buttonAttempts, headers, groupJid);
           await new Promise((resolve) => setTimeout(resolve, 1500));
           await sendWithFallbacks(mediaAttempts, headers, groupJid);
-          return json({ ok: true, mode: "buttons_audio" });
+          return json({ ok: true, mode: "buttons_audio", groupName });
         }
 
         await sendWithFallbacks(mediaAttempts, headers, groupJid);
         await new Promise((resolve) => setTimeout(resolve, 1500));
         await sendWithFallbacks(buttonAttempts, headers, groupJid);
-        return json({ ok: true, mode: "buttons_media" });
+        return json({ ok: true, mode: "buttons_media", groupName });
       }
 
       await sendWithFallbacks(buttonAttempts, headers, groupJid);
-      return json({ ok: true, mode: "buttons" });
+      return json({ ok: true, mode: "buttons", groupName });
     }
 
     let normalizedContent = normalizedTextContent;
@@ -989,7 +989,7 @@ Deno.serve(async (req) => {
 
     const attempts = buildMessageAttempts(baseUrl, groupJid, normalizedContent, type, caption, fileName);
     await sendWithFallbacks(attempts, headers, groupJid);
-    return json({ ok: true, mode: "message" });
+    return json({ ok: true, mode: "message", groupName });
   } catch (error: any) {
     console.error("[group-carousel] Error:", error);
     const status = typeof error?.status === "number" ? error.status : 500;
