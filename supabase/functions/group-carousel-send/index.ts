@@ -811,8 +811,70 @@ function isMethodNotAllowedProviderError(message?: string) {
 }
 
 function normalizeMentionPhone(raw: unknown): string {
-  const digits = String(raw || "").replace(/@.*$/, "").replace(/\D/g, "");
+  const value = String(raw || "").trim();
+  if (!value || value.endsWith("@g.us")) return "";
+  const digits = value.replace(/@.*$/, "").replace(/\D/g, "");
   return digits.length >= 8 && digits.length <= 15 ? digits : "";
+}
+
+function normalizeMentionJid(raw: unknown): string {
+  const value = String(raw || "").trim();
+  if (!value || !value.includes("@") || value.endsWith("@g.us")) return "";
+  return value;
+}
+
+function buildMentionFields(mentionParticipants: string[]) {
+  const numbers = Array.from(new Set(
+    mentionParticipants
+      .map((participant) => normalizeMentionPhone(participant))
+      .filter(Boolean),
+  ));
+
+  const jids = Array.from(new Set(
+    mentionParticipants.flatMap((participant) => {
+      const variants = new Set<string>();
+      const rawJid = normalizeMentionJid(participant);
+      const digits = normalizeMentionPhone(participant);
+
+      if (rawJid) variants.add(rawJid);
+      if (digits) {
+        variants.add(`${digits}@s.whatsapp.net`);
+        variants.add(`${digits}@c.us`);
+      }
+
+      return Array.from(variants);
+    }),
+  ));
+
+  const aliases = Array.from(new Set([...numbers, ...jids]));
+  const payload: Record<string, unknown> = {
+    mentionsEveryOne: true,
+  };
+
+  if (numbers.length > 0) {
+    payload.mentions = numbers;
+    payload.mentionUsers = numbers.join(",");
+  }
+
+  if (aliases.length > 0) {
+    payload.mentioned = aliases;
+  }
+
+  if (jids.length > 0) {
+    payload.mentionedJid = jids;
+    payload.mentionedJidList = jids;
+    payload.contextInfo = {
+      mentionedJid: jids,
+      mentionedJidList: jids,
+      mentions: jids,
+      mentionsEveryOne: true,
+    };
+  }
+
+  return {
+    count: Math.max(numbers.length, jids.length),
+    payload,
+  };
 }
 
 function extractGroupJid(value: any): string {
@@ -833,6 +895,12 @@ function tryExtractParticipantPhone(value: any): string | null {
   if (!value || typeof value !== "object") return null;
 
   const candidates = [
+    value?.participantLid,
+    value?.participantPn,
+    value?.sender_lid,
+    value?.sender_pn,
+    value?.contactJid,
+    value?.userJid,
     value?.PhoneNumber,
     value?.phoneNumber,
     value?.phone,
@@ -843,14 +911,18 @@ function tryExtractParticipantPhone(value: any): string | null {
     value?.wa_id,
     value?.waId,
     value?.pn,
+    value?.lid,
     value?.user,
     value?.participant,
-    value?.id,
     value?.jid,
     value?.JID,
+    value?.id,
   ];
 
   for (const candidate of candidates) {
+    const jid = normalizeMentionJid(candidate);
+    if (jid) return jid;
+
     const normalized = normalizeMentionPhone(candidate);
     if (normalized) return normalized;
   }
@@ -923,6 +995,23 @@ function extractAttemptTarget(body: Record<string, unknown>): string {
 function responseContainsMentionEvidence(raw: string): boolean {
   try {
     const parsed = JSON.parse(raw);
+    const directMentionFields = [
+      parsed?.mentions,
+      parsed?.mentioned,
+      parsed?.mentionedJid,
+      parsed?.mentionedJidList,
+      parsed?.content?.mentions,
+      parsed?.content?.mentioned,
+      parsed?.data?.mentions,
+      parsed?.data?.mentioned,
+      parsed?.data?.mentionedJid,
+      parsed?.data?.mentionedJidList,
+    ];
+
+    if (directMentionFields.some((value) => Array.isArray(value) && value.length > 0)) {
+      return true;
+    }
+
     const candidates = [
       parsed?.contextInfo,
       parsed?.content?.contextInfo,
@@ -932,6 +1021,7 @@ function responseContainsMentionEvidence(raw: string): boolean {
       parsed?.message?.documentMessage?.contextInfo,
       parsed?.message?.conversation?.contextInfo,
       parsed?.data?.contextInfo,
+      parsed?.data?.message?.extendedTextMessage?.contextInfo,
     ].filter(Boolean);
 
     return candidates.some((context) => {
@@ -940,6 +1030,7 @@ function responseContainsMentionEvidence(raw: string): boolean {
         context?.mentionedJidList,
         context?.groupMentions,
         context?.mentions,
+        context?.mentioned,
       ].find((value) => Array.isArray(value) && value.length > 0);
 
       return Boolean(mentioned) || context?.mentionsEveryOne === true;
@@ -952,7 +1043,6 @@ function responseContainsMentionEvidence(raw: string): boolean {
 async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string, string>, expectedGroupJid: string, mentionPhones: string[] = []) {
   const finalAttempts = mentionPhones.length > 0 ? injectMentionsIntoAttempts(attempts, mentionPhones) : attempts;
   let lastError = "Falha ao enviar mensagem para o grupo.";
-  let mentionCapabilityError = "";
 
   for (const attempt of finalAttempts) {
     try {
@@ -968,9 +1058,7 @@ async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string
 
       if (response.ok) {
         if (mentionPhones.length > 0 && !responseContainsMentionEvidence(raw)) {
-          mentionCapabilityError ||= "A UAZAPI dessa instância enviou a mensagem, mas removeu a menção em grupo. Nesse provedor, o \"Marcar todos\" oculto não é suportado; para mencionar de verdade, a mensagem precisa exibir os @números.";
-          console.warn(`[group-carousel] Mention payload was ignored by provider for ${attempt.endpoint}${attempt.label ? ` (${attempt.label})` : ""}`);
-          continue;
+          console.warn(`[group-carousel] Provider accepted ${attempt.endpoint}${attempt.label ? ` (${attempt.label})` : ""}, but the response did not echo mention metadata`);
         }
 
         const actualChatId = extractResponseChatId(raw);
@@ -981,21 +1069,12 @@ async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string
         }
         return;
       }
-      const providerError = extractProviderError(raw);
-      if (!(mentionCapabilityError && isMethodNotAllowedProviderError(providerError))) {
-        lastError = providerError;
-      }
+
+      lastError = extractProviderError(raw);
     } catch (error: any) {
-      const currentError = error?.message || "Falha ao enviar mensagem para o grupo.";
-      if (!(mentionCapabilityError && isMethodNotAllowedProviderError(currentError))) {
-        lastError = currentError;
-      }
+      lastError = error?.message || "Falha ao enviar mensagem para o grupo.";
       console.error(`[group-carousel] Attempt failed: ${attempt.endpoint}`, error);
     }
-  }
-
-  if (mentionCapabilityError) {
-    throw createHttpError(mentionCapabilityError, 422);
   }
 
   throw new Error(lastError);
@@ -1126,13 +1205,8 @@ async function fetchGroupParticipants(baseUrl: string, headers: Record<string, s
 function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: string[]): SendAttempt[] {
   if (mentionPhones.length === 0) return attempts;
 
-  const mentionNumbers = Array.from(new Set(
-    mentionPhones
-      .map((phone) => normalizeMentionPhone(phone))
-      .filter(Boolean)
-  ));
-
-  console.log(`[group-carousel] Injecting ${mentionNumbers.length} mentions into ${attempts.length} attempt(s)`);
+  const mentionFields = buildMentionFields(mentionPhones);
+  console.log(`[group-carousel] Injecting ${mentionFields.count} mentions into ${attempts.length} attempt(s)`);
 
   const enrichedAttempts: SendAttempt[] = [];
 
@@ -1140,23 +1214,19 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: stri
     const endpointPath = new URL(a.endpoint).pathname;
     const target = extractAttemptTarget(a.body);
     const text = extractAttemptText(a.body);
+    const messageFields = { text, body: text, message: text, ...mentionFields.payload };
 
     if (endpointPath === "/message/sendText") {
       enrichedAttempts.push(
         {
           ...a,
-          label: `${a.label || ""}_everyone_number`.replace(/^_/, ""),
-          body: { number: target, text, mentionsEveryOne: true },
+          label: `${a.label || ""}_mentions_number`.replace(/^_/, ""),
+          body: { number: target, to: target, chatId: target, ...messageFields },
         },
         {
           ...a,
-          label: `${a.label || ""}_everyone_mentioned_number`.replace(/^_/, ""),
-          body: { number: target, text, mentioned: mentionNumbers, mentionsEveryOne: true },
-        },
-        {
-          ...a,
-          label: `${a.label || ""}_mentioned_chatid`.replace(/^_/, ""),
-          body: { chatId: target, text, mentioned: mentionNumbers },
+          label: `${a.label || ""}_mentions_chatid`.replace(/^_/, ""),
+          body: { chatId: target, to: target, ...messageFields },
         },
       );
       continue;
@@ -1166,18 +1236,13 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: stri
       enrichedAttempts.push(
         {
           ...a,
-          label: `${a.label || ""}_everyone`.replace(/^_/, ""),
-          body: { number: target, text, mentionsEveryOne: true },
+          label: `${a.label || ""}_mentions_text`.replace(/^_/, ""),
+          body: { number: target, phone: target, to: target, ...messageFields },
         },
         {
           ...a,
-          label: `${a.label || ""}_everyone_mentioned`.replace(/^_/, ""),
-          body: { number: target, text, mentioned: mentionNumbers, mentionsEveryOne: true },
-        },
-        {
-          ...a,
-          label: `${a.label || ""}_mentioned`.replace(/^_/, ""),
-          body: { number: target, text, mentioned: mentionNumbers },
+          label: `${a.label || ""}_mentions_chatid`.replace(/^_/, ""),
+          body: { chatId: target, number: target, ...messageFields },
         },
       );
       continue;
@@ -1187,18 +1252,8 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: stri
       enrichedAttempts.push(
         {
           ...a,
-          label: `${a.label || ""}_everyone_chatid`.replace(/^_/, ""),
-          body: { chatId: target, text, body: text, mentionsEveryOne: true },
-        },
-        {
-          ...a,
-          label: `${a.label || ""}_everyone_mentioned_chatid`.replace(/^_/, ""),
-          body: { chatId: target, text, body: text, mentioned: mentionNumbers, mentionsEveryOne: true },
-        },
-        {
-          ...a,
-          label: `${a.label || ""}_mentioned_chatid`.replace(/^_/, ""),
-          body: { chatId: target, text, body: text, mentioned: mentionNumbers },
+          label: `${a.label || ""}_mentions_chat`.replace(/^_/, ""),
+          body: { chatId: target, to: target, ...messageFields },
         },
       );
       continue;
@@ -1206,8 +1261,8 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: stri
 
     enrichedAttempts.push({
       ...a,
-      label: `${a.label || ""}_mentioned_generic`.replace(/^_/, ""),
-      body: { ...a.body, mentioned: mentionNumbers, mentionsEveryOne: true },
+      label: `${a.label || ""}_mentions_generic`.replace(/^_/, ""),
+      body: { ...a.body, ...mentionFields.payload },
     });
   }
 
