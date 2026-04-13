@@ -1,29 +1,20 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Mail, Lock, User, ShieldCheck, Phone, Eye, EyeOff, Sparkles } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import logo from "@/assets/dg-contingencia-avatar.png";
 
-/* ── helpers (unchanged) ── */
 const translateAuthError = (msg: string): string => {
   const map: Record<string, string> = {
     "Invalid login credentials": "E-mail ou senha incorretos.",
     "Email not confirmed": "E-mail ainda não confirmado. Verifique sua caixa de entrada.",
-    "User already registered": "Este e-mail já está cadastrado.",
-    "Signup requires a valid password": "Informe uma senha válida.",
-    "Password should be at least 6 characters": "A senha deve ter no mínimo 6 caracteres.",
-    "Email rate limit exceeded": "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
-    "For security purposes, you can only request this after 60 seconds.": "Por segurança, aguarde 60 segundos antes de tentar novamente.",
+    "Email rate limit exceeded": "Muitas tentativas. Aguarde alguns minutos.",
+    "For security purposes, you can only request this after 60 seconds.": "Aguarde 60 segundos antes de tentar novamente.",
     "User not found": "Usuário não encontrado.",
-    "New password should be different from the old password.": "A nova senha deve ser diferente da anterior.",
-    "Password is known to be weak and easy to guess, please choose a different one.": "Essa senha é muito fraca e fácil de adivinhar. Por favor, escolha uma senha mais forte.",
   };
   return map[msg] || msg;
 };
@@ -37,54 +28,13 @@ const isTimeoutError = (msg: string) =>
 const isPhoneIdentifier = (value: string) => /\d/.test(value) && !value.includes("@");
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
-/* ── Gold floating particles (matches Welcome) ── */
-const FloatingParticles = () => (
-  <div className="absolute -inset-12 pointer-events-none overflow-hidden">
-    {Array.from({ length: 16 }).map((_, i) => (
-      <motion.span
-        key={i}
-        className="absolute w-1 h-1 rounded-full bg-amber-400"
-        style={{
-          left: `${10 + Math.random() * 80}%`,
-          top: `${10 + Math.random() * 80}%`,
-        }}
-        animate={{
-          y: [0, -18 - Math.random() * 25, 0],
-          x: [0, (Math.random() - 0.5) * 16, 0],
-          opacity: [0.05, 0.4 + Math.random() * 0.3, 0.05],
-          scale: [0.4, 1 + Math.random() * 0.5, 0.4],
-        }}
-        transition={{
-          duration: 3 + Math.random() * 3,
-          repeat: Infinity,
-          delay: Math.random() * 3,
-          ease: "easeInOut",
-        }}
-      />
-    ))}
-  </div>
-);
-
-/* ── Stagger wrapper ── */
-const stagger = {
-  container: { hidden: {}, show: { transition: { staggerChildren: 0.07 } } },
-  item: { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] as const } } },
-};
-
-/* ── Main component ── */
 const Auth = () => {
   const { backendDown, retryConnection } = useAuth();
   const [searchParams] = useSearchParams();
-  const [isLogin, setIsLogin] = useState(searchParams.get("mode") !== "signup");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [company, setCompany] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [showResendConfirm, setShowResendConfirm] = useState(false);
@@ -92,6 +42,8 @@ const Auth = () => {
   const [resolvedLoginEmail, setResolvedLoginEmail] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const redirectTo = searchParams.get("redirect") || "/dashboard";
 
   const handleResendConfirmation = async () => {
     const resendEmail = resolvedLoginEmail || email.trim();
@@ -103,7 +55,7 @@ const Auth = () => {
     try {
       const { error } = await supabase.auth.resend({ type: "signup", email: resendEmail, options: { emailRedirectTo: window.location.origin } });
       if (error) throw error;
-      toast({ title: "E-mail reenviado!", description: "Verifique sua caixa de entrada (e spam) para confirmar o cadastro." });
+      toast({ title: "E-mail reenviado!", description: "Verifique sua caixa de entrada (e spam)." });
       setShowResendConfirm(false);
     } catch (error: any) {
       toast({ title: "Erro", description: translateAuthError(error.message), variant: "destructive" });
@@ -111,12 +63,6 @@ const Auth = () => {
       setResendLoading(false);
     }
   };
-
-  useEffect(() => {
-    setIsLogin(searchParams.get("mode") !== "signup");
-  }, [searchParams]);
-
-  const redirectTo = searchParams.get("redirect") || "/dashboard";
 
   const resolveLoginEmail = async (identifier: string, rawPassword: string) => {
     const trimmedIdentifier = identifier.trim();
@@ -128,7 +74,7 @@ const Auth = () => {
     });
     if (error) {
       if (!isPhoneIdentifier(trimmedIdentifier)) return trimmedIdentifier;
-      throw new Error(data?.error || error.message || "Não foi possível localizar sua conta antiga.");
+      throw new Error(data?.error || error.message || "Não foi possível localizar sua conta.");
     }
     if (!data?.email) return trimmedIdentifier;
     return data.email as string;
@@ -146,50 +92,21 @@ const Auth = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isLogin && password.length < 8) {
-      toast({ title: "Senha muito curta", description: "A senha deve ter no mínimo 8 caracteres.", variant: "destructive" });
-      return;
-    }
     setLoading(true);
     try {
-      if (isLogin) {
-        setResolvedLoginEmail(null);
-        const loginEmail = await resolveLoginEmail(email, password);
-        setResolvedLoginEmail(loginEmail);
-        const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
-        if (error) throw error;
-        localStorage.setItem("dg_remember_me", rememberMe ? "true" : "false");
-        if (!rememberMe) sessionStorage.setItem("dg_session_alive", "true");
-        else sessionStorage.removeItem("dg_session_alive");
-        navigate(`/welcome?to=${encodeURIComponent(redirectTo)}`);
-      } else {
-        const trimmedPhone = phone.trim().replace(/\D/g, "");
-        if (!trimmedPhone || trimmedPhone.length < 10) {
-          toast({ title: "Telefone obrigatório", description: "Informe um número de telefone válido para criar sua conta.", variant: "destructive" });
-          setLoading(false);
-          return;
-        }
-        const { data: phoneAvailable } = await supabase.rpc("check_phone_available", { _phone: trimmedPhone });
-        if (phoneAvailable === false) {
-          toast({ title: "Telefone já cadastrado", description: "Este número de telefone já está vinculado a outra conta. Cada número pode ter apenas uma conta.", variant: "destructive" });
-          setLoading(false);
-          return;
-        }
-        const { error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password,
-          options: {
-            data: { full_name: fullName.trim(), phone: trimmedPhone, company: company.trim() },
-            emailRedirectTo: window.location.origin,
-          },
-        });
-        if (error) throw error;
-        toast({ title: "Conta criada!", description: "Verifique seu email para confirmar o cadastro." });
-      }
+      setResolvedLoginEmail(null);
+      const loginEmail = await resolveLoginEmail(email, password);
+      setResolvedLoginEmail(loginEmail);
+      const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
+      if (error) throw error;
+      localStorage.setItem("dg_remember_me", rememberMe ? "true" : "false");
+      if (!rememberMe) sessionStorage.setItem("dg_session_alive", "true");
+      else sessionStorage.removeItem("dg_session_alive");
+      navigate(`/welcome?to=${encodeURIComponent(redirectTo)}`);
     } catch (error: any) {
       const rawMsg = error.message || "";
       if (isTimeoutError(rawMsg)) {
-        toast({ title: "Servidor indisponível", description: "O servidor está temporariamente fora do ar. Tente novamente em alguns minutos.", variant: "destructive" });
+        toast({ title: "Servidor indisponível", description: "Tente novamente em alguns minutos.", variant: "destructive" });
       } else if (rawMsg.includes("Email not confirmed")) {
         setShowResendConfirm(true);
         toast({ title: "Erro", description: translateAuthError(rawMsg), variant: "destructive" });
@@ -201,103 +118,48 @@ const Auth = () => {
     }
   };
 
-  /* ── Render ── */
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-5 py-10 relative overflow-hidden"
-      style={{ background: "#090e0c" }}
-    >
-      {/* Ambient background – lightweight radial gradients */}
-      <div className="pointer-events-none absolute inset-0">
-        <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/3 w-[700px] h-[500px] rounded-full opacity-[0.06]"
-          style={{ background: "radial-gradient(circle, #22c55e, transparent 70%)" }}
-        />
-        <div
-          className="absolute bottom-0 right-0 w-[300px] h-[300px] rounded-full opacity-[0.03]"
-          style={{ background: "radial-gradient(circle, #fbbf24, transparent 70%)" }}
-        />
-      </div>
+    <div className="min-h-screen flex items-center justify-center px-5 py-10 relative overflow-hidden" style={{ background: "#0a0a0a" }}>
+      {/* Subtle vignette */}
+      <div className="pointer-events-none absolute inset-0" style={{
+        background: "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%)",
+      }} />
 
-      {/* Subtle dot grid */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.025]"
-        style={{
-          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.5) 1px, transparent 1px)",
-          backgroundSize: "24px 24px",
-        }}
-      />
-
-      {/* Back */}
-      <motion.button
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        onClick={() => navigate("/")}
-        className="absolute top-6 left-6 z-20 flex items-center gap-1.5 text-xs font-medium text-white/30 hover:text-white/60 transition-colors group"
-      >
-        <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-        Voltar
-      </motion.button>
-
-      <div className="w-full max-w-[420px] flex flex-col items-center relative z-10">
-        {/* ── Logo + Particles ── */}
+      <div className="w-full max-w-[400px] flex flex-col items-center relative z-10">
+        {/* Card */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          className="flex flex-col items-center mb-8"
-        >
-          <div className="relative flex items-center justify-center mb-5">
-            {/* Gold glow behind logo */}
-            <div className="absolute -inset-6 bg-gradient-to-br from-amber-500/20 via-yellow-500/15 to-amber-600/20 blur-[40px] rounded-full" />
-            <div className="absolute -inset-10 bg-amber-500/10 blur-[60px] rounded-full" />
-            {/* Gold particles */}
-            <FloatingParticles />
-            {/* Gold frame */}
-            <div className="relative w-28 h-28 sm:w-40 sm:h-40 rounded-2xl overflow-hidden" style={{
-              padding: '2px',
-              background: 'linear-gradient(135deg, #fbbf24, #f59e0b, #d97706, #fbbf24)',
-            }}>
-              <div className="w-full h-full rounded-[14px] overflow-hidden bg-background">
-                <img
-                  src={logo}
-                  alt="DG Contingência Pro"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
-          </div>
-          <span className="text-xs font-semibold tracking-[0.4em] uppercase select-none">
-            <span style={{ color: "#34d399" }}>DG</span>
-            <span className="text-white/50 mx-2">CONTINGÊNCIA</span>
-            <span style={{ color: "#fbbf24" }}>PRO</span>
-          </span>
-        </motion.div>
-
-        {/* ── Card ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.5, ease: "easeOut" }}
-          className="w-full rounded-2xl border relative overflow-hidden"
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="w-full rounded-2xl overflow-hidden"
           style={{
-            borderColor: "#1f2937",
-            background: "linear-gradient(180deg, rgba(15,20,17,0.95) 0%, rgba(10,14,12,0.98) 100%)",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.3), 0 20px 40px -20px rgba(0,0,0,0.4)",
+            background: "linear-gradient(180deg, rgba(24,24,27,0.95) 0%, rgba(18,18,20,0.98) 100%)",
+            border: "1px solid rgba(255,255,255,0.06)",
+            boxShadow: "0 25px 60px -15px rgba(0,0,0,0.5)",
           }}
         >
-          {/* Top accent line */}
-          <div className="absolute top-0 left-0 right-0 h-[1px]" style={{ background: "linear-gradient(90deg, transparent, rgba(34,197,94,0.15) 30%, rgba(251,191,36,0.1) 70%, transparent)" }} />
+          <div className="px-8 pt-10 pb-9">
+            {/* Logo */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+              className="flex flex-col items-center mb-7"
+            >
+              <div className="w-14 h-14 rounded-2xl overflow-hidden mb-4" style={{
+                boxShadow: "0 0 20px rgba(251,191,36,0.15)",
+              }}>
+                <img src={logo} alt="DG Contingência Pro" className="w-full h-full object-cover" />
+              </div>
+              <h1 className="text-xl font-bold text-white tracking-tight">DG Contingência Pro</h1>
+            </motion.div>
 
-          <div className="px-7 pt-7 pb-8 sm:px-9 sm:pt-8 sm:pb-9">
             {/* Backend down alert */}
             {backendDown && (
               <div className="mb-5 p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-300 text-xs flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 <div className="text-left flex-1">
                   <p className="font-semibold text-[11px]">Servidor temporariamente indisponível</p>
-                  <p className="text-amber-300/60 text-[10px] mt-0.5">Tentativas automáticas pausadas.</p>
                 </div>
                 <button type="button" onClick={retryConnection} className="shrink-0 p-1 rounded-lg hover:bg-amber-500/10 transition-colors" title="Tentar reconectar">
                   <RefreshCw className="w-3.5 h-3.5" />
@@ -305,128 +167,82 @@ const Auth = () => {
               </div>
             )}
 
-            {/* Heading */}
-            <div className="text-center mb-7">
-              <h1 className="text-2xl sm:text-[28px] font-bold text-white tracking-tight leading-tight">
-                {isLogin ? "Bem-vindo de volta" : "Crie sua conta"}
-              </h1>
-              <p className="text-[13px] text-white/40 mt-1.5 font-normal">
-                {isLogin ? "Entre para gerenciar seus disparos" : "Comece a enviar mensagens profissionais"}
-              </p>
-            </div>
-
-            {/* Form with stagger */}
-            <motion.form
-              onSubmit={handleSubmit}
-              variants={stagger.container}
-              initial="hidden"
-              animate="show"
-              className="space-y-4"
-            >
-              {!isLogin && (
-                <>
-                  <motion.div variants={stagger.item} className="space-y-1.5">
-                    <Label htmlFor="fullName" className="text-[10px] font-medium text-white/35 tracking-widest uppercase">
-                      Nome completo
-                    </Label>
-                    <div className="relative group">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-[15px] h-[15px] text-white/20 group-focus-within:text-emerald-400/70 transition-colors duration-200" />
-                      <input
-                        id="fullName" type="text" placeholder="Seu nome" value={fullName}
-                        onChange={(e) => setFullName(e.target.value)} required maxLength={100}
-                        className="w-full h-11 pl-9 pr-3 rounded-xl text-sm text-white placeholder:text-white/20 bg-white/[0.03] border border-white/[0.06] outline-none transition-all duration-150 focus:border-emerald-500/40 focus:bg-white/[0.05] focus:ring-1 focus:ring-emerald-500/20"
-                      />
-                    </div>
-                  </motion.div>
-
-                  <motion.div variants={stagger.item} className="space-y-1.5">
-                    <Label htmlFor="phone" className="text-[10px] font-medium text-white/35 tracking-widest uppercase">
-                      Telefone
-                    </Label>
-                    <div className="relative group">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-[15px] h-[15px] text-white/20 group-focus-within:text-emerald-400/70 transition-colors duration-200" />
-                      <input
-                        id="phone" type="tel" placeholder="(00) 00000-0000" value={phone}
-                        onChange={(e) => setPhone(e.target.value)} required maxLength={20}
-                        className="w-full h-11 pl-9 pr-3 rounded-xl text-sm text-white placeholder:text-white/20 bg-white/[0.03] border border-white/[0.06] outline-none transition-all duration-150 focus:border-emerald-500/40 focus:bg-white/[0.05] focus:ring-1 focus:ring-emerald-500/20"
-                      />
-                    </div>
-                  </motion.div>
-                </>
-              )}
-
-              <motion.div variants={stagger.item} className="space-y-1.5">
-                <Label htmlFor="email" className="text-[10px] font-medium text-white/35 tracking-widest uppercase">
-                  {isLogin ? "E-mail" : "E-mail"}
-                </Label>
-                <div className="relative group">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-[15px] h-[15px] text-white/20 group-focus-within:text-emerald-400/70 transition-colors duration-200" />
-                  <input
-                    id="email" type="email" placeholder="seu@email.com" value={email}
-                    onChange={(e) => { setEmail(e.target.value); setResolvedLoginEmail(null); }}
-                    required maxLength={255}
-                    className="w-full h-11 pl-9 pr-3 rounded-xl text-sm text-white placeholder:text-white/20 bg-white/[0.03] border border-white/[0.06] outline-none transition-all duration-150 focus:border-emerald-500/40 focus:bg-white/[0.05] focus:ring-1 focus:ring-emerald-500/20"
-                  />
-                </div>
-              </motion.div>
-
-              <motion.div variants={stagger.item} className="space-y-1.5">
-                <Label htmlFor="password" className="text-[10px] font-medium text-white/35 tracking-widest uppercase">
-                  Senha
-                </Label>
-                <div className="relative group">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-[15px] h-[15px] text-white/20 group-focus-within:text-emerald-400/70 transition-colors duration-200" />
-                  <input
-                    id="password" type={showPassword ? "text" : "password"} placeholder="Mínimo 8 caracteres"
-                    value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8}
-                    className="w-full h-11 pl-9 pr-10 rounded-xl text-sm text-white placeholder:text-white/20 bg-white/[0.03] border border-white/[0.06] outline-none transition-all duration-150 focus:border-emerald-500/40 focus:bg-white/[0.05] focus:ring-1 focus:ring-emerald-500/20"
-                  />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/40 transition-colors">
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-
-                {isLogin && (
-                  <label className="flex items-center gap-2 mt-2 cursor-pointer select-none group">
-                    <div className="relative">
-                      <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="peer sr-only" />
-                      <div className="w-3.5 h-3.5 rounded border border-white/10 bg-white/[0.03] peer-checked:bg-emerald-500 peer-checked:border-emerald-500 transition-all flex items-center justify-center">
-                        {rememberMe && (
-                          <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </div>
-                    </div>
-                    <span className="text-[10px] text-white/25 group-hover:text-white/40 transition-colors">Manter conectado</span>
-                  </label>
-                )}
-              </motion.div>
-
-              {/* Primary button */}
-              <motion.div variants={stagger.item} className="pt-1">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-11 sm:h-12 rounded-xl text-[14px] font-semibold text-white relative overflow-hidden transition-all duration-150 hover:-translate-y-[1px] active:translate-y-0 disabled:opacity-60 disabled:pointer-events-none"
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <input
+                  type="text"
+                  placeholder="E-mail ou telefone"
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); setResolvedLoginEmail(null); }}
+                  required
+                  maxLength={255}
+                  className="w-full h-12 px-4 rounded-xl text-sm text-white placeholder:text-white/30 outline-none transition-all duration-150 focus:ring-2 focus:ring-white/10"
                   style={{
-                    background: "linear-gradient(135deg, #22c55e 0%, #4ade80 100%)",
-                    boxShadow: "0 0 20px -6px rgba(34,197,94,0.35), 0 4px 12px -4px rgba(0,0,0,0.3)",
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)",
                   }}
+                />
+              </div>
+
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Senha"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  className="w-full h-12 px-4 pr-11 rounded-xl text-sm text-white placeholder:text-white/30 outline-none transition-all duration-150 focus:ring-2 focus:ring-white/10"
+                  style={{
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/50 transition-colors"
                 >
-                  {loading ? (
-                    <div className="h-4 w-4 mx-auto animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    <span className="flex items-center justify-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 opacity-60" />
-                      {isLogin ? "Entrar" : "Criar conta"}
-                    </span>
-                  )}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
-              </motion.div>
+              </div>
+
+              {/* Remember me */}
+              <label className="flex items-center gap-2 cursor-pointer select-none group">
+                <div className="relative">
+                  <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="peer sr-only" />
+                  <div className="w-3.5 h-3.5 rounded border border-white/10 bg-white/[0.03] peer-checked:bg-white peer-checked:border-white transition-all flex items-center justify-center">
+                    {rememberMe && (
+                      <svg className="w-2 h-2 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+                <span className="text-[11px] text-white/30 group-hover:text-white/50 transition-colors">Manter conectado</span>
+              </label>
+
+              {/* Sign in button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full h-12 rounded-xl text-sm font-semibold text-white transition-all duration-150 hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none"
+                style={{
+                  background: "linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                }}
+              >
+                {loading ? (
+                  <div className="h-4 w-4 mx-auto animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  "Entrar"
+                )}
+              </button>
 
               {/* Resend confirmation */}
-              {showResendConfirm && isLogin && (
+              {showResendConfirm && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
@@ -435,44 +251,25 @@ const Auth = () => {
                   <p className="text-xs text-amber-200/70 font-medium">Seu e-mail ainda não foi confirmado.</p>
                   <button
                     type="button" onClick={handleResendConfirmation} disabled={resendLoading}
-                    className="w-full py-2 rounded-lg text-xs font-semibold bg-emerald-500/90 hover:bg-emerald-500 text-white transition-colors"
+                    className="w-full py-2 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/15 text-white transition-colors"
                   >
                     {resendLoading ? "Reenviando..." : "📧 Reenviar e-mail de confirmação"}
                   </button>
                 </motion.div>
               )}
-            </motion.form>
-
-            {/* Security */}
-            <div className="flex items-center justify-center gap-1.5 mt-5 text-[9px] text-white/15 font-medium tracking-wider uppercase">
-              <ShieldCheck className="w-3 h-3" />
-              <span>Ambiente seguro e criptografado</span>
-            </div>
-
-            {/* Divider */}
-            <div className="my-5 h-[1px]" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)" }} />
-
-            {/* Secondary action */}
-            <div className="text-center">
-              <p className="text-[12px] text-white/25 mb-2.5">
-                {isLogin ? "Não tem conta?" : "Já tem conta?"}
-              </p>
-              <button
-                onClick={() => setIsLogin(!isLogin)}
-                className="w-full py-2.5 rounded-xl text-[13px] font-semibold border transition-all duration-150 hover:-translate-y-[0.5px]"
-                style={{
-                  borderColor: "rgba(251,191,36,0.2)",
-                  background: "transparent",
-                  color: "#fbbf24",
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(251,191,36,0.04)"; e.currentTarget.style.borderColor = "rgba(251,191,36,0.35)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(251,191,36,0.2)"; }}
-              >
-                {isLogin ? "Criar conta gratuita" : "Fazer login"}
-              </button>
-            </div>
+            </form>
           </div>
         </motion.div>
+
+        {/* Footer text */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="text-[11px] text-white/20 mt-6 text-center"
+        >
+          Ambiente seguro e criptografado
+        </motion.p>
       </div>
 
       {/* WhatsApp */}
