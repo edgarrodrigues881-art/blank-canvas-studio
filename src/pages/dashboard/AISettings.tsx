@@ -649,6 +649,19 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
+      {/* Just Activated Banner */}
+      {justActivated && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 flex items-center gap-3 animate-fade-in">
+          <div className="h-10 w-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+            <Sparkles className="h-5 w-5 text-primary" strokeWidth={1.5} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">IA está ativa e respondendo clientes em tempo real</p>
+            <p className="text-xs text-muted-foreground">Suas conversas agora são atendidas automaticamente com inteligência artificial</p>
+          </div>
+        </div>
+      )}
+
       {/* Simulador de IA */}
       {iaActive && apiKeyStatus === "valid" && <AISimulator />}
 
