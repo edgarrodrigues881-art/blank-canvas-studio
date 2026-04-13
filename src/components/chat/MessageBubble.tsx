@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect, ReactNode } from "react";
 import {
   Play, Pause, Check, CheckCheck, Loader2,
   Download, FileText, Video, MapPin, User,
-  Image as ImageIcon, Reply, X, Trash2, Pencil,
+  Image as ImageIcon, Reply, X, Trash2, Pencil, Eye,
 } from "lucide-react";
 import { Smartphone } from "lucide-react";
 import { type Message } from "./types";
@@ -229,6 +229,28 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
   }, [showActions]);
 
   const renderContent = () => {
+    // Detect view_once / undecryptable messages
+    const isViewOnce = msg.content && (
+      msg.content.includes("[view_once]") ||
+      msg.content.includes("[Undecryptable]") ||
+      msg.content.includes("view_once")
+    );
+
+    if (isViewOnce) {
+      return (
+        <div>
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} />
+          <div className="flex items-center gap-2 py-1">
+            <Eye className={cn("w-4 h-4 shrink-0", msg.type === "sent" ? "text-white/70" : "text-muted-foreground/70")} />
+            <span className={cn("text-[13px] italic", msg.type === "sent" ? "text-white/80" : "text-muted-foreground/80")}>
+              Mensagem de visualização única. Abra o WhatsApp no celular para visualizar.
+            </span>
+          </div>
+          <MsgFooter msg={msg} />
+        </div>
+      );
+    }
+
     const isAudio = msg.mediaType === "audio";
     const isImage = msg.mediaType === "image";
     const isDocument = msg.mediaType === "document";
