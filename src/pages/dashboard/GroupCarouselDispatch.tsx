@@ -818,6 +818,7 @@ export default function GroupCarouselDispatch() {
                     <SectionLabel>Cards</SectionLabel>
                     <GroupCarouselEditor cards={cards} onChange={setCards} />
                   </SurfaceCard>
+                  </div>
                 ) : (
                   /* Normal message editor (text/buttons) */
                   <SurfaceCard className="p-4 sm:p-6 space-y-4 sm:space-y-5">
