@@ -917,38 +917,63 @@ export default function GroupCarouselDispatch() {
 
             {/* Groups */}
             <SurfaceCard className="p-4 sm:p-5 space-y-3">
-              <SectionLabel>Grupos</SectionLabel>
-              <Input placeholder="Buscar grupo..." value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} />
+              <div className="flex items-center justify-between">
+                <SectionLabel>Grupos</SectionLabel>
+                {selectedGroups.length > 0 && (
+                  <span className="text-xs font-medium text-primary">{selectedGroups.length} selecionado(s)</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Input placeholder="Buscar grupo..." value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} className="flex-1" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs shrink-0 h-9"
+                  onClick={() => {
+                    const visibleIds = filteredGroups.map(g => g.id);
+                    const allSelected = visibleIds.every(id => selectedGroups.includes(id));
+                    if (allSelected) {
+                      setSelectedGroups(prev => prev.filter(id => !visibleIds.includes(id)));
+                    } else {
+                      setSelectedGroups(prev => [...new Set([...prev, ...visibleIds])]);
+                    }
+                  }}
+                >
+                  {filteredGroups.length > 0 && filteredGroups.every(g => selectedGroups.includes(g.id)) ? "Desmarcar todos" : "Selecionar todos"}
+                </Button>
+              </div>
               {loadingGroups ? (
                 <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Carregando grupos...</div>
               ) : (
-                <div className="max-h-72 space-y-1 overflow-y-auto">
+                <div className="max-h-72 space-y-0.5 overflow-y-auto">
                   {filteredGroups.length === 0 && selectedDevice && <p className="py-2 text-sm text-muted-foreground">Nenhum grupo encontrado</p>}
-                  {filteredGroups.map((g) => (
-                    <label key={g.id} className="flex cursor-pointer items-center gap-2 rounded-lg p-2 text-sm hover:bg-muted/30">
-                      <input type="checkbox" checked={selectedGroups.includes(g.id)} onChange={() => toggleGroup(g.id)} className="rounded" />
-                      <span className="truncate">{g.name || g.id}</span>
-                    </label>
-                  ))}
+                  {filteredGroups.map((g) => {
+                    const isSelected = selectedGroups.includes(g.id);
+                    return (
+                      <label key={g.id} className={cn(
+                        "flex cursor-pointer items-center gap-2 rounded-lg p-2 text-sm transition-colors",
+                        isSelected ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-muted/30"
+                      )}>
+                        <input type="checkbox" checked={isSelected} onChange={() => toggleGroup(g.id)} className="rounded" />
+                        <span className="truncate">{g.name || g.id}</span>
+                        {isSelected && isAdminsOnlyGroup(g) && (
+                          <span className="ml-auto rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive shrink-0">só admins</span>
+                        )}
+                      </label>
+                    );
+                  })}
                 </div>
               )}
 
-              {selectedGroupDetails.length > 0 && (
-                <div className="space-y-2 pt-3 border-t border-border/20">
-                  <p className="text-xs text-muted-foreground">{selectedGroupDetails.length} grupo(s) selecionado(s)</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedGroupDetails.map((g) => (
-                      <Badge key={g.id} variant="secondary" className="max-w-full flex items-center gap-1 pr-1">
-                        <span className="truncate">{g.name}</span>
-                        {isAdminsOnlyGroup(g) && (
-                          <span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive">só admins</span>
-                        )}
-                        <button type="button" onClick={() => toggleGroup(g.id)} className="ml-1 rounded-full p-0.5 hover:bg-destructive/20 hover:text-destructive transition-colors">
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
+              {selectedGroups.length > 0 && (
+                <div className="pt-3 border-t border-border/20">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGroups([])}
+                    className="text-xs text-destructive/70 hover:text-destructive transition-colors"
+                  >
+                    Limpar seleção ({selectedGroups.length})
+                  </button>
                 </div>
               )}
 
