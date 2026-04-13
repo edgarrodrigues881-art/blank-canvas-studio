@@ -42,6 +42,15 @@ const AISettings = () => {
   const [commStyle, setCommStyle] = useState("amigavel");
   const [insistence, setInsistence] = useState(3);
   const [strategy, setStrategy] = useState("perguntas");
+  const [autoFlow, setAutoFlow] = useState(true);
+  const [flowSteps, setFlowSteps] = useState({
+    saudacao: "Olá! Seja bem-vindo(a)! Como posso te ajudar hoje? 😊",
+    diagnostico: "Para te ajudar melhor, me conta: o que você está buscando exatamente? Qual sua principal necessidade?",
+    apresentacao: "Com base no que você me disse, tenho a solução perfeita! Deixa eu te apresentar...",
+    objecao: "Entendo sua preocupação! Muitos clientes tinham a mesma dúvida. O que posso te garantir é que...",
+    fechamento: "Ótimo! Vamos fechar então? Posso te enviar o link de pagamento ou agendar uma demonstração?",
+  });
+  const [editingStep, setEditingStep] = useState<string | null>(null);
   const [responseStyle, setResponseStyle] = useState("medium");
   const [splitLongMessages, setSplitLongMessages] = useState(true);
   const [simulateTyping, setSimulateTyping] = useState(true);
