@@ -129,6 +129,7 @@ export default function Prospeccao() {
   const navigate = useNavigate();
   const [nicho, setNicho] = useState("");
   const [nichosRelacionados, setNichosRelacionados] = useState("");
+  const [allBusinesses, setAllBusinesses] = useState(false);
   const [pais, setPais] = useState("BR");
   const [estado, setEstado] = useState("");
   const [cidade, setCidade] = useState("");
