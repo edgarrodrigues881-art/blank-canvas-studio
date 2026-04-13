@@ -922,6 +922,23 @@ Deno.serve(async (req) => {
           return json({ ok: false, error: inspectedMedia.error }, 400);
         }
 
+        if (mediaType === "image") {
+          const imageButtonAttempts = buildButtonsAttempts(
+            baseUrl,
+            groupJid,
+            normalizedTextContent,
+            normalizedButtons,
+            inspectedMedia.normalizedUrl,
+          );
+
+          try {
+            await sendWithFallbacks(imageButtonAttempts, headers, groupJid);
+            return json({ ok: true, mode: "buttons_image" });
+          } catch (error) {
+            console.warn(`[group-carousel] imageButton failed, falling back to split send: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+
         const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
 
         if (mediaType === "audio") {
