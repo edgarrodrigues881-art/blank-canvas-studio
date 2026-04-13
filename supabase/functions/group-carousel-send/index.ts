@@ -838,7 +838,67 @@ async function sendWithFallbacks(attempts: SendAttempt[], headers: Record<string
   throw new Error(lastError);
 }
 
-Deno.serve(async (req) => {
+async function fetchGroupParticipants(baseUrl: string, headers: Record<string, string>, groupJid: string): Promise<string[]> {
+  const attempts = [
+    { method: "POST", url: `${baseUrl}/group/participants`, body: JSON.stringify({ groupjid: groupJid }) },
+    { method: "GET", url: `${baseUrl}/group/participants?groupjid=${encodeURIComponent(groupJid)}` },
+    { method: "POST", url: `${baseUrl}/group/info`, body: JSON.stringify({ groupjid: groupJid }) },
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const response = await fetchWithTimeout(attempt.url, {
+        method: attempt.method,
+        headers,
+        ...(attempt.body ? { body: attempt.body } : {}),
+      }, 10_000);
+
+      if (!response.ok) continue;
+      const raw = await response.text();
+      if (!raw) continue;
+
+      const parsed = JSON.parse(raw);
+      
+      // Try multiple paths to find participants array
+      const participantsArr = 
+        parsed?.participants || 
+        parsed?.data?.participants || 
+        parsed?.group?.participants ||
+        parsed?.data?.group?.participants ||
+        parsed?.Participants ||
+        [];
+
+      if (Array.isArray(participantsArr) && participantsArr.length > 0) {
+        const phones = participantsArr
+          .map((p: any) => {
+            const id = p?.id || p?.jid || p?.number || p?.phone || "";
+            return String(id).replace(/@.*$/, "").trim();
+          })
+          .filter((n: string) => n && /^\d+$/.test(n));
+        
+        if (phones.length > 0) {
+          console.log(`[group-carousel] Found ${phones.length} participants for ${groupJid}`);
+          return phones;
+        }
+      }
+    } catch (error) {
+      console.warn(`[group-carousel] Failed to fetch participants for ${groupJid}:`, error);
+    }
+  }
+
+  console.warn(`[group-carousel] Could not fetch participants for ${groupJid}`);
+  return [];
+}
+
+function injectMentionsIntoAttempts(attempts: SendAttempt[], mentions: string[]): SendAttempt[] {
+  if (mentions.length === 0) return attempts;
+  return attempts.map((a) => ({
+    ...a,
+    body: { ...a.body, mentions, mentionsEveryOne: true },
+  }));
+}
+
+
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
