@@ -18,7 +18,7 @@ function getProviderConfig(provider: string, apiKey: string, model: string) {
     case "gemini":
       return {
         url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
         model: model || "gemini-2.0-flash",
       };
     case "deepseek":
