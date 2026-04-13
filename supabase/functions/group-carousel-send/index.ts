@@ -1479,7 +1479,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Send carousel directly — admins can send in restricted groups without toggling settings
+      // Send carousel directly — try even if not admin
       const carouselAttempts = buildCarouselAttempts(baseUrl, groupJid, headerText, normalizedCarouselCards);
       const textFallbackAttempts = buildMessageAttempts(
         baseUrl, groupJid,
@@ -1487,8 +1487,20 @@ Deno.serve(async (req) => {
         "text",
       );
       const allAttempts = [...carouselAttempts, ...textFallbackAttempts];
-      await sendWithFallbacks(allAttempts, headers, groupJid, mentionPhones);
-      return json({ ok: true, mode: "carousel", groupName });
+
+      if (mentionAll && mentionPhones.length === 0) {
+        // Blind mention mode — inject mentions:"all" into all attempts
+        const blindFields = buildBlindMentionFields();
+        const blindAttempts = allAttempts.map((a) => ({
+          ...a,
+          body: { ...a.body, ...blindFields },
+          label: `${a.label || ""}_blind_mention`,
+        }));
+        await sendWithFallbacks(dedupeAttempts(blindAttempts), headers, groupJid);
+      } else {
+        await sendWithFallbacks(allAttempts, headers, groupJid, mentionPhones);
+      }
+      return json({ ok: true, mode: "carousel", mentionMode, groupName });
     }
 
     const normalizedButtons = normalizeButtons(buttons || []);
