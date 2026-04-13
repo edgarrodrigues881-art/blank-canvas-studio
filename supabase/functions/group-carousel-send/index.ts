@@ -1610,10 +1610,39 @@ Deno.serve(async (req) => {
     }
 
     if (mentionAll && type === "text") {
-      const mentionAttempts = buildMentionTextAttempts(baseUrl, groupJid, normalizedContent, mentionPhones);
-      console.log(`[group-carousel] Prepared ${mentionAttempts.length} dedicated @todos attempt(s) for ${groupJid}`);
-      await sendWithFallbacks(mentionAttempts, headers, groupJid);
-      return json({ ok: true, mode: "message", groupName });
+      if (mentionMode === "participants") {
+        const mentionAttempts = buildMentionTextAttempts(baseUrl, groupJid, normalizedContent, mentionPhones);
+        console.log(`[group-carousel] Prepared ${mentionAttempts.length} dedicated @todos attempt(s) for ${groupJid} (explicit participants)`);
+        await sendWithFallbacks(mentionAttempts, headers, groupJid);
+      } else {
+        // Blind mention — no participant list available, use mentions:"all" flag
+        const blindFields = buildBlindMentionFields();
+        const blindAttempts: SendAttempt[] = [
+          {
+            endpoint: `${baseUrl}/send/text`,
+            body: { number: groupJid, text: normalizedContent, ...blindFields },
+            label: "blind_mentions_all",
+          },
+          {
+            endpoint: `${baseUrl}/send/text`,
+            body: { number: groupJid, text: normalizedContent, mentions: "all" },
+            label: "blind_mentions_flag",
+          },
+          {
+            endpoint: `${baseUrl}/chat/send-text`,
+            body: { chatId: groupJid, text: normalizedContent, body: normalizedContent, ...blindFields },
+            label: "blind_mentions_chat",
+          },
+          {
+            endpoint: `${baseUrl}/message/sendText`,
+            body: { chatId: groupJid, text: normalizedContent, ...blindFields },
+            label: "blind_mentions_sendText",
+          },
+        ];
+        console.log(`[group-carousel] Prepared ${blindAttempts.length} blind @todos attempt(s) for ${groupJid}`);
+        await sendWithFallbacks(dedupeAttempts(blindAttempts), headers, groupJid);
+      }
+      return json({ ok: true, mode: "message", mentionMode, groupName });
     }
 
     const attempts = buildMessageAttempts(baseUrl, groupJid, normalizedContent, type, caption, fileName);
