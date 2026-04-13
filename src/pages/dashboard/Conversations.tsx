@@ -22,9 +22,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { normalizePhoneKey } from "@/utils/formatters";
 
-const MIN_SIDEBAR_W = 240;
-const MAX_SIDEBAR_W = 600;
-const DEFAULT_SIDEBAR_W = 340;
+const MIN_SIDEBAR_W = 220;
+const MAX_SIDEBAR_W = 500;
+const DEFAULT_SIDEBAR_W = 280;
 
 const Conversations = () => {
   const { user } = useAuth();
