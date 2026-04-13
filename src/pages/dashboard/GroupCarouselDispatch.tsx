@@ -453,14 +453,19 @@ export default function GroupCarouselDispatch() {
             }
 
           const sentAt = new Date().toISOString();
+          const resolvedName = res.data?.groupName || gname;
           ok++;
-          results.push({ groupId: gid, groupName: gname, status: "success", message: "Enviado com sucesso." });
-          await supabase.from("campaign_contacts").update({
+          results.push({ groupId: gid, groupName: resolvedName, status: "success", message: "Enviado com sucesso." });
+          const updateFields: Record<string, any> = {
             status: "sent",
             sent_at: sentAt,
             error_message: null,
             device_id: selectedDevice,
-          } as any).eq("campaign_id", campaignId).eq("phone", gid);
+          };
+          if (resolvedName && resolvedName !== gid && !resolvedName.includes("@g.us")) {
+            updateFields.name = resolvedName;
+          }
+          await supabase.from("campaign_contacts").update(updateFields as any).eq("campaign_id", campaignId).eq("phone", gid);
         } catch (e) {
           const errorMessage = e instanceof Error ? e.message : "Falha.";
           fail++;

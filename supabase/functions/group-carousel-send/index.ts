@@ -500,6 +500,16 @@ function extractGroupInfoPayload(raw: any) {
   return raw?.group || raw?.data?.group || raw?.data || raw || null;
 }
 
+function extractGroupName(rawInfo: any): string {
+  const candidates = getGroupInfoCandidates(rawInfo);
+  for (const info of candidates) {
+    const name = info?.Subject || info?.subject || info?.Name || info?.name || info?.groupName || info?.title || "";
+    const trimmed = String(name).trim();
+    if (trimmed && !trimmed.includes("@g.us")) return trimmed;
+  }
+  return "";
+}
+
 function isTruthyGroupFlag(value: unknown) {
   if (value === true || value === 1 || value === "1") return true;
   return typeof value === "string" && value.trim().toLowerCase() === "true";
@@ -599,7 +609,7 @@ function isRestrictedGroup(rawInfo: any) {
   });
 }
 
-async function fetchGroupDeliveryMode(baseUrl: string, headers: Record<string, string>, groupJid: string): Promise<"default" | "restricted"> {
+async function fetchGroupDeliveryMode(baseUrl: string, headers: Record<string, string>, groupJid: string): Promise<{ mode: "default" | "restricted"; groupName: string }> {
   const attempts = [
     {
       method: "POST",
@@ -616,6 +626,8 @@ async function fetchGroupDeliveryMode(baseUrl: string, headers: Record<string, s
       body: JSON.stringify({ chatId: groupJid }),
     },
   ];
+
+  let resolvedName = "";
 
   for (const attempt of attempts) {
     try {
@@ -640,16 +652,21 @@ async function fetchGroupDeliveryMode(baseUrl: string, headers: Record<string, s
         ? Object.keys(info).slice(0, 12).join(",")
         : "no-keys";
       console.log(`[group-carousel] Group inspect ${attempt.method} ${new URL(attempt.url).pathname} keys=${keyPreview}`);
+
+      if (!resolvedName) {
+        resolvedName = extractGroupName(parsed);
+      }
+
       if (isRestrictedGroup(parsed)) {
         console.log(`[group-carousel] Restricted group detected for ${groupJid}`);
-        return "restricted";
+        return { mode: "restricted", groupName: resolvedName };
       }
     } catch (error) {
       console.warn(`[group-carousel] Failed to inspect group mode for ${groupJid}:`, error);
     }
   }
 
-  return "default";
+  return { mode: "default", groupName: resolvedName };
 }
 
 async function toggleGroupAnnounce(
@@ -861,7 +878,10 @@ Deno.serve(async (req) => {
       Accept: "application/json",
       "Content-Type": "application/json",
     };
-    const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
+
+    // Fetch group name for enrichment
+    const groupInfo = await fetchGroupDeliveryMode(baseUrl, headers, groupJid);
+    const groupName = groupInfo.groupName || "";
 
     const normalizedCarouselCards = normalizeCarouselCards(cards || []);
     if (normalizedCarouselCards.length > 0) {
@@ -889,7 +909,7 @@ Deno.serve(async (req) => {
       );
       const allAttempts = [...carouselAttempts, ...textFallbackAttempts];
       await sendWithFallbacks(allAttempts, headers, groupJid);
-      return json({ ok: true, mode: "carousel" });
+      return json({ ok: true, mode: "carousel", groupName });
     }
 
     const normalizedButtons = normalizeButtons(buttons || []);
@@ -925,7 +945,7 @@ Deno.serve(async (req) => {
 
           try {
             await sendWithFallbacks(imageButtonAttempts, headers, groupJid);
-            return json({ ok: true, mode: "buttons_image" });
+            return json({ ok: true, mode: "buttons_image", groupName });
           } catch (error) {
             console.warn(`[group-carousel] imageButton failed, falling back to split send: ${error instanceof Error ? error.message : String(error)}`);
           }
@@ -937,17 +957,17 @@ Deno.serve(async (req) => {
           await sendWithFallbacks(buttonAttempts, headers, groupJid);
           await new Promise((resolve) => setTimeout(resolve, 1500));
           await sendWithFallbacks(mediaAttempts, headers, groupJid);
-          return json({ ok: true, mode: "buttons_audio" });
+          return json({ ok: true, mode: "buttons_audio", groupName });
         }
 
         await sendWithFallbacks(mediaAttempts, headers, groupJid);
         await new Promise((resolve) => setTimeout(resolve, 1500));
         await sendWithFallbacks(buttonAttempts, headers, groupJid);
-        return json({ ok: true, mode: "buttons_media" });
+        return json({ ok: true, mode: "buttons_media", groupName });
       }
 
       await sendWithFallbacks(buttonAttempts, headers, groupJid);
-      return json({ ok: true, mode: "buttons" });
+      return json({ ok: true, mode: "buttons", groupName });
     }
 
     let normalizedContent = normalizedTextContent;
@@ -969,7 +989,7 @@ Deno.serve(async (req) => {
 
     const attempts = buildMessageAttempts(baseUrl, groupJid, normalizedContent, type, caption, fileName);
     await sendWithFallbacks(attempts, headers, groupJid);
-    return json({ ok: true, mode: "message" });
+    return json({ ok: true, mode: "message", groupName });
   } catch (error: any) {
     console.error("[group-carousel] Error:", error);
     const status = typeof error?.status === "number" ? error.status : 500;
