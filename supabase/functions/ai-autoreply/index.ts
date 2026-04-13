@@ -154,7 +154,8 @@ Deno.serve(async (req) => {
       settings.ai_instructions ? `Instruções adicionais: ${settings.ai_instructions.replace(/FLOW_STEPS:.*?END_FLOW_STEPS/s, "").trim()}` : "",
       // Lead memory context
       leadMemory.contact_name ? `O nome do cliente é "${leadMemory.contact_name}". Use o nome dele quando apropriado para personalizar.` : (contact_name ? `O nome do cliente é "${contact_name}".` : ""),
-      leadMemory.interest ? `O cliente demonstrou interesse em: "${leadMemory.interest}". Referencie isso naturalmente, ex: "Você mencionou que queria ${leadMemory.interest}..."` : "",
+      leadMemory.interest ? `O cliente demonstrou interesse em: "${leadMemory.interest}". Referencie isso naturalmente, ex: "Na última conversa você mostrou interesse em ${leadMemory.interest}..."` : "",
+      leadMemory.product_cited ? `O cliente mencionou o produto/serviço: "${leadMemory.product_cited}". Use isso para personalizar: "Sobre o ${leadMemory.product_cited} que você perguntou..."` : "",
       leadMemory.stage === "hot" ? `Este é um lead QUENTE (${leadMemory.interaction_count} interações). Seja mais direto e conduza para conversão.` : "",
       leadMemory.stage === "warm" ? `Este é um lead MORNO (${leadMemory.interaction_count} interações). Aprofunde o interesse e apresente benefícios.` : "",
       leadMemory.stage === "cold" ? `Este é um lead FRIO (primeiro contato ou poucas interações). Seja acolhedor e descubra a necessidade.` : "",
@@ -183,9 +184,10 @@ Deno.serve(async (req) => {
       `- Se não souber a resposta, peça mais contexto antes de inventar`,
       `- Se o cliente insistir em algo que você não sabe, sugira transferência para humano`,
       `- Nunca invente informações sobre produtos, preços ou disponibilidade`,
-      `- Ao final da resposta, inclua um JSON oculto: <!--LEAD_UPDATE:{"interest":"...","stage":"cold|warm|hot","intent":"curious|interested|ready_to_buy|objection","flow_step":"saudacao|diagnostico|apresentacao|objecao|fechamento"}-->`,
+      `- Ao final da resposta, inclua um JSON oculto: <!--LEAD_UPDATE:{"interest":"...","stage":"cold|warm|hot","intent":"curious|interested|ready_to_buy|objection","flow_step":"saudacao|diagnostico|apresentacao|objecao|fechamento","product_cited":"..."}-->`,
       `- "intent" é a intenção detectada na mensagem atual do cliente`,
       `- "flow_step" é a etapa do fluxo que você usou na resposta`,
+      `- "product_cited" é o produto/serviço específico mencionado pelo cliente (se houver)`,
       settings.require_human_for_sale ? `- Para vendas ou negociações, sugira que um atendente humano pode ajudar melhor` : "",
       settings.block_sensitive ? `- Nunca compartilhe dados sensíveis como CPF, senhas ou dados bancários` : "",
     ].filter(Boolean).join("\n");
@@ -235,6 +237,8 @@ Deno.serve(async (req) => {
           interest: update.interest || leadMemory.interest,
           stage: update.stage || leadMemory.stage,
           contact_name: leadMemory.contact_name || contact_name || null,
+          product_cited: update.product_cited || leadMemory.product_cited || null,
+          last_message_preview: (message_content || "").substring(0, 200),
         };
         // Store intent and flow_step in notes for dashboard
         if (update.intent || update.flow_step) {
@@ -300,6 +304,7 @@ async function loadOrCreateLeadMemory(
       interaction_count: (existing.interaction_count || 0) + 1,
       last_interaction_at: new Date().toISOString(),
       contact_name: existing.contact_name || contactName || null,
+      last_message_preview: (messageContent || "").substring(0, 200),
     }).eq("id", existing.id);
 
     return { ...existing, interaction_count: (existing.interaction_count || 0) + 1 };
