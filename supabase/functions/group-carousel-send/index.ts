@@ -873,6 +873,7 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Dispositivo não configurado" }, 404);
     }
 
+    const baseUrl = device.uazapi_base_url.replace(/\/+$/, "");
     const headers = {
       token: device.uazapi_token,
       Accept: "application/json",
