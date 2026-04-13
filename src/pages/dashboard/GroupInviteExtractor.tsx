@@ -88,7 +88,7 @@ export default function GroupInviteExtractor() {
   const otherFailedCount = failedLinks.length - permissionDeniedCount - rateLimitedCount;
   const failureSummary = useMemo(() => {
     const parts: string[] = [];
-    if (permissionDeniedCount > 0) parts.push(`${permissionDeniedCount} sem permissão de admin`);
+    if (permissionDeniedCount > 0) parts.push(`${permissionDeniedCount} grupo(s) onde você não é admin`);
     if (rateLimitedCount > 0) parts.push(`${rateLimitedCount} em limite temporário da UAZAPI`);
     if (otherFailedCount > 0) parts.push(`${otherFailedCount} com outro erro`);
     return parts.join(" • ");
@@ -149,7 +149,7 @@ export default function GroupInviteExtractor() {
       ).length;
       const otherErrors = failed - permissionDenied - rateLimited;
       const failureParts = [
-        permissionDenied > 0 ? `${permissionDenied} sem permissão` : null,
+        permissionDenied > 0 ? `${permissionDenied} grupo(s) onde você não é admin` : null,
         rateLimited > 0 ? `${rateLimited} com limite da UAZAPI` : null,
         otherErrors > 0 ? `${otherErrors} com outro erro` : null,
       ].filter(Boolean).join(" • ");
@@ -157,9 +157,9 @@ export default function GroupInviteExtractor() {
       if (ok === items.length) {
         toast.success(`${ok}/${items.length} links extraídos com sucesso`);
       } else if (ok > 0) {
-        toast.warning(`${ok}/${items.length} links extraídos. ${failureParts || `${failed} grupo(s) falharam`} — veja o motivo abaixo.`);
+        toast.warning(`${ok}/${items.length} links extraídos. ${failed} grupo(s) não foi possível — veja abaixo.`);
       } else {
-        toast.error("Nenhum link foi extraído — veja o motivo detalhado abaixo.");
+        toast.error(`Não foi possível extrair os links. ${failureParts || "Veja o motivo abaixo."}`);
       }
     } catch (e: any) {
       toast.error(e?.message || "Erro ao extrair links");

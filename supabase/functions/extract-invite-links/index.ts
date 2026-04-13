@@ -450,7 +450,7 @@ async function fetchInviteCode(
   if (hitPermissionDenied) {
     return {
       ok: false, link: null,
-      error: "A UAZAPI bloqueou a leitura do link atual desse grupo e não havia um link válido salvo no histórico.",
+      error: "Só admins do grupo podem gerar o link. Peça o link a um admin ou entre no grupo por outra conta que seja admin.",
       diagnostics: { error_stage: "permission_denied", provider_message: lastError, processing_time_ms: elapsed },
     };
   }
