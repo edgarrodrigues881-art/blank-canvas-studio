@@ -328,11 +328,6 @@ export default function GroupCarouselDispatch() {
     }
 
     setSending(true); setSendResults([]); setProgress({ sent: 0, total: selectedGroups.length });
-    toast.success("Campanha iniciada!", {
-      description: "Acompanhe o progresso na página de campanhas.",
-      action: { label: "Ver Campanha", onClick: () => navigate("/dashboard/campaigns") },
-      duration: 8000,
-    });
 
     let campaignId: string | null = null;
     const activeButtons = buttons
@@ -341,6 +336,7 @@ export default function GroupCarouselDispatch() {
 
     try {
       const msgType = dispatchType === "carousel" ? "carousel" : dispatchType === "buttons" ? "buttons" : "text";
+      const startedAt = new Date().toISOString();
       const { data: campaign, error: campErr } = await supabase.from("campaigns")
         .insert({
           user_id: user!.id, name: campaignName.trim(), message_type: msgType,
@@ -348,6 +344,7 @@ export default function GroupCarouselDispatch() {
           buttons: dispatchType === "buttons" ? activeButtons as any : null,
           carousel_cards: dispatchType === "carousel" ? serializeCarouselCards(touchedCards) as any : null,
           device_id: selectedDevice, status: "processing", total_contacts: selectedGroups.length,
+          started_at: startedAt,
           min_delay_seconds: minDelay, max_delay_seconds: maxDelay,
           pause_every_min: pauseEveryMin, pause_every_max: pauseEveryMax,
           pause_duration_min: pauseDurationMin, pause_duration_max: pauseDurationMax,
@@ -365,6 +362,15 @@ export default function GroupCarouselDispatch() {
         })) as any,
       );
       if (targetsErr) throw targetsErr;
+
+      const campaignRoute = `/dashboard/campaign/${campaign.id}`;
+      toast.success("Campanha iniciada!", {
+        description: "Você já pode acompanhar os envios na tela da campanha.",
+        action: { label: "Abrir campanha", onClick: () => navigate(campaignRoute) },
+        duration: 8000,
+      });
+      navigate(campaignRoute);
+      await wait(0);
     } catch (err: any) {
       if (campaignId) {
         await supabase.from("campaigns").update({
