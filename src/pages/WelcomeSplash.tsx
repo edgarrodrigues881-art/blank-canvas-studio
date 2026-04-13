@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import logo from "@/assets/dg-contingencia-avatar.png";
+import logo from "@/assets/dg-contingencia-pro-logo.jpeg";
 
 const WelcomeSplash = () => {
   const navigate = useNavigate();
@@ -22,7 +22,8 @@ const WelcomeSplash = () => {
     <AnimatePresence>
       {phase < 4 && (
         <motion.div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-background"
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          style={{ background: "#0c0c0c" }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.4 }}
         >
@@ -68,7 +69,7 @@ const WelcomeSplash = () => {
                 padding: '2px',
                 background: 'linear-gradient(135deg, #fbbf24, #f59e0b, #d97706, #fbbf24)',
               }}>
-                <div className="w-full h-full rounded-[14px] overflow-hidden bg-background">
+                <div className="w-full h-full rounded-[14px] overflow-hidden" style={{ background: "#0c0c0c" }}>
                   <img
                     src={logo}
                     alt="DG Contingência Pro"
@@ -86,15 +87,15 @@ const WelcomeSplash = () => {
               transition={{ duration: 0.5, delay: 0.1 }}
             >
               <h1
-                className="text-2xl sm:text-5xl font-black tracking-tight text-center text-black dark:text-foreground"
+                className="text-2xl sm:text-5xl font-black tracking-tight text-center text-white/90"
                 style={{ fontFamily: "'Space Grotesk', sans-serif" }}
               >
-                <span className="text-primary">DG</span>{" "}
+                <span style={{ color: "#2d8c3c" }}>DG</span>{" "}
                 CONTINGÊNCIA{" "}
-                <span className="text-primary">PRO</span>
+                <span style={{ color: "#2d8c3c" }}>PRO</span>
               </h1>
               <motion.span
-                className="text-[10px] sm:text-xs tracking-[0.4em] uppercase text-slate-600 dark:text-muted-foreground/40 font-bold"
+                className="text-[10px] sm:text-xs tracking-[0.4em] uppercase text-white/25 font-bold"
                 style={{ willChange: "opacity" }}
                 initial={{ opacity: 0 }}
                 animate={phase >= 3 ? { opacity: 1 } : undefined}
