@@ -69,7 +69,7 @@ const WelcomeSplash = () => {
                 padding: '2px',
                 background: 'linear-gradient(135deg, #fbbf24, #f59e0b, #d97706, #fbbf24)',
               }}>
-                <div className="w-full h-full rounded-[14px] overflow-hidden bg-background">
+                <div className="w-full h-full rounded-[14px] overflow-hidden" style={{ background: "#0c0c0c" }}>
                   <img
                     src={logo}
                     alt="DG Contingência Pro"
