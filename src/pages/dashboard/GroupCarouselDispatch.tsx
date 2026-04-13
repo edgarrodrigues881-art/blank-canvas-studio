@@ -902,7 +902,7 @@ export default function GroupCarouselDispatch() {
                 {dispatchType === "carousel" ? (
                   <CarouselPreview cards={cards} message={carouselMessage} />
                 ) : (
-                  {renderWhatsAppPreview()}
+                  renderWhatsAppPreview()
                 )}
               </div>
             </div>
@@ -1350,7 +1350,7 @@ export default function GroupCarouselDispatch() {
                 {dispatchType === "carousel" ? (
                   <CarouselPreview cards={cards} message={carouselMessage} />
                 ) : (
-                  <WhatsAppPreview />
+                  renderWhatsAppPreview()
                 )}
               </div>
             </div>
