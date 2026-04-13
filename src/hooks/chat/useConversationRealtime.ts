@@ -45,6 +45,14 @@ export function useConversationRealtime({
     const isInternalConversation = (row: any) =>
       isOwnDevice(row.phone) || isOwnDevice(row.remote_jid?.split("@")[0]);
 
+    const moveRowToArchived = (row: any) => {
+      if (row.status !== "archived") {
+        supabase.from("conversations").update({ status: "archived" } as any).eq("id", row.id).then(() => {});
+      }
+      setConversations((prev) => prev.filter((c) => c.id !== row.id));
+      setArchivedConversations((prev) => upsertConversationInState(prev.filter((c) => c.id !== row.id), { ...row, status: "archived" }));
+    };
+
     const channel = supabase
       .channel(`conv-list-rt-${Date.now()}`)
       .on(
@@ -52,13 +60,11 @@ export function useConversationRealtime({
         { event: "INSERT", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
         (payload) => {
           const row = payload.new as any;
-          if (isInternalConversation(row)) {
-            // Auto-archive warmup conversations instead of hiding
-            supabase.from("conversations").update({ status: "archived" } as any).eq("id", row.id).then(() => {});
-            setConversations((prev) => prev.filter((c) => c.id !== row.id));
-            setArchivedConversations((prev) => upsertConversationInState(prev, row));
+          if (isInternalConversation(row) || row.status === "archived") {
+            moveRowToArchived(row);
             return;
           }
+          setArchivedConversations((prev) => prev.filter((c) => c.id !== row.id));
           setConversations((prev) => upsertConversationInState(prev.filter((c) => c.id !== row.id), row));
         }
       )
@@ -67,20 +73,12 @@ export function useConversationRealtime({
         { event: "UPDATE", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
         (payload) => {
           const row = payload.new as any;
-          if (isInternalConversation(row)) {
-            // If it's already archived, just update in archived list
-            if (row.status === "archived") {
-              setConversations((prev) => prev.filter((c) => c.id !== row.id));
-              setArchivedConversations((prev) => upsertConversationInState(prev.filter((c) => c.id !== row.id), row));
-              return;
-            }
-            // If user unarchived it, let it stay in active but re-archive on next message
-            // For now, auto-archive again
-            supabase.from("conversations").update({ status: "archived" } as any).eq("id", row.id).then(() => {});
-            setConversations((prev) => prev.filter((c) => c.id !== row.id));
-            setArchivedConversations((prev) => upsertConversationInState(prev, row));
+          if (isInternalConversation(row) || row.status === "archived") {
+            moveRowToArchived(row);
             return;
           }
+
+          setArchivedConversations((prev) => prev.filter((c) => c.id !== row.id));
           setConversations((prev) => {
             const exists = prev.some((c) => c.id === row.id);
             const isSelectedConversation = row.id === selectedConvIdRef.current;
@@ -120,6 +118,7 @@ export function useConversationRealtime({
                   updated_at: row.updated_at ?? c.updated_at,
                   last_message_direction: row.last_message_direction ?? c.last_message_direction,
                   last_message_status: row.last_message_status ?? c.last_message_status,
+                  status: row.status ?? c.status,
                 };
               })
             );
