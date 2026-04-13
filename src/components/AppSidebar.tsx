@@ -40,6 +40,7 @@ import {
   BarChart3,
   Download,
   Link2,
+  PlayCircle,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -578,7 +579,7 @@ export function AppSidebar() {
                 );
               })()}
               {renderNavItem({ title: "Comunidade", url: "/dashboard/community", icon: UsersRound })}
-              
+              {renderNavItem({ title: "Tutoriais", url: "/dashboard/tutorials", icon: PlayCircle })}
               {renderNavItem({ title: "Ajuda", url: "/dashboard/custom-module", icon: HelpCircle })}
             </SidebarMenu>
           </SidebarGroupContent>
