@@ -368,30 +368,46 @@ const AISettings = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Sparkles className="h-5 w-5 text-primary" />
+            <Sparkles className="h-5 w-5 text-primary" strokeWidth={1.5} />
           </div>
           <div>
             <h1 className="text-xl font-bold text-foreground">Inteligência Artificial</h1>
             <p className="text-sm text-muted-foreground">Configure o atendimento automático com IA</p>
           </div>
         </div>
-        <Button size="sm" onClick={handleSave} disabled={saving} className="gap-2">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Salvar Configurações
+        <Button size="sm" onClick={handleSave} disabled={saving} className="gap-2 transition-all duration-200 hover:shadow-lg hover:scale-[1.02]">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" strokeWidth={1.5} />}
+          {iaActive ? "Salvar Alterações" : "Ativar IA"}
         </Button>
       </div>
 
-      {/* Toggle principal */}
-      <Card className={iaActive ? "border-primary/40 bg-primary/5" : ""}>
-        <CardContent className="flex items-center justify-between py-5 px-5">
-          <div className="flex items-center gap-3">
-            <Bot className="h-5 w-5 text-primary" />
-            <div>
-              <p className="font-semibold text-foreground">IA Ativa</p>
-              <p className="text-xs text-muted-foreground">A IA responderá automaticamente os clientes</p>
+      {/* Toggle principal + Status */}
+      <Card className={`transition-all duration-300 ${iaActive ? "border-primary/40 bg-primary/5 shadow-[0_0_20px_-5px_hsl(var(--primary)/0.15)]" : "border-border/50"}`}>
+        <CardContent className="py-4 px-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`h-9 w-9 rounded-lg flex items-center justify-center transition-all duration-300 ${iaActive ? "bg-primary/15" : "bg-muted/50"}`}>
+                <Bot className={`h-5 w-5 transition-colors duration-300 ${iaActive ? "text-primary" : "text-muted-foreground"}`} strokeWidth={1.5} />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground text-sm">IA Ativa</p>
+                <p className="text-xs text-muted-foreground">Respostas automáticas para seus clientes</p>
+              </div>
             </div>
+            <Switch checked={iaActive} onCheckedChange={setIaActive} />
           </div>
-          <Switch checked={iaActive} onCheckedChange={setIaActive} />
+          {iaActive && apiKeyStatus === "valid" && (
+            <div className="mt-3 pt-3 border-t border-primary/10 flex items-center gap-2 animate-fade-in">
+              <Circle className="h-2.5 w-2.5 fill-emerald-400 text-emerald-400 animate-pulse" />
+              <span className="text-xs font-medium text-emerald-400">IA pronta para responder clientes</span>
+            </div>
+          )}
+          {iaActive && apiKeyStatus !== "valid" && (
+            <div className="mt-3 pt-3 border-t border-border/30 flex items-center gap-2 animate-fade-in">
+              <Circle className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+              <span className="text-xs font-medium text-amber-400">Configure a chave de API para ativar</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
