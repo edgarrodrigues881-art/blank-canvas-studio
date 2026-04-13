@@ -939,12 +939,6 @@ export default function GroupCarouselDispatch() {
               />
             </SurfaceCard>
 
-            {/* Next */}
-            <div className="flex justify-end">
-              <Button onClick={() => setStep(2)} className="px-8">
-                Próximo <Send className="ml-2 w-4 h-4" />
-              </Button>
-            </div>
           </div>
         )}
 
