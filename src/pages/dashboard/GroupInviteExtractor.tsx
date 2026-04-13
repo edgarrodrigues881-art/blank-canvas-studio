@@ -33,6 +33,17 @@ interface ExtractedLink {
   };
 }
 
+function isPermissionDeniedResult(result: ExtractedLink) {
+  return result.diagnostics?.error_stage === "permission_denied"
+    || (result.error || "").toLowerCase().includes("sem permissão")
+    || (result.error || "").toLowerCase().includes("uazapi bloqueou");
+}
+
+function isRateLimitedResult(result: ExtractedLink) {
+  return result.diagnostics?.error_stage === "rate_limited"
+    || (result.error || "").toLowerCase().includes("limite temporário da uazapi");
+}
+
 export default function GroupInviteExtractor() {
   const [selectedDevice, setSelectedDevice] = useState("");
   const [groups, setGroups] = useState<GroupInfo[]>([]);
@@ -67,11 +78,11 @@ export default function GroupInviteExtractor() {
   const successLinks = useMemo(() => results.filter((r) => r.link), [results]);
   const failedLinks = useMemo(() => results.filter((r) => !r.link), [results]);
   const permissionDeniedCount = useMemo(
-    () => failedLinks.filter((r) => (r.error || "").toLowerCase().includes("sem permissão")).length,
+    () => failedLinks.filter((r) => isPermissionDeniedResult(r)).length,
     [failedLinks],
   );
   const rateLimitedCount = useMemo(
-    () => failedLinks.filter((r) => (r.error || "").toLowerCase().includes("limite temporário da uazapi")).length,
+    () => failedLinks.filter((r) => isRateLimitedResult(r)).length,
     [failedLinks],
   );
   const otherFailedCount = failedLinks.length - permissionDeniedCount - rateLimitedCount;
@@ -131,10 +142,10 @@ export default function GroupInviteExtractor() {
       const ok = nextResults.filter((r: ExtractedLink) => r.link).length;
       const failed = items.length - ok;
       const permissionDenied = nextResults.filter(
-        (r: ExtractedLink) => !r.link && (r.error || "").toLowerCase().includes("sem permissão"),
+        (r: ExtractedLink) => !r.link && isPermissionDeniedResult(r),
       ).length;
       const rateLimited = nextResults.filter(
-        (r: ExtractedLink) => !r.link && (r.error || "").toLowerCase().includes("limite temporário da uazapi"),
+        (r: ExtractedLink) => !r.link && isRateLimitedResult(r),
       ).length;
       const otherErrors = failed - permissionDenied - rateLimited;
       const failureParts = [
