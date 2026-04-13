@@ -217,35 +217,63 @@ const Auth = () => {
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Signup-only fields */}
+              {!isLogin && (
+                <>
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Nome completo"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                      maxLength={100}
+                      className="w-full h-12 px-4 rounded-xl text-sm text-white placeholder:text-white/30 outline-none transition-all duration-150 focus:ring-2 focus:ring-white/10"
+                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+                    />
+                  </div>
+                </>
+              )}
+
               <div>
                 <input
-                  type="text"
-                  placeholder="E-mail ou telefone"
+                  type={isLogin ? "text" : "email"}
+                  placeholder={isLogin ? "E-mail ou telefone" : "E-mail"}
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setResolvedLoginEmail(null); }}
                   required
                   maxLength={255}
                   className="w-full h-12 px-4 rounded-xl text-sm text-white placeholder:text-white/30 outline-none transition-all duration-150 focus:ring-2 focus:ring-white/10"
-                  style={{
-                    background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                  }}
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
                 />
               </div>
+
+              {!isLogin && (
+                <div>
+                  <input
+                    type="tel"
+                    placeholder="Número de telefone"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    required
+                    maxLength={20}
+                    className="w-full h-12 px-4 rounded-xl text-sm text-white placeholder:text-white/30 outline-none transition-all duration-150 focus:ring-2 focus:ring-white/10"
+                    style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+                  />
+                  <p className="text-[10px] text-white/25 mt-1.5 ml-1">Coloque um número válido com DDD</p>
+                </div>
+              )}
 
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
-                  placeholder="Senha"
+                  placeholder={isLogin ? "Senha" : "Senha (mínimo 8 caracteres)"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={8}
                   className="w-full h-12 px-4 pr-11 rounded-xl text-sm text-white placeholder:text-white/30 outline-none transition-all duration-150 focus:ring-2 focus:ring-white/10"
-                  style={{
-                    background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                  }}
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
                 />
                 <button
                   type="button"
@@ -256,22 +284,24 @@ const Auth = () => {
                 </button>
               </div>
 
-              {/* Remember me */}
-              <label className="flex items-center gap-2 cursor-pointer select-none group">
-                <div className="relative">
-                  <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="peer sr-only" />
-                  <div className="w-3.5 h-3.5 rounded border border-white/10 bg-white/[0.03] peer-checked:bg-white peer-checked:border-white transition-all flex items-center justify-center">
-                    {rememberMe && (
-                      <svg className="w-2 h-2 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
+              {/* Remember me (login only) */}
+              {isLogin && (
+                <label className="flex items-center gap-2 cursor-pointer select-none group">
+                  <div className="relative">
+                    <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="peer sr-only" />
+                    <div className="w-3.5 h-3.5 rounded border border-white/10 bg-white/[0.03] peer-checked:bg-white peer-checked:border-white transition-all flex items-center justify-center">
+                      {rememberMe && (
+                        <svg className="w-2 h-2 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <span className="text-[11px] text-white/30 group-hover:text-white/50 transition-colors">Manter conectado</span>
-              </label>
+                  <span className="text-[11px] text-white/30 group-hover:text-white/50 transition-colors">Manter conectado</span>
+                </label>
+              )}
 
-              {/* Sign in button */}
+              {/* Submit button */}
               <button
                 type="submit"
                 disabled={loading}
@@ -285,12 +315,12 @@ const Auth = () => {
                 {loading ? (
                   <div className="h-4 w-4 mx-auto animate-spin rounded-full border-2 border-white border-t-transparent" />
                 ) : (
-                  "Entrar"
+                  isLogin ? "Entrar" : "Criar conta"
                 )}
               </button>
 
               {/* Resend confirmation */}
-              {showResendConfirm && (
+              {showResendConfirm && isLogin && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
@@ -310,15 +340,17 @@ const Auth = () => {
             {/* Divider */}
             <div className="my-5 h-[1px]" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)" }} />
 
-            {/* Signup link */}
+            {/* Toggle login/signup */}
             <div className="text-center">
-              <p className="text-[12px] text-white/25 mb-2.5">Não tem conta?</p>
+              <p className="text-[12px] text-white/25 mb-2.5">
+                {isLogin ? "Não tem conta?" : "Já tem conta?"}
+              </p>
               <button
-                onClick={() => navigate("/auth?mode=signup")}
+                onClick={() => setIsLogin(!isLogin)}
                 className="w-full py-2.5 rounded-xl text-[13px] font-semibold border transition-all duration-150 hover:bg-white/[0.03] text-white/60 hover:text-white/80"
                 style={{ borderColor: "rgba(255,255,255,0.08)" }}
               >
-                Criar conta gratuita
+                {isLogin ? "Criar conta gratuita" : "Fazer login"}
               </button>
             </div>
           </div>
