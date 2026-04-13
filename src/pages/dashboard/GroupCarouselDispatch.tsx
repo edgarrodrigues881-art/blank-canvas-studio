@@ -8,6 +8,7 @@ import {
   ArrowUp, ArrowDown, Pencil, Eye,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTemplates } from "@/hooks/useTemplates";
 import { cn } from "@/lib/utils";
 
 import { useAuth } from "@/lib/auth";
@@ -187,7 +188,9 @@ export default function GroupCarouselDispatch() {
   const [emojiCategory, setEmojiCategory] = useState<string>("Mais usados");
   const [buttonAddedFlash, setButtonAddedFlash] = useState(false);
   const [previewMode, setPreviewMode] = useState<"sent" | "received">("sent");
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("nova");
 
+  const { data: savedTemplates = [] } = useTemplates();
   const isAllowed = user?.email === ALLOWED_EMAIL;
 
   useEffect(() => {
@@ -807,6 +810,39 @@ export default function GroupCarouselDispatch() {
             {/* Template + Mídia + Botões (below editor, hidden in carousel mode) */}
             {dispatchType !== "carousel" && (
               <div className="space-y-5">
+                {/* Modelo Base */}
+                <SurfaceCard className="p-5 space-y-3">
+                  <SectionLabel>Modelo Base</SectionLabel>
+                  <Select value={selectedTemplate} onValueChange={(val) => {
+                    setSelectedTemplate(val);
+                    if (val !== "nova") {
+                      const tmpl = savedTemplates.find(t => t.id === val);
+                      if (tmpl) {
+                        setMessage(tmpl.content || "");
+                        setMediaUrl(tmpl.media_url || "");
+                        setMediaFileName(tmpl.media_url ? "Mídia do template" : "");
+                        const tmplButtons = Array.isArray(tmpl.buttons) && tmpl.buttons.length > 0
+                          ? tmpl.buttons.map((b: any, i: number) => ({ id: Date.now() + i, type: b.type || "reply", text: b.text || "", value: b.value || "" }))
+                          : [{ id: Date.now(), type: "reply" as const, text: "", value: "" }];
+                        setButtons(tmplButtons);
+                      }
+                    } else {
+                      setMessage("");
+                      setMediaUrl("");
+                      setMediaFileName("");
+                      setButtons([{ id: Date.now(), type: "reply" as const, text: "", value: "" }]);
+                    }
+                  }}>
+                    <SelectTrigger className="h-11 text-sm font-medium bg-background/50 dark:bg-muted/20 border-border/30 hover:border-primary/40 transition-colors">
+                      <SelectValue placeholder="Campanha Padrão" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover border-border z-50">
+                      <SelectItem value="nova">Campanha Padrão</SelectItem>
+                      {savedTemplates.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </SurfaceCard>
+
                 {/* Mídia */}
                 <SurfaceCard className="p-5 space-y-3">
                   <SectionLabel>Mídia</SectionLabel>
