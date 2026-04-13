@@ -18,6 +18,7 @@ interface GroupInfo {
   jid: string;
   name: string;
   participants_count: number;
+  cached_invite_link?: string;
 }
 
 interface ExtractedLink {
@@ -98,7 +99,11 @@ export default function GroupInviteExtractor() {
       if ((data.groups?.length || 0) === 0) {
         toast.warning("Nenhum grupo encontrado nesta instância");
       } else {
-        toast.success(`${data.groups.length} grupos encontrados`);
+        const cachedCount = (data.groups || []).filter((g: GroupInfo) => g.cached_invite_link).length;
+        const msg = cachedCount > 0
+          ? `${data.groups.length} grupos encontrados (${cachedCount} com link pré-carregado)`
+          : `${data.groups.length} grupos encontrados`;
+        toast.success(msg);
       }
     } catch (e: any) {
       toast.error(e?.message || "Erro ao carregar grupos");
