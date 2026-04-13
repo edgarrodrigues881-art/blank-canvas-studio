@@ -1005,12 +1005,6 @@ export default function GroupCarouselDispatch() {
               )}
             </SurfaceCard>
 
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep(1)}>Voltar</Button>
-              <Button onClick={() => setStep(3)} className="px-8">
-                Próximo <Send className="ml-2 w-4 h-4" />
-              </Button>
-            </div>
           </div>
         )}
 
