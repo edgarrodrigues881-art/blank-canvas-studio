@@ -207,6 +207,7 @@ const AISettings = () => {
   const [settingsExist, setSettingsExist] = useState(false);
   const [leads, setLeads] = useState<LeadMemory[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(false);
+  const [aiMessagesToday, setAiMessagesToday] = useState(0);
 
   // Load settings from DB
   useEffect(() => {
