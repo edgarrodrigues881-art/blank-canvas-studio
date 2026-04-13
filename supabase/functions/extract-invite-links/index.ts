@@ -95,6 +95,52 @@ function getRetryDelay(attemptIndex: number): number {
   return delay + Math.floor(Math.random() * RATE_LIMIT_JITTER_MS);
 }
 
+function normalizeGroupName(value: string | null | undefined): string {
+  return String(value ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getGroupNameCacheKey(name: string | null | undefined): string {
+  const normalized = normalizeGroupName(name);
+  return normalized ? `name:${normalized}` : "";
+}
+
+function addInviteToCache(
+  cache: Map<string, string>,
+  jid: string | null | undefined,
+  name: string | null | undefined,
+  rawLink: string | null | undefined,
+) {
+  const normalizedLink = parseInviteLinkFromRaw(String(rawLink ?? ""));
+  if (!normalizedLink) return;
+
+  const safeJid = String(jid ?? "").trim();
+  if (safeJid.includes("@g.us") && !cache.has(safeJid)) {
+    cache.set(safeJid, normalizedLink);
+  }
+
+  const nameKey = getGroupNameCacheKey(name);
+  if (nameKey && !cache.has(nameKey)) {
+    cache.set(nameKey, normalizedLink);
+  }
+}
+
+function getCachedInviteLink(
+  cache: Map<string, string>,
+  jid: string | null | undefined,
+  name: string | null | undefined,
+): string | undefined {
+  const safeJid = String(jid ?? "").trim();
+  if (safeJid && cache.has(safeJid)) return cache.get(safeJid);
+
+  const nameKey = getGroupNameCacheKey(name);
+  return nameKey ? cache.get(nameKey) : undefined;
+}
+
 /* ─── Invite code extraction from any JSON ─────────────── */
 
 function findInviteCode(obj: any, depth = 0): string | null {
@@ -159,6 +205,68 @@ function extractInviteFromGroupObject(g: any): string | null {
     }
   }
   return null;
+}
+
+async function fetchStoredInviteCache(
+  serviceClient: any,
+  userId: string,
+  groups: Array<{ jid?: string | null; name?: string | null }>,
+): Promise<Map<string, string>> {
+  const cache = new Map<string, string>();
+  const groupJids = Array.from(new Set(groups
+    .map((group) => String(group?.jid ?? "").trim())
+    .filter((jid) => jid.includes("@g.us"))));
+  const groupNames = Array.from(new Set(groups
+    .map((group) => String(group?.name ?? "").trim())
+    .filter(Boolean)));
+
+  if (groupJids.length === 0 && groupNames.length === 0) return cache;
+
+  const emptyResult = Promise.resolve({ data: [] as any[] });
+  const [instanceByJid, instanceByName, warmupByName] = await Promise.all([
+    groupJids.length > 0
+      ? serviceClient
+          .from("warmup_instance_groups")
+          .select("group_jid, group_name, invite_link, updated_at")
+          .eq("user_id", userId)
+          .not("invite_link", "is", null)
+          .in("group_jid", groupJids)
+          .order("updated_at", { ascending: false })
+      : emptyResult,
+    groupNames.length > 0
+      ? serviceClient
+          .from("warmup_instance_groups")
+          .select("group_jid, group_name, invite_link, updated_at")
+          .eq("user_id", userId)
+          .not("invite_link", "is", null)
+          .in("group_name", groupNames)
+          .order("updated_at", { ascending: false })
+      : emptyResult,
+    groupNames.length > 0
+      ? serviceClient
+          .from("warmup_groups")
+          .select("name, link, user_id, updated_at")
+          .not("link", "is", null)
+          .in("name", groupNames)
+          .or(`user_id.eq.${userId},user_id.is.null`)
+          .order("updated_at", { ascending: false })
+      : emptyResult,
+  ]);
+
+  for (const row of instanceByJid.data ?? []) {
+    addInviteToCache(cache, row.group_jid, row.group_name, row.invite_link);
+  }
+
+  for (const row of instanceByName.data ?? []) {
+    addInviteToCache(cache, row.group_jid, row.group_name, row.invite_link);
+  }
+
+  for (const row of warmupByName.data ?? []) {
+    addInviteToCache(cache, null, row.name, row.link);
+  }
+
+  console.log(`[stored_invites] Found ${cache.size} historical invite cache entr${cache.size === 1 ? "y" : "ies"}`);
+  return cache;
 }
 
 /* ─── Group listing (also captures pre-existing invite links) ── */
@@ -342,7 +450,7 @@ async function fetchInviteCode(
   if (hitPermissionDenied) {
     return {
       ok: false, link: null,
-      error: "Essa instância não é admin do grupo. Tentamos rotas alternativas, mas nenhuma retornou o link.",
+      error: "A UAZAPI bloqueou a leitura do link atual desse grupo e não havia um link válido salvo no histórico.",
       diagnostics: { error_stage: "permission_denied", provider_message: lastError, processing_time_ms: elapsed },
     };
   }
@@ -392,8 +500,17 @@ Deno.serve(async (req) => {
     /* ── list_groups ─────────────────────────────────── */
     if (action === "list_groups") {
       const { groups, inviteCache } = await fetchGroupsList(baseUrl, token);
-      console.log(`[list_groups] ${groups.length} groups, ${inviteCache.size} cached invite links`);
-      return new Response(JSON.stringify({ groups }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const storedInviteCache = await fetchStoredInviteCache(serviceClient, user.id, groups);
+      const mergedGroups = groups.map((group) => {
+        const historicalLink = getCachedInviteLink(storedInviteCache, group.jid, group.name);
+        return {
+          ...group,
+          cached_invite_link: group.cached_invite_link || historicalLink,
+        };
+      });
+      const cachedCount = mergedGroups.filter((group) => group.cached_invite_link).length;
+      console.log(`[list_groups] ${groups.length} groups, ${cachedCount} cached invite links (${storedInviteCache.size} from history)`);
+      return new Response(JSON.stringify({ groups: mergedGroups }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     /* ── extract_links ───────────────────────────────── */
@@ -406,7 +523,15 @@ Deno.serve(async (req) => {
 
       // Pre-fetch group list to get cached invite links
       const { inviteCache } = await fetchGroupsList(baseUrl, token);
-      console.log(`[extract] Pre-cached ${inviteCache.size} invite links from group listing`);
+      const selectedGroupsMeta = group_jids.map((item: any) => ({
+        jid: typeof item === "string" ? item : item?.jid,
+        name: typeof item === "string" ? "" : item?.name || "",
+      }));
+      const storedInviteCache = await fetchStoredInviteCache(serviceClient, user.id, selectedGroupsMeta);
+      for (const [key, value] of storedInviteCache.entries()) {
+        if (!inviteCache.has(key)) inviteCache.set(key, value);
+      }
+      console.log(`[extract] Pre-cached ${inviteCache.size} invite links from group listing + history`);
 
       const results: Array<{ jid: string; name: string; link: string | null; error?: string; diagnostics?: InviteDiagnostics }> = [];
       const failedQueue: Array<{ idx: number; jid: string; name: string; reason: string }> = [];
@@ -414,7 +539,7 @@ Deno.serve(async (req) => {
       for (const [index, item] of group_jids.entries()) {
         const jid = typeof item === "string" ? item : item?.jid;
         const name = typeof item === "string" ? "" : item?.name || "";
-        const cached = inviteCache.get(jid);
+        const cached = getCachedInviteLink(inviteCache, jid, name);
 
         try {
           const result = await fetchInviteCode(baseUrl, token, jid, cached);
