@@ -334,20 +334,29 @@ const AISettings = () => {
       const { data, error } = await supabase.functions.invoke("ai-learning-engine", {
         body: { action: "analyze" },
       });
-      if (error) throw error;
-      if (data?.error === "minimum_data") {
-        toast.error("Mínimo de 3 conversas necessárias para análise.");
-        return;
-      }
-      if (data?.error === "rate_limited") {
-        toast.error("Limite de requisições excedido, tente novamente em alguns segundos.");
+      if (error) {
+        // Try to parse error response body
+        try {
+          const errBody = JSON.parse((error as any)?.context?.body || "{}");
+          if (errBody.error === "minimum_data") {
+            toast.error("Mínimo de 3 conversas necessárias para análise.");
+            return;
+          }
+          if (errBody.error === "rate_limited") {
+            toast.error("Limite de requisições excedido, tente novamente.");
+            return;
+          }
+          toast.error(errBody.message || "Erro na análise");
+        } catch {
+          toast.error("Erro ao analisar conversas. Precisa de pelo menos 3 leads com interações.");
+        }
         return;
       }
       if (data?.error) {
-        toast.error(data.message || "Erro na análise");
+        toast.error(data.message || data.error);
         return;
       }
-      setLearningInsights(data.insights);
+      setLearningInsights(data.insights || data);
       toast.success("Análise concluída! Insights gerados com sucesso.");
     } catch (err: any) {
       toast.error("Erro ao analisar conversas");
