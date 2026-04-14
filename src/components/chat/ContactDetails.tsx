@@ -82,6 +82,8 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesDraft, setNotesDraft] = useState(notes);
   const [isEditing, setIsEditing] = useState(false);
+  const [leadTemp, setLeadTemp] = useState<LeadTemperature>(conversation.leadTemperature || "frio");
+  const [aiInterest, setAiInterest] = useState<string | null>(conversation.aiInterest || null);
   const [editForm, setEditForm] = useState<EditFormData>({
     name: conversation.name,
     phone: conversation.phone,
@@ -91,9 +93,28 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     observations: "",
   });
 
+  // Fetch AI lead memory for this conversation
+  useEffect(() => {
+    if (!conversation.phone) return;
+    const digits = conversation.phone.replace(/\D/g, "");
+    supabase
+      .from("ai_lead_memory")
+      .select("interest, stage")
+      .like("remote_jid", `%${digits.slice(-8)}%`)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.interest) setAiInterest(data.interest);
+        if (data?.stage === "quente") setLeadTemp("quente");
+        else if (data?.stage === "morno") setLeadTemp("morno");
+      });
+  }, [conversation.phone]);
+
   // Reset edit form when conversation changes
   useEffect(() => {
     setIsEditing(false);
+    setLeadTemp(conversation.leadTemperature || "frio");
+    setAiInterest(conversation.aiInterest || null);
     setEditForm({
       name: conversation.name,
       phone: conversation.phone,
