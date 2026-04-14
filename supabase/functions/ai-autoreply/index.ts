@@ -228,6 +228,17 @@ Deno.serve(async (req) => {
       ``,
       flowSteps ? `MENSAGENS-BASE POR ETAPA:\n${flowSteps}` : "",
       ``,
+      `DETECÇÃO DE AGENDAMENTO:`,
+      `Se o cliente concordar com uma data/hora para reunião, retorno ou follow-up, extraia os dados.`,
+      `Inclua no final da resposta: <!--SCHEDULE:{"date":"YYYY-MM-DD","time":"HH:mm","type":"reuniao|followup|retorno","summary":"descrição curta"}-->`,
+      `- "date": data combinada no formato YYYY-MM-DD. Se o cliente disser "amanhã", calcule a data real.`,
+      `- "time": horário combinado no formato HH:mm (24h). Se não especificar, use 09:00.`,
+      `- "type": reuniao (encontro/call), followup (acompanhamento), retorno (ligar de volta).`,
+      `- "summary": breve descrição do compromisso.`,
+      `- A data de hoje é: ${new Date().toISOString().split("T")[0]}.`,
+      `- Só inclua <!--SCHEDULE:--> se o cliente CONFIRMAR uma data específica. Não agende por suposição.`,
+      `- Após agendar, confirme a data/hora na sua resposta ao cliente de forma natural.`,
+      ``,
       `REGRAS IMPORTANTES:`,
       `- Responda de forma natural como um atendente humano`,
       `- Evite respostas longas demais`,
@@ -315,6 +326,80 @@ Deno.serve(async (req) => {
         console.error("Failed to parse lead update:", e);
       }
       aiReply = aiReply.replace(/<!--LEAD_UPDATE:.*?-->/s, "").trim();
+    }
+
+    // 9c. Extract and apply scheduling
+    const scheduleMatch = aiReply.match(/<!--SCHEDULE:(.*?)-->/s);
+    if (scheduleMatch) {
+      try {
+        const sched = JSON.parse(scheduleMatch[1]);
+        if (sched.date && sched.time) {
+          const scheduledAt = new Date(`${sched.date}T${sched.time}:00-03:00`); // BRT
+          const contactPhone = (remote_jid || "").replace(/@.*/, "").replace(/\D/g, "");
+          const schedType = sched.type || "reuniao";
+
+          // Find lead_id from service_contacts
+          let leadId: string | null = null;
+          if (phoneDigits) {
+            const { data: sc } = await admin
+              .from("service_contacts")
+              .select("id")
+              .eq("user_id", user_id)
+              .like("phone", `%${phoneDigits}%`)
+              .limit(1)
+              .maybeSingle();
+            leadId = sc?.id || null;
+          }
+
+          // Create the main schedule entry
+          await admin.from("scheduled_messages").insert({
+            user_id,
+            contact_name: leadMemory.contact_name || contact_name || contactPhone,
+            contact_phone: contactPhone,
+            message_content: sched.summary || `Agendamento: ${schedType}`,
+            scheduled_at: scheduledAt.toISOString(),
+            schedule_type: schedType,
+            lead_id: leadId,
+            device_id: device_id || null,
+            status: "pending",
+          });
+
+          // Create a reminder for 1 hour before
+          const reminderAt = new Date(scheduledAt.getTime() - 60 * 60 * 1000);
+          if (reminderAt > new Date()) {
+            const typeLabel = schedType === "reuniao" ? "reunião" : schedType === "retorno" ? "retorno" : "follow-up";
+            const reminderMsg = `Lembrete: você tem ${typeLabel === "reunião" ? "uma" : "um"} ${typeLabel} agendad${typeLabel === "reunião" ? "a" : "o"} para hoje às ${sched.time}. Nos vemos em breve! 😊`;
+            await admin.from("scheduled_messages").insert({
+              user_id,
+              contact_name: leadMemory.contact_name || contact_name || contactPhone,
+              contact_phone: contactPhone,
+              message_content: reminderMsg,
+              scheduled_at: reminderAt.toISOString(),
+              schedule_type: schedType,
+              lead_id: leadId,
+              device_id: device_id || null,
+              status: "pending",
+            });
+          }
+
+          // Update pipeline to "negociacao" or "fechado" when scheduling
+          if (phoneDigits) {
+            await admin.from("service_contacts").update({
+              pipeline_stage: "negociacao",
+              lead_temperature: "quente",
+            }).eq("user_id", user_id).like("phone", `%${phoneDigits}%`);
+            await admin.from("conversations").update({
+              pipeline_stage: "negociacao",
+              lead_temperature: "quente",
+            } as any).eq("id", conversation_id);
+          }
+
+          console.log(`Schedule created: ${schedType} at ${scheduledAt.toISOString()} for ${contactPhone}`);
+        }
+      } catch (e) {
+        console.error("Failed to parse schedule:", e);
+      }
+      aiReply = aiReply.replace(/<!--SCHEDULE:.*?-->/s, "").trim();
     }
 
     // 10. Apply delay (simulate typing)
