@@ -526,20 +526,95 @@ export default function Leads() {
       <Dialog open={tagDialogOpen} onOpenChange={setTagDialogOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Adicionar Tag</DialogTitle>
+            <DialogTitle>Gerenciar Tags</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-2">
+          <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">Lead: <strong>{tagTarget?.name}</strong></p>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {(tagTarget?.tags || []).map((t) => (
-                <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
-              ))}
+            
+            {/* Current tags */}
+            {(tagTarget?.tags || []).length > 0 && (
+              <div>
+                <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-1.5">Tags atuais</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(tagTarget?.tags || []).map((t) => (
+                    <Badge key={t} variant="secondary" className="text-xs gap-1.5">
+                      {t}
+                      <button onClick={async () => {
+                        if (!tagTarget) return;
+                        const updated = (tagTarget.tags || []).filter((x) => x !== t);
+                        await supabase.from("service_contacts").update({ tags: updated } as any).eq("id", tagTarget.id);
+                        setTagTarget({ ...tagTarget, tags: updated });
+                        fetchLeads();
+                      }} className="hover:text-destructive">
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Suggested tags */}
+            <div>
+              <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-1.5">Sugestões rápidas</p>
+              <div className="flex flex-wrap gap-1.5">
+                {["Interessado", "Sem resposta", "Follow-up", "Cliente", "VIP", "Urgente", "Negociação", "Retorno"].filter(
+                  (s) => !(tagTarget?.tags || []).includes(s)
+                ).map((suggested) => (
+                  <button
+                    key={suggested}
+                    onClick={async () => {
+                      if (!tagTarget) return;
+                      const updated = [...new Set([...(tagTarget.tags || []), suggested])];
+                      await supabase.from("service_contacts").update({ tags: updated } as any).eq("id", tagTarget.id);
+                      setTagTarget({ ...tagTarget, tags: updated });
+                      toast.success(`Tag "${suggested}" adicionada!`);
+                      fetchLeads();
+                    }}
+                    className="text-[11px] px-2 py-1 rounded-md border border-dashed border-border/60 text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-all"
+                  >
+                    + {suggested}
+                  </button>
+                ))}
+              </div>
             </div>
-            <Input value={newTag} onChange={(e) => setNewTag(e.target.value)} placeholder="Nome da tag..." onKeyDown={(e) => e.key === "Enter" && addTag()} />
+
+            {/* Existing tags from other leads */}
+            {allTags.filter((t) => !(tagTarget?.tags || []).includes(t) && !["Interessado", "Sem resposta", "Follow-up", "Cliente", "VIP", "Urgente", "Negociação", "Retorno"].includes(t)).length > 0 && (
+              <div>
+                <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-1.5">Tags existentes</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {allTags.filter((t) => !(tagTarget?.tags || []).includes(t) && !["Interessado", "Sem resposta", "Follow-up", "Cliente", "VIP", "Urgente", "Negociação", "Retorno"].includes(t)).map((existing) => (
+                    <button
+                      key={existing}
+                      onClick={async () => {
+                        if (!tagTarget) return;
+                        const updated = [...new Set([...(tagTarget.tags || []), existing])];
+                        await supabase.from("service_contacts").update({ tags: updated } as any).eq("id", tagTarget.id);
+                        setTagTarget({ ...tagTarget, tags: updated });
+                        toast.success(`Tag "${existing}" adicionada!`);
+                        fetchLeads();
+                      }}
+                      className="text-[11px] px-2 py-1 rounded-md border border-border/40 text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-all"
+                    >
+                      + {existing}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Custom tag input */}
+            <div>
+              <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-1.5">Tag personalizada</p>
+              <div className="flex gap-2">
+                <Input value={newTag} onChange={(e) => setNewTag(e.target.value)} placeholder="Nova tag..." onKeyDown={(e) => e.key === "Enter" && addTag()} className="flex-1" />
+                <Button size="sm" onClick={addTag} disabled={!newTag.trim()}>Adicionar</Button>
+              </div>
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTagDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={addTag} disabled={!newTag.trim()}>Adicionar</Button>
+            <Button variant="outline" onClick={() => setTagDialogOpen(false)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
