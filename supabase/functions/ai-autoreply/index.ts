@@ -60,6 +60,7 @@ Deno.serve(async (req) => {
       contact_name,
       message_content,
       media_type,
+      media_url,
     } = body;
 
     if (!user_id || !conversation_id) {
