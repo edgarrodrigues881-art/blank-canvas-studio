@@ -396,6 +396,7 @@ async function sendCaptionedMedia(baseUrl: string, token: string, phone: string,
     number: phone,
     file: mediaUrl,
     type: mediaType,
+    text: normalizedCaption,
     caption: normalizedCaption,
   };
 
