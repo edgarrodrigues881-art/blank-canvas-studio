@@ -81,7 +81,27 @@ Deno.serve(async (req) => {
       return json({ skipped: "no_api_key" });
     }
 
-    // 2. Check if a human is actively attending
+    // 2. Check if sender is a device in the system (warmup/internal number)
+    if (remote_jid) {
+      const senderDigits = remote_jid.replace(/@.*/, "").replace(/\D/g, "");
+      if (senderDigits.length >= 8) {
+        const last8 = senderDigits.slice(-8);
+        // Check with and without 9th digit variants
+        const { data: matchedDevice } = await admin
+          .from("devices")
+          .select("id")
+          .or(`number.like.%${last8}%`)
+          .limit(1)
+          .maybeSingle();
+
+        if (matchedDevice) {
+          console.log(`Skipping AI: sender ${senderDigits} is a registered device (warmup/internal)`);
+          return json({ skipped: "internal_device" });
+        }
+      }
+    }
+
+    // 3. Check if a human is actively attending
     const { data: conv } = await admin
       .from("conversations")
       .select("assigned_to, attending_status")
