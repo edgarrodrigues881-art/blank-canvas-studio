@@ -196,6 +196,26 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 5d. Load Knowledge Base documents
+    let kbContext = "";
+    {
+      const { data: kbDocs } = await admin
+        .from("ai_knowledge_base")
+        .select("title, doc_type, content")
+        .eq("user_id", user_id)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .limit(20);
+      if (kbDocs && kbDocs.length > 0) {
+        const kbParts = kbDocs
+          .filter((d: any) => d.content?.trim())
+          .map((d: any) => `[${d.title}]: ${d.content.substring(0, 2000)}`);
+        if (kbParts.length > 0) {
+          kbContext = `\nBASE DE CONHECIMENTO DA EMPRESA:\n${kbParts.join("\n\n")}`;
+        }
+      }
+    }
+
     // 6. Build conversation history for context
     let conversationHistory: { role: string; content: string }[] = [];
     if (settings.conversation_memory) {
@@ -247,6 +267,7 @@ Deno.serve(async (req) => {
       leadMemory.stage === "warm" ? `Este é um lead MORNO (${leadMemory.interaction_count} interações). Aprofunde o interesse e apresente benefícios.` : "",
       leadMemory.stage === "cold" ? `Este é um lead FRIO (primeiro contato ou poucas interações). Seja acolhedor e descubra a necessidade.` : "",
       crmContext,
+      kbContext,
       learningContext,
       `DETECÇÃO DE INTENÇÃO:`,
       `Antes de responder, analise a mensagem do cliente e classifique a intenção:`,
@@ -276,10 +297,13 @@ Deno.serve(async (req) => {
       `- Após agendar, confirme a data/hora na sua resposta ao cliente de forma natural.`,
       ``,
       `REGRAS IMPORTANTES:`,
-      `- Responda de forma natural como um atendente humano`,
-      `- Evite respostas longas demais`,
-      `- Se não souber a resposta, peça mais contexto`,
+      `- Responda EXATAMENTE como um humano real responde no WhatsApp: mensagens curtas, diretas, sem formalidade excessiva`,
+      `- NUNCA mande textos longos ou parágrafos enormes. Máximo 2-3 frases por mensagem`,
+      `- Use o nome do cliente SEMPRE que souber. Isso cria conexão`,
+      `- Seja persuasivo mas sutil. Não despeje informações, faça perguntas`,
+      `- Se não souber a resposta, peça mais contexto de forma natural`,
       `- Nunca invente informações sobre produtos, preços ou disponibilidade`,
+      `- Use a Base de Conhecimento para responder com precisão quando disponível`,
       `- Ao final da resposta, inclua: <!--LEAD_UPDATE:{"interest":"...","stage":"cold|warm|hot","intent":"curious|interested|ready_to_buy|objection","flow_step":"saudacao|diagnostico|apresentacao|objecao|fechamento","product_cited":"..."}-->`,
       settings.require_human_for_sale ? `- Para vendas, sugira que um atendente humano pode ajudar melhor` : "",
       settings.block_sensitive ? `- Nunca compartilhe dados sensíveis como CPF, senhas ou dados bancários` : "",

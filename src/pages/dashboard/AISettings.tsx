@@ -134,7 +134,15 @@ interface LeadMemory {
 }
 
 interface KnowledgeDoc {
-  id: string; title: string; type: string; fileName: string; active: boolean; addedAt: string;
+  id: string;
+  title: string;
+  doc_type: string;
+  content: string | null;
+  file_url: string | null;
+  file_name: string | null;
+  file_size: number;
+  is_active: boolean;
+  created_at: string;
 }
 
 const AISettings = () => {
@@ -206,6 +214,7 @@ const AISettings = () => {
   const [newDocTitle, setNewDocTitle] = useState("");
   const [newDocType, setNewDocType] = useState("pdf");
   const [newDocFile, setNewDocFile] = useState<File | null>(null);
+  const [newDocContent, setNewDocContent] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [settingsExist, setSettingsExist] = useState(false);
@@ -279,6 +288,20 @@ const AISettings = () => {
         .limit(50);
       if (data) setLeads(data as LeadMemory[]);
       setLoadingLeads(false);
+    })();
+  }, []);
+
+  // Load KB docs from database
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("ai_knowledge_base")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (data) setKnowledgeDocs(data as KnowledgeDoc[]);
     })();
   }, []);
 
@@ -650,34 +673,96 @@ const AISettings = () => {
     }, 800);
   };
 
-  const handleAddDoc = () => {
-    if (!newDocTitle.trim() || !newDocFile) {
-      toast.error("Preencha o título e selecione um arquivo");
+  const handleAddDoc = async () => {
+    if (!newDocTitle.trim()) {
+      toast.error("Preencha o título do documento");
       return;
     }
-    const doc: KnowledgeDoc = {
-      id: crypto.randomUUID(),
-      title: newDocTitle.trim(),
-      type: newDocType,
-      fileName: newDocFile.name,
-      active: true,
-      addedAt: new Date().toLocaleDateString("pt-BR"),
-    };
-    setKnowledgeDocs((prev) => [...prev, doc]);
-    setNewDocTitle("");
-    setNewDocType("pdf");
-    setNewDocFile(null);
-    setUploadModalOpen(false);
-    toast.success("Documento adicionado com sucesso!");
+    // For text/prompt type, content is required; for file types, file is required
+    if (newDocType === "prompt" || newDocType === "text") {
+      if (!newDocContent.trim()) {
+        toast.error("Preencha o conteúdo do documento");
+        return;
+      }
+    } else if (!newDocFile) {
+      toast.error("Selecione um arquivo");
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      let fileUrl: string | null = null;
+      let fileName: string | null = null;
+      let fileSize = 0;
+      let content: string | null = null;
+
+      if (newDocFile) {
+        fileName = newDocFile.name;
+        fileSize = newDocFile.size;
+        const filePath = `${user.id}/kb/${Date.now()}-${newDocFile.name}`;
+        const { error: uploadErr } = await supabase.storage.from("media").upload(filePath, newDocFile);
+        if (uploadErr) throw uploadErr;
+        const { data: urlData } = supabase.storage.from("media").getPublicUrl(filePath);
+        fileUrl = urlData.publicUrl;
+
+        // For text files, read content
+        if (newDocFile.type === "text/plain" || newDocFile.name.endsWith(".txt")) {
+          content = await newDocFile.text();
+        }
+      }
+
+      if (newDocType === "prompt" || newDocType === "text") {
+        content = newDocContent.trim();
+      }
+
+      const { data: inserted, error } = await supabase
+        .from("ai_knowledge_base")
+        .insert({
+          user_id: user.id,
+          title: newDocTitle.trim(),
+          doc_type: newDocType,
+          content,
+          file_url: fileUrl,
+          file_name: fileName,
+          file_size: fileSize,
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      setKnowledgeDocs((prev) => [inserted as KnowledgeDoc, ...prev]);
+      setNewDocTitle("");
+      setNewDocType("prompt");
+      setNewDocFile(null);
+      setNewDocContent("");
+      setUploadModalOpen(false);
+      toast.success("Documento adicionado!");
+    } catch (err: any) {
+      toast.error("Erro ao adicionar: " + (err.message || "Erro"));
+    }
   };
 
-  const toggleDocActive = (id: string) => {
-    setKnowledgeDocs((prev) => prev.map((d) => d.id === id ? { ...d, active: !d.active } : d));
+  const toggleDocActive = async (id: string) => {
+    const doc = knowledgeDocs.find((d) => d.id === id);
+    if (!doc) return;
+    const { error } = await supabase
+      .from("ai_knowledge_base")
+      .update({ is_active: !doc.is_active })
+      .eq("id", id);
+    if (!error) {
+      setKnowledgeDocs((prev) => prev.map((d) => d.id === id ? { ...d, is_active: !d.is_active } : d));
+    }
   };
 
-  const removeDoc = (id: string) => {
-    setKnowledgeDocs((prev) => prev.filter((d) => d.id !== id));
-    toast.success("Documento removido");
+  const removeDoc = async (id: string) => {
+    const { error } = await supabase.from("ai_knowledge_base").delete().eq("id", id);
+    if (!error) {
+      setKnowledgeDocs((prev) => prev.filter((d) => d.id !== id));
+      toast.success("Documento removido");
+    }
   };
 
   if (loading) {
@@ -1502,7 +1587,7 @@ const AISettings = () => {
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <File className="h-10 w-10 text-muted-foreground/40 mb-3" />
                   <p className="text-sm text-muted-foreground">Nenhum documento adicionado ainda</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">Adicione PDFs, TXTs ou DOCXs para a IA usar como referência</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">Adicione prompts, informações da empresa, PDFs, tabelas de preços e mais</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -1512,11 +1597,11 @@ const AISettings = () => {
                         <FileText className="h-4 w-4 text-primary shrink-0" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{doc.title}</p>
-                          <p className="text-xs text-muted-foreground">{doc.fileName} · {doc.type.toUpperCase()} · {doc.addedAt}</p>
+                          <p className="text-xs text-muted-foreground">{doc.file_name || doc.doc_type.toUpperCase()} · {doc.doc_type.toUpperCase()} · {new Date(doc.created_at).toLocaleDateString("pt-BR")}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <Button variant="ghost" size="icon" className={`h-7 w-7 ${doc.active ? "text-emerald-400" : "text-muted-foreground/40"}`} onClick={() => toggleDocActive(doc.id)} title={doc.active ? "Ativo" : "Inativo"}>
+                        <Button variant="ghost" size="icon" className={`h-7 w-7 ${doc.is_active ? "text-emerald-400" : "text-muted-foreground/40"}`} onClick={() => toggleDocActive(doc.id)} title={doc.is_active ? "Ativo" : "Inativo"}>
                           <Power className="h-3.5 w-3.5" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeDoc(doc.id)}>
@@ -1535,31 +1620,45 @@ const AISettings = () => {
       {/* Modal de Upload */}
       <Dialog open={uploadModalOpen} onOpenChange={setUploadModalOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Adicionar Documento</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Adicionar à Base de Conhecimento</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Título do documento</Label>
+              <Label>Título</Label>
               <Input value={newDocTitle} onChange={(e) => setNewDocTitle(e.target.value)} placeholder="Ex: Tabela de preços 2025" />
             </div>
             <div className="space-y-2">
-              <Label>Tipo de documento</Label>
+              <Label>Tipo</Label>
               <Select value={newDocType} onValueChange={setNewDocType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pdf">PDF</SelectItem>
-                  <SelectItem value="txt">TXT</SelectItem>
-                  <SelectItem value="docx">DOCX</SelectItem>
+                  <SelectItem value="prompt">📝 Prompt / Texto</SelectItem>
+                  <SelectItem value="product">📦 Produtos / Serviços</SelectItem>
+                  <SelectItem value="faq">❓ FAQ / Perguntas Frequentes</SelectItem>
+                  <SelectItem value="pdf">📄 PDF</SelectItem>
+                  <SelectItem value="txt">📄 TXT</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Arquivo</Label>
-              <input ref={fileInputRef} type="file" accept=".pdf,.txt,.docx" className="hidden" onChange={(e) => setNewDocFile(e.target.files?.[0] || null)} />
-              <Button variant="outline" className="w-full gap-2 justify-center" onClick={() => fileInputRef.current?.click()}>
-                <Upload className="h-4 w-4" />
-                {newDocFile ? newDocFile.name : "Selecionar arquivo"}
-              </Button>
-            </div>
+            {(newDocType === "prompt" || newDocType === "product" || newDocType === "faq" || newDocType === "text") ? (
+              <div className="space-y-2">
+                <Label>Conteúdo</Label>
+                <Textarea
+                  value={newDocContent}
+                  onChange={(e) => setNewDocContent(e.target.value)}
+                  placeholder={newDocType === "product" ? "Liste seus produtos, preços, detalhes..." : newDocType === "faq" ? "Pergunta: ...\nResposta: ..." : "Cole aqui o prompt, instruções ou informações da empresa..."}
+                  rows={6}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Arquivo</Label>
+                <input ref={fileInputRef} type="file" accept=".pdf,.txt,.docx,.csv,.xlsx" className="hidden" onChange={(e) => setNewDocFile(e.target.files?.[0] || null)} />
+                <Button variant="outline" className="w-full gap-2 justify-center" onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="h-4 w-4" />
+                  {newDocFile ? newDocFile.name : "Selecionar arquivo"}
+                </Button>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setUploadModalOpen(false)}>Cancelar</Button>

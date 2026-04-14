@@ -301,6 +301,51 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_knowledge_base: {
+        Row: {
+          content: string | null
+          created_at: string
+          doc_type: string
+          file_name: string | null
+          file_size: number | null
+          file_url: string | null
+          id: string
+          is_active: boolean
+          sort_order: number | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          doc_type?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          is_active?: boolean
+          sort_order?: number | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          doc_type?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          is_active?: boolean
+          sort_order?: number | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_lead_memory: {
         Row: {
           contact_name: string | null
