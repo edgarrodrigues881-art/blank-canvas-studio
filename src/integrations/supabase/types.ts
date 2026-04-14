@@ -349,6 +349,57 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_learning_insights: {
+        Row: {
+          analysis_type: string
+          best_openers: Json | null
+          closing_techniques: Json | null
+          confidence_score: number | null
+          created_at: string
+          evolved_prompt: string | null
+          failure_patterns: Json | null
+          id: string
+          insights_summary: string | null
+          objection_handlers: Json | null
+          successful_patterns: Json | null
+          total_conversations_analyzed: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_type?: string
+          best_openers?: Json | null
+          closing_techniques?: Json | null
+          confidence_score?: number | null
+          created_at?: string
+          evolved_prompt?: string | null
+          failure_patterns?: Json | null
+          id?: string
+          insights_summary?: string | null
+          objection_handlers?: Json | null
+          successful_patterns?: Json | null
+          total_conversations_analyzed?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis_type?: string
+          best_openers?: Json | null
+          closing_techniques?: Json | null
+          confidence_score?: number | null
+          created_at?: string
+          evolved_prompt?: string | null
+          failure_patterns?: Json | null
+          id?: string
+          insights_summary?: string | null
+          objection_handlers?: Json | null
+          successful_patterns?: Json | null
+          total_conversations_analyzed?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_settings: {
         Row: {
           ai_instructions: string | null
