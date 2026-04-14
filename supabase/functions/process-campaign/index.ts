@@ -545,11 +545,11 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
       // Step 2: Brief delay, then send ONLY buttons via /send/menu (no image header)
       await new Promise((r) => setTimeout(r, 800 + Math.random() * 700));
 
-      // Use the copy text again so buttons have context
+      // Keep the 2nd message minimal to avoid duplicating the full copy
       await uazapiRequest(baseUrl, token, "/send/menu", {
         number: phone,
         type: "button",
-        text,
+        text: "👇",
         choices,
       });
       console.log(JSON.stringify({ event: "split_image_buttons_success" }));
