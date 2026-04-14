@@ -1583,11 +1583,11 @@ const AISettings = () => {
                         <FileText className="h-4 w-4 text-primary shrink-0" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{doc.title}</p>
-                          <p className="text-xs text-muted-foreground">{doc.fileName} · {doc.type.toUpperCase()} · {doc.addedAt}</p>
+                          <p className="text-xs text-muted-foreground">{doc.file_name || doc.doc_type.toUpperCase()} · {doc.doc_type.toUpperCase()} · {new Date(doc.created_at).toLocaleDateString("pt-BR")}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <Button variant="ghost" size="icon" className={`h-7 w-7 ${doc.active ? "text-emerald-400" : "text-muted-foreground/40"}`} onClick={() => toggleDocActive(doc.id)} title={doc.active ? "Ativo" : "Inativo"}>
+                        <Button variant="ghost" size="icon" className={`h-7 w-7 ${doc.is_active ? "text-emerald-400" : "text-muted-foreground/40"}`} onClick={() => toggleDocActive(doc.id)} title={doc.is_active ? "Ativo" : "Inativo"}>
                           <Power className="h-3.5 w-3.5" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeDoc(doc.id)}>
