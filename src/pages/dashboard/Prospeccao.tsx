@@ -482,7 +482,7 @@ export default function Prospeccao() {
         var10: "",
       }));
 
-      // Insert in batches of 50
+      // Insert into contacts table in batches of 50
       let saved = 0;
       for (let i = 0; i < contacts.length; i += 50) {
         const batch = contacts.slice(i, i + 50);
@@ -491,7 +491,39 @@ export default function Prospeccao() {
         saved += batch.length;
       }
 
-      toast.success(`${saved} contatos salvos na sua base!`);
+      // Also save as CRM leads (service_contacts) with origin "Prospecção"
+      let crmSaved = 0;
+      const crmLeads = leadsWithPhone.map((r: any) => {
+        const rawPhone = (r.telefone || r.phone || "").replace(/\D/g, "");
+        const normalizedPhone = rawPhone.length >= 10 && rawPhone.length <= 11 ? `55${rawPhone}` : rawPhone;
+        return {
+          user_id: user.id,
+          name: r.nome || r.name || "Sem nome",
+          phone: normalizedPhone,
+          email: r.email || null,
+          company: r.nome || r.name || null,
+          origin: "Prospecção",
+          lead_temperature: "frio",
+          tags: [r.categoria || nicho].filter(Boolean),
+          notes: [
+            r.descricao,
+            r.endereco ? `📍 ${r.endereco}` : null,
+            r.website ? `🌐 ${r.website}` : null,
+            r.avaliacao != null ? `⭐ ${r.avaliacao}` : null,
+          ].filter(Boolean).join("\n") || null,
+          status: "ativo",
+        };
+      });
+
+      for (let i = 0; i < crmLeads.length; i += 50) {
+        const batch = crmLeads.slice(i, i + 50);
+        const { error } = await supabase
+          .from("service_contacts")
+          .upsert(batch, { onConflict: "user_id,phone", ignoreDuplicates: true });
+        if (!error) crmSaved += batch.length;
+      }
+
+      toast.success(`${saved} contatos salvos! ${crmSaved} leads adicionados ao CRM como "Novo Lead".`);
     } catch (err: any) {
       console.error("Erro ao salvar contatos:", err);
       toast.error(err.message || "Erro ao salvar contatos");
@@ -677,7 +709,7 @@ export default function Prospeccao() {
                     </Button>
                     <Button variant="outline" onClick={() => saveToContacts()} disabled={savingContacts} className="gap-2">
                       {savingContacts ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-                      {savingContacts ? "Salvando..." : "Salvar nos Contatos"}
+                      {savingContacts ? "Salvando..." : "Salvar no CRM"}
                     </Button>
                     <Button variant="outline" onClick={handleVerifyWhatsApp} className="gap-2">
                       <Smartphone className="h-4 w-4" />
@@ -921,7 +953,7 @@ export default function Prospeccao() {
                 <div className="flex justify-end gap-2 mb-2">
                   <Button variant="outline" size="sm" onClick={() => saveToContacts(campaignLeads)} disabled={savingContacts} className="gap-1.5">
                     {savingContacts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
-                    {savingContacts ? "Salvando..." : "Salvar nos Contatos"}
+                    {savingContacts ? "Salvando..." : "Salvar no CRM"}
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => exportCSV(campaignLeads, `leads_${selectedCampaign?.name}.csv`)} className="gap-1.5">
                     <Download className="h-3.5 w-3.5" /> Exportar CSV
