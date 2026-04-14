@@ -157,7 +157,22 @@ Deno.serve(async (req) => {
     // 5. Load/update lead memory
     const leadMemory = await loadOrCreateLeadMemory(admin, user_id, remote_jid, contact_name, message_content);
 
-    // 5b. Load CRM context (service_contacts + pipeline)
+    // 5b. Load AI Learning Insights (evolved prompt from analysis)
+    let learningContext = "";
+    {
+      const { data: insight } = await admin
+        .from("ai_learning_insights")
+        .select("evolved_prompt, confidence_score")
+        .eq("user_id", user_id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (insight?.evolved_prompt && (insight.confidence_score || 0) >= 30) {
+        learningContext = `\nAPRENDIZADOS DA IA (baseado em análise de conversas reais):\n${insight.evolved_prompt}`;
+      }
+    }
+
+    // 5c. Load CRM context (service_contacts + pipeline)
     let crmContext = "";
     const phoneDigits = (remote_jid || "").replace(/\D/g, "").slice(-8);
     if (phoneDigits) {
