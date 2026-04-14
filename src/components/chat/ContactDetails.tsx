@@ -453,6 +453,78 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
 
           <Separator className="bg-border/50" />
 
+          {/* ── IA CRM — AÇÕES ── */}
+          <div className="space-y-3">
+            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+              <Brain className="w-3.5 h-3.5" /> IA — Ações CRM
+            </h4>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-1.5 text-[11px] h-8 border-primary/30 text-primary hover:bg-primary/10"
+                onClick={handleAiClassify}
+                disabled={aiClassifying}
+              >
+                {aiClassifying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Target className="w-3 h-3" />}
+                Classificar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-1.5 text-[11px] h-8 border-primary/30 text-primary hover:bg-primary/10"
+                onClick={handleAiSuggest}
+                disabled={aiSuggesting}
+              >
+                {aiSuggesting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                Sugerir Resposta
+              </Button>
+            </div>
+
+            {/* Detected intent */}
+            {aiDetectedIntent && (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-[10px]">
+                  Intenção: {aiDetectedIntent === "curious" ? "Curioso" : aiDetectedIntent === "interested" ? "Interessado" : aiDetectedIntent === "ready_to_buy" ? "Pronto p/ comprar" : aiDetectedIntent === "objection" ? "Objeção" : aiDetectedIntent}
+                </Badge>
+              </div>
+            )}
+
+            {/* AI recommendation */}
+            {aiRecommendation && (
+              <div className="bg-accent/50 border border-accent rounded-lg px-3 py-2">
+                <p className="text-[11px] text-accent-foreground font-medium">💡 {aiRecommendation}</p>
+              </div>
+            )}
+
+            {/* Suggestions */}
+            {aiSuggestions.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] text-muted-foreground font-semibold uppercase">Sugestões de resposta:</p>
+                {aiSuggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    className="w-full text-left p-2.5 rounded-lg border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all"
+                    onClick={() => {
+                      navigator.clipboard.writeText(s.text);
+                      toast.success("Resposta copiada!");
+                    }}
+                  >
+                    <p className="text-xs text-foreground leading-relaxed">{s.text}</p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <Badge variant="outline" className="text-[9px] py-0">
+                        {s.tone === "amigável" ? "😊" : s.tone === "urgente" ? "⚡" : "💼"} {s.tone}
+                      </Badge>
+                      <span className="text-[9px] text-muted-foreground/60">{s.goal}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Separator className="bg-border/50" />
+
           {/* ── TAGS ── */}
           <div className="space-y-3">
             <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
