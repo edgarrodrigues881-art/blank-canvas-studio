@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
-import { Bell, Info, CheckCircle2, AlertTriangle, XCircle, CheckCheck, Trash2, Sun, Moon } from "lucide-react";
+import { Bell, Info, CheckCircle2, AlertTriangle, XCircle, CheckCheck, Trash2, Sun, Moon, ArrowLeft, Headset } from "lucide-react";
 import { useTheme } from "next-themes";
+import { WorkspaceProvider, useWorkspace } from "@/contexts/WorkspaceContext";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -74,6 +75,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const blockedFeature = isFeatureBlocked(location.pathname);
   const showMaintenance = !!blockedFeature;
 
+  const { isCRM, setWorkspace } = useWorkspace();
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full overflow-hidden">
@@ -82,6 +85,23 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <header className="h-11 sm:h-14 border-b border-border bg-card shadow-sm flex items-center px-3 sm:px-4 shrink-0 gap-2 sm:gap-3">
             <SidebarTrigger className="text-muted-foreground hover:text-foreground w-7 h-7 sm:w-8 sm:h-8" />
             <img src={logo} alt="DG Contingência Pro" className="w-6 h-6 rounded-md sm:hidden" />
+
+            {/* CRM workspace indicator */}
+            {isCRM && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setWorkspace("automacao"); navigate("/dashboard"); }}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg px-2 py-1 hover:bg-muted/40"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Voltar</span>
+                </button>
+                <div className="flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold">
+                  <Headset className="w-3.5 h-3.5" />
+                  CRM ativo
+                </div>
+              </div>
+            )}
 
             {/* Spacer */}
             <div className="flex-1" />
