@@ -3,39 +3,32 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { GitBranch, User, Phone, Sparkles, GripVertical, Clock, Tag, X, Plus } from "lucide-react";
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { GitBranch, Search, User, Building2, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPhone } from "@/utils/formatters";
-import { formatDistanceToNow } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
-/* ── Pipeline stages config ── */
+/* ── Stages ── */
 const STAGES = [
-  { key: "novo", label: "Novo Lead", color: "border-t-blue-500", bg: "bg-blue-500/10", badge: "bg-blue-500/20 text-blue-400" },
-  { key: "respondeu", label: "Respondeu", color: "border-t-cyan-500", bg: "bg-cyan-500/10", badge: "bg-cyan-500/20 text-cyan-400" },
-  { key: "interessado", label: "Interessado", color: "border-t-amber-500", bg: "bg-amber-500/10", badge: "bg-amber-500/20 text-amber-400" },
-  { key: "negociacao", label: "Negociação", color: "border-t-purple-500", bg: "bg-purple-500/10", badge: "bg-purple-500/20 text-purple-400" },
-  { key: "fechado", label: "Fechado", color: "border-t-emerald-500", bg: "bg-emerald-500/10", badge: "bg-emerald-500/20 text-emerald-400" },
-  { key: "perdido", label: "Perdido", color: "border-t-red-500/50", bg: "bg-red-500/5", badge: "bg-red-500/20 text-red-400" },
+  { key: "novo", label: "Novo Lead", dot: "bg-blue-500" },
+  { key: "respondeu", label: "Respondeu", dot: "bg-cyan-500" },
+  { key: "interessado", label: "Interessado", dot: "bg-amber-500" },
+  { key: "negociacao", label: "Negociação", dot: "bg-purple-500" },
+  { key: "fechado", label: "Fechado", dot: "bg-emerald-500" },
+  { key: "perdido", label: "Perdido", dot: "bg-red-400" },
 ] as const;
 
 type StageKey = typeof STAGES[number]["key"];
 
-const TEMP_CONFIG: Record<string, { icon: string; color: string }> = {
-  frio: { icon: "❄️", color: "text-blue-400" },
-  morno: { icon: "☀️", color: "text-amber-400" },
-  quente: { icon: "🔥", color: "text-red-400" },
-  cliente: { icon: "✅", color: "text-emerald-400" },
-  perdido: { icon: "💀", color: "text-muted-foreground" },
+const PRIORITY_BADGE: Record<string, { label: string; color: string }> = {
+  baixa: { label: "Baixa", color: "bg-slate-100 text-slate-500 border-slate-200" },
+  media: { label: "Média", color: "bg-yellow-100 text-yellow-600 border-yellow-200" },
+  alta: { label: "Alta", color: "bg-orange-100 text-orange-600 border-orange-200" },
+  urgente: { label: "Urgente", color: "bg-red-100 text-red-600 border-red-200" },
 };
 
 interface PipelineLead {
@@ -43,30 +36,35 @@ interface PipelineLead {
   name: string;
   phone: string;
   email: string | null;
-  tags: string[];
-  lead_temperature: string | null;
+  company: string | null;
+  interest: string | null;
+  estimated_value: number | null;
+  priority: string | null;
+  responsible: string | null;
   pipeline_stage: string | null;
-  last_message_at: string | null;
-  last_message_content: string | null;
   created_at: string;
+}
+
+function formatCurrency(v: number | null) {
+  if (!v) return "";
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 }
 
 export default function Pipeline() {
   const { user } = useAuth();
   const [leads, setLeads] = useState<PipelineLead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [responsibleFilter, setResponsibleFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
   const dragItem = useRef<{ id: string; stage: string } | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
-  const [tagPopoverId, setTagPopoverId] = useState<string | null>(null);
-  const [newTagInput, setNewTagInput] = useState("");
-
-  const SUGGESTED_TAGS = ["Interessado", "Sem resposta", "Follow-up", "Cliente", "VIP", "Urgente", "Negociação", "Retorno"];
 
   const fetchLeads = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from("service_contacts")
-      .select("id, name, phone, email, tags, lead_temperature, pipeline_stage, last_message_at, last_message_content, created_at")
+      .select("id, name, phone, email, company, interest, estimated_value, priority, responsible, pipeline_stage, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     setLeads((data as any[]) || []);
@@ -75,6 +73,20 @@ export default function Pipeline() {
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
 
+  /* ── Filters ── */
+  const allResponsibles = [...new Set(leads.map((l) => l.responsible).filter(Boolean))] as string[];
+
+  const filtered = leads.filter((l) => {
+    const s = search.toLowerCase();
+    const matchSearch = !search ||
+      l.name?.toLowerCase().includes(s) ||
+      l.company?.toLowerCase().includes(s);
+    const matchResp = responsibleFilter === "all" || l.responsible === responsibleFilter;
+    const matchPri = priorityFilter === "all" || (l.priority || "media") === priorityFilter;
+    return matchSearch && matchResp && matchPri;
+  });
+
+  /* ── Drag & Drop ── */
   const moveToStage = async (leadId: string, newStage: string) => {
     const prev = leads;
     setLeads((ls) => ls.map((l) => (l.id === leadId ? { ...l, pipeline_stage: newStage } : l)));
@@ -82,27 +94,7 @@ export default function Pipeline() {
       .from("service_contacts")
       .update({ pipeline_stage: newStage } as any)
       .eq("id", leadId);
-    if (error) {
-      setLeads(prev);
-      toast.error("Erro ao mover lead");
-    }
-  };
-
-  const addTagToLead = async (leadId: string, tag: string) => {
-    const lead = leads.find((l) => l.id === leadId);
-    if (!lead) return;
-    const updated = [...new Set([...(lead.tags || []), tag])];
-    setLeads((ls) => ls.map((l) => (l.id === leadId ? { ...l, tags: updated } : l)));
-    await supabase.from("service_contacts").update({ tags: updated } as any).eq("id", leadId);
-    toast.success(`Tag "${tag}" adicionada`);
-  };
-
-  const removeTagFromLead = async (leadId: string, tag: string) => {
-    const lead = leads.find((l) => l.id === leadId);
-    if (!lead) return;
-    const updated = (lead.tags || []).filter((t) => t !== tag);
-    setLeads((ls) => ls.map((l) => (l.id === leadId ? { ...l, tags: updated } : l)));
-    await supabase.from("service_contacts").update({ tags: updated } as any).eq("id", leadId);
+    if (error) { setLeads(prev); toast.error("Erro ao mover lead"); }
   };
 
   const onDragStart = (e: React.DragEvent, lead: PipelineLead) => {
@@ -117,8 +109,6 @@ export default function Pipeline() {
     setDragOverStage(stageKey);
   };
 
-  const onDragLeave = () => setDragOverStage(null);
-
   const onDrop = (e: React.DragEvent, stageKey: string) => {
     e.preventDefault();
     setDragOverStage(null);
@@ -132,169 +122,152 @@ export default function Pipeline() {
   /* ── Group by stage ── */
   const grouped: Record<string, PipelineLead[]> = {};
   for (const s of STAGES) grouped[s.key] = [];
-  for (const l of leads) {
+  for (const l of filtered) {
     const stage = l.pipeline_stage || "novo";
     if (grouped[stage]) grouped[stage].push(l);
     else grouped["novo"].push(l);
   }
 
+  /* ── Stage value totals ── */
+  const stageTotals: Record<string, number> = {};
+  for (const s of STAGES) {
+    stageTotals[s.key] = grouped[s.key].reduce((sum, l) => sum + (l.estimated_value || 0), 0);
+  }
+
   return (
     <div className="space-y-4 h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <GitBranch className="w-6 h-6 text-primary" />
-          <h1 className="text-2xl font-bold text-foreground">Pipeline</h1>
-          <Badge variant="secondary" className="text-xs">{leads.length} leads</Badge>
+      {/* Filters bar */}
+      <div className="flex flex-wrap items-center gap-3 shrink-0">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+          <Input
+            placeholder="Filtrar por nome ou empresa..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-10 rounded-xl bg-muted/30 border-border/50"
+          />
         </div>
+        <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
+          <SelectTrigger className="w-[180px] h-10 rounded-xl bg-muted/30 border-border/50 text-sm">
+            <SelectValue placeholder="Todos responsáveis" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos responsáveis</SelectItem>
+            {allResponsibles.map((r) => (
+              <SelectItem key={r} value={r}>{r}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+          <SelectTrigger className="w-[130px] h-10 rounded-xl bg-muted/30 border-border/50 text-sm">
+            <SelectValue placeholder="Todas" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas</SelectItem>
+            <SelectItem value="baixa">Baixa</SelectItem>
+            <SelectItem value="media">Média</SelectItem>
+            <SelectItem value="alta">Alta</SelectItem>
+            <SelectItem value="urgente">Urgente</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Kanban board */}
-      <div className="flex-1 overflow-x-auto pb-4">
-        <div className="flex gap-3 min-h-[500px]" style={{ minWidth: STAGES.length * 260 }}>
-          {STAGES.map((stage) => {
-            const items = grouped[stage.key];
-            const isDragOver = dragOverStage === stage.key;
-            return (
-              <div
-                key={stage.key}
-                className={cn(
-                  "flex flex-col w-[250px] shrink-0 rounded-xl border-t-[3px] border border-border bg-card/50 transition-colors",
-                  stage.color,
-                  isDragOver && "ring-2 ring-primary/40 bg-primary/5"
-                )}
-                onDragOver={(e) => onDragOver(e, stage.key)}
-                onDragLeave={onDragLeave}
-                onDrop={(e) => onDrop(e, stage.key)}
-              >
-                {/* Column header */}
-                <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/50">
-                  <span className="text-xs font-bold text-foreground uppercase tracking-wider">{stage.label}</span>
-                  <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", stage.badge)}>
-                    {items.length}
-                  </span>
-                </div>
+      {/* Stage headers (horizontal strip) */}
+      <div className="grid grid-cols-6 gap-3 shrink-0">
+        {STAGES.map((stage) => (
+          <div key={stage.key} className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-2">
+              <div className={cn("w-2 h-2 rounded-full shrink-0", stage.dot)} />
+              <span className="text-[11px] font-bold text-foreground uppercase tracking-wider truncate">{stage.label}</span>
+              <span className="text-[11px] text-muted-foreground ml-auto tabular-nums">{grouped[stage.key].length}</span>
+            </div>
+            {stageTotals[stage.key] > 0 && (
+              <span className="text-[11px] text-muted-foreground/60 pl-4 tabular-nums">
+                {formatCurrency(stageTotals[stage.key])}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
 
-                {/* Cards */}
-                <ScrollArea className="flex-1 p-2">
-                  <div className="space-y-2">
-                    {items.length === 0 && !loading && (
-                      <div className="text-center py-8 text-muted-foreground/40 text-xs">
-                        Arraste leads aqui
-                      </div>
-                    )}
-                    {items.map((lead) => {
-                      const temp = TEMP_CONFIG[lead.lead_temperature || "frio"] || TEMP_CONFIG.frio;
-                      return (
-                        <Card
-                          key={lead.id}
-                          draggable
-                          onDragStart={(e) => onDragStart(e, lead)}
-                          className={cn(
-                            "p-3 cursor-grab active:cursor-grabbing border-border/60 hover:border-primary/30 transition-all hover:shadow-md bg-card group"
-                          )}
-                        >
-                          <div className="flex items-start gap-2">
-                            <GripVertical className="w-3.5 h-3.5 text-muted-foreground/30 mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            <div className="flex-1 min-w-0 space-y-1.5">
-                              {/* Name + temperature */}
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-sm font-semibold text-foreground truncate">{lead.name}</span>
-                                <span className="text-xs shrink-0">{temp.icon}</span>
+      {/* Kanban columns */}
+      <div className="grid grid-cols-6 gap-3 flex-1 min-h-0">
+        {STAGES.map((stage) => {
+          const items = grouped[stage.key];
+          const isDragOver = dragOverStage === stage.key;
+          return (
+            <div
+              key={stage.key}
+              className={cn(
+                "flex flex-col rounded-xl bg-muted/20 border border-border/40 transition-colors min-h-[300px]",
+                isDragOver && "ring-2 ring-primary/30 bg-primary/5"
+              )}
+              onDragOver={(e) => onDragOver(e, stage.key)}
+              onDragLeave={() => setDragOverStage(null)}
+              onDrop={(e) => onDrop(e, stage.key)}
+            >
+              <ScrollArea className="flex-1 p-2">
+                <div className="space-y-2">
+                  {items.length === 0 && !loading && (
+                    <div className="text-center py-10 text-muted-foreground/30 text-[11px]">
+                      Arraste leads aqui
+                    </div>
+                  )}
+                  {items.map((lead) => {
+                    const priCfg = PRIORITY_BADGE[lead.priority || "media"] || PRIORITY_BADGE.media;
+                    return (
+                      <div
+                        key={lead.id}
+                        draggable
+                        onDragStart={(e) => onDragStart(e, lead)}
+                        className="rounded-lg border border-border/50 bg-card p-3 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-primary/20 transition-all space-y-2"
+                      >
+                        {/* Name */}
+                        <p className="text-sm font-semibold text-foreground truncate">{lead.name || "Sem nome"}</p>
+
+                        {/* Company + Interest */}
+                        {(lead.company || lead.interest) && (
+                          <div className="space-y-0.5">
+                            {lead.company && (
+                              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                <Building2 className="w-3 h-3 shrink-0" />
+                                <span className="truncate">{lead.company}</span>
                               </div>
-
-                              {/* Phone */}
-                              <div className="flex items-center gap-1.5 text-muted-foreground">
-                                <Phone className="w-3 h-3" />
-                                <span className="text-[11px]">{formatPhone(lead.phone)}</span>
-                              </div>
-
-                              {/* Last message preview */}
-                              {lead.last_message_content && (
-                                <p className="text-[11px] text-muted-foreground/70 line-clamp-2 leading-relaxed">
-                                  "{lead.last_message_content}"
-                                </p>
-                              )}
-
-                              {/* Tags */}
-                              <div className="flex flex-wrap gap-1 items-center">
-                                {(lead.tags || []).slice(0, 2).map((tag) => (
-                                  <Badge key={tag} variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5">
-                                    {tag}
-                                    <button onClick={(e) => { e.stopPropagation(); removeTagFromLead(lead.id, tag); }} className="hover:text-destructive">
-                                      <X className="w-2 h-2" />
-                                    </button>
-                                  </Badge>
-                                ))}
-                                {(lead.tags || []).length > 2 && (
-                                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0">+{lead.tags.length - 2}</Badge>
-                                )}
-                                <Popover open={tagPopoverId === lead.id} onOpenChange={(open) => { setTagPopoverId(open ? lead.id : null); setNewTagInput(""); }}>
-                                  <PopoverTrigger asChild>
-                                    <button onClick={(e) => e.stopPropagation()} className="text-muted-foreground/40 hover:text-primary transition-colors">
-                                      <Plus className="w-3 h-3" />
-                                    </button>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-52 p-2" align="start" onClick={(e) => e.stopPropagation()}>
-                                    <div className="space-y-2">
-                                      <div className="flex flex-wrap gap-1">
-                                        {SUGGESTED_TAGS.filter((t) => !(lead.tags || []).includes(t)).slice(0, 6).map((t) => (
-                                          <button key={t} onClick={() => { addTagToLead(lead.id, t); }} className="text-[9px] px-1.5 py-0.5 rounded border border-dashed border-border/50 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all">
-                                            + {t}
-                                          </button>
-                                        ))}
-                                      </div>
-                                      <div className="flex gap-1">
-                                        <Input
-                                          value={newTagInput}
-                                          onChange={(e) => setNewTagInput(e.target.value)}
-                                          placeholder="Nova tag..."
-                                          className="h-6 text-[10px] flex-1"
-                                          onKeyDown={(e) => {
-                                            if (e.key === "Enter" && newTagInput.trim()) {
-                                              addTagToLead(lead.id, newTagInput.trim());
-                                              setNewTagInput("");
-                                            }
-                                          }}
-                                        />
-                                        <Button size="sm" variant="outline" className="h-6 text-[9px] px-1.5" onClick={() => { if (newTagInput.trim()) { addTagToLead(lead.id, newTagInput.trim()); setNewTagInput(""); } }}>
-                                          OK
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  </PopoverContent>
-                                </Popover>
-                              </div>
-
-                              {/* Time */}
-                              <div className="flex items-center gap-1 text-muted-foreground/50">
-                                <Clock className="w-2.5 h-2.5" />
-                                <span className="text-[10px]">
-                                  {lead.last_message_at
-                                    ? formatDistanceToNow(new Date(lead.last_message_at), { addSuffix: true, locale: ptBR })
-                                    : format(lead.created_at)}
-                                </span>
-                              </div>
-                            </div>
+                            )}
+                            {lead.interest && (
+                              <p className="text-[11px] text-primary/70 truncate">{lead.interest}</p>
+                            )}
                           </div>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
-              </div>
-            );
-          })}
-        </div>
+                        )}
+
+                        {/* Value + Priority */}
+                        <div className="flex items-center justify-between gap-1">
+                          {lead.estimated_value ? (
+                            <span className="text-xs font-bold text-foreground tabular-nums">
+                              {formatCurrency(lead.estimated_value)}
+                            </span>
+                          ) : <span />}
+                          <Badge variant="outline" className={cn("text-[9px] font-medium rounded-md px-1.5 py-0", priCfg.color)}>
+                            {priCfg.label}
+                          </Badge>
+                        </div>
+
+                        {/* Responsible */}
+                        {lead.responsible && (
+                          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/60">
+                            <User className="w-3 h-3" />
+                            <span className="truncate">{lead.responsible}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
-}
-
-function format(dateStr: string) {
-  try {
-    return formatDistanceToNow(new Date(dateStr), { addSuffix: true, locale: ptBR });
-  } catch {
-    return "";
-  }
 }
