@@ -539,6 +539,7 @@ Deno.serve(async (req) => {
             contact_name: name,
             message_content: content || displayContent,
             media_type: mediaType,
+            media_url: persistedMediaUrl || null,
           }),
         });
         if (typeof (globalThis as any).EdgeRuntime?.waitUntil === "function") {

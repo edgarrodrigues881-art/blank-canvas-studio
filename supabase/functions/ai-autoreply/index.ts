@@ -60,6 +60,7 @@ Deno.serve(async (req) => {
       contact_name,
       message_content,
       media_type,
+      media_url,
     } = body;
 
     if (!user_id || !conversation_id) {
@@ -131,27 +132,77 @@ Deno.serve(async (req) => {
       return json({ skipped: "pause_word_detected" });
     }
 
-    // 4. Handle media fallbacks
-    if (media_type === "image" || media_type === "sticker") {
-      const fallback = settings.fallback_image || "Não consigo ver imagens, pode descrever por texto?";
-      await sendAiReply(admin, supabaseUrl, serviceKey, conversation_id, user_id, device_id, remote_jid, fallback, settings);
-      return json({ sent: true, type: "fallback_image" });
+    // 4. Handle media — try multimodal analysis via Lovable AI Gateway (Gemini)
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const isMediaMessage = ["image", "sticker", "audio", "ptt", "video", "document"].includes(media_type || "");
+    let mediaBase64Content: { type: string; image_url?: { url: string }; input_audio?: { data: string; format: string } } | null = null;
+    let mediaAnalysisPrompt = "";
+
+    if (isMediaMessage && media_url && LOVABLE_API_KEY) {
+      try {
+        const mediaRes = await fetch(media_url, { headers: { Accept: "*/*" } });
+        if (mediaRes.ok) {
+          const mediaBytes = new Uint8Array(await mediaRes.arrayBuffer());
+          const base64 = btoa(String.fromCharCode(...mediaBytes));
+          const contentType = mediaRes.headers.get("content-type") || "application/octet-stream";
+
+          if (["image", "sticker"].includes(media_type!)) {
+            mediaBase64Content = {
+              type: "image_url",
+              image_url: { url: `data:${contentType};base64,${base64}` },
+            };
+            mediaAnalysisPrompt = message_content
+              ? `O cliente enviou esta imagem com a legenda: "${message_content}". Analise a imagem e responda considerando a legenda.`
+              : "O cliente enviou esta imagem. Descreva o que você vê e responda de forma útil.";
+          } else if (["audio", "ptt"].includes(media_type!)) {
+            // Gemini supports audio via input_audio in messages
+            const audioFormat = contentType.includes("ogg") ? "ogg" : contentType.includes("mp3") ? "mp3" : contentType.includes("mp4") ? "mp4" : "wav";
+            mediaBase64Content = {
+              type: "input_audio",
+              input_audio: { data: base64, format: audioFormat },
+            };
+            mediaAnalysisPrompt = "O cliente enviou este áudio. Transcreva o que ele disse e responda de forma natural à mensagem dele.";
+          } else if (media_type === "video") {
+            // Send first frame as image for context
+            mediaBase64Content = {
+              type: "image_url",
+              image_url: { url: `data:${contentType};base64,${base64}` },
+            };
+            mediaAnalysisPrompt = message_content
+              ? `O cliente enviou um vídeo com a legenda: "${message_content}". Analise e responda.`
+              : "O cliente enviou um vídeo. Analise o conteúdo e responda.";
+          } else if (media_type === "document") {
+            // PDFs and docs — send as image (Gemini can read PDF pages)
+            mediaBase64Content = {
+              type: "image_url",
+              image_url: { url: `data:${contentType};base64,${base64}` },
+            };
+            mediaAnalysisPrompt = message_content
+              ? `O cliente enviou um documento com a legenda: "${message_content}". Leia o conteúdo e responda.`
+              : "O cliente enviou um documento. Leia o conteúdo e responda de forma útil.";
+          }
+        }
+      } catch (mediaErr) {
+        console.error("Failed to fetch media for analysis:", mediaErr);
+      }
     }
 
-    if (media_type === "audio" || media_type === "ptt") {
-      const fallback = settings.fallback_audio || "Não consigo ouvir áudios, pode escrever?";
-      await sendAiReply(admin, supabaseUrl, serviceKey, conversation_id, user_id, device_id, remote_jid, fallback, settings);
-      return json({ sent: true, type: "fallback_audio" });
-    }
-
-    if (media_type === "video") {
-      await sendAiReply(admin, supabaseUrl, serviceKey, conversation_id, user_id, device_id, remote_jid, "Não consigo assistir vídeos, pode descrever?", settings);
-      return json({ sent: true, type: "fallback_video" });
-    }
-
-    if (media_type === "document") {
-      await sendAiReply(admin, supabaseUrl, serviceKey, conversation_id, user_id, device_id, remote_jid, "Não consigo abrir documentos, pode resumir o conteúdo?", settings);
-      return json({ sent: true, type: "fallback_document" });
+    // If media but no Lovable API key or fetch failed, use old fallbacks
+    if (isMediaMessage && !mediaBase64Content) {
+      if (!LOVABLE_API_KEY) {
+        // No multimodal capability, use text fallbacks
+        const fallbacks: Record<string, string> = {
+          image: settings.fallback_image || "Não consigo ver imagens, pode descrever por texto?",
+          sticker: settings.fallback_image || "Não consigo ver imagens, pode descrever por texto?",
+          audio: settings.fallback_audio || "Não consigo ouvir áudios, pode escrever?",
+          ptt: settings.fallback_audio || "Não consigo ouvir áudios, pode escrever?",
+          video: "Não consigo assistir vídeos, pode descrever?",
+          document: "Não consigo abrir documentos, pode resumir o conteúdo?",
+        };
+        const fallback = fallbacks[media_type!] || "Pode descrever por texto?";
+        await sendAiReply(admin, supabaseUrl, serviceKey, conversation_id, user_id, device_id, remote_jid, fallback, settings);
+        return json({ sent: true, type: `fallback_${media_type}` });
+      }
     }
 
     // 5. Load/update lead memory
@@ -309,33 +360,100 @@ Deno.serve(async (req) => {
       settings.block_sensitive ? `- Nunca compartilhe dados sensíveis como CPF, senhas ou dados bancários` : "",
     ].filter(Boolean).join("\n");
 
-    // 8. Call AI provider
-    const provider = settings.ai_provider || "openai";
-    const providerConfig = getProviderConfig(provider, settings.api_key, settings.ai_model);
+    // 8. Call AI provider — use Lovable AI Gateway for multimodal, else user's provider
+    const useMultimodal = !!mediaBase64Content && !!LOVABLE_API_KEY;
+    
+    let aiRes: Response;
+    
+    if (useMultimodal) {
+      // Build multimodal user message for Gemini via Lovable AI Gateway
+      const userContent: any[] = [];
+      
+      if (mediaBase64Content) {
+        userContent.push(mediaBase64Content);
+      }
+      userContent.push({ type: "text", text: mediaAnalysisPrompt || message_content || "Analise este conteúdo." });
 
-    const messages = [
-      { role: "system", content: systemParts },
-      ...conversationHistory,
-      { role: "user", content: message_content },
-    ];
+      const multimodalMessages = [
+        { role: "system", content: systemParts },
+        ...conversationHistory,
+        { role: "user", content: userContent },
+      ];
 
-    const temperature = (settings.creativity || 50) / 100;
+      aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: multimodalMessages,
+          temperature: (settings.creativity || 50) / 100,
+          max_tokens: settings.max_response_length === "short" ? 150 : settings.max_response_length === "detailed" ? 800 : 400,
+        }),
+      });
+    } else {
+      // Standard text-only call to user's configured provider
+      const provider = settings.ai_provider || "openai";
+      const providerConfig = getProviderConfig(provider, settings.api_key, settings.ai_model);
 
-    const aiRes = await fetch(providerConfig.url, {
-      method: "POST",
-      headers: providerConfig.headers,
-      body: JSON.stringify({
-        model: providerConfig.model,
-        messages,
-        temperature,
-        max_tokens: settings.max_response_length === "short" ? 150 : settings.max_response_length === "detailed" ? 800 : 400,
-      }),
-    });
+      const messages = [
+        { role: "system", content: systemParts },
+        ...conversationHistory,
+        { role: "user", content: message_content },
+      ];
+
+      const temperature = (settings.creativity || 50) / 100;
+
+      aiRes = await fetch(providerConfig.url, {
+        method: "POST",
+        headers: providerConfig.headers,
+        body: JSON.stringify({
+          model: providerConfig.model,
+          messages,
+          temperature,
+          max_tokens: settings.max_response_length === "short" ? 150 : settings.max_response_length === "detailed" ? 800 : 400,
+        }),
+      });
+    }
 
     if (!aiRes.ok) {
       const errText = await aiRes.text();
-      console.error(`${provider} API error:`, aiRes.status, errText);
-      return json({ error: `${provider} API error`, status: aiRes.status }, 500);
+      const label = useMultimodal ? "Lovable AI (multimodal)" : (settings.ai_provider || "openai");
+      console.error(`${label} API error:`, aiRes.status, errText);
+      
+      // If multimodal fails, fallback to text-only with user's provider
+      if (useMultimodal && settings.api_key) {
+        console.log("Multimodal failed, falling back to text provider");
+        const provider = settings.ai_provider || "openai";
+        const providerConfig = getProviderConfig(provider, settings.api_key, settings.ai_model);
+        const fallbackContent = mediaAnalysisPrompt
+          ? `${mediaAnalysisPrompt} (Nota: não foi possível analisar a mídia diretamente)`
+          : message_content;
+        
+        aiRes = await fetch(providerConfig.url, {
+          method: "POST",
+          headers: providerConfig.headers,
+          body: JSON.stringify({
+            model: providerConfig.model,
+            messages: [
+              { role: "system", content: systemParts },
+              ...conversationHistory,
+              { role: "user", content: fallbackContent },
+            ],
+            temperature: (settings.creativity || 50) / 100,
+            max_tokens: 400,
+          }),
+        });
+        if (!aiRes.ok) {
+          const errText2 = await aiRes.text();
+          console.error(`Fallback ${provider} error:`, aiRes.status, errText2);
+          return json({ error: `AI API error`, status: aiRes.status }, 500);
+        }
+      } else {
+        return json({ error: `AI API error`, status: aiRes.status }, 500);
+      }
     }
 
     const aiData = await aiRes.json();
