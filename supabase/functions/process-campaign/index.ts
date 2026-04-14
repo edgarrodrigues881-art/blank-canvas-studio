@@ -525,32 +525,42 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
       throw new Error("Mensagens com botão exigem copy/texto principal. O sistema não envia mais 'Escolha uma opção' automaticamente.");
     }
 
-    // IMAGE + BUTTONS: Send image+caption first, then buttons separately
-    // This is the only format 100% compatible with ALL mobile devices
-    // (imageButton / unified format causes "incompatible version" on many phones)
+    // IMAGE + BUTTONS: Try unified menu with image first (best UX)
+    // Falls back to split delivery if unified fails (mobile compat)
     if (hasVisualMedia && mediaUrl) {
       console.log(JSON.stringify({
-        event: "split_image_buttons",
+        event: "unified_image_buttons",
         origin: "campaign",
         buttonCount: choices.length,
-        hasMedia: true,
         captionLength: text.length,
-        menuType: "button",
       }));
 
-      // Step 1: Send image alone (caption often hidden on some devices)
-      await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType!, "");
+      // Attempt 1: Unified /send/menu with image field
+      try {
+        const unifiedResult = await uazapiRequest(baseUrl, token, "/send/menu", {
+          number: phone,
+          type: "button",
+          text,
+          image: mediaUrl,
+          choices,
+        });
+        console.log(JSON.stringify({ event: "unified_image_buttons_success", strategy: "menu_with_image" }));
+        return unifiedResult;
+      } catch (unifiedErr) {
+        console.warn(`Unified menu+image failed: ${unifiedErr instanceof Error ? unifiedErr.message : String(unifiedErr)}`);
+      }
 
-      // Step 2: Brief delay then send copy + buttons together as interactive message
+      // Attempt 2: Split delivery (guaranteed mobile compat)
+      console.log(JSON.stringify({ event: "split_fallback", origin: "campaign" }));
+      await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType!, text);
       await new Promise((r) => setTimeout(r, 800 + Math.random() * 700));
-
       await uazapiRequest(baseUrl, token, "/send/menu", {
         number: phone,
         type: "button",
         text,
         choices,
       });
-      console.log(JSON.stringify({ event: "split_image_buttons_success", menuType: "button" }));
+      console.log(JSON.stringify({ event: "split_fallback_success" }));
       return;
     }
 
