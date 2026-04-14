@@ -88,6 +88,7 @@ interface EditFormData {
 export function ContactDetails({ conversation, onClose, onTagsChange }: ContactDetailsProps) {
   const { user } = useAuth();
   const [activeTags, setActiveTags] = useState<string[]>(conversation.tags);
+  const [customTagInput, setCustomTagInput] = useState("");
   const [notes, setNotes] = useState(conversation.notes || "");
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesDraft, setNotesDraft] = useState(notes);
