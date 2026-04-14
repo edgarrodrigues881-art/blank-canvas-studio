@@ -4293,12 +4293,17 @@ export type Database = {
       }
       service_contacts: {
         Row: {
+          channel: string | null
           company: string | null
           conversation_id: string | null
+          cpf_cnpj: string | null
           created_at: string
+          description: string | null
           email: string | null
+          estimated_value: number | null
           first_contact_at: string | null
           id: string
+          interest: string | null
           last_message_at: string | null
           last_message_content: string | null
           lead_score: number | null
@@ -4307,18 +4312,26 @@ export type Database = {
           notes: string | null
           origin: string | null
           phone: string
+          priority: string | null
+          responsible: string | null
+          segment: string | null
           status: string
           tags: string[] | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          channel?: string | null
           company?: string | null
           conversation_id?: string | null
+          cpf_cnpj?: string | null
           created_at?: string
+          description?: string | null
           email?: string | null
+          estimated_value?: number | null
           first_contact_at?: string | null
           id?: string
+          interest?: string | null
           last_message_at?: string | null
           last_message_content?: string | null
           lead_score?: number | null
@@ -4327,18 +4340,26 @@ export type Database = {
           notes?: string | null
           origin?: string | null
           phone?: string
+          priority?: string | null
+          responsible?: string | null
+          segment?: string | null
           status?: string
           tags?: string[] | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          channel?: string | null
           company?: string | null
           conversation_id?: string | null
+          cpf_cnpj?: string | null
           created_at?: string
+          description?: string | null
           email?: string | null
+          estimated_value?: number | null
           first_contact_at?: string | null
           id?: string
+          interest?: string | null
           last_message_at?: string | null
           last_message_content?: string | null
           lead_score?: number | null
@@ -4347,6 +4368,9 @@ export type Database = {
           notes?: string | null
           origin?: string | null
           phone?: string
+          priority?: string | null
+          responsible?: string | null
+          segment?: string | null
           status?: string
           tags?: string[] | null
           updated_at?: string
