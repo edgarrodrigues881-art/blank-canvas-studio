@@ -535,16 +535,17 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
         captionLength: text.length,
       }));
 
-      // Attempt 1: Unified /send/menu with image field
+      // Attempt 1: Unified /send/menu with the UAZAPI imageButton field
       try {
         const unifiedResult = await uazapiRequest(baseUrl, token, "/send/menu", {
           number: phone,
           type: "button",
           text,
-          image: mediaUrl,
+          message: text,
+          imageButton: mediaUrl,
           choices,
         });
-        console.log(JSON.stringify({ event: "unified_image_buttons_success", strategy: "menu_with_image" }));
+        console.log(JSON.stringify({ event: "unified_image_buttons_success", strategy: "menu_with_imageButton" }));
         return unifiedResult;
       } catch (unifiedErr) {
         console.warn(`Unified menu+image failed: ${unifiedErr instanceof Error ? unifiedErr.message : String(unifiedErr)}`);
