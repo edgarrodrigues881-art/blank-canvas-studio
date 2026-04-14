@@ -120,6 +120,7 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/crm": () => { (CRMDashboard as any).__preload?.(); },
   "/dashboard/leads": () => { (Leads as any).__preload?.(); },
   "/dashboard/pipeline": () => { (Pipeline as any).__preload?.(); },
+  "/dashboard/crm-agendamentos": () => { (CRMAgendamentos as any).__preload?.(); },
 };
 
 const queryClient = new QueryClient({
@@ -265,6 +266,7 @@ const App = () => (
                 <Route path="/dashboard/crm" element={<ProtectedRoute><DashboardLayout><CRMDashboard /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/leads" element={<ProtectedRoute><DashboardLayout><Leads /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/pipeline" element={<ProtectedRoute><DashboardLayout><Pipeline /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/crm-agendamentos" element={<ProtectedRoute><DashboardLayout><CRMAgendamentos /></DashboardLayout></ProtectedRoute>} />
 
                 {/* Backoffice — BackOffice.tsx manages its own auth + admin login internally */}
                 <Route path="/backoffice" element={<BackOffice />} />
