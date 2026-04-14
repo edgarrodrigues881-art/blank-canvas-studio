@@ -291,6 +291,20 @@ const AISettings = () => {
     })();
   }, []);
 
+  // Load KB docs from database
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("ai_knowledge_base")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (data) setKnowledgeDocs(data as KnowledgeDoc[]);
+    })();
+  }, []);
+
   // Count AI activity today
   useEffect(() => {
     const fetchCount = async () => {
