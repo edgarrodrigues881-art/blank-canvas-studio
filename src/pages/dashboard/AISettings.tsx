@@ -1926,6 +1926,124 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
+      {/* 🧠 Motor de Aprendizado */}
+      <Card className="border-border/50 bg-card/80">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Rocket className="h-4 w-4 text-primary" strokeWidth={1.5} />
+              </div>
+              <div>
+                <CardTitle className="text-base">Motor de Aprendizado</CardTitle>
+                <CardDescription className="text-xs">A IA analisa conversas e evolui automaticamente</CardDescription>
+              </div>
+            </div>
+            {learningInsights?.confidence_score != null && (
+              <Badge variant="outline" className="text-xs">
+                Confiança: {learningInsights.confidence_score}%
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Status */}
+          {learningInsights ? (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
+                <p className="text-xs font-medium text-foreground mb-1">📊 Resumo da Análise</p>
+                <p className="text-[11px] text-muted-foreground">{learningInsights.insights_summary || "Nenhum resumo disponível"}</p>
+                <p className="text-[10px] text-muted-foreground mt-2">
+                  Conversas analisadas: {learningInsights.total_conversations_analyzed || 0} • 
+                  Última análise: {learningInsights.updated_at ? new Date(learningInsights.updated_at).toLocaleDateString("pt-BR") : "—"}
+                </p>
+              </div>
+
+              {/* Patterns grid */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "✅ O que funciona", data: learningInsights.successful_patterns, color: "border-green-500/30 bg-green-500/5" },
+                  { label: "❌ O que não funciona", data: learningInsights.failure_patterns, color: "border-red-500/30 bg-red-500/5" },
+                  { label: "🛡️ Contorno de objeções", data: learningInsights.objection_handlers, color: "border-amber-500/30 bg-amber-500/5" },
+                  { label: "🔥 Técnicas de fechamento", data: learningInsights.closing_techniques, color: "border-primary/30 bg-primary/5" },
+                ].map((section) => (
+                  <div key={section.label} className={`rounded-lg border p-2.5 ${section.color}`}>
+                    <p className="text-[10px] font-semibold mb-1">{section.label}</p>
+                    {(section.data as string[] || []).slice(0, 3).map((item: string, i: number) => (
+                      <p key={i} className="text-[10px] text-muted-foreground leading-relaxed">• {item}</p>
+                    ))}
+                    {(!section.data || (section.data as string[]).length === 0) && (
+                      <p className="text-[10px] text-muted-foreground italic">Sem dados ainda</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Evolved prompt preview */}
+              {learningInsights.evolved_prompt && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <div className="flex items-start gap-2">
+                    <Brain className="h-4 w-4 text-primary mt-0.5 shrink-0" strokeWidth={1.5} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-primary">Prompt Evoluído</p>
+                      <p className="text-[10px] text-muted-foreground mt-1 line-clamp-3">{learningInsights.evolved_prompt}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border/50 bg-muted/20 p-4 text-center">
+              <Brain className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" strokeWidth={1.5} />
+              <p className="text-sm font-medium text-foreground">Nenhuma análise ainda</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Clique em "Analisar Conversas" para a IA aprender com seus atendimentos</p>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-2">
+            <Button
+              onClick={runLearningAnalysis}
+              disabled={analyzingLearning}
+              className="flex-1"
+              size="sm"
+            >
+              {analyzingLearning ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  Analisando...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-3.5 w-3.5 mr-1.5" />
+                  Analisar Conversas
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={exportEvolvedPrompt}
+              disabled={exportingPrompt || !learningInsights?.evolved_prompt}
+              variant="outline"
+              size="sm"
+            >
+              {exportingPrompt ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+              ) : (
+                <FileText className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Exportar Prompt
+            </Button>
+          </div>
+
+          <div className="rounded-lg border border-muted bg-muted/10 p-2.5">
+            <p className="text-[10px] text-muted-foreground">
+              💡 <strong>Como funciona:</strong> A IA analisa conversas bem-sucedidas vs. perdidas, identifica padrões de persuasão que funcionam, 
+              técnicas de fechamento eficazes e pontos onde leads são perdidos. O prompt evolui automaticamente a cada análise.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Lead History Dialog */}
       <Dialog open={!!selectedLead} onOpenChange={(open) => !open && setSelectedLead(null)}>
         <DialogContent className="max-w-md">
