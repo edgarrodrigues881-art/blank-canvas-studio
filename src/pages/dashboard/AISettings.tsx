@@ -1587,7 +1587,7 @@ const AISettings = () => {
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <File className="h-10 w-10 text-muted-foreground/40 mb-3" />
                   <p className="text-sm text-muted-foreground">Nenhum documento adicionado ainda</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">Adicione PDFs, TXTs ou DOCXs para a IA usar como referência</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">Adicione prompts, informações da empresa, PDFs, tabelas de preços e mais</p>
                 </div>
               ) : (
                 <div className="space-y-2">
