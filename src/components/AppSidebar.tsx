@@ -53,6 +53,7 @@ import { useWarmupFolders } from "@/hooks/useWarmupFolders";
 import { useFeatureControls } from "@/hooks/useFeatureControls";
 import { usePermissions } from "@/hooks/usePermissions";
 import { MaintenanceModal } from "@/components/MaintenanceModal";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import logo from "@/assets/logo-new.png";
 
 import {
