@@ -52,12 +52,11 @@ interface Lead {
 }
 
 const STATUS_OPTIONS = [
-  { value: "contato_inicial", label: "Contato Inicial", color: "bg-blue-100 text-blue-700 border-blue-200" },
-  { value: "qualificacao", label: "Qualificação", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-  { value: "orcamento", label: "Orçamento", color: "bg-orange-100 text-orange-700 border-orange-200" },
+  { value: "novo", label: "Novo Lead", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  { value: "respondeu", label: "Respondeu", color: "bg-cyan-100 text-cyan-700 border-cyan-200" },
+  { value: "interessado", label: "Interessado", color: "bg-amber-100 text-amber-700 border-amber-200" },
   { value: "negociacao", label: "Negociação", color: "bg-purple-100 text-purple-700 border-purple-200" },
-  { value: "aprovado", label: "Aprovado", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  { value: "producao_arte", label: "Produção / Arte", color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  { value: "fechado", label: "Fechado", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   { value: "perdido", label: "Perdido", color: "bg-red-100 text-red-700 border-red-200" },
 ];
 
