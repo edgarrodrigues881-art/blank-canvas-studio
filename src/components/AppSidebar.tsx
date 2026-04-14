@@ -305,287 +305,320 @@ export function AppSidebar() {
           el.onscroll = () => sessionStorage.setItem("sidebar-scroll", String(el.scrollTop));
         }}
       >
-        {menuGroups.map((group, gi) => {
-          // Hide entire section if no items have permission
-          const groupRoutes = group.items.map(i => i.url);
-          if (shouldHideSection && !hasAnyPermission(groupRoutes)) return null;
-          return (
-          <SidebarGroup key={gi} className={`py-0 ${gi > 0 ? 'mt-1' : ''}`}>
-            {group.label && !collapsed && (
-              <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
-                {group.label}
-              </SidebarGroupLabel>
-            )}
-            {collapsed && gi > 0 && group.label && (
-              <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />
-            )}
-            <SidebarGroupContent>
-              <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-                {group.items.map((item) => renderNavItem(item as any))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-          );
-        })}
 
-        {(!shouldHideSection || hasAnyPermission(["/dashboard/warmup-v2", "/dashboard/proxy", "/dashboard/chip-conversation", "/dashboard/group-interaction"])) && (
-        <SidebarGroup className="py-0 mt-1">
-          {!collapsed && (
-            <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
-              Aquecimento
-            </SidebarGroupLabel>
-          )}
-          {collapsed && (
-            <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />
-          )}
+        {/* ===== CRM WORKSPACE SWITCH BUTTON ===== */}
+        <SidebarGroup className="py-0">
           <SidebarGroupContent>
             <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-              {/* Main warmup item with expand arrow */}
-              {(() => {
-                const warmupBlocked = isFeatureBlocked("/dashboard/warmup-v2");
-                const handleWarmupClick = (e: React.MouseEvent) => {
-                  if (warmupBlocked) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setMaintenanceModal({ name: warmupBlocked.feature_name, message: warmupBlocked.maintenance_message });
-                  }
-                };
-                return (
-                  <SidebarMenuItem>
-                    <div className="flex items-center">
-                      <SidebarMenuButton asChild tooltip={warmupBlocked ? "Aquecimento (Em manutenção)" : "Aquecimento"} className="flex-1">
-                        <NavLink
-                          to={warmupBlocked ? "#" : "/dashboard/warmup-v2"}
-                          onClick={handleWarmupClick}
-                         className={`sidebar-nav-item flex items-center rounded-[10px] text-[13px] relative
-                            transition-[background-color,color,opacity] duration-[120ms] ease-out
-                            ${collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 py-[9px]'}
-                            ${warmupBlocked
-                              ? 'text-muted-foreground/40 font-normal cursor-not-allowed'
-                              : isActive("/dashboard/warmup-v2")
-                                ? 'bg-primary/10 text-foreground font-semibold'
-                                : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/30'
-                            }`}
-                          activeClassName=""
-                        >
-                          {isActive("/dashboard/warmup-v2") && !warmupBlocked && !collapsed && (
-                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary" />
-                          )}
-                          <div className="relative shrink-0">
-                            <Flame
-                              className={`w-[18px] h-[18px] shrink-0 transition-colors duration-150 ${warmupBlocked ? 'text-muted-foreground/30' : isActive("/dashboard/warmup-v2") ? 'text-primary' : ''}`}
-                              strokeWidth={isActive("/dashboard/warmup-v2") ? 2.2 : 1.5}
-                            />
-                            {warmupBlocked && (
-                              <Lock className="absolute -bottom-1 -right-1 w-[10px] h-[10px] text-amber-500/70" strokeWidth={2.5} />
-                            )}
-                          </div>
-                          {!collapsed && (
-                            <span className={`truncate flex-1 ${warmupBlocked ? 'opacity-50' : ''}`}>Aquecimento</span>
-                          )}
-                          {!collapsed && warmupBlocked && (
-                            <Lock className="ml-auto w-3.5 h-3.5 text-amber-500/60 shrink-0" />
-                          )}
-                        </NavLink>
-                      </SidebarMenuButton>
-                      {!collapsed && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setWarmupExpanded(!warmupExpanded);
-                          }}
-                          className="p-2 rounded-lg hover:bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground transition-colors mr-2"
-                        >
-                          <ChevronRight className={cn("w-3 h-3 transition-transform duration-200", warmupExpanded && "rotate-90")} />
-                        </button>
-                      )}
-                    </div>
-                  </SidebarMenuItem>
-                );
-              })()}
+              <SidebarMenuItem>
+                <button
+                  onClick={() => {
+                    if (isCRM) {
+                      setWorkspace("automacao");
+                      navigate("/dashboard");
+                    } else {
+                      setWorkspace("crm");
+                      navigate("/dashboard/conversations");
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center rounded-[10px] text-[13px] w-full transition-all duration-150",
+                    collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 py-[9px]',
+                    isCRM
+                      ? 'bg-primary/10 text-primary font-semibold'
+                      : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/30'
+                  )}
+                >
+                  <Headset className={cn("w-[17px] h-[17px] shrink-0", isCRM && "text-primary")} strokeWidth={isCRM ? 2 : 1.4} />
+                  {!collapsed && <span className="truncate flex-1 text-left">CRM</span>}
+                  {!collapsed && !isCRM && (
+                    <ChevronRight className="ml-auto w-3 h-3 text-muted-foreground/40" />
+                  )}
+                </button>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-              {/* Folders only toggle with the arrow */}
-              {warmupExpanded && !collapsed && folders.length > 0 && (
-                <div className="mt-1 space-y-1.5">
-                  {folders.map((folder) => {
-                    const colorClass = FOLDER_COLORS[folder.color] || "text-emerald-400";
-                    const folderUrl = `/dashboard/warmup-v2?folder=${folder.id}`;
-                    const isActiveFolder = location.search.includes(folder.id);
+        {/* ===== CRM MODE: show only CRM items ===== */}
+        {isCRM && (
+          <>
+            <SidebarGroup className="py-0 mt-1">
+              {!collapsed && (
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
+                  CRM
+                </SidebarGroupLabel>
+              )}
+              <SidebarGroupContent>
+                <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                  {(() => {
+                    const isUnlocked = user?.email === "edgarrodrigues881@gmail.com";
+                    const lk = !isUnlocked;
                     return (
-                      <SidebarMenuItem key={folder.id}>
-                        <div className="group/folder relative">
-                          <NavLink
-                            to={folderUrl}
-                            className={`sidebar-nav-item flex items-center rounded-[10px] text-[13px] relative w-full
-                              transition-[background-color,color,opacity] duration-[120ms] ease-out
-                              gap-[11px] px-3.5 py-[8px]
-                              text-foreground font-medium hover:brightness-110`}
-                            style={{ backgroundColor: `${folder.color}15` }}
-                            activeClassName=""
-                          >
-                            {isActiveFolder && (
-                              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full" style={{ backgroundColor: folder.color }} />
-                            )}
-                            <FolderOpen className="w-[18px] h-[18px] shrink-0" style={{ color: folder.color }} strokeWidth={isActiveFolder ? 2.2 : 1.5} />
-                            <span className="truncate flex-1">{folder.name}</span>
-                          </NavLink>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              setEditingFolder({ id: folder.id, name: folder.name, color: folder.color, tags: folder.tags || [] });
-                              setFolderDialogOpen(true);
-                            }}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground opacity-0 group-hover/folder:opacity-100 transition-opacity z-10"
-                          >
-                            <Pencil className="w-3 h-3" />
-                          </button>
+                      <>
+                        {renderNavItem({ title: "Conversas", url: "/dashboard/conversations", icon: MessageSquare })}
+                        {renderNavItem({ title: "Base de Dados", url: "/dashboard/service-contacts", icon: Headset })}
+                        {renderNavItem({ title: "Agendamentos", url: "/dashboard/schedules", icon: CalendarClock })}
+                        {renderNavItem({ title: "IA", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: lk })}
+                        {renderNavItem({ title: "Relatório", url: "/dashboard/service-reports", icon: BarChart3, locked: lk })}
+                        {renderNavItem({ title: "Prospecção", url: "/dashboard/prospeccao", icon: Building2 })}
+                      </>
+                    );
+                  })()}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
+
+        {/* ===== AUTOMAÇÃO MODE: show all original sections except CRM ===== */}
+        {!isCRM && (
+          <>
+            {menuGroups.map((group, gi) => {
+              const groupRoutes = group.items.map(i => i.url);
+              if (shouldHideSection && !hasAnyPermission(groupRoutes)) return null;
+              return (
+              <SidebarGroup key={gi} className={`py-0 ${gi > 0 ? 'mt-1' : 'mt-1'}`}>
+                {group.label && !collapsed && (
+                  <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
+                    {group.label}
+                  </SidebarGroupLabel>
+                )}
+                {collapsed && gi > 0 && group.label && (
+                  <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />
+                )}
+                <SidebarGroupContent>
+                  <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                    {group.items.map((item) => renderNavItem(item as any))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+              );
+            })}
+
+            {(!shouldHideSection || hasAnyPermission(["/dashboard/warmup-v2", "/dashboard/proxy", "/dashboard/chip-conversation", "/dashboard/group-interaction"])) && (
+            <SidebarGroup className="py-0 mt-1">
+              {!collapsed && (
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
+                  Aquecimento
+                </SidebarGroupLabel>
+              )}
+              {collapsed && (
+                <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />
+              )}
+              <SidebarGroupContent>
+                <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                  {(() => {
+                    const warmupBlocked = isFeatureBlocked("/dashboard/warmup-v2");
+                    const handleWarmupClick = (e: React.MouseEvent) => {
+                      if (warmupBlocked) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setMaintenanceModal({ name: warmupBlocked.feature_name, message: warmupBlocked.maintenance_message });
+                      }
+                    };
+                    return (
+                      <SidebarMenuItem>
+                        <div className="flex items-center">
+                          <SidebarMenuButton asChild tooltip={warmupBlocked ? "Aquecimento (Em manutenção)" : "Aquecimento"} className="flex-1">
+                            <NavLink
+                              to={warmupBlocked ? "#" : "/dashboard/warmup-v2"}
+                              onClick={handleWarmupClick}
+                             className={`sidebar-nav-item flex items-center rounded-[10px] text-[13px] relative
+                                transition-[background-color,color,opacity] duration-[120ms] ease-out
+                                ${collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 py-[9px]'}
+                                ${warmupBlocked
+                                  ? 'text-muted-foreground/40 font-normal cursor-not-allowed'
+                                  : isActive("/dashboard/warmup-v2")
+                                    ? 'bg-primary/10 text-foreground font-semibold'
+                                    : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/30'
+                                }`}
+                              activeClassName=""
+                            >
+                              {isActive("/dashboard/warmup-v2") && !warmupBlocked && !collapsed && (
+                                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary" />
+                              )}
+                              <div className="relative shrink-0">
+                                <Flame
+                                  className={`w-[18px] h-[18px] shrink-0 transition-colors duration-150 ${warmupBlocked ? 'text-muted-foreground/30' : isActive("/dashboard/warmup-v2") ? 'text-primary' : ''}`}
+                                  strokeWidth={isActive("/dashboard/warmup-v2") ? 2.2 : 1.5}
+                                />
+                                {warmupBlocked && (
+                                  <Lock className="absolute -bottom-1 -right-1 w-[10px] h-[10px] text-amber-500/70" strokeWidth={2.5} />
+                                )}
+                              </div>
+                              {!collapsed && (
+                                <span className={`truncate flex-1 ${warmupBlocked ? 'opacity-50' : ''}`}>Aquecimento</span>
+                              )}
+                              {!collapsed && warmupBlocked && (
+                                <Lock className="ml-auto w-3.5 h-3.5 text-amber-500/60 shrink-0" />
+                              )}
+                            </NavLink>
+                          </SidebarMenuButton>
+                          {!collapsed && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setWarmupExpanded(!warmupExpanded);
+                              }}
+                              className="p-2 rounded-lg hover:bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground transition-colors mr-2"
+                            >
+                              <ChevronRight className={cn("w-3 h-3 transition-transform duration-200", warmupExpanded && "rotate-90")} />
+                            </button>
+                          )}
                         </div>
                       </SidebarMenuItem>
                     );
-                  })}
-                </div>
-              )}
+                  })()}
 
-              {/* Nova pasta - toggles with arrow */}
-              {warmupExpanded && !collapsed && (
-                <SidebarMenuItem>
-                  <button
-                    onClick={() => {
-                      setEditingFolder(null);
-                      setFolderDialogOpen(true);
-                    }}
-                    className="flex items-center gap-[11px] px-3.5 min-h-[36px] rounded-[10px] text-[13px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/30 transition-colors w-full font-medium"
-                  >
-                    <Plus className="w-[18px] h-[18px]" strokeWidth={1.5} />
-                    <span>Nova pasta</span>
-                  </button>
-                </SidebarMenuItem>
-              )}
+                  {warmupExpanded && !collapsed && folders.length > 0 && (
+                    <div className="mt-1 space-y-1.5">
+                      {folders.map((folder) => {
+                        const colorClass = FOLDER_COLORS[folder.color] || "text-emerald-400";
+                        const folderUrl = `/dashboard/warmup-v2?folder=${folder.id}`;
+                        const isActiveFolder = location.search.includes(folder.id);
+                        return (
+                          <SidebarMenuItem key={folder.id}>
+                            <div className="group/folder relative">
+                              <NavLink
+                                to={folderUrl}
+                                className={`sidebar-nav-item flex items-center rounded-[10px] text-[13px] relative w-full
+                                  transition-[background-color,color,opacity] duration-[120ms] ease-out
+                                  gap-[11px] px-3.5 py-[8px]
+                                  text-foreground font-medium hover:brightness-110`}
+                                style={{ backgroundColor: `${folder.color}15` }}
+                                activeClassName=""
+                              >
+                                {isActiveFolder && (
+                                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full" style={{ backgroundColor: folder.color }} />
+                                )}
+                                <FolderOpen className="w-[18px] h-[18px] shrink-0" style={{ color: folder.color }} strokeWidth={isActiveFolder ? 2.2 : 1.5} />
+                                <span className="truncate flex-1">{folder.name}</span>
+                              </NavLink>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  setEditingFolder({ id: folder.id, name: folder.name, color: folder.color, tags: folder.tags || [] });
+                                  setFolderDialogOpen(true);
+                                }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground opacity-0 group-hover/folder:opacity-100 transition-opacity z-10"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </SidebarMenuItem>
+                        );
+                      })}
+                    </div>
+                  )}
 
-              {renderNavItem({ title: "Proxy", url: "/dashboard/proxy", icon: Shield })}
-              
-              {renderNavItem({ title: "Conversa entre Chips", url: "/dashboard/chip-conversation", icon: ArrowRightLeft })}
-              {renderNavItem({ title: "Interação de Grupos", url: "/dashboard/group-interaction", icon: UsersRound })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        )}
-
-        {(!shouldHideSection || hasAnyPermission(["/dashboard/conversations", "/dashboard/flows", "/dashboard/team", "/dashboard/ai-settings", "/dashboard/service-contacts", "/dashboard/schedules", "/dashboard/history", "/dashboard/queue"])) && (
-        <SidebarGroup className="py-0 mt-1">
-          {!collapsed && (
-            <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
-              Central de Atendimento
-            </SidebarGroupLabel>
-          )}
-          {collapsed && (
-            <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-              {(() => {
-                const isUnlocked = user?.email === "edgarrodrigues881@gmail.com";
-                const lk = !isUnlocked;
-                return (
-                  <>
-                    {renderNavItem({ title: "Conversas", url: "/dashboard/conversations", icon: MessageSquare })}
-                    {renderNavItem({ title: "Base de Dados", url: "/dashboard/service-contacts", icon: Headset })}
-                    {renderNavItem({ title: "Agendamentos", url: "/dashboard/schedules", icon: CalendarClock })}
-                    {renderNavItem({ title: "IA", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: lk })}
-                    {renderNavItem({ title: "Relatório", url: "/dashboard/service-reports", icon: BarChart3, locked: lk })}
-                  </>
-                );
-              })()}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        )}
-
-        {(!shouldHideSection || hasAnyPermission(["/dashboard/contacts", "/dashboard/group-capture", "/dashboard/whatsapp-verifier", "/dashboard/prospeccao", "/dashboard/group-join", "/dashboard/mass-inject", "/dashboard/group-invite-extractor", "/dashboard/welcome", "/dashboard/groups", "/dashboard/autosave", "/dashboard/reports/whatsapp"])) && (
-        <SidebarGroup className="py-0 mt-1">
-          {!collapsed && (
-            <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
-              Ferramentas
-            </SidebarGroupLabel>
-          )}
-          {collapsed && (
-            <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-              {renderNavItem({ title: "Meus Contatos", url: "/dashboard/contacts", icon: BookUser })}
-              {renderNavItem({ title: "Extrator de Grupos", url: "/dashboard/group-extractor", icon: Users })}
-              {renderNavItem({ title: "Verificador WhatsApp", url: "/dashboard/whatsapp-verifier", icon: Phone })}
-              {renderNavItem({ title: "Prospecção", url: "/dashboard/prospeccao", icon: Building2 })}
-              {renderNavItem({ title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn })}
-              {renderNavItem({ title: "Extrator de Links", url: "/dashboard/group-invite-extractor", icon: Link2 })}
-              {renderNavItem({ title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus })}
-              {/* Boas-vindas oculto */}
-              {renderNavItem({ title: "Grupos", url: "/dashboard/groups", icon: UsersRound })}
-              {renderNavItem({ title: "Auto Save", url: "/dashboard/autosave", icon: SaveAll })}
-              {renderNavItem({ title: "Relatório Via WhatsApp", url: "/dashboard/reports/whatsapp", icon: ScrollText })}
-              
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        )}
-
-        {(!shouldHideSection || hasAnyPermission(["/dashboard/my-plan", "/dashboard/community-warmup", "/dashboard/custom-module"])) && (
-        <SidebarGroup className="py-0 mt-1">
-          {!collapsed && (
-            <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
-              Suporte
-            </SidebarGroupLabel>
-          )}
-          {collapsed && (
-            <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-              {/* Meu Plano - Premium animated button */}
-              {(() => {
-                const planPermBlocked = !isOwner && !hasRoutePermission("/dashboard/my-plan");
-                if (planPermBlocked && permissionMode === "hide") return null;
-                return (
-                  <SidebarMenuItem className="plan-gold-wrap">
-                    <SidebarMenuButton asChild tooltip={planPermBlocked ? "Meu Plano — Sem permissão" : "Meu Plano"}>
-                      <NavLink
-                        to={planPermBlocked ? "#" : "/dashboard/my-plan"}
-                        onClick={planPermBlocked ? (e: React.MouseEvent) => { e.preventDefault(); setMaintenanceModal({ name: "Meu Plano", message: "Você não tem acesso a esta função." }); } : undefined}
-                        className={cn(
-                          "plan-gold-btn sidebar-nav-item relative flex items-center text-[13px] transition-[color,opacity] duration-[120ms] ease-out group/plan",
-                          collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 pr-3.5 py-[10px]',
-                          planPermBlocked
-                            ? 'text-muted-foreground/40 font-medium cursor-not-allowed'
-                            : isActive("/dashboard/my-plan")
-                              ? 'text-foreground font-semibold'
-                              : 'text-muted-foreground font-medium hover:text-amber-300'
-                        )}
-                        activeClassName=""
+                  {warmupExpanded && !collapsed && (
+                    <SidebarMenuItem>
+                      <button
+                        onClick={() => {
+                          setEditingFolder(null);
+                          setFolderDialogOpen(true);
+                        }}
+                        className="flex items-center gap-[11px] px-3.5 min-h-[36px] rounded-[10px] text-[13px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/30 transition-colors w-full font-medium"
                       >
-                        {isActive("/dashboard/my-plan") && !planPermBlocked && !collapsed && (
-                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-amber-400 z-10" />
-                        )}
-                        <span className="relative z-10 flex items-center justify-center w-[18px] h-[18px] shrink-0">
-                          <Crown className={cn("w-[16px] h-[16px] transition-colors duration-150", planPermBlocked ? "text-muted-foreground/30" : isActive("/dashboard/my-plan") ? "text-amber-400" : "text-amber-500/70 group-hover/plan:text-amber-400")} strokeWidth={isActive("/dashboard/my-plan") ? 2.2 : 1.8} />
-                          {planPermBlocked && <Lock className="absolute -bottom-1 -right-1 w-[10px] h-[10px] text-amber-500/70" strokeWidth={2.5} />}
-                        </span>
-                        {!collapsed && (
-                          <span className={cn("truncate flex-1 relative z-10", planPermBlocked && "opacity-50")}>Meu Plano</span>
-                        )}
-                        {!collapsed && planPermBlocked && <Lock className="ml-auto w-3.5 h-3.5 text-amber-500/60 shrink-0 z-10" />}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })()}
-              {renderNavItem({ title: "Comunidade", url: "/dashboard/community", icon: UsersRound })}
-              {renderNavItem({ title: "Tutoriais", url: "/dashboard/tutorials", icon: PlayCircle, locked: true })}
-              {renderNavItem({ title: "Ajuda", url: "/dashboard/custom-module", icon: HelpCircle })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                        <Plus className="w-[18px] h-[18px]" strokeWidth={1.5} />
+                        <span>Nova pasta</span>
+                      </button>
+                    </SidebarMenuItem>
+                  )}
+
+                  {renderNavItem({ title: "Proxy", url: "/dashboard/proxy", icon: Shield })}
+                  
+                  {renderNavItem({ title: "Conversa entre Chips", url: "/dashboard/chip-conversation", icon: ArrowRightLeft })}
+                  {renderNavItem({ title: "Interação de Grupos", url: "/dashboard/group-interaction", icon: UsersRound })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+            )}
+
+            {(!shouldHideSection || hasAnyPermission(["/dashboard/contacts", "/dashboard/group-capture", "/dashboard/whatsapp-verifier", "/dashboard/prospeccao", "/dashboard/group-join", "/dashboard/mass-inject", "/dashboard/group-invite-extractor", "/dashboard/welcome", "/dashboard/groups", "/dashboard/autosave", "/dashboard/reports/whatsapp"])) && (
+            <SidebarGroup className="py-0 mt-1">
+              {!collapsed && (
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
+                  Ferramentas
+                </SidebarGroupLabel>
+              )}
+              {collapsed && (
+                <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />
+              )}
+              <SidebarGroupContent>
+                <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                  {renderNavItem({ title: "Meus Contatos", url: "/dashboard/contacts", icon: BookUser })}
+                  {renderNavItem({ title: "Extrator de Grupos", url: "/dashboard/group-extractor", icon: Users })}
+                  {renderNavItem({ title: "Verificador WhatsApp", url: "/dashboard/whatsapp-verifier", icon: Phone })}
+                  {renderNavItem({ title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn })}
+                  {renderNavItem({ title: "Extrator de Links", url: "/dashboard/group-invite-extractor", icon: Link2 })}
+                  {renderNavItem({ title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus })}
+                  {renderNavItem({ title: "Grupos", url: "/dashboard/groups", icon: UsersRound })}
+                  {renderNavItem({ title: "Auto Save", url: "/dashboard/autosave", icon: SaveAll })}
+                  {renderNavItem({ title: "Relatório Via WhatsApp", url: "/dashboard/reports/whatsapp", icon: ScrollText })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+            )}
+
+            {(!shouldHideSection || hasAnyPermission(["/dashboard/my-plan", "/dashboard/community-warmup", "/dashboard/custom-module"])) && (
+            <SidebarGroup className="py-0 mt-1">
+              {!collapsed && (
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
+                  Suporte
+                </SidebarGroupLabel>
+              )}
+              {collapsed && (
+                <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />
+              )}
+              <SidebarGroupContent>
+                <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                  {(() => {
+                    const planPermBlocked = !isOwner && !hasRoutePermission("/dashboard/my-plan");
+                    if (planPermBlocked && permissionMode === "hide") return null;
+                    return (
+                      <SidebarMenuItem className="plan-gold-wrap">
+                        <SidebarMenuButton asChild tooltip={planPermBlocked ? "Meu Plano — Sem permissão" : "Meu Plano"}>
+                          <NavLink
+                            to={planPermBlocked ? "#" : "/dashboard/my-plan"}
+                            onClick={planPermBlocked ? (e: React.MouseEvent) => { e.preventDefault(); setMaintenanceModal({ name: "Meu Plano", message: "Você não tem acesso a esta função." }); } : undefined}
+                            className={cn(
+                              "plan-gold-btn sidebar-nav-item relative flex items-center text-[13px] transition-[color,opacity] duration-[120ms] ease-out group/plan",
+                              collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 pr-3.5 py-[10px]',
+                              planPermBlocked
+                                ? 'text-muted-foreground/40 font-medium cursor-not-allowed'
+                                : isActive("/dashboard/my-plan")
+                                  ? 'text-foreground font-semibold'
+                                  : 'text-muted-foreground font-medium hover:text-amber-300'
+                            )}
+                            activeClassName=""
+                          >
+                            {isActive("/dashboard/my-plan") && !planPermBlocked && !collapsed && (
+                              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-amber-400 z-10" />
+                            )}
+                            <span className="relative z-10 flex items-center justify-center w-[18px] h-[18px] shrink-0">
+                              <Crown className={cn("w-[16px] h-[16px] transition-colors duration-150", planPermBlocked ? "text-muted-foreground/30" : isActive("/dashboard/my-plan") ? "text-amber-400" : "text-amber-500/70 group-hover/plan:text-amber-400")} strokeWidth={isActive("/dashboard/my-plan") ? 2.2 : 1.8} />
+                              {planPermBlocked && <Lock className="absolute -bottom-1 -right-1 w-[10px] h-[10px] text-amber-500/70" strokeWidth={2.5} />}
+                            </span>
+                            {!collapsed && (
+                              <span className={cn("truncate flex-1 relative z-10", planPermBlocked && "opacity-50")}>Meu Plano</span>
+                            )}
+                            {!collapsed && planPermBlocked && <Lock className="ml-auto w-3.5 h-3.5 text-amber-500/60 shrink-0 z-10" />}
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })()}
+                  {renderNavItem({ title: "Comunidade", url: "/dashboard/community", icon: UsersRound })}
+                  {renderNavItem({ title: "Tutoriais", url: "/dashboard/tutorials", icon: PlayCircle, locked: true })}
+                  {renderNavItem({ title: "Ajuda", url: "/dashboard/custom-module", icon: HelpCircle })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+            )}
+          </>
         )}
       </SidebarContent>
 
