@@ -17,15 +17,21 @@ import {
   GitBranch,
   Sparkles,
   ArrowRight,
+  Brain,
+  Loader2,
+  Wand2,
+  Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { type Conversation, type AttendingStatus, type LeadTemperature, type PipelineStage } from "./types";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
 
 interface ContactDetailsProps {
   conversation: Conversation;
