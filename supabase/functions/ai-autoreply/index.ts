@@ -137,6 +137,30 @@ Deno.serve(async (req) => {
     // 5. Load/update lead memory
     const leadMemory = await loadOrCreateLeadMemory(admin, user_id, remote_jid, contact_name, message_content);
 
+    // 5b. Load CRM context (service_contacts + pipeline)
+    let crmContext = "";
+    const phoneDigits = (remote_jid || "").replace(/\D/g, "").slice(-8);
+    if (phoneDigits) {
+      const { data: sc } = await admin
+        .from("service_contacts")
+        .select("name, company, origin, lead_temperature, pipeline_stage, tags, notes")
+        .eq("user_id", user_id)
+        .like("phone", `%${phoneDigits}%`)
+        .limit(1)
+        .maybeSingle();
+      if (sc) {
+        const parts = [
+          sc.company ? `Empresa do cliente: ${sc.company}` : "",
+          sc.origin ? `Origem: ${sc.origin}` : "",
+          sc.lead_temperature ? `Temperatura no CRM: ${sc.lead_temperature}` : "",
+          sc.pipeline_stage ? `Pipeline: ${sc.pipeline_stage}` : "",
+          sc.tags?.length ? `Tags: ${sc.tags.join(", ")}` : "",
+          sc.notes ? `Notas do operador: ${sc.notes}` : "",
+        ].filter(Boolean);
+        if (parts.length) crmContext = `\nCONTEXTO DO CRM:\n${parts.join("\n")}`;
+      }
+    }
+
     // 6. Build conversation history for context
     let conversationHistory: { role: string; content: string }[] = [];
     if (settings.conversation_memory) {
@@ -187,6 +211,7 @@ Deno.serve(async (req) => {
       leadMemory.stage === "hot" ? `Este é um lead QUENTE (${leadMemory.interaction_count} interações). Seja mais direto e conduza para conversão.` : "",
       leadMemory.stage === "warm" ? `Este é um lead MORNO (${leadMemory.interaction_count} interações). Aprofunde o interesse e apresente benefícios.` : "",
       leadMemory.stage === "cold" ? `Este é um lead FRIO (primeiro contato ou poucas interações). Seja acolhedor e descubra a necessidade.` : "",
+      crmContext,
       `DETECÇÃO DE INTENÇÃO:`,
       `Antes de responder, analise a mensagem do cliente e classifique a intenção:`,
       `- "curious": Está apenas explorando, sem compromisso.`,
@@ -268,6 +293,24 @@ Deno.serve(async (req) => {
           updateData.notes = JSON.stringify(notesObj);
         }
         await admin.from("ai_lead_memory").update(updateData).eq("id", leadMemory.id);
+
+        // 9b. Auto-update CRM pipeline based on AI classification
+        if (phoneDigits && (update.stage || update.intent)) {
+          const tempMap: Record<string, string> = { hot: "quente", warm: "morno", cold: "frio" };
+          const pipelineMap: Record<string, string> = {
+            curious: "novo",
+            interested: "interessado",
+            ready_to_buy: "negociacao",
+            objection: "respondeu",
+          };
+          const crmUpdate: Record<string, unknown> = {};
+          if (update.stage && tempMap[update.stage]) crmUpdate.lead_temperature = tempMap[update.stage];
+          if (update.intent && pipelineMap[update.intent]) crmUpdate.pipeline_stage = pipelineMap[update.intent];
+          if (Object.keys(crmUpdate).length > 0) {
+            await admin.from("service_contacts").update(crmUpdate).eq("user_id", user_id).like("phone", `%${phoneDigits}%`);
+            await admin.from("conversations").update(crmUpdate as any).eq("id", conversation_id);
+          }
+        }
       } catch (e) {
         console.error("Failed to parse lead update:", e);
       }

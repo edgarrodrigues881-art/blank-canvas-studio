@@ -17,15 +17,21 @@ import {
   GitBranch,
   Sparkles,
   ArrowRight,
+  Brain,
+  Loader2,
+  Wand2,
+  Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { type Conversation, type AttendingStatus, type LeadTemperature, type PipelineStage } from "./types";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
 
 interface ContactDetailsProps {
   conversation: Conversation;
@@ -77,6 +83,7 @@ interface EditFormData {
 }
 
 export function ContactDetails({ conversation, onClose, onTagsChange }: ContactDetailsProps) {
+  const { user } = useAuth();
   const [activeTags, setActiveTags] = useState<string[]>(conversation.tags);
   const [notes, setNotes] = useState(conversation.notes || "");
   const [editingNotes, setEditingNotes] = useState(false);
@@ -84,6 +91,11 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
   const [isEditing, setIsEditing] = useState(false);
   const [leadTemp, setLeadTemp] = useState<LeadTemperature>(conversation.leadTemperature || "frio");
   const [aiInterest, setAiInterest] = useState<string | null>(conversation.aiInterest || null);
+  const [aiClassifying, setAiClassifying] = useState(false);
+  const [aiSuggesting, setAiSuggesting] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<{ text: string; tone: string; goal: string }[]>([]);
+  const [aiDetectedIntent, setAiDetectedIntent] = useState<string | null>(null);
+  const [aiRecommendation, setAiRecommendation] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditFormData>({
     name: conversation.name,
     phone: conversation.phone,
@@ -125,7 +137,54 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     });
     setActiveTags(conversation.tags);
     setNotes(conversation.notes || "");
+    setAiSuggestions([]);
+    setAiDetectedIntent(null);
+    setAiRecommendation(null);
   }, [conversation.id]);
+
+  // AI Classify lead
+  const handleAiClassify = async () => {
+    if (!user) return;
+    setAiClassifying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-ai-classify", {
+        body: { user_id: user.id, conversation_id: conversation.id, action: "classify" },
+      });
+      if (error) throw error;
+      if (data?.classification) {
+        const c = data.classification;
+        if (c.temperature) setLeadTemp(c.temperature);
+        if (c.interest) setAiInterest(c.interest);
+        if (c.intent) setAiDetectedIntent(c.intent);
+        toast.success(`Lead classificado: ${c.temperature} (${c.confidence}% confiança)`);
+      }
+    } catch (e: any) {
+      toast.error("Erro ao classificar: " + (e.message || "Tente novamente"));
+    } finally {
+      setAiClassifying(false);
+    }
+  };
+
+  // AI Suggest responses
+  const handleAiSuggest = async () => {
+    if (!user) return;
+    setAiSuggesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-ai-classify", {
+        body: { user_id: user.id, conversation_id: conversation.id, action: "suggest" },
+      });
+      if (error) throw error;
+      if (data?.suggestions) {
+        setAiSuggestions(data.suggestions);
+        if (data.detected_intent) setAiDetectedIntent(data.detected_intent);
+        if (data.recommended_action) setAiRecommendation(data.recommended_action);
+      }
+    } catch (e: any) {
+      toast.error("Erro ao sugerir: " + (e.message || "Tente novamente"));
+    } finally {
+      setAiSuggesting(false);
+    }
+  };
 
   const toggleTag = (tag: string) => {
     setActiveTags((prev) => {
@@ -391,6 +450,78 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
               </div>
             </>
           )}
+
+          <Separator className="bg-border/50" />
+
+          {/* ── IA CRM — AÇÕES ── */}
+          <div className="space-y-3">
+            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+              <Brain className="w-3.5 h-3.5" /> IA — Ações CRM
+            </h4>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-1.5 text-[11px] h-8 border-primary/30 text-primary hover:bg-primary/10"
+                onClick={handleAiClassify}
+                disabled={aiClassifying}
+              >
+                {aiClassifying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Target className="w-3 h-3" />}
+                Classificar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-1.5 text-[11px] h-8 border-primary/30 text-primary hover:bg-primary/10"
+                onClick={handleAiSuggest}
+                disabled={aiSuggesting}
+              >
+                {aiSuggesting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                Sugerir Resposta
+              </Button>
+            </div>
+
+            {/* Detected intent */}
+            {aiDetectedIntent && (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-[10px]">
+                  Intenção: {aiDetectedIntent === "curious" ? "Curioso" : aiDetectedIntent === "interested" ? "Interessado" : aiDetectedIntent === "ready_to_buy" ? "Pronto p/ comprar" : aiDetectedIntent === "objection" ? "Objeção" : aiDetectedIntent}
+                </Badge>
+              </div>
+            )}
+
+            {/* AI recommendation */}
+            {aiRecommendation && (
+              <div className="bg-accent/50 border border-accent rounded-lg px-3 py-2">
+                <p className="text-[11px] text-accent-foreground font-medium">💡 {aiRecommendation}</p>
+              </div>
+            )}
+
+            {/* Suggestions */}
+            {aiSuggestions.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] text-muted-foreground font-semibold uppercase">Sugestões de resposta:</p>
+                {aiSuggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    className="w-full text-left p-2.5 rounded-lg border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all"
+                    onClick={() => {
+                      navigator.clipboard.writeText(s.text);
+                      toast.success("Resposta copiada!");
+                    }}
+                  >
+                    <p className="text-xs text-foreground leading-relaxed">{s.text}</p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <Badge variant="outline" className="text-[9px] py-0">
+                        {s.tone === "amigável" ? "😊" : s.tone === "urgente" ? "⚡" : "💼"} {s.tone}
+                      </Badge>
+                      <span className="text-[9px] text-muted-foreground/60">{s.goal}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <Separator className="bg-border/50" />
 
