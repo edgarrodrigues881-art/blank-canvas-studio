@@ -13,13 +13,19 @@ import {
   User,
   ShieldCheck,
   Save,
+  Thermometer,
+  GitBranch,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { type Conversation, type AttendingStatus } from "./types";
+import { type Conversation, type AttendingStatus, type LeadTemperature, type PipelineStage } from "./types";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface ContactDetailsProps {
   conversation: Conversation;
