@@ -39,15 +39,18 @@ interface ContactDetailsProps {
   onTagsChange?: (conversationId: string, newTags: string[]) => void;
 }
 
-const allTags = [
-  { label: "Aguardando Retorno", color: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
-  { label: "Cliente VIP", color: "bg-violet-500/15 text-violet-400 border-violet-500/20" },
+const DEFAULT_CRM_TAGS = [
   { label: "Interessado", color: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
-  { label: "Cobrança", color: "bg-red-500/15 text-red-400 border-red-500/20" },
-  { label: "Fechado", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
-  { label: "Novo Lead", color: "bg-cyan-500/15 text-cyan-400 border-cyan-500/20" },
-  { label: "Suporte", color: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
+  { label: "Sem resposta", color: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
+  { label: "Follow-up", color: "bg-cyan-500/15 text-cyan-400 border-cyan-500/20" },
+  { label: "Cliente", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
+  { label: "VIP", color: "bg-violet-500/15 text-violet-400 border-violet-500/20" },
   { label: "Urgente", color: "bg-red-500/15 text-red-400 border-red-500/20" },
+  { label: "Negociação", color: "bg-purple-500/15 text-purple-400 border-purple-500/20" },
+  { label: "Retorno", color: "bg-orange-500/15 text-orange-400 border-orange-500/20" },
+  { label: "Novo Lead", color: "bg-cyan-500/15 text-cyan-400 border-cyan-500/20" },
+  { label: "Cobrança", color: "bg-red-500/15 text-red-400 border-red-500/20" },
+  { label: "Suporte", color: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
 ];
 
 const statusLabels: Record<AttendingStatus, { label: string; color: string; dot: string }> = {
@@ -85,6 +88,7 @@ interface EditFormData {
 export function ContactDetails({ conversation, onClose, onTagsChange }: ContactDetailsProps) {
   const { user } = useAuth();
   const [activeTags, setActiveTags] = useState<string[]>(conversation.tags);
+  const [customTagInput, setCustomTagInput] = useState("");
   const [notes, setNotes] = useState(conversation.notes || "");
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesDraft, setNotesDraft] = useState(notes);
@@ -190,8 +194,25 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     setActiveTags((prev) => {
       const next = prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag];
       onTagsChange?.(conversation.id, next);
+      // Also sync to service_contacts
+      if (user && conversation.phone) {
+        const digits = conversation.phone.replace(/\D/g, "");
+        supabase
+          .from("service_contacts")
+          .update({ tags: next } as any)
+          .eq("user_id", user.id)
+          .like("phone", `%${digits.slice(-8)}%`)
+          .then(() => {});
+      }
       return next;
     });
+  };
+
+  const addCustomTag = () => {
+    const tag = customTagInput.trim();
+    if (!tag || activeTags.includes(tag)) return;
+    toggleTag(tag);
+    setCustomTagInput("");
   };
 
   const handleEditSave = () => {
@@ -530,24 +551,49 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
             <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
               <Tag className="w-3.5 h-3.5" /> Tags
             </h4>
+            
+            {/* Active tags with remove */}
+            {activeTags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {activeTags.map((tag) => {
+                  const tagCfg = DEFAULT_CRM_TAGS.find((t) => t.label.toLowerCase() === tag.toLowerCase());
+                  return (
+                    <span key={tag} className={cn("text-[10px] px-2 py-1 rounded-md font-semibold border inline-flex items-center gap-1", tagCfg?.color || "bg-muted/30 text-foreground border-border/40")}>
+                      {tag}
+                      <button onClick={() => toggleTag(tag)} className="hover:text-destructive ml-0.5">
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Suggested tags */}
             <div className="flex flex-wrap gap-1.5">
-              {allTags.map((tag) => {
-                const isActive = activeTags.some((t) => t.toLowerCase() === tag.label.toLowerCase());
-                return (
-                  <button
-                    key={tag.label}
-                    onClick={() => toggleTag(tag.label)}
-                    className={cn(
-                      "text-[10px] px-2 py-1 rounded-md font-semibold border transition-all cursor-pointer",
-                      isActive
-                        ? tag.color
-                        : "bg-muted/20 text-muted-foreground/50 border-border/30 hover:bg-muted/40 hover:text-muted-foreground"
-                    )}
-                  >
-                    {tag.label}
-                  </button>
-                );
-              })}
+              {DEFAULT_CRM_TAGS.filter((tag) => !activeTags.some((t) => t.toLowerCase() === tag.label.toLowerCase())).map((tag) => (
+                <button
+                  key={tag.label}
+                  onClick={() => toggleTag(tag.label)}
+                  className="text-[10px] px-2 py-1 rounded-md font-semibold border border-dashed border-border/40 text-muted-foreground/60 hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer"
+                >
+                  + {tag.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Custom tag input */}
+            <div className="flex gap-1.5">
+              <Input
+                value={customTagInput}
+                onChange={(e) => setCustomTagInput(e.target.value)}
+                placeholder="Tag personalizada..."
+                className="h-7 text-xs flex-1"
+                onKeyDown={(e) => e.key === "Enter" && addCustomTag()}
+              />
+              <Button size="sm" variant="outline" className="h-7 text-[10px] px-2" onClick={addCustomTag} disabled={!customTagInput.trim()}>
+                Adicionar
+              </Button>
             </div>
           </div>
 
