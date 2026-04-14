@@ -371,9 +371,9 @@ export function AppSidebar() {
                         {renderNavItem({ title: "IA", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: lk })}
                         {renderNavItem({ title: "Relatórios", url: "/dashboard/crm-reports", icon: BarChart3, locked: lk })}
                         {renderNavItem({ title: "Prospecção", url: "/dashboard/prospeccao", icon: Building2 })}
-                        {renderNavItem({ title: "Disparo CRM", url: "/dashboard/crm-dispatches", icon: Send })}
-                        {renderNavItem({ title: "Campanhas CRM", url: "/dashboard/crm-campaign-list", icon: Megaphone })}
-                        {renderNavItem({ title: "Templates CRM", url: "/dashboard/crm-templates", icon: FileText })}
+                         {renderNavItem({ title: "Disparos", url: "/dashboard/crm-dispatches", icon: Send })}
+                         {renderNavItem({ title: "Campanhas", url: "/dashboard/crm-campaign-list", icon: Megaphone })}
+                         {renderNavItem({ title: "Modelos", url: "/dashboard/crm-templates", icon: FileText })}
                       </>
                     );
                   })()}
