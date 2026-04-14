@@ -549,7 +549,7 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
       await uazapiRequest(baseUrl, token, "/send/menu", {
         number: phone,
         type: "button",
-        text: "👇 Escolha uma opção:",
+        text,
         choices,
       });
       console.log(JSON.stringify({ event: "split_image_buttons_success" }));
