@@ -658,34 +658,96 @@ const AISettings = () => {
     }, 800);
   };
 
-  const handleAddDoc = () => {
-    if (!newDocTitle.trim() || !newDocFile) {
-      toast.error("Preencha o título e selecione um arquivo");
+  const handleAddDoc = async () => {
+    if (!newDocTitle.trim()) {
+      toast.error("Preencha o título do documento");
       return;
     }
-    const doc: KnowledgeDoc = {
-      id: crypto.randomUUID(),
-      title: newDocTitle.trim(),
-      type: newDocType,
-      fileName: newDocFile.name,
-      active: true,
-      addedAt: new Date().toLocaleDateString("pt-BR"),
-    };
-    setKnowledgeDocs((prev) => [...prev, doc]);
-    setNewDocTitle("");
-    setNewDocType("pdf");
-    setNewDocFile(null);
-    setUploadModalOpen(false);
-    toast.success("Documento adicionado com sucesso!");
+    // For text/prompt type, content is required; for file types, file is required
+    if (newDocType === "prompt" || newDocType === "text") {
+      if (!newDocContent.trim()) {
+        toast.error("Preencha o conteúdo do documento");
+        return;
+      }
+    } else if (!newDocFile) {
+      toast.error("Selecione um arquivo");
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      let fileUrl: string | null = null;
+      let fileName: string | null = null;
+      let fileSize = 0;
+      let content: string | null = null;
+
+      if (newDocFile) {
+        fileName = newDocFile.name;
+        fileSize = newDocFile.size;
+        const filePath = `${user.id}/kb/${Date.now()}-${newDocFile.name}`;
+        const { error: uploadErr } = await supabase.storage.from("media").upload(filePath, newDocFile);
+        if (uploadErr) throw uploadErr;
+        const { data: urlData } = supabase.storage.from("media").getPublicUrl(filePath);
+        fileUrl = urlData.publicUrl;
+
+        // For text files, read content
+        if (newDocFile.type === "text/plain" || newDocFile.name.endsWith(".txt")) {
+          content = await newDocFile.text();
+        }
+      }
+
+      if (newDocType === "prompt" || newDocType === "text") {
+        content = newDocContent.trim();
+      }
+
+      const { data: inserted, error } = await supabase
+        .from("ai_knowledge_base")
+        .insert({
+          user_id: user.id,
+          title: newDocTitle.trim(),
+          doc_type: newDocType,
+          content,
+          file_url: fileUrl,
+          file_name: fileName,
+          file_size: fileSize,
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      setKnowledgeDocs((prev) => [inserted as KnowledgeDoc, ...prev]);
+      setNewDocTitle("");
+      setNewDocType("prompt");
+      setNewDocFile(null);
+      setNewDocContent("");
+      setUploadModalOpen(false);
+      toast.success("Documento adicionado!");
+    } catch (err: any) {
+      toast.error("Erro ao adicionar: " + (err.message || "Erro"));
+    }
   };
 
-  const toggleDocActive = (id: string) => {
-    setKnowledgeDocs((prev) => prev.map((d) => d.id === id ? { ...d, active: !d.active } : d));
+  const toggleDocActive = async (id: string) => {
+    const doc = knowledgeDocs.find((d) => d.id === id);
+    if (!doc) return;
+    const { error } = await supabase
+      .from("ai_knowledge_base")
+      .update({ is_active: !doc.is_active })
+      .eq("id", id);
+    if (!error) {
+      setKnowledgeDocs((prev) => prev.map((d) => d.id === id ? { ...d, is_active: !d.is_active } : d));
+    }
   };
 
-  const removeDoc = (id: string) => {
-    setKnowledgeDocs((prev) => prev.filter((d) => d.id !== id));
-    toast.success("Documento removido");
+  const removeDoc = async (id: string) => {
+    const { error } = await supabase.from("ai_knowledge_base").delete().eq("id", id);
+    if (!error) {
+      setKnowledgeDocs((prev) => prev.filter((d) => d.id !== id));
+      toast.success("Documento removido");
+    }
   };
 
   if (loading) {
