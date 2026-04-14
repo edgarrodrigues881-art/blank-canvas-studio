@@ -30,16 +30,24 @@ interface CarouselCard {
 function buildMenuChoice(button: CampaignButton, index: number): string | null {
   const text = (button.text || "").trim();
   if (!text) return null;
-  if (button.type === "url") {
-    const url = (button.value || "").trim();
-    return url ? `${text}|url:${url}` : text;
-  }
-  if (button.type === "phone") {
-    const phone = (button.value || "").trim();
-    return phone ? `${text}|call:${phone}` : text;
-  }
-  const replyId = (button.value || `btn_${index}`).trim();
+  // All buttons become simple reply buttons for /send/menu type:"button"
+  // URL/phone values are appended to the message text separately
+  const replyId = (button.value || `btn_${index}`).trim().substring(0, 20) || `btn_${index}`;
   return `${text}|${replyId}`;
+}
+
+function extractUrlFooter(buttons: CampaignButton[]): string {
+  const lines: string[] = [];
+  for (const b of buttons) {
+    const text = (b.text || "").trim();
+    const value = (b.value || "").trim();
+    if (b.type === "url" && value) {
+      lines.push(`🔗 ${text}: ${value}`);
+    } else if (b.type === "phone" && value) {
+      lines.push(`📞 ${text}: ${value}`);
+    }
+  }
+  return lines.length > 0 ? "\n\n" + lines.join("\n") : "";
 }
 
 function normalizeCarouselCards(rawCards: unknown): CarouselCard[] {
