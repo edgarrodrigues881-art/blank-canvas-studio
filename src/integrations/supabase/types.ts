@@ -3871,9 +3871,11 @@ export type Database = {
           device_id: string | null
           error_message: string | null
           id: string
+          lead_id: string | null
           max_attempts: number
           message_content: string
           next_retry_at: string | null
+          schedule_type: string
           scheduled_at: string
           sent_at: string | null
           status: string
@@ -3888,9 +3890,11 @@ export type Database = {
           device_id?: string | null
           error_message?: string | null
           id?: string
+          lead_id?: string | null
           max_attempts?: number
           message_content: string
           next_retry_at?: string | null
+          schedule_type?: string
           scheduled_at: string
           sent_at?: string | null
           status?: string
@@ -3905,9 +3909,11 @@ export type Database = {
           device_id?: string | null
           error_message?: string | null
           id?: string
+          lead_id?: string | null
           max_attempts?: number
           message_content?: string
           next_retry_at?: string | null
+          schedule_type?: string
           scheduled_at?: string
           sent_at?: string | null
           status?: string
@@ -3927,6 +3933,13 @@ export type Database = {
             columns: ["device_id"]
             isOneToOne: false
             referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "service_contacts"
             referencedColumns: ["id"]
           },
         ]
@@ -5920,9 +5933,11 @@ export type Database = {
           device_id: string | null
           error_message: string | null
           id: string
+          lead_id: string | null
           max_attempts: number
           message_content: string
           next_retry_at: string | null
+          schedule_type: string
           scheduled_at: string
           sent_at: string | null
           status: string
