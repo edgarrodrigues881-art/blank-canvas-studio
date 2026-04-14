@@ -525,36 +525,38 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
       throw new Error("Mensagens com botão exigem copy/texto principal. O sistema não envia mais 'Escolha uma opção' automaticamente.");
     }
 
-    // Detect if any button is URL or phone type — these require "list" type for mobile compatibility
-    const hasUrlOrPhoneButtons = buttons!.some(b => b.type === "url" || b.type === "phone");
-    const menuType = hasUrlOrPhoneButtons ? "list" : "button";
-
-    // IMAGE + BUTTONS: Send unified via /send/menu with imageButton field
+    // IMAGE + BUTTONS: Send image+caption first, then buttons separately
+    // This is the only format 100% compatible with ALL mobile devices
+    // (imageButton / unified format causes "incompatible version" on many phones)
     if (hasVisualMedia && mediaUrl) {
       console.log(JSON.stringify({
-        event: "unified_image_buttons",
+        event: "split_image_buttons",
         origin: "campaign",
         buttonCount: choices.length,
         hasMedia: true,
         captionLength: text.length,
-        menuType,
       }));
+
+      // Step 1: Send image + caption together
+      await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType!, text);
+
+      // Step 2: Brief delay then send buttons
+      await new Promise((r) => setTimeout(r, 800 + Math.random() * 700));
 
       await uazapiRequest(baseUrl, token, "/send/menu", {
         number: phone,
-        type: menuType,
-        text,
-        imageButton: mediaUrl,
+        type: "button",
+        text: "👇 Escolha uma opção:",
         choices,
       });
-      console.log(JSON.stringify({ event: "unified_image_buttons_success" }));
+      console.log(JSON.stringify({ event: "split_image_buttons_success" }));
       return;
     }
 
-    // TEXT-ONLY BUTTONS (no image)
+    // TEXT-ONLY BUTTONS (no image) — works fine on all devices
     await uazapiRequest(baseUrl, token, "/send/menu", {
       number: phone,
-      type: menuType,
+      type: "button",
       text,
       choices,
     });
