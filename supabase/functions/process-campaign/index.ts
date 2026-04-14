@@ -396,6 +396,7 @@ async function sendCaptionedMedia(baseUrl: string, token: string, phone: string,
     number: phone,
     file: mediaUrl,
     type: mediaType,
+    text: normalizedCaption,
     caption: normalizedCaption,
   };
 
@@ -413,6 +414,7 @@ async function sendCaptionedMedia(baseUrl: string, token: string, phone: string,
         number: phone,
         media: mediaUrl,
         type: mediaType,
+        text: normalizedCaption,
         caption: normalizedCaption,
         ...(mediaType === "image" ? { compress: false } : {}),
       });
@@ -547,7 +549,7 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
       await uazapiRequest(baseUrl, token, "/send/menu", {
         number: phone,
         type: "button",
-        text: "👇 Escolha uma opção:",
+        text,
         choices,
       });
       console.log(JSON.stringify({ event: "split_image_buttons_success" }));
