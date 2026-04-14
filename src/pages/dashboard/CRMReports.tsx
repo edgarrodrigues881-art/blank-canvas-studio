@@ -60,13 +60,13 @@ export default function CRMReports() {
       if (!user) return [];
       const { data, error } = await supabase
         .from("service_contacts")
-        .select("id, origin, lead_temperature, pipeline_stage, tags, created_at, first_contact_at, last_message_at")
+        .select("id, origin, lead_temperature, tags, created_at, first_contact_at, last_message_at")
         .eq("user_id", user.id)
         .gte("created_at", from)
         .lte("created_at", to)
         .limit(5000);
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     },
     enabled: !!user,
     staleTime: 120_000,
