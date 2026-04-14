@@ -247,6 +247,7 @@ Deno.serve(async (req) => {
       leadMemory.stage === "warm" ? `Este é um lead MORNO (${leadMemory.interaction_count} interações). Aprofunde o interesse e apresente benefícios.` : "",
       leadMemory.stage === "cold" ? `Este é um lead FRIO (primeiro contato ou poucas interações). Seja acolhedor e descubra a necessidade.` : "",
       crmContext,
+      learningContext,
       `DETECÇÃO DE INTENÇÃO:`,
       `Antes de responder, analise a mensagem do cliente e classifique a intenção:`,
       `- "curious": Está apenas explorando, sem compromisso.`,
