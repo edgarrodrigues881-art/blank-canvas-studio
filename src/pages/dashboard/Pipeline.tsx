@@ -57,6 +57,10 @@ export default function Pipeline() {
   const [loading, setLoading] = useState(true);
   const dragItem = useRef<{ id: string; stage: string } | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+  const [tagPopoverId, setTagPopoverId] = useState<string | null>(null);
+  const [newTagInput, setNewTagInput] = useState("");
+
+  const SUGGESTED_TAGS = ["Interessado", "Sem resposta", "Follow-up", "Cliente", "VIP", "Urgente", "Negociação", "Retorno"];
 
   const fetchLeads = useCallback(async () => {
     if (!user) return;
