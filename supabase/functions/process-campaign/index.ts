@@ -525,6 +525,11 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
       throw new Error("Mensagens com botão exigem copy/texto principal. O sistema não envia mais 'Escolha uma opção' automaticamente.");
     }
 
+    // Detect if any button is a URL/phone type — these require "list" type
+    // "button" type only supports simple reply buttons and causes "version not compatible" on mobile for URL buttons
+    const hasUrlOrPhoneButtons = buttons!.some((b) => b.type === "url" || b.type === "phone");
+    const menuType = hasUrlOrPhoneButtons ? "list" : "button";
+
     // IMAGE + BUTTONS: Send unified via /send/menu with image field
     if (hasVisualMedia && mediaUrl) {
       console.log(JSON.stringify({
@@ -533,11 +538,13 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
         buttonCount: choices.length,
         hasMedia: true,
         captionLength: text.length,
+        menuType,
+        hasUrlOrPhoneButtons,
       }));
 
       await uazapiRequest(baseUrl, token, "/send/menu", {
         number: phone,
-        type: "button",
+        type: menuType,
         text,
         imageButton: mediaUrl,
         choices,
@@ -549,7 +556,7 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     // TEXT-ONLY BUTTONS (no image)
     await uazapiRequest(baseUrl, token, "/send/menu", {
       number: phone,
-      type: "button",
+      type: menuType,
       text,
       choices,
     });
