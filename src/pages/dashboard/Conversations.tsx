@@ -144,6 +144,8 @@ const Conversations = () => {
       assignedTo: c.assigned_to || undefined,
       assignedName: c.assigned_name || undefined,
       statusChangedAt: c.status_changed_at || undefined,
+      leadTemperature: (c.lead_temperature as any) || "frio",
+      pipelineStage: (c.pipeline_stage as any) || null,
     }))
   , [activeRealConvs]);
 
@@ -202,6 +204,8 @@ const Conversations = () => {
       assignedTo: c.assigned_to || undefined,
       assignedName: c.assigned_name || undefined,
       statusChangedAt: c.status_changed_at || undefined,
+      leadTemperature: (c.lead_temperature as any) || "frio",
+      pipelineStage: (c.pipeline_stage as any) || null,
     }))
   , [effectiveArchivedRealConvs]);
 

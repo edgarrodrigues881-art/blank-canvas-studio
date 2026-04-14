@@ -1,3 +1,5 @@
+export type LeadTemperature = "frio" | "morno" | "quente";
+export type PipelineStage = "novo" | "respondeu" | "interessado" | "agendado" | "fechado" | null;
 export type AttendingStatus = "nova" | "em_atendimento" | "aguardando" | "finalizado" | "pausado";
 
 export interface Conversation {
@@ -20,6 +22,9 @@ export interface Conversation {
   assignedTo?: string;
   assignedName?: string;
   statusChangedAt?: string;
+  leadTemperature?: LeadTemperature;
+  pipelineStage?: PipelineStage;
+  aiInterest?: string;
 }
 
 export interface Message {

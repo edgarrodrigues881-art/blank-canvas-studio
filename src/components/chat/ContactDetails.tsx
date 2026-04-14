@@ -13,13 +13,19 @@ import {
   User,
   ShieldCheck,
   Save,
+  Thermometer,
+  GitBranch,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { type Conversation, type AttendingStatus } from "./types";
+import { type Conversation, type AttendingStatus, type LeadTemperature, type PipelineStage } from "./types";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface ContactDetailsProps {
   conversation: Conversation;
@@ -76,6 +82,8 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesDraft, setNotesDraft] = useState(notes);
   const [isEditing, setIsEditing] = useState(false);
+  const [leadTemp, setLeadTemp] = useState<LeadTemperature>(conversation.leadTemperature || "frio");
+  const [aiInterest, setAiInterest] = useState<string | null>(conversation.aiInterest || null);
   const [editForm, setEditForm] = useState<EditFormData>({
     name: conversation.name,
     phone: conversation.phone,
@@ -85,9 +93,28 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     observations: "",
   });
 
+  // Fetch AI lead memory for this conversation
+  useEffect(() => {
+    if (!conversation.phone) return;
+    const digits = conversation.phone.replace(/\D/g, "");
+    supabase
+      .from("ai_lead_memory")
+      .select("interest, stage")
+      .like("remote_jid", `%${digits.slice(-8)}%`)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.interest) setAiInterest(data.interest);
+        if (data?.stage === "quente") setLeadTemp("quente");
+        else if (data?.stage === "morno") setLeadTemp("morno");
+      });
+  }, [conversation.phone]);
+
   // Reset edit form when conversation changes
   useEffect(() => {
     setIsEditing(false);
+    setLeadTemp(conversation.leadTemperature || "frio");
+    setAiInterest(conversation.aiInterest || null);
     setEditForm({
       name: conversation.name,
       phone: conversation.phone,
@@ -286,6 +313,84 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
               </div>
             )}
           </div>
+
+          <Separator className="bg-border/50" />
+
+          {/* ── TEMPERATURA DO LEAD ── */}
+          <div className="space-y-3">
+            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+              <Thermometer className="w-3.5 h-3.5" /> Temperatura do Lead
+            </h4>
+            <div className="flex gap-1.5">
+              {([
+                { key: "frio" as LeadTemperature, label: "❄️ Frio", color: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
+                { key: "morno" as LeadTemperature, label: "🔥 Morno", color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+                { key: "quente" as LeadTemperature, label: "🔥 Quente", color: "bg-red-500/15 text-red-400 border-red-500/30" },
+              ]).map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => {
+                    setLeadTemp(t.key);
+                    supabase
+                      .from("conversations")
+                      .update({ lead_temperature: t.key } as any)
+                      .eq("id", conversation.id)
+                      .then(() => {});
+                  }}
+                  className={cn(
+                    "text-[11px] px-2.5 py-1.5 rounded-lg font-semibold border transition-all cursor-pointer flex-1 text-center",
+                    leadTemp === t.key
+                      ? t.color
+                      : "bg-muted/20 text-muted-foreground/50 border-border/30 hover:bg-muted/40"
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Separator className="bg-border/50" />
+
+          {/* ── PIPELINE ── */}
+          <div className="space-y-3">
+            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+              <GitBranch className="w-3.5 h-3.5" /> Pipeline
+            </h4>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2 text-xs h-9 border-primary/30 text-primary hover:bg-primary/10"
+              onClick={() => {
+                const stage = conversation.pipelineStage || "novo";
+                supabase
+                  .from("conversations")
+                  .update({ pipeline_stage: stage } as any)
+                  .eq("id", conversation.id)
+                  .then(() => {
+                    toast.success("Lead movido para o Pipeline!");
+                  });
+              }}
+            >
+              <ArrowRight className="w-3.5 h-3.5" />
+              {conversation.pipelineStage ? `Etapa: ${conversation.pipelineStage}` : "Mover para Pipeline"}
+            </Button>
+          </div>
+
+          {/* ── AI INTERESSE DETECTADO ── */}
+          {aiInterest && (
+            <>
+              <Separator className="bg-border/50" />
+              <div className="space-y-2">
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" /> IA — Interesse Detectado
+                </h4>
+                <div className="bg-primary/5 border border-primary/20 rounded-lg px-3 py-2.5">
+                  <p className="text-xs text-foreground font-medium">{aiInterest}</p>
+                </div>
+              </div>
+            </>
+          )}
 
           <Separator className="bg-border/50" />
 
