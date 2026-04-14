@@ -39,15 +39,18 @@ interface ContactDetailsProps {
   onTagsChange?: (conversationId: string, newTags: string[]) => void;
 }
 
-const allTags = [
-  { label: "Aguardando Retorno", color: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
-  { label: "Cliente VIP", color: "bg-violet-500/15 text-violet-400 border-violet-500/20" },
+const DEFAULT_CRM_TAGS = [
   { label: "Interessado", color: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
-  { label: "Cobrança", color: "bg-red-500/15 text-red-400 border-red-500/20" },
-  { label: "Fechado", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
-  { label: "Novo Lead", color: "bg-cyan-500/15 text-cyan-400 border-cyan-500/20" },
-  { label: "Suporte", color: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
+  { label: "Sem resposta", color: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
+  { label: "Follow-up", color: "bg-cyan-500/15 text-cyan-400 border-cyan-500/20" },
+  { label: "Cliente", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
+  { label: "VIP", color: "bg-violet-500/15 text-violet-400 border-violet-500/20" },
   { label: "Urgente", color: "bg-red-500/15 text-red-400 border-red-500/20" },
+  { label: "Negociação", color: "bg-purple-500/15 text-purple-400 border-purple-500/20" },
+  { label: "Retorno", color: "bg-orange-500/15 text-orange-400 border-orange-500/20" },
+  { label: "Novo Lead", color: "bg-cyan-500/15 text-cyan-400 border-cyan-500/20" },
+  { label: "Cobrança", color: "bg-red-500/15 text-red-400 border-red-500/20" },
+  { label: "Suporte", color: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
 ];
 
 const statusLabels: Record<AttendingStatus, { label: string; color: string; dot: string }> = {
