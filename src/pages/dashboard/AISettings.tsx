@@ -134,7 +134,15 @@ interface LeadMemory {
 }
 
 interface KnowledgeDoc {
-  id: string; title: string; type: string; fileName: string; active: boolean; addedAt: string;
+  id: string;
+  title: string;
+  doc_type: string;
+  content: string | null;
+  file_url: string | null;
+  file_name: string | null;
+  file_size: number;
+  is_active: boolean;
+  created_at: string;
 }
 
 const AISettings = () => {
