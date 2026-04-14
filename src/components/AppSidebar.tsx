@@ -281,6 +281,13 @@ export function AppSidebar() {
     );
   };
 
+  // Auto-switch workspace based on current route
+  const CRM_ROUTES = ["/dashboard/conversations", "/dashboard/service-contacts", "/dashboard/schedules", "/dashboard/ai-settings", "/dashboard/service-reports", "/dashboard/prospeccao"];
+  useEffect(() => {
+    const isCRMRoute = CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
+    if (isCRMRoute && !isCRM) setWorkspace("crm");
+  }, [location.pathname]);
+
   return (
     <Sidebar collapsible="icon" className="sidebar-premium">
       {/* Header / Brand */}
