@@ -525,29 +525,24 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
       throw new Error("Mensagens com botão exigem copy/texto principal. O sistema não envia mais 'Escolha uma opção' automaticamente.");
     }
 
-    // IMAGE + BUTTONS: Send image first, then copy + buttons as separate message.
-    // Unified sending via /send/menu does NOT support images reliably.
+    // IMAGE + BUTTONS: Send unified via /send/menu with image field
     if (hasVisualMedia && mediaUrl) {
       console.log(JSON.stringify({
-        event: "split_image_then_buttons",
+        event: "unified_image_buttons",
         origin: "campaign",
         buttonCount: choices.length,
         hasMedia: true,
         captionLength: text.length,
       }));
 
-      // Step 1: Send the image (no caption to avoid duplicate text)
-      await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType || "image", "");
-      await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1500));
-
-      // Step 2: Send copy + buttons
       await uazapiRequest(baseUrl, token, "/send/menu", {
         number: phone,
         type: "button",
         text,
+        image: mediaUrl,
         choices,
       });
-      console.log(JSON.stringify({ event: "split_image_buttons_success" }));
+      console.log(JSON.stringify({ event: "unified_image_buttons_success" }));
       return;
     }
 

@@ -393,9 +393,7 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     const hasVisual = !!mediaUrl && !isAudio;
 
     if (hasVisual && mediaUrl) {
-      await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType || "image", "");
-      await sleep(1500 + Math.random() * 1500);
-      await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
+      await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, image: mediaUrl, choices });
       return;
     }
     await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
