@@ -402,16 +402,54 @@ Deno.serve(async (req) => {
         missingCount: 0,
       };
 
-      if (current.device_id) {
-        const { data: device, error: deviceError } = await admin.from("devices")
-          .select("id, uazapi_token, uazapi_base_url")
-          .eq("id", current.device_id)
-          .eq("user_id", user.id)
-          .maybeSingle();
+      // On resume (was previously running/paused), skip heavy reconciliation
+      // if we already have joined JIDs — just do a quick count check
+      const isResume = action === "resume" || current.status === "paused" || current.status === "running";
 
-        if (deviceError) throw deviceError;
-        if (device) {
-          groupSync = await reconcileInteractionGroups(admin, user.id, current, device);
+      if (current.device_id) {
+        if (isResume) {
+          // Quick check: count how many groups already have JIDs registered
+          const groupIds: string[] = Array.isArray(current.group_ids) ? current.group_ids : [];
+          const { data: joinedRows } = await admin
+            .from("warmup_instance_groups")
+            .select("group_jid")
+            .eq("user_id", user.id)
+            .eq("device_id", current.device_id)
+            .eq("join_status", "joined")
+            .not("group_jid", "is", null)
+            .limit(groupIds.length || 50);
+
+          const resolvedCount = joinedRows?.length || 0;
+          groupSync = {
+            total: groupIds.length,
+            resolvedCount,
+            autoJoinedCount: 0,
+            missingCount: Math.max(0, groupIds.length - resolvedCount),
+          };
+
+          // Only do full reconciliation if no groups are resolved at all
+          if (resolvedCount === 0 && groupIds.length > 0) {
+            const { data: device } = await admin.from("devices")
+              .select("id, uazapi_token, uazapi_base_url")
+              .eq("id", current.device_id)
+              .eq("user_id", user.id)
+              .maybeSingle();
+            if (device) {
+              groupSync = await reconcileInteractionGroups(admin, user.id, current, device);
+            }
+          }
+        } else {
+          // First start: do full reconciliation
+          const { data: device, error: deviceError } = await admin.from("devices")
+            .select("id, uazapi_token, uazapi_base_url")
+            .eq("id", current.device_id)
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+          if (deviceError) throw deviceError;
+          if (device) {
+            groupSync = await reconcileInteractionGroups(admin, user.id, current, device);
+          }
         }
       }
 
@@ -423,13 +461,19 @@ Deno.serve(async (req) => {
         }, 409);
       }
 
-      const randomDelayMs = randomBetween(
-        safeNonNegativeInt(current.min_delay_seconds, 0) * 1000,
-        Math.max(safeNonNegativeInt(current.min_delay_seconds, 0), safeNonNegativeInt(current.max_delay_seconds, 0)) * 1000,
-      );
-      const initialDelayMs = groupSync.autoJoinedCount > 0
-        ? Math.max(randomDelayMs, 15_000)
-        : randomDelayMs;
+      // On resume, use a short 3-5s delay so the first message goes out fast
+      // On first start, use the configured delay range
+      const initialDelayMs = isResume
+        ? randomBetween(3_000, 5_000)
+        : (() => {
+            const randomDelayMs = randomBetween(
+              safeNonNegativeInt(current.min_delay_seconds, 0) * 1000,
+              Math.max(safeNonNegativeInt(current.min_delay_seconds, 0), safeNonNegativeInt(current.max_delay_seconds, 0)) * 1000,
+            );
+            return groupSync.autoJoinedCount > 0
+              ? Math.max(randomDelayMs, 15_000)
+              : randomDelayMs;
+          })();
 
       const { error } = await admin.from("group_interactions")
         .update({
