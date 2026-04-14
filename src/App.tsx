@@ -116,6 +116,9 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/schedules": () => { (Schedules as any).__preload?.(); },
   "/dashboard/group-carousel": () => { (GroupCarouselDispatch as any).__preload?.(); },
   "/dashboard/tutorials": () => { (Tutorials as any).__preload?.(); },
+  "/dashboard/crm": () => { (CRMDashboard as any).__preload?.(); },
+  "/dashboard/leads": () => { (Leads as any).__preload?.(); },
+  "/dashboard/pipeline": () => { (Pipeline as any).__preload?.(); },
 };
 
 const queryClient = new QueryClient({
