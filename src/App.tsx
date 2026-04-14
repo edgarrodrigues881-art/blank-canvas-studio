@@ -78,6 +78,7 @@ const GroupCarouselDispatch = lazyWithPreload(() => import("@/pages/dashboard/Gr
 const CRMDashboard = lazyWithPreload(() => import("@/pages/dashboard/CRMDashboard"));
 const Leads = lazyWithPreload(() => import("@/pages/dashboard/Leads"));
 const Pipeline = lazyWithPreload(() => import("@/pages/dashboard/Pipeline"));
+const CRMAgendamentos = lazyWithPreload(() => import("@/pages/dashboard/CRMAgendamentos"));
 const Tutorials = lazyWithPreload(() => import("@/pages/dashboard/Tutorials"));
 
 // Backoffice pages
