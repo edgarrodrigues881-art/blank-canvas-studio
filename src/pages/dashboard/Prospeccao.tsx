@@ -953,7 +953,7 @@ export default function Prospeccao() {
                 <div className="flex justify-end gap-2 mb-2">
                   <Button variant="outline" size="sm" onClick={() => saveToContacts(campaignLeads)} disabled={savingContacts} className="gap-1.5">
                     {savingContacts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
-                    {savingContacts ? "Salvando..." : "Salvar nos Contatos"}
+                    {savingContacts ? "Salvando..." : "Salvar no CRM"}
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => exportCSV(campaignLeads, `leads_${selectedCampaign?.name}.csv`)} className="gap-1.5">
                     <Download className="h-3.5 w-3.5" /> Exportar CSV
