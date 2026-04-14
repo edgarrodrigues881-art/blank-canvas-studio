@@ -109,9 +109,21 @@ const Conversations = () => {
     };
   }, []);
 
+  const activeRealConvs = useMemo(
+    () => realConvs.filter((c) => c.status !== "archived"),
+    [realConvs]
+  );
+
+  const effectiveArchivedRealConvs = useMemo(() => {
+    const merged = [...realArchivedConvs, ...realConvs.filter((c) => c.status === "archived")];
+    return Array.from(new Map(merged.map((c) => [c.id, c])).values()).sort(
+      (a, b) => new Date(b.last_message_at || b.updated_at || 0).getTime() - new Date(a.last_message_at || a.updated_at || 0).getTime()
+    );
+  }, [realArchivedConvs, realConvs]);
+
   // Map raw conversations to UI type
   const allConversations: (Conversation & { _rawId: string })[] = useMemo(() =>
-    realConvs.map((c) => ({
+    activeRealConvs.map((c) => ({
       id: c.id,
       _rawId: c.id,
       name: c.name,
@@ -133,7 +145,7 @@ const Conversations = () => {
       assignedName: c.assigned_name || undefined,
       statusChangedAt: c.status_changed_at || undefined,
     }))
-  , [realConvs]);
+  , [activeRealConvs]);
 
   // Group conversations by phone number
   const groupedConversations: Conversation[] = useMemo(() => {
@@ -170,7 +182,7 @@ const Conversations = () => {
   }, [allConversations]);
 
   const archivedConversations: Conversation[] = useMemo(() =>
-    realArchivedConvs.map((c) => ({
+    effectiveArchivedRealConvs.map((c) => ({
       id: c.id,
       name: c.name,
       phone: c.phone,
@@ -191,28 +203,39 @@ const Conversations = () => {
       assignedName: c.assigned_name || undefined,
       statusChangedAt: c.status_changed_at || undefined,
     }))
-  , [realArchivedConvs]);
+  , [effectiveArchivedRealConvs]);
 
-  // Find selected conversation in grouped list
+  // Find selected conversation in active/archived lists
   const selectedConversation = useMemo(() => {
     if (!selectedReal) return null;
     const selectedKey = normalizePhoneKey(selectedReal.phone);
-    return groupedConversations.find((c) => normalizePhoneKey(c.phone) === selectedKey) || null;
-  }, [selectedReal, groupedConversations]);
+    if (!selectedKey) return null;
+
+    const preferredList = selectedReal.status === "archived" ? archivedConversations : groupedConversations;
+    const fallbackList = selectedReal.status === "archived" ? groupedConversations : archivedConversations;
+
+    return (
+      preferredList.find((c) => normalizePhoneKey(c.phone) === selectedKey) ||
+      fallbackList.find((c) => normalizePhoneKey(c.phone) === selectedKey) ||
+      null
+    );
+  }, [selectedReal, groupedConversations, archivedConversations]);
 
   // Get instances for the selected conversation
   const selectedInstances: ConversationInstance[] = useMemo(() => {
     if (!selectedConversation) return [];
     const key = normalizePhoneKey(selectedConversation.phone);
-    return allConversations
+    const sourceConversations = selectedReal?.status === "archived" ? effectiveArchivedRealConvs : activeRealConvs;
+
+    return sourceConversations
       .filter((c) => normalizePhoneKey(c.phone) === key)
       .map((c) => ({
-        id: c._rawId,
+        id: c.id,
         deviceName: c.deviceName,
-        lastMessageAt: c.lastMessageAt,
+        lastMessageAt: c.last_message_at,
       }))
       .sort((a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime());
-  }, [selectedConversation, allConversations]);
+  }, [selectedConversation, selectedReal?.status, effectiveArchivedRealConvs, activeRealConvs]);
 
   // Auto-select the latest instance when conversation changes
   useEffect(() => {
@@ -224,7 +247,7 @@ const Conversations = () => {
   // Extract unique instances for filter chips (deduplicated by name)
   const availableInstances = useMemo(() => {
     const map = new Map<string, { id: string; name: string; number: string }>();
-    realConvs.forEach((c) => {
+    activeRealConvs.forEach((c) => {
       if (c.device_id && !map.has(c.device_id)) {
         const name = c.deviceName || c.device_id.slice(0, 8);
         // Skip if we already have an instance with the same name
@@ -235,7 +258,7 @@ const Conversations = () => {
       }
     });
     return Array.from(map.values());
-  }, [realConvs]);
+  }, [activeRealConvs]);
 
   const filteredConversations = useMemo(() => {
     let list = groupedConversations;
@@ -247,7 +270,7 @@ const Conversations = () => {
         // Check if any raw conversation for this phone belongs to a selected instance
         return allConversations.some(
           (raw) => normalizePhoneKey(raw.phone) === key &&
-            realConvs.find((r) => r.id === raw.id && r.device_id && filterInstanceIds.includes(r.device_id))
+            activeRealConvs.find((r) => r.id === raw.id && r.device_id && filterInstanceIds.includes(r.device_id))
         );
       });
     }
@@ -264,7 +287,7 @@ const Conversations = () => {
     }
 
     return list;
-  }, [groupedConversations, searchQuery, filterInstanceIds, allConversations, realConvs]);
+  }, [groupedConversations, searchQuery, filterInstanceIds, allConversations, activeRealConvs]);
 
   const messages: Message[] = useMemo(() =>
     realMsgs.map((m) => ({

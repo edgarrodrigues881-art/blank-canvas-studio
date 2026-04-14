@@ -104,7 +104,9 @@ export function useConversations() {
   });
 
   const selectedConversation = sync.selectedConvId
-    ? sync.conversations.find((c) => c.id === sync.selectedConvId) || null
+    ? sync.conversations.find((c) => c.id === sync.selectedConvId) ||
+      sync.archivedConversations.find((c) => c.id === sync.selectedConvId) ||
+      null
     : null;
 
   return {

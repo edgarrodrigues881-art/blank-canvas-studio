@@ -491,7 +491,9 @@ export function useConversationActions({
   const archiveConversation = useCallback(async (convId: string) => {
     const conv = conversations.find((c) => c.id === convId);
     setConversations((prev) => prev.filter((c) => c.id !== convId));
-    if (conv) setArchivedConversations((prev) => [conv, ...prev]);
+    if (conv) {
+      setArchivedConversations((prev) => [{ ...conv, status: "archived" } as any, ...prev.filter((c) => c.id !== convId)]);
+    }
     await supabase.from("conversations").update({ status: "archived" } as any).eq("id", convId);
     toast.success("Conversa arquivada");
   }, [conversations, setConversations, setArchivedConversations]);
@@ -499,7 +501,7 @@ export function useConversationActions({
   const unarchiveConversation = useCallback(async (convId: string) => {
     const conv = archivedConversations.find((c) => c.id === convId);
     setArchivedConversations((prev) => prev.filter((c) => c.id !== convId));
-    if (conv) setConversations((prev) => sortConversations([{ ...conv, status: "offline" } as any, ...prev]));
+    if (conv) setConversations((prev) => sortConversations([{ ...conv, status: "offline" } as any, ...prev.filter((c) => c.id !== convId)]));
     await supabase.from("conversations").update({ status: "offline" } as any).eq("id", convId);
     toast.success("Conversa desarquivada");
   }, [archivedConversations, sortConversations, setConversations, setArchivedConversations]);
@@ -513,9 +515,11 @@ export function useConversationActions({
 
   const bulkArchiveConversations = useCallback(async (convIds: string[]) => {
     if (convIds.length === 0) return;
-    const convs = conversations.filter((c) => convIds.includes(c.id));
+    const convs = conversations
+      .filter((c) => convIds.includes(c.id))
+      .map((c) => ({ ...c, status: "archived" } as any));
     setConversations((prev) => prev.filter((c) => !convIds.includes(c.id)));
-    setArchivedConversations((prev) => [...convs, ...prev]);
+    setArchivedConversations((prev) => [...convs, ...prev.filter((c) => !convIds.includes(c.id))]);
     await supabase.from("conversations").update({ status: "archived" } as any).in("id", convIds);
     toast.success(`${convIds.length} conversa${convIds.length > 1 ? "s" : ""} arquivada${convIds.length > 1 ? "s" : ""}`);
   }, [conversations, setConversations, setArchivedConversations]);
