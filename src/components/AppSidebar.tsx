@@ -282,7 +282,7 @@ export function AppSidebar() {
   };
 
   // Auto-switch workspace based on current route
-  const CRM_ROUTES = ["/dashboard/crm", "/dashboard/conversations", "/dashboard/service-contacts", "/dashboard/leads", "/dashboard/pipeline", "/dashboard/schedules", "/dashboard/ai-settings", "/dashboard/service-reports", "/dashboard/prospeccao"];
+  const CRM_ROUTES = ["/dashboard/crm", "/dashboard/conversations", "/dashboard/service-contacts", "/dashboard/leads", "/dashboard/pipeline", "/dashboard/schedules", "/dashboard/ai-settings", "/dashboard/crm-reports", "/dashboard/prospeccao", "/dashboard/crm-agendamentos"];
   useEffect(() => {
     const isCRMRoute = CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
     if (isCRMRoute && !isCRM) setWorkspace("crm");
