@@ -538,16 +538,16 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
         menuType: "button",
       }));
 
-      // Step 1: Send image + caption together (no interactive header)
-      await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType!, text);
+      // Step 1: Send image alone (caption often hidden on some devices)
+      await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType!, "");
 
-      // Step 2: Brief delay then send interactive buttons WITHOUT image header
+      // Step 2: Brief delay then send copy + buttons together as interactive message
       await new Promise((r) => setTimeout(r, 800 + Math.random() * 700));
 
       await uazapiRequest(baseUrl, token, "/send/menu", {
         number: phone,
         type: "button",
-        text: "👇 Escolha uma opção:",
+        text,
         choices,
       });
       console.log(JSON.stringify({ event: "split_image_buttons_success", menuType: "button" }));
