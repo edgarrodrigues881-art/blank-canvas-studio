@@ -1620,31 +1620,45 @@ const AISettings = () => {
       {/* Modal de Upload */}
       <Dialog open={uploadModalOpen} onOpenChange={setUploadModalOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Adicionar Documento</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Adicionar à Base de Conhecimento</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Título do documento</Label>
+              <Label>Título</Label>
               <Input value={newDocTitle} onChange={(e) => setNewDocTitle(e.target.value)} placeholder="Ex: Tabela de preços 2025" />
             </div>
             <div className="space-y-2">
-              <Label>Tipo de documento</Label>
+              <Label>Tipo</Label>
               <Select value={newDocType} onValueChange={setNewDocType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pdf">PDF</SelectItem>
-                  <SelectItem value="txt">TXT</SelectItem>
-                  <SelectItem value="docx">DOCX</SelectItem>
+                  <SelectItem value="prompt">📝 Prompt / Texto</SelectItem>
+                  <SelectItem value="product">📦 Produtos / Serviços</SelectItem>
+                  <SelectItem value="faq">❓ FAQ / Perguntas Frequentes</SelectItem>
+                  <SelectItem value="pdf">📄 PDF</SelectItem>
+                  <SelectItem value="txt">📄 TXT</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Arquivo</Label>
-              <input ref={fileInputRef} type="file" accept=".pdf,.txt,.docx" className="hidden" onChange={(e) => setNewDocFile(e.target.files?.[0] || null)} />
-              <Button variant="outline" className="w-full gap-2 justify-center" onClick={() => fileInputRef.current?.click()}>
-                <Upload className="h-4 w-4" />
-                {newDocFile ? newDocFile.name : "Selecionar arquivo"}
-              </Button>
-            </div>
+            {(newDocType === "prompt" || newDocType === "product" || newDocType === "faq" || newDocType === "text") ? (
+              <div className="space-y-2">
+                <Label>Conteúdo</Label>
+                <Textarea
+                  value={newDocContent}
+                  onChange={(e) => setNewDocContent(e.target.value)}
+                  placeholder={newDocType === "product" ? "Liste seus produtos, preços, detalhes..." : newDocType === "faq" ? "Pergunta: ...\nResposta: ..." : "Cole aqui o prompt, instruções ou informações da empresa..."}
+                  rows={6}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Arquivo</Label>
+                <input ref={fileInputRef} type="file" accept=".pdf,.txt,.docx,.csv,.xlsx" className="hidden" onChange={(e) => setNewDocFile(e.target.files?.[0] || null)} />
+                <Button variant="outline" className="w-full gap-2 justify-center" onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="h-4 w-4" />
+                  {newDocFile ? newDocFile.name : "Selecionar arquivo"}
+                </Button>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setUploadModalOpen(false)}>Cancelar</Button>
