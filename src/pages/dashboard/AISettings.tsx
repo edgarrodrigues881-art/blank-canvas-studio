@@ -357,33 +357,56 @@ const AISettings = () => {
       const { data, error } = await supabase.functions.invoke("ai-learning-engine", {
         body: { action: "analyze" },
       });
+
+      // Handle FunctionsHttpError - read the response body
       if (error) {
-        // Try to parse error response body
+        let errBody: any = {};
         try {
-          const errBody = JSON.parse((error as any)?.context?.body || "{}");
-          if (errBody.error === "minimum_data") {
-            toast.error("Mínimo de 3 conversas necessárias para análise.");
-            return;
+          // For FunctionsHttpError, the context contains the response
+          const ctx = (error as any)?.context;
+          if (ctx?.body) {
+            errBody = typeof ctx.body === "string" ? JSON.parse(ctx.body) : ctx.body;
+          } else if (ctx?.json) {
+            errBody = await ctx.json();
           }
-          if (errBody.error === "rate_limited") {
-            toast.error("Limite de requisições excedido, tente novamente.");
-            return;
-          }
-          toast.error(errBody.message || "Erro na análise");
-        } catch {
-          toast.error("Erro ao analisar conversas. Precisa de pelo menos 3 leads com interações.");
+        } catch { /* ignore parse errors */ }
+
+        const errCode = errBody?.error || "";
+        const errMsg = errBody?.message || "";
+
+        if (errCode === "minimum_data") {
+          toast.error("Mínimo de 3 conversas necessárias para análise. Continue atendendo leads!");
+        } else if (errCode === "rate_limited") {
+          toast.error("Limite de requisições excedido, tente novamente em alguns minutos.");
+        } else if (errCode === "credits_exhausted") {
+          toast.error("Créditos de IA esgotados.");
+        } else if (errCode === "no_ai_configured") {
+          toast.error("Nenhum provedor de IA configurado. Configure sua API Key ou use o Lovable AI Gateway.");
+        } else {
+          toast.error(errMsg || "Erro ao analisar conversas. Tente novamente.");
+        }
+        console.error("Learning engine error:", error, errBody);
+        return;
+      }
+
+      // Handle error returned in successful response
+      if (data?.error) {
+        const errCode = data.error;
+        if (errCode === "minimum_data") {
+          toast.error("Mínimo de 3 conversas necessárias para análise. Continue atendendo leads!");
+        } else if (errCode === "no_ai_configured") {
+          toast.error("Nenhum provedor de IA configurado.");
+        } else {
+          toast.error(data.message || data.error);
         }
         return;
       }
-      if (data?.error) {
-        toast.error(data.message || data.error);
-        return;
-      }
+
       setLearningInsights(data.insights || data);
       toast.success("Análise concluída! Insights gerados com sucesso.");
     } catch (err: any) {
-      toast.error("Erro ao analisar conversas");
-      console.error(err);
+      toast.error("Erro ao analisar conversas. Verifique sua conexão.");
+      console.error("Learning analysis error:", err);
     } finally {
       setAnalyzingLearning(false);
     }
