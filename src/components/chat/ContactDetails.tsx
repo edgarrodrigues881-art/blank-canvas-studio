@@ -83,6 +83,7 @@ interface EditFormData {
 }
 
 export function ContactDetails({ conversation, onClose, onTagsChange }: ContactDetailsProps) {
+  const { user } = useAuth();
   const [activeTags, setActiveTags] = useState<string[]>(conversation.tags);
   const [notes, setNotes] = useState(conversation.notes || "");
   const [editingNotes, setEditingNotes] = useState(false);
@@ -90,6 +91,11 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
   const [isEditing, setIsEditing] = useState(false);
   const [leadTemp, setLeadTemp] = useState<LeadTemperature>(conversation.leadTemperature || "frio");
   const [aiInterest, setAiInterest] = useState<string | null>(conversation.aiInterest || null);
+  const [aiClassifying, setAiClassifying] = useState(false);
+  const [aiSuggesting, setAiSuggesting] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<{ text: string; tone: string; goal: string }[]>([]);
+  const [aiDetectedIntent, setAiDetectedIntent] = useState<string | null>(null);
+  const [aiRecommendation, setAiRecommendation] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditFormData>({
     name: conversation.name,
     phone: conversation.phone,
