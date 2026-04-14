@@ -529,27 +529,33 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     // This is the only format 100% compatible with ALL mobile devices
     // (imageButton / unified format causes "incompatible version" on many phones)
     if (hasVisualMedia && mediaUrl) {
+      // Detect URL/phone buttons — "button" type with these causes incompatibility on mobile
+      const hasUrlOrPhoneButtons = buttons!.some(b => b.type === "url" || b.type === "phone");
+      const menuType = hasUrlOrPhoneButtons ? "list" : "button";
+
       console.log(JSON.stringify({
         event: "split_image_buttons",
         origin: "campaign",
         buttonCount: choices.length,
         hasMedia: true,
         captionLength: text.length,
+        menuType,
+        hasUrlOrPhoneButtons,
       }));
 
-      // Step 1: Send image + caption together
+      // Step 1: Send image + caption together (no interactive header)
       await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType!, text);
 
-      // Step 2: Brief delay then send buttons
+      // Step 2: Brief delay then send interactive buttons WITHOUT image header
       await new Promise((r) => setTimeout(r, 800 + Math.random() * 700));
 
       await uazapiRequest(baseUrl, token, "/send/menu", {
         number: phone,
-        type: "button",
+        type: menuType,
         text: "👇 Escolha uma opção:",
         choices,
       });
-      console.log(JSON.stringify({ event: "split_image_buttons_success" }));
+      console.log(JSON.stringify({ event: "split_image_buttons_success", menuType }));
       return;
     }
 
