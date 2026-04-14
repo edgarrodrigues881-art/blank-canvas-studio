@@ -52,12 +52,11 @@ interface Lead {
 }
 
 const STATUS_OPTIONS = [
-  { value: "contato_inicial", label: "Contato Inicial", color: "bg-blue-100 text-blue-700 border-blue-200" },
-  { value: "qualificacao", label: "Qualificação", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-  { value: "orcamento", label: "Orçamento", color: "bg-orange-100 text-orange-700 border-orange-200" },
+  { value: "novo", label: "Novo Lead", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  { value: "respondeu", label: "Respondeu", color: "bg-cyan-100 text-cyan-700 border-cyan-200" },
+  { value: "interessado", label: "Interessado", color: "bg-amber-100 text-amber-700 border-amber-200" },
   { value: "negociacao", label: "Negociação", color: "bg-purple-100 text-purple-700 border-purple-200" },
-  { value: "aprovado", label: "Aprovado", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  { value: "producao_arte", label: "Produção / Arte", color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  { value: "fechado", label: "Fechado", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   { value: "perdido", label: "Perdido", color: "bg-red-100 text-red-700 border-red-200" },
 ];
 
@@ -107,7 +106,7 @@ export default function Leads() {
 
   const [form, setForm] = useState({
     name: "", phone: "", email: "", company: "", notes: "",
-    origin: "manual", pipeline_stage: "contato_inicial",
+    origin: "manual", pipeline_stage: "novo",
     interest: "", estimated_value: "", priority: "media",
     responsible: "", segment: "", cpf_cnpj: "", channel: "WhatsApp", description: "",
   });
@@ -128,7 +127,7 @@ export default function Leads() {
 
   /* ── derived ── */
   const statusCounts = STATUS_OPTIONS.reduce((acc, s) => {
-    acc[s.value] = leads.filter((l) => (l.pipeline_stage || "contato_inicial") === s.value).length;
+    acc[s.value] = leads.filter((l) => (l.pipeline_stage || "novo") === s.value).length;
     return acc;
   }, {} as Record<string, number>);
 
@@ -139,7 +138,7 @@ export default function Leads() {
       l.phone?.includes(search) ||
       l.email?.toLowerCase().includes(s) ||
       l.company?.toLowerCase().includes(s);
-    const stage = l.pipeline_stage || "contato_inicial";
+    const stage = l.pipeline_stage || "novo";
     const matchStatus = statusFilter === "all" || stage === statusFilter;
     const matchPriority = priorityFilter === "all" || (l.priority || "media") === priorityFilter;
     const matchOrigin = originFilter === "all" || l.origin === originFilter;
@@ -151,7 +150,7 @@ export default function Leads() {
     setEditing(null);
     setForm({
       name: "", phone: "", email: "", company: "", notes: "",
-      origin: "manual", pipeline_stage: "contato_inicial",
+      origin: "manual", pipeline_stage: "novo",
       interest: "", estimated_value: "", priority: "media",
       responsible: "", segment: "", cpf_cnpj: "", channel: "WhatsApp", description: "",
     });
@@ -163,7 +162,7 @@ export default function Leads() {
     setForm({
       name: l.name, phone: l.phone, email: l.email || "", company: l.company || "",
       notes: l.notes || "", origin: l.origin || "manual",
-      pipeline_stage: l.pipeline_stage || "contato_inicial",
+      pipeline_stage: l.pipeline_stage || "novo",
       interest: l.interest || "", estimated_value: l.estimated_value?.toString() || "",
       priority: l.priority || "media", responsible: l.responsible || "",
       segment: l.segment || "", cpf_cnpj: l.cpf_cnpj || "",
@@ -232,7 +231,7 @@ export default function Leads() {
       return {
         user_id: user.id, name: nameIdx >= 0 ? cols[nameIdx] || "" : "",
         phone: cols[phoneIdx] || "", origin: "manual", status: "active",
-        pipeline_stage: "contato_inicial", tags: [] as string[], priority: "media",
+        pipeline_stage: "novo", tags: [] as string[], priority: "media",
       };
     });
     const { error } = await supabase.from("service_contacts").insert(rows as any);
@@ -436,7 +435,7 @@ export default function Leads() {
                 {/* Actions */}
                 <div className="flex items-center gap-2 px-6 py-3 border-b border-border">
                   <Select
-                    value={detailLead.pipeline_stage || "contato_inicial"}
+                    value={detailLead.pipeline_stage || "novo"}
                     onValueChange={(v) => handleStatusChange(detailLead, v)}
                   >
                     <SelectTrigger className="w-[180px] h-9 text-xs">
