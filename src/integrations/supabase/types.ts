@@ -2337,6 +2337,257 @@ export type Database = {
           },
         ]
       }
+      crm_campaign_contacts: {
+        Row: {
+          campaign_id: string
+          contact_id: string | null
+          created_at: string
+          device_id: string | null
+          error_message: string | null
+          id: string
+          name: string | null
+          phone: string
+          sent_at: string | null
+          status: string
+          var1: string | null
+          var10: string | null
+          var2: string | null
+          var3: string | null
+          var4: string | null
+          var5: string | null
+          var6: string | null
+          var7: string | null
+          var8: string | null
+          var9: string | null
+        }
+        Insert: {
+          campaign_id: string
+          contact_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          error_message?: string | null
+          id?: string
+          name?: string | null
+          phone: string
+          sent_at?: string | null
+          status?: string
+          var1?: string | null
+          var10?: string | null
+          var2?: string | null
+          var3?: string | null
+          var4?: string | null
+          var5?: string | null
+          var6?: string | null
+          var7?: string | null
+          var8?: string | null
+          var9?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          contact_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          error_message?: string | null
+          id?: string
+          name?: string | null
+          phone?: string
+          sent_at?: string | null
+          status?: string
+          var1?: string | null
+          var10?: string | null
+          var2?: string | null
+          var3?: string | null
+          var4?: string | null
+          var5?: string | null
+          var6?: string | null
+          var7?: string | null
+          var8?: string | null
+          var9?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_campaign_contacts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "crm_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_campaign_contacts_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_campaign_contacts_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_campaigns: {
+        Row: {
+          buttons: Json | null
+          carousel_cards: Json | null
+          completed_at: string | null
+          created_at: string
+          delivered_count: number | null
+          device_id: string | null
+          device_ids: Json | null
+          failed_count: number | null
+          id: string
+          max_delay_seconds: number
+          media_url: string | null
+          message_content: string | null
+          message_type: string
+          messages_per_instance: number | null
+          min_delay_seconds: number
+          name: string
+          pause_duration_max: number
+          pause_duration_min: number
+          pause_every_max: number
+          pause_every_min: number
+          pause_on_disconnect: boolean
+          scheduled_at: string | null
+          sent_count: number | null
+          started_at: string | null
+          status: string
+          template_id: string | null
+          total_contacts: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          buttons?: Json | null
+          carousel_cards?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          delivered_count?: number | null
+          device_id?: string | null
+          device_ids?: Json | null
+          failed_count?: number | null
+          id?: string
+          max_delay_seconds?: number
+          media_url?: string | null
+          message_content?: string | null
+          message_type?: string
+          messages_per_instance?: number | null
+          min_delay_seconds?: number
+          name: string
+          pause_duration_max?: number
+          pause_duration_min?: number
+          pause_every_max?: number
+          pause_every_min?: number
+          pause_on_disconnect?: boolean
+          scheduled_at?: string | null
+          sent_count?: number | null
+          started_at?: string | null
+          status?: string
+          template_id?: string | null
+          total_contacts?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          buttons?: Json | null
+          carousel_cards?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          delivered_count?: number | null
+          device_id?: string | null
+          device_ids?: Json | null
+          failed_count?: number | null
+          id?: string
+          max_delay_seconds?: number
+          media_url?: string | null
+          message_content?: string | null
+          message_type?: string
+          messages_per_instance?: number | null
+          min_delay_seconds?: number
+          name?: string
+          pause_duration_max?: number
+          pause_duration_min?: number
+          pause_every_max?: number
+          pause_every_min?: number
+          pause_on_disconnect?: boolean
+          scheduled_at?: string | null
+          sent_count?: number | null
+          started_at?: string | null
+          status?: string
+          template_id?: string | null
+          total_contacts?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_campaigns_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_campaigns_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_campaigns_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "crm_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_templates: {
+        Row: {
+          buttons: Json
+          content: string
+          created_at: string
+          id: string
+          is_active: boolean
+          media_url: string | null
+          message_type: string
+          name: string
+          updated_at: string
+          user_id: string
+          variables: Json
+        }
+        Insert: {
+          buttons?: Json
+          content?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          media_url?: string | null
+          message_type?: string
+          name: string
+          updated_at?: string
+          user_id: string
+          variables?: Json
+        }
+        Update: {
+          buttons?: Json
+          content?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          media_url?: string | null
+          message_type?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+          variables?: Json
+        }
+        Relationships: []
+      }
       delay_profiles: {
         Row: {
           created_at: string

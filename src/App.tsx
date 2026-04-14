@@ -81,6 +81,9 @@ const Pipeline = lazyWithPreload(() => import("@/pages/dashboard/Pipeline"));
 const CRMAgendamentos = lazyWithPreload(() => import("@/pages/dashboard/CRMAgendamentos"));
 const CRMReports = lazyWithPreload(() => import("@/pages/dashboard/CRMReports"));
 const Tutorials = lazyWithPreload(() => import("@/pages/dashboard/Tutorials"));
+const CrmDispatches = lazyWithPreload(() => import("@/pages/dashboard/CrmDispatches"));
+const CrmCampaignList = lazyWithPreload(() => import("@/pages/dashboard/CrmCampaignList"));
+const CrmTemplates = lazyWithPreload(() => import("@/pages/dashboard/CrmTemplates"));
 
 // Backoffice pages
 const BOCampaigns = lazyWithPreload(() => import("@/pages/backoffice/BOCampaigns"));
@@ -122,6 +125,9 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/leads": () => { (Leads as any).__preload?.(); },
   "/dashboard/pipeline": () => { (Pipeline as any).__preload?.(); },
   "/dashboard/crm-agendamentos": () => { (CRMAgendamentos as any).__preload?.(); },
+  "/dashboard/crm-dispatches": () => { (CrmDispatches as any).__preload?.(); },
+  "/dashboard/crm-campaign-list": () => { (CrmCampaignList as any).__preload?.(); },
+  "/dashboard/crm-templates": () => { (CrmTemplates as any).__preload?.(); },
 };
 
 const queryClient = new QueryClient({
@@ -269,6 +275,9 @@ const App = () => (
                 <Route path="/dashboard/pipeline" element={<ProtectedRoute><DashboardLayout><Pipeline /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm-agendamentos" element={<ProtectedRoute><DashboardLayout><CRMAgendamentos /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm-reports" element={<ProtectedRoute><DashboardLayout><CRMReports /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/crm-dispatches" element={<ProtectedRoute><DashboardLayout><CrmDispatches /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/crm-campaign-list" element={<ProtectedRoute><DashboardLayout><CrmCampaignList /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/crm-templates" element={<ProtectedRoute><DashboardLayout><CrmTemplates /></DashboardLayout></ProtectedRoute>} />
 
                 {/* Backoffice — BackOffice.tsx manages its own auth + admin login internally */}
                 <Route path="/backoffice" element={<BackOffice />} />
