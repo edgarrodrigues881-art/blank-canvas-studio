@@ -53,7 +53,7 @@
   z-index: -1;
   inset: 2px;
   border-radius: 8px;
-  background: hsl(var(--sidebar-background, 222 47% 11%));
+  background: hsl(var(--sidebar-background));
 }
 
 /* Override SidebarMenuButton hover/active for Meu Plano */
