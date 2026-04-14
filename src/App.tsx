@@ -75,6 +75,9 @@ const ActivityHistory = lazyWithPreload(() => import("@/pages/dashboard/Activity
 const ConversationQueue = lazyWithPreload(() => import("@/pages/dashboard/ConversationQueue"));
 const ServiceReports = lazyWithPreload(() => import("@/pages/dashboard/ServiceReports"));
 const GroupCarouselDispatch = lazyWithPreload(() => import("@/pages/dashboard/GroupCarouselDispatch"));
+const CRMDashboard = lazyWithPreload(() => import("@/pages/dashboard/CRMDashboard"));
+const Leads = lazyWithPreload(() => import("@/pages/dashboard/Leads"));
+const Pipeline = lazyWithPreload(() => import("@/pages/dashboard/Pipeline"));
 const Tutorials = lazyWithPreload(() => import("@/pages/dashboard/Tutorials"));
 
 // Backoffice pages
@@ -113,6 +116,9 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/schedules": () => { (Schedules as any).__preload?.(); },
   "/dashboard/group-carousel": () => { (GroupCarouselDispatch as any).__preload?.(); },
   "/dashboard/tutorials": () => { (Tutorials as any).__preload?.(); },
+  "/dashboard/crm": () => { (CRMDashboard as any).__preload?.(); },
+  "/dashboard/leads": () => { (Leads as any).__preload?.(); },
+  "/dashboard/pipeline": () => { (Pipeline as any).__preload?.(); },
 };
 
 const queryClient = new QueryClient({
@@ -255,6 +261,9 @@ const App = () => (
                 <Route path="/dashboard/queue" element={<ProtectedRoute><DashboardLayout><ConversationQueue /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/service-reports" element={<ProtectedRoute><DashboardLayout><ServiceReports /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-carousel" element={<ProtectedRoute><DashboardLayout><GroupCarouselDispatch /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/crm" element={<ProtectedRoute><DashboardLayout><CRMDashboard /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/leads" element={<ProtectedRoute><DashboardLayout><Leads /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/pipeline" element={<ProtectedRoute><DashboardLayout><Pipeline /></DashboardLayout></ProtectedRoute>} />
 
                 {/* Backoffice — BackOffice.tsx manages its own auth + admin login internally */}
                 <Route path="/backoffice" element={<BackOffice />} />
