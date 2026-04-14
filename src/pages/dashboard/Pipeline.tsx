@@ -31,16 +31,19 @@ interface Lead {
   created_at: string;
 }
 
-const TEMP: Record<string, string> = { frio: "Frio", morno: "Morno", quente: "Quente" };
-const TEMP_COLOR: Record<string, string> = {
-  frio: "text-blue-500 bg-blue-50",
-  morno: "text-amber-600 bg-amber-50",
-  quente: "text-red-500 bg-red-50",
+const TEMP_CONFIG: Record<string, { label: string; cls: string }> = {
+  frio:  { label: "Frio",   cls: "text-sky-500 bg-sky-50 border-sky-100" },
+  morno: { label: "Morno",  cls: "text-amber-500 bg-amber-50 border-amber-100" },
+  quente:{ label: "Quente", cls: "text-rose-400 bg-rose-50 border-rose-100" },
 };
 
 function currency(v: number | null) {
   if (!v) return "";
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+}
+
+function formatPhone(phone: string) {
+  return `+${phone?.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, "$1 $2 $3-$4")}`;
 }
 
 export default function Pipeline() {
@@ -53,7 +56,7 @@ export default function Pipeline() {
   const dragRef = useRef<{ id: string; from: string } | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
 
-  const fetch = useCallback(async () => {
+  const fetchLeads = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from("service_contacts")
@@ -64,7 +67,7 @@ export default function Pipeline() {
     setLoading(false);
   }, [user]);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => { fetchLeads(); }, [fetchLeads]);
 
   const responsibles = [...new Set(leads.map((l) => l.responsible).filter(Boolean))] as string[];
 
@@ -92,30 +95,30 @@ export default function Pipeline() {
   };
 
   return (
-    <div className="h-full flex flex-col gap-4">
+    <div className="h-full flex flex-col gap-5">
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filtrar por nome ou empresa..."
-            className="pl-9 h-9 text-sm bg-white border-gray-200 rounded-lg shadow-none focus:border-gray-300"
+            placeholder="Buscar lead..."
+            className="pl-9 h-9 text-sm rounded-lg border-border/60 bg-background shadow-none focus-visible:border-primary/40 focus-visible:ring-1 focus-visible:ring-primary/20"
           />
         </div>
         <Select value={respFilter} onValueChange={setRespFilter}>
-          <SelectTrigger className="w-[170px] h-9 text-sm bg-white border-gray-200 rounded-lg shadow-none">
-            <SelectValue placeholder="Todos responsáveis" />
+          <SelectTrigger className="w-[170px] h-9 text-sm rounded-lg border-border/60 bg-background shadow-none">
+            <SelectValue placeholder="Responsável" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos responsáveis</SelectItem>
+            <SelectItem value="all">Todos</SelectItem>
             {responsibles.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={stageFilter} onValueChange={setStageFilter}>
-          <SelectTrigger className="w-[140px] h-9 text-sm bg-white border-gray-200 rounded-lg shadow-none">
-            <SelectValue placeholder="Todas" />
+          <SelectTrigger className="w-[150px] h-9 text-sm rounded-lg border-border/60 bg-background shadow-none">
+            <SelectValue placeholder="Etapa" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas</SelectItem>
@@ -124,19 +127,18 @@ export default function Pipeline() {
         </Select>
       </div>
 
-      {/* Column headers */}
-      <div className="overflow-x-auto flex-1 min-h-0">
-        <div className="inline-flex gap-4 min-w-full pb-4 h-full" style={{ minWidth: "960px" }}>
+      {/* Kanban */}
+      <div className="overflow-x-auto flex-1 min-h-0 -mx-1 px-1">
+        <div className="inline-flex gap-3.5 min-w-full pb-4 h-full" style={{ minWidth: "1020px" }}>
           {STAGES.map((stage) => {
             const items = grouped[stage.key];
             const total = items.reduce((s, l) => s + (l.estimated_value || 0), 0);
+            const isOver = overStage === stage.key;
+
             return (
               <div
                 key={stage.key}
-                className={cn(
-                  "flex flex-col w-[220px] shrink-0 transition-colors",
-                  overStage === stage.key && "opacity-90"
-                )}
+                className="flex flex-col w-[210px] shrink-0"
                 onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setOverStage(stage.key); }}
                 onDragLeave={() => setOverStage(null)}
                 onDrop={(e) => {
@@ -147,35 +149,37 @@ export default function Pipeline() {
                   dragRef.current = null;
                 }}
               >
-                {/* Header */}
-                <div className="flex items-center gap-2 mb-1 px-1">
+                {/* Column header */}
+                <div className="flex items-center gap-2 mb-2 px-1">
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: stage.dot }} />
-                  <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{stage.label}</span>
-                  <span className="text-[11px] text-gray-400 ml-auto">{items.length}</span>
+                  <span className="text-[13px] font-medium text-foreground/80 tracking-tight">{stage.label}</span>
+                  <span className="ml-auto text-[11px] font-medium text-muted-foreground/60 tabular-nums bg-muted/50 rounded-full px-1.5 py-px">
+                    {items.length}
+                  </span>
                 </div>
                 {total > 0 && (
-                  <p className="text-[11px] text-gray-400 mb-2 px-1 pl-5">{currency(total)}</p>
+                  <p className="text-[11px] text-muted-foreground/50 mb-2 px-1 pl-5 tabular-nums">{currency(total)}</p>
                 )}
                 {total === 0 && <div className="mb-2" />}
 
                 {/* Column body */}
                 <div
                   className={cn(
-                    "flex-1 rounded-lg bg-gray-50/80 border border-dashed border-gray-200/80 p-2 overflow-y-auto transition-colors",
-                    overStage === stage.key && "bg-blue-50/40 border-blue-200/60"
+                    "flex-1 rounded-xl p-2 overflow-y-auto transition-colors duration-200",
+                    "bg-muted/30 border border-border/30",
+                    isOver && "bg-primary/[0.04] border-primary/20"
                   )}
                 >
-                  <div className="space-y-2.5">
+                  <div className="space-y-3">
                     {items.length === 0 && !loading && (
-                      <p className="text-center text-[11px] text-gray-300 py-10">Arraste leads aqui</p>
+                      <p className="text-center text-[11px] text-muted-foreground/30 py-12 select-none">
+                        Arraste leads aqui
+                      </p>
                     )}
                     {items.map((lead) => {
-                      const temp = lead.lead_temperature || "";
-                      const tempLabel = TEMP[temp];
-                      const tempColor = TEMP_COLOR[temp] || "";
-                      const displayName = lead.name && lead.name !== lead.phone
-                        ? lead.name
-                        : `+${lead.phone?.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, "$1 $2 $3-$4")}`;
+                      const temp = TEMP_CONFIG[lead.lead_temperature || ""];
+                      const isName = lead.name && lead.name !== lead.phone;
+
                       return (
                         <div
                           key={lead.id}
@@ -185,35 +189,47 @@ export default function Pipeline() {
                             e.dataTransfer.effectAllowed = "move";
                             e.dataTransfer.setData("text/plain", lead.id);
                           }}
-                          className="bg-white rounded-lg border border-gray-100 p-3 cursor-grab active:cursor-grabbing hover:border-gray-200 hover:shadow-sm transition-all group"
+                          className={cn(
+                            "bg-background rounded-lg border border-border/40 p-3.5 cursor-grab active:cursor-grabbing",
+                            "transition-all duration-150",
+                            "hover:shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] hover:border-border/60",
+                            "active:scale-[0.98]"
+                          )}
                         >
-                          <p className="text-[13px] font-medium text-gray-800 truncate leading-tight">
-                            {displayName}
+                          {/* Name */}
+                          <p className="text-[13px] font-medium text-foreground/90 truncate leading-snug">
+                            {isName ? lead.name : formatPhone(lead.phone)}
                           </p>
 
+                          {/* Subtitle */}
                           {(lead.company || lead.interest) && (
-                            <p className="text-[11px] text-gray-400 truncate mt-1 leading-tight">
+                            <p className="text-[11px] text-muted-foreground/50 truncate mt-1 leading-snug">
                               {[lead.company, lead.interest].filter(Boolean).join(" · ")}
                             </p>
                           )}
 
-                          <div className="flex items-center justify-between mt-2.5">
+                          {/* Value + Tag */}
+                          <div className="flex items-center justify-between mt-3 gap-2">
                             {lead.estimated_value ? (
-                              <span className="text-[12px] font-semibold text-gray-700 tabular-nums">
+                              <span className="text-[12px] font-semibold text-foreground/70 tabular-nums">
                                 {currency(lead.estimated_value)}
                               </span>
                             ) : <span />}
 
-                            {tempLabel && (
-                              <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", tempColor)}>
-                                {tempLabel}
+                            {temp && (
+                              <span className={cn(
+                                "text-[10px] font-medium px-2 py-0.5 rounded-full border",
+                                temp.cls
+                              )}>
+                                {temp.label}
                               </span>
                             )}
                           </div>
 
+                          {/* Responsible */}
                           {lead.responsible && (
-                            <p className="text-[10px] text-gray-400 mt-1.5 truncate">
-                              👤 {lead.responsible}
+                            <p className="text-[10px] text-muted-foreground/40 mt-2 truncate">
+                              {lead.responsible}
                             </p>
                           )}
                         </div>
