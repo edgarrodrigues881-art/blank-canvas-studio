@@ -293,6 +293,24 @@ Deno.serve(async (req) => {
           updateData.notes = JSON.stringify(notesObj);
         }
         await admin.from("ai_lead_memory").update(updateData).eq("id", leadMemory.id);
+
+        // 9b. Auto-update CRM pipeline based on AI classification
+        if (phoneDigits && (update.stage || update.intent)) {
+          const tempMap: Record<string, string> = { hot: "quente", warm: "morno", cold: "frio" };
+          const pipelineMap: Record<string, string> = {
+            curious: "novo",
+            interested: "interessado",
+            ready_to_buy: "negociacao",
+            objection: "respondeu",
+          };
+          const crmUpdate: Record<string, unknown> = {};
+          if (update.stage && tempMap[update.stage]) crmUpdate.lead_temperature = tempMap[update.stage];
+          if (update.intent && pipelineMap[update.intent]) crmUpdate.pipeline_stage = pipelineMap[update.intent];
+          if (Object.keys(crmUpdate).length > 0) {
+            await admin.from("service_contacts").update(crmUpdate).eq("user_id", user_id).like("phone", `%${phoneDigits}%`);
+            await admin.from("conversations").update(crmUpdate as any).eq("id", conversation_id);
+          }
+        }
       } catch (e) {
         console.error("Failed to parse lead update:", e);
       }
