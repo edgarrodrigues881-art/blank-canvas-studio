@@ -318,6 +318,77 @@ const AISettings = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Load learning insights
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.functions.invoke("ai-learning-engine", {
+        body: { action: "get_insights" },
+      });
+      if (data?.insights) setLearningInsights(data.insights);
+    })();
+  }, []);
+
+  const runLearningAnalysis = async () => {
+    setAnalyzingLearning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-learning-engine", {
+        body: { action: "analyze" },
+      });
+      if (error) throw error;
+      if (data?.error === "minimum_data") {
+        toast.error("Mínimo de 3 conversas necessárias para análise.");
+        return;
+      }
+      if (data?.error === "rate_limited") {
+        toast.error("Limite de requisições excedido, tente novamente em alguns segundos.");
+        return;
+      }
+      if (data?.error) {
+        toast.error(data.message || "Erro na análise");
+        return;
+      }
+      setLearningInsights(data.insights);
+      toast.success("Análise concluída! Insights gerados com sucesso.");
+    } catch (err: any) {
+      toast.error("Erro ao analisar conversas");
+      console.error(err);
+    } finally {
+      setAnalyzingLearning(false);
+    }
+  };
+
+  const exportEvolvedPrompt = async () => {
+    setExportingPrompt(true);
+    try {
+      const { data } = await supabase.functions.invoke("ai-learning-engine", {
+        body: { action: "export_prompt" },
+      });
+      if (!data?.prompt) {
+        toast.error("Nenhum prompt evoluído disponível. Execute uma análise primeiro.");
+        return;
+      }
+      const blob = new Blob([
+        `# Prompt Evoluído da IA\n`,
+        `# Gerado em: ${new Date().toLocaleString("pt-BR")}\n`,
+        `# Conversas analisadas: ${data.conversations || 0}\n`,
+        `# Confiança: ${data.confidence || 0}%\n\n`,
+        `## Resumo\n${data.summary || "—"}\n\n`,
+        `## Prompt Otimizado\n${data.prompt}\n`,
+      ], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `prompt-evoluido-${new Date().toISOString().split("T")[0]}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Prompt exportado!");
+    } catch {
+      toast.error("Erro ao exportar");
+    } finally {
+      setExportingPrompt(false);
+    }
+  };
+
   const applyMode = (mode: AiMode) => {
     const preset = MODE_PRESETS[mode];
     setSelectedMode(mode);
