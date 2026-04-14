@@ -214,6 +214,9 @@ const AISettings = () => {
   const [aiMessagesToday, setAiMessagesToday] = useState(0);
   const [aiLeadsToday, setAiLeadsToday] = useState(0);
   const [aiActiveConvos, setAiActiveConvos] = useState(0);
+  const [learningInsights, setLearningInsights] = useState<any>(null);
+  const [analyzingLearning, setAnalyzingLearning] = useState(false);
+  const [exportingPrompt, setExportingPrompt] = useState(false);
 
   // Load settings from DB
   useEffect(() => {
