@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search } from "lucide-react";
+import { Search, Building2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STAGES = [
@@ -32,18 +32,19 @@ interface Lead {
 }
 
 const TEMP_CONFIG: Record<string, { label: string; cls: string }> = {
-  frio:  { label: "Frio",   cls: "text-sky-500 bg-sky-50 border-sky-100" },
-  morno: { label: "Morno",  cls: "text-amber-500 bg-amber-50 border-amber-100" },
-  quente:{ label: "Quente", cls: "text-rose-400 bg-rose-50 border-rose-100" },
+  frio:   { label: "Frio",   cls: "text-sky-600 bg-sky-50 border-sky-200/60" },
+  morno:  { label: "Morno",  cls: "text-amber-600 bg-amber-50 border-amber-200/60" },
+  quente: { label: "Quente", cls: "text-rose-600 bg-rose-50 border-rose-200/60" },
 };
 
 function currency(v: number | null) {
-  if (!v) return "";
+  if (!v) return null;
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 }
 
 function formatPhone(phone: string) {
-  return `+${phone?.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, "$1 $2 $3-$4")}`;
+  if (!phone) return "";
+  return phone.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, "+$1 $2 $3-$4");
 }
 
 export default function Pipeline() {
@@ -138,7 +139,7 @@ export default function Pipeline() {
             return (
               <div
                 key={stage.key}
-                className="flex flex-col w-[210px] shrink-0"
+                className="flex flex-col w-[220px] shrink-0"
                 onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setOverStage(stage.key); }}
                 onDragLeave={() => setOverStage(null)}
                 onDrop={(e) => {
@@ -150,35 +151,36 @@ export default function Pipeline() {
                 }}
               >
                 {/* Column header */}
-                <div className="flex items-center gap-2 mb-2 px-1">
+                <div className="flex items-center gap-2 px-1 mb-0.5">
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: stage.dot }} />
-                  <span className="text-[13px] font-medium text-foreground/80 tracking-tight">{stage.label}</span>
-                  <span className="ml-auto text-[11px] font-medium text-muted-foreground/60 tabular-nums bg-muted/50 rounded-full px-1.5 py-px">
+                  <span className="text-[13px] font-semibold text-foreground/80 uppercase tracking-wide">{stage.label}</span>
+                  <span className="ml-auto text-[11px] font-medium text-muted-foreground/50 tabular-nums">
                     {items.length}
                   </span>
                 </div>
-                {total > 0 && (
-                  <p className="text-[11px] text-muted-foreground/50 mb-2 px-1 pl-5 tabular-nums">{currency(total)}</p>
-                )}
-                {total === 0 && <div className="mb-2" />}
+                <p className="text-[11px] text-muted-foreground/40 mb-2.5 px-1 pl-5 tabular-nums h-4">
+                  {total > 0 ? currency(total) : ""}
+                </p>
 
                 {/* Column body */}
                 <div
                   className={cn(
-                    "flex-1 rounded-xl p-2 overflow-y-auto transition-colors duration-200",
-                    "bg-muted/30 border border-border/30",
+                    "flex-1 rounded-xl p-2.5 overflow-y-auto transition-colors duration-200",
+                    "bg-muted/25 border border-border/25",
                     isOver && "bg-primary/[0.04] border-primary/20"
                   )}
                 >
                   <div className="space-y-3">
                     {items.length === 0 && !loading && (
-                      <p className="text-center text-[11px] text-muted-foreground/30 py-12 select-none">
+                      <p className="text-center text-[11px] text-muted-foreground/25 py-14 select-none">
                         Arraste leads aqui
                       </p>
                     )}
                     {items.map((lead) => {
                       const temp = TEMP_CONFIG[lead.lead_temperature || ""];
-                      const isName = lead.name && lead.name !== lead.phone;
+                      const hasName = lead.name && lead.name !== lead.phone;
+                      const displayName = hasName ? lead.name : (lead.company || formatPhone(lead.phone));
+                      const val = currency(lead.estimated_value);
 
                       return (
                         <div
@@ -190,35 +192,49 @@ export default function Pipeline() {
                             e.dataTransfer.setData("text/plain", lead.id);
                           }}
                           className={cn(
-                            "bg-background rounded-lg border border-border/40 p-3.5 cursor-grab active:cursor-grabbing",
+                            "bg-background rounded-lg border border-border/50 p-4 cursor-grab active:cursor-grabbing",
                             "transition-all duration-150",
-                            "hover:shadow-[0_2px_8px_-2px_rgba(0,0,0,0.06)] hover:border-border/60",
+                            "hover:shadow-[0_3px_12px_-3px_rgba(0,0,0,0.08)] hover:border-border/70",
                             "active:scale-[0.98]"
                           )}
                         >
                           {/* Name */}
-                          <p className="text-[13px] font-medium text-foreground/90 truncate leading-snug">
-                            {isName ? lead.name : formatPhone(lead.phone)}
+                          <p className="text-[14px] font-semibold text-foreground leading-snug truncate">
+                            {displayName}
                           </p>
 
-                          {/* Subtitle */}
+                          {/* Company + Interest */}
                           {(lead.company || lead.interest) && (
-                            <p className="text-[11px] text-muted-foreground/50 truncate mt-1 leading-snug">
-                              {[lead.company, lead.interest].filter(Boolean).join(" · ")}
+                            <div className="flex items-center gap-1.5 mt-1.5">
+                              <Building2 className="w-3 h-3 text-muted-foreground/40 shrink-0" />
+                              <p className="text-[11.5px] text-muted-foreground/60 truncate leading-snug">
+                                {[hasName ? lead.company : null, lead.interest].filter(Boolean).join(" · ") || lead.interest}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Phone (always visible, discrete) */}
+                          {lead.phone && (
+                            <p className="text-[11px] text-muted-foreground/40 mt-1 tabular-nums">
+                              {formatPhone(lead.phone)}
                             </p>
                           )}
 
-                          {/* Value + Tag */}
-                          <div className="flex items-center justify-between mt-3 gap-2">
-                            {lead.estimated_value ? (
-                              <span className="text-[12px] font-semibold text-foreground/70 tabular-nums">
-                                {currency(lead.estimated_value)}
-                              </span>
-                            ) : <span />}
+                          {/* Divider */}
+                          <div className="border-t border-border/30 my-3" />
+
+                          {/* Value + Temperature */}
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={cn(
+                              "text-[13px] font-bold tabular-nums",
+                              val ? "text-emerald-600" : "text-muted-foreground/25"
+                            )}>
+                              {val || "—"}
+                            </span>
 
                             {temp && (
                               <span className={cn(
-                                "text-[10px] font-medium px-2 py-0.5 rounded-full border",
+                                "text-[10px] font-semibold px-2 py-0.5 rounded-full border",
                                 temp.cls
                               )}>
                                 {temp.label}
@@ -228,9 +244,12 @@ export default function Pipeline() {
 
                           {/* Responsible */}
                           {lead.responsible && (
-                            <p className="text-[10px] text-muted-foreground/40 mt-2 truncate">
-                              {lead.responsible}
-                            </p>
+                            <div className="flex items-center gap-1.5 mt-2.5">
+                              <User className="w-3 h-3 text-muted-foreground/35 shrink-0" />
+                              <p className="text-[11px] text-muted-foreground/50 truncate">
+                                {lead.responsible}
+                              </p>
+                            </div>
                           )}
                         </div>
                       );
