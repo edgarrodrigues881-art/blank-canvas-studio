@@ -496,29 +496,7 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
   const phone = isExplicitChatId ? rawTarget : rawTarget.replace(/\D/g, "");
   const text = typeof body === "string" ? body.trim() : "";
   const hasButtons = buttons && buttons.length > 0;
-
-  // Separate reply buttons (supported natively) from URL/phone buttons (converted to footer text)
-  const replyButtons: CampaignButton[] = [];
-  const footerLines: string[] = [];
-  if (hasButtons) {
-    for (const btn of buttons!) {
-      const btnText = (btn.text || "").trim();
-      if (!btnText) continue;
-      if (btn.type === "url") {
-        const url = (btn.value || "").trim();
-        if (url) footerLines.push(`🔗 ${btnText}: ${url}`);
-      } else if (btn.type === "phone") {
-        const phoneVal = (btn.value || "").trim();
-        if (phoneVal) footerLines.push(`📞 ${btnText}: ${phoneVal}`);
-      } else {
-        replyButtons.push(btn);
-      }
-    }
-  }
-
-  const choices = replyButtons.map((b, i) => buildMenuChoice(b, i)).filter((choice): choice is string => Boolean(choice));
-  const footerText = footerLines.length > 0 ? "\n\n" + footerLines.join("\n") : "";
-  const finalText = text + footerText;
+  const choices = hasButtons ? buttons.map((b, i) => buildMenuChoice(b, i)).filter((choice): choice is string => Boolean(choice)) : [];
   const normalizedCarouselCards = normalizeCarouselCards(carouselCards);
 
   console.log(JSON.stringify({
@@ -527,55 +505,41 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     messageType: messageType || null,
     hasMedia: Boolean(mediaUrl),
     hasButtons,
-    replyButtonCount: choices.length,
-    footerLineCount: footerLines.length,
+    buttonCount: choices.length,
     carouselCount: normalizedCarouselCards.length,
-    textLength: finalText.length,
-    textPreview: finalText.substring(0, 80),
+    textLength: text.length,
+    textPreview: text.substring(0, 80),
   }));
 
   if (messageType === "carousel") {
-    return await sendCarouselMessage(baseUrl, token, phone, finalText, normalizedCarouselCards);
+    return await sendCarouselMessage(baseUrl, token, phone, text, normalizedCarouselCards);
   }
 
-  if (choices.length > 0 || footerLines.length > 0) {
+  if (choices.length > 0) {
     const mediaType = mediaUrl ? detectMediaType(mediaUrl) : null;
     const isAudioMedia = mediaType === "audio";
     const hasVisualMedia = !!mediaUrl && !isAudioMedia;
 
-    if (!finalText.trim()) {
+    if (!text) {
       console.log(JSON.stringify({ event: "fallback_text_applied", prevented: true, reason: "missing_primary_text_with_buttons" }));
       throw new Error("Mensagens com botão exigem copy/texto principal. O sistema não envia mais 'Escolha uma opção' automaticamente.");
     }
 
-    // If we only have footer lines (URL/phone converted to text) and no reply buttons, send as media+text
-    if (choices.length === 0) {
-      if (hasVisualMedia && mediaUrl) {
-        return await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType!, finalText);
-      }
-      if (isAudioMedia && mediaUrl) {
-        await sendTextWithFallback(baseUrl, token, phone, finalText);
-        await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1500));
-        return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, type: "ptt", file: mediaUrl });
-      }
-      return await sendTextWithFallback(baseUrl, token, phone, finalText);
-    }
-
-    // IMAGE + BUTTONS: Send unified via /send/menu with image field
+    // IMAGE + BUTTONS: Send unified via /send/menu with imageButton field
     if (hasVisualMedia && mediaUrl) {
       console.log(JSON.stringify({
         event: "unified_image_buttons",
         origin: "campaign",
         buttonCount: choices.length,
         hasMedia: true,
-        captionLength: finalText.length,
+        captionLength: text.length,
       }));
 
       await uazapiRequest(baseUrl, token, "/send/menu", {
         number: phone,
         type: "button",
-        text: finalText,
-        image: mediaUrl,
+        text,
+        imageButton: mediaUrl,
         choices,
       });
       console.log(JSON.stringify({ event: "unified_image_buttons_success" }));
@@ -586,7 +550,7 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     await uazapiRequest(baseUrl, token, "/send/menu", {
       number: phone,
       type: "button",
-      text: finalText,
+      text,
       choices,
     });
 
