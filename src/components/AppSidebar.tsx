@@ -369,7 +369,7 @@ export function AppSidebar() {
                         {renderNavItem({ title: "Pipeline", url: "/dashboard/pipeline", icon: GitBranch })}
                         {renderNavItem({ title: "Agendamentos", url: "/dashboard/crm-agendamentos", icon: CalendarClock })}
                         {renderNavItem({ title: "IA", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: lk })}
-                        {renderNavItem({ title: "Relatórios", url: "/dashboard/service-reports", icon: BarChart3, locked: lk })}
+                        {renderNavItem({ title: "Relatórios", url: "/dashboard/crm-reports", icon: BarChart3, locked: lk })}
                         {renderNavItem({ title: "Prospecção", url: "/dashboard/prospeccao", icon: Building2 })}
                       </>
                     );
