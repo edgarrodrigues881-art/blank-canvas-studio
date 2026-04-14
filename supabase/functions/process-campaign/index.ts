@@ -30,24 +30,16 @@ interface CarouselCard {
 function buildMenuChoice(button: CampaignButton, index: number): string | null {
   const text = (button.text || "").trim();
   if (!text) return null;
-  // All buttons become simple reply buttons for /send/menu type:"button"
-  // URL/phone values are appended to the message text separately
-  const replyId = (button.value || `btn_${index}`).trim().substring(0, 20) || `btn_${index}`;
-  return `${text}|${replyId}`;
-}
-
-function extractUrlFooter(buttons: CampaignButton[]): string {
-  const lines: string[] = [];
-  for (const b of buttons) {
-    const text = (b.text || "").trim();
-    const value = (b.value || "").trim();
-    if (b.type === "url" && value) {
-      lines.push(`🔗 ${text}: ${value}`);
-    } else if (b.type === "phone" && value) {
-      lines.push(`📞 ${text}: ${value}`);
-    }
+  if (button.type === "url") {
+    const url = (button.value || "").trim();
+    return url ? `${text}|url:${url}` : text;
   }
-  return lines.length > 0 ? "\n\n" + lines.join("\n") : "";
+  if (button.type === "phone") {
+    const phone = (button.value || "").trim();
+    return phone ? `${text}|call:${phone}` : text;
+  }
+  const replyId = (button.value || `btn_${index}`).trim();
+  return `${text}|${replyId}`;
 }
 
 function normalizeCarouselCards(rawCards: unknown): CarouselCard[] {
@@ -191,9 +183,14 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
   } catch (structuredError) {
     console.warn(`Primary /send/carousel failed for ${phone}: ${structuredError instanceof Error ? structuredError.message : String(structuredError)}`);
 
+    // Determine if cards have URL buttons — if so, use "list" type which supports url: prefix
+    const hasUrlButtons = normalizedCards.some((card) =>
+      (card.buttons || []).some((b) => (b.type || "").toLowerCase() === "url")
+    );
+
     const menuPayload: Record<string, unknown> = {
       number: phone,
-      type: "button",
+      type: hasUrlButtons ? "list" : "carousel",
       ...(primaryText ? { text: primaryText } : {}),
       choices: menuChoices,
     };
@@ -528,10 +525,6 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
       throw new Error("Mensagens com botão exigem copy/texto principal. O sistema não envia mais 'Escolha uma opção' automaticamente.");
     }
 
-    // Append URL/phone links to message text so users can still access them
-    const urlFooter = extractUrlFooter(buttons!);
-    const fullText = text + urlFooter;
-
     // IMAGE + BUTTONS: Send unified via /send/menu with image field
     if (hasVisualMedia && mediaUrl) {
       console.log(JSON.stringify({
@@ -539,15 +532,14 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
         origin: "campaign",
         buttonCount: choices.length,
         hasMedia: true,
-        captionLength: fullText.length,
-        hasUrlFooter: urlFooter.length > 0,
+        captionLength: text.length,
       }));
 
       await uazapiRequest(baseUrl, token, "/send/menu", {
         number: phone,
         type: "button",
-        text: fullText,
-        imageButton: mediaUrl,
+        text,
+        image: mediaUrl,
         choices,
       });
       console.log(JSON.stringify({ event: "unified_image_buttons_success" }));
@@ -558,7 +550,7 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     await uazapiRequest(baseUrl, token, "/send/menu", {
       number: phone,
       type: "button",
-      text: fullText,
+      text,
       choices,
     });
 
