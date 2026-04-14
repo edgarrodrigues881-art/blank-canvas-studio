@@ -214,6 +214,7 @@ const AISettings = () => {
   const [newDocTitle, setNewDocTitle] = useState("");
   const [newDocType, setNewDocType] = useState("pdf");
   const [newDocFile, setNewDocFile] = useState<File | null>(null);
+  const [newDocContent, setNewDocContent] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [settingsExist, setSettingsExist] = useState(false);
