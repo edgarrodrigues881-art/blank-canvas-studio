@@ -194,8 +194,25 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     setActiveTags((prev) => {
       const next = prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag];
       onTagsChange?.(conversation.id, next);
+      // Also sync to service_contacts
+      if (user && conversation.phone) {
+        const digits = conversation.phone.replace(/\D/g, "");
+        supabase
+          .from("service_contacts")
+          .update({ tags: next } as any)
+          .eq("user_id", user.id)
+          .like("phone", `%${digits.slice(-8)}%`)
+          .then(() => {});
+      }
       return next;
     });
+  };
+
+  const addCustomTag = () => {
+    const tag = customTagInput.trim();
+    if (!tag || activeTags.includes(tag)) return;
+    toggleTag(tag);
+    setCustomTagInput("");
   };
 
   const handleEditSave = () => {
