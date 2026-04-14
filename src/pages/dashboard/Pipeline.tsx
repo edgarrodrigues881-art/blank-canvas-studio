@@ -4,8 +4,15 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { GitBranch, User, Phone, Sparkles, GripVertical, Clock } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { GitBranch, User, Phone, Sparkles, GripVertical, Clock, Tag, X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPhone } from "@/utils/formatters";
 import { formatDistanceToNow } from "date-fns";
