@@ -282,7 +282,7 @@ export function AppSidebar() {
   };
 
   // Auto-switch workspace based on current route
-  const CRM_ROUTES = ["/dashboard/crm", "/dashboard/conversations", "/dashboard/service-contacts", "/dashboard/leads", "/dashboard/pipeline", "/dashboard/schedules", "/dashboard/ai-settings", "/dashboard/service-reports", "/dashboard/prospeccao"];
+  const CRM_ROUTES = ["/dashboard/crm", "/dashboard/conversations", "/dashboard/service-contacts", "/dashboard/leads", "/dashboard/pipeline", "/dashboard/schedules", "/dashboard/ai-settings", "/dashboard/crm-reports", "/dashboard/prospeccao", "/dashboard/crm-agendamentos"];
   useEffect(() => {
     const isCRMRoute = CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
     if (isCRMRoute && !isCRM) setWorkspace("crm");
@@ -369,7 +369,7 @@ export function AppSidebar() {
                         {renderNavItem({ title: "Pipeline", url: "/dashboard/pipeline", icon: GitBranch })}
                         {renderNavItem({ title: "Agendamentos", url: "/dashboard/crm-agendamentos", icon: CalendarClock })}
                         {renderNavItem({ title: "IA", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: lk })}
-                        {renderNavItem({ title: "Relatórios", url: "/dashboard/service-reports", icon: BarChart3, locked: lk })}
+                        {renderNavItem({ title: "Relatórios", url: "/dashboard/crm-reports", icon: BarChart3, locked: lk })}
                         {renderNavItem({ title: "Prospecção", url: "/dashboard/prospeccao", icon: Building2 })}
                       </>
                     );
