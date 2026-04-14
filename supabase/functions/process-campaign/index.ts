@@ -1114,14 +1114,44 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: true, status: "running" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ─── CONTINUE (delegated to VPS campaign-worker) ───
+    // ─── CONTINUE ───
     if (action === "continue") {
-      console.log(`Campaign ${campaignId} continue delegated to VPS campaign-worker`);
-      return new Response(JSON.stringify({ success: true, status: "running", delegated: "vps-engine" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const { data: continueCampaign, error: continueCampaignErr } = await serviceClient
+        .from("campaigns")
+        .select("id, message_type, media_url, buttons")
+        .eq("id", campaignId)
+        .single();
+
+      if (continueCampaignErr || !continueCampaign) {
+        return new Response(JSON.stringify({ error: "Campanha não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      let continueMediaUrl: string | null = null;
+      if (continueCampaign.media_url) {
+        try {
+          const parsed = JSON.parse(continueCampaign.media_url);
+          continueMediaUrl = Array.isArray(parsed) && parsed.length > 0
+            ? parsed[0]?.url || null
+            : continueCampaign.media_url;
+        } catch {
+          continueMediaUrl = continueCampaign.media_url;
+        }
+      }
+
+      const continueHasButtons = Array.isArray(continueCampaign.buttons) && continueCampaign.buttons.length > 0;
+      const continueMediaType = continueMediaUrl ? detectMediaType(continueMediaUrl) : null;
+      const shouldRunInlineContinue = continueHasButtons && Boolean(continueMediaUrl) && continueMediaType !== "audio";
+
+      if (!shouldRunInlineContinue) {
+        console.log(`Campaign ${campaignId} continue delegated to VPS campaign-worker`);
+        return new Response(JSON.stringify({ success: true, status: "running", delegated: "vps-engine" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      console.log(`Campaign ${campaignId} continue forced to internal Edge processing for visual media + buttons`);
     }
 
-    // ─── CONTINUE (internal batch processing — legacy path kept unreachable for fallback reference) ───
-    if (false && action === "continue") {
+    // ─── CONTINUE (internal batch processing for visual media + buttons fallback) ───
+    if (action === "continue") {
       const planErr = await checkActivePlan(userId);
       if (planErr) {
         console.log(`⚠️ Plan inactive for user ${userId}, pausing campaign ${campaignId}`);
