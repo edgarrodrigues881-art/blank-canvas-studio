@@ -97,20 +97,28 @@ export default function CRMReports() {
   const metrics = useMemo(() => {
     const total = leads.length;
 
-    // By pipeline stage
+    // Map lead_temperature to pipeline-like stages for funnel
+    const tempToStage: Record<string, string> = {
+      frio: "novo",
+      morno: "respondeu",
+      quente: "interessado",
+      cliente: "fechado",
+      perdido: "perdido",
+    };
+
     const byStage: Record<string, number> = {};
     for (const l of leads) {
-      const stage = l.pipeline_stage || "novo";
+      const stage = tempToStage[l.lead_temperature || "frio"] || "novo";
       byStage[stage] = (byStage[stage] || 0) + 1;
     }
 
-    // Response rate: leads that moved past "novo"
-    const responded = leads.filter(l => l.pipeline_stage && l.pipeline_stage !== "novo").length;
+    // Response rate: leads that are not "frio"
+    const responded = leads.filter((l: any) => l.lead_temperature && l.lead_temperature !== "frio").length;
     const responseRate = total > 0 ? (responded / total) * 100 : 0;
 
-    // Interest rate: interessado + negociacao + fechado
-    const interested = leads.filter(l =>
-      ["interessado", "negociacao", "fechado"].includes(l.pipeline_stage || "")
+    // Interest rate: quente + cliente
+    const interested = leads.filter((l: any) =>
+      ["quente", "cliente"].includes(l.lead_temperature || "")
     ).length;
     const interestRate = total > 0 ? (interested / total) * 100 : 0;
 
