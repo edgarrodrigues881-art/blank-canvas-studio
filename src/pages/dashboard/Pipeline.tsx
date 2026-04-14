@@ -89,7 +89,23 @@ export default function Pipeline() {
     }
   };
 
-  /* ── Drag handlers ── */
+  const addTagToLead = async (leadId: string, tag: string) => {
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead) return;
+    const updated = [...new Set([...(lead.tags || []), tag])];
+    setLeads((ls) => ls.map((l) => (l.id === leadId ? { ...l, tags: updated } : l)));
+    await supabase.from("service_contacts").update({ tags: updated } as any).eq("id", leadId);
+    toast.success(`Tag "${tag}" adicionada`);
+  };
+
+  const removeTagFromLead = async (leadId: string, tag: string) => {
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead) return;
+    const updated = (lead.tags || []).filter((t) => t !== tag);
+    setLeads((ls) => ls.map((l) => (l.id === leadId ? { ...l, tags: updated } : l)));
+    await supabase.from("service_contacts").update({ tags: updated } as any).eq("id", leadId);
+  };
+
   const onDragStart = (e: React.DragEvent, lead: PipelineLead) => {
     dragItem.current = { id: lead.id, stage: lead.pipeline_stage || "novo" };
     e.dataTransfer.effectAllowed = "move";
