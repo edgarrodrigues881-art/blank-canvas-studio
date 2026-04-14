@@ -68,7 +68,6 @@ export default function Pipeline() {
       .from("service_contacts")
       .select("id, name, phone, email, tags, lead_temperature, pipeline_stage, last_message_at, last_message_content, created_at")
       .eq("user_id", user.id)
-      .not("pipeline_stage", "is", null)
       .order("created_at", { ascending: false });
     setLeads((data as any[]) || []);
     setLoading(false);
