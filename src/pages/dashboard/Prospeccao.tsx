@@ -709,7 +709,7 @@ export default function Prospeccao() {
                     </Button>
                     <Button variant="outline" onClick={() => saveToContacts()} disabled={savingContacts} className="gap-2">
                       {savingContacts ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-                      {savingContacts ? "Salvando..." : "Salvar nos Contatos"}
+                      {savingContacts ? "Salvando..." : "Salvar no CRM"}
                     </Button>
                     <Button variant="outline" onClick={handleVerifyWhatsApp} className="gap-2">
                       <Smartphone className="h-4 w-4" />
