@@ -218,16 +218,54 @@ export default function Pipeline() {
                               )}
 
                               {/* Tags */}
-                              {lead.tags && lead.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1">
-                                  {lead.tags.slice(0, 2).map((tag) => (
-                                    <Badge key={tag} variant="secondary" className="text-[9px] px-1.5 py-0">{tag}</Badge>
-                                  ))}
-                                  {lead.tags.length > 2 && (
-                                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0">+{lead.tags.length - 2}</Badge>
-                                  )}
-                                </div>
-                              )}
+                              <div className="flex flex-wrap gap-1 items-center">
+                                {(lead.tags || []).slice(0, 2).map((tag) => (
+                                  <Badge key={tag} variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5">
+                                    {tag}
+                                    <button onClick={(e) => { e.stopPropagation(); removeTagFromLead(lead.id, tag); }} className="hover:text-destructive">
+                                      <X className="w-2 h-2" />
+                                    </button>
+                                  </Badge>
+                                ))}
+                                {(lead.tags || []).length > 2 && (
+                                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0">+{lead.tags.length - 2}</Badge>
+                                )}
+                                <Popover open={tagPopoverId === lead.id} onOpenChange={(open) => { setTagPopoverId(open ? lead.id : null); setNewTagInput(""); }}>
+                                  <PopoverTrigger asChild>
+                                    <button onClick={(e) => e.stopPropagation()} className="text-muted-foreground/40 hover:text-primary transition-colors">
+                                      <Plus className="w-3 h-3" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-52 p-2" align="start" onClick={(e) => e.stopPropagation()}>
+                                    <div className="space-y-2">
+                                      <div className="flex flex-wrap gap-1">
+                                        {SUGGESTED_TAGS.filter((t) => !(lead.tags || []).includes(t)).slice(0, 6).map((t) => (
+                                          <button key={t} onClick={() => { addTagToLead(lead.id, t); }} className="text-[9px] px-1.5 py-0.5 rounded border border-dashed border-border/50 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all">
+                                            + {t}
+                                          </button>
+                                        ))}
+                                      </div>
+                                      <div className="flex gap-1">
+                                        <Input
+                                          value={newTagInput}
+                                          onChange={(e) => setNewTagInput(e.target.value)}
+                                          placeholder="Nova tag..."
+                                          className="h-6 text-[10px] flex-1"
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter" && newTagInput.trim()) {
+                                              addTagToLead(lead.id, newTagInput.trim());
+                                              setNewTagInput("");
+                                            }
+                                          }}
+                                        />
+                                        <Button size="sm" variant="outline" className="h-6 text-[9px] px-1.5" onClick={() => { if (newTagInput.trim()) { addTagToLead(lead.id, newTagInput.trim()); setNewTagInput(""); } }}>
+                                          OK
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
 
                               {/* Time */}
                               <div className="flex items-center gap-1 text-muted-foreground/50">
