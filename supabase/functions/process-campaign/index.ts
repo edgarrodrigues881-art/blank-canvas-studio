@@ -191,14 +191,9 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
   } catch (structuredError) {
     console.warn(`Primary /send/carousel failed for ${phone}: ${structuredError instanceof Error ? structuredError.message : String(structuredError)}`);
 
-    // Determine if cards have URL buttons — if so, use "list" type which supports url: prefix
-    const hasUrlButtons = normalizedCards.some((card) =>
-      (card.buttons || []).some((b) => (b.type || "").toLowerCase() === "url")
-    );
-
     const menuPayload: Record<string, unknown> = {
       number: phone,
-      type: hasUrlButtons ? "list" : "carousel",
+      type: "button",
       ...(primaryText ? { text: primaryText } : {}),
       choices: menuChoices,
     };
