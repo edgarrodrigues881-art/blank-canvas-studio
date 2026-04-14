@@ -2152,10 +2152,12 @@ export type Database = {
           last_automation_type: string | null
           last_message: string | null
           last_message_at: string | null
+          lead_temperature: string | null
           name: string
           notes: string | null
           origin: string | null
           phone: string
+          pipeline_stage: string | null
           remote_jid: string
           status: string | null
           status_changed_at: string | null
@@ -2179,10 +2181,12 @@ export type Database = {
           last_automation_type?: string | null
           last_message?: string | null
           last_message_at?: string | null
+          lead_temperature?: string | null
           name?: string
           notes?: string | null
           origin?: string | null
           phone?: string
+          pipeline_stage?: string | null
           remote_jid: string
           status?: string | null
           status_changed_at?: string | null
@@ -2206,10 +2210,12 @@ export type Database = {
           last_automation_type?: string | null
           last_message?: string | null
           last_message_at?: string | null
+          lead_temperature?: string | null
           name?: string
           notes?: string | null
           origin?: string | null
           phone?: string
+          pipeline_stage?: string | null
           remote_jid?: string
           status?: string | null
           status_changed_at?: string | null
@@ -3936,6 +3942,7 @@ export type Database = {
           last_message_at: string | null
           last_message_content: string | null
           lead_score: number | null
+          lead_temperature: string | null
           name: string
           notes: string | null
           origin: string | null
@@ -3955,6 +3962,7 @@ export type Database = {
           last_message_at?: string | null
           last_message_content?: string | null
           lead_score?: number | null
+          lead_temperature?: string | null
           name?: string
           notes?: string | null
           origin?: string | null
@@ -3974,6 +3982,7 @@ export type Database = {
           last_message_at?: string | null
           last_message_content?: string | null
           lead_score?: number | null
+          lead_temperature?: string | null
           name?: string
           notes?: string | null
           origin?: string | null
