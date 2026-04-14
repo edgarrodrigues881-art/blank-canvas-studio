@@ -4312,6 +4312,7 @@ export type Database = {
           notes: string | null
           origin: string | null
           phone: string
+          pipeline_stage: string | null
           priority: string | null
           responsible: string | null
           segment: string | null
@@ -4340,6 +4341,7 @@ export type Database = {
           notes?: string | null
           origin?: string | null
           phone?: string
+          pipeline_stage?: string | null
           priority?: string | null
           responsible?: string | null
           segment?: string | null
@@ -4368,6 +4370,7 @@ export type Database = {
           notes?: string | null
           origin?: string | null
           phone?: string
+          pipeline_stage?: string | null
           priority?: string | null
           responsible?: string | null
           segment?: string | null
