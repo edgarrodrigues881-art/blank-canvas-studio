@@ -44,7 +44,7 @@ const typeColors = {
   info: "text-[hsl(var(--info))]",
 };
 
-const DashboardLayout = ({ children }: DashboardLayoutProps) => {
+const DashboardLayoutInner = ({ children }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -226,5 +226,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     </SidebarProvider>
   );
 };
+
+const DashboardLayout = ({ children }: DashboardLayoutProps) => (
+  <WorkspaceProvider>
+    <DashboardLayoutInner>{children}</DashboardLayoutInner>
+  </WorkspaceProvider>
+);
 
 export default DashboardLayout;
