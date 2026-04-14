@@ -360,33 +360,100 @@ Deno.serve(async (req) => {
       settings.block_sensitive ? `- Nunca compartilhe dados sensíveis como CPF, senhas ou dados bancários` : "",
     ].filter(Boolean).join("\n");
 
-    // 8. Call AI provider
-    const provider = settings.ai_provider || "openai";
-    const providerConfig = getProviderConfig(provider, settings.api_key, settings.ai_model);
+    // 8. Call AI provider — use Lovable AI Gateway for multimodal, else user's provider
+    const useMultimodal = !!mediaBase64Content && !!LOVABLE_API_KEY;
+    
+    let aiRes: Response;
+    
+    if (useMultimodal) {
+      // Build multimodal user message for Gemini via Lovable AI Gateway
+      const userContent: any[] = [];
+      
+      if (mediaBase64Content) {
+        userContent.push(mediaBase64Content);
+      }
+      userContent.push({ type: "text", text: mediaAnalysisPrompt || message_content || "Analise este conteúdo." });
 
-    const messages = [
-      { role: "system", content: systemParts },
-      ...conversationHistory,
-      { role: "user", content: message_content },
-    ];
+      const multimodalMessages = [
+        { role: "system", content: systemParts },
+        ...conversationHistory,
+        { role: "user", content: userContent },
+      ];
 
-    const temperature = (settings.creativity || 50) / 100;
+      aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: multimodalMessages,
+          temperature: (settings.creativity || 50) / 100,
+          max_tokens: settings.max_response_length === "short" ? 150 : settings.max_response_length === "detailed" ? 800 : 400,
+        }),
+      });
+    } else {
+      // Standard text-only call to user's configured provider
+      const provider = settings.ai_provider || "openai";
+      const providerConfig = getProviderConfig(provider, settings.api_key, settings.ai_model);
 
-    const aiRes = await fetch(providerConfig.url, {
-      method: "POST",
-      headers: providerConfig.headers,
-      body: JSON.stringify({
-        model: providerConfig.model,
-        messages,
-        temperature,
-        max_tokens: settings.max_response_length === "short" ? 150 : settings.max_response_length === "detailed" ? 800 : 400,
-      }),
-    });
+      const messages = [
+        { role: "system", content: systemParts },
+        ...conversationHistory,
+        { role: "user", content: message_content },
+      ];
+
+      const temperature = (settings.creativity || 50) / 100;
+
+      aiRes = await fetch(providerConfig.url, {
+        method: "POST",
+        headers: providerConfig.headers,
+        body: JSON.stringify({
+          model: providerConfig.model,
+          messages,
+          temperature,
+          max_tokens: settings.max_response_length === "short" ? 150 : settings.max_response_length === "detailed" ? 800 : 400,
+        }),
+      });
+    }
 
     if (!aiRes.ok) {
       const errText = await aiRes.text();
-      console.error(`${provider} API error:`, aiRes.status, errText);
-      return json({ error: `${provider} API error`, status: aiRes.status }, 500);
+      const label = useMultimodal ? "Lovable AI (multimodal)" : (settings.ai_provider || "openai");
+      console.error(`${label} API error:`, aiRes.status, errText);
+      
+      // If multimodal fails, fallback to text-only with user's provider
+      if (useMultimodal && settings.api_key) {
+        console.log("Multimodal failed, falling back to text provider");
+        const provider = settings.ai_provider || "openai";
+        const providerConfig = getProviderConfig(provider, settings.api_key, settings.ai_model);
+        const fallbackContent = mediaAnalysisPrompt
+          ? `${mediaAnalysisPrompt} (Nota: não foi possível analisar a mídia diretamente)`
+          : message_content;
+        
+        aiRes = await fetch(providerConfig.url, {
+          method: "POST",
+          headers: providerConfig.headers,
+          body: JSON.stringify({
+            model: providerConfig.model,
+            messages: [
+              { role: "system", content: systemParts },
+              ...conversationHistory,
+              { role: "user", content: fallbackContent },
+            ],
+            temperature: (settings.creativity || 50) / 100,
+            max_tokens: 400,
+          }),
+        });
+        if (!aiRes.ok) {
+          const errText2 = await aiRes.text();
+          console.error(`Fallback ${provider} error:`, aiRes.status, errText2);
+          return json({ error: `AI API error`, status: aiRes.status }, 500);
+        }
+      } else {
+        return json({ error: `AI API error`, status: aiRes.status }, 500);
+      }
     }
 
     const aiData = await aiRes.json();
