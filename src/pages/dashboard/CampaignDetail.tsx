@@ -268,8 +268,9 @@ const CampaignDetail = () => {
     refetchInterval: (query) => {
       if (document.hidden) return false;
       const status = query.state.data?.status;
-      if (status && ["running", "processing"].includes(status)) return 8000;
-      if (status && ["pending", "paused", "queued", "scheduled"].includes(status)) return 5000;
+      if (status && ["running", "processing"].includes(status)) return 3000;
+      if (status && ["pending", "queued", "scheduled"].includes(status)) return 2000;
+      if (status === "paused") return 5000;
       return false;
     },
   });
@@ -313,7 +314,8 @@ const CampaignDetail = () => {
     enabled: !!id && !!user,
     refetchInterval: () => {
       if (document.hidden) return false;
-      if (campaign && ["running", "processing", "pending", "paused"].includes(campaign.status)) return 5000;
+      if (campaign && ["running", "processing", "pending", "queued", "scheduled"].includes(campaign.status)) return 3000;
+      if (campaign?.status === "paused") return 5000;
       return false;
     },
   });
@@ -345,6 +347,14 @@ const CampaignDetail = () => {
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [id, queryClient]);
+
+  useEffect(() => {
+    if (!id || !campaign?.status) return;
+    if (!["completed", "failed", "canceled"].includes(campaign.status)) return;
+
+    void queryClient.refetchQueries({ queryKey: ["campaign-contacts", id] });
+    void queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+  }, [campaign?.status, id, queryClient]);
 
   const [minDelay, setMinDelay] = useState(8);
   const [maxDelay, setMaxDelay] = useState(25);
@@ -473,10 +483,31 @@ const CampaignDetail = () => {
     if (!id || actionLoading) return;
     setActionLoading(action);
     try {
+      if (action === "start" || action === "resume") {
+        queryClient.setQueryData(["campaign", id], (current: any) => current ? {
+          ...current,
+          status: "running",
+          started_at: current.started_at || new Date().toISOString(),
+        } : current);
+      }
+
       const { data, error } = await supabase.functions.invoke("process-campaign", { body: { action, campaignId: id } });
       if (error) throw error;
-      queryClient.invalidateQueries({ queryKey: ["campaign", id] });
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["campaign", id], exact: true }),
+        queryClient.refetchQueries({ queryKey: ["campaign-contacts", id] }),
+        queryClient.invalidateQueries({ queryKey: ["campaigns"] }),
+      ]);
+
+      if (action === "start" && data?.status === "queued") {
+        toast({
+          title: "⏳ Campanha enfileirada",
+          description: data?.message || "A instância está ocupada e o envio inicia automaticamente quando liberar.",
+        });
+        return;
+      }
+
       const labels: Record<string, { title: string; description: string; variant?: "default" | "destructive" }> = {
         pause: { title: "⏸️ Campanha pausada", description: "O envio foi interrompido. Você pode retomar a qualquer momento." },
         resume: { title: "▶️ Campanha retomada", description: "O envio continua de onde parou." },
@@ -485,6 +516,7 @@ const CampaignDetail = () => {
       };
       toast(labels[action]);
     } catch (err: any) {
+      void queryClient.refetchQueries({ queryKey: ["campaign", id], exact: true });
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
       setActionLoading(null);
