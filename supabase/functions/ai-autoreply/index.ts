@@ -196,6 +196,26 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 5d. Load Knowledge Base documents
+    let kbContext = "";
+    {
+      const { data: kbDocs } = await admin
+        .from("ai_knowledge_base")
+        .select("title, doc_type, content")
+        .eq("user_id", user_id)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .limit(20);
+      if (kbDocs && kbDocs.length > 0) {
+        const kbParts = kbDocs
+          .filter((d: any) => d.content?.trim())
+          .map((d: any) => `[${d.title}]: ${d.content.substring(0, 2000)}`);
+        if (kbParts.length > 0) {
+          kbContext = `\nBASE DE CONHECIMENTO DA EMPRESA:\n${kbParts.join("\n\n")}`;
+        }
+      }
+    }
+
     // 6. Build conversation history for context
     let conversationHistory: { role: string; content: string }[] = [];
     if (settings.conversation_memory) {
