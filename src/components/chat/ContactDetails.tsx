@@ -137,7 +137,54 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     });
     setActiveTags(conversation.tags);
     setNotes(conversation.notes || "");
+    setAiSuggestions([]);
+    setAiDetectedIntent(null);
+    setAiRecommendation(null);
   }, [conversation.id]);
+
+  // AI Classify lead
+  const handleAiClassify = async () => {
+    if (!user) return;
+    setAiClassifying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-ai-classify", {
+        body: { user_id: user.id, conversation_id: conversation.id, action: "classify" },
+      });
+      if (error) throw error;
+      if (data?.classification) {
+        const c = data.classification;
+        if (c.temperature) setLeadTemp(c.temperature);
+        if (c.interest) setAiInterest(c.interest);
+        if (c.intent) setAiDetectedIntent(c.intent);
+        toast.success(`Lead classificado: ${c.temperature} (${c.confidence}% confiança)`);
+      }
+    } catch (e: any) {
+      toast.error("Erro ao classificar: " + (e.message || "Tente novamente"));
+    } finally {
+      setAiClassifying(false);
+    }
+  };
+
+  // AI Suggest responses
+  const handleAiSuggest = async () => {
+    if (!user) return;
+    setAiSuggesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-ai-classify", {
+        body: { user_id: user.id, conversation_id: conversation.id, action: "suggest" },
+      });
+      if (error) throw error;
+      if (data?.suggestions) {
+        setAiSuggestions(data.suggestions);
+        if (data.detected_intent) setAiDetectedIntent(data.detected_intent);
+        if (data.recommended_action) setAiRecommendation(data.recommended_action);
+      }
+    } catch (e: any) {
+      toast.error("Erro ao sugerir: " + (e.message || "Tente novamente"));
+    } finally {
+      setAiSuggesting(false);
+    }
+  };
 
   const toggleTag = (tag: string) => {
     setActiveTags((prev) => {
