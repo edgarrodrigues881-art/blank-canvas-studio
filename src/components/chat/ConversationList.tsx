@@ -362,16 +362,26 @@ export function ConversationList({
 
                     {/* Content */}
                     <div className="flex-1 min-w-0 py-0.5">
-                      {/* Row 1: Name + Time */}
+                      {/* Row 1: Name + Temp + Time */}
                       <div className="grid grid-cols-[minmax(0,1fr)_46px] items-baseline gap-x-2">
-                        <span className={cn(
-                          "truncate text-[13.5px] leading-tight min-w-0",
-                          hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/85"
-                        )}>
-                          {trimmedQuery ? (
-                            <HighlightText text={displayName || formatPhone(c.phone)} query={trimmedQuery} />
-                          ) : (
-                            displayName || formatPhone(c.phone)
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <span className={cn(
+                            "truncate text-[13.5px] leading-tight",
+                            hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/85"
+                          )}>
+                            {trimmedQuery ? (
+                              <HighlightText text={displayName || formatPhone(c.phone)} query={trimmedQuery} />
+                            ) : (
+                              displayName || formatPhone(c.phone)
+                            )}
+                          </span>
+                          {c.leadTemperature && c.leadTemperature !== "frio" && (
+                            <span className={cn(
+                              "text-[9px] px-1 py-px rounded font-bold shrink-0",
+                              c.leadTemperature === "quente" ? "bg-red-500/15 text-red-400" : "bg-amber-500/15 text-amber-400"
+                            )}>
+                              {c.leadTemperature === "quente" ? "🔥" : "☀️"}
+                            </span>
                           )}
                         </span>
                         <span className={cn(
