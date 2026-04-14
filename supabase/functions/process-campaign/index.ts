@@ -539,7 +539,7 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
         number: phone,
         type: "button",
         text,
-        image: mediaUrl,
+        imageButton: mediaUrl,
         choices,
       });
       console.log(JSON.stringify({ event: "unified_image_buttons_success" }));
