@@ -29,6 +29,8 @@ export interface RealConversation {
   assigned_to?: string | null;
   assigned_name?: string | null;
   status_changed_at?: string;
+  lead_temperature?: string;
+  pipeline_stage?: string;
   deviceName?: string;
 }
 
