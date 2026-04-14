@@ -551,24 +551,49 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
             <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
               <Tag className="w-3.5 h-3.5" /> Tags
             </h4>
+            
+            {/* Active tags with remove */}
+            {activeTags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {activeTags.map((tag) => {
+                  const tagCfg = DEFAULT_CRM_TAGS.find((t) => t.label.toLowerCase() === tag.toLowerCase());
+                  return (
+                    <span key={tag} className={cn("text-[10px] px-2 py-1 rounded-md font-semibold border inline-flex items-center gap-1", tagCfg?.color || "bg-muted/30 text-foreground border-border/40")}>
+                      {tag}
+                      <button onClick={() => toggleTag(tag)} className="hover:text-destructive ml-0.5">
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Suggested tags */}
             <div className="flex flex-wrap gap-1.5">
-              {allTags.map((tag) => {
-                const isActive = activeTags.some((t) => t.toLowerCase() === tag.label.toLowerCase());
-                return (
-                  <button
-                    key={tag.label}
-                    onClick={() => toggleTag(tag.label)}
-                    className={cn(
-                      "text-[10px] px-2 py-1 rounded-md font-semibold border transition-all cursor-pointer",
-                      isActive
-                        ? tag.color
-                        : "bg-muted/20 text-muted-foreground/50 border-border/30 hover:bg-muted/40 hover:text-muted-foreground"
-                    )}
-                  >
-                    {tag.label}
-                  </button>
-                );
-              })}
+              {DEFAULT_CRM_TAGS.filter((tag) => !activeTags.some((t) => t.toLowerCase() === tag.label.toLowerCase())).map((tag) => (
+                <button
+                  key={tag.label}
+                  onClick={() => toggleTag(tag.label)}
+                  className="text-[10px] px-2 py-1 rounded-md font-semibold border border-dashed border-border/40 text-muted-foreground/60 hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer"
+                >
+                  + {tag.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Custom tag input */}
+            <div className="flex gap-1.5">
+              <Input
+                value={customTagInput}
+                onChange={(e) => setCustomTagInput(e.target.value)}
+                placeholder="Tag personalizada..."
+                className="h-7 text-xs flex-1"
+                onKeyDown={(e) => e.key === "Enter" && addCustomTag()}
+              />
+              <Button size="sm" variant="outline" className="h-7 text-[10px] px-2" onClick={addCustomTag} disabled={!customTagInput.trim()}>
+                Adicionar
+              </Button>
             </div>
           </div>
 
