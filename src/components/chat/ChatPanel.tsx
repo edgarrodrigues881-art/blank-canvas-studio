@@ -301,18 +301,10 @@ export function ChatPanel({
   const restoreScrollPosition = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const savedTop = scrollPositionsRef.current[conversation.id];
-    if (typeof savedTop === "number") {
-      el.scrollTop = Math.min(savedTop, Math.max(0, el.scrollHeight - el.clientHeight));
-      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
-      setIsNearBottom(nearBottom);
-      return;
-    }
-    if (messages.length > 0) {
-      el.scrollTop = el.scrollHeight;
-      setIsNearBottom(true);
-    }
-  }, [conversation.id, messages.length]);
+    // Always scroll to bottom when opening a conversation
+    el.scrollTop = el.scrollHeight;
+    setIsNearBottom(true);
+  }, []);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
