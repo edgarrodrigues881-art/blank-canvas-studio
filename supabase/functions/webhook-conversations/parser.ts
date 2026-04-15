@@ -193,8 +193,12 @@ function resolveMediaType(body: JsonObject, messageNodes: JsonObject[]): string 
         node.imageMessage?.mimetype,
         node.videoMessage?.mimetype,
         node.documentMessage?.mimetype,
+        node.stickerMessage?.mimetype,
       ]),
     );
+
+    // If mime is image/webp and no explicit type, it's likely a sticker
+    if (mimeStr.toLowerCase() === "image/webp") return "sticker";
 
     const urlStr = firstString(
       body.mediaUrl,
