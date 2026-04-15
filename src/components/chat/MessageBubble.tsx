@@ -283,6 +283,7 @@ function QuotedBlock({ msg, onScrollToQuoted, allMessages }: { msg: Message; onS
 
 export interface MessageBubbleProps {
   msg: Message;
+  allMessages?: Message[];
   showDeviceLabel?: boolean;
   onReply?: (msg: Message) => void;
   onImageClick?: (url: string) => void;
