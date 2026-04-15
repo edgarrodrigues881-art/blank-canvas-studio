@@ -252,12 +252,13 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
     }
 
     const isAudio = msg.mediaType === "audio";
-    const isImage = msg.mediaType === "image";
     const isDocument = msg.mediaType === "document";
     const isVideo = msg.mediaType === "video";
-    const isSticker = msg.mediaType === "sticker";
     const isContact = msg.mediaType === "contact";
     const isLocation = msg.mediaType === "location";
+    // Sticker detection: explicit type OR image with .webp URL (legacy data)
+    const isSticker = msg.mediaType === "sticker" || (msg.mediaType === "image" && msg.mediaUrl?.match(/\.webp(\?|$)/i));
+    const isImage = msg.mediaType === "image" && !isSticker;
 
     if (isAudio && msg.mediaUrl) {
       return (
