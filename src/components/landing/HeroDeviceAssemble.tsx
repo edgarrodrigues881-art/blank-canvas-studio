@@ -1,7 +1,10 @@
-import { interpolate, spring, useCurrentFrame, useVideoConfig, AbsoluteFill, Img } from "remotion";
-import appScreenshot from "@/assets/app-screenshot.png";
+import { interpolate, spring, useCurrentFrame, useVideoConfig, AbsoluteFill } from "remotion";
 
-export function HeroDeviceAssemble() {
+interface Props {
+  screenshotSrc?: string;
+}
+
+export function HeroDeviceAssemble({ screenshotSrc }: Props) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -90,7 +93,7 @@ export function HeroDeviceAssemble() {
           }}
         />
 
-        {/* Screen with screenshot */}
+        {/* Screen */}
         <div
           style={{
             position: "absolute",
@@ -107,23 +110,25 @@ export function HeroDeviceAssemble() {
               inset: 0,
               background: "#0a0a0f",
               opacity: 1 - screenWake,
+              zIndex: 2,
             }}
           />
           <div style={{ position: "absolute", inset: 0, opacity: screenWake }}>
-            <Img
-              src={appScreenshot}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-            />
+            {screenshotSrc ? (
+              <img
+                src={screenshotSrc}
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            ) : (
+              <div style={{ width: "100%", height: "100%", background: "#111" }} />
+            )}
           </div>
           {/* Shimmer */}
           <div
             style={{
               position: "absolute",
               inset: 0,
+              zIndex: 3,
               background: `linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.06) 45%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 55%, transparent 60%)`,
               transform: `translateX(${shimmerProgress * 100}%)`,
               pointerEvents: "none",
