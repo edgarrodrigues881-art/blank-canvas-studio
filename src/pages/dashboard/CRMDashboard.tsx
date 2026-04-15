@@ -299,25 +299,26 @@ const CRMDashboard = () => {
         ) : (
           <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={m.dailyChart} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <BarChart data={m.dailyChart} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="crmGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.25} />
-                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                  <linearGradient id="crmBarGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.4} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.4} />
                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} allowDecimals={false} />
-                <Tooltip contentStyle={{
-                  background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))",
-                  borderRadius: 12, fontSize: 12, color: "hsl(var(--foreground))",
-                  boxShadow: "0 8px 24px -4px rgba(0,0,0,0.15)",
-                }} />
-                <Area type="monotone" dataKey="leads" stroke="#3b82f6" strokeWidth={2.5} fill="url(#crmGrad)"
-                  dot={{ r: 4, fill: "#3b82f6", strokeWidth: 2, stroke: "hsl(var(--card))" }}
-                  activeDot={{ r: 6, strokeWidth: 2 }} />
-              </AreaChart>
+                <Tooltip
+                  cursor={{ fill: "hsl(var(--muted))", opacity: 0.3, radius: 6 }}
+                  contentStyle={{
+                    background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))",
+                    borderRadius: 12, fontSize: 12, color: "hsl(var(--foreground))",
+                    boxShadow: "0 8px 24px -4px rgba(0,0,0,0.15)",
+                  }}
+                />
+                <Bar dataKey="leads" fill="url(#crmBarGrad)" radius={[6, 6, 0, 0]} maxBarSize={40} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         )}
