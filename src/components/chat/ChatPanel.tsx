@@ -283,7 +283,8 @@ export function ChatPanel({
   const [newMsgCount, setNewMsgCount] = useState(0);
   const prevMsgCountRef = useRef(messages.length);
   const scrollPositionsRef = useRef<Record<string, number>>({});
-  const pendingRestoreRef = useRef<string | null>(null);
+  const pendingInitialAnchorRef = useRef<string | null>(null);
+  const initialAnchorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const forceScrollOnNextMessageRef = useRef(false);
 
   const scrollToBottom = useCallback((smooth?: boolean) => {
@@ -296,15 +297,41 @@ export function ChatPanel({
     }
     scrollPositionsRef.current[conversation.id] = el.scrollTop;
     setNewMsgCount(0);
+    setIsNearBottom(true);
   }, [conversation.id]);
 
-  const restoreScrollPosition = useCallback(() => {
+  const anchorConversationOnOpen = useCallback(() => {
     const el = scrollRef.current;
-    if (!el) return;
-    // Always scroll to bottom when opening a conversation
-    el.scrollTop = el.scrollHeight;
-    setIsNearBottom(true);
-  }, []);
+    if (!el) return false;
+
+    const activeConversationIds = new Set(
+      (instances?.length ? instances.map((instance) => instance.id) : [conversation.id]).filter(Boolean)
+    );
+
+    const currentMessages = messages.filter((msg) => activeConversationIds.has(msg.conversationId));
+    const hasForeignMessages = messages.some((msg) => !activeConversationIds.has(msg.conversationId));
+
+    if ((messages.length > 0 && currentMessages.length === 0) || hasForeignMessages) {
+      return false;
+    }
+
+    const unreadReceived = currentMessages.filter((msg) => msg.type === "received" && msg.status !== "read");
+    const anchorMessage = unreadReceived[unreadReceived.length - 1] || currentMessages[currentMessages.length - 1];
+
+    if (!anchorMessage) {
+      el.scrollTop = el.scrollHeight;
+    } else {
+      const anchorEl = document.getElementById(`msg-${anchorMessage.id}`);
+      if (!anchorEl) return false;
+      anchorEl.scrollIntoView({ block: "end" });
+    }
+
+    scrollPositionsRef.current[conversation.id] = el.scrollTop;
+    prevMsgCountRef.current = messages.length;
+    setIsNearBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 120);
+    setNewMsgCount(0);
+    return true;
+  }, [conversation.id, instances, messages]);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -316,6 +343,11 @@ export function ChatPanel({
   }, [conversation.id]);
 
   useEffect(() => {
+    if (pendingInitialAnchorRef.current === conversation.id) {
+      prevMsgCountRef.current = messages.length;
+      return;
+    }
+
     const diff = messages.length - prevMsgCountRef.current;
     prevMsgCountRef.current = messages.length;
     if (diff <= 0) return;
@@ -326,7 +358,7 @@ export function ChatPanel({
     } else {
       setNewMsgCount((c) => c + diff);
     }
-  }, [messages.length, isNearBottom, scrollToBottom]);
+  }, [messages.length, isNearBottom, scrollToBottom, conversation.id]);
 
   useEffect(() => {
     if (!isNearBottom || !conversation.id) return;
@@ -344,23 +376,43 @@ export function ChatPanel({
   }, [isNearBottom, conversation.id, instances, messages]);
 
   useEffect(() => {
-    pendingRestoreRef.current = conversation.id;
+    pendingInitialAnchorRef.current = conversation.id;
     setNewMsgCount(0);
+    setIsNearBottom(true);
+    if (initialAnchorTimerRef.current) clearTimeout(initialAnchorTimerRef.current);
   }, [conversation.id]);
 
   useLayoutEffect(() => {
-    if (pendingRestoreRef.current !== conversation.id) return;
-    restoreScrollPosition();
-    // Double-ensure scroll to bottom after images/media load
-    const timer = setTimeout(() => {
-      const el = scrollRef.current;
-      if (el) el.scrollTop = el.scrollHeight;
-    }, 100);
-    if (messages.length > 0) {
-      pendingRestoreRef.current = null;
-    }
-    return () => clearTimeout(timer);
-  }, [conversation.id, messages.length, restoreScrollPosition]);
+    if (pendingInitialAnchorRef.current !== conversation.id) return;
+
+    let cancelled = false;
+
+    const tryAnchor = (attempt = 0) => {
+      if (cancelled) return;
+
+      const anchored = anchorConversationOnOpen();
+      if (anchored) {
+        pendingInitialAnchorRef.current = null;
+        return;
+      }
+
+      if (attempt >= 10) {
+        scrollToBottom();
+        prevMsgCountRef.current = messages.length;
+        pendingInitialAnchorRef.current = null;
+        return;
+      }
+
+      initialAnchorTimerRef.current = setTimeout(() => tryAnchor(attempt + 1), 80);
+    };
+
+    requestAnimationFrame(() => tryAnchor());
+
+    return () => {
+      cancelled = true;
+      if (initialAnchorTimerRef.current) clearTimeout(initialAnchorTimerRef.current);
+    };
+  }, [conversation.id, messages, anchorConversationOnOpen, scrollToBottom]);
 
   const filteredQuickReplies = getFilteredQuickReplies(allQuickReplies);
   useEffect(() => { setShowQuickReplies(input.startsWith("/") && filteredQuickReplies.length > 0); }, [input, filteredQuickReplies.length]);
