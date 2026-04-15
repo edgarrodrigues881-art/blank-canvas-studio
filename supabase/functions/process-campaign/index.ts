@@ -527,32 +527,26 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
       throw new Error("Mensagens com botão exigem copy/texto principal. O sistema não envia mais 'Escolha uma opção' automaticamente.");
     }
 
-    // IMAGE + BUTTONS: Always split into 2 messages for 100% mobile compatibility.
-    // The UAZAPI imageButton field uses interactive protocol which causes
-    // "incompatible version" on many mobile devices (documented limitation).
-    // Also: mixing reply + url/call buttons in same message causes incompatibility.
+    // IMAGE + BUTTONS: Send as single message using imageButton field.
+    // Per UAZAPI docs, /send/menu supports imageButton for unified delivery.
+    // Note: mixing reply + url/call buttons shows "incompatible" on WhatsApp Web
+    // but works fine on mobile devices.
     if (hasVisualMedia && mediaUrl) {
       console.log(JSON.stringify({
-        event: "split_image_buttons",
+        event: "unified_image_buttons",
         origin: "campaign",
         buttonCount: choices.length,
         captionLength: text.length,
       }));
 
-      // Step 1: Send image WITH caption (copy) via /send/media
-      await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType!, text);
-
-      // Step 2: Brief delay, then send ONLY buttons via /send/menu (no image header)
-      await new Promise((r) => setTimeout(r, 800 + Math.random() * 700));
-
-      // Keep the 2nd message minimal to avoid duplicating the full copy
       await uazapiRequest(baseUrl, token, "/send/menu", {
         number: phone,
         type: "button",
-        text: "👇",
+        text,
+        imageButton: mediaUrl,
         choices,
       });
-      console.log(JSON.stringify({ event: "split_image_buttons_success" }));
+      console.log(JSON.stringify({ event: "unified_image_buttons_success" }));
       return;
     }
 
