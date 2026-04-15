@@ -488,17 +488,34 @@ export function ChatPanel({
         style={{ backgroundImage: "radial-gradient(circle at 1px 1px, hsl(var(--muted) / 0.08) 1px, transparent 0)", backgroundSize: "28px 28px", scrollBehavior: "smooth" }}
       >
         {messages.map((msg, i) => {
-          const showDate = i === 0 || format(new Date(messages[i - 1].timestamp), "dd/MM/yyyy") !== format(new Date(msg.timestamp), "dd/MM/yyyy");
+          const msgDate = new Date(msg.timestamp);
+          const prevDate = i > 0 ? new Date(messages[i - 1].timestamp) : null;
+          const showDate = i === 0 || (prevDate && format(prevDate, "dd/MM/yyyy") !== format(msgDate, "dd/MM/yyyy"));
           const prevMsg = i > 0 ? messages[i - 1] : null;
           const showDevice = !!(instances && instances.length > 1) && msg.deviceName !== prevMsg?.deviceName;
           const directionChanged = prevMsg && prevMsg.type !== msg.type;
+
+          // Date label: Hoje / Ontem / full date
+          let dateLabel = "";
+          if (showDate) {
+            const today = new Date();
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            if (format(msgDate, "dd/MM/yyyy") === format(today, "dd/MM/yyyy")) {
+              dateLabel = "Hoje";
+            } else if (format(msgDate, "dd/MM/yyyy") === format(yesterday, "dd/MM/yyyy")) {
+              dateLabel = "Ontem";
+            } else {
+              dateLabel = format(msgDate, "dd 'de' MMMM", { locale: ptBR });
+            }
+          }
 
           return (
             <div key={msg.id} id={`msg-${msg.id}`} className={cn("animate-fade-in transition-colors duration-500", directionChanged && !showDate && "mt-3", highlightedMsgId === msg.id && "bg-primary/10 rounded-lg")}>
               {showDate && (
                 <div className="flex justify-center my-4">
-                  <span className="text-[10px] font-medium text-muted-foreground/70 bg-muted/60 px-3 py-1 rounded-full">
-                    {format(new Date(msg.timestamp), "dd 'de' MMMM", { locale: ptBR })}
+                  <span className="text-[10px] font-medium text-muted-foreground/60 bg-muted/40 dark:bg-muted/20 px-3 py-1 rounded-full select-none">
+                    {dateLabel}
                   </span>
                 </div>
               )}

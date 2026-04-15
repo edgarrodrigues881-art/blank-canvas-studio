@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import {
   ArrowLeft,
   MoreVertical,
@@ -10,6 +10,7 @@ import {
   Archive,
   X,
   CheckSquare,
+  Mic,
 } from "lucide-react";
 import { PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -94,21 +95,22 @@ export const ChatHeader = memo(function ChatHeader({
           )}
         </div>
 
-        {/* Name · Status inline */}
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-foreground truncate">{conversation.name}</p>
-          <span className="text-muted-foreground/30 text-xs">·</span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className={cn(
-                "flex items-center gap-1 px-1.5 py-px rounded-md text-[10px] font-medium transition-colors shrink-0 hover:opacity-80",
-                currentStatusCfg.color
-              )}>
-                <span className={cn("w-1.5 h-1.5 rounded-full", currentStatusCfg.dot)} />
-                {currentStatusCfg.label}
-                <ChevronDown className="w-2.5 h-2.5 opacity-50" />
-              </button>
-            </DropdownMenuTrigger>
+        {/* Name + Presence / Typing */}
+        <div className="flex flex-col flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-[13px] font-semibold text-foreground truncate">{conversation.name}</p>
+            <span className="text-muted-foreground/30 text-xs">·</span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className={cn(
+                  "flex items-center gap-1 px-1.5 py-px rounded-md text-[10px] font-medium transition-colors shrink-0 hover:opacity-80",
+                  currentStatusCfg.color
+                )}>
+                  <span className={cn("w-1.5 h-1.5 rounded-full", currentStatusCfg.dot)} />
+                  {currentStatusCfg.label}
+                  <ChevronDown className="w-2.5 h-2.5 opacity-50" />
+                </button>
+              </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="min-w-[160px]">
                 {(Object.entries(attendingStatusConfig) as [AttendingStatus, typeof currentStatusCfg][]).map(([key, cfg]) => (
                   <DropdownMenuItem key={key} onClick={() => onStatusChange(key)} className={cn("gap-2 text-xs cursor-pointer", currentStatus === key && "bg-muted font-bold")}>
@@ -118,7 +120,20 @@ export const ChatHeader = memo(function ChatHeader({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-          <span className="text-[10px] text-muted-foreground/40 truncate hidden sm:inline">{conversation.phone}</span>
+            <span className="text-[10px] text-muted-foreground/40 truncate hidden sm:inline">{conversation.phone}</span>
+          </div>
+          {/* Presence / Typing subtitle */}
+          <div className="h-[14px]">
+            {conversation.status === "typing" ? (
+              <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-medium animate-pulse">digitando...</span>
+            ) : conversation.status === "online" ? (
+              <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-medium">online</span>
+            ) : conversation.lastMessageAt ? (
+              <span className="text-[10px] text-muted-foreground/50">
+                visto por último às {format(new Date(conversation.lastMessageAt), "HH:mm")}
+              </span>
+            ) : null}
+          </div>
         </div>
 
         {/* Actions — minimal */}
