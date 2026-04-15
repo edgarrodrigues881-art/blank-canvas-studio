@@ -136,10 +136,10 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
 /* ─── Sub-components ─── */
 
 function StatusIcon({ status }: { status?: string }) {
-  if (status === "sending") return <Loader2 className="w-3.5 h-3.5 animate-spin text-primary-foreground/60" />;
-  if (status === "read") return <CheckCheck className="w-4 h-4 text-blue-300" />;
-  if (status === "delivered") return <CheckCheck className="w-4 h-4 text-primary-foreground/70" />;
-  if (status === "sent") return <Check className="w-4 h-4 text-primary-foreground/70" />;
+  if (status === "sending") return <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground/60 dark:text-primary-foreground/60" />;
+  if (status === "read") return <CheckCheck className="w-4 h-4 text-blue-500 dark:text-blue-300" />;
+  if (status === "delivered") return <CheckCheck className="w-4 h-4 text-muted-foreground/70 dark:text-primary-foreground/70" />;
+  if (status === "sent") return <Check className="w-4 h-4 text-muted-foreground/70 dark:text-primary-foreground/70" />;
   if (status === "failed") return <span className="text-[11px] text-red-400 font-bold">⚠</span>;
   return null;
 }
