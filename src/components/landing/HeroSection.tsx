@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Player } from "@remotion/player";
+import appScreenshot from "@/assets/app-screenshot.png";
 import { HeroDeviceAssemble } from "@/components/landing/HeroDeviceAssemble";
 
 const HeroSection = () => {
