@@ -150,7 +150,7 @@ function MsgFooter({ msg, inline }: { msg: Message; inline?: boolean }) {
       "flex items-center gap-1 shrink-0 justify-end",
       inline ? "ml-2 self-end" : "mt-1",
     )}>
-      <span className={cn("text-[10px] leading-none", msg.type === "sent" ? "text-primary-foreground/55" : "text-muted-foreground/55")}>
+      <span className={cn("text-[10px] leading-none", msg.type === "sent" ? "text-muted-foreground/55 dark:text-primary-foreground/55" : "text-muted-foreground/55")}>
         {format(new Date(msg.timestamp), "HH:mm")}
       </span>
       {msg.type === "sent" && <StatusIcon status={msg.status} />}
