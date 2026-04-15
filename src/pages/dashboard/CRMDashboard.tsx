@@ -8,50 +8,98 @@ import {
   Sparkles,
   CheckCircle2,
   TrendingUp,
+  TrendingDown,
   DollarSign,
   UserPlus,
   Reply,
   Send,
   Activity,
+  ArrowUpRight,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  ReferenceDot,
 } from "recharts";
 import { format, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-/* ── Stat Card ── */
-function StatCard({
-  label, value, sub, icon: Icon, iconBg, iconColor, isLoading, onClick,
+/* ── Hero Stat Card (large) ── */
+function HeroCard({
+  label, value, sub, icon: Icon, gradient, isLoading, onClick,
 }: {
   label: string; value: string | number; sub?: string;
-  icon: React.ElementType; iconBg: string; iconColor: string;
+  icon: React.ElementType; gradient: string;
   isLoading: boolean; onClick?: () => void;
 }) {
   return (
     <button
       onClick={onClick}
       className={cn(
-        "relative text-left w-full rounded-xl border border-border/40 p-5 transition-all duration-200",
-        "bg-card hover:border-border hover:shadow-lg hover:shadow-black/5 hover:-translate-y-0.5 group"
+        "relative text-left w-full rounded-2xl p-6 transition-all duration-300 overflow-hidden group",
+        "hover:shadow-2xl hover:-translate-y-1",
+        gradient
+      )}
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="relative z-10">
+        <div className="flex items-center justify-between mb-5">
+          <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
+            <Icon className="w-6 h-6 text-white" />
+          </div>
+          <ArrowUpRight className="w-5 h-5 text-white/60 group-hover:text-white transition-colors" />
+        </div>
+        <p className="text-sm text-white/80 font-medium mb-1">{label}</p>
+        {isLoading ? (
+          <Skeleton className="h-10 w-24 bg-white/20" />
+        ) : (
+          <>
+            <p className="text-4xl font-extrabold text-white tracking-tight leading-none">{value}</p>
+            {sub && (
+              <div className="flex items-center gap-1 mt-2">
+                <TrendingUp className="w-3.5 h-3.5 text-white/90" />
+                <p className="text-xs text-white/90 font-semibold">{sub}</p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </button>
+  );
+}
+
+/* ── Small Stat Card ── */
+function StatCard({
+  label, value, sub, icon: Icon, iconBg, iconColor, borderAccent, isLoading, onClick,
+}: {
+  label: string; value: string | number; sub?: string;
+  icon: React.ElementType; iconBg: string; iconColor: string; borderAccent: string;
+  isLoading: boolean; onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "relative text-left w-full rounded-2xl border-2 p-5 transition-all duration-300",
+        "bg-card hover:shadow-xl hover:-translate-y-1 group",
+        borderAccent
       )}
     >
       <div className="flex items-center justify-between mb-4">
-        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", iconBg)}>
+        <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center shadow-md", iconBg)}>
           <Icon className={cn("w-5 h-5", iconColor)} />
         </div>
-        <TrendingUp className="w-5 h-5 text-emerald-500/60" />
+        <ArrowUpRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-foreground transition-colors" />
       </div>
-      <p className="text-xs text-muted-foreground font-medium mb-1">{label}</p>
+      <p className="text-xs text-muted-foreground font-medium mb-1.5">{label}</p>
       {isLoading ? (
         <>
           <Skeleton className="h-8 w-20 mb-1" />
@@ -59,8 +107,13 @@ function StatCard({
         </>
       ) : (
         <>
-          <p className="text-2xl font-bold text-foreground tracking-tight leading-none">{value}</p>
-          {sub && <p className="text-xs text-emerald-500 font-medium mt-1.5">{sub}</p>}
+          <p className="text-3xl font-extrabold text-foreground tracking-tight leading-none">{value}</p>
+          {sub && (
+            <div className="flex items-center gap-1 mt-2">
+              <TrendingUp className="w-3 h-3 text-emerald-500" />
+              <p className="text-xs text-emerald-500 font-semibold">{sub}</p>
+            </div>
+          )}
         </>
       )}
     </button>
@@ -73,15 +126,15 @@ function ActivityItem({ icon: Icon, iconBg, iconColor, title, desc, time }: {
   title: string; desc: string; time: string;
 }) {
   return (
-    <div className="flex items-center gap-3 py-3.5 border-b border-border/20 last:border-0 hover:bg-muted/20 -mx-2 px-2 rounded-lg transition-colors">
-      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", iconBg)}>
+    <div className="flex items-center gap-3.5 py-4 border-b border-border/15 last:border-0 hover:bg-muted/30 -mx-3 px-3 rounded-xl transition-all duration-200 group">
+      <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center shrink-0 shadow-md transition-transform group-hover:scale-105", iconBg)}>
         <Icon className={cn("w-[18px] h-[18px]", iconColor)} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground truncate">{title}</p>
+        <p className="text-sm font-bold text-foreground truncate">{title}</p>
         <p className="text-xs text-muted-foreground truncate mt-0.5">{desc}</p>
       </div>
-      <span className="text-[11px] text-muted-foreground/50 whitespace-nowrap shrink-0">{time}</span>
+      <span className="text-[11px] text-muted-foreground/50 whitespace-nowrap shrink-0 font-medium">{time}</span>
     </div>
   );
 }
@@ -93,12 +146,12 @@ function QuickStat({ label, value, pct, barColor }: {
   return (
     <div className="space-y-2.5">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        <span className="text-sm font-bold text-foreground">{value}</span>
+        <span className="text-sm text-muted-foreground font-medium">{label}</span>
+        <span className="text-sm font-extrabold text-foreground">{value}</span>
       </div>
-      <div className="h-2 bg-muted/30 rounded-full overflow-hidden">
+      <div className="h-2.5 bg-muted/30 rounded-full overflow-hidden shadow-inner">
         <div
-          className="h-full rounded-full transition-all duration-700 ease-out"
+          className="h-full rounded-full transition-all duration-1000 ease-out shadow-sm"
           style={{ width: `${Math.min(pct, 100)}%`, background: barColor }}
         />
       </div>
@@ -107,21 +160,42 @@ function QuickStat({ label, value, pct, barColor }: {
 }
 
 /* ── Funnel Row ── */
-function FunnelItem({ name, value, maxVal, color }: {
-  name: string; value: number; maxVal: number; color: string;
+function FunnelItem({ name, value, maxVal, color, isActive }: {
+  name: string; value: number; maxVal: number; color: string; isActive: boolean;
 }) {
   const pct = maxVal > 0 ? Math.round((value / maxVal) * 100) : 0;
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-xs text-muted-foreground w-24 shrink-0 truncate">{name}</span>
-      <div className="flex-1 h-2 bg-muted/20 rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all duration-700 ease-out"
-          style={{ width: `${Math.max(pct, 4)}%`, background: color }} />
+    <div className={cn(
+      "flex items-center gap-3 py-2.5 px-3 rounded-xl transition-all duration-300",
+      isActive ? "bg-muted/40 shadow-sm scale-[1.02]" : "hover:bg-muted/20"
+    )}>
+      <div className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style={{ background: color }} />
+      <span className="text-xs text-muted-foreground w-24 shrink-0 truncate font-medium">{name}</span>
+      <div className="flex-1 h-3 bg-muted/25 rounded-full overflow-hidden shadow-inner">
+        <div className="h-full rounded-full transition-all duration-1000 ease-out"
+          style={{ width: `${Math.max(pct, 6)}%`, background: `linear-gradient(90deg, ${color}, ${color}dd)` }} />
       </div>
-      <span className="text-xs font-semibold text-foreground tabular-nums w-8 text-right">{value}</span>
+      <span className="text-xs font-extrabold text-foreground tabular-nums w-10 text-right">{value}</span>
     </div>
   );
 }
+
+/* ── Custom Chart Tooltip ── */
+const ChartTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-popover/95 backdrop-blur-md border border-border/60 rounded-xl px-4 py-3 shadow-2xl">
+      <p className="text-xs font-bold text-foreground mb-1">{label}</p>
+      {payload.map((entry: any, i: number) => (
+        <div key={i} className="flex items-center gap-2 text-xs">
+          <span className="w-2.5 h-2.5 rounded-full" style={{ background: entry.color }} />
+          <span className="text-muted-foreground">Leads:</span>
+          <span className="font-bold text-foreground">{entry.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 /* ══════════════════════════════════════════ */
 /* ══  MAIN COMPONENT  ════════════════════ */
@@ -188,7 +262,6 @@ const CRMDashboard = () => {
     const interestRate = total > 0 ? Math.round((interested / total) * 100) : 0;
     const closeRate = total > 0 ? Math.round((closed / total) * 100) : 0;
 
-    // Build week Mon-Sun
     const weekDayOrder = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
     const weekDayLabels: Record<string, string> = { seg: "Seg", ter: "Ter", qua: "Qua", qui: "Qui", sex: "Sex", "sáb": "Sáb", dom: "Dom" };
     const dayDataMap: Record<string, number> = {};
@@ -203,12 +276,24 @@ const CRMDashboard = () => {
       leads: dayDataMap[dow] || 0,
     }));
 
+    const weekTotal = dailyChart.reduce((s, d) => s + d.leads, 0);
+
     return {
       total, responseRate, interestRate, closeRate, closed,
       stages, dailyChart, schedules: scheduleCount,
-      responded, interested, pipelineValue,
+      responded, interested, pipelineValue, weekTotal,
     };
   }, [leads, scheduleCount]);
+
+  // Find peak day for chart highlight
+  const peakDay = useMemo(() => {
+    let max = 0;
+    let idx = 0;
+    m.dailyChart.forEach((d, i) => {
+      if (d.leads > max) { max = d.leads; idx = i; }
+    });
+    return { idx, value: max, day: m.dailyChart[idx]?.day };
+  }, [m.dailyChart]);
 
   const pipeline = [
     { name: "Novo Lead", value: m.stages["novo"] || 0, color: "#3b82f6" },
@@ -218,6 +303,14 @@ const CRMDashboard = () => {
     { name: "Fechado", value: m.stages["fechado"] || 0, color: "#10b981" },
   ];
 
+  // Find active funnel stage (highest non-zero from bottom)
+  const activeFunnelStage = useMemo(() => {
+    for (let i = pipeline.length - 1; i >= 0; i--) {
+      if (pipeline[i].value > 0) return pipeline[i].name;
+    }
+    return pipeline[0].name;
+  }, [pipeline]);
+
   const activities = [
     { icon: DollarSign, title: "Lead convertido", desc: "Negócio fechado com sucesso", time: "2 min", iconBg: "bg-emerald-500/15", iconColor: "text-emerald-500" },
     { icon: UserPlus, title: "Novo lead capturado", desc: "Entrada via prospecção ativa", time: "5 min", iconBg: "bg-blue-500/15", iconColor: "text-blue-500" },
@@ -226,50 +319,64 @@ const CRMDashboard = () => {
     { icon: Activity, title: "Pipeline atualizado", desc: "Lead movido para negociação", time: "1h", iconBg: "bg-red-500/15", iconColor: "text-red-500" },
   ];
 
+  const isPositiveWeek = m.weekTotal > 0;
+  const chartColor = isPositiveWeek ? "#3b82f6" : "#ef4444";
+
   return (
     <div className="space-y-6 max-w-[1400px]">
       {/* Header */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Dashboard CRM</h1>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">Dashboard CRM</h1>
         <p className="text-sm text-muted-foreground mt-1">Visão geral do seu pipeline de vendas</p>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Grid — hero + 3 smaller */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total de Leads" value={m.total}
-          sub={`+${m.dailyChart.reduce((s, d) => s + d.leads, 0)} esta semana`}
-          icon={Users} iconBg="bg-blue-500/15" iconColor="text-blue-500"
-          isLoading={isLoading} onClick={() => navigate("/dashboard/leads")} />
+        <HeroCard
+          label="Total de Leads"
+          value={m.total}
+          sub={`+${m.weekTotal} esta semana`}
+          icon={Users}
+          gradient="bg-gradient-to-br from-blue-600 via-blue-500 to-blue-700 shadow-lg shadow-blue-500/25"
+          isLoading={isLoading}
+          onClick={() => navigate("/dashboard/leads")}
+        />
         <StatCard label="Conversas Ativas" value={m.responded}
           sub={`${m.responseRate}% de resposta`}
-          icon={MessageSquareMore} iconBg="bg-emerald-500/15" iconColor="text-emerald-500"
+          icon={MessageSquareMore}
+          iconBg="bg-emerald-500/15" iconColor="text-emerald-500"
+          borderAccent="border-emerald-500/30 hover:border-emerald-500/60"
           isLoading={isLoading} onClick={() => navigate("/dashboard/conversations")} />
         <StatCard label="Oportunidades" value={m.interested}
           sub={`${m.interestRate}% do total`}
-          icon={Sparkles} iconBg="bg-purple-500/15" iconColor="text-purple-500"
+          icon={Sparkles}
+          iconBg="bg-purple-500/15" iconColor="text-purple-500"
+          borderAccent="border-purple-500/30 hover:border-purple-500/60"
           isLoading={isLoading} onClick={() => navigate("/dashboard/pipeline")} />
         <StatCard label="Conversões" value={m.closed}
           sub={`${m.closeRate}% de conversão`}
-          icon={CheckCircle2} iconBg="bg-amber-500/15" iconColor="text-amber-500"
+          icon={CheckCircle2}
+          iconBg="bg-amber-500/15" iconColor="text-amber-500"
+          borderAccent="border-amber-500/30 hover:border-amber-500/60"
           isLoading={isLoading} />
       </div>
 
       {/* Content: Activity + Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Recent Activity */}
-        <div className="lg:col-span-7 rounded-xl border border-border/40 bg-card p-5">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-base font-semibold text-foreground">Atividade do CRM</h2>
+        <div className="lg:col-span-7 rounded-2xl border border-border/40 bg-card p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-bold text-foreground">Atividade do CRM</h2>
             <button onClick={() => navigate("/dashboard/leads")}
-              className="text-xs font-medium text-primary hover:underline">Ver todos</button>
+              className="text-xs font-semibold text-primary hover:underline">Ver todos</button>
           </div>
           <div>{activities.map((a, i) => <ActivityItem key={i} {...a} />)}</div>
         </div>
 
         {/* Sidebar */}
         <div className="lg:col-span-5 space-y-4">
-          <div className="rounded-xl border border-border/40 bg-card p-5">
-            <h2 className="text-base font-semibold text-foreground mb-5">Métricas do CRM</h2>
+          <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-sm">
+            <h2 className="text-base font-bold text-foreground mb-5">Métricas do CRM</h2>
             <div className="space-y-5">
               <QuickStat label="Taxa de Resposta" value={`${m.responseRate}%`} pct={m.responseRate} barColor="#3b82f6" />
               <QuickStat label="Conversão" value={`${m.closeRate}%`} pct={m.closeRate} barColor="#f59e0b" />
@@ -278,11 +385,13 @@ const CRMDashboard = () => {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border/40 bg-card p-5">
-            <h2 className="text-base font-semibold text-foreground mb-4">Funil de Vendas</h2>
-            <div className="space-y-3">
+          <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-sm">
+            <h2 className="text-base font-bold text-foreground mb-4">Funil de Vendas</h2>
+            <div className="space-y-2">
               {pipeline.map((s) => (
-                <FunnelItem key={s.name} name={s.name} value={s.value} maxVal={pipeline[0].value || 1} color={s.color} />
+                <FunnelItem key={s.name} name={s.name} value={s.value}
+                  maxVal={pipeline[0].value || 1} color={s.color}
+                  isActive={s.name === activeFunnelStage} />
               ))}
             </div>
           </div>
@@ -290,42 +399,74 @@ const CRMDashboard = () => {
       </div>
 
       {/* Chart */}
-      <div className="rounded-xl border border-border/40 bg-card p-5">
-        <div className="flex items-center justify-between mb-4">
+      <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-base font-semibold text-foreground">Novos Leads</h2>
+            <h2 className="text-base font-bold text-foreground">Novos Leads</h2>
             <p className="text-xs text-muted-foreground mt-0.5">Últimos 7 dias</p>
           </div>
-          <div className="text-right">
-            <p className="text-xl font-bold text-foreground">{m.dailyChart.reduce((s, d) => s + d.leads, 0)}</p>
-            <p className="text-xs text-muted-foreground">esta semana</p>
+          <div className="text-right flex items-center gap-3">
+            <div className={cn(
+              "flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold",
+              isPositiveWeek
+                ? "bg-blue-500/10 text-blue-500"
+                : "bg-red-500/10 text-red-500"
+            )}>
+              {isPositiveWeek ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+              {m.weekTotal > 0 ? `+${m.weekTotal}` : m.weekTotal}
+            </div>
+            <div>
+              <p className="text-2xl font-extrabold text-foreground">{m.weekTotal}</p>
+              <p className="text-xs text-muted-foreground">esta semana</p>
+            </div>
           </div>
         </div>
         {isLoading ? (
-          <Skeleton className="h-[200px] w-full rounded-xl" />
+          <Skeleton className="h-[220px] w-full rounded-xl" />
         ) : (
-          <div className="h-[200px]">
+          <div className="h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={m.dailyChart} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <AreaChart data={m.dailyChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="crmBarGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.9} />
-                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.4} />
+                  <linearGradient id="crmAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={chartColor} stopOpacity={0.25} />
+                    <stop offset="100%" stopColor={chartColor} stopOpacity={0.02} />
                   </linearGradient>
+                  <filter id="glow">
+                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                    <feMerge>
+                      <feMergeNode in="coloredBlur"/>
+                      <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.4} />
-                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} allowDecimals={false} />
-                <Tooltip
-                  cursor={{ fill: "hsl(var(--muted))", opacity: 0.3, radius: 6 }}
-                  contentStyle={{
-                    background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))",
-                    borderRadius: 12, fontSize: 12, color: "hsl(var(--foreground))",
-                    boxShadow: "0 8px 24px -4px rgba(0,0,0,0.15)",
-                  }}
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.3} />
+                <XAxis dataKey="day" axisLine={false} tickLine={false}
+                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11, fontWeight: 500 }} />
+                <YAxis axisLine={false} tickLine={false}
+                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} allowDecimals={false} />
+                <Tooltip content={<ChartTooltip />} />
+                <Area
+                  type="monotone"
+                  dataKey="leads"
+                  stroke={chartColor}
+                  strokeWidth={3}
+                  fill="url(#crmAreaGrad)"
+                  filter="url(#glow)"
+                  dot={{ r: 4, fill: chartColor, strokeWidth: 2, stroke: "hsl(var(--card))" }}
+                  activeDot={{ r: 6, fill: chartColor, stroke: "hsl(var(--card))", strokeWidth: 3 }}
                 />
-                <Bar dataKey="leads" fill="url(#crmBarGrad)" radius={[6, 6, 0, 0]} maxBarSize={40} />
-              </BarChart>
+                {peakDay.value > 0 && (
+                  <ReferenceDot
+                    x={peakDay.day}
+                    y={peakDay.value}
+                    r={8}
+                    fill={chartColor}
+                    stroke="hsl(var(--card))"
+                    strokeWidth={3}
+                  />
+                )}
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         )}
