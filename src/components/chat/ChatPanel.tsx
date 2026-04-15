@@ -65,6 +65,26 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const isDragging = useRef(false);
   const lastPos = useRef({ x: 0, y: 0 });
+  const imgRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const clampPan = useCallback((px: number, py: number, z: number) => {
+    if (z <= 1) return { x: 0, y: 0 };
+    const img = imgRef.current;
+    const container = containerRef.current;
+    if (!img || !container) return { x: px, y: py };
+    const imgRect = img.getBoundingClientRect();
+    const cRect = container.getBoundingClientRect();
+    // Use natural rendered size (before scale)
+    const baseW = imgRect.width / z;
+    const baseH = imgRect.height / z;
+    const maxX = Math.max(0, (baseW * z - cRect.width) / 2 / z);
+    const maxY = Math.max(0, (baseH * z - cRect.height) / 2 / z);
+    return {
+      x: Math.max(-maxX, Math.min(maxX, px)),
+      y: Math.max(-maxY, Math.min(maxY, py)),
+    };
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -74,8 +94,16 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.stopPropagation();
-    setZoom((z) => Math.min(5, Math.max(1, z - e.deltaY * 0.002)));
-  }, []);
+    setZoom((prevZ) => {
+      const newZ = Math.min(5, Math.max(1, prevZ - e.deltaY * 0.002));
+      if (newZ <= 1) {
+        setPan({ x: 0, y: 0 });
+      } else {
+        setPan((p) => clampPan(p.x, p.y, newZ));
+      }
+      return newZ;
+    });
+  }, [clampPan]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (zoom <= 1) return;
@@ -88,11 +116,11 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!isDragging.current) return;
     e.stopPropagation();
-    const dx = e.clientX - lastPos.current.x;
-    const dy = e.clientY - lastPos.current.y;
+    const dx = (e.clientX - lastPos.current.x) / zoom;
+    const dy = (e.clientY - lastPos.current.y) / zoom;
     lastPos.current = { x: e.clientX, y: e.clientY };
-    setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
-  }, []);
+    setPan((p) => clampPan(p.x + dx, p.y + dy, zoom));
+  }, [zoom, clampPan]);
 
   const handlePointerUp = useCallback(() => {
     isDragging.current = false;
@@ -139,24 +167,27 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
         </button>
       </div>
       <div
+        ref={containerRef}
         className="w-full h-full flex items-center justify-center overflow-hidden select-none p-8"
         onClick={(e) => e.stopPropagation()}
         onWheel={handleWheel}
         style={{ cursor: zoom > 1 ? "grab" : "default" }}
       >
         <img
+          ref={imgRef}
           src={src}
           alt="Visualização"
           draggable={false}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          className="max-w-full max-h-full object-contain transition-transform duration-100"
+          className="max-w-full max-h-full object-contain"
           style={{
-            transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+            transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
             transformOrigin: "center center",
             borderRadius: "12px",
             boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+            transition: isDragging.current ? "none" : "transform 0.15s ease-out",
           }}
         />
       </div>
