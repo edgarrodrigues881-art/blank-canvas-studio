@@ -447,6 +447,17 @@ const CRMDashboard = () => {
             </ResponsiveContainer>
           </div>
         )}
+        </div>
+      </div>
+
+      {/* Activity */}
+      <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-bold text-foreground">Atividade do CRM</h2>
+          <button onClick={() => navigate("/dashboard/leads")}
+            className="text-xs font-semibold text-primary hover:underline">Ver todos</button>
+        </div>
+        <div>{activities.map((a, i) => <ActivityItem key={i} {...a} />)}</div>
       </div>
     </div>
   );
