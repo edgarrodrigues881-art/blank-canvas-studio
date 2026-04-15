@@ -15,8 +15,32 @@ export { isMediaPlaceholder };
 
 /* ─── WhatsApp Text Formatting ─── */
 
+function linkifyText(text: string, keyPrefix: string): ReactNode[] {
+  const urlPattern = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+|(?:www\.)[^\s<>"{}|\\^`\[\]]+)/gi;
+  const parts: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let k = 0;
+
+  while ((match = urlPattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    const url = match[0];
+    const href = url.startsWith("http") ? url : `https://${url}`;
+    k++;
+    parts.push(
+      <a key={`${keyPrefix}-link-${k}`} href={href} target="_blank" rel="noopener noreferrer" className="underline break-all hover:opacity-80">{url}</a>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return parts;
+}
+
 function formatWhatsAppText(text: string): ReactNode[] {
-  // Process formatting: *bold*, _italic_, ~strikethrough~, ```monospace```
   const parts: ReactNode[] = [];
   let remaining = text;
   let key = 0;
@@ -27,30 +51,24 @@ function formatWhatsAppText(text: string): ReactNode[] {
   while (remaining.length > 0) {
     const match = pattern.exec(remaining);
     if (!match) {
-      parts.push(remaining);
+      parts.push(...linkifyText(remaining, `end-${key}`));
       break;
     }
 
-    // Add text before match
     if (match.index > 0) {
-      parts.push(remaining.slice(0, match.index));
+      parts.push(...linkifyText(remaining.slice(0, match.index), `pre-${key}`));
     }
 
     key++;
     if (match[2] !== undefined) {
-      // *bold*
-      parts.push(<strong key={key} className="font-bold">{match[2]}</strong>);
+      parts.push(<strong key={key} className="font-bold">{...linkifyText(match[2], `b-${key}`)}</strong>);
     } else if (match[3] !== undefined) {
-      // _italic_
-      parts.push(<em key={key} className="italic">{match[3]}</em>);
+      parts.push(<em key={key} className="italic">{...linkifyText(match[3], `i-${key}`)}</em>);
     } else if (match[4] !== undefined) {
-      // ~strikethrough~
-      parts.push(<del key={key} className="line-through">{match[4]}</del>);
+      parts.push(<del key={key} className="line-through">{...linkifyText(match[4], `s-${key}`)}</del>);
     } else if (match[5] !== undefined) {
-      // ```monospace block```
       parts.push(<code key={key} className="bg-black/20 rounded px-1.5 py-0.5 text-[12px] font-mono">{match[5]}</code>);
     } else if (match[6] !== undefined) {
-      // `inline mono`
       parts.push(<code key={key} className="bg-black/20 rounded px-1 py-0.5 text-[12px] font-mono">{match[6]}</code>);
     }
 
