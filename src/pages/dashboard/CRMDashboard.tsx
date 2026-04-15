@@ -18,14 +18,13 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  ReferenceDot,
 } from "recharts";
 import { format, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -444,47 +443,21 @@ const CRMDashboard = () => {
         ) : (
           <div className="h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={m.dailyChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <BarChart data={m.dailyChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="crmAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={chartColor} stopOpacity={0.25} />
-                    <stop offset="100%" stopColor={chartColor} stopOpacity={0.02} />
+                  <linearGradient id="crmBarGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={chartColor} stopOpacity={0.9} />
+                    <stop offset="100%" stopColor={chartColor} stopOpacity={0.4} />
                   </linearGradient>
-                  <filter id="glow">
-                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                    <feMerge>
-                      <feMergeNode in="coloredBlur"/>
-                      <feMergeNode in="SourceGraphic"/>
-                    </feMerge>
-                  </filter>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.3} />
                 <XAxis dataKey="day" axisLine={false} tickLine={false}
                   tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11, fontWeight: 500 }} />
                 <YAxis axisLine={false} tickLine={false}
                   tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} allowDecimals={false} />
-                <Tooltip content={<ChartTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="leads"
-                  stroke={chartColor}
-                  strokeWidth={3}
-                  fill="url(#crmAreaGrad)"
-                  filter="url(#glow)"
-                  dot={{ r: 4, fill: chartColor, strokeWidth: 2, stroke: "hsl(var(--card))" }}
-                  activeDot={{ r: 6, fill: chartColor, stroke: "hsl(var(--card))", strokeWidth: 3 }}
-                />
-                {peakDay.value > 0 && (
-                  <ReferenceDot
-                    x={peakDay.day}
-                    y={peakDay.value}
-                    r={8}
-                    fill={chartColor}
-                    stroke="hsl(var(--card))"
-                    strokeWidth={3}
-                  />
-                )}
-              </AreaChart>
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }} />
+                <Bar dataKey="leads" fill="url(#crmBarGrad)" radius={[6, 6, 0, 0]} maxBarSize={40} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         )}
