@@ -301,18 +301,10 @@ export function ChatPanel({
   const restoreScrollPosition = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const savedTop = scrollPositionsRef.current[conversation.id];
-    if (typeof savedTop === "number") {
-      el.scrollTop = Math.min(savedTop, Math.max(0, el.scrollHeight - el.clientHeight));
-      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
-      setIsNearBottom(nearBottom);
-      return;
-    }
-    if (messages.length > 0) {
-      el.scrollTop = el.scrollHeight;
-      setIsNearBottom(true);
-    }
-  }, [conversation.id, messages.length]);
+    // Always scroll to bottom when opening a conversation
+    el.scrollTop = el.scrollHeight;
+    setIsNearBottom(true);
+  }, []);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -359,9 +351,15 @@ export function ChatPanel({
   useLayoutEffect(() => {
     if (pendingRestoreRef.current !== conversation.id) return;
     restoreScrollPosition();
+    // Double-ensure scroll to bottom after images/media load
+    const timer = setTimeout(() => {
+      const el = scrollRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    }, 100);
     if (messages.length > 0) {
       pendingRestoreRef.current = null;
     }
+    return () => clearTimeout(timer);
   }, [conversation.id, messages.length, restoreScrollPosition]);
 
   const filteredQuickReplies = getFilteredQuickReplies(allQuickReplies);
@@ -400,18 +398,26 @@ export function ChatPanel({
   // Exit selection mode on conversation change
   useEffect(() => { exitSelectionMode(); }, [conversation.id]);
 
-  // Scroll to quoted message
+  // Scroll to quoted message with retry
   const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleScrollToQuoted = useCallback((quotedWaId: string) => {
-    // Find message by whatsapp_message_id or id
     const target = messages.find((m) => m.whatsappMessageId === quotedWaId || m.id === quotedWaId);
     if (!target) return;
-    const el = document.getElementById(`msg-${target.id}`);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      setHighlightedMsgId(target.id);
-      setTimeout(() => setHighlightedMsgId(null), 2000);
-    }
+
+    const tryScroll = (retries: number) => {
+      const el = document.getElementById(`msg-${target.id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+        setHighlightedMsgId(target.id);
+        highlightTimerRef.current = setTimeout(() => setHighlightedMsgId(null), 1500);
+      } else if (retries > 0) {
+        setTimeout(() => tryScroll(retries - 1), 80);
+      }
+    };
+    tryScroll(5);
   }, [messages]);
 
   return (
