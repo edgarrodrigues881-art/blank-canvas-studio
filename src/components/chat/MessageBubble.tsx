@@ -1,7 +1,7 @@
-import { useState, useRef, useCallback, useEffect, ReactNode } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, ReactNode } from "react";
 import {
   Play, Pause, Check, CheckCheck, Loader2,
-  Download, FileText, Video, MapPin, User,
+  Download, FileText, Video, MapPin, User, Mic,
   Image as ImageIcon, Reply, X, Trash2, Pencil, Eye,
 } from "lucide-react";
 import { Smartphone } from "lucide-react";
