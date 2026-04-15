@@ -3737,6 +3737,7 @@ export type Database = {
           expires_at: string
           id: string
           nicho: string
+          pais: string
           results: Json
           total: number
           user_id: string
@@ -3748,6 +3749,7 @@ export type Database = {
           expires_at?: string
           id?: string
           nicho: string
+          pais?: string
           results?: Json
           total?: number
           user_id: string
@@ -3759,6 +3761,7 @@ export type Database = {
           expires_at?: string
           id?: string
           nicho?: string
+          pais?: string
           results?: Json
           total?: number
           user_id?: string
