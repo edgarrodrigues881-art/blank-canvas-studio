@@ -1,0 +1,2 @@
+ALTER TABLE public.conversation_messages ADD COLUMN IF NOT EXISTS is_forwarded boolean DEFAULT false;
+ALTER TABLE public.conversation_messages ADD COLUMN IF NOT EXISTS forwarding_score integer DEFAULT 0;

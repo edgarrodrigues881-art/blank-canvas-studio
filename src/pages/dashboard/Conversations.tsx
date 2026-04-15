@@ -310,6 +310,8 @@ const Conversations = () => {
       quotedContent: m.quoted_content || undefined,
       failureReason: m.failure_reason || undefined,
       deviceName: m.deviceName,
+      isForwarded: m.is_forwarded || false,
+      forwardingScore: m.forwarding_score || 0,
     }))
   , [realMsgs]);
 
