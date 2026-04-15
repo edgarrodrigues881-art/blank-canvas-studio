@@ -351,9 +351,15 @@ export function ChatPanel({
   useLayoutEffect(() => {
     if (pendingRestoreRef.current !== conversation.id) return;
     restoreScrollPosition();
+    // Double-ensure scroll to bottom after images/media load
+    const timer = setTimeout(() => {
+      const el = scrollRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    }, 100);
     if (messages.length > 0) {
       pendingRestoreRef.current = null;
     }
+    return () => clearTimeout(timer);
   }, [conversation.id, messages.length, restoreScrollPosition]);
 
   const filteredQuickReplies = getFilteredQuickReplies(allQuickReplies);
