@@ -188,13 +188,20 @@ const CRMDashboard = () => {
     const interestRate = total > 0 ? Math.round((interested / total) * 100) : 0;
     const closeRate = total > 0 ? Math.round((closed / total) * 100) : 0;
 
-    const dailyChart: { day: string; leads: number }[] = [];
+    // Build week Mon-Sun
+    const weekDayOrder = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
+    const weekDayLabels: Record<string, string> = { seg: "Seg", ter: "Ter", qua: "Qua", qui: "Qui", sex: "Sex", "sáb": "Sáb", dom: "Dom" };
+    const dayDataMap: Record<string, number> = {};
     for (let i = 6; i >= 0; i--) {
       const d = subDays(new Date(), i);
       const key = format(d, "yyyy-MM-dd");
-      const label = format(d, "EEE", { locale: ptBR }).replace(".", "");
-      dailyChart.push({ day: label.charAt(0).toUpperCase() + label.slice(1), leads: dailyMap[key] || 0 });
+      const dow = format(d, "EEE", { locale: ptBR }).replace(".", "").toLowerCase();
+      dayDataMap[dow] = (dayDataMap[dow] || 0) + (dailyMap[key] || 0);
     }
+    const dailyChart = weekDayOrder.map(dow => ({
+      day: weekDayLabels[dow] || dow,
+      leads: dayDataMap[dow] || 0,
+    }));
 
     return {
       total, responseRate, interestRate, closeRate, closed,
