@@ -612,6 +612,7 @@ Deno.serve(async (req) => {
         .ilike("nicho", nichoTrimmed)
         .ilike("estado", estadoTrimmed)
         .ilike("cidade", cidadeTrimmed)
+        .eq("pais", pais)
         .gt("expires_at", new Date().toISOString())
         .maybeSingle();
 
@@ -847,13 +848,15 @@ Deno.serve(async (req) => {
         .eq("user_id", user.id)
         .ilike("nicho", nichoLower)
         .ilike("estado", estadoLower)
-        .ilike("cidade", cidadeLower);
+        .ilike("cidade", cidadeLower)
+        .eq("pais", pais);
 
       await adminClient.from("prospeccao_cache").insert({
         user_id: user.id,
         nicho: nichoLower,
         estado: estadoLower,
         cidade: cidadeLower,
+        pais,
         results, total: results.length,
         created_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
