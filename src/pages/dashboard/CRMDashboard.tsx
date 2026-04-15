@@ -238,6 +238,38 @@ const CRMDashboard = () => {
   });
 
   const m = useMemo(() => {
+    const hasRealData = leads.length > 0;
+
+    if (!hasRealData) {
+      // Mock data for preview
+      const mockStages: Record<string, number> = {
+        novo: 20, respondeu: 10, interessado: 8, negociacao: 7, fechado: 5,
+      };
+      const mockTotal = 50;
+      const mockResponded = mockTotal - mockStages["novo"];
+      const mockInterested = mockStages["interessado"] + mockStages["negociacao"] + mockStages["fechado"];
+      const mockClosed = mockStages["fechado"];
+      const mockDailyChart = [
+        { day: "Seg", leads: 5 }, { day: "Ter", leads: 8 }, { day: "Qua", leads: 3 },
+        { day: "Qui", leads: 10 }, { day: "Sex", leads: 6 }, { day: "Sáb", leads: 2 }, { day: "Dom", leads: 4 },
+      ];
+      const mockWeekTotal = mockDailyChart.reduce((s, d) => s + d.leads, 0);
+      return {
+        total: mockTotal,
+        responseRate: Math.round((mockResponded / mockTotal) * 100),
+        interestRate: Math.round((mockInterested / mockTotal) * 100),
+        closeRate: Math.round((mockClosed / mockTotal) * 100),
+        closed: mockClosed,
+        stages: mockStages,
+        dailyChart: mockDailyChart,
+        schedules: 3,
+        responded: mockResponded,
+        interested: mockInterested,
+        pipelineValue: 12500,
+        weekTotal: mockWeekTotal,
+      };
+    }
+
     const total = leads.length;
     const stages: Record<string, number> = {};
     const dailyMap: Record<string, number> = {};
