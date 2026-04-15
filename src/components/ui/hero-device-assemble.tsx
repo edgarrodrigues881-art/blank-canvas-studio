@@ -172,16 +172,15 @@ export function HeroDeviceAssemble({
     extrapolateRight: "clamp",
   });
 
-  const shimmerProgress = interpolate(frame, [settleFrame + 6, settleFrame + 30], [-1, 2], {
+  const shimmerProgress = interpolate(frame % 120, [settleFrame + 6, settleFrame + 30], [-1, 2], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  const isPhone = device === "phone";
-  const deviceW = isPhone ? 320 : 760;
-  const deviceH = isPhone ? 640 : 470;
-  const screenInset = isPhone ? 12 : 18;
-  const bezelRadius = isPhone ? 36 : 14;
+  const idleFloat = Math.sin(frame / 18) * 10;
+  const idleRotX = Math.cos(frame / 24) * 2.5;
+  const idleRotY = Math.sin(frame / 28) * 4;
+  const idleScale = 0.98 + Math.sin(frame / 30) * 0.01;
 
   return (
     <AbsoluteFill style={{ backgroundColor: "transparent", justifyContent: "center", alignItems: "center" }}>
