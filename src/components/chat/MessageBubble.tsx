@@ -496,8 +496,8 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
             msg.mediaType === "sticker" && msg.mediaUrl
               ? ""
               : isSent
-                ? "bg-blue-600 text-white rounded-br-sm"
-                : "bg-card border border-border/40 text-foreground rounded-bl-sm",
+                ? "bg-primary text-primary-foreground rounded-br-sm shadow-sm shadow-primary/10"
+                : "bg-card border border-border/30 text-foreground rounded-bl-sm shadow-sm",
             msg.status === "failed" && "opacity-70"
           )}
         >

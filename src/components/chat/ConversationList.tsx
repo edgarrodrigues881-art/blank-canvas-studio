@@ -70,14 +70,14 @@ function formatDate(dateStr: string) {
 
 
 const avatarColors = [
-  "bg-emerald-600/20 text-emerald-300",
-  "bg-blue-600/20 text-blue-300",
-  "bg-violet-600/20 text-violet-300",
-  "bg-amber-600/20 text-amber-300",
-  "bg-pink-600/20 text-pink-300",
-  "bg-cyan-600/20 text-cyan-300",
-  "bg-teal-600/20 text-teal-300",
-  "bg-indigo-600/20 text-indigo-300",
+  "bg-emerald-500/12 text-emerald-400 dark:bg-emerald-500/15 dark:text-emerald-300",
+  "bg-blue-500/12 text-blue-400 dark:bg-blue-500/15 dark:text-blue-300",
+  "bg-violet-500/12 text-violet-400 dark:bg-violet-500/15 dark:text-violet-300",
+  "bg-amber-500/12 text-amber-400 dark:bg-amber-500/15 dark:text-amber-300",
+  "bg-pink-500/12 text-pink-400 dark:bg-pink-500/15 dark:text-pink-300",
+  "bg-cyan-500/12 text-cyan-400 dark:bg-cyan-500/15 dark:text-cyan-300",
+  "bg-teal-500/12 text-teal-400 dark:bg-teal-500/15 dark:text-teal-300",
+  "bg-indigo-500/12 text-indigo-400 dark:bg-indigo-500/15 dark:text-indigo-300",
 ];
 
 function getAvatarColor(name: string) {
@@ -207,14 +207,14 @@ export function ConversationList({
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Search */}
-      <div className="px-3 pt-2.5 pb-2 space-y-2">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+      <div className="px-3 pt-3 pb-2 space-y-2.5">
+        <div className="relative group/search">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 transition-colors group-focus-within/search:text-primary/70" />
           <Input
             placeholder="Buscar conversa, nome ou número..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9 pr-9 h-9 text-sm bg-muted/20 border-border/30 rounded-xl placeholder:text-muted-foreground/40"
+            className="pl-9 pr-9 h-9 text-sm bg-muted/15 border-border/20 rounded-xl placeholder:text-muted-foreground/35 focus:bg-background focus:border-primary/30 focus:shadow-[0_0_0_3px_hsl(var(--primary)/0.08)] transition-all duration-200"
           />
           {searchQuery && (
             <button
@@ -267,7 +267,7 @@ export function ConversationList({
         )}
 
         {/* Status filter tabs */}
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-0.5 pb-0.5">
+        <div className="flex gap-1 overflow-x-auto scrollbar-none -mx-0.5 pb-0.5">
           {statusTabs.map((tab) => {
             const count = statusCount(tab.key);
             const isActive = activeStatus === tab.key;
@@ -276,18 +276,18 @@ export function ConversationList({
                 key={tab.key}
                 onClick={() => setActiveStatus(tab.key)}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all duration-150",
+                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all duration-200 border",
                   isActive
-                    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
-                    : "bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                    ? "bg-primary/10 text-primary border-primary/20 shadow-sm shadow-primary/5"
+                    : "bg-transparent text-muted-foreground border-transparent hover:bg-muted/30 hover:text-foreground"
                 )}
               >
                 {tab.label}
                 <span className={cn(
-                  "text-[9px] min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center font-bold",
+                  "text-[9px] min-w-[16px] h-4 px-1 rounded-md flex items-center justify-center font-semibold tabular-nums",
                   isActive
-                    ? "bg-primary-foreground/20 text-primary-foreground"
-                    : "bg-muted-foreground/10 text-muted-foreground"
+                    ? "bg-primary/15 text-primary"
+                    : "bg-muted-foreground/8 text-muted-foreground/70"
                 )}>
                   {count}
                 </span>
@@ -332,11 +332,11 @@ export function ConversationList({
                   <button
                     onClick={() => (selectionMode ? toggleSelect(c.id) : onSelect(c))}
                     className={cn(
-                      "w-full flex items-center text-left transition-colors duration-100 gap-3 px-4 py-2.5",
+                      "w-full flex items-center text-left transition-all duration-150 gap-3 px-4 py-3",
                       isSelected
-                        ? "bg-primary/8"
-                        : "hover:bg-muted/10",
-                      selectionMode && selectedIds.has(c.id) && "bg-primary/8"
+                        ? "bg-primary/6 border-l-2 border-l-primary"
+                        : "hover:bg-muted/20 border-l-2 border-l-transparent",
+                      selectionMode && selectedIds.has(c.id) && "bg-primary/6"
                     )}
                   >
                     {selectionMode && (
@@ -351,10 +351,10 @@ export function ConversationList({
                         <img
                           src={c.avatar_url}
                           alt={avatarLabel}
-                          className="w-[46px] h-[46px] rounded-full object-cover"
+                          className="w-11 h-11 rounded-full object-cover ring-1 ring-border/20"
                         />
                       ) : (
-                        <div className={cn("w-[46px] h-[46px] rounded-full flex items-center justify-center font-semibold text-sm", avatarCls)}>
+                        <div className={cn("w-11 h-11 rounded-full flex items-center justify-center font-semibold text-[13px] tracking-tight", avatarCls)}>
                           {avatarLabel.slice(0, 2).toUpperCase()}
                         </div>
                       )}
@@ -444,7 +444,7 @@ export function ConversationList({
                     </div>
                   </button>
                   {/* Subtle separator */}
-                  <div className="h-px bg-border/20 ml-[70px]" />
+                  <div className="h-px bg-border/10 ml-[72px]" />
                 </div>
               );
             })
