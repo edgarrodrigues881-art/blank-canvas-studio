@@ -117,16 +117,16 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
   return (
     <div className="flex items-center gap-2.5 min-w-[200px]">
       <audio ref={onRef} src={src} preload="auto" />
-      <button onClick={toggle} className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors", isSent ? "bg-white/20 hover:bg-white/30 text-white" : "bg-primary/10 hover:bg-primary/20 text-primary")}>
+      <button onClick={toggle} className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors", isSent ? "bg-primary-foreground/15 hover:bg-primary-foreground/25 text-primary-foreground" : "bg-primary/10 hover:bg-primary/20 text-primary")}>
         {playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
       </button>
       <div className="flex-1 min-w-0">
-        <div className={cn("h-1.5 rounded-full cursor-pointer relative", isSent ? "bg-white/20" : "bg-muted-foreground/15")} onClick={seek}>
-          <div className={cn("h-full rounded-full", isSent ? "bg-white/70" : "bg-primary/60")} style={{ width: `${progress}%`, transition: "none" }} />
+          <div className={cn("h-1.5 rounded-full cursor-pointer relative", isSent ? "bg-primary-foreground/15" : "bg-muted-foreground/15")} onClick={seek}>
+          <div className={cn("h-full rounded-full", isSent ? "bg-primary-foreground/60" : "bg-primary/60")} style={{ width: `${progress}%`, transition: "none" }} />
         </div>
         <div className="flex items-center justify-between mt-1">
-          <span className={cn("text-[10px]", isSent ? "text-white/60" : "text-muted-foreground/60")}>{playing || currentTime > 0 ? formatDuration(currentTime) : formatDuration(totalDuration)}</span>
-          <span className={cn("text-[10px]", isSent ? "text-white/60" : "text-muted-foreground/60")}>{formatDuration(totalDuration)}</span>
+          <span className={cn("text-[10px]", isSent ? "text-primary-foreground/50" : "text-muted-foreground/50")}>{playing || currentTime > 0 ? formatDuration(currentTime) : formatDuration(totalDuration)}</span>
+          <span className={cn("text-[10px]", isSent ? "text-primary-foreground/50" : "text-muted-foreground/50")}>{formatDuration(totalDuration)}</span>
         </div>
       </div>
     </div>
@@ -136,10 +136,10 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
 /* ─── Sub-components ─── */
 
 function StatusIcon({ status }: { status?: string }) {
-  if (status === "sending") return <Loader2 className="w-3.5 h-3.5 animate-spin text-white/70" />;
+  if (status === "sending") return <Loader2 className="w-3.5 h-3.5 animate-spin text-primary-foreground/60" />;
   if (status === "read") return <CheckCheck className="w-4 h-4 text-blue-300" />;
-  if (status === "delivered") return <CheckCheck className="w-4 h-4 text-white/80" />;
-  if (status === "sent") return <Check className="w-4 h-4 text-white/80" />;
+  if (status === "delivered") return <CheckCheck className="w-4 h-4 text-primary-foreground/70" />;
+  if (status === "sent") return <Check className="w-4 h-4 text-primary-foreground/70" />;
   if (status === "failed") return <span className="text-[11px] text-red-400 font-bold">⚠</span>;
   return null;
 }
@@ -150,7 +150,7 @@ function MsgFooter({ msg, inline }: { msg: Message; inline?: boolean }) {
       "flex items-center gap-1 shrink-0 justify-end",
       inline ? "ml-2 self-end" : "mt-1",
     )}>
-      <span className={cn("text-[10px] leading-none", msg.type === "sent" ? "text-white/60" : "text-muted-foreground/60")}>
+      <span className={cn("text-[10px] leading-none", msg.type === "sent" ? "text-primary-foreground/55" : "text-muted-foreground/55")}>
         {format(new Date(msg.timestamp), "HH:mm")}
       </span>
       {msg.type === "sent" && <StatusIcon status={msg.status} />}
