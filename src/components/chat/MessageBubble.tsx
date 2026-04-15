@@ -579,6 +579,15 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
             msg.status === "failed" && "opacity-70"
           )}
         >
+          {/* Forwarded indicator */}
+          {msg.isForwarded && (
+            <div className="flex items-center gap-1 mb-1 opacity-60">
+              <Forward className="w-3 h-3" />
+              <span className="text-[10px] italic">
+                {(msg.forwardingScore ?? 0) >= 4 ? "Encaminhada com frequência" : "Encaminhada"}
+              </span>
+            </div>
+          )}
           {renderContent()}
         </div>
 
