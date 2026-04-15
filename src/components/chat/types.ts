@@ -44,6 +44,8 @@ export interface Message {
   quotedContent?: string;
   failureReason?: string;
   deviceName?: string;
+  isForwarded?: boolean;
+  forwardingScore?: number;
 }
 
 export interface ConversationInstance {
