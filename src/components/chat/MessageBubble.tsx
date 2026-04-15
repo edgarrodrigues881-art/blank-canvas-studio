@@ -492,12 +492,12 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
               ? "w-fit p-1 bg-transparent border-0 shadow-none"
               : msg.mediaType === "image" && msg.mediaUrl
                 ? "w-full max-w-[320px] p-1.5"
-                : "w-fit px-2.5 py-1.5",
+                : "w-fit px-3 py-2",
             msg.mediaType === "sticker" && msg.mediaUrl
               ? ""
               : isSent
-                ? "bg-primary text-primary-foreground rounded-br-sm shadow-sm shadow-primary/10"
-                : "bg-card border border-border/30 text-foreground rounded-bl-sm shadow-sm",
+                ? "bg-emerald-500/10 dark:bg-primary text-foreground dark:text-primary-foreground border border-emerald-500/20 dark:border-transparent rounded-2xl rounded-br-md shadow-sm"
+                : "bg-white dark:bg-card border border-border/40 dark:border-border/30 text-foreground rounded-2xl rounded-bl-md shadow-sm",
             msg.status === "failed" && "opacity-70"
           )}
         >

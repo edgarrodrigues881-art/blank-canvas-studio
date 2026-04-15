@@ -205,7 +205,7 @@ export function ConversationList({
       : Math.max(8, Math.min(contextPos.y + 6, window.innerHeight - 220));
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-white dark:bg-background">
       {/* Search */}
       <div className="px-3 pt-3 pb-2 space-y-2.5">
         <div className="relative group/search">
@@ -334,8 +334,8 @@ export function ConversationList({
                     className={cn(
                       "w-full flex items-center text-left transition-all duration-150 gap-3 px-4 py-3",
                       isSelected
-                        ? "bg-primary/6 border-l-2 border-l-primary"
-                        : "hover:bg-muted/20 border-l-2 border-l-transparent",
+                        ? "bg-primary/6 border-l-[3px] border-l-emerald-500 dark:border-l-primary"
+                        : "hover:bg-slate-100/80 dark:hover:bg-muted/20 border-l-[3px] border-l-transparent",
                       selectionMode && selectedIds.has(c.id) && "bg-primary/6"
                     )}
                   >

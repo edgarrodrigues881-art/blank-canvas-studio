@@ -246,7 +246,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
   return (
     <>
       {/* Header */}
-      <div className="h-[48px] border-b border-border/30 flex items-center justify-between px-4 shrink-0 bg-card/40 backdrop-blur-sm">
+      <div className="h-[48px] border-b border-border/40 dark:border-border/30 flex items-center justify-between px-4 shrink-0 bg-slate-50/80 dark:bg-card/40 backdrop-blur-sm">
         <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
           {isEditing ? "Editar Contato" : "Detalhes do Contato"}
         </h3>
@@ -307,7 +307,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
           {/* ── Quick Info Cards (hidden in edit mode) ── */}
           {!isEditing && (
             <div className="space-y-2">
-              <div className="flex items-center gap-3 bg-muted/15 rounded-xl px-3.5 py-3 border border-border/20 hover:border-border/40 transition-colors">
+              <div className="flex items-center gap-3 bg-white dark:bg-muted/15 rounded-xl px-3.5 py-3 border border-border/30 dark:border-border/20 hover:border-border/50 dark:hover:border-border/40 transition-colors shadow-sm">
                 <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
                   <Smartphone className="w-4 h-4 text-primary" />
                 </div>
@@ -316,7 +316,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
                   <p className="text-xs font-semibold text-foreground">{conversation.deviceName || "—"}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-muted/15 rounded-xl px-3.5 py-3 border border-border/20 hover:border-border/40 transition-colors">
+              <div className="flex items-center gap-3 bg-white dark:bg-muted/15 rounded-xl px-3.5 py-3 border border-border/30 dark:border-border/20 hover:border-border/50 dark:hover:border-border/40 transition-colors shadow-sm">
                 <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
                   <Calendar className="w-4 h-4 text-primary" />
                 </div>
@@ -325,7 +325,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
                   <p className="text-xs font-semibold text-foreground">{firstContact.toLocaleDateString("pt-BR")}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-muted/15 rounded-xl px-3.5 py-3 border border-border/20 hover:border-border/40 transition-colors">
+              <div className="flex items-center gap-3 bg-white dark:bg-muted/15 rounded-xl px-3.5 py-3 border border-border/30 dark:border-border/20 hover:border-border/50 dark:hover:border-border/40 transition-colors shadow-sm">
                 <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
                   <Clock className="w-4 h-4 text-primary" />
                 </div>

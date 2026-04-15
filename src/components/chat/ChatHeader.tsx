@@ -75,7 +75,7 @@ export const ChatHeader = memo(function ChatHeader({
   return (
     <>
       {/* Header bar — clean, aligned */}
-      <div className="border-b border-border/30 flex items-center px-3 py-1.5 gap-2.5 shrink-0 bg-card/60 backdrop-blur-sm h-[48px] overflow-hidden">
+      <div className="border-b border-border/40 dark:border-border/30 flex items-center px-3 py-1.5 gap-2.5 shrink-0 bg-white dark:bg-card/60 backdrop-blur-sm h-[48px] overflow-hidden">
         <Button variant="ghost" size="icon" className="md:hidden w-7 h-7 shrink-0" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
