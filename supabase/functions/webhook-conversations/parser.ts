@@ -148,12 +148,15 @@ export function isApiSentMessage(body: JsonObject): boolean {
 }
 
 function resolveMediaType(body: JsonObject, messageNodes: JsonObject[]): string | null {
+  // Check stickerMessage FIRST so it's never misclassified as image
+  for (const node of messageNodes) {
+    if (node.stickerMessage) return "sticker";
+  }
   for (const node of messageNodes) {
     if (node.audioMessage || node.pttMessage || node.voiceMessage) return "audio";
     if (node.imageMessage) return "image";
     if (node.videoMessage) return "video";
     if (node.documentMessage || node.documentWithCaptionMessage) return "document";
-    if (node.stickerMessage) return "sticker";
     if (node.contactMessage || node.contactsArrayMessage) return "contact";
     if (node.locationMessage || node.liveLocationMessage) return "location";
   }
@@ -190,8 +193,12 @@ function resolveMediaType(body: JsonObject, messageNodes: JsonObject[]): string 
         node.imageMessage?.mimetype,
         node.videoMessage?.mimetype,
         node.documentMessage?.mimetype,
+        node.stickerMessage?.mimetype,
       ]),
     );
+
+    // If mime is image/webp and no explicit type, it's likely a sticker
+    if (mimeStr.toLowerCase() === "image/webp") return "sticker";
 
     const urlStr = firstString(
       body.mediaUrl,
@@ -264,6 +271,7 @@ function resolveMediaUrl(body: JsonObject, messageNodes: JsonObject[], mediaType
       node.imageMessage?.url,
       node.videoMessage?.url,
       node.documentMessage?.url,
+      node.stickerMessage?.url,
       node.image?.url,
       node.audio?.url,
       node.video?.url,
@@ -425,6 +433,7 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
       node.pttMessage?.mimetype,
       node.imageMessage?.mimetype,
       node.videoMessage?.mimetype,
+      node.stickerMessage?.mimetype,
       node.documentMessage?.mimetype,
     ]),
   ) || null;
@@ -440,6 +449,7 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
       node.imageMessage?.mediaKey,
       node.videoMessage?.mediaKey,
       node.documentMessage?.mediaKey,
+      node.stickerMessage?.mediaKey,
     ]),
   ) || null;
 
@@ -454,6 +464,7 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
       node.imageMessage?.directPath,
       node.videoMessage?.directPath,
       node.documentMessage?.directPath,
+      node.stickerMessage?.directPath,
     ]),
   ) || null;
 
