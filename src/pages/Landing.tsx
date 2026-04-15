@@ -1,14 +1,16 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { Player } from "@remotion/player";
 import {
   Zap, Shield, BarChart3, Smartphone, Settings, Globe,
   ArrowRight, CheckCircle2, MessageSquare, Users, Layers,
   ChevronDown, Star, Rocket, Clock, Lock, UsersRound, MessageCircle, ShieldCheck, Megaphone
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HeroDeviceAssemble } from "@/components/ui/hero-device-assemble";
 import logo from "@/assets/logo-new.png";
-import dashboardPreview from "@/assets/dashboard-preview-landing.png";
+import appScreenshot from "@/assets/app-screenshot.png";
 
 // Prefetch
 const prefetchRoutes = () => {
@@ -122,18 +124,32 @@ const Hero = () => {
 // ─── Dashboard Preview ───
 const DashboardPreview = () => (
   <Section>
-    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }} variants={fadeUp} className="relative max-w-5xl mx-auto">
-      {/* Glow behind */}
-      <div className="absolute -inset-4 bg-gradient-to-b from-[hsl(var(--primary))]/10 via-[hsl(var(--primary))]/5 to-transparent rounded-3xl blur-[40px] pointer-events-none" />
-      {/* Frame */}
-      <div className="relative rounded-2xl border border-white/[0.08] overflow-hidden shadow-2xl shadow-black/40">
-        <div className="bg-white/[0.03] px-4 py-2.5 border-b border-white/[0.06] flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-red-500/60" />
-          <span className="w-3 h-3 rounded-full bg-yellow-500/60" />
-          <span className="w-3 h-3 rounded-full bg-green-500/60" />
-          <span className="ml-3 text-[11px] text-white/25 font-medium">DG Contingência PRO — Painel</span>
-        </div>
-        <img src={dashboardPreview} alt="Painel DG Contingência PRO" className="w-full h-auto" loading="lazy" />
+    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }} variants={fadeUp} className="relative max-w-6xl mx-auto">
+      <div className="absolute inset-x-[10%] top-[8%] h-[48%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.16)_0%,transparent_72%)] blur-[70px] pointer-events-none" />
+      <div className="relative rounded-[28px] border border-white/[0.08] bg-white/[0.03] p-3 md:p-5 shadow-2xl shadow-black/40 overflow-hidden">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_30%)] pointer-events-none" />
+        <Player
+          component={HeroDeviceAssemble}
+          durationInFrames={120}
+          fps={30}
+          compositionWidth={960}
+          compositionHeight={540}
+          autoPlay
+          loop
+          controls={false}
+          inputProps={{
+            screenshotSrc: appScreenshot,
+            accentColor: "hsl(var(--primary))",
+            device: "laptop",
+          }}
+          style={{
+            width: "100%",
+            aspectRatio: "16 / 9",
+            borderRadius: 20,
+            overflow: "hidden",
+            background: "transparent",
+          }}
+        />
       </div>
     </motion.div>
   </Section>
