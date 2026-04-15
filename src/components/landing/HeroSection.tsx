@@ -99,7 +99,7 @@ const HeroSection = () => {
               overflow: "hidden",
               background: "transparent",
             }}
-            inputProps={{}}
+            inputProps={{ screenshotSrc: appScreenshot }}
           />
         </div>
       </div>
