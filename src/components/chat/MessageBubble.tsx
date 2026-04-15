@@ -82,7 +82,27 @@ function FormattedText({ text, className }: { text: string; className?: string }
   return <p className={className}>{formatWhatsAppText(text)}</p>;
 }
 
-/* ─── Audio Player ─── */
+/* ─── Waveform Generator ─── */
+
+function generateWaveformBars(count: number, seed: string): number[] {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  const bars: number[] = [];
+  for (let i = 0; i < count; i++) {
+    hash = ((hash << 13) ^ hash) - 0x5bd1e995;
+    hash |= 0;
+    const val = Math.abs(hash % 100) / 100;
+    // Create natural-looking waveform: center-heavy with variation
+    const envelope = Math.sin((i / count) * Math.PI) * 0.4 + 0.3;
+    bars.push(Math.max(0.15, Math.min(1, val * 0.6 + envelope)));
+  }
+  return bars;
+}
+
+/* ─── Audio Player (WhatsApp-style) ─── */
 
 function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number; isSent: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -91,6 +111,8 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [totalDuration, setTotalDuration] = useState(duration || 0);
+
+  const waveformBars = useMemo(() => generateWaveformBars(40, src), [src]);
 
   const updateProgress = useCallback(() => {
     const audio = audioRef.current;
@@ -122,7 +144,6 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
     setCurrentTime(audio.currentTime);
   };
 
-  // Audio event listeners
   const onRef = useCallback((el: HTMLAudioElement | null) => {
     (audioRef as React.MutableRefObject<HTMLAudioElement | null>).current = el;
     if (!el) return;
@@ -132,19 +153,57 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
     el.onloadedmetadata = () => { if (el.duration && isFinite(el.duration)) setTotalDuration(el.duration); };
   }, [updateProgress]);
 
+  const playedBars = Math.floor((progress / 100) * waveformBars.length);
+
   return (
-    <div className="flex items-center gap-2.5 min-w-[200px]">
+    <div className="flex items-center gap-2 min-w-[220px] max-w-[320px]">
       <audio ref={onRef} src={src} preload="auto" />
-      <button onClick={toggle} className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors", isSent ? "bg-primary-foreground/15 hover:bg-primary-foreground/25 text-primary-foreground" : "bg-primary/10 hover:bg-primary/20 text-primary")}>
-        {playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
+
+      {/* Avatar / Play button */}
+      <button
+        onClick={toggle}
+        className={cn(
+          "w-11 h-11 rounded-full flex items-center justify-center shrink-0 relative overflow-hidden transition-all",
+          isSent
+            ? "bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground"
+            : "bg-primary/15 hover:bg-primary/25 text-primary"
+        )}
+      >
+        <Mic className={cn("w-5 h-5 absolute opacity-30", playing && "hidden")} />
+        {playing
+          ? <Pause className="w-4 h-4 relative z-10" />
+          : <Play className="w-4 h-4 ml-0.5 relative z-10" />
+        }
       </button>
+
+      {/* Waveform + time */}
       <div className="flex-1 min-w-0">
-          <div className={cn("h-1.5 rounded-full cursor-pointer relative", isSent ? "bg-primary-foreground/15" : "bg-muted-foreground/15")} onClick={seek}>
-          <div className={cn("h-full rounded-full", isSent ? "bg-primary-foreground/60" : "bg-primary/60")} style={{ width: `${progress}%`, transition: "none" }} />
+        <div
+          className="flex items-center gap-[1.5px] h-[28px] cursor-pointer"
+          onClick={seek}
+        >
+          {waveformBars.map((height, i) => (
+            <div
+              key={i}
+              className={cn(
+                "w-[2.5px] rounded-full transition-colors duration-75",
+                i < playedBars
+                  ? isSent ? "bg-primary-foreground/80" : "bg-primary/80"
+                  : isSent ? "bg-primary-foreground/25" : "bg-muted-foreground/30"
+              )}
+              style={{ height: `${height * 100}%` }}
+            />
+          ))}
         </div>
-        <div className="flex items-center justify-between mt-1">
-          <span className={cn("text-[10px]", isSent ? "text-primary-foreground/50" : "text-muted-foreground/50")}>{playing || currentTime > 0 ? formatDuration(currentTime) : formatDuration(totalDuration)}</span>
-          <span className={cn("text-[10px]", isSent ? "text-primary-foreground/50" : "text-muted-foreground/50")}>{formatDuration(totalDuration)}</span>
+        <div className="flex items-center justify-between mt-0.5">
+          <span className={cn("text-[10px]", isSent ? "text-primary-foreground/50" : "text-muted-foreground/50")}>
+            {playing || currentTime > 0 ? formatDuration(currentTime) : formatDuration(totalDuration)}
+          </span>
+          {totalDuration > 0 && (
+            <span className={cn("text-[10px]", isSent ? "text-primary-foreground/50" : "text-muted-foreground/50")}>
+              {formatDuration(totalDuration)}
+            </span>
+          )}
         </div>
       </div>
     </div>
