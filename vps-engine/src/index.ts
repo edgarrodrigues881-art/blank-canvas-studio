@@ -464,6 +464,57 @@ async function warmupTick() {
     }
   }
 
+  // 1b. Recover zombie cycles — running cycles with no pending daily_reset
+  try {
+    const { data: runningCycles } = await db.from("warmup_cycles")
+      .select("id, user_id, device_id, day_index, chip_state, phase")
+      .eq("is_running", true);
+
+    if (runningCycles?.length) {
+      const cycleIds = runningCycles.map((c: any) => c.id);
+      const { data: pendingResets } = await db.from("warmup_jobs")
+        .select("cycle_id")
+        .in("cycle_id", cycleIds)
+        .eq("job_type", "daily_reset")
+        .eq("status", "pending");
+
+      const cyclesWithReset = new Set((pendingResets || []).map((j: any) => j.cycle_id));
+      const zombieCycles = runningCycles.filter((c: any) => !cyclesWithReset.has(c.id));
+
+      if (zombieCycles.length > 0) {
+        log.warn(`Found ${zombieCycles.length} zombie cycles without pending daily_reset — recovering`);
+
+        // Check if we're within operating window to decide reset timing
+        const resetTime = new Date();
+        if (withinWindow) {
+          // If within window, schedule reset for NOW so jobs get created immediately
+          resetTime.setTime(Date.now() - 60_000); // 1 min ago = will be picked up immediately
+        } else {
+          // If outside window, schedule for next day at 09:45 UTC
+          resetTime.setUTCDate(resetTime.getUTCDate() + 1);
+          resetTime.setUTCHours(9, 45, 0, 0);
+        }
+
+        const resetJobs = zombieCycles.map((c: any) => ({
+          user_id: c.user_id,
+          device_id: c.device_id,
+          cycle_id: c.id,
+          job_type: "daily_reset",
+          payload: { recovered: true },
+          run_at: resetTime.toISOString(),
+          status: "pending",
+        }));
+
+        for (let i = 0; i < resetJobs.length; i += 100) {
+          await db.from("warmup_jobs").insert(resetJobs.slice(i, i + 100));
+        }
+        log.info(`Created ${resetJobs.length} recovery daily_reset jobs (within_window=${withinWindow})`);
+      }
+    }
+  } catch (zombieErr) {
+    log.error("Error recovering zombie cycles", serializeUnknownError(zombieErr));
+  }
+
   // 2. Cancel outside-window interaction jobs
   if (!withinWindow) {
     const { data: outsideJobs } = await db.from("warmup_jobs")
