@@ -75,11 +75,14 @@ function inferMediaType(typeValue: string, mimeValue: string, urlValue: string):
   const mime = mimeValue.toLowerCase();
   const url = urlValue.toLowerCase();
 
+  // Sticker detection: image/webp is almost always a sticker on WhatsApp
+  if (typeStr === "sticker") return "sticker";
+  if (mime === "image/webp") return "sticker";
+
   if (typeStr === "ptt" || typeStr === "audio" || typeStr === "voice") return "audio";
   if (typeStr === "image" || typeStr === "photo") return "image";
   if (typeStr === "video") return "video";
   if (typeStr === "document" || typeStr === "file") return "document";
-  if (typeStr === "sticker") return "sticker";
   if (typeStr === "contact" || typeStr === "vcard") return "contact";
   if (typeStr === "location" || typeStr === "live_location") return "location";
 
@@ -88,7 +91,8 @@ function inferMediaType(typeValue: string, mimeValue: string, urlValue: string):
   if (mime.startsWith("video/")) return "video";
   if (mime.includes("pdf") || mime.includes("document") || mime.includes("sheet") || mime.includes("presentation") || mime.includes("application/")) return "document";
 
-  if (/\.(jpg|jpeg|png|gif|webp|bmp)(\?|$)/.test(url)) return "image";
+  if (/\.(jpg|jpeg|png|gif|bmp)(\?|$)/.test(url)) return "image";
+  if (/\.webp(\?|$)/.test(url)) return "sticker";
   if (/\.(mp3|ogg|wav|aac|m4a|opus|webm)(\?|$)/.test(url)) return "audio";
   if (/\.(mp4|mov|avi|mkv|webm)(\?|$)/.test(url)) return "video";
   if (/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|txt|csv)(\?|$)/.test(url)) return "document";
