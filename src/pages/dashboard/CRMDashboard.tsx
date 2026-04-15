@@ -321,8 +321,8 @@ const CRMDashboard = () => {
 
     return {
       total, responseRate, interestRate, closeRate, closed,
-      stages, dailyChart, schedules: scheduleCount,
-      responded, interested, pipelineValue, weekTotal,
+      stages, dailyChart: finalChart, schedules: scheduleCount,
+      responded, interested, pipelineValue, weekTotal: finalWeekTotal,
     };
   }, [leads, scheduleCount]);
 
