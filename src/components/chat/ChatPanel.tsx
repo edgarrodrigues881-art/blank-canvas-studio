@@ -284,6 +284,7 @@ export function ChatPanel({
   const prevMsgCountRef = useRef(messages.length);
   const scrollPositionsRef = useRef<Record<string, number>>({});
   const pendingInitialAnchorRef = useRef<string | null>(null);
+  const anchorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const forceScrollOnNextMessageRef = useRef(false);
 
   const scrollToBottom = useCallback((smooth?: boolean) => {
@@ -299,23 +300,15 @@ export function ChatPanel({
     setIsNearBottom(true);
   }, [conversation.id]);
 
-  const anchorConversationOnOpen = useCallback(() => {
+  const snapToBottom = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-
-    const lastMessage = messages[messages.length - 1];
-    const anchorEl = lastMessage ? document.getElementById(`msg-${lastMessage.id}`) : null;
-
-    if (anchorEl) {
-      anchorEl.scrollIntoView({ block: "end", behavior: "auto" });
-    }
-
-    el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
+    el.scrollTop = el.scrollHeight;
     scrollPositionsRef.current[conversation.id] = el.scrollTop;
     prevMsgCountRef.current = messages.length;
     setIsNearBottom(true);
     setNewMsgCount(0);
-  }, [conversation.id, messages]);
+  }, [conversation.id, messages.length]);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -364,43 +357,22 @@ export function ChatPanel({
     forceScrollOnNextMessageRef.current = false;
     setNewMsgCount(0);
     setIsNearBottom(true);
+    // Immediate snap — no animation, no delay
+    snapToBottom();
   }, [conversation.id]);
 
   useLayoutEffect(() => {
     if (pendingInitialAnchorRef.current !== conversation.id) return;
-
-    let cancelled = false;
-    const timeoutIds: number[] = [];
-    let rafPrimary = 0;
-    let rafSecondary = 0;
-
-    const runAnchor = () => {
-      if (cancelled) return;
-      anchorConversationOnOpen();
-    };
-
-    runAnchor();
-    rafPrimary = requestAnimationFrame(runAnchor);
-    rafSecondary = requestAnimationFrame(() => {
-      if (cancelled) return;
-
-      runAnchor();
-      timeoutIds.push(window.setTimeout(runAnchor, 80));
-      timeoutIds.push(window.setTimeout(runAnchor, 180));
-      timeoutIds.push(window.setTimeout(runAnchor, 320));
-      timeoutIds.push(window.setTimeout(() => {
-        runAnchor();
-        pendingInitialAnchorRef.current = null;
-      }, 520));
-    });
-
+    snapToBottom();
+    if (anchorTimerRef.current) clearTimeout(anchorTimerRef.current);
+    anchorTimerRef.current = setTimeout(() => {
+      snapToBottom();
+      pendingInitialAnchorRef.current = null;
+    }, 150);
     return () => {
-      cancelled = true;
-      cancelAnimationFrame(rafPrimary);
-      cancelAnimationFrame(rafSecondary);
-      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      if (anchorTimerRef.current) clearTimeout(anchorTimerRef.current);
     };
-  }, [conversation.id, messages, anchorConversationOnOpen]);
+  }, [conversation.id, messages, snapToBottom]);
 
   const filteredQuickReplies = getFilteredQuickReplies(allQuickReplies);
   useEffect(() => { setShowQuickReplies(input.startsWith("/") && filteredQuickReplies.length > 0); }, [input, filteredQuickReplies.length]);
