@@ -6,16 +6,16 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, Building2, User } from "lucide-react";
+import { Search, Building2, User, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STAGES = [
-  { key: "novo", label: "Novo Lead", dot: "#3b82f6" },
-  { key: "respondeu", label: "Respondeu", dot: "#06b6d4" },
-  { key: "interessado", label: "Interessado", dot: "#f59e0b" },
-  { key: "negociacao", label: "Negociação", dot: "#a855f7" },
-  { key: "fechado", label: "Fechado", dot: "#22c55e" },
-  { key: "perdido", label: "Perdido", dot: "#ef4444" },
+  { key: "novo", label: "Novo Lead", dot: "bg-blue-500" },
+  { key: "respondeu", label: "Respondeu", dot: "bg-cyan-500" },
+  { key: "interessado", label: "Interessado", dot: "bg-amber-500" },
+  { key: "negociacao", label: "Negociação", dot: "bg-purple-500" },
+  { key: "fechado", label: "Fechado", dot: "bg-emerald-500" },
+  { key: "perdido", label: "Perdido", dot: "bg-red-500" },
 ] as const;
 
 interface Lead {
@@ -32,9 +32,9 @@ interface Lead {
 }
 
 const TEMP_CONFIG: Record<string, { label: string; cls: string }> = {
-  frio:   { label: "Frio",   cls: "text-sky-600 bg-sky-50 border-sky-200/60" },
-  morno:  { label: "Morno",  cls: "text-amber-600 bg-amber-50 border-amber-200/60" },
-  quente: { label: "Quente", cls: "text-rose-600 bg-rose-50 border-rose-200/60" },
+  frio:   { label: "❄️ Frio",   cls: "text-sky-600 bg-sky-500/10 border-sky-500/20" },
+  morno:  { label: "🔥 Morno",  cls: "text-amber-600 bg-amber-500/10 border-amber-500/20" },
+  quente: { label: "🔥 Quente", cls: "text-rose-600 bg-rose-500/10 border-rose-500/20" },
 };
 
 function currency(v: number | null) {
@@ -95,21 +95,33 @@ export default function Pipeline() {
     if (error) { setLeads(prev); toast.error("Erro ao mover"); }
   };
 
+  const totalValue = filtered.reduce((s, l) => s + (l.estimated_value || 0), 0);
+
   return (
-    <div className="h-full flex flex-col gap-5">
+    <div className="h-full flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground tracking-tight">Pipeline de Vendas</h1>
+          <p className="text-sm text-muted-foreground">
+            {filtered.length} leads · {currency(totalValue) || "R$ 0"}
+          </p>
+        </div>
+      </div>
+
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar lead..."
-            className="pl-9 h-9 text-sm rounded-lg border-border/60 bg-background shadow-none focus-visible:border-primary/40 focus-visible:ring-1 focus-visible:ring-primary/20"
+            className="pl-9 h-9 text-sm rounded-xl border-border/40 bg-muted/20 shadow-none focus-visible:border-primary/40 focus-visible:ring-1 focus-visible:ring-primary/20"
           />
         </div>
         <Select value={respFilter} onValueChange={setRespFilter}>
-          <SelectTrigger className="w-[170px] h-9 text-sm rounded-lg border-border/60 bg-background shadow-none">
+          <SelectTrigger className="w-[160px] h-9 text-sm rounded-xl border-border/40 bg-muted/20 shadow-none">
             <SelectValue placeholder="Responsável" />
           </SelectTrigger>
           <SelectContent>
@@ -118,7 +130,7 @@ export default function Pipeline() {
           </SelectContent>
         </Select>
         <Select value={stageFilter} onValueChange={setStageFilter}>
-          <SelectTrigger className="w-[150px] h-9 text-sm rounded-lg border-border/60 bg-background shadow-none">
+          <SelectTrigger className="w-[140px] h-9 text-sm rounded-xl border-border/40 bg-muted/20 shadow-none">
             <SelectValue placeholder="Etapa" />
           </SelectTrigger>
           <SelectContent>
@@ -130,7 +142,7 @@ export default function Pipeline() {
 
       {/* Kanban */}
       <div className="overflow-x-auto flex-1 min-h-0 -mx-1 px-1">
-        <div className="inline-flex gap-3.5 min-w-full pb-4 h-full" style={{ minWidth: "1020px" }}>
+        <div className="inline-flex gap-3 min-w-full pb-4 h-full" style={{ minWidth: "1020px" }}>
           {STAGES.map((stage) => {
             const items = grouped[stage.key];
             const total = items.reduce((s, l) => s + (l.estimated_value || 0), 0);
@@ -151,28 +163,32 @@ export default function Pipeline() {
                 }}
               >
                 {/* Column header */}
-                <div className="flex items-center gap-2 px-1 mb-0.5">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: stage.dot }} />
-                  <span className="text-[13px] font-semibold text-foreground/80 uppercase tracking-wide">{stage.label}</span>
-                  <span className="ml-auto text-[11px] font-medium text-muted-foreground/50 tabular-nums">
+                <div className="flex items-center gap-2 px-2 mb-2">
+                  <span className={cn("w-2 h-2 rounded-full shrink-0", stage.dot)} />
+                  <span className="text-[12px] font-semibold text-foreground uppercase tracking-wider">
+                    {stage.label}
+                  </span>
+                  <span className="ml-auto text-[11px] font-bold text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded-md tabular-nums">
                     {items.length}
                   </span>
                 </div>
-                <p className="text-[11px] text-muted-foreground/40 mb-2.5 px-1 pl-5 tabular-nums h-4">
-                  {total > 0 ? currency(total) : ""}
-                </p>
+                {total > 0 && (
+                  <p className="text-[11px] text-emerald-500 font-semibold mb-2 px-2 tabular-nums">
+                    {currency(total)}
+                  </p>
+                )}
 
                 {/* Column body */}
                 <div
                   className={cn(
-                    "flex-1 rounded-xl p-2.5 overflow-y-auto transition-colors duration-200",
-                    "bg-muted/25 border border-border/25",
-                    isOver && "bg-primary/[0.04] border-primary/20"
+                    "flex-1 rounded-xl p-2 overflow-y-auto transition-all duration-200",
+                    "bg-muted/15 border border-border/30",
+                    isOver && "bg-primary/[0.06] border-primary/30 shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.1)]"
                   )}
                 >
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {items.length === 0 && !loading && (
-                      <p className="text-center text-[11px] text-muted-foreground/25 py-14 select-none">
+                      <p className="text-center text-[11px] text-muted-foreground/30 py-16 select-none">
                         Arraste leads aqui
                       </p>
                     )}
@@ -192,42 +208,42 @@ export default function Pipeline() {
                             e.dataTransfer.setData("text/plain", lead.id);
                           }}
                           className={cn(
-                            "bg-background rounded-lg border border-border/50 p-4 cursor-grab active:cursor-grabbing",
+                            "bg-card rounded-xl border border-border/40 p-3.5 cursor-grab active:cursor-grabbing",
                             "transition-all duration-150",
-                            "hover:shadow-[0_3px_12px_-3px_rgba(0,0,0,0.08)] hover:border-border/70",
-                            "active:scale-[0.98]"
+                            "hover:shadow-md hover:shadow-black/5 hover:border-border/60",
+                            "active:scale-[0.97]"
                           )}
                         >
                           {/* Name */}
-                          <p className="text-[14px] font-semibold text-foreground leading-snug truncate">
+                          <p className="text-[13px] font-semibold text-foreground leading-snug truncate">
                             {displayName}
                           </p>
 
                           {/* Company + Interest */}
                           {(lead.company || lead.interest) && (
                             <div className="flex items-center gap-1.5 mt-1.5">
-                              <Building2 className="w-3 h-3 text-muted-foreground/40 shrink-0" />
-                              <p className="text-[11.5px] text-muted-foreground/60 truncate leading-snug">
+                              <Building2 className="w-3 h-3 text-muted-foreground/35 shrink-0" />
+                              <p className="text-[11px] text-muted-foreground/60 truncate leading-snug">
                                 {[hasName ? lead.company : null, lead.interest].filter(Boolean).join(" · ") || lead.interest}
                               </p>
                             </div>
                           )}
 
-                          {/* Phone (always visible, discrete) */}
+                          {/* Phone */}
                           {lead.phone && (
-                            <p className="text-[11px] text-muted-foreground/40 mt-1 tabular-nums">
+                            <p className="text-[10px] text-muted-foreground/35 mt-1 tabular-nums">
                               {formatPhone(lead.phone)}
                             </p>
                           )}
 
                           {/* Divider */}
-                          <div className="border-t border-border/30 my-3" />
+                          <div className="border-t border-border/20 my-2.5" />
 
                           {/* Value + Temperature */}
                           <div className="flex items-center justify-between gap-2">
                             <span className={cn(
-                              "text-[13px] font-bold tabular-nums",
-                              val ? "text-emerald-600" : "text-muted-foreground/25"
+                              "text-[12px] font-bold tabular-nums",
+                              val ? "text-emerald-500" : "text-muted-foreground/20"
                             )}>
                               {val || "—"}
                             </span>
@@ -244,9 +260,9 @@ export default function Pipeline() {
 
                           {/* Responsible */}
                           {lead.responsible && (
-                            <div className="flex items-center gap-1.5 mt-2.5">
-                              <User className="w-3 h-3 text-muted-foreground/35 shrink-0" />
-                              <p className="text-[11px] text-muted-foreground/50 truncate">
+                            <div className="flex items-center gap-1.5 mt-2">
+                              <User className="w-3 h-3 text-muted-foreground/30 shrink-0" />
+                              <p className="text-[10px] text-muted-foreground/45 truncate">
                                 {lead.responsible}
                               </p>
                             </div>
