@@ -7,13 +7,7 @@ import {
   MessageSquareMore,
   Sparkles,
   CheckCircle2,
-  CalendarCheck,
   TrendingUp,
-  ArrowUpRight,
-  Clock,
-  Target,
-  Zap,
-  BarChart3,
   DollarSign,
   UserPlus,
   Reply,
@@ -30,49 +24,34 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { format, subDays, startOfDay, formatDistanceToNow } from "date-fns";
+import { format, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-/* ── Stat Card (colorful, reference-style) ── */
+/* ── Stat Card ── */
 function StatCard({
-  label,
-  value,
-  sub,
-  icon: Icon,
-  iconBg,
-  iconColor,
-  isLoading,
-  onClick,
+  label, value, sub, icon: Icon, iconBg, iconColor, isLoading, onClick,
 }: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  icon: React.ElementType;
-  iconBg: string;
-  iconColor: string;
-  isLoading: boolean;
-  onClick?: () => void;
+  label: string; value: string | number; sub?: string;
+  icon: React.ElementType; iconBg: string; iconColor: string;
+  isLoading: boolean; onClick?: () => void;
 }) {
   return (
     <button
       onClick={onClick}
       className={cn(
-        "relative text-left w-full rounded-xl border border-border/50 p-5 transition-all duration-200",
-        "bg-card hover:shadow-lg hover:shadow-black/5 hover:-translate-y-0.5",
-        "group"
+        "relative text-left w-full rounded-xl border border-border/40 p-5 transition-all duration-200",
+        "bg-card hover:border-border hover:shadow-lg hover:shadow-black/5 hover:-translate-y-0.5 group"
       )}
     >
       <div className="flex items-center justify-between mb-4">
-        <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", iconBg)}>
+        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", iconBg)}>
           <Icon className={cn("w-5 h-5", iconColor)} />
         </div>
-        <TrendingUp className="w-5 h-5 text-emerald-500 opacity-60" />
+        <TrendingUp className="w-5 h-5 text-emerald-500/60" />
       </div>
-
       <p className="text-xs text-muted-foreground font-medium mb-1">{label}</p>
-
       {isLoading ? (
         <>
           <Skeleton className="h-8 w-20 mb-1" />
@@ -80,12 +59,8 @@ function StatCard({
         </>
       ) : (
         <>
-          <p className="text-2xl font-bold text-foreground tracking-tight leading-none">
-            {value}
-          </p>
-          {sub && (
-            <p className="text-xs text-emerald-500 font-medium mt-1.5">{sub}</p>
-          )}
+          <p className="text-2xl font-bold text-foreground tracking-tight leading-none">{value}</p>
+          {sub && <p className="text-xs text-emerald-500 font-medium mt-1.5">{sub}</p>}
         </>
       )}
     </button>
@@ -93,49 +68,30 @@ function StatCard({
 }
 
 /* ── Activity Item ── */
-function ActivityItem({
-  icon: Icon,
-  iconBg,
-  iconColor,
-  title,
-  desc,
-  time,
-}: {
-  icon: React.ElementType;
-  iconBg: string;
-  iconColor: string;
-  title: string;
-  desc: string;
-  time: string;
+function ActivityItem({ icon: Icon, iconBg, iconColor, title, desc, time }: {
+  icon: React.ElementType; iconBg: string; iconColor: string;
+  title: string; desc: string; time: string;
 }) {
   return (
-    <div className="flex items-center gap-3 py-3 border-b border-border/30 last:border-0">
-      <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", iconBg)}>
-        <Icon className={cn("w-4 h-4", iconColor)} />
+    <div className="flex items-center gap-3 py-3.5 border-b border-border/20 last:border-0 hover:bg-muted/20 -mx-2 px-2 rounded-lg transition-colors">
+      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", iconBg)}>
+        <Icon className={cn("w-[18px] h-[18px]", iconColor)} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate">{title}</p>
-        <p className="text-xs text-muted-foreground truncate">{desc}</p>
+        <p className="text-sm font-semibold text-foreground truncate">{title}</p>
+        <p className="text-xs text-muted-foreground truncate mt-0.5">{desc}</p>
       </div>
-      <span className="text-xs text-muted-foreground/60 whitespace-nowrap shrink-0">{time}</span>
+      <span className="text-[11px] text-muted-foreground/50 whitespace-nowrap shrink-0">{time}</span>
     </div>
   );
 }
 
-/* ── Quick Stat (sidebar style with colored bar) ── */
-function QuickStat({
-  label,
-  value,
-  pct,
-  barColor,
-}: {
-  label: string;
-  value: string;
-  pct: number;
-  barColor: string;
+/* ── Quick Stat with colored bar ── */
+function QuickStat({ label, value, pct, barColor }: {
+  label: string; value: string; pct: number; barColor: string;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{label}</span>
         <span className="text-sm font-bold text-foreground">{value}</span>
@@ -151,26 +107,16 @@ function QuickStat({
 }
 
 /* ── Funnel Row ── */
-function FunnelItem({
-  name,
-  value,
-  maxVal,
-  color,
-}: {
-  name: string;
-  value: number;
-  maxVal: number;
-  color: string;
+function FunnelItem({ name, value, maxVal, color }: {
+  name: string; value: number; maxVal: number; color: string;
 }) {
   const pct = maxVal > 0 ? Math.round((value / maxVal) * 100) : 0;
   return (
     <div className="flex items-center gap-3">
       <span className="text-xs text-muted-foreground w-24 shrink-0 truncate">{name}</span>
       <div className="flex-1 h-2 bg-muted/20 rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-700 ease-out"
-          style={{ width: `${Math.max(pct, 4)}%`, background: color }}
-        />
+        <div className="h-full rounded-full transition-all duration-700 ease-out"
+          style={{ width: `${Math.max(pct, 4)}%`, background: color }} />
       </div>
       <span className="text-xs font-semibold text-foreground tabular-nums w-8 text-right">{value}</span>
     </div>
@@ -228,7 +174,6 @@ const CRMDashboard = () => {
       const stage = (l as any).pipeline_stage || "novo";
       stages[stage] = (stages[stage] || 0) + 1;
       pipelineValue += (l as any).estimated_value || 0;
-
       const d = new Date((l as any).created_at);
       if (d >= last7) {
         const key = format(d, "yyyy-MM-dd");
@@ -239,7 +184,6 @@ const CRMDashboard = () => {
     const responded = total - (stages["novo"] || 0);
     const interested = (stages["interessado"] || 0) + (stages["negociacao"] || 0) + (stages["fechado"] || 0);
     const closed = stages["fechado"] || 0;
-
     const responseRate = total > 0 ? Math.round((responded / total) * 100) : 0;
     const interestRate = total > 0 ? Math.round((interested / total) * 100) : 0;
     const closeRate = total > 0 ? Math.round((closed / total) * 100) : 0;
@@ -249,17 +193,12 @@ const CRMDashboard = () => {
       const d = subDays(new Date(), i);
       const key = format(d, "yyyy-MM-dd");
       const label = format(d, "EEE", { locale: ptBR }).replace(".", "");
-      dailyChart.push({
-        day: label.charAt(0).toUpperCase() + label.slice(1),
-        leads: dailyMap[key] || 0,
-      });
+      dailyChart.push({ day: label.charAt(0).toUpperCase() + label.slice(1), leads: dailyMap[key] || 0 });
     }
-
-    const totalValue = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(pipelineValue);
 
     return {
       total, responseRate, interestRate, closeRate, closed,
-      stages, dailyChart, schedules: scheduleCount, totalValue,
+      stages, dailyChart, schedules: scheduleCount,
       responded, interested, pipelineValue,
     };
   }, [leads, scheduleCount]);
@@ -288,83 +227,51 @@ const CRMDashboard = () => {
         <p className="text-sm text-muted-foreground mt-1">Visão geral do seu pipeline de vendas</p>
       </div>
 
-      {/* Stats Grid — 4 cards with different colors */}
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          label="Total de Leads"
-          value={m.total}
+        <StatCard label="Total de Leads" value={m.total}
           sub={`+${m.dailyChart.reduce((s, d) => s + d.leads, 0)} esta semana`}
-          icon={Users}
-          iconBg="bg-blue-500/15"
-          iconColor="text-blue-500"
-          isLoading={isLoading}
-          onClick={() => navigate("/dashboard/leads")}
-        />
-        <StatCard
-          label="Conversas Ativas"
-          value={m.responded}
+          icon={Users} iconBg="bg-blue-500/15" iconColor="text-blue-500"
+          isLoading={isLoading} onClick={() => navigate("/dashboard/leads")} />
+        <StatCard label="Conversas Ativas" value={m.responded}
           sub={`${m.responseRate}% de resposta`}
-          icon={MessageSquareMore}
-          iconBg="bg-emerald-500/15"
-          iconColor="text-emerald-500"
-          isLoading={isLoading}
-          onClick={() => navigate("/dashboard/conversations")}
-        />
-        <StatCard
-          label="Oportunidades"
-          value={m.interested}
+          icon={MessageSquareMore} iconBg="bg-emerald-500/15" iconColor="text-emerald-500"
+          isLoading={isLoading} onClick={() => navigate("/dashboard/conversations")} />
+        <StatCard label="Oportunidades" value={m.interested}
           sub={`${m.interestRate}% do total`}
-          icon={Sparkles}
-          iconBg="bg-purple-500/15"
-          iconColor="text-purple-500"
-          isLoading={isLoading}
-          onClick={() => navigate("/dashboard/pipeline")}
-        />
-        <StatCard
-          label="Conversões"
-          value={m.closed}
+          icon={Sparkles} iconBg="bg-purple-500/15" iconColor="text-purple-500"
+          isLoading={isLoading} onClick={() => navigate("/dashboard/pipeline")} />
+        <StatCard label="Conversões" value={m.closed}
           sub={`${m.closeRate}% de conversão`}
-          icon={CheckCircle2}
-          iconBg="bg-amber-500/15"
-          iconColor="text-amber-500"
-          isLoading={isLoading}
-        />
+          icon={CheckCircle2} iconBg="bg-amber-500/15" iconColor="text-amber-500"
+          isLoading={isLoading} />
       </div>
 
       {/* Content: Activity + Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Recent Activity — larger block */}
-        <div className="lg:col-span-7 rounded-xl border border-border/50 bg-card p-5">
-          <div className="flex items-center justify-between mb-4">
+        {/* Recent Activity */}
+        <div className="lg:col-span-7 rounded-xl border border-border/40 bg-card p-5">
+          <div className="flex items-center justify-between mb-2">
             <h2 className="text-base font-semibold text-foreground">Atividade do CRM</h2>
-            <button
-              onClick={() => navigate("/dashboard/leads")}
-              className="text-xs font-medium text-primary hover:underline"
-            >
-              Ver todos
-            </button>
+            <button onClick={() => navigate("/dashboard/leads")}
+              className="text-xs font-medium text-primary hover:underline">Ver todos</button>
           </div>
-          <div>
-            {activities.map((a, i) => (
-              <ActivityItem key={i} {...a} />
-            ))}
-          </div>
+          <div>{activities.map((a, i) => <ActivityItem key={i} {...a} />)}</div>
         </div>
 
-        {/* Sidebar: Quick Stats + Top Pipeline */}
+        {/* Sidebar */}
         <div className="lg:col-span-5 space-y-4">
-          {/* Métricas do CRM */}
-          <div className="rounded-xl border border-border/50 bg-card p-5">
+          <div className="rounded-xl border border-border/40 bg-card p-5">
             <h2 className="text-base font-semibold text-foreground mb-5">Métricas do CRM</h2>
-            <div className="space-y-4">
+            <div className="space-y-5">
               <QuickStat label="Taxa de Resposta" value={`${m.responseRate}%`} pct={m.responseRate} barColor="#3b82f6" />
               <QuickStat label="Conversão" value={`${m.closeRate}%`} pct={m.closeRate} barColor="#f59e0b" />
-              <QuickStat label="Leads Ativos" value={`${m.total - m.closed}`} pct={m.total > 0 ? ((m.total - m.closed) / m.total) * 100 : 0} barColor="#10b981" />
+              <QuickStat label="Leads Ativos" value={`${m.total - m.closed}`}
+                pct={m.total > 0 ? ((m.total - m.closed) / m.total) * 100 : 0} barColor="#10b981" />
             </div>
           </div>
 
-          {/* Funil Pipeline */}
-          <div className="rounded-xl border border-border/50 bg-card p-5">
+          <div className="rounded-xl border border-border/40 bg-card p-5">
             <h2 className="text-base font-semibold text-foreground mb-4">Funil de Vendas</h2>
             <div className="space-y-3">
               {pipeline.map((s) => (
@@ -376,7 +283,7 @@ const CRMDashboard = () => {
       </div>
 
       {/* Chart */}
-      <div className="rounded-xl border border-border/50 bg-card p-5">
+      <div className="rounded-xl border border-border/40 bg-card p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-base font-semibold text-foreground">Novos Leads</h2>
@@ -402,25 +309,14 @@ const CRMDashboard = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.4} />
                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{
-                    background: "hsl(var(--popover))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: 12,
-                    fontSize: 12,
-                    color: "hsl(var(--foreground))",
-                    boxShadow: "0 8px 24px -4px rgba(0,0,0,0.15)",
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="leads"
-                  stroke="#3b82f6"
-                  strokeWidth={2.5}
-                  fill="url(#crmGrad)"
+                <Tooltip contentStyle={{
+                  background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))",
+                  borderRadius: 12, fontSize: 12, color: "hsl(var(--foreground))",
+                  boxShadow: "0 8px 24px -4px rgba(0,0,0,0.15)",
+                }} />
+                <Area type="monotone" dataKey="leads" stroke="#3b82f6" strokeWidth={2.5} fill="url(#crmGrad)"
                   dot={{ r: 4, fill: "#3b82f6", strokeWidth: 2, stroke: "hsl(var(--card))" }}
-                  activeDot={{ r: 6, strokeWidth: 2 }}
-                />
+                  activeDot={{ r: 6, strokeWidth: 2 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
