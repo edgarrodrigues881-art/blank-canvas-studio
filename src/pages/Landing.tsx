@@ -86,7 +86,7 @@ const SectionSub = ({ children }: { children: React.ReactNode }) => (
 const Hero = () => {
   const navigate = useNavigate();
   return (
-    <section className="relative pt-28 md:pt-40 pb-14 md:pb-20 px-5 text-center overflow-hidden">
+    <section className="relative pt-28 md:pt-40 pb-10 md:pb-14 px-5 text-center overflow-hidden">
       {/* Radial glow behind title */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] pointer-events-none" aria-hidden>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.12)_0%,transparent_70%)]" />
@@ -107,13 +107,42 @@ const Hero = () => {
           <motion.p variants={fadeUp} className="text-base sm:text-lg md:text-xl text-white/40 max-w-xl mx-auto mb-10 leading-relaxed font-medium">
             Aquecimento, disparo e monitoramento em uma única plataforma. Escale com organização e reduza riscos.
           </motion.p>
-          <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10 md:mb-14">
             <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-white text-sm font-semibold px-8 h-12 gap-2 shadow-lg shadow-[hsl(var(--primary))]/20">
               Começar agora <ArrowRight className="w-4 h-4" />
             </Button>
             <Button size="lg" variant="outline" onClick={() => document.getElementById("planos")?.scrollIntoView({ behavior: "smooth" })} className="bg-transparent border-white/10 text-white/70 hover:text-white hover:bg-white/5 text-sm font-semibold px-8 h-12">
               Ver planos
             </Button>
+          </motion.div>
+
+          <motion.div variants={fadeUp} className="relative max-w-6xl mx-auto">
+            <div className="absolute inset-x-[10%] top-[8%] h-[48%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.16)_0%,transparent_72%)] blur-[70px] pointer-events-none" />
+            <div className="relative rounded-[28px] border border-white/[0.08] bg-white/[0.03] p-3 md:p-5 shadow-2xl shadow-black/40 overflow-hidden">
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_30%)] pointer-events-none" />
+              <Player
+                component={HeroDeviceAssemble}
+                durationInFrames={120}
+                fps={30}
+                compositionWidth={960}
+                compositionHeight={540}
+                autoPlay
+                loop
+                controls={false}
+                inputProps={{
+                  screenshotSrc: appScreenshot,
+                  accentColor: "hsl(var(--primary))",
+                  device: "laptop",
+                }}
+                style={{
+                  width: "100%",
+                  aspectRatio: "16 / 9",
+                  borderRadius: 20,
+                  overflow: "hidden",
+                  background: "transparent",
+                }}
+              />
+            </div>
           </motion.div>
         </motion.div>
       </div>
@@ -122,38 +151,7 @@ const Hero = () => {
 };
 
 // ─── Dashboard Preview ───
-const DashboardPreview = () => (
-  <Section>
-    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }} variants={fadeUp} className="relative max-w-6xl mx-auto">
-      <div className="absolute inset-x-[10%] top-[8%] h-[48%] bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.16)_0%,transparent_72%)] blur-[70px] pointer-events-none" />
-      <div className="relative rounded-[28px] border border-white/[0.08] bg-white/[0.03] p-3 md:p-5 shadow-2xl shadow-black/40 overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_30%)] pointer-events-none" />
-        <Player
-          component={HeroDeviceAssemble}
-          durationInFrames={120}
-          fps={30}
-          compositionWidth={960}
-          compositionHeight={540}
-          autoPlay
-          loop
-          controls={false}
-          inputProps={{
-            screenshotSrc: appScreenshot,
-            accentColor: "hsl(var(--primary))",
-            device: "laptop",
-          }}
-          style={{
-            width: "100%",
-            aspectRatio: "16 / 9",
-            borderRadius: 20,
-            overflow: "hidden",
-            background: "transparent",
-          }}
-        />
-      </div>
-    </motion.div>
-  </Section>
-);
+const DashboardPreview = () => null;
 
 // ─── 2. Benefícios ───
 const benefits = [
