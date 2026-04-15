@@ -16,8 +16,8 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
