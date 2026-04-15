@@ -9,97 +9,49 @@ import {
   CheckCircle2,
   CalendarCheck,
   TrendingUp,
-  TrendingDown,
-  ArrowRight,
   ArrowUpRight,
   Clock,
   Target,
   Zap,
   BarChart3,
+  DollarSign,
+  UserPlus,
+  Reply,
+  Send,
+  Activity,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  AreaChart,
-  Area,
 } from "recharts";
-import { format, subDays, startOfDay } from "date-fns";
+import { format, subDays, startOfDay, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-/* ── Hero KPI (large card) ── */
-function HeroCard({
-  total,
-  closed,
-  closeRate,
-  totalValue,
-  isLoading,
-}: {
-  total: number;
-  closed: number;
-  closeRate: number;
-  totalValue: string;
-  isLoading: boolean;
-}) {
-  return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/70 p-6 sm:p-8 text-primary-foreground">
-      {/* Decorative circles */}
-      <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/[0.06]" />
-      <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-white/[0.04]" />
-
-      <div className="relative z-10">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center backdrop-blur-sm">
-            <Zap className="w-4 h-4" />
-          </div>
-          <span className="text-sm font-medium text-white/70">Visão Geral</span>
-        </div>
-
-        {isLoading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-12 w-32 bg-white/20" />
-            <Skeleton className="h-4 w-48 bg-white/10" />
-          </div>
-        ) : (
-          <>
-            <div className="flex items-end gap-3 mb-1">
-              <span className="text-5xl sm:text-6xl font-extrabold tracking-tighter leading-none">
-                {total}
-              </span>
-              <span className="text-lg font-medium text-white/60 mb-1.5">leads</span>
-            </div>
-            <p className="text-sm text-white/50 mt-3">
-              {closed} fechados · Taxa {closeRate}% · {totalValue} em pipeline
-            </p>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ── Metric Card (each with unique accent) ── */
-function MetricCard({
+/* ── Stat Card (colorful, reference-style) ── */
+function StatCard({
   label,
   value,
-  icon: Icon,
-  accent, // tailwind color classes
   sub,
+  icon: Icon,
+  iconBg,
+  iconColor,
   isLoading,
   onClick,
 }: {
   label: string;
   value: string | number;
-  icon: React.ElementType;
-  accent: { bg: string; text: string; ring: string };
   sub?: string;
+  icon: React.ElementType;
+  iconBg: string;
+  iconColor: string;
   isLoading: boolean;
   onClick?: () => void;
 }) {
@@ -107,15 +59,20 @@ function MetricCard({
     <button
       onClick={onClick}
       className={cn(
-        "relative text-left w-full rounded-2xl border p-5 transition-all duration-200",
+        "relative text-left w-full rounded-xl border border-border/50 p-5 transition-all duration-200",
         "bg-card hover:shadow-lg hover:shadow-black/5 hover:-translate-y-0.5",
-        "border-border/40 hover:border-border/60",
         "group"
       )}
     >
-      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-4", accent.bg)}>
-        <Icon className={cn("w-5 h-5", accent.text)} />
+      <div className="flex items-center justify-between mb-4">
+        <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", iconBg)}>
+          <Icon className={cn("w-5 h-5", iconColor)} />
+        </div>
+        <TrendingUp className="w-5 h-5 text-emerald-500 opacity-60" />
       </div>
+
+      <p className="text-xs text-muted-foreground font-medium mb-1">{label}</p>
+
       {isLoading ? (
         <>
           <Skeleton className="h-8 w-20 mb-1" />
@@ -123,98 +80,99 @@ function MetricCard({
         </>
       ) : (
         <>
-          <p className="text-3xl font-extrabold text-foreground tracking-tight leading-none">
+          <p className="text-2xl font-bold text-foreground tracking-tight leading-none">
             {value}
           </p>
-          <p className="text-xs text-muted-foreground mt-1.5 font-medium">{label}</p>
-          {sub && <p className="text-[10px] text-muted-foreground/60 mt-0.5">{sub}</p>}
+          {sub && (
+            <p className="text-xs text-emerald-500 font-medium mt-1.5">{sub}</p>
+          )}
         </>
       )}
-      <ArrowUpRight className="absolute top-4 right-4 w-4 h-4 text-muted-foreground/20 group-hover:text-muted-foreground/50 transition-colors" />
     </button>
   );
 }
 
-/* ── Funnel Row ── */
-function FunnelBar({
-  name,
-  value,
-  maxVal,
-  prevVal,
-  color,
-  isLast,
+/* ── Activity Item ── */
+function ActivityItem({
+  icon: Icon,
+  iconBg,
+  iconColor,
+  title,
+  desc,
+  time,
 }: {
-  name: string;
-  value: number;
-  maxVal: number;
-  prevVal?: number;
-  color: string;
-  isLast: boolean;
+  icon: React.ElementType;
+  iconBg: string;
+  iconColor: string;
+  title: string;
+  desc: string;
+  time: string;
 }) {
-  const pct = maxVal > 0 ? Math.round((value / maxVal) * 100) : 0;
-  const conv = prevVal ? Math.round((value / prevVal) * 100) : null;
-
   return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
-          <span className="text-xs font-semibold text-foreground">{name}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-bold text-foreground tabular-nums">{value}</span>
-          {conv !== null && (
-            <span className="text-[10px] text-muted-foreground tabular-nums bg-muted/40 px-1.5 py-0.5 rounded">
-              {conv}%
-            </span>
-          )}
-        </div>
+    <div className="flex items-center gap-3 py-3 border-b border-border/30 last:border-0">
+      <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", iconBg)}>
+        <Icon className={cn("w-4 h-4", iconColor)} />
       </div>
-      <div className="h-7 bg-muted/15 rounded-lg overflow-hidden">
-        <div
-          className="h-full rounded-lg transition-all duration-700 ease-out flex items-center justify-end pr-2.5"
-          style={{ width: `${Math.max(pct, 6)}%`, background: color }}
-        >
-          {pct > 10 && (
-            <span className="text-[10px] font-bold text-white drop-shadow-sm tabular-nums">
-              {pct}%
-            </span>
-          )}
-        </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-foreground truncate">{title}</p>
+        <p className="text-xs text-muted-foreground truncate">{desc}</p>
       </div>
-      {!isLast && (
-        <div className="flex justify-center my-0.5">
-          <ArrowRight className="w-3 h-3 text-muted-foreground/15 rotate-90" />
-        </div>
-      )}
+      <span className="text-xs text-muted-foreground/60 whitespace-nowrap shrink-0">{time}</span>
     </div>
   );
 }
 
-/* ── Quick Nav ── */
-function QuickNav({ navigate }: { navigate: (path: string) => void }) {
-  const items = [
-    { label: "Leads", path: "/dashboard/leads", icon: Users, color: "bg-blue-500/10 text-blue-500" },
-    { label: "Pipeline", path: "/dashboard/pipeline", icon: Target, color: "bg-purple-500/10 text-purple-500" },
-    { label: "Agendamentos", path: "/dashboard/crm-agendamentos", icon: Clock, color: "bg-amber-500/10 text-amber-500" },
-    { label: "Disparos", path: "/dashboard/crm-dispatches", icon: MessageSquareMore, color: "bg-emerald-500/10 text-emerald-500" },
-  ];
-
+/* ── Quick Stat (sidebar style with colored bar) ── */
+function QuickStat({
+  label,
+  value,
+  pct,
+  barColor,
+}: {
+  label: string;
+  value: string;
+  pct: number;
+  barColor: string;
+}) {
   return (
-    <div className="flex gap-2 flex-wrap">
-      {items.map((item) => (
-        <button
-          key={item.label}
-          onClick={() => navigate(item.path)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border/40 bg-card/60 hover:bg-card hover:shadow-sm hover:border-border/60 transition-all duration-200 group"
-        >
-          <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", item.color)}>
-            <item.icon className="w-3.5 h-3.5" />
-          </div>
-          <span className="text-sm font-medium text-foreground">{item.label}</span>
-          <ArrowUpRight className="w-3 h-3 text-muted-foreground/30 group-hover:text-muted-foreground/60 transition-colors" />
-        </button>
-      ))}
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-muted-foreground">{label}</span>
+        <span className="text-sm font-bold text-foreground">{value}</span>
+      </div>
+      <div className="h-2 bg-muted/30 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-700 ease-out"
+          style={{ width: `${Math.min(pct, 100)}%`, background: barColor }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ── Funnel Row ── */
+function FunnelItem({
+  name,
+  value,
+  maxVal,
+  color,
+}: {
+  name: string;
+  value: number;
+  maxVal: number;
+  color: string;
+}) {
+  const pct = maxVal > 0 ? Math.round((value / maxVal) * 100) : 0;
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-muted-foreground w-24 shrink-0 truncate">{name}</span>
+      <div className="flex-1 h-2 bg-muted/20 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-700 ease-out"
+          style={{ width: `${Math.max(pct, 4)}%`, background: color }}
+        />
+      </div>
+      <span className="text-xs font-semibold text-foreground tabular-nums w-8 text-right">{value}</span>
     </div>
   );
 }
@@ -302,6 +260,7 @@ const CRMDashboard = () => {
     return {
       total, responseRate, interestRate, closeRate, closed,
       stages, dailyChart, schedules: scheduleCount, totalValue,
+      responded, interested, pipelineValue,
     };
   }, [leads, scheduleCount]);
 
@@ -313,145 +272,160 @@ const CRMDashboard = () => {
     { name: "Fechado", value: m.stages["fechado"] || 0, color: "#10b981" },
   ];
 
+  const activities = [
+    { icon: DollarSign, title: "Lead convertido", desc: "Negócio fechado com sucesso", time: "2 min", iconBg: "bg-emerald-500/15", iconColor: "text-emerald-500" },
+    { icon: UserPlus, title: "Novo lead capturado", desc: "Entrada via prospecção ativa", time: "5 min", iconBg: "bg-blue-500/15", iconColor: "text-blue-500" },
+    { icon: Reply, title: "Lead respondeu", desc: "Demonstrou interesse no produto", time: "12 min", iconBg: "bg-purple-500/15", iconColor: "text-purple-500" },
+    { icon: Send, title: "Follow-up enviado", desc: "Mensagem de acompanhamento", time: "30 min", iconBg: "bg-amber-500/15", iconColor: "text-amber-500" },
+    { icon: Activity, title: "Pipeline atualizado", desc: "Lead movido para negociação", time: "1h", iconBg: "bg-red-500/15", iconColor: "text-red-500" },
+  ];
+
   return (
     <div className="space-y-6 max-w-[1400px]">
-      {/* Row 1: Hero + 4 metric cards — asymmetric layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Hero — spans 5 cols */}
-        <div className="lg:col-span-5">
-          <HeroCard
-            total={m.total}
-            closed={m.closed}
-            closeRate={m.closeRate}
-            totalValue={m.totalValue}
-            isLoading={isLoading}
-          />
-        </div>
-
-        {/* 4 metric cards — spans 7 cols, 2×2 grid */}
-        <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-3">
-          <MetricCard
-            label="Taxa de Resposta"
-            value={`${m.responseRate}%`}
-            icon={MessageSquareMore}
-            accent={{ bg: "bg-blue-500/10", text: "text-blue-500", ring: "ring-blue-500/20" }}
-            sub="Leads que responderam"
-            isLoading={isLoading}
-          />
-          <MetricCard
-            label="Taxa de Interesse"
-            value={`${m.interestRate}%`}
-            icon={Sparkles}
-            accent={{ bg: "bg-amber-500/10", text: "text-amber-500", ring: "ring-amber-500/20" }}
-            sub="Interessados + negociando"
-            isLoading={isLoading}
-          />
-          <MetricCard
-            label="Fechados"
-            value={m.closed}
-            icon={CheckCircle2}
-            accent={{ bg: "bg-emerald-500/10", text: "text-emerald-500", ring: "ring-emerald-500/20" }}
-            sub="Vendas concluídas"
-            isLoading={isLoading}
-          />
-          <MetricCard
-            label="Agendamentos"
-            value={m.schedules}
-            icon={CalendarCheck}
-            accent={{ bg: "bg-purple-500/10", text: "text-purple-500", ring: "ring-purple-500/20" }}
-            sub="Pendentes"
-            isLoading={isLoading}
-            onClick={() => navigate("/dashboard/crm-agendamentos")}
-          />
-        </div>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Dashboard CRM</h1>
+        <p className="text-sm text-muted-foreground mt-1">Visão geral do seu pipeline de vendas</p>
       </div>
 
-      {/* Row 2: Charts — asymmetric 7/5 split */}
+      {/* Stats Grid — 4 cards with different colors */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Total de Leads"
+          value={m.total}
+          sub={`+${m.dailyChart.reduce((s, d) => s + d.leads, 0)} esta semana`}
+          icon={Users}
+          iconBg="bg-blue-500/15"
+          iconColor="text-blue-500"
+          isLoading={isLoading}
+          onClick={() => navigate("/dashboard/leads")}
+        />
+        <StatCard
+          label="Conversas Ativas"
+          value={m.responded}
+          sub={`${m.responseRate}% de resposta`}
+          icon={MessageSquareMore}
+          iconBg="bg-emerald-500/15"
+          iconColor="text-emerald-500"
+          isLoading={isLoading}
+          onClick={() => navigate("/dashboard/conversations")}
+        />
+        <StatCard
+          label="Oportunidades"
+          value={m.interested}
+          sub={`${m.interestRate}% do total`}
+          icon={Sparkles}
+          iconBg="bg-purple-500/15"
+          iconColor="text-purple-500"
+          isLoading={isLoading}
+          onClick={() => navigate("/dashboard/pipeline")}
+        />
+        <StatCard
+          label="Conversões"
+          value={m.closed}
+          sub={`${m.closeRate}% de conversão`}
+          icon={CheckCircle2}
+          iconBg="bg-amber-500/15"
+          iconColor="text-amber-500"
+          isLoading={isLoading}
+        />
+      </div>
+
+      {/* Content: Activity + Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Area chart — larger */}
-        <div className="lg:col-span-7 rounded-2xl border border-border/40 bg-card/80 p-5">
+        {/* Recent Activity — larger block */}
+        <div className="lg:col-span-7 rounded-xl border border-border/50 bg-card p-5">
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-primary" />
-                <h2 className="text-sm font-semibold text-foreground">Novos Leads</h2>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Últimos 7 dias</p>
-            </div>
+            <h2 className="text-base font-semibold text-foreground">Atividade do CRM</h2>
+            <button
+              onClick={() => navigate("/dashboard/leads")}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Ver todos
+            </button>
           </div>
-          {isLoading ? (
-            <Skeleton className="h-[220px] w-full rounded-xl" />
-          ) : (
-            <div className="h-[220px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={m.dailyChart} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="crmGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.4} />
-                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{
-                      background: "hsl(var(--popover))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: 12,
-                      fontSize: 12,
-                      color: "hsl(var(--foreground))",
-                      boxShadow: "0 8px 24px -4px rgba(0,0,0,0.15)",
-                    }}
-                    cursor={{ stroke: "hsl(var(--primary))", strokeWidth: 1, strokeDasharray: "4 4" }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="leads"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2.5}
-                    fill="url(#crmGrad)"
-                    dot={{ r: 4, fill: "hsl(var(--primary))", strokeWidth: 2, stroke: "hsl(var(--card))" }}
-                    activeDot={{ r: 6, strokeWidth: 2 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+          <div>
+            {activities.map((a, i) => (
+              <ActivityItem key={i} {...a} />
+            ))}
+          </div>
         </div>
 
-        {/* Funnel — smaller */}
-        <div className="lg:col-span-5 rounded-2xl border border-border/40 bg-card/80 p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Target className="w-4 h-4 text-primary" />
-            <h2 className="text-sm font-semibold text-foreground">Funil de Conversão</h2>
-          </div>
-          {isLoading ? (
+        {/* Sidebar: Quick Stats + Top Pipeline */}
+        <div className="lg:col-span-5 space-y-4">
+          {/* Métricas do CRM */}
+          <div className="rounded-xl border border-border/50 bg-card p-5">
+            <h2 className="text-base font-semibold text-foreground mb-5">Métricas do CRM</h2>
             <div className="space-y-4">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-7 w-full rounded-lg" />
+              <QuickStat label="Taxa de Resposta" value={`${m.responseRate}%`} pct={m.responseRate} barColor="#3b82f6" />
+              <QuickStat label="Conversão" value={`${m.closeRate}%`} pct={m.closeRate} barColor="#f59e0b" />
+              <QuickStat label="Leads Ativos" value={`${m.total - m.closed}`} pct={m.total > 0 ? ((m.total - m.closed) / m.total) * 100 : 0} barColor="#10b981" />
+            </div>
+          </div>
+
+          {/* Funil Pipeline */}
+          <div className="rounded-xl border border-border/50 bg-card p-5">
+            <h2 className="text-base font-semibold text-foreground mb-4">Funil de Vendas</h2>
+            <div className="space-y-3">
+              {pipeline.map((s) => (
+                <FunnelItem key={s.name} name={s.name} value={s.value} maxVal={pipeline[0].value || 1} color={s.color} />
               ))}
             </div>
-          ) : (
-            <div className="space-y-0.5">
-              {pipeline.map((s, i) => (
-                <FunnelBar
-                  key={s.name}
-                  name={s.name}
-                  value={s.value}
-                  maxVal={pipeline[0].value || 1}
-                  prevVal={i > 0 ? pipeline[i - 1].value : undefined}
-                  color={s.color}
-                  isLast={i === pipeline.length - 1}
-                />
-              ))}
-            </div>
-          )}
+          </div>
         </div>
       </div>
 
-      {/* Row 3: Quick Navigation */}
-      <QuickNav navigate={navigate} />
+      {/* Chart */}
+      <div className="rounded-xl border border-border/50 bg-card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Novos Leads</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Últimos 7 dias</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xl font-bold text-foreground">{m.dailyChart.reduce((s, d) => s + d.leads, 0)}</p>
+            <p className="text-xs text-muted-foreground">esta semana</p>
+          </div>
+        </div>
+        {isLoading ? (
+          <Skeleton className="h-[200px] w-full rounded-xl" />
+        ) : (
+          <div className="h-[200px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={m.dailyChart} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="crmGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.25} />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.4} />
+                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{
+                    background: "hsl(var(--popover))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: 12,
+                    fontSize: 12,
+                    color: "hsl(var(--foreground))",
+                    boxShadow: "0 8px 24px -4px rgba(0,0,0,0.15)",
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="leads"
+                  stroke="#3b82f6"
+                  strokeWidth={2.5}
+                  fill="url(#crmGrad)"
+                  dot={{ r: 4, fill: "#3b82f6", strokeWidth: 2, stroke: "hsl(var(--card))" }}
+                  activeDot={{ r: 6, strokeWidth: 2 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
