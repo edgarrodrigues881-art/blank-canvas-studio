@@ -521,6 +521,7 @@ export function ChatPanel({
               )}
               <MessageBubble
                 msg={msg}
+                allMessages={messages}
                 showDeviceLabel={showDevice}
                 onReply={handleReply}
                 onImageClick={setLightboxUrl}
