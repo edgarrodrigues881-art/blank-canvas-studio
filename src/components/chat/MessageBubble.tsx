@@ -235,21 +235,46 @@ function MsgFooter({ msg, inline }: { msg: Message; inline?: boolean }) {
   );
 }
 
-function QuotedBlock({ msg, onScrollToQuoted }: { msg: Message; onScrollToQuoted?: (quotedId: string) => void }) {
+function QuotedBlock({ msg, onScrollToQuoted, allMessages }: { msg: Message; onScrollToQuoted?: (quotedId: string) => void; allMessages?: Message[] }) {
   if (!msg.quotedContent && !msg.quotedMessageId) return null;
   const isClickable = !!msg.quotedMessageId && !!onScrollToQuoted;
+
+  // Find quoted message to show media thumbnail
+  const quotedMsg = allMessages?.find(
+    (m) => m.whatsappMessageId === msg.quotedMessageId || m.id === msg.quotedMessageId
+  );
+  const quotedMediaUrl = quotedMsg?.mediaUrl;
+  const quotedMediaType = quotedMsg?.mediaType;
+  const hasMediaThumb = quotedMediaUrl && (quotedMediaType === "image" || quotedMediaType === "video" || quotedMediaType === "sticker");
+
+  // Determine display text
+  let displayText = msg.quotedContent || quotedMsg?.content || "";
+  if (!displayText && quotedMediaType) {
+    const mediaLabels: Record<string, string> = { image: "📷 Foto", video: "🎥 Vídeo", audio: "🎤 Áudio", sticker: "🏷️ Figurinha", document: "📄 Documento" };
+    displayText = mediaLabels[quotedMediaType] || "Mídia";
+  }
+  if (!displayText) displayText = "...";
+
   return (
     <div
       onClick={isClickable ? (e) => { e.stopPropagation(); onScrollToQuoted!(msg.quotedMessageId!); } : undefined}
       className={cn(
-        "rounded-lg px-2.5 py-1.5 mb-1.5 border-l-2 text-[11px] leading-snug",
+        "rounded-lg px-2.5 py-1.5 mb-1.5 border-l-2 text-[11px] leading-snug flex items-center gap-2",
         msg.type === "sent"
           ? "bg-primary-foreground/8 border-l-primary-foreground/30 text-primary-foreground/65"
           : "bg-muted/50 border-l-primary/40 text-muted-foreground",
         isClickable && "cursor-pointer hover:opacity-80 active:opacity-60 transition-opacity"
       )}
     >
-      <p className="truncate">{msg.quotedContent || "..."}</p>
+      <p className="truncate flex-1 min-w-0">{displayText}</p>
+      {hasMediaThumb && (
+        <img
+          src={quotedMediaUrl}
+          alt=""
+          className="w-10 h-10 rounded object-cover shrink-0"
+          loading="lazy"
+        />
+      )}
     </div>
   );
 }
