@@ -442,8 +442,8 @@ const Conversations = () => {
             }}
           >
             {/* Clean top header */}
-            <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/30 shrink-0 bg-card/30">
-              <h2 className="text-base font-bold text-foreground tracking-tight">Atendimento</h2>
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/20 shrink-0 bg-card/40 backdrop-blur-sm">
+              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Atendimento</h2>
               <div className="flex items-center gap-0.5">
                 {availableInstances.length >= 1 && (
                   <DropdownMenu>
@@ -521,9 +521,9 @@ const Conversations = () => {
                 */}
                 <button
                   onClick={() => setNewConversationOpen(true)}
-                  className="inline-flex items-center gap-1 h-[28px] px-2.5 rounded-md bg-primary text-primary-foreground text-[11px] font-medium hover:bg-primary/85 transition-colors ml-1 shrink-0"
+                  className="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-lg bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90 transition-all duration-150 ml-1 shrink-0 shadow-sm shadow-primary/15"
                 >
-                  <MessageSquarePlus className="w-3 h-3" />
+                  <MessageSquarePlus className="w-3.5 h-3.5" />
                   Nova
                 </button>
               </div>
@@ -548,7 +548,7 @@ const Conversations = () => {
           </div>
 
           {/* Fixed divider */}
-          <div className="hidden md:block w-px bg-border/50 shrink-0" />
+          <div className="hidden md:block w-px bg-border/20 shrink-0" />
 
           {selectedConversation ? (
             <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
@@ -576,19 +576,19 @@ const Conversations = () => {
               />
             </div>
           ) : (
-            <div className="hidden md:flex flex-col flex-1 items-center justify-center bg-muted/3">
-              <div className="flex flex-col items-center gap-5 text-center max-w-sm px-6">
-                <div className="w-20 h-20 rounded-full bg-muted/20 flex items-center justify-center">
-                  <MessageSquarePlus className="w-10 h-10 text-muted-foreground/25" />
+            <div className="hidden md:flex flex-col flex-1 items-center justify-center bg-gradient-to-b from-background to-muted/5">
+              <div className="flex flex-col items-center gap-6 text-center max-w-sm px-6">
+                <div className="w-20 h-20 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center">
+                  <MessageSquarePlus className="w-9 h-9 text-primary/30" />
                 </div>
-                <div className="space-y-1.5">
-                  <h2 className="text-lg font-semibold text-foreground/70">Selecione uma conversa</h2>
-                  <p className="text-[13px] text-muted-foreground/50 leading-relaxed">
+                <div className="space-y-2">
+                  <h2 className="text-xl font-semibold text-foreground/80 tracking-tight">Selecione uma conversa</h2>
+                  <p className="text-sm text-muted-foreground/50 leading-relaxed">
                     Escolha uma conversa da lista ao lado para começar a atender.
                   </p>
                 </div>
-                <p className="text-[11px] text-muted-foreground/30 flex items-center gap-1.5 mt-2">
-                  🔒 Suas mensagens são protegidas com criptografia de ponta a ponta.
+                <p className="text-[11px] text-muted-foreground/25 flex items-center gap-1.5 mt-1">
+                  🔒 Mensagens protegidas com criptografia de ponta a ponta
                 </p>
               </div>
             </div>

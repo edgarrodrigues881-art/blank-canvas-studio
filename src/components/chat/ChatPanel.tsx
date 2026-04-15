@@ -436,7 +436,7 @@ export function ChatPanel({
         ref={scrollRef}
         onScroll={handleScroll}
         className="absolute inset-0 overflow-y-auto px-3 py-4 space-y-0.5"
-        style={{ backgroundImage: "radial-gradient(circle at 1px 1px, hsl(var(--muted) / 0.3) 1px, transparent 0)", backgroundSize: "32px 32px", scrollBehavior: "smooth" }}
+        style={{ backgroundImage: "radial-gradient(circle at 1px 1px, hsl(var(--muted) / 0.15) 1px, transparent 0)", backgroundSize: "28px 28px", scrollBehavior: "smooth" }}
       >
         {messages.map((msg, i) => {
           const showDate = i === 0 || format(new Date(messages[i - 1].timestamp), "dd/MM/yyyy") !== format(new Date(msg.timestamp), "dd/MM/yyyy");
@@ -581,7 +581,7 @@ export function ChatPanel({
       )}
 
       {/* Instance Selector + Input Area */}
-      <div className="border-t border-border/40 bg-card/30 shrink-0 min-w-0 max-w-full pb-[env(safe-area-inset-bottom,0px)]">
+      <div className="border-t border-border/30 bg-card/50 backdrop-blur-sm shrink-0 min-w-0 max-w-full pb-[env(safe-area-inset-bottom,0px)]">
         {instances && instances.filter(i => i.deviceName).length > 1 && (
           <div className="flex items-center gap-1.5 px-4 pt-1.5 pb-0">
             <span className="text-[9px] text-muted-foreground/50 shrink-0">via:</span>
@@ -618,7 +618,7 @@ export function ChatPanel({
                 ))}
               </div>
             </div>
-            <Button size="icon" className="w-10 h-10 shrink-0 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 shadow-md" onClick={stopAndSend} disabled={sendingAudio}>
+            <Button size="icon" className="w-10 h-10 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/15" onClick={stopAndSend} disabled={sendingAudio}>
               {sendingAudio ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
           </div>
@@ -654,13 +654,13 @@ export function ChatPanel({
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
                 rows={1}
-                className="w-full resize-none rounded-xl bg-muted/30 border border-border/50 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors"
+                className="w-full resize-none rounded-xl bg-muted/15 border border-border/30 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/30 focus:bg-background transition-all duration-200"
                 style={{ minHeight: "40px", maxHeight: "120px" }}
               />
             </div>
 
             {input.trim() ? (
-              <Button size="icon" className="w-9 h-9 shrink-0 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm mb-0.5" onClick={handleSend}>
+              <Button size="icon" className="w-9 h-9 shrink-0 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm shadow-primary/15 mb-0.5 transition-all duration-150" onClick={handleSend}>
                 <Send className="w-4 h-4" />
               </Button>
             ) : (

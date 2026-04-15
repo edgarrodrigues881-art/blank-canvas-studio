@@ -246,9 +246,9 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
   return (
     <>
       {/* Header */}
-      <div className="h-[52px] border-b border-border flex items-center justify-between px-4 shrink-0">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          {isEditing ? "Editar Contato" : "Detalhes"}
+      <div className="h-[48px] border-b border-border/30 flex items-center justify-between px-4 shrink-0 bg-card/40 backdrop-blur-sm">
+        <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
+          {isEditing ? "Editar Contato" : "Detalhes do Contato"}
         </h3>
         <div className="flex items-center gap-1">
           {isEditing && (
@@ -307,24 +307,30 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
           {/* ── Quick Info Cards (hidden in edit mode) ── */}
           {!isEditing && (
             <div className="space-y-2">
-              <div className="flex items-center gap-3 bg-muted/30 rounded-lg px-3 py-2.5 border border-border/30">
-                <Smartphone className="w-4 h-4 text-primary shrink-0" />
+              <div className="flex items-center gap-3 bg-muted/15 rounded-xl px-3.5 py-3 border border-border/20 hover:border-border/40 transition-colors">
+                <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
+                  <Smartphone className="w-4 h-4 text-primary" />
+                </div>
                 <div className="min-w-0">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Instância</p>
+                  <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider font-medium">Instância</p>
                   <p className="text-xs font-semibold text-foreground">{conversation.deviceName || "—"}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-muted/30 rounded-lg px-3 py-2.5 border border-border/30">
-                <Calendar className="w-4 h-4 text-primary shrink-0" />
+              <div className="flex items-center gap-3 bg-muted/15 rounded-xl px-3.5 py-3 border border-border/20 hover:border-border/40 transition-colors">
+                <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
+                  <Calendar className="w-4 h-4 text-primary" />
+                </div>
                 <div className="min-w-0">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Primeiro contato</p>
+                  <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider font-medium">Primeiro contato</p>
                   <p className="text-xs font-semibold text-foreground">{firstContact.toLocaleDateString("pt-BR")}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-muted/30 rounded-lg px-3 py-2.5 border border-border/30">
-                <Clock className="w-4 h-4 text-primary shrink-0" />
+              <div className="flex items-center gap-3 bg-muted/15 rounded-xl px-3.5 py-3 border border-border/20 hover:border-border/40 transition-colors">
+                <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
+                  <Clock className="w-4 h-4 text-primary" />
+                </div>
                 <div className="min-w-0">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Última mensagem</p>
+                  <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider font-medium">Última mensagem</p>
                   <p className="text-xs font-semibold text-foreground">
                     {lastMessage.toLocaleDateString("pt-BR")} às {lastMessage.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                   </p>

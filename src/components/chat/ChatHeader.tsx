@@ -75,18 +75,18 @@ export const ChatHeader = memo(function ChatHeader({
   return (
     <>
       {/* Header bar — clean, aligned */}
-      <div className="border-b border-border/50 flex items-center px-3 py-1.5 gap-2 shrink-0 bg-card/40 h-[42px] overflow-hidden">
+      <div className="border-b border-border/30 flex items-center px-3 py-1.5 gap-2.5 shrink-0 bg-card/60 backdrop-blur-sm h-[48px] overflow-hidden">
         <Button variant="ghost" size="icon" className="md:hidden w-7 h-7 shrink-0" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
 
-        {/* Avatar — compact 28px */}
+        {/* Avatar — compact 32px */}
         <div className="relative shrink-0">
           {conversation.avatar_url ? (
-            <img src={conversation.avatar_url} alt={conversation.name} className="w-7 h-7 rounded-full object-cover" />
+            <img src={conversation.avatar_url} alt={conversation.name} className="w-8 h-8 rounded-full object-cover ring-1 ring-border/20" />
           ) : (
-            <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center">
-              <span className="text-[10px] font-semibold text-muted-foreground">{conversation.name.slice(0, 2).toUpperCase()}</span>
+            <div className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center">
+              <span className="text-[10px] font-bold text-muted-foreground">{conversation.name.slice(0, 2).toUpperCase()}</span>
             </div>
           )}
           {conversation.status === "online" && (
