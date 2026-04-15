@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import dashboardPreview from "@/assets/dashboard-preview.png";
+import { Player } from "@remotion/player";
+import { HeroDeviceAssemble } from "@/components/landing/HeroDeviceAssemble";
 
 const HeroSection = () => {
   const navigate = useNavigate();
@@ -66,7 +67,7 @@ const HeroSection = () => {
         </Button>
       </div>
 
-      {/* Dashboard Preview */}
+      {/* Device Assembly Animation */}
       <div
         className="relative w-full max-w-5xl mx-auto px-6"
         style={{ animation: "slideUp 0.8s ease-out 0.4s both" }}
@@ -81,16 +82,23 @@ const HeroSection = () => {
           }}
         />
 
-        <div className="relative z-10 group/dashboard" style={{ perspective: "1200px" }}>
-          <img
-            src={dashboardPreview}
-            alt="Dashboard preview - painel de controle DG Contingência"
-            className="w-full h-auto rounded-lg shadow-2xl border border-white/[0.08] transition-transform duration-500 ease-out group-hover/dashboard:!transform-none"
-            loading="eager"
+        <div className="relative z-10">
+          <Player
+            component={HeroDeviceAssemble}
+            durationInFrames={120}
+            fps={30}
+            compositionWidth={960}
+            compositionHeight={540}
+            autoPlay
+            loop
             style={{
-              transform: "rotateX(8deg) rotateY(-2deg) scale(0.97)",
-              transformOrigin: "center bottom",
+              width: "100%",
+              aspectRatio: "16/9",
+              borderRadius: 16,
+              overflow: "hidden",
+              background: "transparent",
             }}
+            inputProps={{}}
           />
         </div>
       </div>
