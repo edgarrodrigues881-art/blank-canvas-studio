@@ -846,7 +846,22 @@ const AISettings = () => {
                 <p className="text-xs text-muted-foreground">Respostas automáticas para seus clientes</p>
               </div>
             </div>
-            <Switch checked={iaActive} onCheckedChange={setIaActive} />
+            <Switch checked={iaActive} onCheckedChange={async (checked) => {
+              setIaActive(checked);
+              try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return;
+                const { error } = await supabase
+                  .from("ai_settings")
+                  .update({ ia_active: checked })
+                  .eq("user_id", user.id);
+                if (error) throw error;
+                toast.success(checked ? "IA ativada" : "IA desativada");
+              } catch {
+                setIaActive(!checked);
+                toast.error("Erro ao alterar status da IA");
+              }
+            }} />
           </div>
           {iaActive && apiKeyStatus === "valid" && (
             <div className="mt-3 pt-3 border-t border-primary/10 space-y-2 animate-fade-in">
