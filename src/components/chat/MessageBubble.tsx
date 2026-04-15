@@ -167,7 +167,7 @@ function QuotedBlock({ msg, onScrollToQuoted }: { msg: Message; onScrollToQuoted
       className={cn(
         "rounded-lg px-2.5 py-1.5 mb-1.5 border-l-2 text-[11px] leading-snug",
         msg.type === "sent"
-          ? "bg-white/10 border-l-white/40 text-white/70"
+          ? "bg-primary-foreground/8 border-l-primary-foreground/30 text-primary-foreground/65"
           : "bg-muted/50 border-l-primary/40 text-muted-foreground",
         isClickable && "cursor-pointer hover:opacity-80 active:opacity-60 transition-opacity"
       )}
@@ -278,13 +278,13 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-[2px] h-5">
               {getWaveform(msg.id).map((h, idx) => (
-                <div key={idx} className={cn("w-[2px] rounded-full", msg.type === "sent" ? "bg-white/40" : "bg-muted-foreground/30")} style={{ height: `${h}px` }} />
+                <div key={idx} className={cn("w-[2px] rounded-full", msg.type === "sent" ? "bg-primary-foreground/30" : "bg-muted-foreground/30")} style={{ height: `${h}px` }} />
               ))}
             </div>
             <div className="flex items-center justify-between mt-0.5">
-              <span className={cn("text-[10px]", msg.type === "sent" ? "text-white/60" : "text-muted-foreground/60")}>{formatDuration(msg.audioDuration || 0)}</span>
+              <span className={cn("text-[10px]", msg.type === "sent" ? "text-primary-foreground/50" : "text-muted-foreground/60")}>{formatDuration(msg.audioDuration || 0)}</span>
               <div className="flex items-center gap-1">
-                <span className={cn("text-[10px]", msg.type === "sent" ? "text-white/60" : "text-muted-foreground/60")}>{format(new Date(msg.timestamp), "HH:mm")}</span>
+                <span className={cn("text-[10px]", msg.type === "sent" ? "text-primary-foreground/50" : "text-muted-foreground/60")}>{format(new Date(msg.timestamp), "HH:mm")}</span>
                 {msg.type === "sent" && <StatusIcon status={msg.status} />}
               </div>
             </div>
@@ -354,15 +354,15 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
             rel="noopener noreferrer"
             className={cn(
               "flex items-center gap-2.5 p-2.5 rounded-lg transition-colors",
-              msg.type === "sent" ? "bg-white/10 hover:bg-white/20" : "bg-muted/50 hover:bg-muted"
+              msg.type === "sent" ? "bg-primary-foreground/8 hover:bg-primary-foreground/15" : "bg-muted/50 hover:bg-muted"
             )}
           >
             <span className="text-2xl">{getFileIcon(fileName)}</span>
             <div className="flex-1 min-w-0">
-              <p className={cn("text-[12px] font-medium truncate", msg.type === "sent" ? "text-white" : "text-foreground")}>{fileName}</p>
-              <p className={cn("text-[10px]", msg.type === "sent" ? "text-white/50" : "text-muted-foreground/60")}>Documento</p>
+              <p className={cn("text-[12px] font-medium truncate", msg.type === "sent" ? "text-primary-foreground" : "text-foreground")}>{fileName}</p>
+              <p className={cn("text-[10px]", msg.type === "sent" ? "text-primary-foreground/45" : "text-muted-foreground/60")}>Documento</p>
             </div>
-            <Download className={cn("w-4 h-4 shrink-0", msg.type === "sent" ? "text-white/50" : "text-muted-foreground/50")} />
+            <Download className={cn("w-4 h-4 shrink-0", msg.type === "sent" ? "text-primary-foreground/45" : "text-muted-foreground/50")} />
           </a>
           {msg.content && !isMediaPlaceholder(msg.content) && (
             <FormattedText text={msg.content} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5" />
@@ -386,7 +386,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
       return (
         <div>
           <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} />
-          <div className={cn("flex items-center gap-2.5 py-1", msg.type === "sent" ? "text-white/70" : "text-muted-foreground")}>
+          <div className={cn("flex items-center gap-2.5 py-1", msg.type === "sent" ? "text-primary-foreground/60" : "text-muted-foreground")}>
             {info.icon}
             <span className="text-[12px] font-medium">{info.label}</span>
           </div>
@@ -422,7 +422,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
               className={cn(
                 "rounded-md px-2 py-1 text-[10px] leading-relaxed",
                 msg.type === "sent"
-                  ? "bg-white/10 text-white/85"
+                  ? "bg-primary-foreground/8 text-primary-foreground/80"
                   : "bg-destructive/10 text-destructive"
               )}
             >
@@ -433,7 +433,7 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
               className={cn(
                 "text-[10px] mt-0.5 text-right underline cursor-pointer block w-full",
                 msg.type === "sent"
-                  ? "text-white/80 hover:text-white"
+                  ? "text-primary-foreground/70 hover:text-primary-foreground"
                   : "text-destructive hover:text-destructive/80"
               )}
             >
