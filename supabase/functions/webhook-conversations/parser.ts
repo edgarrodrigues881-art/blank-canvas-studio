@@ -608,6 +608,22 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
     body.data?.message?.content?.buttonOrListId,
   ) || null;
 
+  // ── Forwarding detection ──
+  let isForwarded = false;
+  let forwardingScore = 0;
+  for (const node of messageNodes) {
+    const ctx = node.contextInfo || node.content?.contextInfo;
+    if (ctx) {
+      if (ctx.isForwarded === true || ctx.forwarded === true) {
+        isForwarded = true;
+      }
+      if (typeof ctx.forwardingScore === "number" && ctx.forwardingScore > 0) {
+        isForwarded = true;
+        forwardingScore = ctx.forwardingScore;
+      }
+    }
+  }
+
   return {
     remoteJid,
     phone,
@@ -626,5 +642,7 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
     quotedMessageId: quoted.id,
     quotedContent: quoted.content,
     buttonResponseId,
+    isForwarded,
+    forwardingScore,
   };
 }

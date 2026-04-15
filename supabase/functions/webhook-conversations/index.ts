@@ -373,6 +373,8 @@ Deno.serve(async (req) => {
       quoted_content: quotedContent,
       created_at: timestamp,
       origin: messageOrigin,
+      is_forwarded: parsed.isForwarded || false,
+      forwarding_score: parsed.forwardingScore || 0,
     });
 
     if (msgErr) console.error("Message insert error:", msgErr);
