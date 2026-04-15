@@ -136,10 +136,10 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
 /* ─── Sub-components ─── */
 
 function StatusIcon({ status }: { status?: string }) {
-  if (status === "sending") return <Loader2 className="w-3.5 h-3.5 animate-spin text-primary-foreground/60" />;
-  if (status === "read") return <CheckCheck className="w-4 h-4 text-blue-300" />;
-  if (status === "delivered") return <CheckCheck className="w-4 h-4 text-primary-foreground/70" />;
-  if (status === "sent") return <Check className="w-4 h-4 text-primary-foreground/70" />;
+  if (status === "sending") return <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground/60 dark:text-primary-foreground/60" />;
+  if (status === "read") return <CheckCheck className="w-4 h-4 text-blue-500 dark:text-blue-300" />;
+  if (status === "delivered") return <CheckCheck className="w-4 h-4 text-muted-foreground/70 dark:text-primary-foreground/70" />;
+  if (status === "sent") return <Check className="w-4 h-4 text-muted-foreground/70 dark:text-primary-foreground/70" />;
   if (status === "failed") return <span className="text-[11px] text-red-400 font-bold">⚠</span>;
   return null;
 }
@@ -150,7 +150,7 @@ function MsgFooter({ msg, inline }: { msg: Message; inline?: boolean }) {
       "flex items-center gap-1 shrink-0 justify-end",
       inline ? "ml-2 self-end" : "mt-1",
     )}>
-      <span className={cn("text-[10px] leading-none", msg.type === "sent" ? "text-primary-foreground/55" : "text-muted-foreground/55")}>
+      <span className={cn("text-[10px] leading-none", msg.type === "sent" ? "text-muted-foreground/55 dark:text-primary-foreground/55" : "text-muted-foreground/55")}>
         {format(new Date(msg.timestamp), "HH:mm")}
       </span>
       {msg.type === "sent" && <StatusIcon status={msg.status} />}
@@ -492,12 +492,12 @@ export function MessageBubble({ msg, showDeviceLabel, onReply, onImageClick, onR
               ? "w-fit p-1 bg-transparent border-0 shadow-none"
               : msg.mediaType === "image" && msg.mediaUrl
                 ? "w-full max-w-[320px] p-1.5"
-                : "w-fit px-2.5 py-1.5",
+                : "w-fit px-3 py-2",
             msg.mediaType === "sticker" && msg.mediaUrl
               ? ""
               : isSent
-                ? "bg-primary text-primary-foreground rounded-br-sm shadow-sm shadow-primary/10"
-                : "bg-card border border-border/30 text-foreground rounded-bl-sm shadow-sm",
+                ? "bg-emerald-500/10 dark:bg-primary text-foreground dark:text-primary-foreground border border-emerald-500/20 dark:border-transparent rounded-2xl rounded-br-md shadow-sm"
+                : "bg-white dark:bg-card border border-border/40 dark:border-border/30 text-foreground rounded-2xl rounded-bl-md shadow-sm",
             msg.status === "failed" && "opacity-70"
           )}
         >

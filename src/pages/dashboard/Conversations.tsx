@@ -428,7 +428,7 @@ const Conversations = () => {
   return (
     <>
       <div className="flex flex-col h-[calc(100vh-theme(spacing.14)-theme(spacing.5)*2)] sm:h-[calc(100vh-theme(spacing.14)-theme(spacing.10))] -m-2.5 sm:-m-5 md:-m-8">
-        <div ref={containerRef} className="flex flex-1 min-h-0 overflow-hidden bg-background">
+        <div ref={containerRef} className="flex flex-1 min-h-0 overflow-hidden bg-background border border-border/20 rounded-xl shadow-sm">
           <div
             className={`${
               selectedConversation
@@ -442,7 +442,7 @@ const Conversations = () => {
             }}
           >
             {/* Clean top header */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/20 shrink-0 bg-card/40 backdrop-blur-sm">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/20 shrink-0 bg-slate-50/80 dark:bg-card/40 backdrop-blur-sm">
               <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Atendimento</h2>
               <div className="flex items-center gap-0.5">
                 {availableInstances.length >= 1 && (
@@ -597,7 +597,7 @@ const Conversations = () => {
           {selectedConversation && showDetails && (
             <>
               {/* Desktop sidebar */}
-              <div className="hidden lg:flex flex-col w-[300px] xl:w-[320px] border-l border-border shrink-0">
+              <div className="hidden lg:flex flex-col w-[300px] xl:w-[320px] border-l border-border/30 shrink-0 bg-slate-50/50 dark:bg-transparent">
                 <ContactDetails
                   conversation={selectedConversation}
                   onClose={() => setShowDetails(false)}
