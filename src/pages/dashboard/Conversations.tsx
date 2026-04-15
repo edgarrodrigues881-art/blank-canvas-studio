@@ -597,7 +597,7 @@ const Conversations = () => {
           {selectedConversation && showDetails && (
             <>
               {/* Desktop sidebar */}
-              <div className="hidden lg:flex flex-col w-[300px] xl:w-[320px] border-l border-border shrink-0">
+              <div className="hidden lg:flex flex-col w-[300px] xl:w-[320px] border-l border-border/30 shrink-0 bg-slate-50/50 dark:bg-transparent">
                 <ContactDetails
                   conversation={selectedConversation}
                   onClose={() => setShowDetails(false)}
