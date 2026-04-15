@@ -16,6 +16,8 @@ export interface ParsedConversationEvent {
   quotedMessageId: string | null;
   quotedContent: string | null;
   buttonResponseId: string | null;
+  isForwarded: boolean;
+  forwardingScore: number;
 }
 
 type JsonObject = Record<string, any>;
