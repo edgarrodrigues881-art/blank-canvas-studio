@@ -392,18 +392,26 @@ export function ChatPanel({
   // Exit selection mode on conversation change
   useEffect(() => { exitSelectionMode(); }, [conversation.id]);
 
-  // Scroll to quoted message
+  // Scroll to quoted message with retry
   const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleScrollToQuoted = useCallback((quotedWaId: string) => {
-    // Find message by whatsapp_message_id or id
     const target = messages.find((m) => m.whatsappMessageId === quotedWaId || m.id === quotedWaId);
     if (!target) return;
-    const el = document.getElementById(`msg-${target.id}`);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      setHighlightedMsgId(target.id);
-      setTimeout(() => setHighlightedMsgId(null), 2000);
-    }
+
+    const tryScroll = (retries: number) => {
+      const el = document.getElementById(`msg-${target.id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+        setHighlightedMsgId(target.id);
+        highlightTimerRef.current = setTimeout(() => setHighlightedMsgId(null), 1500);
+      } else if (retries > 0) {
+        setTimeout(() => tryScroll(retries - 1), 80);
+      }
+    };
+    tryScroll(5);
   }, [messages]);
 
   return (
