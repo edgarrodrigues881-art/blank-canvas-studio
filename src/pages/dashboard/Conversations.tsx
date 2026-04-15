@@ -428,7 +428,7 @@ const Conversations = () => {
   return (
     <>
       <div className="flex flex-col h-[calc(100vh-theme(spacing.14)-theme(spacing.5)*2)] sm:h-[calc(100vh-theme(spacing.14)-theme(spacing.10))] -m-2.5 sm:-m-5 md:-m-8">
-        <div ref={containerRef} className="flex flex-1 min-h-0 overflow-hidden bg-background">
+        <div ref={containerRef} className="flex flex-1 min-h-0 overflow-hidden bg-background border border-border/20 rounded-xl shadow-sm">
           <div
             className={`${
               selectedConversation
