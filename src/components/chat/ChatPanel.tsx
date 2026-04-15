@@ -618,7 +618,7 @@ export function ChatPanel({
                 ))}
               </div>
             </div>
-            <Button size="icon" className="w-10 h-10 shrink-0 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 shadow-md" onClick={stopAndSend} disabled={sendingAudio}>
+            <Button size="icon" className="w-10 h-10 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/15" onClick={stopAndSend} disabled={sendingAudio}>
               {sendingAudio ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
           </div>
