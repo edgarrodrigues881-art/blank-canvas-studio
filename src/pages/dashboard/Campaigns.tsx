@@ -865,7 +865,20 @@ const Campaigns = () => {
 
   const addButton = (type: "reply" | "url" | "phone") => { if (buttons.length < 10) { setButtons([...buttons, { id: Date.now(), type, text: "", value: "" }]); triggerButtonFlash(); } };
   const removeButton = (id: number) => setButtons(buttons.filter(b => b.id !== id));
-  const updateButton = (id: number, field: keyof UnifiedButton, val: string) => setButtons(buttons.map(b => b.id === id ? { ...b, [field]: val } : b));
+  const updateButton = (id: number, field: keyof UnifiedButton, val: string) => setButtons(prev => prev.map(button => {
+    if (button.id !== id) return button;
+
+    if (field === "type") {
+      const nextType = val as UnifiedButton["type"];
+      return {
+        ...button,
+        type: nextType,
+        value: nextType === button.type ? button.value : "",
+      };
+    }
+
+    return { ...button, [field]: val };
+  }));
   const moveButton = (id: number, direction: "up" | "down") => {
     setButtons(prev => {
       const idx = prev.findIndex(b => b.id === id);

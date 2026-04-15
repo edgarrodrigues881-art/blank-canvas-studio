@@ -27,18 +27,33 @@ interface CarouselCard {
   buttons?: CarouselButton[];
 }
 
+function isInteractiveActionValue(value: string): boolean {
+  const normalized = (value || "").trim().toLowerCase();
+  return /^https?:\/\//.test(normalized)
+    || normalized.startsWith("url:")
+    || normalized.startsWith("call:")
+    || normalized.startsWith("copy:");
+}
+
 function buildMenuChoice(button: CampaignButton, index: number): string | null {
   const text = (button.text || "").trim();
   if (!text) return null;
+
   if (button.type === "url") {
     const url = (button.value || "").trim();
     return url ? `${text}|url:${url}` : text;
   }
+
   if (button.type === "phone") {
     const phone = (button.value || "").trim();
     return phone ? `${text}|call:${phone}` : text;
   }
-  const replyId = (button.value || `btn_${index}`).trim();
+
+  const rawReplyId = (button.value || "").trim();
+  const replyId = rawReplyId && !isInteractiveActionValue(rawReplyId)
+    ? rawReplyId
+    : `btn_${index}`;
+
   return `${text}|${replyId}`;
 }
 
