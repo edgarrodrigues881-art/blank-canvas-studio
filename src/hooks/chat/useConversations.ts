@@ -50,6 +50,8 @@ export interface RealMessage {
   failure_reason?: string | null;
   created_at: string;
   deviceName?: string;
+  is_forwarded?: boolean;
+  forwarding_score?: number;
 }
 
 /**

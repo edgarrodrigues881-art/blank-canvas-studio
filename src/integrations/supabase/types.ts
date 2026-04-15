@@ -2130,8 +2130,10 @@ export type Database = {
           conversation_id: string
           created_at: string
           direction: string
+          forwarding_score: number | null
           id: string
           is_ai_response: boolean | null
+          is_forwarded: boolean | null
           media_type: string | null
           media_url: string | null
           message_type: string | null
@@ -2150,8 +2152,10 @@ export type Database = {
           conversation_id: string
           created_at?: string
           direction?: string
+          forwarding_score?: number | null
           id?: string
           is_ai_response?: boolean | null
+          is_forwarded?: boolean | null
           media_type?: string | null
           media_url?: string | null
           message_type?: string | null
@@ -2170,8 +2174,10 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           direction?: string
+          forwarding_score?: number | null
           id?: string
           is_ai_response?: boolean | null
+          is_forwarded?: boolean | null
           media_type?: string | null
           media_url?: string | null
           message_type?: string | null
