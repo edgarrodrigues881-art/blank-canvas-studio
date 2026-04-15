@@ -59,7 +59,7 @@ interface ChatPanelProps {
   onInstanceChange?: (id: string) => void;
 }
 
-/* ─────────── Image Lightbox ─────────── */
+/* ─────────── Image Lightbox (inline, contained in chat area) ─────────── */
 function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -123,23 +123,23 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-150" onClick={onClose}>
-      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 z-10 bg-gradient-to-b from-black/60 to-transparent">
-        <div className="flex items-center gap-2">
-          <button onClick={handleDownload} className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white transition-colors px-2.5 py-1.5 rounded-lg hover:bg-white/10">
-            <Download className="w-4 h-4" />
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 dark:bg-black/85 backdrop-blur-sm animate-in fade-in duration-150 rounded-lg" onClick={onClose}>
+      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 py-2 z-10">
+        <div className="flex items-center gap-1.5">
+          <button onClick={handleDownload} className="flex items-center gap-1.5 text-[11px] text-white/70 hover:text-white transition-colors px-2 py-1 rounded-lg hover:bg-white/10">
+            <Download className="w-3.5 h-3.5" />
             Baixar
           </button>
-          <button onClick={resetView} className="text-xs text-white/70 hover:text-white transition-colors px-2.5 py-1.5 rounded-lg hover:bg-white/10" title="Resetar zoom">
+          <button onClick={resetView} className="text-[11px] text-white/70 hover:text-white transition-colors px-2 py-1 rounded-lg hover:bg-white/10" title="Resetar zoom">
             {Math.round(zoom * 100)}%
           </button>
         </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
-          <X className="w-5 h-5" />
+        <button onClick={onClose} className="p-1 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+          <X className="w-4 h-4" />
         </button>
       </div>
       <div
-        className="w-full h-full flex items-center justify-center overflow-hidden select-none"
+        className="w-full h-full flex items-center justify-center overflow-hidden select-none p-8"
         onClick={(e) => e.stopPropagation()}
         onWheel={handleWheel}
         style={{ cursor: zoom > 1 ? "grab" : "default" }}
@@ -151,12 +151,12 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          className="max-w-[92vw] max-h-[90vh] object-contain transition-transform duration-100"
+          className="max-w-full max-h-full object-contain transition-transform duration-100"
           style={{
             transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
             transformOrigin: "center center",
-            borderRadius: "16px",
-            boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
+            borderRadius: "12px",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
           }}
         />
       </div>
