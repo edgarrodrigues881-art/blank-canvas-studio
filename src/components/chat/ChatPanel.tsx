@@ -384,7 +384,7 @@ export function ChatPanel({
   }, [messages]);
 
   return (
-    <div className="flex flex-col h-full min-w-0 max-w-full overflow-hidden">
+    <div className="flex flex-col h-full min-w-0 max-w-full overflow-hidden relative">
       <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageInput} />
       <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,.txt" className="hidden" onChange={handleDocInput} />
 
