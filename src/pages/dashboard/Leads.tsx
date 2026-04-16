@@ -489,7 +489,7 @@ export default function Leads() {
 
       {/* ── Detail Dialog (view + inline edit) ── */}
       <Dialog open={!!detailLead} onOpenChange={(open) => { if (!open) { setDetailLead(null); setEditingInline(false); } }}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
+        <DialogContent className={cn("max-w-2xl max-h-[85vh] overflow-y-auto p-0", editingInline && "[&>button:last-child]:hidden")}>
           {detailLead && (() => {
             const statusCfg = getStatusConfig(detailLead.pipeline_stage);
             const priorityCfg = getPriorityConfig(detailLead.priority);
@@ -542,13 +542,19 @@ export default function Leads() {
               return (
                 <div>
                   {/* Header */}
-                  <div className="p-6 pt-8 pb-4 border-b border-border/60">
+                  <div className="px-6 pt-5 pb-4 border-b border-border/60">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Pencil className="w-4 h-4 text-primary" />
                         <h2 className="text-base font-bold text-foreground">Editando Lead</h2>
                       </div>
-                      <ActionButtons />
+                      <div className="flex items-center gap-3">
+                        <ActionButtons />
+                        <button onClick={cancelEdit} className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                          <span className="sr-only">Voltar</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
 
