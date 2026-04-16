@@ -985,30 +985,45 @@ const AISettings = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            {(Object.entries(MODE_PRESETS) as [AiMode, ModePreset][]).map(([key, preset]) => (
-              <button
-                key={key}
-                onClick={() => applyMode(key)}
-                className={`relative rounded-xl border p-4 text-left transition-all duration-200 hover:scale-[1.01] ${
-                  selectedMode === key
-                    ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
-                    : "border-border/50 hover:border-border hover:shadow-sm"
-                }`}
-              >
-                {preset.recommended && (
-                  <Badge className="absolute -top-2 right-3 text-[10px] px-1.5 py-0 bg-primary text-primary-foreground">
-                    Recomendado
-                  </Badge>
-                )}
-                <span className="text-2xl"><Rocket className="h-6 w-6 text-primary" /></span>
-                <p className="text-sm font-semibold text-foreground mt-2">{preset.label}</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">{preset.desc}</p>
-                {selectedMode === key && (
-                  <CheckCircle2 className="absolute top-3 right-3 h-4 w-4 text-primary" />
-                )}
-              </button>
-            ))}
+          <div className="grid grid-cols-2 gap-4">
+            {(Object.entries(MODE_PRESETS) as [AiMode, ModePreset][]).map(([key, preset]) => {
+              const IconMap: Record<string, React.ElementType> = { Rocket, MessageCircle: MessageSquare, Headphones: Headset, Calendar };
+              const Icon = IconMap[preset.icon] || Rocket;
+              const isSelected = selectedMode === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => applyMode(key)}
+                  className={`group relative rounded-xl border p-5 text-left transition-all duration-200 ${
+                    isSelected
+                      ? "border-primary/60 bg-primary/[0.06] ring-2 ring-primary/25 shadow-sm"
+                      : "border-border/40 hover:border-border/80 hover:bg-muted/30"
+                  }`}
+                >
+                  {preset.recommended && (
+                    <Badge className="absolute -top-2.5 right-3 text-[10px] px-2 py-0.5 bg-primary text-primary-foreground font-medium">
+                      Recomendado
+                    </Badge>
+                  )}
+                  <div className="flex items-start gap-3.5">
+                    <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                      isSelected ? "bg-primary/15" : "bg-muted/60 group-hover:bg-muted"
+                    }`}>
+                      <Icon className={`h-4.5 w-4.5 transition-colors ${isSelected ? "text-primary" : "text-muted-foreground group-hover:text-foreground/70"}`} strokeWidth={1.5} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold transition-colors ${isSelected ? "text-foreground" : "text-foreground/80"}`}>{preset.label}</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{preset.desc}</p>
+                    </div>
+                  </div>
+                  {isSelected && (
+                    <div className="absolute top-4 right-4">
+                      <CheckCircle2 className="h-4.5 w-4.5 text-primary" strokeWidth={2} />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* Preview */}
