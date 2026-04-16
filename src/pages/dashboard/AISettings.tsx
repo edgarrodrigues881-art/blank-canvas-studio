@@ -2184,8 +2184,8 @@ const AISettings = () => {
 
           <div className="rounded-lg border border-muted bg-muted/10 p-2.5">
             <p className="text-[10px] text-muted-foreground">
-              💡 <strong>Como funciona:</strong> A IA analisa conversas bem-sucedidas vs. perdidas, identifica padrões de persuasão que funcionam, 
-              técnicas de fechamento eficazes e pontos onde leads são perdidos. O prompt evolui automaticamente a cada análise.
+              <strong>Como funciona:</strong> A IA analisa conversas bem-sucedidas vs. perdidas, identifica padroes de persuasao que funcionam, 
+              tecnicas de fechamento eficazes e pontos onde leads sao perdidos. O prompt evolui automaticamente a cada analise.
             </p>
           </div>
         </CardContent>
@@ -2203,8 +2203,8 @@ const AISettings = () => {
           {selectedLead && (() => {
             let notesObj: Record<string, string> = {};
             try { notesObj = JSON.parse(selectedLead.notes || "{}"); } catch {}
-            const intentLabels: Record<string, string> = { curious: "🔎 Curioso", interested: "💡 Interessado", ready_to_buy: "🔥 Pronto p/ comprar", objection: "🛡️ Objeção" };
-            const stepLabels: Record<string, string> = { saudacao: "Saudação", diagnostico: "Diagnóstico", apresentacao: "Apresentação", objecao: "Objeção", fechamento: "Fechamento" };
+            const intentLabels: Record<string, string> = { curious: "Curioso", interested: "Interessado", ready_to_buy: "Pronto p/ comprar", objection: "Objecao" };
+            const stepLabels: Record<string, string> = { saudacao: "Saudacao", diagnostico: "Diagnostico", apresentacao: "Apresentacao", objecao: "Objecao", fechamento: "Fechamento" };
             return (
               <div className="space-y-4">
                 {/* Header */}
@@ -2225,12 +2225,12 @@ const AISettings = () => {
                 {/* Info grid */}
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: "Estágio", value: selectedLead.stage === "hot" ? "🔥 Quente" : selectedLead.stage === "warm" ? "📈 Morno" : "❄️ Frio" },
-                    { label: "Interações", value: `${selectedLead.interaction_count}` },
+                    { label: "Estagio", value: selectedLead.stage === "hot" ? "Quente" : selectedLead.stage === "warm" ? "Morno" : "Frio" },
+                    { label: "Interacoes", value: `${selectedLead.interaction_count}` },
                     { label: "Interesse", value: selectedLead.interest || "—" },
                     { label: "Produto citado", value: selectedLead.product_cited || "—" },
-                    { label: "Intenção", value: notesObj.last_intent ? intentLabels[notesObj.last_intent] || notesObj.last_intent : "—" },
-                    { label: "Etapa atual", value: notesObj.last_flow_step ? `📍 ${stepLabels[notesObj.last_flow_step] || notesObj.last_flow_step}` : "—" },
+                    { label: "Intencao", value: notesObj.last_intent ? intentLabels[notesObj.last_intent] || notesObj.last_intent : "—" },
+                    { label: "Etapa atual", value: notesObj.last_flow_step ? stepLabels[notesObj.last_flow_step] || notesObj.last_flow_step : "—" },
                   ].map((item) => (
                     <div key={item.label} className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{item.label}</p>
