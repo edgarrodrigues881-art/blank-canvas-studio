@@ -84,16 +84,8 @@ const dedupeNotifications = (items: Notification[]) => {
   return unique.slice(0, 20);
 };
 
-// Filter out device connection/disconnection noise — keep it behind the scenes
-const HIDDEN_TITLE_PATTERNS = [
-  /inst[aâ]ncia\s+(re)?conect/i,
-  /inst[aâ]ncia\s+desconect/i,
-  /device\s+(re)?connect/i,
-  /device\s+disconnect/i,
-];
-
-const isHiddenNotification = (n: Pick<Notification, "title">) =>
-  HIDDEN_TITLE_PATTERNS.some((re) => re.test(n.title || ""));
+// All notifications are shown — including device connect/disconnect events
+const isHiddenNotification = (_n: Pick<Notification, "title">) => false;
 
 const COMBINED_LIMIT = 40;
 
