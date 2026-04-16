@@ -114,6 +114,29 @@ function getOriginConfig(origin: string | null) {
   return ORIGIN_OPTIONS.find((o) => o.value === origin) || ORIGIN_OPTIONS[6];
 }
 
+/* ── Detail Row helper ── */
+function DetailRow({ icon: Icon, label, value, muted }: { icon: React.ElementType; label: string; value: string; muted?: boolean }) {
+  return (
+    <div className="flex items-center gap-2.5 text-sm">
+      <Icon className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
+      <span className="text-muted-foreground/70 min-w-[100px]">{label}</span>
+      <span className={cn("font-medium", muted ? "text-muted-foreground/40 italic text-xs" : "text-foreground")}>{value}</span>
+    </div>
+  );
+}
+
+/* ── Timeline Event helper ── */
+function TimelineEvent({ label, time, preview, dot }: { label: string; time: string; preview?: string | null; dot: string }) {
+  return (
+    <div className="relative">
+      <div className={cn("absolute -left-[25px] top-1 w-3 h-3 rounded-full border-2 border-background", dot)} />
+      <p className="text-sm text-foreground font-medium">{label}</p>
+      {preview && <p className="text-xs text-muted-foreground/60 mt-0.5 line-clamp-2">"{preview}"</p>}
+      <p className="text-[10px] text-muted-foreground/40 mt-0.5">{time}</p>
+    </div>
+  );
+}
+
 function formatCurrency(value: number | null) {
   if (!value) return "—";
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
