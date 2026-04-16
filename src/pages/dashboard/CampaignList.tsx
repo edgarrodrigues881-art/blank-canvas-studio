@@ -53,6 +53,7 @@ const CampaignList = () => {
   const [saveTemplateName, setSaveTemplateName] = useState("");
   const [savingCampaign, setSavingCampaign] = useState<any>(null);
   const [isClearingAll, setIsClearingAll] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
 
   const filtered = useMemo(() => {
     return campaigns.filter((c) => {
@@ -64,16 +65,29 @@ const CampaignList = () => {
 
   const protectedStatuses = ["running", "processing", "scheduled", "queued"];
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const requestDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const campaign = campaigns.find((c) => c.id === id);
-    if (campaign && protectedStatuses.includes(campaign.status)) {
+    if (!campaign) return;
+    if (protectedStatuses.includes(campaign.status)) {
       toast({ title: "Não é possível excluir", description: "Pause ou cancele a campanha antes.", variant: "destructive" });
       return;
     }
+    setDeleteConfirm(campaign);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteConfirm) return;
+    const id = deleteConfirm.id;
     deleteCampaign.mutate(id, {
-      onSuccess: () => toast({ title: "Campanha excluída" }),
-      onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+      onSuccess: () => {
+        toast({ title: "Campanha excluída" });
+        setDeleteConfirm(null);
+      },
+      onError: (err: any) => {
+        toast({ title: "Erro", description: err.message, variant: "destructive" });
+        setDeleteConfirm(null);
+      },
     });
   };
 
@@ -312,7 +326,7 @@ const CampaignList = () => {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity duration-100 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10"
-                      onClick={(e) => handleDelete(c.id, e)}
+                      onClick={(e) => requestDelete(c.id, e)}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
