@@ -141,7 +141,6 @@ export default function Prospeccao() {
   const [results, setResults] = useState<ProspectResult[]>([]);
   const [searched, setSearched] = useState(false);
   const [fromCache, setFromCache] = useState(false);
-  const [cachedAt, setCachedAt] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("busca");
   const [searchLat, setSearchLat] = useState<number | null>(null);
   const [searchLng, setSearchLng] = useState<number | null>(null);

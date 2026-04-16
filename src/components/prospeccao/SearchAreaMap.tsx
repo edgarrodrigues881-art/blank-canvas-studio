@@ -238,9 +238,9 @@ export default function SearchAreaMap({ cidade, estado, pais = "BR", onAreaConfi
         <Label className="text-sm whitespace-nowrap font-medium">Raio:</Label>
         <div className="flex items-center gap-1.5">
           <button type="button" onClick={() => setRadiusKm(r => Math.max(2, r - 1))} className="h-8 w-8 rounded-lg border border-border/50 bg-muted/30 flex items-center justify-center hover:bg-muted/60 transition-colors"><Minus className="h-3.5 w-3.5 text-muted-foreground" /></button>
-          <Input type="number" min={2} max={50} value={radiusKm} onChange={e => { const v = parseInt(e.target.value, 10); if (!isNaN(v) && v >= 2 && v <= 50) setRadiusKm(v); }}
-            className="w-16 h-8 text-center text-sm font-medium tabular-nums rounded-lg bg-muted/30 border-border/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-          <button type="button" onClick={() => setRadiusKm(r => Math.min(50, r + 1))} className="h-8 w-8 rounded-lg border border-border/50 bg-muted/30 flex items-center justify-center hover:bg-muted/60 transition-colors"><Plus className="h-3.5 w-3.5 text-muted-foreground" /></button>
+          <Input type="number" min={2} max={500} value={radiusKm} onChange={e => { const v = parseInt(e.target.value, 10); if (!isNaN(v) && v >= 2 && v <= 500) setRadiusKm(v); }}
+            className="w-20 h-8 text-center text-sm font-medium tabular-nums rounded-lg bg-muted/30 border-border/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+          <button type="button" onClick={() => setRadiusKm(r => Math.min(500, r + 1))} className="h-8 w-8 rounded-lg border border-border/50 bg-muted/30 flex items-center justify-center hover:bg-muted/60 transition-colors"><Plus className="h-3.5 w-3.5 text-muted-foreground" /></button>
           <span className="text-xs text-muted-foreground ml-0.5">km</span>
         </div>
 
