@@ -11,9 +11,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
@@ -373,118 +370,84 @@ export default function Leads() {
         </Select>
       </div>
 
-      {/* Table */}
-      <div className="rounded-xl border border-border/60 bg-card overflow-hidden shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30 hover:bg-muted/30">
-              <TableHead className="font-semibold text-[11px] uppercase tracking-wider text-muted-foreground/70 py-3">Lead</TableHead>
-              <TableHead className="font-semibold text-[11px] uppercase tracking-wider text-muted-foreground/70 py-3">Contato</TableHead>
-              <TableHead className="font-semibold text-[11px] uppercase tracking-wider text-muted-foreground/70 py-3">Status</TableHead>
-              <TableHead className="font-semibold text-[11px] uppercase tracking-wider text-muted-foreground/70 py-3 hidden md:table-cell">Origem</TableHead>
-              <TableHead className="font-semibold text-[11px] uppercase tracking-wider text-muted-foreground/70 py-3 hidden lg:table-cell">Última Interação</TableHead>
-              <TableHead className="font-semibold text-[11px] uppercase tracking-wider text-muted-foreground/70 py-3 hidden xl:table-cell">Responsável</TableHead>
-              <TableHead className="font-semibold text-[11px] uppercase tracking-wider text-muted-foreground/70 py-3 hidden xl:table-cell">Valor Est.</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-16 text-muted-foreground">Carregando...</TableCell></TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-16 text-muted-foreground">Nenhum lead encontrado</TableCell></TableRow>
-            ) : (
-              filtered.map((lead) => {
-                const statusCfg = getStatusConfig(lead.pipeline_stage);
-                const originCfg = getOriginConfig(lead.origin);
-                const OriginIcon = originCfg.icon;
-                return (
-                  <TableRow
-                    key={lead.id}
-                    className="cursor-pointer transition-all duration-150 hover:bg-muted/40 group border-b border-border/30"
-                    onClick={() => { setDetailLead(lead); setDetailTab("info"); }}
-                  >
-                    {/* Lead + Avatar */}
-                    <TableCell className="py-3">
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "w-9 h-9 rounded-full bg-gradient-to-br flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm",
-                          getAvatarColor(lead.name || "?")
-                        )}>
-                          {getInitials(lead.name || "?")}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-                            {lead.name || "Sem nome"}
-                          </p>
-                          {lead.company && (
-                            <p className="text-[11px] text-muted-foreground/60 truncate flex items-center gap-1">
-                              <Building2 className="w-3 h-3" />
-                              {lead.company}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
+      {/* Lead Cards */}
+      <div className="space-y-2">
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-muted-foreground">Carregando...</div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-2">
+            <Users className="w-10 h-10 text-muted-foreground/20" />
+            <p className="text-sm text-muted-foreground">Nenhum lead encontrado</p>
+          </div>
+        ) : (
+          filtered.map((lead) => {
+            const statusCfg = getStatusConfig(lead.pipeline_stage);
+            const priorityCfg = getPriorityConfig(lead.priority);
+            const originCfg = getOriginConfig(lead.origin);
+            const OriginIcon = originCfg.icon;
+            return (
+              <div
+                key={lead.id}
+                onClick={() => { setDetailLead(lead); setDetailTab("info"); }}
+                className="group cursor-pointer rounded-xl border border-border/40 bg-card px-5 py-4 transition-all duration-200 hover:border-primary/25 hover:shadow-[0_4px_24px_-6px_hsl(var(--primary)/0.1)] hover:bg-muted/20"
+              >
+                <div className="flex items-center gap-4">
+                  {/* Avatar */}
+                  <div className={cn(
+                    "w-11 h-11 rounded-full bg-gradient-to-br flex items-center justify-center text-sm font-bold text-white shrink-0 shadow-md ring-1 ring-white/10",
+                    getAvatarColor(lead.name || "?")
+                  )}>
+                    {getInitials(lead.name || "?")}
+                  </div>
 
-                    {/* Contato */}
-                    <TableCell className="py-3">
-                      <div className="space-y-0.5">
-                        <p className="text-xs text-foreground/80 flex items-center gap-1.5">
-                          <Phone className="w-3 h-3 text-muted-foreground/50" />
-                          {formatPhone(lead.phone)}
-                        </p>
-                        {lead.email && (
-                          <p className="text-[11px] text-muted-foreground/50 truncate max-w-[180px]">{lead.email}</p>
-                        )}
-                      </div>
-                    </TableCell>
-
-                    {/* Status */}
-                    <TableCell className="py-3">
-                      <Badge variant="outline" className={cn("text-[10px] font-medium rounded-full border px-2.5 py-0.5", statusCfg.badge)}>
-                        <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5 inline-block", statusCfg.dot)} />
-                        {statusCfg.label}
-                      </Badge>
-                    </TableCell>
-
-                    {/* Origem */}
-                    <TableCell className="py-3 hidden md:table-cell">
-                      <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                        <OriginIcon className="w-3.5 h-3.5 text-muted-foreground/50" />
-                        {originCfg.label}
+                  {/* Name + Company */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                      {lead.name || "Sem nome"}
+                    </p>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="text-xs text-muted-foreground/60 flex items-center gap-1">
+                        <Phone className="w-3 h-3" />
+                        {formatPhone(lead.phone)}
                       </span>
-                    </TableCell>
-
-                    {/* Última Interação */}
-                    <TableCell className="py-3 hidden lg:table-cell">
-                      <span className="text-xs text-muted-foreground/70 flex items-center gap-1.5">
-                        <Clock className="w-3 h-3" />
-                        {timeAgo(lead.last_message_at || lead.created_at)}
-                      </span>
-                    </TableCell>
-
-                    {/* Responsável */}
-                    <TableCell className="py-3 hidden xl:table-cell">
-                      {lead.responsible ? (
-                        <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                          <User className="w-3 h-3 text-muted-foreground/50" />
-                          {lead.responsible}
+                      {lead.company && (
+                        <span className="text-xs text-muted-foreground/50 flex items-center gap-1 truncate">
+                          <Building2 className="w-3 h-3" />
+                          {lead.company}
                         </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground/30">—</span>
                       )}
-                    </TableCell>
+                    </div>
+                  </div>
 
-                    {/* Valor */}
-                    <TableCell className="py-3 hidden xl:table-cell">
-                      <span className="text-xs font-medium text-foreground/70">{formatCurrency(lead.estimated_value)}</span>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
+                  {/* Status */}
+                  <Badge variant="outline" className={cn("text-[10px] font-medium rounded-full border px-2.5 py-0.5 shrink-0", statusCfg.badge)}>
+                    <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5 inline-block", statusCfg.dot)} />
+                    {statusCfg.label}
+                  </Badge>
+
+                  {/* Origin */}
+                  <span className="text-xs text-muted-foreground/60 items-center gap-1.5 shrink-0 hidden md:flex">
+                    <OriginIcon className="w-3.5 h-3.5" />
+                    {originCfg.label}
+                  </span>
+
+                  {/* Time */}
+                  <span className="text-[11px] text-muted-foreground/50 items-center gap-1 shrink-0 hidden lg:flex min-w-[90px]">
+                    <Clock className="w-3 h-3" />
+                    {timeAgo(lead.last_message_at || lead.created_at)}
+                  </span>
+
+                  {/* Value */}
+                  {lead.estimated_value ? (
+                    <span className="text-xs font-medium text-emerald-400/80 shrink-0 hidden xl:block tabular-nums">
+                      {formatCurrency(lead.estimated_value)}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* ── Detail Dialog (view + inline edit) ── */}
