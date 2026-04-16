@@ -719,9 +719,6 @@ export default function Leads() {
                       </div>
                     </div>
                   </div>
-                      </Badge>
-                    </div>
-                  </div>
                   <div className="flex items-center gap-2 mt-4">
                     <Select value={detailLead.pipeline_stage || "novo"} onValueChange={(v) => handleStatusChange(detailLead, v)}>
                       <SelectTrigger className="w-[170px] h-9 text-xs rounded-lg bg-muted/30 border-border/50"><SelectValue /></SelectTrigger>
