@@ -87,9 +87,9 @@ export function AISimulator() {
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" strokeWidth={1.5} />
-          <CardTitle className="text-base">Teste sua IA agora</CardTitle>
-        </div>
-        <CardDescription>Simule uma conversa como cliente e veja como a IA responde</CardDescription>
+           <CardTitle className="text-base">Testar Assistente</CardTitle>
+         </div>
+         <CardDescription>Simule uma conversa como cliente e veja como o assistente responde</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div
