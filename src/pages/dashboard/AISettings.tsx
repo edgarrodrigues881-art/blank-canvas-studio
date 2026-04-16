@@ -2018,24 +2018,24 @@ const AISettings = () => {
                      </div>
                    </div>
                    {/* Badges row */}
-                   <div className="flex items-center gap-1.5 flex-wrap">
-                     {lead.interest && (
-                       <Badge variant="outline" className="text-[10px] px-1.5 py-0">💡 {lead.interest}</Badge>
-                     )}
-                     {lead.product_cited && (
-                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary">🏷️ {lead.product_cited}</Badge>
-                     )}
-                     {notesObj.last_intent && (
-                       <Badge className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20">
-                         {intentLabels[notesObj.last_intent] || notesObj.last_intent}
-                       </Badge>
-                     )}
-                     {notesObj.last_flow_step && (
-                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-dashed">
-                         📍 {stepLabels[notesObj.last_flow_step] || notesObj.last_flow_step}
-                       </Badge>
-                     )}
-                   </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {lead.interest && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">{lead.interest}</Badge>
+                      )}
+                      {lead.product_cited && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary">{lead.product_cited}</Badge>
+                      )}
+                      {notesObj.last_intent && (
+                        <Badge className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20">
+                          {intentLabels[notesObj.last_intent] || notesObj.last_intent}
+                        </Badge>
+                      )}
+                      {notesObj.last_flow_step && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-dashed">
+                          {stepLabels[notesObj.last_flow_step] || notesObj.last_flow_step}
+                        </Badge>
+                      )}
+                    </div>
                    {/* Last message preview */}
                    {lead.last_message_preview && (
                      <p className="text-[11px] text-muted-foreground truncate italic">"{lead.last_message_preview}"</p>
@@ -2073,7 +2073,7 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
-      {/* 🧠 Motor de Aprendizado */}
+      {/* Motor de Aprendizado */}
       <Card className="border-border/50 bg-card/80">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -2098,7 +2098,7 @@ const AISettings = () => {
           {learningInsights ? (
             <div className="space-y-3">
               <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
-                <p className="text-xs font-medium text-foreground mb-1">📊 Resumo da Análise</p>
+                <p className="text-xs font-medium text-foreground mb-1">Resumo da Analise</p>
                 <p className="text-[11px] text-muted-foreground">{learningInsights.insights_summary || "Nenhum resumo disponível"}</p>
                 <p className="text-[10px] text-muted-foreground mt-2">
                   Conversas analisadas: {learningInsights.total_conversations_analyzed || 0} • 
@@ -2109,10 +2109,10 @@ const AISettings = () => {
               {/* Patterns grid */}
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: "✅ O que funciona", data: learningInsights.successful_patterns, color: "border-green-500/30 bg-green-500/5" },
-                  { label: "❌ O que não funciona", data: learningInsights.failure_patterns, color: "border-red-500/30 bg-red-500/5" },
-                  { label: "🛡️ Contorno de objeções", data: learningInsights.objection_handlers, color: "border-amber-500/30 bg-amber-500/5" },
-                  { label: "🔥 Técnicas de fechamento", data: learningInsights.closing_techniques, color: "border-primary/30 bg-primary/5" },
+                  { label: "O que funciona", data: learningInsights.successful_patterns, color: "border-green-500/30 bg-green-500/5" },
+                  { label: "O que nao funciona", data: learningInsights.failure_patterns, color: "border-red-500/30 bg-red-500/5" },
+                  { label: "Contorno de objecoes", data: learningInsights.objection_handlers, color: "border-amber-500/30 bg-amber-500/5" },
+                  { label: "Tecnicas de fechamento", data: learningInsights.closing_techniques, color: "border-primary/30 bg-primary/5" },
                 ].map((section) => (
                   <div key={section.label} className={`rounded-lg border p-2.5 ${section.color}`}>
                     <p className="text-[10px] font-semibold mb-1">{section.label}</p>
