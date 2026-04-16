@@ -15,10 +15,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
 import {
   CalendarClock, Plus, Search, Filter, Clock, Send, Pencil, Trash2,
   Play, AlertTriangle, CheckCircle2, Loader2, Phone, Smartphone,
-  Link2, Calendar, User, X, UserPlus
+  Link2, Calendar, User, X, UserPlus, ArrowLeft, Save, FileText,
+  Download, Variable, ExternalLink, MessageSquare
 } from "lucide-react";
 
 /* ─── types ─── */
@@ -89,6 +91,10 @@ function hasLink(text: string) {
   return /https?:\/\/\S+/i.test(text);
 }
 
+function resolveVars(text: string, name: string): string {
+  return text.replace(/\{nome\}/gi, name || "Cliente");
+}
+
 /* ─── main ─── */
 export default function CRMAgendamentos() {
   const { user } = useAuth();
@@ -104,7 +110,7 @@ export default function CRMAgendamentos() {
   const [detailItem, setDetailItem] = useState<ScheduledMessage | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  const [formOpen, setFormOpen] = useState(false);
+  const [formView, setFormView] = useState(false);
   const [editingItem, setEditingItem] = useState<ScheduledMessage | null>(null);
 
   const fetchItems = useCallback(async () => {
@@ -179,8 +185,8 @@ export default function CRMAgendamentos() {
   };
 
   const openDetail = (item: ScheduledMessage) => { setDetailItem(item); setDetailOpen(true); };
-  const openNew = () => { setEditingItem(null); setFormOpen(true); };
-  const openEdit = (item: ScheduledMessage) => { setEditingItem(item); setFormOpen(true); setDetailOpen(false); };
+  const openNew = () => { setEditingItem(null); setFormView(true); };
+  const openEdit = (item: ScheduledMessage) => { setEditingItem(item); setFormView(true); setDetailOpen(false); };
 
   const deviceName = (id: string | null) => {
     if (!id) return "Auto";
@@ -195,9 +201,19 @@ export default function CRMAgendamentos() {
     { label: "Falhados", value: stats.failed, icon: AlertTriangle, accent: "text-red-400" },
   ];
 
+  if (formView) {
+    return (
+      <ScheduleFormView
+        editing={editingItem}
+        devices={devices}
+        onBack={() => setFormView(false)}
+        onSaved={() => { setFormView(false); fetchItems(); }}
+      />
+    );
+  }
+
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-6xl mx-auto">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -213,7 +229,6 @@ export default function CRMAgendamentos() {
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {STAT_CARDS.map(s => (
           <div key={s.label} className="rounded-xl border border-border/40 bg-card p-3.5 flex items-center gap-3">
@@ -228,7 +243,6 @@ export default function CRMAgendamentos() {
         ))}
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -260,7 +274,6 @@ export default function CRMAgendamentos() {
         </Select>
       </div>
 
-      {/* List */}
       {loading ? (
         <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
           <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
@@ -297,7 +310,6 @@ export default function CRMAgendamentos() {
                   <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
                     <User className="w-4 h-4 text-muted-foreground" />
                   </div>
-
                   <div className="flex-1 min-w-0 space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-sm text-foreground truncate">{item.contact_name || "Sem nome"}</span>
@@ -311,18 +323,15 @@ export default function CRMAgendamentos() {
                         </Badge>
                       )}
                     </div>
-
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Phone className="w-3 h-3" /> {formatPhone(item.contact_phone)}
                     </p>
-
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <p className="text-xs text-muted-foreground/70 truncate max-w-md">{item.message_content}</p>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap text-xs">{item.message_content}</TooltipContent>
                     </Tooltip>
-
                     <div className="flex items-center gap-3 text-[11px] text-muted-foreground pt-0.5">
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
@@ -339,7 +348,6 @@ export default function CRMAgendamentos() {
                       )}
                     </div>
                   </div>
-
                   <div className="hidden group-hover:flex items-center gap-1 shrink-0">
                     {item.status === "pending" && (
                       <>
@@ -362,13 +370,8 @@ export default function CRMAgendamentos() {
         </div>
       )}
 
-      {/* Detail Modal */}
       <DetailModal open={detailOpen} onOpenChange={setDetailOpen} item={detailItem} deviceName={deviceName} onEdit={openEdit} onSendNow={handleSendNow} onDelete={id => { setDetailOpen(false); setDeleteTarget(id); }} />
 
-      {/* Form Modal */}
-      <FormModal open={formOpen} onOpenChange={setFormOpen} editing={editingItem} devices={devices} onSaved={fetchItems} />
-
-      {/* Delete Confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={o => { if (!o) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -451,11 +454,14 @@ function DetailModal({ open, onOpenChange, item, deviceName, onEdit, onSendNow, 
   );
 }
 
-/* ═══════════════════════════════════════════════════════ */
-function FormModal({ open, onOpenChange, editing, devices, onSaved }: {
-  open: boolean; onOpenChange: (o: boolean) => void; editing: ScheduledMessage | null; devices: Device[]; onSaved: () => void;
+/* ═══════════════════════════════════════════════════════
+   FULL-SCREEN 2-COLUMN FORM VIEW
+   ═══════════════════════════════════════════════════════ */
+function ScheduleFormView({ editing, devices, onBack, onSaved }: {
+  editing: ScheduledMessage | null; devices: Device[]; onBack: () => void; onSaved: () => void;
 }) {
   const { user } = useAuth();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ServiceContact[]>([]);
   const [searching, setSearching] = useState(false);
@@ -466,14 +472,23 @@ function FormModal({ open, onOpenChange, editing, devices, onSaved }: {
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [creatingContact, setCreatingContact] = useState(false);
+
   const [messageContent, setMessageContent] = useState("");
+  const [hasButton, setHasButton] = useState(false);
+  const [buttonText, setButtonText] = useState("");
+  const [buttonLink, setButtonLink] = useState("");
+
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [deviceId, setDeviceId] = useState("");
+
+  const [templateName, setTemplateName] = useState("");
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [showLoadTemplate, setShowLoadTemplate] = useState(false);
+
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
     if (editing) {
       const dt = new Date(editing.scheduled_at);
       setSelectedContact({ id: "", name: editing.contact_name, phone: editing.contact_phone, email: null, company: null });
@@ -481,11 +496,8 @@ function FormModal({ open, onOpenChange, editing, devices, onSaved }: {
       setDate(format(dt, "yyyy-MM-dd"));
       setTime(format(dt, "HH:mm"));
       setDeviceId(editing.device_id || "");
-    } else {
-      setSelectedContact(null); setMessageContent(""); setDate(""); setTime(""); setDeviceId("");
     }
-    setSearchQuery(""); setSearchResults([]); setShowResults(false); setShowInlineCreate(false);
-  }, [open, editing]);
+  }, [editing]);
 
   const searchContacts = useCallback(async (q: string) => {
     if (!user || q.length < 2) { setSearchResults([]); return; }
@@ -524,128 +536,363 @@ function FormModal({ open, onOpenChange, editing, devices, onSaved }: {
     setNewName(""); setNewPhone("");
   };
 
+  const insertVariable = (v: string) => {
+    setMessageContent(prev => prev + `{${v}}`);
+  };
+
+  const countdown = useMemo(() => {
+    if (!date || !time) return null;
+    const target = new Date(`${date}T${time}:00`);
+    const now = new Date();
+    if (isPast(target)) return { text: "Data no passado", isToday: false, overdue: true };
+    const diffMin = differenceInMinutes(target, now);
+    if (diffMin < 60) return { text: `Dispara em ${diffMin} minutos`, isToday: true, overdue: false };
+    const diffH = differenceInHours(target, now);
+    if (isToday(target)) return { text: `Dispara em ${diffH}h`, isToday: true, overdue: false };
+    if (isTomorrow(target)) return { text: `Dispara amanhã às ${time}`, isToday: false, overdue: false };
+    const diffD = differenceInDays(target, now);
+    return { text: `Dispara em ${diffD} dias`, isToday: false, overdue: false };
+  }, [date, time]);
+
   const canSave = selectedContact && messageContent.trim() && date && time;
 
   const handleSave = async () => {
     if (!user || !selectedContact || !canSave) return;
     setSaving(true);
     const scheduled_at = new Date(`${date}T${time}:00`).toISOString();
-    const payload = { user_id: user.id, contact_name: selectedContact.name, contact_phone: selectedContact.phone, message_content: messageContent.trim(), scheduled_at, device_id: deviceId || null };
+    let fullMessage = messageContent.trim();
+    if (hasButton && buttonText && buttonLink) {
+      fullMessage += `\n\n${buttonLink}`;
+    }
+    const payload = { user_id: user.id, contact_name: selectedContact.name, contact_phone: selectedContact.phone, message_content: fullMessage, scheduled_at, device_id: deviceId || null };
     let error;
     if (editing) { ({ error } = await supabase.from("scheduled_messages").update(payload as any).eq("id", editing.id)); }
     else { ({ error } = await supabase.from("scheduled_messages").insert(payload as any)); }
     setSaving(false);
     if (error) { toast.error(editing ? "Erro ao atualizar" : "Erro ao criar"); return; }
-    toast.success(editing ? "Disparo atualizado" : "Disparo agendado");
-    onOpenChange(false);
+    toast.success(editing ? "Disparo atualizado" : "Disparo agendado com sucesso");
     onSaved();
   };
 
+  const previewMessage = resolveVars(messageContent, selectedContact?.name || "Cliente");
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>{editing ? "Editar Disparo" : "Novo Disparo Agendado"}</DialogTitle></DialogHeader>
-        <div className="space-y-5 py-2">
-          {/* Contact */}
-          <div className="space-y-3">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contato</Label>
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-5">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={onBack}>
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
+        <div className="flex-1">
+          <h1 className="text-xl font-bold text-foreground">{editing ? "Editar Disparo" : "Novo Disparo Agendado"}</h1>
+          <p className="text-xs text-muted-foreground">Envio individual inteligente</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={onBack}>Cancelar</Button>
+          <Button size="sm" onClick={handleSave} disabled={!canSave || saving} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-xs">
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            {editing ? "Salvar" : "Agendar Disparo"}
+          </Button>
+        </div>
+      </div>
+
+      {/* 2-column layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+        {/* LEFT — 3 cols */}
+        <div className="lg:col-span-3 space-y-5">
+
+          {/* Destinatário */}
+          <div className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">Destinatário</h2>
+            </div>
+
             {selectedContact ? (
-              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
-                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><User className="w-4 h-4 text-primary" /></div>
+              <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-muted/20 p-4">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <User className="w-4 h-4 text-primary" />
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{selectedContact.name}</p>
+                  <p className="text-sm font-semibold text-foreground truncate">{selectedContact.name}</p>
                   <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" /> {formatPhone(selectedContact.phone)}</p>
                 </div>
-                {!editing && <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={clearContact}><X className="w-3.5 h-3.5" /></Button>}
+                {!editing && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" onClick={clearContact}>
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                )}
               </div>
             ) : (
               <div ref={searchRef} className="relative">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="Buscar por nome ou telefone..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9" autoFocus />
+                  <Input placeholder="Buscar contato por nome ou telefone..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 h-10" autoFocus />
                   {searching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />}
                 </div>
                 {showResults && (
-                  <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-popover border border-border rounded-xl shadow-lg max-h-52 overflow-y-auto">
                     {searchResults.length > 0 ? searchResults.map(c => (
-                      <button key={c.id} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent/50 transition-colors text-left" onClick={() => selectContact(c)}>
-                        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><User className="w-3.5 h-3.5 text-primary" /></div>
+                      <button key={c.id} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors text-left" onClick={() => selectContact(c)}>
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><User className="w-3.5 h-3.5 text-primary" /></div>
                         <div className="min-w-0"><p className="text-sm font-medium text-foreground truncate">{c.name}</p><p className="text-xs text-muted-foreground">{formatPhone(c.phone)}</p></div>
                       </button>
                     )) : searchQuery.length >= 2 && !searching ? (
-                      <div className="p-3 text-center">
+                      <div className="p-4 text-center">
                         <p className="text-xs text-muted-foreground mb-2">Nenhum contato encontrado</p>
-                        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { setShowResults(false); setShowInlineCreate(true); setNewPhone(searchQuery.replace(/[^\d+]/g, "")); }}><UserPlus className="w-3.5 h-3.5" /> Criar novo contato</Button>
+                        <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => { setShowResults(false); setShowInlineCreate(true); setNewPhone(searchQuery.replace(/[^\d+]/g, "")); }}>
+                          <UserPlus className="w-3.5 h-3.5" /> Criar novo contato
+                        </Button>
                       </div>
                     ) : null}
                   </div>
                 )}
               </div>
             )}
+
             {showInlineCreate && !selectedContact && (
-              <div className="rounded-lg border border-dashed border-border bg-muted/20 p-3 space-y-3">
+              <div className="rounded-xl border border-dashed border-border bg-muted/10 p-4 space-y-3">
                 <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><UserPlus className="w-3.5 h-3.5" /> Criar novo contato</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <div><Label className="text-xs">Nome</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nome" className="h-8 text-sm" /></div>
-                  <div><Label className="text-xs">Telefone *</Label><Input value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="5511999999999" className="h-8 text-sm" /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label className="text-xs">Nome</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nome do contato" className="h-9 text-sm" /></div>
+                  <div><Label className="text-xs">Telefone *</Label><Input value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="5511999999999" className="h-9 text-sm" /></div>
                 </div>
                 <div className="flex gap-2 justify-end">
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowInlineCreate(false)}>Cancelar</Button>
-                  <Button size="sm" className="h-7 text-xs" onClick={handleCreateContact} disabled={!newPhone.trim() || creatingContact}>{creatingContact && <Loader2 className="w-3 h-3 animate-spin mr-1" />} Salvar</Button>
+                  <Button variant="ghost" size="sm" className="text-xs" onClick={() => setShowInlineCreate(false)}>Cancelar</Button>
+                  <Button size="sm" className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleCreateContact} disabled={!newPhone.trim() || creatingContact}>
+                    {creatingContact && <Loader2 className="w-3 h-3 animate-spin mr-1" />} Salvar
+                  </Button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Message */}
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mensagem</Label>
-            <Textarea value={messageContent} onChange={e => setMessageContent(e.target.value)} placeholder="Digite a mensagem que será enviada..." rows={4} className="resize-y min-h-[100px]" />
-            {messageContent && (
-              <div className="rounded-lg border border-border/40 bg-muted/20 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Preview</p>
-                <p className="text-xs text-foreground whitespace-pre-wrap">{messageContent}</p>
+          {/* Mensagem */}
+          <div className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">Mensagem</h2>
+            </div>
+
+            <Textarea
+              value={messageContent}
+              onChange={e => setMessageContent(e.target.value)}
+              placeholder="Digite sua mensagem... Use {nome} para personalizar."
+              rows={5}
+              className="resize-y min-h-[120px] text-sm"
+            />
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] text-muted-foreground">Variáveis:</span>
+              {["nome"].map(v => (
+                <Button key={v} variant="outline" size="sm" className="h-6 text-[11px] px-2 gap-1" onClick={() => insertVariable(v)}>
+                  <Variable className="w-3 h-3" /> {`{${v}}`}
+                </Button>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs text-foreground font-medium">Botão interativo</span>
+                </div>
+                <Switch checked={hasButton} onCheckedChange={setHasButton} />
+              </div>
+
+              {hasButton && (
+                <div className="grid grid-cols-2 gap-3 pl-6">
+                  <div>
+                    <Label className="text-xs">Texto do botão</Label>
+                    <Input value={buttonText} onChange={e => setButtonText(e.target.value)} placeholder="Saiba mais" className="h-9 text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Link (URL)</Label>
+                    <Input value={buttonLink} onChange={e => setButtonLink(e.target.value)} placeholder="https://..." className="h-9 text-sm" />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Agendamento */}
+          <div className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <CalendarClock className="w-4 h-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">Agendamento</h2>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">Data *</Label>
+                <Input type="date" value={date} onChange={e => setDate(e.target.value)} className="h-9" />
+              </div>
+              <div>
+                <Label className="text-xs">Hora *</Label>
+                <Input type="time" value={time} onChange={e => setTime(e.target.value)} className="h-9" />
+              </div>
+              <div>
+                <Label className="text-xs">Instância</Label>
+                <Select value={deviceId || "auto"} onValueChange={v => setDeviceId(v === "auto" ? "" : v)}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Automático" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Automático</SelectItem>
+                    {devices.map(d => {
+                      const online = ["Ready", "Connected", "authenticated"].includes(d.status);
+                      return (
+                        <SelectItem key={d.id} value={d.id}>
+                          <span className="flex items-center gap-2">
+                            <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-muted-foreground"}`} />
+                            {d.name}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {countdown && (
+              <div className={cn(
+                "rounded-lg px-4 py-2.5 text-xs font-medium flex items-center gap-2",
+                countdown.overdue ? "bg-red-500/10 text-red-400 border border-red-500/20" :
+                countdown.isToday ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                "bg-primary/5 text-primary border border-primary/10"
+              )}>
+                <Clock className="w-3.5 h-3.5" />
+                {countdown.text}
               </div>
             )}
           </div>
 
-          {/* Schedule */}
-          <div className="space-y-3">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Agendamento</Label>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs">Data *</Label><Input type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
-              <div><Label className="text-xs">Hora *</Label><Input type="time" value={time} onChange={e => setTime(e.target.value)} /></div>
+          {/* Modelos */}
+          <div className="rounded-xl border border-border/40 bg-card p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">Modelos</h2>
             </div>
-            <div>
-              <Label className="text-xs">Instância</Label>
-              <Select value={deviceId || "auto"} onValueChange={v => setDeviceId(v === "auto" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Automático" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto">Automático (primeira disponível)</SelectItem>
-                  {devices.map(d => {
-                    const online = ["Ready", "Connected", "authenticated"].includes(d.status);
-                    return (
-                      <SelectItem key={d.id} value={d.id}>
-                        <span className="flex items-center gap-2">
-                          <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-muted-foreground"}`} />
-                          {d.name} {d.number ? `(${d.number})` : ""}
-                        </span>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setShowSaveTemplate(!showSaveTemplate)}>
+                <Save className="w-3.5 h-3.5" /> Salvar como modelo
+              </Button>
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setShowLoadTemplate(!showLoadTemplate)}>
+                <Download className="w-3.5 h-3.5" /> Carregar modelo
+              </Button>
+            </div>
+
+            {showSaveTemplate && (
+              <div className="flex items-center gap-2 pt-1">
+                <Input value={templateName} onChange={e => setTemplateName(e.target.value)} placeholder="Nome do modelo" className="h-8 text-xs flex-1" />
+                <Button size="sm" className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" disabled={!templateName.trim() || !messageContent.trim()} onClick={async () => {
+                  if (!user) return;
+                  await supabase.from("templates").insert({ user_id: user.id, name: templateName.trim(), content: messageContent, message_type: "text" } as any);
+                  toast.success("Modelo salvo");
+                  setTemplateName("");
+                  setShowSaveTemplate(false);
+                }}>
+                  Salvar
+                </Button>
+              </div>
+            )}
+
+            {showLoadTemplate && (
+              <TemplateLoader userId={user?.id} onSelect={(content) => { setMessageContent(content); setShowLoadTemplate(false); }} />
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT — WhatsApp Preview */}
+        <div className="lg:col-span-2">
+          <div className="sticky top-6">
+            <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+              <div className="bg-emerald-600 px-4 py-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                  <User className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">{selectedContact?.name || "Contato"}</p>
+                  <p className="text-[10px] text-white/70">online</p>
+                </div>
+              </div>
+
+              <div className="bg-[hsl(var(--background))] min-h-[350px] p-4 space-y-3" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 L35 10 L30 15 L25 10 Z' fill='%23ffffff' opacity='0.03'/%3E%3C/svg%3E\")" }}>
+                {previewMessage.trim() ? (
+                  <div className="flex justify-end">
+                    <div className="max-w-[85%]">
+                      <div className="bg-emerald-600/20 border border-emerald-500/20 rounded-xl rounded-tr-sm px-3.5 py-2.5 space-y-1.5">
+                        <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">{previewMessage}</p>
+
+                        {hasButton && buttonText && (
+                          <div className="pt-1.5 border-t border-emerald-500/10">
+                            <div className="flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium text-primary cursor-pointer hover:underline">
+                              <ExternalLink className="w-3 h-3" />
+                              {buttonText}
+                            </div>
+                          </div>
+                        )}
+
+                        <p className="text-[10px] text-muted-foreground/60 text-right">
+                          {time || "00:00"} <CheckCircle2 className="w-3 h-3 inline ml-0.5 text-primary/50" />
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full py-16">
+                    <div className="text-center space-y-2">
+                      <MessageSquare className="w-8 h-8 text-muted-foreground/20 mx-auto" />
+                      <p className="text-xs text-muted-foreground/40">Digite uma mensagem para ver o preview</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-border/30 px-4 py-2.5 bg-muted/10">
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <Smartphone className="w-3 h-3" />
+                    {deviceId ? devices.find(d => d.id === deviceId)?.name || "—" : "Automático"}
+                  </span>
+                  {date && time && (
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-3 h-3" />
+                      {format(new Date(`${date}T${time}:00`), "dd/MM 'às' HH:mm")}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={!canSave || saving} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {editing ? "Salvar Alterações" : "Agendar Disparo"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Template Loader ─── */
+function TemplateLoader({ userId, onSelect }: { userId?: string; onSelect: (content: string) => void }) {
+  const [templates, setTemplates] = useState<Array<{ id: string; name: string; content: string }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userId) return;
+    supabase.from("templates").select("id, name, content").eq("user_id", userId).eq("type", "text").order("created_at", { ascending: false }).limit(20)
+      .then(({ data }) => { setTemplates((data as any[]) || []); setLoading(false); });
+  }, [userId]);
+
+  if (loading) return <div className="py-3 text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Carregando...</div>;
+  if (!templates.length) return <p className="text-xs text-muted-foreground py-2">Nenhum modelo salvo</p>;
+
+  return (
+    <div className="space-y-1 max-h-40 overflow-y-auto">
+      {templates.map(t => (
+        <button key={t.id} className="w-full text-left px-3 py-2 rounded-lg hover:bg-accent/50 transition-colors" onClick={() => onSelect(t.content)}>
+          <p className="text-xs font-medium text-foreground">{t.name}</p>
+          <p className="text-[11px] text-muted-foreground truncate">{t.content.slice(0, 60)}...</p>
+        </button>
+      ))}
+    </div>
   );
 }
