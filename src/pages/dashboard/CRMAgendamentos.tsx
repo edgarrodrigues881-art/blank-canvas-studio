@@ -1016,8 +1016,8 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
   );
 }
 
-/* ─── Template Loader ─── */
-function TemplateLoader({ userId, onSelect }: { userId?: string; onSelect: (content: string) => void }) {
+/* ─── Template Loader Modal ─── */
+function TemplateLoaderModal({ userId, onSelect }: { userId?: string; onSelect: (content: string) => void }) {
   const [templates, setTemplates] = useState<Array<{ id: string; name: string; content: string }>>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1027,15 +1027,22 @@ function TemplateLoader({ userId, onSelect }: { userId?: string; onSelect: (cont
       .then(({ data }) => { setTemplates((data as any[]) || []); setLoading(false); });
   }, [userId]);
 
-  if (loading) return <div className="py-3 text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Carregando...</div>;
-  if (!templates.length) return <p className="text-xs text-muted-foreground py-2">Nenhum modelo salvo</p>;
+  if (loading) return <div className="py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" /><p className="text-xs">Carregando templates...</p></div>;
+
+  if (!templates.length) return (
+    <div className="py-10 text-center">
+      <FileText className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
+      <p className="text-sm font-medium text-muted-foreground">Nenhum template criado ainda</p>
+      <p className="text-xs text-muted-foreground/60 mt-1">Salve uma mensagem como template para reutilizar</p>
+    </div>
+  );
 
   return (
-    <div className="space-y-1 max-h-40 overflow-y-auto">
+    <div className="space-y-2 max-h-64 overflow-y-auto py-2">
       {templates.map(t => (
-        <button key={t.id} className="w-full text-left px-3 py-2 rounded-lg hover:bg-accent/50 transition-colors" onClick={() => onSelect(t.content)}>
-          <p className="text-xs font-medium text-foreground">{t.name}</p>
-          <p className="text-[11px] text-muted-foreground truncate">{t.content.slice(0, 60)}...</p>
+        <button key={t.id} className="w-full text-left rounded-xl border border-border/30 bg-muted/5 p-3.5 hover:border-primary/30 hover:bg-primary/5 transition-all" onClick={() => onSelect(t.content)}>
+          <p className="text-sm font-semibold text-foreground">{t.name}</p>
+          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{t.content}</p>
         </button>
       ))}
     </div>
