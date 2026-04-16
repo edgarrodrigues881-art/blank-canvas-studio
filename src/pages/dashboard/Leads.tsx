@@ -148,6 +148,24 @@ function timeAgo(date: string | null) {
   }
 }
 
+function timeShort(date: string | null) {
+  if (!date) return "—";
+  try {
+    const diff = Date.now() - new Date(date).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "agora";
+    if (mins < 60) return `${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}d`;
+    const months = Math.floor(days / 30);
+    return `${months}mo`;
+  } catch {
+    return "—";
+  }
+}
+
 export default function Leads() {
   const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -391,58 +409,62 @@ export default function Leads() {
                 onClick={() => { setDetailLead(lead); setDetailTab("info"); }}
                 className="group cursor-pointer rounded-xl border border-border/40 bg-card px-5 py-4 transition-all duration-200 hover:border-primary/25 hover:shadow-[0_4px_24px_-6px_hsl(var(--primary)/0.1)] hover:bg-muted/20"
               >
-                <div className="flex items-center gap-4">
-                  {/* Avatar */}
-                  <div className={cn(
-                    "w-11 h-11 rounded-full bg-gradient-to-br flex items-center justify-center text-sm font-bold text-white shrink-0 shadow-md ring-1 ring-white/10",
-                    getAvatarColor(lead.name || "?")
-                  )}>
-                    {getInitials(lead.name || "?")}
-                  </div>
-
-                  {/* Name + Company */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[15px] font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-                      {lead.name || "Sem nome"}
-                    </p>
-                    <div className="flex items-center gap-3 mt-0.5">
-                      <span className="text-xs text-muted-foreground/60 flex items-center gap-1">
-                        <Phone className="w-3 h-3" />
-                        {formatPhone(lead.phone)}
-                      </span>
-                      {lead.company && (
-                        <span className="text-xs text-muted-foreground/50 flex items-center gap-1 truncate">
-                          <Building2 className="w-3 h-3" />
-                          {lead.company}
+              <div className="grid items-center gap-3" style={{ gridTemplateColumns: "1fr 110px 90px 50px 90px" }}>
+                  {/* Col 1: Avatar + Name */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={cn(
+                      "w-11 h-11 rounded-full bg-gradient-to-br flex items-center justify-center text-sm font-bold text-white shrink-0 shadow-md ring-1 ring-white/10",
+                      getAvatarColor(lead.name || "?")
+                    )}>
+                      {getInitials(lead.name || "?")}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                        {lead.name || "Sem nome"}
+                      </p>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className="text-xs text-muted-foreground/60 flex items-center gap-1">
+                          <Phone className="w-3 h-3" />
+                          {formatPhone(lead.phone)}
                         </span>
-                      )}
+                        {lead.company && (
+                          <span className="text-xs text-muted-foreground/50 flex items-center gap-1 truncate">
+                            <Building2 className="w-3 h-3" />
+                            {lead.company}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Status */}
-                  <Badge variant="outline" className={cn("text-[10px] font-medium rounded-full border px-2.5 py-0.5 shrink-0", statusCfg.badge)}>
-                    <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5 inline-block", statusCfg.dot)} />
-                    {statusCfg.label}
-                  </Badge>
+                  {/* Col 2: Status */}
+                  <div>
+                    <Badge variant="outline" className={cn("text-[10px] font-medium rounded-full border px-2.5 py-0.5", statusCfg.badge)}>
+                      <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5 inline-block", statusCfg.dot)} />
+                      {statusCfg.label}
+                    </Badge>
+                  </div>
 
-                  {/* Origin */}
-                  <span className="text-xs text-muted-foreground/60 items-center gap-1.5 shrink-0 hidden md:flex">
+                  {/* Col 3: Origin */}
+                  <span className="text-xs text-muted-foreground/60 flex items-center gap-1.5">
                     <OriginIcon className="w-3.5 h-3.5" />
                     {originCfg.label}
                   </span>
 
-                  {/* Time */}
-                  <span className="text-[11px] text-muted-foreground/50 items-center gap-1 shrink-0 hidden lg:flex min-w-[90px]">
+                  {/* Col 4: Time (short) */}
+                  <span className="text-[11px] text-muted-foreground/50 flex items-center gap-1 tabular-nums">
                     <Clock className="w-3 h-3" />
-                    {timeAgo(lead.last_message_at || lead.created_at)}
+                    {timeShort(lead.last_message_at || lead.created_at)}
                   </span>
 
-                  {/* Value */}
-                  {lead.estimated_value ? (
-                    <span className="text-xs font-medium text-emerald-400/80 shrink-0 hidden xl:block tabular-nums">
-                      {formatCurrency(lead.estimated_value)}
-                    </span>
-                  ) : null}
+                  {/* Col 5: Value or Responsible */}
+                  <span className="text-xs text-muted-foreground/60 truncate text-right">
+                    {lead.estimated_value ? (
+                      <span className="font-medium text-emerald-400/80 tabular-nums">{formatCurrency(lead.estimated_value)}</span>
+                    ) : lead.responsible ? (
+                      <span className="flex items-center gap-1 justify-end"><User className="w-3 h-3" />{lead.responsible}</span>
+                    ) : "—"}
+                  </span>
                 </div>
               </div>
             );
