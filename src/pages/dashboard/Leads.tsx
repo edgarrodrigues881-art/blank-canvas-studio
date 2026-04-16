@@ -162,6 +162,7 @@ export default function Leads() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
   const [editing, setEditing] = useState<Lead | null>(null);
+  const [editingInline, setEditingInline] = useState(false);
   const [detailTab, setDetailTab] = useState("info");
   const fileRef = useRef<HTMLInputElement>(null);
 
