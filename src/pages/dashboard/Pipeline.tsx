@@ -6,16 +6,17 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, Building2, User, GripVertical } from "lucide-react";
+import { Search, Building2, User, Clock, Eye, ArrowRight, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STAGES = [
-  { key: "novo", label: "Novo Lead", dot: "bg-blue-500" },
-  { key: "respondeu", label: "Respondeu", dot: "bg-cyan-500" },
-  { key: "interessado", label: "Interessado", dot: "bg-amber-500" },
-  { key: "negociacao", label: "Negociação", dot: "bg-purple-500" },
-  { key: "fechado", label: "Fechado", dot: "bg-emerald-500" },
-  { key: "perdido", label: "Perdido", dot: "bg-red-500" },
+  { key: "novo", label: "Novo Lead", dot: "bg-blue-500", ring: "ring-blue-500/20" },
+  { key: "respondeu", label: "Respondeu", dot: "bg-cyan-500", ring: "ring-cyan-500/20" },
+  { key: "interessado", label: "Interessado", dot: "bg-amber-500", ring: "ring-amber-500/20" },
+  { key: "agendado", label: "Agendado", dot: "bg-indigo-500", ring: "ring-indigo-500/20" },
+  { key: "negociacao", label: "Negociação", dot: "bg-purple-500", ring: "ring-purple-500/20" },
+  { key: "fechado", label: "Fechado", dot: "bg-emerald-500", ring: "ring-emerald-500/20" },
+  { key: "perdido", label: "Perdido", dot: "bg-red-500/60", ring: "ring-red-500/10" },
 ] as const;
 
 interface Lead {
@@ -28,23 +29,45 @@ interface Lead {
   lead_temperature: string | null;
   responsible: string | null;
   pipeline_stage: string | null;
+  last_message_at: string | null;
   created_at: string;
 }
 
-const TEMP_CONFIG: Record<string, { label: string; cls: string }> = {
-  frio:   { label: "❄️ Frio",   cls: "text-sky-600 bg-sky-500/10 border-sky-500/20" },
-  morno:  { label: "🔥 Morno",  cls: "text-amber-600 bg-amber-500/10 border-amber-500/20" },
-  quente: { label: "🔥 Quente", cls: "text-rose-600 bg-rose-500/10 border-rose-500/20" },
+const TEMP_CONFIG: Record<string, { label: string; cls: string; glow?: string }> = {
+  frio:   { label: "❄️", cls: "text-sky-400 bg-sky-500/10 border-sky-500/20" },
+  morno:  { label: "🔥", cls: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
+  quente: { label: "🔥", cls: "text-rose-400 bg-rose-500/10 border-rose-500/20", glow: "shadow-[0_0_12px_-2px_hsl(0_80%_60%/0.15)]" },
 };
 
 function currency(v: number | null) {
   if (!v) return null;
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+}
+
+function currencyShort(v: number) {
+  if (v >= 1000000) return `R$ ${(v / 1000000).toFixed(1)}M`;
+  if (v >= 1000) return `R$ ${(v / 1000).toFixed(1)}k`;
+  return `R$ ${v}`;
 }
 
 function formatPhone(phone: string) {
   if (!phone) return "";
   return phone.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, "+$1 $2 $3-$4");
+}
+
+function timeShort(date: string | null) {
+  if (!date) return null;
+  try {
+    const diff = Date.now() - new Date(date).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "agora";
+    if (mins < 60) return `${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}d`;
+    return `${Math.floor(days / 30)}mo`;
+  } catch { return null; }
 }
 
 export default function Pipeline() {
@@ -61,7 +84,7 @@ export default function Pipeline() {
     if (!user) return;
     const { data } = await supabase
       .from("service_contacts")
-      .select("id,name,phone,company,interest,estimated_value,lead_temperature,responsible,pipeline_stage,created_at")
+      .select("id,name,phone,company,interest,estimated_value,lead_temperature,responsible,pipeline_stage,last_message_at,created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     setLeads((data as any[]) || []);
@@ -95,7 +118,14 @@ export default function Pipeline() {
     if (error) { setLeads(prev); toast.error("Erro ao mover"); }
   };
 
+  const getNextStage = (current: string) => {
+    const idx = STAGES.findIndex((s) => s.key === current);
+    if (idx < 0 || idx >= STAGES.length - 1) return null;
+    return STAGES[idx + 1].key;
+  };
+
   const totalValue = filtered.reduce((s, l) => s + (l.estimated_value || 0), 0);
+  const isPerdido = (key: string) => key === "perdido";
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -142,16 +172,17 @@ export default function Pipeline() {
 
       {/* Kanban */}
       <div className="overflow-x-auto flex-1 min-h-0 -mx-1 px-1">
-        <div className="inline-flex gap-3 min-w-full pb-4 h-full" style={{ minWidth: "1020px" }}>
+        <div className="inline-flex gap-3 min-w-full pb-4 h-full" style={{ minWidth: "1200px" }}>
           {STAGES.map((stage) => {
             const items = grouped[stage.key];
             const total = items.reduce((s, l) => s + (l.estimated_value || 0), 0);
             const isOver = overStage === stage.key;
+            const lost = isPerdido(stage.key);
 
             return (
               <div
                 key={stage.key}
-                className="flex flex-col w-[220px] shrink-0"
+                className={cn("flex flex-col shrink-0", lost ? "w-[180px]" : "w-[240px]")}
                 onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setOverStage(stage.key); }}
                 onDragLeave={() => setOverStage(null)}
                 onDrop={(e) => {
@@ -163,30 +194,31 @@ export default function Pipeline() {
                 }}
               >
                 {/* Column header */}
-                <div className="flex items-center gap-2 px-2 mb-2">
-                  <span className={cn("w-2 h-2 rounded-full shrink-0", stage.dot)} />
-                  <span className="text-[12px] font-semibold text-foreground uppercase tracking-wider">
-                    {stage.label}
-                  </span>
-                  <span className="ml-auto text-[11px] font-bold text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded-md tabular-nums">
-                    {items.length}
-                  </span>
-                </div>
-                {total > 0 && (
-                  <p className="text-[11px] text-emerald-500 font-semibold mb-2 px-2 tabular-nums">
-                    {currency(total)}
+                <div className={cn("px-2.5 mb-2", lost && "opacity-60")}>
+                  <div className="flex items-center gap-2">
+                    <span className={cn("w-2 h-2 rounded-full shrink-0", stage.dot)} />
+                    <span className="text-[12px] font-semibold text-foreground uppercase tracking-wider">
+                      {stage.label}
+                    </span>
+                    <span className="ml-auto text-[11px] font-bold text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded-md tabular-nums">
+                      {items.length}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/50 mt-0.5 tabular-nums">
+                    {items.length} {items.length === 1 ? "lead" : "leads"}{total > 0 ? ` · ${currencyShort(total)}` : ""}
                   </p>
-                )}
+                </div>
 
                 {/* Column body */}
                 <div
                   className={cn(
                     "flex-1 rounded-xl p-2 overflow-y-auto transition-all duration-200",
                     "bg-muted/15 border border-border/30",
+                    lost && "opacity-50",
                     isOver && "bg-primary/[0.06] border-primary/30 shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.1)]"
                   )}
                 >
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     {items.length === 0 && !loading && (
                       <p className="text-center text-[11px] text-muted-foreground/30 py-16 select-none">
                         Arraste leads aqui
@@ -194,9 +226,12 @@ export default function Pipeline() {
                     )}
                     {items.map((lead) => {
                       const temp = TEMP_CONFIG[lead.lead_temperature || ""];
+                      const isHot = lead.lead_temperature === "quente";
                       const hasName = lead.name && lead.name !== lead.phone;
                       const displayName = hasName ? lead.name : (lead.company || formatPhone(lead.phone));
                       const val = currency(lead.estimated_value);
+                      const ago = timeShort(lead.last_message_at || lead.created_at);
+                      const nextStage = getNextStage(lead.pipeline_stage || "novo");
 
                       return (
                         <div
@@ -208,49 +243,25 @@ export default function Pipeline() {
                             e.dataTransfer.setData("text/plain", lead.id);
                           }}
                           className={cn(
-                            "bg-card rounded-xl border border-border/40 p-3.5 cursor-grab active:cursor-grabbing",
+                            "group/card bg-card rounded-xl border border-border/40 px-3.5 py-3 cursor-grab active:cursor-grabbing",
                             "transition-all duration-150",
                             "hover:shadow-md hover:shadow-black/5 hover:border-border/60",
-                            "active:scale-[0.97]"
+                            "active:scale-[0.97]",
+                            isHot && "border-rose-500/20",
+                            isHot && temp?.glow
                           )}
                         >
-                          {/* Name */}
-                          <p className="text-[13px] font-semibold text-foreground leading-snug truncate">
-                            {displayName}
-                          </p>
-
-                          {/* Company + Interest */}
-                          {(lead.company || lead.interest) && (
-                            <div className="flex items-center gap-1.5 mt-1.5">
-                              <Building2 className="w-3 h-3 text-muted-foreground/35 shrink-0" />
-                              <p className="text-[11px] text-muted-foreground/60 truncate leading-snug">
-                                {[hasName ? lead.company : null, lead.interest].filter(Boolean).join(" · ") || lead.interest}
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Phone */}
-                          {lead.phone && (
-                            <p className="text-[10px] text-muted-foreground/35 mt-1 tabular-nums">
-                              {formatPhone(lead.phone)}
-                            </p>
-                          )}
-
-                          {/* Divider */}
-                          <div className="border-t border-border/20 my-2.5" />
-
-                          {/* Value + Temperature */}
-                          <div className="flex items-center justify-between gap-2">
-                            <span className={cn(
-                              "text-[12px] font-bold tabular-nums",
-                              val ? "text-emerald-500" : "text-muted-foreground/20"
+                          {/* Top row: Name + Temp */}
+                          <div className="flex items-start justify-between gap-2">
+                            <p className={cn(
+                              "text-[13px] font-semibold leading-snug truncate",
+                              lost ? "text-muted-foreground/60" : "text-foreground"
                             )}>
-                              {val || "—"}
-                            </span>
-
+                              {displayName}
+                            </p>
                             {temp && (
                               <span className={cn(
-                                "text-[10px] font-semibold px-2 py-0.5 rounded-full border",
+                                "text-[10px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0",
                                 temp.cls
                               )}>
                                 {temp.label}
@@ -258,15 +269,42 @@ export default function Pipeline() {
                             )}
                           </div>
 
-                          {/* Responsible */}
-                          {lead.responsible && (
-                            <div className="flex items-center gap-1.5 mt-2">
-                              <User className="w-3 h-3 text-muted-foreground/30 shrink-0" />
-                              <p className="text-[10px] text-muted-foreground/45 truncate">
-                                {lead.responsible}
-                              </p>
-                            </div>
+                          {/* Phone */}
+                          {lead.phone && hasName && (
+                            <p className="text-[10px] text-muted-foreground/35 mt-0.5 tabular-nums">
+                              {formatPhone(lead.phone)}
+                            </p>
                           )}
+
+                          {/* Meta row */}
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            {val && (
+                              <span className="text-[11px] font-bold text-emerald-500 tabular-nums">{val}</span>
+                            )}
+                            {ago && (
+                              <span className="text-[10px] text-muted-foreground/40 flex items-center gap-0.5 tabular-nums">
+                                <Clock className="w-2.5 h-2.5" />{ago}
+                              </span>
+                            )}
+                            {lead.responsible && (
+                              <span className="text-[10px] text-muted-foreground/40 flex items-center gap-0.5 ml-auto truncate max-w-[80px]">
+                                <User className="w-2.5 h-2.5 shrink-0" />{lead.responsible}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Hover actions */}
+                          <div className="hidden group-hover/card:flex items-center gap-1 mt-2 pt-2 border-t border-border/20">
+                            {nextStage && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); move(lead.id, nextStage); }}
+                                className="text-[10px] text-primary/70 hover:text-primary flex items-center gap-0.5 transition-colors"
+                                title="Avançar etapa"
+                              >
+                                <ArrowRight className="w-3 h-3" /> Avançar
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
