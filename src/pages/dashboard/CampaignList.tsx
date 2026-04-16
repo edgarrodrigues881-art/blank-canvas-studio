@@ -387,6 +387,30 @@ const CampaignList = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmação de exclusão individual */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(o) => !o && setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta campanha?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a excluir <strong>"{deleteConfirm?.name}"</strong>.
+              <br /><br />
+              <span className="text-destructive font-medium">
+                Atenção: todos os contatos, leads e histórico desta campanha serão removidos permanentemente.
+              </span>
+              <br /><br />
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
+              Excluir campanha
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

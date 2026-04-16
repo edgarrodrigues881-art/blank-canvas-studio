@@ -995,6 +995,28 @@ const Templates = () => {
           })()}
         </DialogContent>
       </Dialog>
+
+      {/* Confirmação de exclusão de template */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(o) => !o && setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir este modelo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a excluir <strong>"{deleteConfirm?.name}"</strong>. Esta ação não pode ser desfeita.
+              <br /><br />
+              <span className="text-foreground/80">
+                Suas <strong>campanhas e contatos vinculados continuam intactos</strong> — apenas o modelo será removido.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
+              Excluir modelo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
