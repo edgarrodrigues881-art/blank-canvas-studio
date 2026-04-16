@@ -230,7 +230,7 @@ export default function Leads() {
       segment: l.segment || "", cpf_cnpj: l.cpf_cnpj || "",
       channel: l.channel || "WhatsApp", description: l.description || "",
     });
-    setDialogOpen(true);
+    setEditingInline(true);
   };
 
   const handleSave = async () => {
