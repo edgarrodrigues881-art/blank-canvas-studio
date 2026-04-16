@@ -83,18 +83,18 @@ export function AISimulator() {
   };
 
   return (
-    <Card className="transition-all duration-200 hover:shadow-md">
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-2">
+    <Card>
+      <CardHeader className="pb-4 px-6 pt-6">
+        <div className="flex items-center gap-2.5">
           <Sparkles className="h-4 w-4 text-primary" strokeWidth={1.5} />
-           <CardTitle className="text-base">Testar Assistente</CardTitle>
-         </div>
-         <CardDescription>Simule uma conversa como cliente e veja como o assistente responde</CardDescription>
+          <CardTitle className="text-base tracking-tight">Testar Assistente</CardTitle>
+        </div>
+        <CardDescription className="mt-1">Simule uma conversa como cliente e veja como o assistente responde</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4 px-6 pb-6">
         <div
           ref={scrollRef}
-          className="h-[280px] rounded-xl border border-border/50 bg-background overflow-y-auto p-3 space-y-3"
+          className="h-[280px] rounded-xl border border-border/30 bg-background overflow-y-auto p-4 space-y-3"
         >
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
