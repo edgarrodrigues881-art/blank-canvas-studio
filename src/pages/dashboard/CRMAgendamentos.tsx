@@ -592,8 +592,9 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
     setSaving(true);
     const scheduled_at = new Date(`${date}T${time}:00`).toISOString();
     let fullMessage = messageContent.trim();
-    if (hasButton && buttonText && buttonLink) {
-      fullMessage += `\n\n${buttonLink}`;
+    const urlButtons = buttons.filter(b => b.type === "url" && b.value);
+    if (urlButtons.length > 0) {
+      fullMessage += "\n\n" + urlButtons.map(b => b.value).join("\n");
     }
     const payload = { user_id: user.id, contact_name: selectedContact.name, contact_phone: selectedContact.phone, message_content: fullMessage, scheduled_at, device_id: deviceId || null };
     let error;
@@ -735,6 +736,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
             </div>
 
             <Textarea
+              ref={textareaRef}
               value={messageContent}
               onChange={e => setMessageContent(e.target.value)}
               placeholder="Digite sua mensagem... Use {nome} para personalizar."
@@ -744,34 +746,61 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
 
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[11px] text-muted-foreground">Variáveis:</span>
-              {["nome"].map(v => (
+              {["nome", "empresa", "telefone", "variavel1", "variavel2"].map(v => (
                 <Button key={v} variant="outline" size="sm" className="h-6 text-[11px] px-2 gap-1" onClick={() => insertVariable(v)}>
                   <Variable className="w-3 h-3" /> {`{${v}}`}
                 </Button>
               ))}
             </div>
 
+            {/* Botões interativos */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="text-xs text-foreground font-medium">Botão interativo</span>
+                  <span className="text-xs text-foreground font-medium">Botões interativos</span>
+                  <span className="text-[10px] text-muted-foreground">({buttons.length}/3)</span>
                 </div>
-                <Switch checked={hasButton} onCheckedChange={setHasButton} />
+                {buttons.length < 3 && (
+                  <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" onClick={addButton}>
+                    <Plus className="w-3 h-3" /> Adicionar
+                  </Button>
+                )}
               </div>
 
-              {hasButton && (
-                <div className="grid grid-cols-2 gap-3 pl-6">
-                  <div>
-                    <Label className="text-xs">Texto do botão</Label>
-                    <Input value={buttonText} onChange={e => setButtonText(e.target.value)} placeholder="Saiba mais" className="h-9 text-sm" />
+              {buttons.map((btn, idx) => (
+                <div key={idx} className="rounded-lg border border-border/40 bg-muted/10 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex rounded-md border border-border/50 p-0.5 bg-muted/30 w-fit">
+                      <button
+                        className={cn("px-2 py-1 rounded text-[10px] font-medium transition-all", btn.type === "url" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground")}
+                        onClick={() => updateButton(idx, "type", "url")}
+                      >
+                        <Link2 className="w-2.5 h-2.5 inline mr-1" />URL
+                      </button>
+                      <button
+                        className={cn("px-2 py-1 rounded text-[10px] font-medium transition-all", btn.type === "reply" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground")}
+                        onClick={() => updateButton(idx, "type", "reply")}
+                      >
+                        <Reply className="w-2.5 h-2.5 inline mr-1" />Resposta
+                      </button>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-red-400" onClick={() => removeButton(idx)}>
+                      <X className="w-3 h-3" />
+                    </Button>
                   </div>
-                  <div>
-                    <Label className="text-xs">Link (URL)</Label>
-                    <Input value={buttonLink} onChange={e => setButtonLink(e.target.value)} placeholder="https://..." className="h-9 text-sm" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[10px]">Texto do botão</Label>
+                      <Input value={btn.text} onChange={e => updateButton(idx, "text", e.target.value)} placeholder={btn.type === "url" ? "Saiba mais" : "Sim, tenho interesse"} className="h-8 text-xs" />
+                    </div>
+                    <div>
+                      <Label className="text-[10px]">{btn.type === "url" ? "Link (URL)" : "Valor da resposta"}</Label>
+                      <Input value={btn.value} onChange={e => updateButton(idx, "value", e.target.value)} placeholder={btn.type === "url" ? "https://..." : "interesse_confirmado"} className="h-8 text-xs" />
+                    </div>
                   </div>
                 </div>
-              )}
+              ))}
             </div>
           </div>
 
