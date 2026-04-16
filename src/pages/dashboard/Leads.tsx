@@ -489,7 +489,7 @@ export default function Leads() {
 
       {/* ── Detail Dialog (view + inline edit) ── */}
       <Dialog open={!!detailLead} onOpenChange={(open) => { if (!open) { setDetailLead(null); setEditingInline(false); } }}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
+        <DialogContent className={cn("max-w-2xl max-h-[85vh] overflow-y-auto p-0", editingInline && "[&>button:last-child]:hidden")}>
           {detailLead && (() => {
             const statusCfg = getStatusConfig(detailLead.pipeline_stage);
             const priorityCfg = getPriorityConfig(detailLead.priority);
