@@ -147,10 +147,11 @@ export default function CRMReports() {
     const closed = byStage["fechado"] || 0;
     const conversionRate = total > 0 ? (closed / total) * 100 : 0;
 
-    // Avg response time
+    // Avg response time: estimate from conversation created_at to last_message_at
     const responseTimes = conversations
-      .filter((c: any) => c.first_reply_at && c.created_at)
-      .map((c: any) => differenceInMinutes(new Date(c.first_reply_at), new Date(c.created_at)));
+      .filter((c: any) => c.last_message_at && c.created_at)
+      .map((c: any) => differenceInMinutes(new Date(c.last_message_at), new Date(c.created_at)))
+      .filter((m: number) => m > 0 && m < 1440); // cap at 24h for relevance
     const avgResponseMin = responseTimes.length > 0
       ? Math.round(responseTimes.reduce((a: number, b: number) => a + b, 0) / responseTimes.length)
       : 0;
