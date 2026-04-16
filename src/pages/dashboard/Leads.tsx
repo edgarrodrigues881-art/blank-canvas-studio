@@ -542,13 +542,19 @@ export default function Leads() {
               return (
                 <div>
                   {/* Header */}
-                  <div className="p-6 pt-8 pb-4 border-b border-border/60">
+                  <div className="px-6 pt-5 pb-4 border-b border-border/60">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Pencil className="w-4 h-4 text-primary" />
                         <h2 className="text-base font-bold text-foreground">Editando Lead</h2>
                       </div>
-                      <ActionButtons />
+                      <div className="flex items-center gap-3">
+                        <ActionButtons />
+                        <button onClick={cancelEdit} className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                          <span className="sr-only">Voltar</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
 
