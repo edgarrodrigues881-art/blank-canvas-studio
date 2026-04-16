@@ -20,6 +20,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import SearchAreaMap from "@/components/prospeccao/SearchAreaMap";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -834,16 +835,45 @@ export default function Prospeccao() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openCampaignDetail(c)} title="Ver detalhes">
-                                <Eye className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { exportCampaignLeads(c); }} title="Baixar CSV">
-                                <Download className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => duplicateCampaign(c)} title="Duplicar busca">
-                                <Copy className="h-3.5 w-3.5" />
-                              </Button>
+                            <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    className="h-7 gap-1.5 px-2.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 border-0 shadow-none transition-all duration-200"
+                                    onClick={() => openCampaignDetail(c)}
+                                  >
+                                    <Eye className="h-3.5 w-3.5" /> Ver
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top"><p>Visualizar campanha</p></TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-200"
+                                    onClick={() => exportCampaignLeads(c)}
+                                  >
+                                    <Download className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top"><p>Baixar resultados</p></TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-200"
+                                    onClick={() => duplicateCampaign(c)}
+                                  >
+                                    <Copy className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top"><p>Duplicar campanha</p></TooltipContent>
+                              </Tooltip>
                             </div>
                           </TableCell>
                         </TableRow>
