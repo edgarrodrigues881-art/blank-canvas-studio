@@ -1,141 +1,112 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
+import { format, isToday, isTomorrow, isPast, isThisWeek, differenceInMinutes, differenceInHours, differenceInDays } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  CalendarClock, Plus, Search, Clock, MessageSquare, Users,
-  Phone as PhoneIcon, Trash2, CheckCircle2, AlertTriangle,
-  Send, ArrowRight, Flame, Snowflake, ThermometerSun,
-  BarChart3, TrendingUp, CalendarCheck, Loader2, ChevronRight,
-  Zap, UserCheck, StickyNote,
+  CalendarClock, Plus, Search, Filter, Clock, Send, Pencil, Trash2,
+  Play, AlertTriangle, CheckCircle2, Loader2, Phone, Smartphone,
+  Link2, Calendar, User, X, UserPlus
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { formatPhone } from "@/utils/formatters";
-import { format, isBefore, isToday, isTomorrow, isAfter, addHours, differenceInMinutes, differenceInHours, differenceInDays, startOfDay, endOfDay } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
-/* ── Configs ── */
-const TYPE_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
-  followup: { label: "Follow-up", icon: "📞", color: "bg-primary/10 text-primary border-primary/20" },
-  reuniao: { label: "Reunião", icon: "🤝", color: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
-  retorno: { label: "Retorno", icon: "🔄", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-  automatico: { label: "Automático", icon: "⚡", color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-};
-
-const STATUS_COLORS: Record<string, { label: string; cls: string }> = {
-  pending: { label: "Pendente", cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  processing: { label: "Enviando...", cls: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
-  sent: { label: "Enviado", cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  failed: { label: "Erro", cls: "bg-red-500/15 text-red-400 border-red-500/30" },
-  retry: { label: "Retentando", cls: "bg-orange-500/15 text-orange-400 border-orange-500/30" },
-  overdue: { label: "Atrasado", cls: "bg-red-500/15 text-red-400 border-red-500/30" },
-  done: { label: "Concluído", cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  cancelled: { label: "Cancelado", cls: "bg-muted text-muted-foreground border-border" },
-};
-
-const TEMP_CONFIG: Record<string, { label: string; icon: React.ElementType; cls: string }> = {
-  frio: { label: "Frio", icon: Snowflake, cls: "text-sky-400" },
-  morno: { label: "Morno", icon: ThermometerSun, cls: "text-amber-400" },
-  quente: { label: "Quente", icon: Flame, cls: "text-rose-400" },
-};
-
-interface ScheduleItem {
+/* ─── types ─── */
+interface ScheduledMessage {
   id: string;
   contact_name: string;
   contact_phone: string;
   message_content: string;
   scheduled_at: string;
   status: string;
-  schedule_type: string;
-  lead_id: string | null;
+  device_id: string | null;
   sent_at: string | null;
   error_message: string | null;
-  device_id: string | null;
+  attempts: number;
+  max_attempts: number;
+  next_retry_at: string | null;
   created_at: string;
-  // Extended fields (stored in message_content as JSON or separate columns)
-  temperature?: string;
-  estimated_value?: number;
-  notes?: string;
-  objective?: string;
-  assigned_to?: string;
+  schedule_type: string;
 }
 
-interface LeadOption { id: string; name: string; phone: string; }
-interface DeviceOption { id: string; name: string; status: string; }
+interface Device {
+  id: string;
+  name: string;
+  number: string | null;
+  status: string;
+}
 
-/* ── Helpers ── */
-function timeAgo(dateStr: string): string {
+interface ServiceContact {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  company: string | null;
+}
+
+/* ─── helpers ─── */
+const STATUS_MAP: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  pending:     { label: "Pendente",  color: "bg-blue-500/15 text-blue-400 border-blue-500/30",       icon: Clock },
+  processing:  { label: "Enviando", color: "bg-blue-500/15 text-blue-400 border-blue-500/30",       icon: Loader2 },
+  sent:        { label: "Enviado",  color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30", icon: CheckCircle2 },
+  failed:      { label: "Falhou",   color: "bg-red-500/15 text-red-400 border-red-500/30",          icon: AlertTriangle },
+  cancelled:   { label: "Cancelado", color: "bg-muted text-muted-foreground border-muted",          icon: X },
+  retry:       { label: "Retentando", color: "bg-orange-500/15 text-orange-400 border-orange-500/30", icon: Clock },
+};
+
+function timeUntil(dateStr: string): { text: string; overdue: boolean } {
+  const target = new Date(dateStr);
   const now = new Date();
-  const d = new Date(dateStr);
-  const mins = differenceInMinutes(now, d);
-  if (mins < 0) {
-    const futMins = Math.abs(mins);
-    if (futMins < 60) return `em ${futMins}m`;
-    const futHrs = differenceInHours(d, now);
-    if (futHrs < 24) return `em ${futHrs}h`;
-    return `em ${differenceInDays(d, now)}d`;
-  }
-  if (mins < 60) return `${mins}m`;
-  const hrs = differenceInHours(now, d);
-  if (hrs < 24) return `${hrs}h`;
-  return `${differenceInDays(now, d)}d`;
+  if (isPast(target) && !isToday(target)) return { text: "Atrasado", overdue: true };
+  const diffMin = differenceInMinutes(target, now);
+  if (diffMin < 0) return { text: "Atrasado", overdue: true };
+  if (diffMin < 60) return { text: `Em ${diffMin}min`, overdue: false };
+  const diffH = differenceInHours(target, now);
+  if (diffH < 24) return { text: `Em ${diffH}h`, overdue: false };
+  const diffD = differenceInDays(target, now);
+  return { text: diffD === 1 ? "Amanhã" : `Em ${diffD}d`, overdue: false };
 }
 
-function currencyShort(v: number): string {
-  if (v >= 1000) return `R$ ${(v / 1000).toFixed(1).replace(".0", "")}k`;
-  return `R$ ${v}`;
+function formatPhone(p: string) {
+  const d = p.replace(/\D/g, "");
+  if (d.length === 13) return `+${d.slice(0,2)} ${d.slice(2,4)} ${d.slice(4,9)}-${d.slice(9)}`;
+  if (d.length === 12) return `+${d.slice(0,2)} ${d.slice(2,4)} ${d.slice(4,8)}-${d.slice(8)}`;
+  if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+  return p;
 }
 
-function isOverdue(item: ScheduleItem): boolean {
-  return item.status === "pending" && isBefore(new Date(item.scheduled_at), new Date());
+function hasLink(text: string) {
+  return /https?:\/\/\S+/i.test(text);
 }
 
-function getEffectiveStatus(item: ScheduleItem): string {
-  if (isOverdue(item)) return "overdue";
-  return item.status;
-}
-
+/* ─── main ─── */
 export default function CRMAgendamentos() {
   const { user } = useAuth();
-  const [items, setItems] = useState<ScheduleItem[]>([]);
+  const [items, setItems] = useState<ScheduledMessage[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [search, setSearch] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [leads, setLeads] = useState<LeadOption[]>([]);
-  const [leadSearch, setLeadSearch] = useState("");
-  const [devices, setDevices] = useState<DeviceOption[]>([]);
-  const [activeTab, setActiveTab] = useState("followups");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
 
-  /* Form state */
-  const [form, setForm] = useState({
-    lead_id: "",
-    contact_name: "",
-    contact_phone: "",
-    message_content: "",
-    schedule_type: "followup",
-    device_id: "",
-    date: undefined as Date | undefined,
-    time: "09:00",
-    temperature: "",
-    estimated_value: "",
-    notes: "",
-    objective: "",
-  });
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailItem, setDetailItem] = useState<ScheduledMessage | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  /* ── Fetch ── */
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<ScheduledMessage | null>(null);
+
   const fetchItems = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
@@ -147,611 +118,534 @@ export default function CRMAgendamentos() {
     setLoading(false);
   }, [user]);
 
-  const fetchLeads = useCallback(async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from("service_contacts")
-      .select("id, name, phone")
-      .eq("user_id", user.id)
-      .order("name");
-    setLeads((data as any[]) || []);
-  }, [user]);
-
   const fetchDevices = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from("devices")
-      .select("id, name, status")
+      .select("id, name, number, status")
       .eq("user_id", user.id)
-      .in("status", ["Ready", "Connected", "authenticated"])
       .neq("login_type", "report_wa");
-    setDevices((data as any[]) || []);
+    setDevices((data as Device[]) || []);
   }, [user]);
 
-  useEffect(() => { fetchItems(); fetchLeads(); fetchDevices(); }, [fetchItems, fetchLeads, fetchDevices]);
+  useEffect(() => { fetchItems(); }, [fetchItems]);
+  useEffect(() => { fetchDevices(); }, [fetchDevices]);
 
-  /* ── Derived data ── */
-  const followups = useMemo(() =>
-    items.filter(i => i.schedule_type !== "automatico"), [items]);
+  useEffect(() => {
+    if (!user) return;
+    const ch = supabase
+      .channel("scheduled-dispatches-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "scheduled_messages", filter: `user_id=eq.${user.id}` },
+        () => fetchItems()
+      ).subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user, fetchItems]);
 
-  const automatics = useMemo(() =>
-    items.filter(i => i.schedule_type === "automatico"), [items]);
-
-  const todayFollowups = useMemo(() =>
-    followups.filter(i => isToday(new Date(i.scheduled_at))), [followups]);
-
-  const overdueItems = useMemo(() =>
-    followups.filter(i => isOverdue(i)), [followups]);
-
-  const doneToday = useMemo(() =>
-    followups.filter(i => i.status === "sent" && i.sent_at && isToday(new Date(i.sent_at))), [followups]);
-
-  /* Grouped follow-ups */
-  const grouped = useMemo(() => {
-    const now = new Date();
-    const todayEnd = endOfDay(now);
-    const tomorrowEnd = endOfDay(new Date(now.getTime() + 86400000));
-
-    const today: ScheduleItem[] = [];
-    const tomorrow: ScheduleItem[] = [];
-    const future: ScheduleItem[] = [];
-    const past: ScheduleItem[] = [];
-
-    followups.filter(i => {
-      if (search) {
-        const s = search.toLowerCase();
-        return i.contact_name?.toLowerCase().includes(s) || i.contact_phone?.includes(search);
-      }
-      return true;
-    }).forEach(i => {
-      const d = new Date(i.scheduled_at);
-      if (i.status === "sent" || i.status === "cancelled") return;
-      if (isBefore(d, startOfDay(now)) || isOverdue(i)) past.push(i);
-      else if (isToday(d)) today.push(i);
-      else if (isTomorrow(d)) tomorrow.push(i);
-      else future.push(i);
-    });
-
-    return { past, today, tomorrow, future };
-  }, [followups, search]);
-
-  /* Filtered automatics */
-  const filteredAutomatics = useMemo(() => {
-    if (!search) return automatics;
-    const s = search.toLowerCase();
-    return automatics.filter(i => i.contact_name?.toLowerCase().includes(s) || i.contact_phone?.includes(search));
-  }, [automatics, search]);
-
-  /* ── Lead selection ── */
-  const selectLead = (lead: LeadOption) => {
-    setForm(f => ({ ...f, lead_id: lead.id, contact_name: lead.name, contact_phone: lead.phone }));
-    setLeadSearch("");
-  };
-
-  const filteredLeads = leadSearch
-    ? leads.filter(l => l.name?.toLowerCase().includes(leadSearch.toLowerCase()) || l.phone?.includes(leadSearch)).slice(0, 8)
-    : [];
-
-  /* ── Create ── */
-  const openNew = (type: string = "followup") => {
-    setForm({
-      lead_id: "", contact_name: "", contact_phone: "", message_content: "",
-      schedule_type: type, device_id: devices[0]?.id || "",
-      date: addHours(new Date(), 1), time: format(addHours(new Date(), 1), "HH:mm"),
-      temperature: "", estimated_value: "", notes: "", objective: "",
-    });
-    setDialogOpen(true);
-  };
-
-  const handleSave = async () => {
-    if (!user || !form.date || !form.contact_phone) return;
-    const [hours, minutes] = form.time.split(":").map(Number);
-    const scheduledAt = new Date(form.date);
-    scheduledAt.setHours(hours, minutes, 0, 0);
-
-    const payload: any = {
-      user_id: user.id,
-      contact_name: form.contact_name || form.contact_phone,
-      contact_phone: form.contact_phone,
-      message_content: form.message_content,
-      scheduled_at: scheduledAt.toISOString(),
-      schedule_type: form.schedule_type,
-      lead_id: form.lead_id || null,
-      device_id: form.device_id || null,
-      status: "pending",
-    };
-
-    const { error } = await supabase.from("scheduled_messages").insert(payload);
-    if (error) { toast.error("Erro ao criar agendamento"); return; }
-    toast.success("Agendamento criado!");
-    setDialogOpen(false);
-    fetchItems();
-  };
-
-  const handleDelete = async (id: string) => {
-    await supabase.from("scheduled_messages").delete().eq("id", id);
-    toast.success("Agendamento removido");
-    fetchItems();
-  };
-
-  const handleMarkDone = async (id: string) => {
-    await supabase.from("scheduled_messages").update({ status: "sent", sent_at: new Date().toISOString() } as any).eq("id", id);
-    toast.success("Marcado como concluído");
-    fetchItems();
-  };
-
-  /* ── Stats for Produtividade ── */
-  const weekStats = useMemo(() => {
-    const now = new Date();
-    const weekAgo = new Date(now.getTime() - 7 * 86400000);
-    const weekItems = items.filter(i => new Date(i.created_at) >= weekAgo);
-    const sent = weekItems.filter(i => i.status === "sent").length;
-    const total = weekItems.length;
-    return { sent, total, rate: total > 0 ? Math.round((sent / total) * 100) : 0 };
+  const stats = useMemo(() => {
+    const today = items.filter(i => isToday(new Date(i.scheduled_at)) && i.status === "pending").length;
+    const pending = items.filter(i => i.status === "pending").length;
+    const sent = items.filter(i => i.status === "sent").length;
+    const failed = items.filter(i => i.status === "failed").length;
+    return { today, pending, sent, failed };
   }, [items]);
 
-  /* ── Render helpers ── */
-  const FollowupCard = ({ item }: { item: ScheduleItem }) => {
-    const overdue = isOverdue(item);
-    const effStatus = getEffectiveStatus(item);
-    const statusCfg = STATUS_COLORS[effStatus] || STATUS_COLORS.pending;
-    const tempCfg = item.temperature ? TEMP_CONFIG[item.temperature] : null;
-    const TempIcon = tempCfg?.icon;
+  const filtered = useMemo(() => {
+    let list = [...items];
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(i => i.contact_name?.toLowerCase().includes(q) || i.contact_phone?.includes(q));
+    }
+    if (statusFilter !== "all") list = list.filter(i => i.status === statusFilter);
+    if (dateFilter === "today") list = list.filter(i => isToday(new Date(i.scheduled_at)));
+    else if (dateFilter === "tomorrow") list = list.filter(i => isTomorrow(new Date(i.scheduled_at)));
+    else if (dateFilter === "week") list = list.filter(i => isThisWeek(new Date(i.scheduled_at)));
+    return list;
+  }, [items, search, statusFilter, dateFilter]);
 
-    return (
-      <div
-        className={cn(
-          "group relative rounded-xl border bg-card p-4 transition-all duration-200 cursor-pointer hover:shadow-md hover:border-border/80",
-          overdue && "border-red-500/30 bg-red-500/[0.03]",
-        )}
-        onClick={() => {}}
-      >
-        {/* Overdue indicator */}
-        {overdue && (
-          <div className="absolute -left-px top-3 bottom-3 w-[3px] rounded-r-full bg-red-500" />
-        )}
-
-        <div className="flex items-start gap-3">
-          {/* Avatar */}
-          <div className={cn(
-            "w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-bold",
-            overdue ? "bg-red-500/10 text-red-400" : "bg-primary/10 text-primary",
-          )}>
-            {(item.contact_name || "?")[0]?.toUpperCase()}
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 min-w-0 space-y-1.5">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-foreground truncate">{item.contact_name || "Sem nome"}</p>
-              {tempCfg && TempIcon && (
-                <TempIcon className={cn("w-3.5 h-3.5 shrink-0", tempCfg.cls)} />
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">{formatPhone(item.contact_phone)}</p>
-
-            {item.message_content && (
-              <p className="text-xs text-muted-foreground/70 line-clamp-1">{item.message_content}</p>
-            )}
-
-            <div className="flex items-center gap-2 flex-wrap pt-0.5">
-              <Badge className={cn("text-[10px] border", statusCfg.cls)}>{statusCfg.label}</Badge>
-
-              {item.schedule_type && TYPE_CONFIG[item.schedule_type] && (
-                <span className="text-[10px] text-muted-foreground">
-                  {TYPE_CONFIG[item.schedule_type].icon} {TYPE_CONFIG[item.schedule_type].label}
-                </span>
-              )}
-
-              {item.estimated_value && item.estimated_value > 0 && (
-                <span className="text-[10px] font-medium text-emerald-400">
-                  {currencyShort(item.estimated_value)}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Right side */}
-          <div className="flex flex-col items-end gap-1.5 shrink-0">
-            <span className={cn(
-              "text-xs font-medium",
-              overdue ? "text-red-400" : "text-muted-foreground",
-            )}>
-              {timeAgo(item.scheduled_at)}
-            </span>
-
-            {/* Hover actions */}
-            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
-                onClick={(e) => { e.stopPropagation(); handleMarkDone(item.id); }}
-                title="Concluir"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
-                title="Remover"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    await supabase.from("scheduled_messages").delete().eq("id", deleteTarget);
+    toast.success("Disparo removido");
+    setDeleteTarget(null);
+    fetchItems();
   };
 
-  const FollowupGroup = ({ title, items, icon: Icon, accent }: { title: string; items: ScheduleItem[]; icon: React.ElementType; accent: string }) => {
-    if (items.length === 0) return null;
-    return (
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 px-1">
-          <Icon className={cn("w-4 h-4", accent)} />
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
-          <Badge variant="secondary" className="text-[10px] h-5">{items.length}</Badge>
-        </div>
-        <div className="space-y-2">
-          {items.map(item => <FollowupCard key={item.id} item={item} />)}
-        </div>
-      </div>
-    );
+  const handleSendNow = async (item: ScheduledMessage) => {
+    const payload: any = { scheduled_at: new Date().toISOString(), status: "pending", attempts: 0, next_retry_at: null, error_message: null };
+    const { error } = await supabase.from("scheduled_messages").update(payload).eq("id", item.id);
+    if (error) { toast.error("Erro ao disparar"); return; }
+    toast.success("Disparo adicionado à fila de envio");
+    fetchItems();
   };
 
-  const AutomaticRow = ({ item }: { item: ScheduleItem }) => {
-    const statusCfg = STATUS_COLORS[item.status] || STATUS_COLORS.pending;
-    const device = devices.find(d => d.id === item.device_id);
+  const openDetail = (item: ScheduledMessage) => { setDetailItem(item); setDetailOpen(true); };
+  const openNew = () => { setEditingItem(null); setFormOpen(true); };
+  const openEdit = (item: ScheduledMessage) => { setEditingItem(item); setFormOpen(true); setDetailOpen(false); };
 
-    return (
-      <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-card p-3 hover:bg-accent/30 transition-colors group">
-        <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-          <Zap className="w-4 h-4 text-blue-400" />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground truncate">{item.contact_name || formatPhone(item.contact_phone)}</p>
-          <p className="text-xs text-muted-foreground line-clamp-1">{item.message_content || "—"}</p>
-        </div>
-
-        {device && (
-          <span className="text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md shrink-0">
-            {device.name}
-          </span>
-        )}
-
-        <Badge className={cn("text-[10px] border shrink-0", statusCfg.cls)}>{statusCfg.label}</Badge>
-
-        <span className="text-xs text-muted-foreground shrink-0 w-12 text-right">
-          {timeAgo(item.scheduled_at)}
-        </span>
-
-        <Button
-          variant="ghost" size="icon"
-          className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-          onClick={() => handleDelete(item.id)}
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </Button>
-      </div>
-    );
+  const deviceName = (id: string | null) => {
+    if (!id) return "Auto";
+    const d = devices.find(x => x.id === id);
+    return d ? d.name : "—";
   };
+
+  const STAT_CARDS = [
+    { label: "Hoje", value: stats.today, icon: Calendar, accent: "text-primary" },
+    { label: "Pendentes", value: stats.pending, icon: Clock, accent: "text-blue-400" },
+    { label: "Enviados", value: stats.sent, icon: CheckCircle2, accent: "text-emerald-400" },
+    { label: "Falhados", value: stats.failed, icon: AlertTriangle, accent: "text-red-400" },
+  ];
 
   return (
-    <div className="space-y-5">
+    <div className="p-4 md:p-6 space-y-5 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
             <CalendarClock className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Agendamentos</h1>
-            <p className="text-xs text-muted-foreground">Gerencie follow-ups e envios automáticos</p>
+            <h1 className="text-xl font-bold text-foreground">Disparos Agendados</h1>
+            <p className="text-xs text-muted-foreground">Central de envios programados</p>
           </div>
         </div>
-        <Button size="sm" onClick={() => openNew(activeTab === "automatics" ? "automatico" : "followup")} className="gap-1.5">
-          <Plus className="w-3.5 h-3.5" /> Novo
+        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5" onClick={openNew}>
+          <Plus className="w-4 h-4" /> Novo Disparo
         </Button>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: "Follow-ups Hoje", value: todayFollowups.length, icon: CalendarCheck, color: "text-primary" },
-          { label: "Atrasados", value: overdueItems.length, icon: AlertTriangle, color: overdueItems.length > 0 ? "text-red-400" : "text-muted-foreground" },
-          { label: "Concluídos Hoje", value: doneToday.length, icon: CheckCircle2, color: "text-emerald-400" },
-          { label: "Total Pendentes", value: items.filter(i => i.status === "pending").length, icon: Clock, color: "text-amber-400" },
-        ].map(s => (
-          <Card key={s.label} className="bg-card border-border">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", s.color === "text-red-400" ? "bg-red-500/10" : s.color === "text-emerald-400" ? "bg-emerald-500/10" : s.color === "text-amber-400" ? "bg-amber-500/10" : "bg-primary/10")}>
-                <s.icon className={cn("w-4.5 h-4.5", s.color)} />
-              </div>
-              <div>
-                <p className={cn("text-xl font-bold", s.color)}>{s.value}</p>
-                <p className="text-[11px] text-muted-foreground">{s.label}</p>
-              </div>
-            </CardContent>
-          </Card>
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {STAT_CARDS.map(s => (
+          <div key={s.label} className="rounded-xl border border-border/40 bg-card p-3.5 flex items-center gap-3">
+            <div className={cn("w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center", s.accent)}>
+              <s.icon className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xl font-bold text-foreground leading-none">{s.value}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{s.label}</p>
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="followups" className="gap-1.5">
-            <UserCheck className="w-3.5 h-3.5" />
-            Follow-ups
-            {overdueItems.length > 0 && (
-              <span className="ml-1 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
-                {overdueItems.length}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="automatics" className="gap-1.5">
-            <Zap className="w-3.5 h-3.5" />
-            Envios Automáticos
-          </TabsTrigger>
-          <TabsTrigger value="productivity" className="gap-1.5">
-            <BarChart3 className="w-3.5 h-3.5" />
-            Produtividade
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Search (shared) */}
-        <div className="relative mt-4">
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Buscar por nome ou telefone..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 max-w-md" />
+          <Input placeholder="Buscar por nome ou telefone..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9" />
         </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[140px] h-9">
+            <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="pending">Pendentes</SelectItem>
+            <SelectItem value="sent">Enviados</SelectItem>
+            <SelectItem value="failed">Falhados</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={dateFilter} onValueChange={setDateFilter}>
+          <SelectTrigger className="w-[140px] h-9">
+            <Calendar className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as datas</SelectItem>
+            <SelectItem value="today">Hoje</SelectItem>
+            <SelectItem value="tomorrow">Amanhã</SelectItem>
+            <SelectItem value="week">Esta semana</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-        {/* ── Tab: Follow-ups ── */}
-        <TabsContent value="followups" className="space-y-6 mt-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
-              <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
-            </div>
-          ) : (
-            <>
-              <FollowupGroup title="Atrasados" items={grouped.past} icon={AlertTriangle} accent="text-red-400" />
-              <FollowupGroup title="Hoje" items={grouped.today} icon={CalendarCheck} accent="text-primary" />
-              <FollowupGroup title="Amanhã" items={grouped.tomorrow} icon={Clock} accent="text-amber-400" />
-              <FollowupGroup title="Futuro" items={grouped.future} icon={ChevronRight} accent="text-muted-foreground" />
+      {/* List */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+          <CalendarClock className="w-10 h-10 mb-3 opacity-30" />
+          <p className="text-sm font-medium">Nenhum disparo encontrado</p>
+          <p className="text-xs mt-1">Crie um novo disparo agendado</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(item => {
+            const st = STATUS_MAP[item.status] || STATUS_MAP.pending;
+            const StIcon = st.icon;
+            const scheduledDate = new Date(item.scheduled_at);
+            const isTodayItem = isToday(scheduledDate);
+            const { text: countdownText, overdue } = item.status === "pending" ? timeUntil(item.scheduled_at) : { text: "", overdue: false };
+            const showGlow = isTodayItem && item.status === "pending";
 
-              {grouped.past.length === 0 && grouped.today.length === 0 && grouped.tomorrow.length === 0 && grouped.future.length === 0 && (
-                <div className="text-center py-16">
-                  <CalendarCheck className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">Nenhum follow-up pendente</p>
-                  <Button variant="outline" size="sm" className="mt-3 gap-1.5" onClick={() => openNew("followup")}>
-                    <Plus className="w-3.5 h-3.5" /> Criar Follow-up
-                  </Button>
+            return (
+              <div
+                key={item.id}
+                onClick={() => openDetail(item)}
+                className={cn(
+                  "group relative rounded-xl border bg-card p-4 cursor-pointer transition-all duration-200",
+                  "hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_hsl(var(--primary)/0.15)]",
+                  showGlow && "border-primary/20 shadow-[0_0_24px_-8px_hsl(var(--primary)/0.2)]",
+                  overdue && item.status === "pending" && "border-red-500/30",
+                  "border-border/40"
+                )}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                  </div>
+
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm text-foreground truncate">{item.contact_name || "Sem nome"}</span>
+                      <Badge variant="outline" className={cn("text-[10px] h-5 px-1.5 gap-1 border", st.color)}>
+                        <StIcon className={cn("w-3 h-3", item.status === "processing" && "animate-spin")} />
+                        {st.label}
+                      </Badge>
+                      {overdue && item.status === "pending" && (
+                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 gap-1 border bg-red-500/15 text-red-400 border-red-500/30">
+                          <AlertTriangle className="w-3 h-3" /> Atrasado
+                        </Badge>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Phone className="w-3 h-3" /> {formatPhone(item.contact_phone)}
+                    </p>
+
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <p className="text-xs text-muted-foreground/70 truncate max-w-md">{item.message_content}</p>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap text-xs">{item.message_content}</TooltipContent>
+                    </Tooltip>
+
+                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground pt-0.5">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {format(scheduledDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Smartphone className="w-3 h-3" /> {deviceName(item.device_id)}
+                      </span>
+                      {hasLink(item.message_content) && (
+                        <span className="flex items-center gap-1 text-primary"><Link2 className="w-3 h-3" /> Link</span>
+                      )}
+                      {countdownText && (
+                        <span className={cn("font-medium", overdue ? "text-red-400" : "text-primary")}>{countdownText}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="hidden group-hover:flex items-center gap-1 shrink-0">
+                    {item.status === "pending" && (
+                      <>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={e => { e.stopPropagation(); openEdit(item); }}>
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-emerald-400" onClick={e => { e.stopPropagation(); handleSendNow(item); }}>
+                          <Play className="w-3.5 h-3.5" />
+                        </Button>
+                      </>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-400" onClick={e => { e.stopPropagation(); setDeleteTarget(item.id); }}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 </div>
-              )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      <DetailModal open={detailOpen} onOpenChange={setDetailOpen} item={detailItem} deviceName={deviceName} onEdit={openEdit} onSendNow={handleSendNow} onDelete={id => { setDetailOpen(false); setDeleteTarget(id); }} />
+
+      {/* Form Modal */}
+      <FormModal open={formOpen} onOpenChange={setFormOpen} editing={editingItem} devices={devices} onSaved={fetchItems} />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={o => { if (!o) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir disparo</AlertDialogTitle>
+            <AlertDialogDescription>Tem certeza que deseja excluir este disparo agendado?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════ */
+function DetailModal({ open, onOpenChange, item, deviceName, onEdit, onSendNow, onDelete }: {
+  open: boolean; onOpenChange: (o: boolean) => void; item: ScheduledMessage | null;
+  deviceName: (id: string | null) => string; onEdit: (s: ScheduledMessage) => void;
+  onSendNow: (s: ScheduledMessage) => void; onDelete: (id: string) => void;
+}) {
+  if (!item) return null;
+  const st = STATUS_MAP[item.status] || STATUS_MAP.pending;
+  const StIcon = st.icon;
+  const scheduledDate = new Date(item.scheduled_at);
+  const { text: countdownText, overdue } = item.status === "pending" ? timeUntil(item.scheduled_at) : { text: "", overdue: false };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            Detalhes do Disparo
+            <Badge variant="outline" className={cn("text-[10px] h-5 px-1.5 gap-1 border ml-2", st.color)}>
+              <StIcon className={cn("w-3 h-3", item.status === "processing" && "animate-spin")} /> {st.label}
+            </Badge>
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><User className="w-4 h-4 text-primary" /></div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">{item.contact_name || "Sem nome"}</p>
+              <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" />{formatPhone(item.contact_phone)}</p>
+            </div>
+            {countdownText && <Badge variant="outline" className={cn("ml-auto text-xs", overdue ? "border-red-500/30 text-red-400" : "border-primary/30 text-primary")}>{countdownText}</Badge>}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mensagem</Label>
+            <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm text-foreground whitespace-pre-wrap max-h-40 overflow-y-auto">{item.message_content}</div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <Label className="text-xs text-muted-foreground">Data / Hora</Label>
+              <p className="text-foreground font-medium">{format(scheduledDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Instância</Label>
+              <p className="text-foreground font-medium flex items-center gap-1.5"><Smartphone className="w-3.5 h-3.5 text-muted-foreground" />{deviceName(item.device_id)}</p>
+            </div>
+          </div>
+          {item.error_message && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+              <p className="text-xs text-red-400 font-medium">Erro: {item.error_message}</p>
+            </div>
+          )}
+        </div>
+        <DialogFooter className="gap-2">
+          {item.status === "pending" && (
+            <>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onEdit(item)}><Pencil className="w-3.5 h-3.5" /> Editar</Button>
+              <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => { onOpenChange(false); onSendNow(item); }}><Play className="w-3.5 h-3.5" /> Disparar Agora</Button>
             </>
           )}
-        </TabsContent>
+          <Button variant="ghost" size="sm" className="gap-1.5 text-red-400 hover:text-red-300" onClick={() => onDelete(item.id)}><Trash2 className="w-3.5 h-3.5" /> Excluir</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
-        {/* ── Tab: Automatics ── */}
-        <TabsContent value="automatics" className="space-y-3 mt-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
-              <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
-            </div>
-          ) : filteredAutomatics.length === 0 ? (
-            <div className="text-center py-16">
-              <Zap className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Nenhum envio automático</p>
-              <Button variant="outline" size="sm" className="mt-3 gap-1.5" onClick={() => openNew("automatico")}>
-                <Plus className="w-3.5 h-3.5" /> Novo Envio
-              </Button>
-            </div>
-          ) : (
-            filteredAutomatics.map(item => <AutomaticRow key={item.id} item={item} />)
-          )}
-        </TabsContent>
+/* ═══════════════════════════════════════════════════════ */
+function FormModal({ open, onOpenChange, editing, devices, onSaved }: {
+  open: boolean; onOpenChange: (o: boolean) => void; editing: ScheduledMessage | null; devices: Device[]; onSaved: () => void;
+}) {
+  const { user } = useAuth();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<ServiceContact[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<ServiceContact | null>(null);
+  const [showResults, setShowResults] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const [showInlineCreate, setShowInlineCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [creatingContact, setCreatingContact] = useState(false);
+  const [messageContent, setMessageContent] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [deviceId, setDeviceId] = useState("");
+  const [saving, setSaving] = useState(false);
 
-        {/* ── Tab: Produtividade ── */}
-        <TabsContent value="productivity" className="mt-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="bg-card border-border">
-              <CardContent className="p-5 space-y-2">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <TrendingUp className="w-4 h-4" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Taxa de Conclusão (7d)</span>
-                </div>
-                <p className="text-3xl font-bold text-foreground">{weekStats.rate}%</p>
-                <p className="text-xs text-muted-foreground">{weekStats.sent} de {weekStats.total} concluídos</p>
-                <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${weekStats.rate}%` }} />
-                </div>
-              </CardContent>
-            </Card>
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      const dt = new Date(editing.scheduled_at);
+      setSelectedContact({ id: "", name: editing.contact_name, phone: editing.contact_phone, email: null, company: null });
+      setMessageContent(editing.message_content);
+      setDate(format(dt, "yyyy-MM-dd"));
+      setTime(format(dt, "HH:mm"));
+      setDeviceId(editing.device_id || "");
+    } else {
+      setSelectedContact(null); setMessageContent(""); setDate(""); setTime(""); setDeviceId("");
+    }
+    setSearchQuery(""); setSearchResults([]); setShowResults(false); setShowInlineCreate(false);
+  }, [open, editing]);
 
-            <Card className="bg-card border-border">
-              <CardContent className="p-5 space-y-2">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <CalendarCheck className="w-4 h-4" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Follow-ups Hoje</span>
-                </div>
-                <p className="text-3xl font-bold text-foreground">{todayFollowups.length}</p>
-                <p className="text-xs text-muted-foreground">{doneToday.length} já concluídos</p>
-              </CardContent>
-            </Card>
+  const searchContacts = useCallback(async (q: string) => {
+    if (!user || q.length < 2) { setSearchResults([]); return; }
+    setSearching(true);
+    const cleanQ = q.replace(/[^\w\s+]/g, "");
+    const { data } = await supabase.from("service_contacts").select("id, name, phone, email, company").eq("user_id", user.id).or(`name.ilike.%${cleanQ}%,phone.ilike.%${cleanQ}%`).limit(10);
+    setSearchResults((data as ServiceContact[]) || []);
+    setSearching(false);
+  }, [user]);
 
-            <Card className="bg-card border-border">
-              <CardContent className="p-5 space-y-2">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <AlertTriangle className="w-4 h-4" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Atrasados</span>
-                </div>
-                <p className={cn("text-3xl font-bold", overdueItems.length > 0 ? "text-red-400" : "text-foreground")}>{overdueItems.length}</p>
-                <p className="text-xs text-muted-foreground">Atenção necessária</p>
-              </CardContent>
-            </Card>
-          </div>
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (searchQuery.length >= 2) { searchContacts(searchQuery); setShowResults(true); }
+      else { setSearchResults([]); setShowResults(false); }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchQuery, searchContacts]);
 
-          {/* Recent completed */}
-          <div className="mt-6 space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">Últimos Concluídos</h3>
-            {items.filter(i => i.status === "sent").slice(-5).reverse().map(item => (
-              <div key={item.id} className="flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 p-3">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowResults(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const selectContact = (c: ServiceContact) => { setSelectedContact(c); setShowResults(false); setSearchQuery(""); setShowInlineCreate(false); };
+  const clearContact = () => { setSelectedContact(null); setSearchQuery(""); };
+
+  const handleCreateContact = async () => {
+    if (!user || !newPhone.trim()) return;
+    setCreatingContact(true);
+    const { data, error } = await supabase.from("service_contacts").insert({ user_id: user.id, name: newName.trim() || newPhone.trim(), phone: newPhone.trim(), origin: "manual", status: "active" } as any).select("id, name, phone, email, company").single();
+    setCreatingContact(false);
+    if (error) { toast.error(error.code === "23505" ? "Contato já existe" : "Erro ao criar contato"); return; }
+    toast.success("Contato criado");
+    selectContact(data as ServiceContact);
+    setNewName(""); setNewPhone("");
+  };
+
+  const canSave = selectedContact && messageContent.trim() && date && time;
+
+  const handleSave = async () => {
+    if (!user || !selectedContact || !canSave) return;
+    setSaving(true);
+    const scheduled_at = new Date(`${date}T${time}:00`).toISOString();
+    const payload = { user_id: user.id, contact_name: selectedContact.name, contact_phone: selectedContact.phone, message_content: messageContent.trim(), scheduled_at, device_id: deviceId || null };
+    let error;
+    if (editing) { ({ error } = await supabase.from("scheduled_messages").update(payload as any).eq("id", editing.id)); }
+    else { ({ error } = await supabase.from("scheduled_messages").insert(payload as any)); }
+    setSaving(false);
+    if (error) { toast.error(editing ? "Erro ao atualizar" : "Erro ao criar"); return; }
+    toast.success(editing ? "Disparo atualizado" : "Disparo agendado");
+    onOpenChange(false);
+    onSaved();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>{editing ? "Editar Disparo" : "Novo Disparo Agendado"}</DialogTitle></DialogHeader>
+        <div className="space-y-5 py-2">
+          {/* Contact */}
+          <div className="space-y-3">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contato</Label>
+            {selectedContact ? (
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><User className="w-4 h-4 text-primary" /></div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{item.contact_name}</p>
-                  <p className="text-xs text-muted-foreground">{formatPhone(item.contact_phone)}</p>
+                  <p className="text-sm font-medium text-foreground truncate">{selectedContact.name}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" /> {formatPhone(selectedContact.phone)}</p>
                 </div>
-                <span className="text-xs text-muted-foreground">{item.sent_at ? timeAgo(item.sent_at) : "—"}</span>
+                {!editing && <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={clearContact}><X className="w-3.5 h-3.5" /></Button>}
               </div>
-            ))}
-            {items.filter(i => i.status === "sent").length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-8">Nenhum agendamento concluído ainda</p>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* ── Create Dialog ── */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Novo Agendamento</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            {/* Tipo */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tipo</Label>
-                <Select value={form.schedule_type} onValueChange={v => setForm({ ...form, schedule_type: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="followup">📞 Follow-up</SelectItem>
-                    <SelectItem value="reuniao">🤝 Reunião</SelectItem>
-                    <SelectItem value="retorno">🔄 Retorno</SelectItem>
-                    <SelectItem value="automatico">⚡ Automático</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Temperatura</Label>
-                <Select value={form.temperature || "none"} onValueChange={v => setForm({ ...form, temperature: v === "none" ? "" : v })}>
-                  <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sem definir</SelectItem>
-                    <SelectItem value="frio">❄️ Frio</SelectItem>
-                    <SelectItem value="morno">🌤️ Morno</SelectItem>
-                    <SelectItem value="quente">🔥 Quente</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Lead search */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Lead vinculado</Label>
-              {form.lead_id ? (
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/30 border border-border">
-                  <Users className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">{form.contact_name}</span>
-                  <span className="text-xs text-muted-foreground">{formatPhone(form.contact_phone)}</span>
-                  <Button variant="ghost" size="icon" className="ml-auto h-6 w-6" onClick={() => setForm(f => ({ ...f, lead_id: "", contact_name: "", contact_phone: "" }))}>×</Button>
-                </div>
-              ) : (
+            ) : (
+              <div ref={searchRef} className="relative">
                 <div className="relative">
-                  <Input placeholder="Buscar lead por nome ou telefone..." value={leadSearch} onChange={e => setLeadSearch(e.target.value)} />
-                  {filteredLeads.length > 0 && (
-                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {filteredLeads.map(l => (
-                        <button key={l.id} className="w-full text-left px-3 py-2 hover:bg-muted/50 flex items-center gap-2 text-sm" onClick={() => selectLead(l)}>
-                          <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                          <span className="font-medium">{l.name}</span>
-                          <span className="text-xs text-muted-foreground ml-auto">{formatPhone(l.phone)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input placeholder="Buscar por nome ou telefone..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9" autoFocus />
+                  {searching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />}
                 </div>
-              )}
-            </div>
-
-            {/* Manual phone/name */}
-            {!form.lead_id && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Nome</Label>
-                  <Input value={form.contact_name} onChange={e => setForm({ ...form, contact_name: e.target.value })} />
+                {showResults && (
+                  <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {searchResults.length > 0 ? searchResults.map(c => (
+                      <button key={c.id} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent/50 transition-colors text-left" onClick={() => selectContact(c)}>
+                        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><User className="w-3.5 h-3.5 text-primary" /></div>
+                        <div className="min-w-0"><p className="text-sm font-medium text-foreground truncate">{c.name}</p><p className="text-xs text-muted-foreground">{formatPhone(c.phone)}</p></div>
+                      </button>
+                    )) : searchQuery.length >= 2 && !searching ? (
+                      <div className="p-3 text-center">
+                        <p className="text-xs text-muted-foreground mb-2">Nenhum contato encontrado</p>
+                        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { setShowResults(false); setShowInlineCreate(true); setNewPhone(searchQuery.replace(/[^\d+]/g, "")); }}><UserPlus className="w-3.5 h-3.5" /> Criar novo contato</Button>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            )}
+            {showInlineCreate && !selectedContact && (
+              <div className="rounded-lg border border-dashed border-border bg-muted/20 p-3 space-y-3">
+                <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><UserPlus className="w-3.5 h-3.5" /> Criar novo contato</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div><Label className="text-xs">Nome</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nome" className="h-8 text-sm" /></div>
+                  <div><Label className="text-xs">Telefone *</Label><Input value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="5511999999999" className="h-8 text-sm" /></div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Telefone *</Label>
-                  <Input value={form.contact_phone} onChange={e => setForm({ ...form, contact_phone: e.target.value })} placeholder="5511999999999" />
+                <div className="flex gap-2 justify-end">
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowInlineCreate(false)}>Cancelar</Button>
+                  <Button size="sm" className="h-7 text-xs" onClick={handleCreateContact} disabled={!newPhone.trim() || creatingContact}>{creatingContact && <Loader2 className="w-3 h-3 animate-spin mr-1" />} Salvar</Button>
                 </div>
               </div>
             )}
+          </div>
 
-            {/* Objective */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Objetivo do contato</Label>
-              <Input value={form.objective} onChange={e => setForm({ ...form, objective: e.target.value })} placeholder="Ex: Apresentar proposta, Cobrar retorno..." />
-            </div>
+          {/* Message */}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mensagem</Label>
+            <Textarea value={messageContent} onChange={e => setMessageContent(e.target.value)} placeholder="Digite a mensagem que será enviada..." rows={4} className="resize-y min-h-[100px]" />
+            {messageContent && (
+              <div className="rounded-lg border border-border/40 bg-muted/20 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Preview</p>
+                <p className="text-xs text-foreground whitespace-pre-wrap">{messageContent}</p>
+              </div>
+            )}
+          </div>
 
-            {/* Value + Device */}
+          {/* Schedule */}
+          <div className="space-y-3">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Agendamento</Label>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Valor estimado (R$)</Label>
-                <Input type="number" value={form.estimated_value} onChange={e => setForm({ ...form, estimated_value: e.target.value })} placeholder="0" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Instância</Label>
-                <Select value={form.device_id || "auto"} onValueChange={v => setForm({ ...form, device_id: v === "auto" ? "" : v })}>
-                  <SelectTrigger><SelectValue placeholder="Automático" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">Automático</SelectItem>
-                    {devices.map(d => (
-                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <div><Label className="text-xs">Data *</Label><Input type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
+              <div><Label className="text-xs">Hora *</Label><Input type="time" value={time} onChange={e => setTime(e.target.value)} /></div>
             </div>
-
-            {/* Date + Time */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Data *</Label>
-                <Input type="date" value={form.date ? format(form.date, "yyyy-MM-dd") : ""} onChange={e => setForm({ ...form, date: e.target.value ? new Date(e.target.value + "T12:00:00") : undefined })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Horário *</Label>
-                <Input type="time" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} />
-              </div>
-            </div>
-
-            {/* Message */}
-            <div className="space-y-1.5">
-              <Label>Mensagem</Label>
-              <Textarea value={form.message_content} onChange={e => setForm({ ...form, message_content: e.target.value })} rows={3} placeholder="Mensagem que será enviada..." />
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5">
-                <StickyNote className="w-3.5 h-3.5 text-muted-foreground" />
-                Notas internas
-              </Label>
-              <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} placeholder="Anotações visíveis apenas para você..." className="bg-muted/20" />
+            <div>
+              <Label className="text-xs">Instância</Label>
+              <Select value={deviceId || "auto"} onValueChange={v => setDeviceId(v === "auto" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Automático" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Automático (primeira disponível)</SelectItem>
+                  {devices.map(d => {
+                    const online = ["Ready", "Connected", "authenticated"].includes(d.status);
+                    return (
+                      <SelectItem key={d.id} value={d.id}>
+                        <span className="flex items-center gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-muted-foreground"}`} />
+                          {d.name} {d.number ? `(${d.number})` : ""}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={!form.contact_phone || !form.date} className="gap-1.5">
-              <Send className="w-3.5 h-3.5" /> Criar Agendamento
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={!canSave || saving} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {editing ? "Salvar Alterações" : "Agendar Disparo"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
