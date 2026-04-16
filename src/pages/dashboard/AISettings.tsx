@@ -1131,14 +1131,15 @@ const AISettings = () => {
       {expertMode && (<>
       {/* Delay de resposta */}
       <Card className="transition-all duration-200 hover:shadow-md">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
+      <Card>
+        <CardHeader className="pb-4 px-6 pt-6">
+          <div className="flex items-center gap-2.5">
             <Bot className="h-4 w-4 text-primary" strokeWidth={1.5} />
-            <CardTitle className="text-base">Delay de Resposta</CardTitle>
+            <CardTitle className="text-base tracking-tight">Delay de Resposta</CardTitle>
           </div>
-          <CardDescription>Tempo de espera antes de enviar a resposta (simula digitação)</CardDescription>
+          <CardDescription className="mt-1">Tempo de espera antes de enviar a resposta</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 px-6 pb-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Mínimo (segundos)</Label>
@@ -1154,15 +1155,15 @@ const AISettings = () => {
       </Card>
 
       {/* Comportamento do Assistente */}
-      <Card className="transition-all duration-200 hover:shadow-md">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
+      <Card>
+        <CardHeader className="pb-4 px-6 pt-6">
+          <div className="flex items-center gap-2.5">
             <Brain className="h-4 w-4 text-primary" strokeWidth={1.5} />
-             <CardTitle className="text-base">Comportamento e Estratégia</CardTitle>
-           </div>
-           <CardDescription>Defina o estilo de comunicação — o prompt é gerado automaticamente</CardDescription>
+            <CardTitle className="text-base tracking-tight">Comportamento e Estratégia</CardTitle>
+          </div>
+          <CardDescription className="mt-1">Defina o estilo de comunicação — o prompt é gerado automaticamente</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-6 px-6 pb-6">
            {/* Objetivo */}
           <div className="space-y-2">
             <Label>Objetivo principal</Label>
@@ -1325,15 +1326,15 @@ const AISettings = () => {
       </Card>
 
       {/* Fluxo de Conversão */}
-      <Card className="transition-all duration-200 hover:shadow-md">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
+      <Card>
+        <CardHeader className="pb-4 px-6 pt-6">
+          <div className="flex items-center gap-2.5">
             <Target className="h-4 w-4 text-primary" strokeWidth={1.5} />
-            <CardTitle className="text-base">Fluxo de Conversão</CardTitle>
+            <CardTitle className="text-base tracking-tight">Fluxo de Conversão</CardTitle>
           </div>
-          <CardDescription>Defina as etapas do funil de conversão automática</CardDescription>
+          <CardDescription className="mt-1">Defina as etapas do funil de conversão automática</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 px-6 pb-6">
           <div className="flex items-center justify-between pb-2">
             <div>
               <p className="text-sm font-medium text-foreground">Seguir fluxo automaticamente</p>
@@ -1448,15 +1449,15 @@ const AISettings = () => {
       </Card>
 
       {/* Informações do Negócio */}
-      <Card className="transition-all duration-200 hover:shadow-md">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
+      <Card>
+        <CardHeader className="pb-4 px-6 pt-6">
+          <div className="flex items-center gap-2.5">
             <Building2 className="h-4 w-4 text-primary" strokeWidth={1.5} />
-            <CardTitle className="text-base">Informações do Negócio</CardTitle>
+            <CardTitle className="text-base tracking-tight">Informações do Negócio</CardTitle>
           </div>
-          <CardDescription>Esses dados serão usados pela IA nas respostas</CardDescription>
+          <CardDescription className="mt-1">Esses dados serão usados pela IA nas respostas</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 px-6 pb-6">
           <div className="space-y-2">
             <Label>Nome da empresa</Label>
             <Input value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Ex: Minha Empresa LTDA" />
@@ -1491,15 +1492,15 @@ const AISettings = () => {
       </Card>
 
       {/* Base de Conhecimento */}
-      <Card className="transition-all duration-200 hover:shadow-md">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
+      <Card>
+        <CardHeader className="pb-4 px-6 pt-6">
+          <div className="flex items-center gap-2.5">
             <BookOpen className="h-4 w-4 text-primary" strokeWidth={1.5} />
-            <CardTitle className="text-base">Base de Conhecimento</CardTitle>
+            <CardTitle className="text-base tracking-tight">Base de Conhecimento</CardTitle>
           </div>
-          <CardDescription>Ensine a IA sobre seu negócio para respostas precisas</CardDescription>
+          <CardDescription className="mt-1">Ensine a IA sobre seu negócio para respostas precisas</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 px-6 pb-6">
           {/* Tabs */}
           <div className="flex gap-1 p-1 rounded-lg bg-muted/40">
             <button
@@ -1689,15 +1690,15 @@ const AISettings = () => {
       </Dialog>
 
       {/* Modo de Atendimento */}
-      <Card className="transition-all duration-200 hover:shadow-md">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
+      <Card>
+        <CardHeader className="pb-4 px-6 pt-6">
+          <div className="flex items-center gap-2.5">
             <Headset className="h-4 w-4 text-primary" strokeWidth={1.5} />
-            <CardTitle className="text-base">Modo de Atendimento</CardTitle>
+            <CardTitle className="text-base tracking-tight">Modo de Atendimento</CardTitle>
           </div>
-          <CardDescription>Selecione um ou mais modos de atendimento da IA</CardDescription>
+          <CardDescription className="mt-1">Selecione um ou mais modos de atendimento da IA</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-6 pb-6">
           <TooltipProvider>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[
@@ -1742,15 +1743,15 @@ const AISettings = () => {
       </>)}
 
       {/* Segurança e Controle */}
-      <Card className="transition-all duration-200 hover:shadow-md">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
+      <Card>
+        <CardHeader className="pb-4 px-6 pt-6">
+          <div className="flex items-center gap-2.5">
             <ShieldCheck className="h-4 w-4 text-primary" strokeWidth={1.5} />
-            <CardTitle className="text-base">Segurança e Controle</CardTitle>
+            <CardTitle className="text-base tracking-tight">Segurança e Controle</CardTitle>
           </div>
-          <CardDescription>Limites e restrições da IA</CardDescription>
+          <CardDescription className="mt-1">Limites e restrições da automação</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 px-6 pb-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-foreground">Bloquear temas sensíveis</p>
@@ -1769,15 +1770,15 @@ const AISettings = () => {
       </Card>
 
       {/* Controle Avançado de Comportamento */}
-      <Card className="transition-all duration-200 hover:shadow-md">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
+      <Card>
+        <CardHeader className="pb-4 px-6 pt-6">
+          <div className="flex items-center gap-2.5">
             <Timer className="h-4 w-4 text-primary" strokeWidth={1.5} />
-            <CardTitle className="text-base">Controle Avançado</CardTitle>
+            <CardTitle className="text-base tracking-tight">Controle Avançado</CardTitle>
           </div>
-          <CardDescription>Limites de tempo, mensagens e coleta de dados</CardDescription>
+          <CardDescription className="mt-1">Limites de tempo, mensagens e coleta de dados</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-6 px-6 pb-6">
           {/* Tempo máximo de resposta */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -1886,15 +1887,15 @@ const AISettings = () => {
       </Card>
 
       {/* Controle da IA */}
-      <Card className="transition-all duration-200 hover:shadow-md">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
+      <Card>
+        <CardHeader className="pb-4 px-6 pt-6">
+          <div className="flex items-center gap-2.5">
             <ShieldCheck className="h-4 w-4 text-primary" strokeWidth={1.5} />
-            <CardTitle className="text-base">Controle da IA</CardTitle>
+            <CardTitle className="text-base tracking-tight">Controle da Automação</CardTitle>
           </div>
-          <CardDescription>Palavras-chave e respostas de fallback</CardDescription>
+          <CardDescription className="mt-1">Palavras-chave e respostas de fallback</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-6 px-6 pb-6">
           <div className="space-y-2">
             <Label>Palavras para pausar a IA</Label>
             <Input value={pauseWords} onChange={(e) => setPauseWords(e.target.value)} placeholder='Ex: parar, atendente, humano' />
@@ -1929,15 +1930,15 @@ const AISettings = () => {
       </Card>
 
       {/* Memória de Leads */}
-      <Card className="transition-all duration-200 hover:shadow-md">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
+      <Card>
+        <CardHeader className="pb-4 px-6 pt-6">
+          <div className="flex items-center gap-2.5">
             <Users className="h-4 w-4 text-primary" strokeWidth={1.5} />
-            <CardTitle className="text-base">Memória de Leads</CardTitle>
+            <CardTitle className="text-base tracking-tight">Memória de Leads</CardTitle>
           </div>
-          <CardDescription>A IA aprende e lembra informações de cada lead automaticamente</CardDescription>
+          <CardDescription className="mt-1">A IA aprende e lembra informações de cada lead automaticamente</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 px-6 pb-6">
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3">
             {[
@@ -2056,26 +2057,26 @@ const AISettings = () => {
       </Card>
 
       {/* Motor de Aprendizado */}
-      <Card className="border-border/50 bg-card/80">
-        <CardHeader className="pb-3">
+      <Card>
+        <CardHeader className="pb-4 px-6 pt-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-primary/8 border border-primary/10 flex items-center justify-center">
                 <Rocket className="h-4 w-4 text-primary" strokeWidth={1.5} />
               </div>
               <div>
-                <CardTitle className="text-base">Motor de Aprendizado</CardTitle>
-                <CardDescription className="text-xs">A IA analisa conversas e evolui automaticamente</CardDescription>
+                <CardTitle className="text-base tracking-tight">Motor de Aprendizado</CardTitle>
+                <CardDescription className="text-xs mt-0.5">A IA analisa conversas e evolui automaticamente</CardDescription>
               </div>
             </div>
             {learningInsights?.confidence_score != null && (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-[10px] font-normal">
                 Confiança: {learningInsights.confidence_score}%
               </Badge>
             )}
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 px-6 pb-6">
           {/* Status */}
           {learningInsights ? (
             <div className="space-y-3">
