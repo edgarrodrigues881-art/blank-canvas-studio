@@ -114,6 +114,29 @@ function getOriginConfig(origin: string | null) {
   return ORIGIN_OPTIONS.find((o) => o.value === origin) || ORIGIN_OPTIONS[6];
 }
 
+/* ── Detail Row helper ── */
+function DetailRow({ icon: Icon, label, value, muted }: { icon: React.ElementType; label: string; value: string; muted?: boolean }) {
+  return (
+    <div className="flex items-center gap-2.5 text-sm">
+      <Icon className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
+      <span className="text-muted-foreground/70 min-w-[100px]">{label}</span>
+      <span className={cn("font-medium", muted ? "text-muted-foreground/40 italic text-xs" : "text-foreground")}>{value}</span>
+    </div>
+  );
+}
+
+/* ── Timeline Event helper ── */
+function TimelineEvent({ label, time, preview, dot }: { label: string; time: string; preview?: string | null; dot: string }) {
+  return (
+    <div className="relative">
+      <div className={cn("absolute -left-[25px] top-1 w-3 h-3 rounded-full border-2 border-background", dot)} />
+      <p className="text-sm text-foreground font-medium">{label}</p>
+      {preview && <p className="text-xs text-muted-foreground/60 mt-0.5 line-clamp-2">"{preview}"</p>}
+      <p className="text-[10px] text-muted-foreground/40 mt-0.5">{time}</p>
+    </div>
+  );
+}
+
 function formatCurrency(value: number | null) {
   if (!value) return "—";
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -469,69 +492,84 @@ export default function Leads() {
           {detailLead && (() => {
             const statusCfg = getStatusConfig(detailLead.pipeline_stage);
             const priorityCfg = getPriorityConfig(detailLead.priority);
+            const originCfg = getOriginConfig(detailLead.origin);
+            const na = "Não informado";
+            const channelLabel = detailLead.channel || "WhatsApp";
+
             return (
               <div>
-                {/* Header */}
-                <div className="flex items-start justify-between p-6 pb-4 border-b border-border">
-                  <div className="flex items-center gap-4">
-                    <div className={cn(
-                      "w-12 h-12 rounded-full bg-gradient-to-br flex items-center justify-center text-lg font-bold text-white shadow-sm",
-                      getAvatarColor(detailLead.name || "?")
-                    )}>
-                      {getInitials(detailLead.name || "?")}
+                {/* ── Header ── */}
+                <div className="p-6 pb-5 border-b border-border/60">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={cn(
+                        "w-14 h-14 rounded-full bg-gradient-to-br flex items-center justify-center text-xl font-bold text-white shadow-md ring-2 ring-background",
+                        getAvatarColor(detailLead.name || "?")
+                      )}>
+                        {getInitials(detailLead.name || "?")}
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold text-foreground">
+                          {detailLead.name || formatPhone(detailLead.phone)}
+                        </h2>
+                        <p className="text-xs text-muted-foreground/60 mt-0.5">
+                          Lead capturado via {channelLabel} • {timeAgo(detailLead.created_at)}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h2 className="text-lg font-bold text-foreground">{detailLead.name}</h2>
-                      <p className="text-sm text-muted-foreground">{detailLead.company || "—"}</p>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <Badge variant="outline" className={cn("text-xs font-medium rounded-full px-3 py-1", statusCfg.badge)}>
+                        <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5 inline-block", statusCfg.dot)} />
+                        {statusCfg.label}
+                      </Badge>
+                      <Badge variant="outline" className={cn("text-[10px] font-medium rounded-full px-2.5", priorityCfg.color)}>
+                        {priorityCfg.label}
+                      </Badge>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <Badge variant="outline" className={cn("text-xs font-medium rounded-full", statusCfg.badge)}>
-                      <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5 inline-block", statusCfg.dot)} />
-                      {statusCfg.label}
-                    </Badge>
-                    <Badge variant="outline" className={cn("text-[10px] font-medium rounded-md", priorityCfg.color)}>
-                      {priorityCfg.label}
-                    </Badge>
-                  </div>
-                </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-2 px-6 py-3 border-b border-border">
-                  <Select
-                    value={detailLead.pipeline_stage || "novo"}
-                    onValueChange={(v) => handleStatusChange(detailLead, v)}
-                  >
-                    <SelectTrigger className="w-[180px] h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {STATUS_OPTIONS.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button variant="outline" size="sm" className="gap-1.5 h-9" onClick={() => { openEdit(detailLead); setDetailLead(null); }}>
-                    <Pencil className="w-3.5 h-3.5" /> Editar
-                  </Button>
-                  <Button variant="destructive" size="sm" className="gap-1.5 h-9" onClick={() => handleDelete(detailLead.id)}>
-                    <Trash2 className="w-3.5 h-3.5" /> Excluir
-                  </Button>
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 mt-4">
+                    <Select
+                      value={detailLead.pipeline_stage || "novo"}
+                      onValueChange={(v) => handleStatusChange(detailLead, v)}
+                    >
+                      <SelectTrigger className="w-[170px] h-9 text-xs rounded-lg bg-muted/30 border-border/50">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUS_OPTIONS.map((s) => (
+                          <SelectItem key={s.value} value={s.value}>
+                            <span className="flex items-center gap-2">
+                              <span className={cn("w-2 h-2 rounded-full", s.dot)} />
+                              {s.label}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button variant="outline" size="sm" className="gap-1.5 h-9 rounded-lg" onClick={() => { openEdit(detailLead); setDetailLead(null); }}>
+                      <Pencil className="w-3.5 h-3.5" /> Editar
+                    </Button>
+                    <Button variant="destructive" size="sm" className="gap-1.5 h-9 rounded-lg" onClick={() => handleDelete(detailLead.id)}>
+                      <Trash2 className="w-3.5 h-3.5" /> Excluir
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Tabs */}
                 <div className="px-6 pt-4">
-                  <div className="flex gap-6 border-b border-border mb-4">
+                  <div className="flex gap-6 border-b border-border/50 mb-0">
                     {[
                       { key: "info", label: "Informações" },
                       { key: "timeline", label: "Timeline" },
-                      { key: "register", label: "Registrar Contato" },
+                      { key: "register", label: "Registrar Interação" },
                     ].map((tab) => (
                       <button
                         key={tab.key}
                         onClick={() => setDetailTab(tab.key)}
                         className={cn(
-                          "pb-2 text-sm font-medium transition-colors border-b-2 -mb-px",
+                          "pb-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
                           detailTab === tab.key
                             ? "border-primary text-foreground"
                             : "border-transparent text-muted-foreground hover:text-foreground"
@@ -544,116 +582,70 @@ export default function Leads() {
                 </div>
 
                 {/* Tab content */}
-                <div className="px-6 pb-6">
+                <div className="px-6 py-5 pb-6">
                   {detailTab === "info" && (
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-                        <div>
-                          <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-2">Contato</p>
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm">
-                              <Phone className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">Telefone:</span>
-                              <span className="font-medium">{formatPhone(detailLead.phone)}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm">
-                              <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">WhatsApp:</span>
-                              <span className="font-medium">{formatPhone(detailLead.phone)}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm">
-                              <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">E-mail:</span>
-                              <span className="font-medium">{detailLead.email || "—"}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-2">Empresa</p>
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm">
-                              <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">Empresa:</span>
-                              <span className="font-medium">{detailLead.company || "—"}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm">
-                              <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">CPF/CNPJ:</span>
-                              <span className="font-medium">{detailLead.cpf_cnpj || "—"}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm">
-                              <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">Segmento:</span>
-                              <span className="font-medium">{detailLead.segment || "—"}</span>
-                            </div>
-                          </div>
+                    <div className="space-y-5">
+                      {/* 📌 Contato */}
+                      <div className="rounded-xl bg-muted/20 border border-border/30 p-4">
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-3 flex items-center gap-1.5">
+                          📌 Contato
+                        </p>
+                        <div className="space-y-2.5">
+                          <DetailRow icon={Phone} label="Telefone" value={formatPhone(detailLead.phone)} />
+                          <DetailRow icon={MessageSquare} label="WhatsApp" value={formatPhone(detailLead.phone)} />
+                          <DetailRow icon={Mail} label="E-mail" value={detailLead.email || na} muted={!detailLead.email} />
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-                        <div>
-                          <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-2">Negócio</p>
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm">
-                              <DollarSign className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">Valor Estimado:</span>
-                              <span className="font-medium">{formatCurrency(detailLead.estimated_value)}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm">
-                              <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">Serviço:</span>
-                              <span className="font-medium">{detailLead.interest || "—"}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm">
-                              <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">Origem:</span>
-                              <span className="font-medium">
-                                {ORIGIN_OPTIONS.find((o) => o.value === detailLead.origin)?.label || detailLead.origin}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm">
-                              <Phone className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">Canal:</span>
-                              <span className="font-medium">{detailLead.channel || "WhatsApp"}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm">
-                              <User className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">Responsável:</span>
-                              <span className="font-medium">{detailLead.responsible || "—"}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-2">Histórico</p>
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm">
-                              <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">Cadastro:</span>
-                              <span className="font-medium">
-                                {detailLead.created_at ? format(new Date(detailLead.created_at), "dd/MM/yyyy, HH:mm:ss") : "—"}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm">
-                              <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground">Último contato:</span>
-                              <span className="font-medium">
-                                {timeAgo(detailLead.last_message_at)}
-                              </span>
-                            </div>
-                          </div>
+                      {/* 🏢 Empresa */}
+                      <div className="rounded-xl bg-muted/20 border border-border/30 p-4">
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-3 flex items-center gap-1.5">
+                          🏢 Empresa
+                        </p>
+                        <div className="space-y-2.5">
+                          <DetailRow icon={Building2} label="Empresa" value={detailLead.company || na} muted={!detailLead.company} />
+                          <DetailRow icon={FileText} label="CPF/CNPJ" value={detailLead.cpf_cnpj || na} muted={!detailLead.cpf_cnpj} />
+                          <DetailRow icon={MapPin} label="Segmento" value={detailLead.segment || na} muted={!detailLead.segment} />
                         </div>
                       </div>
 
+                      {/* 💰 Negócio */}
+                      <div className="rounded-xl bg-muted/20 border border-border/30 p-4">
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-3 flex items-center gap-1.5">
+                          💰 Negócio
+                        </p>
+                        <div className="space-y-2.5">
+                          <DetailRow icon={DollarSign} label="Valor potencial" value={detailLead.estimated_value ? formatCurrency(detailLead.estimated_value) : na} muted={!detailLead.estimated_value} />
+                          <DetailRow icon={FileText} label="Serviço" value={detailLead.interest || na} muted={!detailLead.interest} />
+                          <DetailRow icon={originCfg.icon} label="Origem do lead" value={originCfg.label} />
+                          <DetailRow icon={Phone} label="Canal" value={channelLabel} />
+                          <DetailRow icon={User} label="Responsável" value={detailLead.responsible || na} muted={!detailLead.responsible} />
+                        </div>
+                      </div>
+
+                      {/* 📊 Histórico */}
+                      <div className="rounded-xl bg-muted/20 border border-border/30 p-4">
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-3 flex items-center gap-1.5">
+                          📊 Histórico
+                        </p>
+                        <div className="space-y-2.5">
+                          <DetailRow icon={Calendar} label="Criado em" value={detailLead.created_at ? format(new Date(detailLead.created_at), "dd/MM/yyyy 'às' HH:mm") : na} />
+                          <DetailRow icon={Clock} label="Última interação" value={detailLead.last_message_at ? timeAgo(detailLead.last_message_at) : na} muted={!detailLead.last_message_at} />
+                        </div>
+                      </div>
+
+                      {/* Description */}
                       {detailLead.description && (
-                        <div>
-                          <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-2">Descrição da Necessidade</p>
+                        <div className="rounded-xl bg-muted/20 border border-border/30 p-4">
+                          <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-2">Descrição da Necessidade</p>
                           <p className="text-sm text-primary">{detailLead.description}</p>
                         </div>
                       )}
 
+                      {/* Notes */}
                       {detailLead.notes && (
-                        <div>
-                          <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-2">Observações</p>
+                        <div className="rounded-xl bg-muted/20 border border-border/30 p-4">
+                          <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-2">Observações</p>
                           <p className="text-sm text-muted-foreground">{detailLead.notes}</p>
                         </div>
                       )}
@@ -661,16 +653,46 @@ export default function Leads() {
                   )}
 
                   {detailTab === "timeline" && (
-                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                      <Calendar className="w-8 h-8 mb-2 opacity-30" />
-                      <p className="text-sm">Timeline em breve</p>
+                    <div className="space-y-4">
+                      {/* Timeline events */}
+                      <div className="relative pl-6 border-l-2 border-border/30 space-y-5">
+                        {detailLead.last_message_at && (
+                          <TimelineEvent
+                            label="Última mensagem recebida"
+                            time={timeAgo(detailLead.last_message_at)}
+                            preview={detailLead.last_message_content}
+                            dot="bg-emerald-500"
+                          />
+                        )}
+                        <TimelineEvent
+                          label={`Status definido como "${statusCfg.label}"`}
+                          time={timeAgo(detailLead.created_at)}
+                          dot={statusCfg.dot}
+                        />
+                        <TimelineEvent
+                          label="Lead criado"
+                          time={detailLead.created_at ? format(new Date(detailLead.created_at), "dd/MM/yyyy 'às' HH:mm") : ""}
+                          dot="bg-blue-500"
+                        />
+                      </div>
+                      {!detailLead.last_message_at && (
+                        <p className="text-xs text-muted-foreground/50 text-center pt-2">Nenhuma interação registrada ainda</p>
+                      )}
                     </div>
                   )}
 
                   {detailTab === "register" && (
-                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                      <FileText className="w-8 h-8 mb-2 opacity-30" />
-                      <p className="text-sm">Registro de contatos em breve</p>
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">Registre uma interação com este lead para manter o histórico atualizado.</p>
+                      <Textarea
+                        placeholder="Ex: Cliente pediu orçamento de marketing digital para loja virtual"
+                        rows={4}
+                        className="rounded-xl bg-muted/20 border-border/40"
+                      />
+                      <Button size="sm" className="gap-1.5 rounded-lg">
+                        <FileText className="w-3.5 h-3.5" />
+                        Salvar interação
+                      </Button>
                     </div>
                   )}
                 </div>
