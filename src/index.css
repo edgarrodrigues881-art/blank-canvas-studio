@@ -680,3 +680,13 @@
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--border) / 0.4) transparent;
 }
+
+/* Quoted message highlight animation */
+@keyframes quoted-pulse {
+  0% { background-color: hsl(var(--primary) / 0.18); }
+  50% { background-color: hsl(var(--primary) / 0.08); }
+  100% { background-color: transparent; }
+}
+.quoted-highlight {
+  animation: quoted-pulse 2s ease-out forwards;
+}

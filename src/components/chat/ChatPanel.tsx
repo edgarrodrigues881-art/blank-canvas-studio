@@ -410,7 +410,7 @@ export function ChatPanel({
   // Exit selection mode on conversation change
   useEffect(() => { exitSelectionMode(); }, [conversation.id]);
 
-  // Scroll to quoted message with retry
+  // Scroll to quoted message with retry and highlight
   const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -418,18 +418,27 @@ export function ChatPanel({
     const target = messages.find((m) => m.whatsappMessageId === quotedWaId || m.id === quotedWaId);
     if (!target) return;
 
+    const applyHighlight = (targetId: string) => {
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+      setHighlightedMsgId(null);
+      // Force re-render to restart animation
+      requestAnimationFrame(() => {
+        setHighlightedMsgId(targetId);
+        highlightTimerRef.current = setTimeout(() => setHighlightedMsgId(null), 2000);
+      });
+    };
+
     const tryScroll = (retries: number) => {
       const el = document.getElementById(`msg-${target.id}`);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
-        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-        setHighlightedMsgId(target.id);
-        highlightTimerRef.current = setTimeout(() => setHighlightedMsgId(null), 1500);
+        // Delay highlight slightly so scroll finishes first
+        setTimeout(() => applyHighlight(target.id), 300);
       } else if (retries > 0) {
-        setTimeout(() => tryScroll(retries - 1), 80);
+        setTimeout(() => tryScroll(retries - 1), 100);
       }
     };
-    tryScroll(5);
+    tryScroll(8);
   }, [messages]);
 
   return (
@@ -511,7 +520,7 @@ export function ChatPanel({
           }
 
           return (
-            <div key={msg.id} id={`msg-${msg.id}`} className={cn("animate-fade-in transition-colors duration-500", directionChanged && !showDate && "mt-3", highlightedMsgId === msg.id && "bg-primary/10 rounded-lg")}>
+            <div key={msg.id} id={`msg-${msg.id}`} className={cn("transition-all duration-500 ease-out", directionChanged && !showDate && "mt-3", highlightedMsgId === msg.id && "quoted-highlight rounded-xl")}>
               {showDate && (
                 <div className="flex justify-center my-4">
                   <span className="text-[10px] font-medium text-muted-foreground/60 bg-muted/40 dark:bg-muted/20 px-3 py-1 rounded-full select-none">
