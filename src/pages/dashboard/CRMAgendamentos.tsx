@@ -462,79 +462,16 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
 }) {
   const { user } = useAuth();
 
+  const [recipientMode, setRecipientMode] = useState<"base" | "manual">("base");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ServiceContact[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedContact, setSelectedContact] = useState<ServiceContact | null>(null);
   const [showResults, setShowResults] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-  const [showInlineCreate, setShowInlineCreate] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newPhone, setNewPhone] = useState("");
-  const [creatingContact, setCreatingContact] = useState(false);
 
-  const [messageContent, setMessageContent] = useState("");
-  const [hasButton, setHasButton] = useState(false);
-  const [buttonText, setButtonText] = useState("");
-  const [buttonLink, setButtonLink] = useState("");
-
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [deviceId, setDeviceId] = useState("");
-
-  const [templateName, setTemplateName] = useState("");
-  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
-  const [showLoadTemplate, setShowLoadTemplate] = useState(false);
-
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (editing) {
-      const dt = new Date(editing.scheduled_at);
-      setSelectedContact({ id: "", name: editing.contact_name, phone: editing.contact_phone, email: null, company: null });
-      setMessageContent(editing.message_content);
-      setDate(format(dt, "yyyy-MM-dd"));
-      setTime(format(dt, "HH:mm"));
-      setDeviceId(editing.device_id || "");
-    }
-  }, [editing]);
-
-  const searchContacts = useCallback(async (q: string) => {
-    if (!user || q.length < 2) { setSearchResults([]); return; }
-    setSearching(true);
-    const cleanQ = q.replace(/[^\w\s+]/g, "");
-    const { data } = await supabase.from("service_contacts").select("id, name, phone, email, company").eq("user_id", user.id).or(`name.ilike.%${cleanQ}%,phone.ilike.%${cleanQ}%`).limit(10);
-    setSearchResults((data as ServiceContact[]) || []);
-    setSearching(false);
-  }, [user]);
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (searchQuery.length >= 2) { searchContacts(searchQuery); setShowResults(true); }
-      else { setSearchResults([]); setShowResults(false); }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [searchQuery, searchContacts]);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowResults(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const selectContact = (c: ServiceContact) => { setSelectedContact(c); setShowResults(false); setSearchQuery(""); setShowInlineCreate(false); };
-  const clearContact = () => { setSelectedContact(null); setSearchQuery(""); };
-
-  const handleCreateContact = async () => {
-    if (!user || !newPhone.trim()) return;
-    setCreatingContact(true);
-    const { data, error } = await supabase.from("service_contacts").insert({ user_id: user.id, name: newName.trim() || newPhone.trim(), phone: newPhone.trim(), origin: "manual", status: "active" } as any).select("id, name, phone, email, company").single();
-    setCreatingContact(false);
-    if (error) { toast.error(error.code === "23505" ? "Contato já existe" : "Erro ao criar contato"); return; }
-    toast.success("Contato criado");
-    selectContact(data as ServiceContact);
-    setNewName(""); setNewPhone("");
-  };
+  const [manualName, setManualName] = useState("");
+  const [manualPhone, setManualPhone] = useState("");
 
   const insertVariable = (v: string) => {
     setMessageContent(prev => prev + `{${v}}`);
