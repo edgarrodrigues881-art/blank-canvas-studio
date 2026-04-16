@@ -610,13 +610,13 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
 
           {/* Destinatário */}
           <div className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
               <User className="w-4 h-4 text-primary" />
               <h2 className="text-sm font-semibold text-foreground">Destinatário</h2>
             </div>
 
             {selectedContact ? (
-              <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-muted/20 p-4">
+              <div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                   <User className="w-4 h-4 text-primary" />
                 </div>
@@ -631,46 +631,75 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                 )}
               </div>
             ) : (
-              <div ref={searchRef} className="relative">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="Buscar contato por nome ou telefone..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 h-10" autoFocus />
-                  {searching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />}
+              <>
+                {/* Mode tabs */}
+                <div className="flex rounded-lg border border-border/50 p-0.5 bg-muted/30 w-fit">
+                  <button
+                    className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-all", recipientMode === "base" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                    onClick={() => setRecipientMode("base")}
+                  >
+                    <Search className="w-3 h-3 inline mr-1.5" />Selecionar da base
+                  </button>
+                  <button
+                    className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-all", recipientMode === "manual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                    onClick={() => setRecipientMode("manual")}
+                  >
+                    <UserPlus className="w-3 h-3 inline mr-1.5" />Digitar manualmente
+                  </button>
                 </div>
-                {showResults && (
-                  <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-popover border border-border rounded-xl shadow-lg max-h-52 overflow-y-auto">
-                    {searchResults.length > 0 ? searchResults.map(c => (
-                      <button key={c.id} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors text-left" onClick={() => selectContact(c)}>
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><User className="w-3.5 h-3.5 text-primary" /></div>
-                        <div className="min-w-0"><p className="text-sm font-medium text-foreground truncate">{c.name}</p><p className="text-xs text-muted-foreground">{formatPhone(c.phone)}</p></div>
-                      </button>
-                    )) : searchQuery.length >= 2 && !searching ? (
-                      <div className="p-4 text-center">
-                        <p className="text-xs text-muted-foreground mb-2">Nenhum contato encontrado</p>
-                        <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => { setShowResults(false); setShowInlineCreate(true); setNewPhone(searchQuery.replace(/[^\d+]/g, "")); }}>
-                          <UserPlus className="w-3.5 h-3.5" /> Criar novo contato
-                        </Button>
+
+                {recipientMode === "base" ? (
+                  <div ref={searchRef} className="relative">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input placeholder="Buscar por nome ou telefone..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 h-10" autoFocus />
+                      {searching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/60 mt-1">Digite ao menos 2 caracteres para buscar</p>
+                    {showResults && (
+                      <div className="absolute z-50 top-[calc(100%-16px)] mt-1 left-0 right-0 bg-popover border border-border rounded-xl shadow-lg max-h-64 overflow-y-auto">
+                        {searchResults.length > 0 ? searchResults.map(c => (
+                          <button key={c.id} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors text-left" onClick={() => selectContact(c)}>
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><User className="w-3.5 h-3.5 text-primary" /></div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-foreground truncate">{c.name}</p>
+                              <p className="text-xs text-muted-foreground">{formatPhone(c.phone)}</p>
+                            </div>
+                          </button>
+                        )) : searchQuery.length >= 2 && !searching ? (
+                          <div className="p-4 text-center">
+                            <p className="text-xs text-muted-foreground mb-2">Nenhum contato encontrado</p>
+                            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => { setShowResults(false); setRecipientMode("manual"); setManualPhone(searchQuery.replace(/[^\d+]/g, "")); }}>
+                              <UserPlus className="w-3.5 h-3.5" /> Digitar manualmente
+                            </Button>
+                          </div>
+                        ) : null}
                       </div>
-                    ) : null}
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-xs">Nome <span className="text-muted-foreground">(opcional)</span></Label>
+                      <Input value={manualName} onChange={e => setManualName(e.target.value)} placeholder="Nome do contato" className="h-9 text-sm mt-1" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Telefone *</Label>
+                      <Input
+                        value={manualPhone}
+                        onChange={e => setManualPhone(formatManualPhone(e.target.value))}
+                        placeholder="+55 11 99999-9999"
+                        className="h-9 text-sm mt-1 font-mono"
+                        autoFocus
+                      />
+                      <p className="text-[10px] text-muted-foreground/60 mt-1">Formato automático +55</p>
+                    </div>
+                    <Button size="sm" className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white w-full" onClick={applyManualContact} disabled={manualPhone.replace(/\D/g, "").length < 12}>
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Confirmar destinatário
+                    </Button>
                   </div>
                 )}
-              </div>
-            )}
-
-            {showInlineCreate && !selectedContact && (
-              <div className="rounded-xl border border-dashed border-border bg-muted/10 p-4 space-y-3">
-                <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><UserPlus className="w-3.5 h-3.5" /> Criar novo contato</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label className="text-xs">Nome</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nome do contato" className="h-9 text-sm" /></div>
-                  <div><Label className="text-xs">Telefone *</Label><Input value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="5511999999999" className="h-9 text-sm" /></div>
-                </div>
-                <div className="flex gap-2 justify-end">
-                  <Button variant="ghost" size="sm" className="text-xs" onClick={() => setShowInlineCreate(false)}>Cancelar</Button>
-                  <Button size="sm" className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleCreateContact} disabled={!newPhone.trim() || creatingContact}>
-                    {creatingContact && <Loader2 className="w-3 h-3 animate-spin mr-1" />} Salvar
-                  </Button>
-                </div>
-              </div>
+              </>
             )}
           </div>
 
