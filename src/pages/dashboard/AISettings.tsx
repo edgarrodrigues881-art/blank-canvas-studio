@@ -43,7 +43,7 @@ interface ModePreset {
 const MODE_PRESETS: Record<AiMode, ModePreset> = {
   vendas: {
     label: "Vendas Automáticas",
-    icon: "🚀",
+    icon: "Rocket",
     desc: "IA focada em converter leads em clientes",
     recommended: true,
     objective: "vender",
@@ -53,17 +53,17 @@ const MODE_PRESETS: Record<AiMode, ModePreset> = {
     tone: "friendly",
     responseStyle: "medium",
     flowSteps: {
-      saudacao: "Olá! Que bom ter você aqui! 😊 Posso te mostrar algo incrível?",
+      saudacao: "Olá! Que bom ter você aqui! Posso te mostrar algo incrível?",
       diagnostico: "Me conta: o que você está buscando? Assim consigo te indicar a melhor opção!",
       apresentacao: "Perfeito! Tenho exatamente o que você precisa. Olha só os benefícios...",
       objecao: "Entendo! Mas olha, muitos clientes tinham essa mesma dúvida e hoje são super satisfeitos porque...",
-      fechamento: "Vamos garantir o seu? Posso enviar o link agora mesmo! 🔥",
+      fechamento: "Vamos garantir o seu? Posso enviar o link agora mesmo!",
     },
     preview: "A IA vai cumprimentar, descobrir a necessidade, apresentar a solução, contornar objeções e conduzir para o fechamento — tudo de forma natural e persuasiva.",
   },
   atendimento: {
     label: "Atendimento Inteligente",
-    icon: "💬",
+    icon: "MessageCircle",
     desc: "IA que responde dúvidas e acolhe o cliente",
     objective: "atender",
     commStyle: "amigavel",
@@ -72,17 +72,17 @@ const MODE_PRESETS: Record<AiMode, ModePreset> = {
     tone: "friendly",
     responseStyle: "medium",
     flowSteps: {
-      saudacao: "Olá! Seja bem-vindo(a)! Como posso te ajudar hoje? 😊",
+      saudacao: "Olá! Seja bem-vindo(a)! Como posso te ajudar hoje?",
       diagnostico: "Para te ajudar da melhor forma, me conta mais detalhes sobre o que você precisa.",
       apresentacao: "Entendi! Com base no que você me disse, vou te explicar tudo direitinho...",
       objecao: "Compreendo sua dúvida! Vou esclarecer isso para você...",
-      fechamento: "Consegui te ajudar? Se tiver mais alguma dúvida, é só mandar! 😊",
+      fechamento: "Consegui te ajudar? Se tiver mais alguma dúvida, é só mandar!",
     },
     preview: "A IA vai acolher o cliente, entender a necessidade com perguntas, fornecer informações claras e garantir que todas as dúvidas foram resolvidas.",
   },
   suporte: {
     label: "Suporte ao Cliente",
-    icon: "🛠️",
+    icon: "Headphones",
     desc: "IA técnica para resolver problemas",
     objective: "suporte",
     commStyle: "tecnico",
@@ -101,7 +101,7 @@ const MODE_PRESETS: Record<AiMode, ModePreset> = {
   },
   agendamento: {
     label: "Agendamento",
-    icon: "📅",
+    icon: "Calendar",
     desc: "IA focada em marcar horários",
     objective: "atender",
     commStyle: "direto",
@@ -110,11 +110,11 @@ const MODE_PRESETS: Record<AiMode, ModePreset> = {
     tone: "professional",
     responseStyle: "short",
     flowSteps: {
-      saudacao: "Olá! Vamos agendar seu horário? 📅",
+      saudacao: "Olá! Vamos agendar seu horário?",
       diagnostico: "Qual serviço você gostaria de agendar? E qual sua preferência de dia e horário?",
       apresentacao: "Temos disponibilidade nos seguintes horários...",
       objecao: "Se esse horário não funciona, posso verificar outras opções para você.",
-      fechamento: "Perfeito! Seu agendamento está confirmado! Te envio um lembrete antes. ✅",
+      fechamento: "Perfeito! Seu agendamento está confirmado! Te envio um lembrete antes.",
     },
     preview: "A IA vai perguntar o serviço desejado, verificar disponibilidade, confirmar o horário e enviar lembretes — tudo de forma objetiva.",
   },
@@ -172,7 +172,7 @@ const AISettings = () => {
   const [selectedMode, setSelectedMode] = useState<AiMode | null>(null);
   const [expertMode, setExpertMode] = useState(false);
   const [flowSteps, setFlowSteps] = useState({
-    saudacao: "Olá! Seja bem-vindo(a)! Como posso te ajudar hoje? 😊",
+    saudacao: "Olá! Seja bem-vindo(a)! Como posso te ajudar hoje?",
     diagnostico: "Para te ajudar melhor, me conta: o que você está buscando exatamente? Qual sua principal necessidade?",
     apresentacao: "Com base no que você me disse, tenho a solução perfeita! Deixa eu te apresentar...",
     objecao: "Entendo sua preocupação! Muitos clientes tinham a mesma dúvida. O que posso te garantir é que...",
@@ -532,7 +532,7 @@ const AISettings = () => {
         max_response_length: maxResponseLength,
       };
       await supabase.from("ai_settings").upsert(payload, { onConflict: "user_id" });
-      toast.success("IA configurada e ativada com sucesso! 🎉");
+      toast.success("IA configurada e ativada com sucesso!");
     } catch {
       toast.error("Erro ao salvar configurações");
     }
@@ -688,7 +688,7 @@ const AISettings = () => {
 
       setKbPreview(
         parts.length > 0
-          ? `🤖 Exemplo de como a IA responderia:\n\n"${tone === "friendly" ? "Oi! 😊 " : tone === "direct" ? "" : "Olá! "}${parts[0]}. ${parts.length > 1 ? parts[1] + "." : ""} Posso te ajudar com mais alguma coisa?"`
+          ? `Exemplo de como a IA responderia:\n\n"${tone === "friendly" ? "Oi! " : tone === "direct" ? "" : "Olá! "}${parts[0]}. ${parts.length > 1 ? parts[1] + "." : ""} Posso te ajudar com mais alguma coisa?"`
           : ""
       );
       setGeneratingPreview(false);
