@@ -1000,7 +1000,7 @@ const AISettings = () => {
                     Recomendado
                   </Badge>
                 )}
-                <span className="text-2xl">{preset.icon}</span>
+                <span className="text-2xl"><Rocket className="h-6 w-6 text-primary" /></span>
                 <p className="text-sm font-semibold text-foreground mt-2">{preset.label}</p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">{preset.desc}</p>
                 {selectedMode === key && (
