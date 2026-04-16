@@ -697,27 +697,28 @@ export default function Leads() {
             /* ── VIEW MODE ── */
             return (
               <div>
-                <div className="p-6 pb-5 border-b border-border/60">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className={cn(
-                        "w-14 h-14 rounded-full bg-gradient-to-br flex items-center justify-center text-xl font-bold text-white shadow-md ring-2 ring-background",
-                        getAvatarColor(detailLead.name || "?")
-                      )}>
-                        {getInitials(detailLead.name || "?")}
-                      </div>
-                      <div>
-                        <h2 className="text-lg font-bold text-foreground">{detailLead.name || formatPhone(detailLead.phone)}</h2>
-                        <p className="text-xs text-muted-foreground/60 mt-0.5">Lead capturado via {channelLabel} • {timeAgo(detailLead.created_at)}</p>
+                <div className="p-6 pt-8 pb-5 border-b border-border/60">
+                  <div className="flex items-center gap-4">
+                    <div className={cn(
+                      "w-14 h-14 rounded-full bg-gradient-to-br flex items-center justify-center text-xl font-bold text-white shadow-md ring-2 ring-background shrink-0",
+                      getAvatarColor(detailLead.name || "?")
+                    )}>
+                      {getInitials(detailLead.name || "?")}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-lg font-bold text-foreground">{detailLead.name || formatPhone(detailLead.phone)}</h2>
+                      <p className="text-xs text-muted-foreground/60 mt-0.5">Lead capturado via {channelLabel} • {timeAgo(detailLead.created_at)}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant="outline" className={cn("text-xs font-medium rounded-full px-3 py-1", statusCfg.badge)}>
+                          <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5 inline-block", statusCfg.dot)} />
+                          {statusCfg.label}
+                        </Badge>
+                        <Badge variant="outline" className={cn("text-[10px] font-medium rounded-full px-2.5", priorityCfg.color)}>
+                          {priorityCfg.label}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1.5">
-                      <Badge variant="outline" className={cn("text-xs font-medium rounded-full px-3 py-1", statusCfg.badge)}>
-                        <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5 inline-block", statusCfg.dot)} />
-                        {statusCfg.label}
-                      </Badge>
-                      <Badge variant="outline" className={cn("text-[10px] font-medium rounded-full px-2.5", priorityCfg.color)}>
-                        {priorityCfg.label}
+                  </div>
                       </Badge>
                     </div>
                   </div>
