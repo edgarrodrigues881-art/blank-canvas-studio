@@ -1020,16 +1020,16 @@ const AISettings = () => {
               <p className="text-sm text-foreground/80 leading-relaxed">{MODE_PRESETS[selectedMode].preview}</p>
               <div className="flex flex-wrap gap-1.5 mt-2">
                 <Badge variant="outline" className="text-[10px]">
-                  {MODE_PRESETS[selectedMode].commStyle === "persuasivo" ? "🎯 Persuasivo" :
-                   MODE_PRESETS[selectedMode].commStyle === "tecnico" ? "🔬 Técnico" :
-                   MODE_PRESETS[selectedMode].commStyle === "amigavel" ? "😊 Amigável" : "⚡ Direto"}
+                  {MODE_PRESETS[selectedMode].commStyle === "persuasivo" ? "Persuasivo" :
+                   MODE_PRESETS[selectedMode].commStyle === "tecnico" ? "Tecnico" :
+                   MODE_PRESETS[selectedMode].commStyle === "amigavel" ? "Amigavel" : "Direto"}
                 </Badge>
                 <Badge variant="outline" className="text-[10px]">
-                  Insistência {MODE_PRESETS[selectedMode].insistence}/5
+                  Insistencia {MODE_PRESETS[selectedMode].insistence}/5
                 </Badge>
                 <Badge variant="outline" className="text-[10px]">
-                  {MODE_PRESETS[selectedMode].strategy === "fechamento" ? "🤝 Foco em fechamento" :
-                   MODE_PRESETS[selectedMode].strategy === "direto" ? "🎯 Direto ao ponto" : "❓ Faz perguntas"}
+                  {MODE_PRESETS[selectedMode].strategy === "fechamento" ? "Foco em fechamento" :
+                   MODE_PRESETS[selectedMode].strategy === "direto" ? "Direto ao ponto" : "Faz perguntas"}
                 </Badge>
               </div>
             </div>
@@ -1185,9 +1185,9 @@ const AISettings = () => {
             <Label>Objetivo da IA</Label>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { value: "vender", label: "Vender", icon: "💰" },
-                { value: "atender", label: "Atender", icon: "💬" },
-                { value: "suporte", label: "Suporte", icon: "🛠️" },
+                { value: "vender", label: "Vender" },
+                { value: "atender", label: "Atender" },
+                { value: "suporte", label: "Suporte" },
               ].map((item) => (
                 <button
                   key={item.value}
@@ -1198,8 +1198,7 @@ const AISettings = () => {
                       : "border-border/50 hover:border-border"
                   }`}
                 >
-                  <span className="text-lg">{item.icon}</span>
-                  <p className="text-sm font-medium text-foreground mt-1">{item.label}</p>
+                  <p className="text-sm font-medium text-foreground">{item.label}</p>
                 </button>
               ))}
             </div>
@@ -1210,10 +1209,10 @@ const AISettings = () => {
             <Label>Estilo de comunicação</Label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
-                { value: "persuasivo", label: "Persuasivo", icon: "🎯" },
-                { value: "tecnico", label: "Técnico", icon: "🔬" },
-                { value: "amigavel", label: "Amigável", icon: "😊" },
-                { value: "direto", label: "Direto", icon: "⚡" },
+                { value: "persuasivo", label: "Persuasivo" },
+                { value: "tecnico", label: "Tecnico" },
+                { value: "amigavel", label: "Amigavel" },
+                { value: "direto", label: "Direto" },
               ].map((item) => (
                 <button
                   key={item.value}
@@ -1224,8 +1223,7 @@ const AISettings = () => {
                       : "border-border/50 hover:border-border"
                   }`}
                 >
-                  <span className="text-base">{item.icon}</span>
-                  <p className="text-xs font-medium text-foreground mt-0.5">{item.label}</p>
+                  <p className="text-xs font-medium text-foreground">{item.label}</p>
                 </button>
               ))}
             </div>
@@ -1258,9 +1256,9 @@ const AISettings = () => {
             <Label>Estratégia</Label>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { value: "perguntas", label: "Fazer perguntas", desc: "Entende antes de responder", icon: "❓" },
-                { value: "direto", label: "Direto ao ponto", desc: "Sem rodeios", icon: "🎯" },
-                { value: "fechamento", label: "Conduzir fechamento", desc: "Foco em conversão", icon: "🤝" },
+                { value: "perguntas", label: "Fazer perguntas", desc: "Entende antes de responder" },
+                { value: "direto", label: "Direto ao ponto", desc: "Sem rodeios" },
+                { value: "fechamento", label: "Conduzir fechamento", desc: "Foco em conversao" },
               ].map((item) => (
                 <button
                   key={item.value}
@@ -1271,8 +1269,7 @@ const AISettings = () => {
                       : "border-border/50 hover:border-border"
                   }`}
                 >
-                  <span className="text-base">{item.icon}</span>
-                  <p className="text-xs font-medium text-foreground mt-1">{item.label}</p>
+                  <p className="text-xs font-medium text-foreground">{item.label}</p>
                   <p className="text-[10px] text-muted-foreground">{item.desc}</p>
                 </button>
               ))}
