@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -91,6 +92,7 @@ const Templates = () => {
   const [previewTemplate, setPreviewTemplate] = useState<any>(null);
   const [previewMode, setPreviewMode] = useState<"sent" | "received">("sent");
   const [currentPage, setCurrentPage] = useState(1);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const perPage = 10;
 
   const formContent = formMessages[activeMessageTab];
@@ -306,8 +308,22 @@ const Templates = () => {
     }
   };
 
-  const handleDelete = (id: string) => {
-    deleteTemplate.mutate(id, { onSuccess: () => toast({ title: "Modelo excluído" }) });
+  const requestDelete = (t: any) => {
+    setDeleteConfirm({ id: t.id, name: t.name });
+  };
+
+  const confirmDelete = () => {
+    if (!deleteConfirm) return;
+    deleteTemplate.mutate(deleteConfirm.id, {
+      onSuccess: () => {
+        toast({ title: "Modelo excluído" });
+        setDeleteConfirm(null);
+      },
+      onError: (err: any) => {
+        toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
+        setDeleteConfirm(null);
+      },
+    });
   };
 
   const addButton = (type: "reply" | "url" | "phone") => {
@@ -441,7 +457,7 @@ const Templates = () => {
                 <button className="inline-flex items-center justify-center h-8 w-8 rounded-lg hover:bg-muted/60 transition-colors" onClick={() => openEdit(t)} title="Editar">
                   <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
                 </button>
-                <button className="inline-flex items-center justify-center h-8 w-8 rounded-lg hover:bg-destructive/10 transition-colors" onClick={() => handleDelete(t.id)} title="Excluir">
+                <button className="inline-flex items-center justify-center h-8 w-8 rounded-lg hover:bg-destructive/10 transition-colors" onClick={() => requestDelete(t)} title="Excluir">
                   <Trash2 className="w-3.5 h-3.5 text-destructive/70" />
                 </button>
               </div>
@@ -979,6 +995,28 @@ const Templates = () => {
           })()}
         </DialogContent>
       </Dialog>
+
+      {/* Confirmação de exclusão de template */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(o) => !o && setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir este modelo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a excluir <strong>"{deleteConfirm?.name}"</strong>. Esta ação não pode ser desfeita.
+              <br /><br />
+              <span className="text-foreground/80">
+                Suas <strong>campanhas e contatos vinculados continuam intactos</strong> — apenas o modelo será removido.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
+              Excluir modelo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
