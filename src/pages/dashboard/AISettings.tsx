@@ -1130,7 +1130,6 @@ const AISettings = () => {
 
       {expertMode && (<>
       {/* Delay de resposta */}
-      <Card className="transition-all duration-200 hover:shadow-md">
       <Card>
         <CardHeader className="pb-4 px-6 pt-6">
           <div className="flex items-center gap-2.5">
