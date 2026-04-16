@@ -544,7 +544,31 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
   };
 
   const insertVariable = (v: string) => {
-    setMessageContent(prev => prev + `{${v}}`);
+    const ta = textareaRef.current;
+    if (ta) {
+      const start = ta.selectionStart;
+      const end = ta.selectionEnd;
+      const before = messageContent.slice(0, start);
+      const after = messageContent.slice(end);
+      const newText = `${before}{${v}}${after}`;
+      setMessageContent(newText);
+      requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = start + v.length + 2; ta.focus(); });
+    } else {
+      setMessageContent(prev => prev + `{${v}}`);
+    }
+  };
+
+  const addButton = () => {
+    if (buttons.length >= 3) return;
+    setButtons(prev => [...prev, { type: "url", text: "", value: "" }]);
+  };
+
+  const updateButton = (index: number, field: string, val: string) => {
+    setButtons(prev => prev.map((b, i) => i === index ? { ...b, [field]: val } : b));
+  };
+
+  const removeButton = (index: number) => {
+    setButtons(prev => prev.filter((_, i) => i !== index));
   };
 
   const countdown = useMemo(() => {
