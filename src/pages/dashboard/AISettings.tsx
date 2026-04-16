@@ -1541,40 +1541,44 @@ const AISettings = () => {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
-                  <span>🛍️</span> Produtos / Serviços
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  Produtos / Servicos
                 </Label>
                 <Textarea
                   value={kbProducts}
                   onChange={(e) => setKbProducts(e.target.value)}
-                  placeholder="Ex: Plano Básico - automação de mensagens&#10;Plano Pro - automação + IA&#10;Plano Enterprise - tudo incluso + suporte dedicado"
+                  placeholder="Ex: Plano Basico - automacao de mensagens&#10;Plano Pro - automacao + IA&#10;Plano Enterprise - tudo incluso + suporte dedicado"
                   rows={3}
                 />
               </div>
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
-                  <span>💲</span> Preços
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  Precos
                 </Label>
                 <Textarea
                   value={kbPrices}
                   onChange={(e) => setKbPrices(e.target.value)}
-                  placeholder="Ex: Básico R$97/mês, Pro R$197/mês, Enterprise R$497/mês"
+                  placeholder="Ex: Basico R$97/mes, Pro R$197/mes, Enterprise R$497/mes"
                   rows={2}
                 />
               </div>
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
-                  <span>⭐</span> Diferenciais
+                  <Star className="h-4 w-4 text-muted-foreground" />
+                  Diferenciais
                 </Label>
                 <Textarea
                   value={kbDifferentials}
                   onChange={(e) => setKbDifferentials(e.target.value)}
-                  placeholder="Ex: Suporte 24h, Setup gratuito, Garantia de 30 dias, Integração com WhatsApp"
+                  placeholder="Ex: Suporte 24h, Setup gratuito, Garantia de 30 dias, Integracao com WhatsApp"
                   rows={2}
                 />
               </div>
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
-                  <span>❓</span> Perguntas frequentes
+                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                  Perguntas frequentes
                 </Label>
                 <Textarea
                   value={kbFaq}
@@ -1665,11 +1669,11 @@ const AISettings = () => {
               <Select value={newDocType} onValueChange={setNewDocType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="prompt">📝 Prompt / Texto</SelectItem>
-                  <SelectItem value="product">📦 Produtos / Serviços</SelectItem>
-                  <SelectItem value="faq">❓ FAQ / Perguntas Frequentes</SelectItem>
-                  <SelectItem value="pdf">📄 PDF</SelectItem>
-                  <SelectItem value="txt">📄 TXT</SelectItem>
+                  <SelectItem value="prompt">Prompt / Texto</SelectItem>
+                  <SelectItem value="product">Produtos / Servicos</SelectItem>
+                  <SelectItem value="faq">FAQ / Perguntas Frequentes</SelectItem>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                  <SelectItem value="txt">TXT</SelectItem>
                 </SelectContent>
               </Select>
             </div>
