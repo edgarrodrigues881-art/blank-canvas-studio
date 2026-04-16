@@ -1361,11 +1361,11 @@ const AISettings = () => {
 
           <div className="space-y-2">
             {[
-              { key: "saudacao", label: "Saudação", icon: "👋", desc: "Primeiro contato com o cliente" },
-              { key: "diagnostico", label: "Diagnóstico", icon: "🔍", desc: "Entender a necessidade do cliente" },
-              { key: "apresentacao", label: "Apresentação", icon: "🎯", desc: "Apresentar a solução ideal" },
-              { key: "objecao", label: "Objeção", icon: "🛡️", desc: "Contornar dúvidas e objeções" },
-              { key: "fechamento", label: "Fechamento", icon: "🤝", desc: "Conduzir para a conversão" },
+              { key: "saudacao", label: "Saudacao", desc: "Primeiro contato com o cliente" },
+              { key: "diagnostico", label: "Diagnostico", desc: "Entender a necessidade do cliente" },
+              { key: "apresentacao", label: "Apresentacao", desc: "Apresentar a solucao ideal" },
+              { key: "objecao", label: "Objecao", desc: "Contornar duvidas e objecoes" },
+              { key: "fechamento", label: "Fechamento", desc: "Conduzir para a conversao" },
             ].map((step, idx) => (
               <div
                 key={step.key}
@@ -1378,7 +1378,6 @@ const AISettings = () => {
                   <div className="flex items-center justify-center h-7 w-7 rounded-full bg-primary/10 text-xs font-bold text-primary shrink-0">
                     {idx + 1}
                   </div>
-                  <span className="text-lg shrink-0">{step.icon}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">{step.label}</p>
                     <p className="text-[10px] text-muted-foreground">{step.desc}</p>
@@ -1449,13 +1448,13 @@ const AISettings = () => {
               <p className="text-[11px] text-foreground/70 leading-relaxed">A IA detecta a intenção do cliente em cada mensagem e escolhe a etapa ideal automaticamente. Se o cliente recuar, a IA volta uma etapa.</p>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { icon: "🔎", label: "Curioso", desc: "→ Saudação / Diagnóstico" },
-                  { icon: "💡", label: "Interessado", desc: "→ Diagnóstico / Apresentação" },
-                  { icon: "🔥", label: "Pronto p/ comprar", desc: "→ Fechamento" },
-                  { icon: "🛡️", label: "Objeção", desc: "→ Contornar + Avançar" },
+                  { label: "Curioso", desc: "Saudacao / Diagnostico" },
+                  { label: "Interessado", desc: "Diagnostico / Apresentacao" },
+                  { label: "Pronto p/ comprar", desc: "Fechamento" },
+                  { label: "Objecao", desc: "Contornar + Avancar" },
                 ].map((item) => (
                   <div key={item.label} className="rounded-lg border border-border/30 bg-background/50 px-3 py-2">
-                    <p className="text-xs font-medium">{item.icon} {item.label}</p>
+                    <p className="text-xs font-medium">{item.label}</p>
                     <p className="text-[10px] text-muted-foreground">{item.desc}</p>
                   </div>
                 ))}
@@ -1526,7 +1525,7 @@ const AISettings = () => {
                 kbTab === "structured" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              📝 Campos estruturados
+              Campos estruturados
             </button>
             <button
               onClick={() => setKbTab("upload")}
@@ -1534,7 +1533,7 @@ const AISettings = () => {
                 kbTab === "upload" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              📄 Upload de arquivos
+              Upload de arquivos
             </button>
           </div>
 
