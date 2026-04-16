@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import {
   Sparkles, Building2, Target, MessageCircle, Briefcase, Send,
-  Loader2, CheckCircle2, ArrowRight, Zap,
+  Loader2, CheckCircle2, ArrowRight, Zap, ShoppingCart, Wrench, Monitor, Store, BarChart3, GraduationCap, HeartPulse, UtensilsCrossed, Home, Package,
+  MessageSquare, Coins, Headphones, CalendarDays, Smile, User, ZapIcon
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,42 +32,42 @@ interface Props {
 }
 
 const BUSINESS_TYPES = [
-  { value: "ecommerce", label: "E-commerce", icon: "🛒" },
-  { value: "servicos", label: "Prestação de Serviços", icon: "🔧" },
-  { value: "saas", label: "SaaS / Tecnologia", icon: "💻" },
-  { value: "varejo", label: "Varejo / Loja Física", icon: "🏪" },
-  { value: "consultoria", label: "Consultoria", icon: "📊" },
-  { value: "educacao", label: "Educação", icon: "📚" },
-  { value: "saude", label: "Saúde / Clínica", icon: "🏥" },
-  { value: "alimentacao", label: "Alimentação", icon: "🍽️" },
-  { value: "imobiliaria", label: "Imobiliária", icon: "🏠" },
-  { value: "outro", label: "Outro", icon: "📦" },
+  { value: "ecommerce", label: "E-commerce", icon: ShoppingCart },
+  { value: "servicos", label: "Prestacao de Servicos", icon: Wrench },
+  { value: "saas", label: "SaaS / Tecnologia", icon: Monitor },
+  { value: "varejo", label: "Varejo / Loja Fisica", icon: Store },
+  { value: "consultoria", label: "Consultoria", icon: BarChart3 },
+  { value: "educacao", label: "Educacao", icon: GraduationCap },
+  { value: "saude", label: "Saude / Clinica", icon: HeartPulse },
+  { value: "alimentacao", label: "Alimentacao", icon: UtensilsCrossed },
+  { value: "imobiliaria", label: "Imobiliaria", icon: Home },
+  { value: "outro", label: "Outro", icon: Package },
 ];
 
 const OBJECTIVES = [
-  { value: "atendimento", label: "Atendimento", desc: "Responder dúvidas dos clientes", icon: "💬" },
-  { value: "vendas", label: "Vendas", desc: "Converter leads em clientes", icon: "💰" },
-  { value: "suporte", label: "Suporte", desc: "Resolver problemas técnicos", icon: "🛠️" },
-  { value: "agendamento", label: "Agendamento", desc: "Marcar horários e consultas", icon: "📅" },
+  { value: "atendimento", label: "Atendimento", desc: "Responder duvidas dos clientes", icon: MessageSquare },
+  { value: "vendas", label: "Vendas", desc: "Converter leads em clientes", icon: Coins },
+  { value: "suporte", label: "Suporte", desc: "Resolver problemas tecnicos", icon: Headphones },
+  { value: "agendamento", label: "Agendamento", desc: "Marcar horarios e consultas", icon: CalendarDays },
 ];
 
 const TONES = [
-  { value: "friendly", label: "Amigável", desc: "Oi! 😊 Como posso te ajudar?", icon: "😊" },
-  { value: "professional", label: "Profissional", desc: "Olá! Seja bem-vindo. Como posso auxiliá-lo?", icon: "👔" },
-  { value: "direct", label: "Direto", desc: "Olá. Em que posso ajudar?", icon: "⚡" },
+  { value: "friendly", label: "Amigavel", desc: "Oi! Como posso te ajudar?", icon: Smile },
+  { value: "professional", label: "Profissional", desc: "Ola! Seja bem-vindo. Como posso auxilia-lo?", icon: User },
+  { value: "direct", label: "Direto", desc: "Ola. Em que posso ajudar?", icon: ZapIcon },
 ];
 
 const EXAMPLES: Record<string, { name: string; desc: string; hours: string }> = {
-  ecommerce: { name: "Loja Virtual Premium", desc: "Vendemos roupas e acessórios online com entrega para todo o Brasil.", hours: "Seg-Sex 08:00 às 18:00, Sáb 09:00 às 13:00" },
-  servicos: { name: "ServiçoPro", desc: "Prestamos serviços de manutenção residencial e empresarial.", hours: "Seg-Sex 08:00 às 18:00" },
-  saas: { name: "TechSoft", desc: "Plataforma SaaS de gestão empresarial para PMEs.", hours: "Seg-Sex 09:00 às 18:00" },
-  varejo: { name: "Super Loja", desc: "Loja de varejo com produtos diversos para casa e escritório.", hours: "Seg-Sáb 08:00 às 20:00" },
-  consultoria: { name: "Consultoria Expert", desc: "Consultoria especializada em gestão e estratégia empresarial.", hours: "Seg-Sex 09:00 às 17:00" },
-  educacao: { name: "Escola Digital", desc: "Cursos online e presenciais de capacitação profissional.", hours: "Seg-Sex 08:00 às 22:00" },
-  saude: { name: "Clínica Saúde+", desc: "Clínica multidisciplinar com atendimento médico e odontológico.", hours: "Seg-Sex 07:00 às 19:00, Sáb 08:00 às 12:00" },
-  alimentacao: { name: "Restaurante Sabor", desc: "Restaurante com delivery de comida caseira e saudável.", hours: "Seg-Dom 11:00 às 23:00" },
-  imobiliaria: { name: "Imóveis Top", desc: "Imobiliária com imóveis para venda e aluguel na região.", hours: "Seg-Sex 08:00 às 18:00, Sáb 09:00 às 13:00" },
-  outro: { name: "Minha Empresa", desc: "Descreva brevemente o que sua empresa faz.", hours: "Seg-Sex 08:00 às 18:00" },
+  ecommerce: { name: "Loja Virtual Premium", desc: "Vendemos roupas e acessorios online com entrega para todo o Brasil.", hours: "Seg-Sex 08:00 as 18:00, Sab 09:00 as 13:00" },
+  servicos: { name: "ServicoPro", desc: "Prestamos servicos de manutencao residencial e empresarial.", hours: "Seg-Sex 08:00 as 18:00" },
+  saas: { name: "TechSoft", desc: "Plataforma SaaS de gestao empresarial para PMEs.", hours: "Seg-Sex 09:00 as 18:00" },
+  varejo: { name: "Super Loja", desc: "Loja de varejo com produtos diversos para casa e escritorio.", hours: "Seg-Sab 08:00 as 20:00" },
+  consultoria: { name: "Consultoria Expert", desc: "Consultoria especializada em gestao e estrategia empresarial.", hours: "Seg-Sex 09:00 as 17:00" },
+  educacao: { name: "Escola Digital", desc: "Cursos online e presenciais de capacitacao profissional.", hours: "Seg-Sex 08:00 as 22:00" },
+  saude: { name: "Clinica Saude+", desc: "Clinica multidisciplinar com atendimento medico e odontologico.", hours: "Seg-Sex 07:00 as 19:00, Sab 08:00 as 12:00" },
+  alimentacao: { name: "Restaurante Sabor", desc: "Restaurante com delivery de comida caseira e saudavel.", hours: "Seg-Dom 11:00 as 23:00" },
+  imobiliaria: { name: "Imoveis Top", desc: "Imobiliaria com imoveis para venda e aluguel na regiao.", hours: "Seg-Sex 08:00 as 18:00, Sab 09:00 as 13:00" },
+  outro: { name: "Minha Empresa", desc: "Descreva brevemente o que sua empresa faz.", hours: "Seg-Sex 08:00 as 18:00" },
 };
 
 const TOTAL_STEPS = 5;
@@ -184,7 +185,7 @@ export const AIOnboardingWizard = ({ open, onComplete, onSkip, apiKey, aiModel }
                         : "border-border/50 hover:border-border hover:bg-muted/30"
                     }`}
                   >
-                    <span className="text-lg">{bt.icon}</span>
+                    <bt.icon className="h-5 w-5 text-primary" />
                     <p className="text-sm font-medium text-foreground mt-1">{bt.label}</p>
                   </button>
                 ))}
@@ -211,7 +212,7 @@ export const AIOnboardingWizard = ({ open, onComplete, onSkip, apiKey, aiModel }
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-2xl">{obj.icon}</span>
+                      <obj.icon className="h-6 w-6 text-primary" />
                       <div>
                         <p className="text-sm font-semibold text-foreground">{obj.label}</p>
                         <p className="text-xs text-muted-foreground">{obj.desc}</p>
@@ -242,7 +243,7 @@ export const AIOnboardingWizard = ({ open, onComplete, onSkip, apiKey, aiModel }
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <span className="text-2xl">{t.icon}</span>
+                      <t.icon className="h-6 w-6 text-primary shrink-0" />
                       <div>
                         <p className="text-sm font-semibold text-foreground">{t.label}</p>
                         <p className="text-xs text-muted-foreground italic mt-0.5">"{t.desc}"</p>
@@ -287,7 +288,7 @@ export const AIOnboardingWizard = ({ open, onComplete, onSkip, apiKey, aiModel }
           {step === 5 && (
             <div className="space-y-4">
               <div>
-                <h2 className="text-lg font-bold text-foreground">Tudo pronto! 🎉</h2>
+                <h2 className="text-lg font-bold text-foreground">Tudo pronto!</h2>
                 <p className="text-sm text-muted-foreground mt-1">Revise suas escolhas e ative a IA</p>
               </div>
               <div className="rounded-lg border border-border/50 bg-muted/20 p-4 space-y-2.5">

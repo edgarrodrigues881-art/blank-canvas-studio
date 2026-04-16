@@ -18,6 +18,7 @@ import {
   FileText, File, Power, Target, Zap, Activity, Circle, Timer, MessageSquare,
   UserCheck, PhoneCall, LifeBuoy, Users, Flame, Snowflake, TrendingUp,
   Rocket, Calendar, Settings2, ChevronDown, ChevronUp,
+  Package, DollarSign, Star, HelpCircle, Search, Lightbulb, Shield
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
@@ -43,7 +44,7 @@ interface ModePreset {
 const MODE_PRESETS: Record<AiMode, ModePreset> = {
   vendas: {
     label: "Vendas Automáticas",
-    icon: "🚀",
+    icon: "Rocket",
     desc: "IA focada em converter leads em clientes",
     recommended: true,
     objective: "vender",
@@ -53,17 +54,17 @@ const MODE_PRESETS: Record<AiMode, ModePreset> = {
     tone: "friendly",
     responseStyle: "medium",
     flowSteps: {
-      saudacao: "Olá! Que bom ter você aqui! 😊 Posso te mostrar algo incrível?",
+      saudacao: "Olá! Que bom ter você aqui! Posso te mostrar algo incrível?",
       diagnostico: "Me conta: o que você está buscando? Assim consigo te indicar a melhor opção!",
       apresentacao: "Perfeito! Tenho exatamente o que você precisa. Olha só os benefícios...",
       objecao: "Entendo! Mas olha, muitos clientes tinham essa mesma dúvida e hoje são super satisfeitos porque...",
-      fechamento: "Vamos garantir o seu? Posso enviar o link agora mesmo! 🔥",
+      fechamento: "Vamos garantir o seu? Posso enviar o link agora mesmo!",
     },
     preview: "A IA vai cumprimentar, descobrir a necessidade, apresentar a solução, contornar objeções e conduzir para o fechamento — tudo de forma natural e persuasiva.",
   },
   atendimento: {
     label: "Atendimento Inteligente",
-    icon: "💬",
+    icon: "MessageCircle",
     desc: "IA que responde dúvidas e acolhe o cliente",
     objective: "atender",
     commStyle: "amigavel",
@@ -72,17 +73,17 @@ const MODE_PRESETS: Record<AiMode, ModePreset> = {
     tone: "friendly",
     responseStyle: "medium",
     flowSteps: {
-      saudacao: "Olá! Seja bem-vindo(a)! Como posso te ajudar hoje? 😊",
+      saudacao: "Olá! Seja bem-vindo(a)! Como posso te ajudar hoje?",
       diagnostico: "Para te ajudar da melhor forma, me conta mais detalhes sobre o que você precisa.",
       apresentacao: "Entendi! Com base no que você me disse, vou te explicar tudo direitinho...",
       objecao: "Compreendo sua dúvida! Vou esclarecer isso para você...",
-      fechamento: "Consegui te ajudar? Se tiver mais alguma dúvida, é só mandar! 😊",
+      fechamento: "Consegui te ajudar? Se tiver mais alguma dúvida, é só mandar!",
     },
     preview: "A IA vai acolher o cliente, entender a necessidade com perguntas, fornecer informações claras e garantir que todas as dúvidas foram resolvidas.",
   },
   suporte: {
     label: "Suporte ao Cliente",
-    icon: "🛠️",
+    icon: "Headphones",
     desc: "IA técnica para resolver problemas",
     objective: "suporte",
     commStyle: "tecnico",
@@ -101,7 +102,7 @@ const MODE_PRESETS: Record<AiMode, ModePreset> = {
   },
   agendamento: {
     label: "Agendamento",
-    icon: "📅",
+    icon: "Calendar",
     desc: "IA focada em marcar horários",
     objective: "atender",
     commStyle: "direto",
@@ -110,11 +111,11 @@ const MODE_PRESETS: Record<AiMode, ModePreset> = {
     tone: "professional",
     responseStyle: "short",
     flowSteps: {
-      saudacao: "Olá! Vamos agendar seu horário? 📅",
+      saudacao: "Olá! Vamos agendar seu horário?",
       diagnostico: "Qual serviço você gostaria de agendar? E qual sua preferência de dia e horário?",
       apresentacao: "Temos disponibilidade nos seguintes horários...",
       objecao: "Se esse horário não funciona, posso verificar outras opções para você.",
-      fechamento: "Perfeito! Seu agendamento está confirmado! Te envio um lembrete antes. ✅",
+      fechamento: "Perfeito! Seu agendamento está confirmado! Te envio um lembrete antes.",
     },
     preview: "A IA vai perguntar o serviço desejado, verificar disponibilidade, confirmar o horário e enviar lembretes — tudo de forma objetiva.",
   },
@@ -172,7 +173,7 @@ const AISettings = () => {
   const [selectedMode, setSelectedMode] = useState<AiMode | null>(null);
   const [expertMode, setExpertMode] = useState(false);
   const [flowSteps, setFlowSteps] = useState({
-    saudacao: "Olá! Seja bem-vindo(a)! Como posso te ajudar hoje? 😊",
+    saudacao: "Olá! Seja bem-vindo(a)! Como posso te ajudar hoje?",
     diagnostico: "Para te ajudar melhor, me conta: o que você está buscando exatamente? Qual sua principal necessidade?",
     apresentacao: "Com base no que você me disse, tenho a solução perfeita! Deixa eu te apresentar...",
     objecao: "Entendo sua preocupação! Muitos clientes tinham a mesma dúvida. O que posso te garantir é que...",
@@ -532,7 +533,7 @@ const AISettings = () => {
         max_response_length: maxResponseLength,
       };
       await supabase.from("ai_settings").upsert(payload, { onConflict: "user_id" });
-      toast.success("IA configurada e ativada com sucesso! 🎉");
+      toast.success("IA configurada e ativada com sucesso!");
     } catch {
       toast.error("Erro ao salvar configurações");
     }
@@ -688,7 +689,7 @@ const AISettings = () => {
 
       setKbPreview(
         parts.length > 0
-          ? `🤖 Exemplo de como a IA responderia:\n\n"${tone === "friendly" ? "Oi! 😊 " : tone === "direct" ? "" : "Olá! "}${parts[0]}. ${parts.length > 1 ? parts[1] + "." : ""} Posso te ajudar com mais alguma coisa?"`
+          ? `Exemplo de como a IA responderia:\n\n"${tone === "friendly" ? "Oi! " : tone === "direct" ? "" : "Olá! "}${parts[0]}. ${parts.length > 1 ? parts[1] + "." : ""} Posso te ajudar com mais alguma coisa?"`
           : ""
       );
       setGeneratingPreview(false);
@@ -1000,7 +1001,7 @@ const AISettings = () => {
                     Recomendado
                   </Badge>
                 )}
-                <span className="text-2xl">{preset.icon}</span>
+                <span className="text-2xl"><Rocket className="h-6 w-6 text-primary" /></span>
                 <p className="text-sm font-semibold text-foreground mt-2">{preset.label}</p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">{preset.desc}</p>
                 {selectedMode === key && (
@@ -1020,16 +1021,16 @@ const AISettings = () => {
               <p className="text-sm text-foreground/80 leading-relaxed">{MODE_PRESETS[selectedMode].preview}</p>
               <div className="flex flex-wrap gap-1.5 mt-2">
                 <Badge variant="outline" className="text-[10px]">
-                  {MODE_PRESETS[selectedMode].commStyle === "persuasivo" ? "🎯 Persuasivo" :
-                   MODE_PRESETS[selectedMode].commStyle === "tecnico" ? "🔬 Técnico" :
-                   MODE_PRESETS[selectedMode].commStyle === "amigavel" ? "😊 Amigável" : "⚡ Direto"}
+                  {MODE_PRESETS[selectedMode].commStyle === "persuasivo" ? "Persuasivo" :
+                   MODE_PRESETS[selectedMode].commStyle === "tecnico" ? "Tecnico" :
+                   MODE_PRESETS[selectedMode].commStyle === "amigavel" ? "Amigavel" : "Direto"}
                 </Badge>
                 <Badge variant="outline" className="text-[10px]">
-                  Insistência {MODE_PRESETS[selectedMode].insistence}/5
+                  Insistencia {MODE_PRESETS[selectedMode].insistence}/5
                 </Badge>
                 <Badge variant="outline" className="text-[10px]">
-                  {MODE_PRESETS[selectedMode].strategy === "fechamento" ? "🤝 Foco em fechamento" :
-                   MODE_PRESETS[selectedMode].strategy === "direto" ? "🎯 Direto ao ponto" : "❓ Faz perguntas"}
+                  {MODE_PRESETS[selectedMode].strategy === "fechamento" ? "Foco em fechamento" :
+                   MODE_PRESETS[selectedMode].strategy === "direto" ? "Direto ao ponto" : "Faz perguntas"}
                 </Badge>
               </div>
             </div>
@@ -1185,9 +1186,9 @@ const AISettings = () => {
             <Label>Objetivo da IA</Label>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { value: "vender", label: "Vender", icon: "💰" },
-                { value: "atender", label: "Atender", icon: "💬" },
-                { value: "suporte", label: "Suporte", icon: "🛠️" },
+                { value: "vender", label: "Vender" },
+                { value: "atender", label: "Atender" },
+                { value: "suporte", label: "Suporte" },
               ].map((item) => (
                 <button
                   key={item.value}
@@ -1198,8 +1199,7 @@ const AISettings = () => {
                       : "border-border/50 hover:border-border"
                   }`}
                 >
-                  <span className="text-lg">{item.icon}</span>
-                  <p className="text-sm font-medium text-foreground mt-1">{item.label}</p>
+                  <p className="text-sm font-medium text-foreground">{item.label}</p>
                 </button>
               ))}
             </div>
@@ -1210,10 +1210,10 @@ const AISettings = () => {
             <Label>Estilo de comunicação</Label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
-                { value: "persuasivo", label: "Persuasivo", icon: "🎯" },
-                { value: "tecnico", label: "Técnico", icon: "🔬" },
-                { value: "amigavel", label: "Amigável", icon: "😊" },
-                { value: "direto", label: "Direto", icon: "⚡" },
+                { value: "persuasivo", label: "Persuasivo" },
+                { value: "tecnico", label: "Tecnico" },
+                { value: "amigavel", label: "Amigavel" },
+                { value: "direto", label: "Direto" },
               ].map((item) => (
                 <button
                   key={item.value}
@@ -1224,8 +1224,7 @@ const AISettings = () => {
                       : "border-border/50 hover:border-border"
                   }`}
                 >
-                  <span className="text-base">{item.icon}</span>
-                  <p className="text-xs font-medium text-foreground mt-0.5">{item.label}</p>
+                  <p className="text-xs font-medium text-foreground">{item.label}</p>
                 </button>
               ))}
             </div>
@@ -1258,9 +1257,9 @@ const AISettings = () => {
             <Label>Estratégia</Label>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { value: "perguntas", label: "Fazer perguntas", desc: "Entende antes de responder", icon: "❓" },
-                { value: "direto", label: "Direto ao ponto", desc: "Sem rodeios", icon: "🎯" },
-                { value: "fechamento", label: "Conduzir fechamento", desc: "Foco em conversão", icon: "🤝" },
+                { value: "perguntas", label: "Fazer perguntas", desc: "Entende antes de responder" },
+                { value: "direto", label: "Direto ao ponto", desc: "Sem rodeios" },
+                { value: "fechamento", label: "Conduzir fechamento", desc: "Foco em conversao" },
               ].map((item) => (
                 <button
                   key={item.value}
@@ -1271,8 +1270,7 @@ const AISettings = () => {
                       : "border-border/50 hover:border-border"
                   }`}
                 >
-                  <span className="text-base">{item.icon}</span>
-                  <p className="text-xs font-medium text-foreground mt-1">{item.label}</p>
+                  <p className="text-xs font-medium text-foreground">{item.label}</p>
                   <p className="text-[10px] text-muted-foreground">{item.desc}</p>
                 </button>
               ))}
@@ -1364,11 +1362,11 @@ const AISettings = () => {
 
           <div className="space-y-2">
             {[
-              { key: "saudacao", label: "Saudação", icon: "👋", desc: "Primeiro contato com o cliente" },
-              { key: "diagnostico", label: "Diagnóstico", icon: "🔍", desc: "Entender a necessidade do cliente" },
-              { key: "apresentacao", label: "Apresentação", icon: "🎯", desc: "Apresentar a solução ideal" },
-              { key: "objecao", label: "Objeção", icon: "🛡️", desc: "Contornar dúvidas e objeções" },
-              { key: "fechamento", label: "Fechamento", icon: "🤝", desc: "Conduzir para a conversão" },
+              { key: "saudacao", label: "Saudacao", desc: "Primeiro contato com o cliente" },
+              { key: "diagnostico", label: "Diagnostico", desc: "Entender a necessidade do cliente" },
+              { key: "apresentacao", label: "Apresentacao", desc: "Apresentar a solucao ideal" },
+              { key: "objecao", label: "Objecao", desc: "Contornar duvidas e objecoes" },
+              { key: "fechamento", label: "Fechamento", desc: "Conduzir para a conversao" },
             ].map((step, idx) => (
               <div
                 key={step.key}
@@ -1381,7 +1379,6 @@ const AISettings = () => {
                   <div className="flex items-center justify-center h-7 w-7 rounded-full bg-primary/10 text-xs font-bold text-primary shrink-0">
                     {idx + 1}
                   </div>
-                  <span className="text-lg shrink-0">{step.icon}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">{step.label}</p>
                     <p className="text-[10px] text-muted-foreground">{step.desc}</p>
@@ -1452,13 +1449,13 @@ const AISettings = () => {
               <p className="text-[11px] text-foreground/70 leading-relaxed">A IA detecta a intenção do cliente em cada mensagem e escolhe a etapa ideal automaticamente. Se o cliente recuar, a IA volta uma etapa.</p>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { icon: "🔎", label: "Curioso", desc: "→ Saudação / Diagnóstico" },
-                  { icon: "💡", label: "Interessado", desc: "→ Diagnóstico / Apresentação" },
-                  { icon: "🔥", label: "Pronto p/ comprar", desc: "→ Fechamento" },
-                  { icon: "🛡️", label: "Objeção", desc: "→ Contornar + Avançar" },
+                  { label: "Curioso", desc: "Saudacao / Diagnostico" },
+                  { label: "Interessado", desc: "Diagnostico / Apresentacao" },
+                  { label: "Pronto p/ comprar", desc: "Fechamento" },
+                  { label: "Objecao", desc: "Contornar + Avancar" },
                 ].map((item) => (
                   <div key={item.label} className="rounded-lg border border-border/30 bg-background/50 px-3 py-2">
-                    <p className="text-xs font-medium">{item.icon} {item.label}</p>
+                    <p className="text-xs font-medium">{item.label}</p>
                     <p className="text-[10px] text-muted-foreground">{item.desc}</p>
                   </div>
                 ))}
@@ -1529,7 +1526,7 @@ const AISettings = () => {
                 kbTab === "structured" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              📝 Campos estruturados
+              Campos estruturados
             </button>
             <button
               onClick={() => setKbTab("upload")}
@@ -1537,7 +1534,7 @@ const AISettings = () => {
                 kbTab === "upload" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              📄 Upload de arquivos
+              Upload de arquivos
             </button>
           </div>
 
@@ -1545,40 +1542,44 @@ const AISettings = () => {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
-                  <span>🛍️</span> Produtos / Serviços
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  Produtos / Servicos
                 </Label>
                 <Textarea
                   value={kbProducts}
                   onChange={(e) => setKbProducts(e.target.value)}
-                  placeholder="Ex: Plano Básico - automação de mensagens&#10;Plano Pro - automação + IA&#10;Plano Enterprise - tudo incluso + suporte dedicado"
+                  placeholder="Ex: Plano Basico - automacao de mensagens&#10;Plano Pro - automacao + IA&#10;Plano Enterprise - tudo incluso + suporte dedicado"
                   rows={3}
                 />
               </div>
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
-                  <span>💲</span> Preços
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  Precos
                 </Label>
                 <Textarea
                   value={kbPrices}
                   onChange={(e) => setKbPrices(e.target.value)}
-                  placeholder="Ex: Básico R$97/mês, Pro R$197/mês, Enterprise R$497/mês"
+                  placeholder="Ex: Basico R$97/mes, Pro R$197/mes, Enterprise R$497/mes"
                   rows={2}
                 />
               </div>
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
-                  <span>⭐</span> Diferenciais
+                  <Star className="h-4 w-4 text-muted-foreground" />
+                  Diferenciais
                 </Label>
                 <Textarea
                   value={kbDifferentials}
                   onChange={(e) => setKbDifferentials(e.target.value)}
-                  placeholder="Ex: Suporte 24h, Setup gratuito, Garantia de 30 dias, Integração com WhatsApp"
+                  placeholder="Ex: Suporte 24h, Setup gratuito, Garantia de 30 dias, Integracao com WhatsApp"
                   rows={2}
                 />
               </div>
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
-                  <span>❓</span> Perguntas frequentes
+                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                  Perguntas frequentes
                 </Label>
                 <Textarea
                   value={kbFaq}
@@ -1669,11 +1670,11 @@ const AISettings = () => {
               <Select value={newDocType} onValueChange={setNewDocType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="prompt">📝 Prompt / Texto</SelectItem>
-                  <SelectItem value="product">📦 Produtos / Serviços</SelectItem>
-                  <SelectItem value="faq">❓ FAQ / Perguntas Frequentes</SelectItem>
-                  <SelectItem value="pdf">📄 PDF</SelectItem>
-                  <SelectItem value="txt">📄 TXT</SelectItem>
+                  <SelectItem value="prompt">Prompt / Texto</SelectItem>
+                  <SelectItem value="product">Produtos / Servicos</SelectItem>
+                  <SelectItem value="faq">FAQ / Perguntas Frequentes</SelectItem>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                  <SelectItem value="txt">TXT</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -2017,24 +2018,24 @@ const AISettings = () => {
                      </div>
                    </div>
                    {/* Badges row */}
-                   <div className="flex items-center gap-1.5 flex-wrap">
-                     {lead.interest && (
-                       <Badge variant="outline" className="text-[10px] px-1.5 py-0">💡 {lead.interest}</Badge>
-                     )}
-                     {lead.product_cited && (
-                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary">🏷️ {lead.product_cited}</Badge>
-                     )}
-                     {notesObj.last_intent && (
-                       <Badge className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20">
-                         {intentLabels[notesObj.last_intent] || notesObj.last_intent}
-                       </Badge>
-                     )}
-                     {notesObj.last_flow_step && (
-                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-dashed">
-                         📍 {stepLabels[notesObj.last_flow_step] || notesObj.last_flow_step}
-                       </Badge>
-                     )}
-                   </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {lead.interest && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">{lead.interest}</Badge>
+                      )}
+                      {lead.product_cited && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary">{lead.product_cited}</Badge>
+                      )}
+                      {notesObj.last_intent && (
+                        <Badge className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20">
+                          {intentLabels[notesObj.last_intent] || notesObj.last_intent}
+                        </Badge>
+                      )}
+                      {notesObj.last_flow_step && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-dashed">
+                          {stepLabels[notesObj.last_flow_step] || notesObj.last_flow_step}
+                        </Badge>
+                      )}
+                    </div>
                    {/* Last message preview */}
                    {lead.last_message_preview && (
                      <p className="text-[11px] text-muted-foreground truncate italic">"{lead.last_message_preview}"</p>
@@ -2072,7 +2073,7 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
-      {/* 🧠 Motor de Aprendizado */}
+      {/* Motor de Aprendizado */}
       <Card className="border-border/50 bg-card/80">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -2097,7 +2098,7 @@ const AISettings = () => {
           {learningInsights ? (
             <div className="space-y-3">
               <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
-                <p className="text-xs font-medium text-foreground mb-1">📊 Resumo da Análise</p>
+                <p className="text-xs font-medium text-foreground mb-1">Resumo da Analise</p>
                 <p className="text-[11px] text-muted-foreground">{learningInsights.insights_summary || "Nenhum resumo disponível"}</p>
                 <p className="text-[10px] text-muted-foreground mt-2">
                   Conversas analisadas: {learningInsights.total_conversations_analyzed || 0} • 
@@ -2108,10 +2109,10 @@ const AISettings = () => {
               {/* Patterns grid */}
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: "✅ O que funciona", data: learningInsights.successful_patterns, color: "border-green-500/30 bg-green-500/5" },
-                  { label: "❌ O que não funciona", data: learningInsights.failure_patterns, color: "border-red-500/30 bg-red-500/5" },
-                  { label: "🛡️ Contorno de objeções", data: learningInsights.objection_handlers, color: "border-amber-500/30 bg-amber-500/5" },
-                  { label: "🔥 Técnicas de fechamento", data: learningInsights.closing_techniques, color: "border-primary/30 bg-primary/5" },
+                  { label: "O que funciona", data: learningInsights.successful_patterns, color: "border-green-500/30 bg-green-500/5" },
+                  { label: "O que nao funciona", data: learningInsights.failure_patterns, color: "border-red-500/30 bg-red-500/5" },
+                  { label: "Contorno de objecoes", data: learningInsights.objection_handlers, color: "border-amber-500/30 bg-amber-500/5" },
+                  { label: "Tecnicas de fechamento", data: learningInsights.closing_techniques, color: "border-primary/30 bg-primary/5" },
                 ].map((section) => (
                   <div key={section.label} className={`rounded-lg border p-2.5 ${section.color}`}>
                     <p className="text-[10px] font-semibold mb-1">{section.label}</p>
@@ -2183,8 +2184,8 @@ const AISettings = () => {
 
           <div className="rounded-lg border border-muted bg-muted/10 p-2.5">
             <p className="text-[10px] text-muted-foreground">
-              💡 <strong>Como funciona:</strong> A IA analisa conversas bem-sucedidas vs. perdidas, identifica padrões de persuasão que funcionam, 
-              técnicas de fechamento eficazes e pontos onde leads são perdidos. O prompt evolui automaticamente a cada análise.
+              <strong>Como funciona:</strong> A IA analisa conversas bem-sucedidas vs. perdidas, identifica padroes de persuasao que funcionam, 
+              tecnicas de fechamento eficazes e pontos onde leads sao perdidos. O prompt evolui automaticamente a cada analise.
             </p>
           </div>
         </CardContent>
@@ -2202,8 +2203,8 @@ const AISettings = () => {
           {selectedLead && (() => {
             let notesObj: Record<string, string> = {};
             try { notesObj = JSON.parse(selectedLead.notes || "{}"); } catch {}
-            const intentLabels: Record<string, string> = { curious: "🔎 Curioso", interested: "💡 Interessado", ready_to_buy: "🔥 Pronto p/ comprar", objection: "🛡️ Objeção" };
-            const stepLabels: Record<string, string> = { saudacao: "Saudação", diagnostico: "Diagnóstico", apresentacao: "Apresentação", objecao: "Objeção", fechamento: "Fechamento" };
+            const intentLabels: Record<string, string> = { curious: "Curioso", interested: "Interessado", ready_to_buy: "Pronto p/ comprar", objection: "Objecao" };
+            const stepLabels: Record<string, string> = { saudacao: "Saudacao", diagnostico: "Diagnostico", apresentacao: "Apresentacao", objecao: "Objecao", fechamento: "Fechamento" };
             return (
               <div className="space-y-4">
                 {/* Header */}
@@ -2224,12 +2225,12 @@ const AISettings = () => {
                 {/* Info grid */}
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: "Estágio", value: selectedLead.stage === "hot" ? "🔥 Quente" : selectedLead.stage === "warm" ? "📈 Morno" : "❄️ Frio" },
-                    { label: "Interações", value: `${selectedLead.interaction_count}` },
+                    { label: "Estagio", value: selectedLead.stage === "hot" ? "Quente" : selectedLead.stage === "warm" ? "Morno" : "Frio" },
+                    { label: "Interacoes", value: `${selectedLead.interaction_count}` },
                     { label: "Interesse", value: selectedLead.interest || "—" },
                     { label: "Produto citado", value: selectedLead.product_cited || "—" },
-                    { label: "Intenção", value: notesObj.last_intent ? intentLabels[notesObj.last_intent] || notesObj.last_intent : "—" },
-                    { label: "Etapa atual", value: notesObj.last_flow_step ? `📍 ${stepLabels[notesObj.last_flow_step] || notesObj.last_flow_step}` : "—" },
+                    { label: "Intencao", value: notesObj.last_intent ? intentLabels[notesObj.last_intent] || notesObj.last_intent : "—" },
+                    { label: "Etapa atual", value: notesObj.last_flow_step ? stepLabels[notesObj.last_flow_step] || notesObj.last_flow_step : "—" },
                   ].map((item) => (
                     <div key={item.label} className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{item.label}</p>
