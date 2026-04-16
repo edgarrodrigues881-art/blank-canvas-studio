@@ -162,6 +162,7 @@ export default function Leads() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
   const [editing, setEditing] = useState<Lead | null>(null);
+  const [editingInline, setEditingInline] = useState(false);
   const [detailTab, setDetailTab] = useState("info");
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -229,7 +230,7 @@ export default function Leads() {
       segment: l.segment || "", cpf_cnpj: l.cpf_cnpj || "",
       channel: l.channel || "WhatsApp", description: l.description || "",
     });
-    setDialogOpen(true);
+    setEditingInline(true);
   };
 
   const handleSave = async () => {
@@ -486,8 +487,8 @@ export default function Leads() {
         </Table>
       </div>
 
-      {/* ── Detail Dialog ── */}
-      <Dialog open={!!detailLead} onOpenChange={(open) => !open && setDetailLead(null)}>
+      {/* ── Detail Dialog (view + inline edit) ── */}
+      <Dialog open={!!detailLead} onOpenChange={(open) => { if (!open) { setDetailLead(null); setEditingInline(false); } }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
           {detailLead && (() => {
             const statusCfg = getStatusConfig(detailLead.pipeline_stage);
@@ -496,9 +497,206 @@ export default function Leads() {
             const na = "Não informado";
             const channelLabel = detailLead.channel || "WhatsApp";
 
+            /* ── EDIT MODE ── */
+            if (editingInline) {
+              const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+                <p className="text-[10px] uppercase font-semibold text-muted-foreground/60 tracking-wider mb-3 flex items-center gap-1.5">{children}</p>
+              );
+              const FieldLabel = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
+                <Label className="text-xs text-muted-foreground/70 font-medium">
+                  {children}{required && <span className="text-red-400 ml-0.5">*</span>}
+                </Label>
+              );
+
+              const handleInlineSave = async () => {
+                if (!user) return;
+                const payload: any = {
+                  name: form.name, phone: form.phone, email: form.email || null,
+                  company: form.company || null, notes: form.notes || null,
+                  origin: form.origin, pipeline_stage: form.pipeline_stage,
+                  interest: form.interest || null,
+                  estimated_value: form.estimated_value ? parseFloat(form.estimated_value) : 0,
+                  priority: form.priority, responsible: form.responsible || null,
+                  segment: form.segment || null, cpf_cnpj: form.cpf_cnpj || null,
+                  channel: form.channel || "WhatsApp", description: form.description || null,
+                  user_id: user.id,
+                };
+                const { error } = await supabase.from("service_contacts").update(payload).eq("id", detailLead.id);
+                if (error) { toast.error("Erro ao atualizar lead"); return; }
+                toast.success("Lead atualizado!");
+                setEditingInline(false);
+                fetchLeads();
+                const updated = { ...detailLead, ...payload };
+                setDetailLead(updated);
+              };
+
+              const cancelEdit = () => setEditingInline(false);
+
+              const ActionButtons = () => (
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={cancelEdit} className="h-8 rounded-lg text-xs">Cancelar</Button>
+                  <Button size="sm" onClick={handleInlineSave} disabled={!form.name || !form.phone} className="h-8 rounded-lg text-xs gap-1.5">Salvar</Button>
+                </div>
+              );
+
+              return (
+                <div>
+                  {/* Header */}
+                  <div className="p-6 pb-4 border-b border-border/60">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Pencil className="w-4 h-4 text-primary" />
+                        <h2 className="text-base font-bold text-foreground">Editando Lead</h2>
+                      </div>
+                      <ActionButtons />
+                    </div>
+                  </div>
+
+                  <div className="p-6 space-y-6">
+                    {/* 📌 Dados principais */}
+                    <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
+                      <SectionTitle>📌 Dados principais</SectionTitle>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <FieldLabel required>Nome</FieldLabel>
+                          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nome completo do lead" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <FieldLabel required>Telefone</FieldLabel>
+                          <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="5511999999999" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 📬 Contato */}
+                    <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
+                      <SectionTitle>📬 Contato</SectionTitle>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <FieldLabel>Email</FieldLabel>
+                          <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="email@empresa.com" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <FieldLabel>Empresa</FieldLabel>
+                          <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder="Nome da empresa" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 💰 Negócio */}
+                    <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
+                      <SectionTitle>💰 Negócio</SectionTitle>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <FieldLabel>Interesse / Serviço</FieldLabel>
+                          <Input value={form.interest} onChange={(e) => setForm({ ...form, interest: e.target.value })} placeholder="Ex: Automação para WhatsApp" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <FieldLabel>Valor potencial (R$)</FieldLabel>
+                          <Input value={form.estimated_value} onChange={(e) => setForm({ ...form, estimated_value: e.target.value })} placeholder="15000" type="number" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ⚙️ Gestão */}
+                    <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
+                      <SectionTitle>⚙️ Gestão</SectionTitle>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1.5">
+                          <FieldLabel>Status</FieldLabel>
+                          <Select value={form.pipeline_stage} onValueChange={(v) => setForm({ ...form, pipeline_stage: v })}>
+                            <SelectTrigger className="h-11 rounded-xl bg-background/60 border-border/40 text-sm"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {STATUS_OPTIONS.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <FieldLabel>Prioridade</FieldLabel>
+                          <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
+                            <SelectTrigger className="h-11 rounded-xl bg-background/60 border-border/40 text-sm"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {PRIORITY_OPTIONS.map((p) => (<SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <FieldLabel>Responsável</FieldLabel>
+                          <Input value={form.responsible} onChange={(e) => setForm({ ...form, responsible: e.target.value })} placeholder="João Vendas" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 📊 Origem */}
+                    <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
+                      <SectionTitle>📊 Origem</SectionTitle>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1.5">
+                          <FieldLabel>Origem</FieldLabel>
+                          <Select value={form.origin} onValueChange={(v) => setForm({ ...form, origin: v })}>
+                            <SelectTrigger className="h-11 rounded-xl bg-background/60 border-border/40 text-sm"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {ORIGIN_OPTIONS.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <FieldLabel>Canal</FieldLabel>
+                          <Select value={form.channel} onValueChange={(v) => setForm({ ...form, channel: v })}>
+                            <SelectTrigger className="h-11 rounded-xl bg-background/60 border-border/40 text-sm"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                              <SelectItem value="Site">Site</SelectItem>
+                              <SelectItem value="Telefone">Telefone</SelectItem>
+                              <SelectItem value="Email">Email</SelectItem>
+                              <SelectItem value="Presencial">Presencial</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <FieldLabel>Segmento</FieldLabel>
+                          <Input value={form.segment} onChange={(e) => setForm({ ...form, segment: e.target.value })} placeholder="Ex: Tecnologia" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 📄 Documentos */}
+                    <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
+                      <SectionTitle>📄 Documentos</SectionTitle>
+                      <div className="space-y-1.5 max-w-xs">
+                        <FieldLabel>CPF/CNPJ</FieldLabel>
+                        <Input value={form.cpf_cnpj} onChange={(e) => setForm({ ...form, cpf_cnpj: e.target.value })} placeholder="000.000.000-00" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+                      </div>
+                    </div>
+
+                    {/* 📝 Contexto */}
+                    <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
+                      <SectionTitle>📝 Contexto</SectionTitle>
+                      <div className="space-y-3">
+                        <div className="space-y-1.5">
+                          <FieldLabel>Necessidade do cliente</FieldLabel>
+                          <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Ex: Precisa de automação para WhatsApp com 50 instâncias" className="rounded-xl bg-background/60 border-border/40 text-sm" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <FieldLabel>Notas internas</FieldLabel>
+                          <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} placeholder="Ex: Cliente pediu retorno na sexta-feira" className="rounded-xl bg-background/60 border-border/40 text-sm" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer buttons */}
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/30">
+                      <Button variant="ghost" size="sm" onClick={cancelEdit} className="h-9 rounded-lg">Cancelar</Button>
+                      <Button size="sm" onClick={handleInlineSave} disabled={!form.name || !form.phone} className="h-9 rounded-lg gap-1.5">Salvar</Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            /* ── VIEW MODE ── */
             return (
               <div>
-                {/* ── Header ── */}
                 <div className="p-6 pb-5 border-b border-border/60">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-4">
@@ -509,12 +707,8 @@ export default function Leads() {
                         {getInitials(detailLead.name || "?")}
                       </div>
                       <div>
-                        <h2 className="text-lg font-bold text-foreground">
-                          {detailLead.name || formatPhone(detailLead.phone)}
-                        </h2>
-                        <p className="text-xs text-muted-foreground/60 mt-0.5">
-                          Lead capturado via {channelLabel} • {timeAgo(detailLead.created_at)}
-                        </p>
+                        <h2 className="text-lg font-bold text-foreground">{detailLead.name || formatPhone(detailLead.phone)}</h2>
+                        <p className="text-xs text-muted-foreground/60 mt-0.5">Lead capturado via {channelLabel} • {timeAgo(detailLead.created_at)}</p>
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1.5">
@@ -527,28 +721,18 @@ export default function Leads() {
                       </Badge>
                     </div>
                   </div>
-
-                  {/* Actions */}
                   <div className="flex items-center gap-2 mt-4">
-                    <Select
-                      value={detailLead.pipeline_stage || "novo"}
-                      onValueChange={(v) => handleStatusChange(detailLead, v)}
-                    >
-                      <SelectTrigger className="w-[170px] h-9 text-xs rounded-lg bg-muted/30 border-border/50">
-                        <SelectValue />
-                      </SelectTrigger>
+                    <Select value={detailLead.pipeline_stage || "novo"} onValueChange={(v) => handleStatusChange(detailLead, v)}>
+                      <SelectTrigger className="w-[170px] h-9 text-xs rounded-lg bg-muted/30 border-border/50"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {STATUS_OPTIONS.map((s) => (
                           <SelectItem key={s.value} value={s.value}>
-                            <span className="flex items-center gap-2">
-                              <span className={cn("w-2 h-2 rounded-full", s.dot)} />
-                              {s.label}
-                            </span>
+                            <span className="flex items-center gap-2"><span className={cn("w-2 h-2 rounded-full", s.dot)} />{s.label}</span>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <Button variant="outline" size="sm" className="gap-1.5 h-9 rounded-lg" onClick={() => { openEdit(detailLead); setDetailLead(null); }}>
+                    <Button variant="outline" size="sm" className="gap-1.5 h-9 rounded-lg" onClick={() => openEdit(detailLead)}>
                       <Pencil className="w-3.5 h-3.5" /> Editar
                     </Button>
                     <Button variant="destructive" size="sm" className="gap-1.5 h-9 rounded-lg" onClick={() => handleDelete(detailLead.id)}>
@@ -557,7 +741,6 @@ export default function Leads() {
                   </div>
                 </div>
 
-                {/* Tabs */}
                 <div className="px-6 pt-4">
                   <div className="flex gap-6 border-b border-border/50 mb-0">
                     {[
@@ -565,55 +748,35 @@ export default function Leads() {
                       { key: "timeline", label: "Timeline" },
                       { key: "register", label: "Registrar Interação" },
                     ].map((tab) => (
-                      <button
-                        key={tab.key}
-                        onClick={() => setDetailTab(tab.key)}
-                        className={cn(
-                          "pb-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
-                          detailTab === tab.key
-                            ? "border-primary text-foreground"
-                            : "border-transparent text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        {tab.label}
-                      </button>
+                      <button key={tab.key} onClick={() => setDetailTab(tab.key)} className={cn(
+                        "pb-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
+                        detailTab === tab.key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+                      )}>{tab.label}</button>
                     ))}
                   </div>
                 </div>
 
-                {/* Tab content */}
                 <div className="px-6 py-5 pb-6">
                   {detailTab === "info" && (
                     <div className="space-y-5">
-                      {/* 📌 Contato */}
                       <div className="rounded-xl bg-muted/20 border border-border/30 p-4">
-                        <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-3 flex items-center gap-1.5">
-                          📌 Contato
-                        </p>
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-3 flex items-center gap-1.5">📌 Contato</p>
                         <div className="space-y-2.5">
                           <DetailRow icon={Phone} label="Telefone" value={formatPhone(detailLead.phone)} />
                           <DetailRow icon={MessageSquare} label="WhatsApp" value={formatPhone(detailLead.phone)} />
                           <DetailRow icon={Mail} label="E-mail" value={detailLead.email || na} muted={!detailLead.email} />
                         </div>
                       </div>
-
-                      {/* 🏢 Empresa */}
                       <div className="rounded-xl bg-muted/20 border border-border/30 p-4">
-                        <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-3 flex items-center gap-1.5">
-                          🏢 Empresa
-                        </p>
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-3 flex items-center gap-1.5">🏢 Empresa</p>
                         <div className="space-y-2.5">
                           <DetailRow icon={Building2} label="Empresa" value={detailLead.company || na} muted={!detailLead.company} />
                           <DetailRow icon={FileText} label="CPF/CNPJ" value={detailLead.cpf_cnpj || na} muted={!detailLead.cpf_cnpj} />
                           <DetailRow icon={MapPin} label="Segmento" value={detailLead.segment || na} muted={!detailLead.segment} />
                         </div>
                       </div>
-
-                      {/* 💰 Negócio */}
                       <div className="rounded-xl bg-muted/20 border border-border/30 p-4">
-                        <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-3 flex items-center gap-1.5">
-                          💰 Negócio
-                        </p>
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-3 flex items-center gap-1.5">💰 Negócio</p>
                         <div className="space-y-2.5">
                           <DetailRow icon={DollarSign} label="Valor potencial" value={detailLead.estimated_value ? formatCurrency(detailLead.estimated_value) : na} muted={!detailLead.estimated_value} />
                           <DetailRow icon={FileText} label="Serviço" value={detailLead.interest || na} muted={!detailLead.interest} />
@@ -622,30 +785,22 @@ export default function Leads() {
                           <DetailRow icon={User} label="Responsável" value={detailLead.responsible || na} muted={!detailLead.responsible} />
                         </div>
                       </div>
-
-                      {/* 📊 Histórico */}
                       <div className="rounded-xl bg-muted/20 border border-border/30 p-4">
-                        <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-3 flex items-center gap-1.5">
-                          📊 Histórico
-                        </p>
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-3 flex items-center gap-1.5">📊 Histórico</p>
                         <div className="space-y-2.5">
                           <DetailRow icon={Calendar} label="Criado em" value={detailLead.created_at ? format(new Date(detailLead.created_at), "dd/MM/yyyy 'às' HH:mm") : na} />
                           <DetailRow icon={Clock} label="Última interação" value={detailLead.last_message_at ? timeAgo(detailLead.last_message_at) : na} muted={!detailLead.last_message_at} />
                         </div>
                       </div>
-
-                      {/* Description */}
                       {detailLead.description && (
                         <div className="rounded-xl bg-muted/20 border border-border/30 p-4">
-                          <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-2">Descrição da Necessidade</p>
+                          <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-2">Necessidade do cliente</p>
                           <p className="text-sm text-primary">{detailLead.description}</p>
                         </div>
                       )}
-
-                      {/* Notes */}
                       {detailLead.notes && (
                         <div className="rounded-xl bg-muted/20 border border-border/30 p-4">
-                          <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-2">Observações</p>
+                          <p className="text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider mb-2">Notas internas</p>
                           <p className="text-sm text-muted-foreground">{detailLead.notes}</p>
                         </div>
                       )}
@@ -654,26 +809,12 @@ export default function Leads() {
 
                   {detailTab === "timeline" && (
                     <div className="space-y-4">
-                      {/* Timeline events */}
                       <div className="relative pl-6 border-l-2 border-border/30 space-y-5">
                         {detailLead.last_message_at && (
-                          <TimelineEvent
-                            label="Última mensagem recebida"
-                            time={timeAgo(detailLead.last_message_at)}
-                            preview={detailLead.last_message_content}
-                            dot="bg-emerald-500"
-                          />
+                          <TimelineEvent label="Última mensagem recebida" time={timeAgo(detailLead.last_message_at)} preview={detailLead.last_message_content} dot="bg-emerald-500" />
                         )}
-                        <TimelineEvent
-                          label={`Status definido como "${statusCfg.label}"`}
-                          time={timeAgo(detailLead.created_at)}
-                          dot={statusCfg.dot}
-                        />
-                        <TimelineEvent
-                          label="Lead criado"
-                          time={detailLead.created_at ? format(new Date(detailLead.created_at), "dd/MM/yyyy 'às' HH:mm") : ""}
-                          dot="bg-blue-500"
-                        />
+                        <TimelineEvent label={`Status definido como "${statusCfg.label}"`} time={timeAgo(detailLead.created_at)} dot={statusCfg.dot} />
+                        <TimelineEvent label="Lead criado" time={detailLead.created_at ? format(new Date(detailLead.created_at), "dd/MM/yyyy 'às' HH:mm") : ""} dot="bg-blue-500" />
                       </div>
                       {!detailLead.last_message_at && (
                         <p className="text-xs text-muted-foreground/50 text-center pt-2">Nenhuma interação registrada ainda</p>
@@ -684,15 +825,8 @@ export default function Leads() {
                   {detailTab === "register" && (
                     <div className="space-y-4">
                       <p className="text-sm text-muted-foreground">Registre uma interação com este lead para manter o histórico atualizado.</p>
-                      <Textarea
-                        placeholder="Ex: Cliente pediu orçamento de marketing digital para loja virtual"
-                        rows={4}
-                        className="rounded-xl bg-muted/20 border-border/40"
-                      />
-                      <Button size="sm" className="gap-1.5 rounded-lg">
-                        <FileText className="w-3.5 h-3.5" />
-                        Salvar interação
-                      </Button>
+                      <Textarea placeholder="Ex: Cliente pediu orçamento de marketing digital para loja virtual" rows={4} className="rounded-xl bg-muted/20 border-border/40" />
+                      <Button size="sm" className="gap-1.5 rounded-lg"><FileText className="w-3.5 h-3.5" /> Salvar interação</Button>
                     </div>
                   )}
                 </div>
@@ -702,17 +836,17 @@ export default function Leads() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Create/Edit Dialog ── */}
+      {/* ── Create New Lead Dialog ── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar Lead" : "Novo Lead"}</DialogTitle>
+            <DialogTitle>Novo Lead</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Nome *</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nome completo" />
               </div>
               <div className="space-y-1.5">
                 <Label>Telefone *</Label>
@@ -735,7 +869,7 @@ export default function Leads() {
                 <Input value={form.interest} onChange={(e) => setForm({ ...form, interest: e.target.value })} placeholder="Ex: Branding Completo" />
               </div>
               <div className="space-y-1.5">
-                <Label>Valor Estimado (R$)</Label>
+                <Label>Valor potencial (R$)</Label>
                 <Input value={form.estimated_value} onChange={(e) => setForm({ ...form, estimated_value: e.target.value })} placeholder="15000" type="number" />
               </div>
             </div>
@@ -745,9 +879,7 @@ export default function Leads() {
                 <Select value={form.pipeline_stage} onValueChange={(v) => setForm({ ...form, pipeline_stage: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {STATUS_OPTIONS.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                    ))}
+                    {STATUS_OPTIONS.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>
@@ -756,67 +888,19 @@ export default function Leads() {
                 <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {PRIORITY_OPTIONS.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Origem</Label>
-                <Select value={form.origin} onValueChange={(v) => setForm({ ...form, origin: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {ORIGIN_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Responsável</Label>
-                <Input value={form.responsible} onChange={(e) => setForm({ ...form, responsible: e.target.value })} placeholder="João Vendas" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Segmento</Label>
-                <Input value={form.segment} onChange={(e) => setForm({ ...form, segment: e.target.value })} placeholder="Tecnologia" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>CPF/CNPJ</Label>
-                <Input value={form.cpf_cnpj} onChange={(e) => setForm({ ...form, cpf_cnpj: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Canal</Label>
-                <Select value={form.channel} onValueChange={(v) => setForm({ ...form, channel: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                    <SelectItem value="Site">Site</SelectItem>
-                    <SelectItem value="Telefone">Telefone</SelectItem>
-                    <SelectItem value="Email">Email</SelectItem>
-                    <SelectItem value="Presencial">Presencial</SelectItem>
+                    {PRIORITY_OPTIONS.map((p) => (<SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Descrição da Necessidade</Label>
-              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Descreva a necessidade do lead..." />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Observações</Label>
-              <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} />
+              <Label>Necessidade do cliente</Label>
+              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Ex: Precisa de automação para WhatsApp" />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={!form.name || !form.phone}>{editing ? "Salvar" : "Criar"}</Button>
+            <Button onClick={handleSave} disabled={!form.name || !form.phone}>Criar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
