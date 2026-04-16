@@ -798,7 +798,7 @@ const AISettings = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-8 max-w-4xl mx-auto pb-8">
       <AIOnboardingWizard
         open={showOnboarding}
         onComplete={handleOnboardingComplete}
@@ -808,57 +808,57 @@ const AISettings = () => {
       />
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+        <div className="flex items-center gap-4">
+          <div className="h-11 w-11 rounded-xl bg-primary/8 border border-primary/10 flex items-center justify-center">
             <Sparkles className="h-5 w-5 text-primary" strokeWidth={1.5} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-foreground">Automação Inteligente</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold tracking-tight text-foreground">Automação Inteligente</h1>
               {iaActive && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-xs font-medium text-primary">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/8 border border-emerald-500/20 px-2.5 py-0.5 text-[11px] font-medium text-emerald-400">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                   </span>
                   Ativo
                 </span>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">Respostas automáticas, conversão e atendimento otimizado</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Respostas automáticas, conversão e atendimento otimizado</p>
           </div>
         </div>
-        <Button size="sm" onClick={handleSave} disabled={saving || activating} className="gap-2 transition-all duration-200 hover:shadow-lg hover:scale-[1.02]">
-          {activating ? <Loader2 className="h-4 w-4 animate-spin" /> : saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" strokeWidth={1.5} />}
+        <Button size="sm" onClick={handleSave} disabled={saving || activating} className="gap-2 transition-all duration-150">
+          {activating || saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" strokeWidth={1.5} />}
           {activating ? "Ativando..." : iaActive ? "Salvar Alterações" : "Ativar automação"}
         </Button>
       </div>
 
       {/* Status Principal */}
-      <Card className={`transition-all duration-500 ${iaActive ? "border-primary/30 shadow-[0_0_30px_-8px_hsl(var(--primary)/0.12)]" : "border-border/40"}`}>
-        <CardContent className="py-5 px-5">
+      <Card className={`transition-all duration-300 ${iaActive ? "border-primary/20 shadow-[0_0_24px_-6px_hsl(var(--primary)/0.08)]" : ""}`}>
+        <CardContent className="py-6 px-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className={`relative h-11 w-11 rounded-xl flex items-center justify-center transition-all duration-500 ${iaActive ? "bg-primary/10" : "bg-muted/40"}`}>
-                <Bot className={`h-5 w-5 transition-all duration-500 ${iaActive ? "text-primary" : "text-muted-foreground"}`} strokeWidth={1.5} />
+              <div className={`relative h-11 w-11 rounded-xl flex items-center justify-center transition-all duration-300 ${iaActive ? "bg-primary/8" : "bg-muted/30"}`}>
+                <Bot className={`h-5 w-5 transition-colors duration-300 ${iaActive ? "text-primary" : "text-muted-foreground"}`} strokeWidth={1.5} />
                 {iaActive && apiKeyStatus === "valid" && (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-card" />
+                  <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border-2 border-card" />
                   </span>
                 )}
               </div>
               <div>
                 <div className="flex items-center gap-2.5">
-                  <p className="font-semibold text-foreground text-sm">{iaActive ? "Automação operando" : "Automação inativa"}</p>
+                  <p className="font-semibold text-foreground text-sm tracking-tight">{iaActive ? "Automação operando" : "Automação inativa"}</p>
                   {iaActive && apiKeyStatus === "valid" && (
-                    <Badge variant="outline" className="text-[10px] px-2 py-0 border-emerald-500/30 text-emerald-400 font-medium">Ativo</Badge>
+                    <Badge variant="outline" className="text-[10px] px-2 py-0 border-emerald-500/25 text-emerald-400 font-medium">Ativo</Badge>
                   )}
                   {iaActive && apiKeyStatus !== "valid" && (
-                    <Badge variant="outline" className="text-[10px] px-2 py-0 border-amber-500/30 text-amber-400 font-medium">Pendente</Badge>
+                    <Badge variant="outline" className="text-[10px] px-2 py-0 border-amber-500/25 text-amber-400 font-medium">Pendente</Badge>
                   )}
                   {!iaActive && (
-                    <Badge variant="outline" className="text-[10px] px-2 py-0 border-border/50 text-muted-foreground font-medium">Inativo</Badge>
+                    <Badge variant="outline" className="text-[10px] px-2 py-0 text-muted-foreground font-medium">Inativo</Badge>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -882,33 +882,33 @@ const AISettings = () => {
           </div>
 
           {iaActive && apiKeyStatus === "valid" && (
-            <div className="mt-4 pt-4 border-t border-border/30 animate-fade-in">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-lg bg-muted/20 border border-border/30 p-3 text-center space-y-1">
-                  <span className="text-lg font-bold text-foreground">{aiMessagesToday}</span>
-                  <p className="text-[10px] text-muted-foreground font-medium">Respostas hoje</p>
+            <div className="mt-5 pt-5 border-t border-border/20 animate-fade-in">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="rounded-xl bg-muted/15 border border-border/20 p-4 text-center space-y-1">
+                  <span className="text-xl font-bold text-foreground tracking-tight">{aiMessagesToday}</span>
+                  <p className="text-[10px] text-muted-foreground font-medium tracking-wide">Respostas hoje</p>
                 </div>
-                <div className="rounded-lg bg-muted/20 border border-border/30 p-3 text-center space-y-1">
-                  <span className="text-lg font-bold text-foreground">{aiLeadsToday}</span>
-                  <p className="text-[10px] text-muted-foreground font-medium">Leads qualificados</p>
+                <div className="rounded-xl bg-muted/15 border border-border/20 p-4 text-center space-y-1">
+                  <span className="text-xl font-bold text-foreground tracking-tight">{aiLeadsToday}</span>
+                  <p className="text-[10px] text-muted-foreground font-medium tracking-wide">Leads qualificados</p>
                 </div>
-                <div className="rounded-lg bg-muted/20 border border-border/30 p-3 text-center space-y-1">
-                  <span className="text-lg font-bold text-foreground">{aiActiveConvos}</span>
-                  <p className="text-[10px] text-muted-foreground font-medium">Conversas ativas</p>
+                <div className="rounded-xl bg-muted/15 border border-border/20 p-4 text-center space-y-1">
+                  <span className="text-xl font-bold text-foreground tracking-tight">{aiActiveConvos}</span>
+                  <p className="text-[10px] text-muted-foreground font-medium tracking-wide">Conversas ativas</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4 mt-3">
+              <div className="flex items-center gap-5 mt-4">
                 <div className="flex items-center gap-1.5">
                   <TrendingUp className="h-3 w-3 text-emerald-400" strokeWidth={2} />
                   <span className="text-[10px] text-muted-foreground">Aumenta taxa de resposta</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Timer className="h-3 w-3 text-primary" strokeWidth={2} />
+                  <Timer className="h-3 w-3 text-primary/70" strokeWidth={2} />
                   <span className="text-[10px] text-muted-foreground">Reduz tempo de atendimento</span>
                 </div>
                 <div className="flex items-center gap-1.5 ml-auto">
-                  <Brain className="h-3 w-3 text-primary/60" strokeWidth={1.5} />
-                  <span className="text-[10px] text-muted-foreground/60">Aprendendo com interações</span>
+                  <Brain className="h-3 w-3 text-muted-foreground/50" strokeWidth={1.5} />
+                  <span className="text-[10px] text-muted-foreground/50">Aprendendo com interações</span>
                 </div>
               </div>
             </div>
@@ -916,15 +916,14 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
-      {/* Just Activated Banner */}
       {justActivated && (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 flex items-center gap-3 animate-fade-in">
-          <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" strokeWidth={1.5} />
+        <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.03] p-5 flex items-center gap-4 animate-fade-in">
+          <div className="h-10 w-10 rounded-xl bg-emerald-500/8 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="h-4.5 w-4.5 text-emerald-400" strokeWidth={1.5} />
           </div>
           <div>
-            <p className="text-sm font-semibold text-foreground">Automação ativa e operando</p>
-            <p className="text-xs text-muted-foreground">Conversas estão sendo qualificadas e respondidas automaticamente</p>
+            <p className="text-sm font-semibold text-foreground tracking-tight">Automação ativa e operando</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Conversas estão sendo qualificadas e respondidas automaticamente</p>
           </div>
         </div>
       )}
@@ -935,26 +934,26 @@ const AISettings = () => {
       {/* Simulador */}
       {iaActive && apiKeyStatus === "valid" && <AISimulator />}
 
-      {/* Modo de Operação do Assistente */}
-      <Card className="transition-all duration-200 hover:shadow-md">
-        <CardHeader className="pb-3">
+      {/* Modo de Operação */}
+      <Card>
+        <CardHeader className="pb-4 px-6 pt-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <Rocket className="h-4 w-4 text-primary" strokeWidth={1.5} />
-              <CardTitle className="text-base">Modo de Operação</CardTitle>
+              <CardTitle className="text-base tracking-tight">Modo de Operação</CardTitle>
             </div>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="advanced-toggle" className="text-xs text-muted-foreground cursor-pointer">Modo avançado</Label>
+            <div className="flex items-center gap-2.5">
+              <Label htmlFor="advanced-toggle" className="text-xs text-muted-foreground cursor-pointer select-none">Modo avançado</Label>
               <Switch id="advanced-toggle" checked={expertMode} onCheckedChange={setExpertMode} />
             </div>
           </div>
-          <CardDescription>
+          <CardDescription className="mt-1">
             {expertMode
               ? "Todas as configurações detalhadas estão visíveis para edição manual"
               : "Selecione um modo e todas as configurações serão ajustadas automaticamente"}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 px-6 pb-6">
           <div className="grid grid-cols-2 gap-4">
             {(Object.entries(MODE_PRESETS) as [AiMode, ModePreset][]).map(([key, preset]) => {
               const IconMap: Record<string, React.ElementType> = { Rocket, MessageCircle: MessageSquare, Headphones: Headset, Calendar };
@@ -964,31 +963,31 @@ const AISettings = () => {
                 <button
                   key={key}
                   onClick={() => applyMode(key)}
-                  className={`group relative rounded-xl border p-5 text-left transition-all duration-200 ${
+                  className={`group relative rounded-xl border p-5 text-left transition-all duration-150 ${
                     isSelected
-                      ? "border-primary/60 bg-primary/[0.06] ring-2 ring-primary/25 shadow-sm"
-                      : "border-border/40 hover:border-border/80 hover:bg-muted/30"
+                      ? "border-primary/40 bg-primary/[0.04] ring-2 ring-primary/20"
+                      : "border-border/30 hover:border-border/60 hover:bg-muted/20"
                   }`}
                 >
                   {preset.recommended && (
-                    <Badge className="absolute -top-2.5 right-3 text-[10px] px-2 py-0.5 bg-primary text-primary-foreground font-medium">
+                    <Badge className="absolute -top-2.5 right-3 text-[10px] px-2 py-0.5 bg-primary text-primary-foreground font-medium shadow-sm">
                       Recomendado
                     </Badge>
                   )}
-                  <div className="flex items-start gap-3.5">
-                    <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
-                      isSelected ? "bg-primary/15" : "bg-muted/60 group-hover:bg-muted"
+                  <div className="flex items-start gap-4">
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-150 ${
+                      isSelected ? "bg-primary/10" : "bg-muted/40 group-hover:bg-muted/60"
                     }`}>
-                      <Icon className={`h-4.5 w-4.5 transition-colors ${isSelected ? "text-primary" : "text-muted-foreground group-hover:text-foreground/70"}`} strokeWidth={1.5} />
+                      <Icon className={`h-[18px] w-[18px] transition-colors duration-150 ${isSelected ? "text-primary" : "text-muted-foreground group-hover:text-foreground/60"}`} strokeWidth={1.5} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold transition-colors ${isSelected ? "text-foreground" : "text-foreground/80"}`}>{preset.label}</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{preset.desc}</p>
+                      <p className={`text-sm font-semibold tracking-tight transition-colors ${isSelected ? "text-foreground" : "text-foreground/80"}`}>{preset.label}</p>
+                      <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{preset.desc}</p>
                     </div>
                   </div>
                   {isSelected && (
                     <div className="absolute top-4 right-4">
-                      <CheckCircle2 className="h-4.5 w-4.5 text-primary" strokeWidth={2} />
+                      <CheckCircle2 className="h-4 w-4 text-primary" strokeWidth={2} />
                     </div>
                   )}
                 </button>
@@ -996,44 +995,42 @@ const AISettings = () => {
             })}
           </div>
 
-          {/* Preview */}
           {selectedMode && (
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2 animate-fade-in">
+            <div className="rounded-xl border border-primary/15 bg-primary/[0.03] p-5 space-y-3 animate-fade-in">
               <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" strokeWidth={1.5} />
-                <p className="text-xs font-semibold text-primary">Comportamento aplicado</p>
+                <Sparkles className="h-3.5 w-3.5 text-primary" strokeWidth={1.5} />
+                <p className="text-xs font-semibold text-primary tracking-tight">Comportamento aplicado</p>
               </div>
-              <p className="text-sm text-foreground/80 leading-relaxed">{MODE_PRESETS[selectedMode].preview}</p>
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                <Badge variant="outline" className="text-[10px]">
+              <p className="text-sm text-foreground/75 leading-relaxed">{MODE_PRESETS[selectedMode].preview}</p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Badge variant="outline" className="text-[10px] font-normal">
                   {MODE_PRESETS[selectedMode].commStyle === "persuasivo" ? "Persuasivo" :
-                   MODE_PRESETS[selectedMode].commStyle === "tecnico" ? "Tecnico" :
-                   MODE_PRESETS[selectedMode].commStyle === "amigavel" ? "Amigavel" : "Direto"}
+                   MODE_PRESETS[selectedMode].commStyle === "tecnico" ? "Técnico" :
+                   MODE_PRESETS[selectedMode].commStyle === "amigavel" ? "Amigável" : "Direto"}
                 </Badge>
-                <Badge variant="outline" className="text-[10px]">
-                  Insistencia {MODE_PRESETS[selectedMode].insistence}/5
+                <Badge variant="outline" className="text-[10px] font-normal">
+                  Insistência {MODE_PRESETS[selectedMode].insistence}/5
                 </Badge>
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant="outline" className="text-[10px] font-normal">
                   {MODE_PRESETS[selectedMode].strategy === "fechamento" ? "Foco em fechamento" :
                    MODE_PRESETS[selectedMode].strategy === "direto" ? "Direto ao ponto" : "Faz perguntas"}
                 </Badge>
               </div>
             </div>
           )}
-
         </CardContent>
       </Card>
 
       {/* Provedor e Modelo */}
-      <Card className="transition-all duration-200 hover:shadow-md">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
+      <Card>
+        <CardHeader className="pb-4 px-6 pt-6">
+          <div className="flex items-center gap-2.5">
             <Key className="h-4 w-4 text-primary" strokeWidth={1.5} />
-             <CardTitle className="text-base">Provedor e Modelo</CardTitle>
-           </div>
-           <CardDescription>Conecte sua chave de API e escolha o modelo de linguagem</CardDescription>
+            <CardTitle className="text-base tracking-tight">Provedor e Modelo</CardTitle>
+          </div>
+          <CardDescription className="mt-1">Conecte sua chave de API e escolha o modelo de linguagem</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 px-6 pb-6">
           <div className="space-y-2">
             <Label>Provedor de IA</Label>
             <Select value={aiProvider} onValueChange={(v) => {
@@ -1124,9 +1121,9 @@ const AISettings = () => {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" size="sm" onClick={handleTestAi} disabled={testingAi || apiKeyStatus !== "valid"} className="gap-2">
-            {testingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Testar IA
+          <Button variant="outline" size="sm" onClick={handleTestAi} disabled={testingAi || apiKeyStatus !== "valid"} className="gap-2 transition-all duration-150">
+            {testingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" strokeWidth={1.5} />}
+            Testar conexão
           </Button>
         </CardContent>
       </Card>
