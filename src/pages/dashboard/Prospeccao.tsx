@@ -141,7 +141,6 @@ export default function Prospeccao() {
   const [results, setResults] = useState<ProspectResult[]>([]);
   const [searched, setSearched] = useState(false);
   const [fromCache, setFromCache] = useState(false);
-  const [cachedAt, setCachedAt] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("busca");
   const [searchLat, setSearchLat] = useState<number | null>(null);
   const [searchLng, setSearchLng] = useState<number | null>(null);
@@ -398,8 +397,7 @@ export default function Prospeccao() {
       }
       if (data?.error) throw new Error(data.error);
       setResults(data.results || []);
-      setFromCache(!!data.fromCache);
-      setCachedAt(data.cachedAt || null);
+      setFromCache(false);
       if (typeof data.balance === "number") {
         setCreditBalance(data.balance);
       }
@@ -409,9 +407,7 @@ export default function Prospeccao() {
       if (data.balance === undefined && data.freePulls === undefined) {
         loadCredits();
       }
-      if (data.fromCache) {
-        toast.success(`${data.total || 0} resultados (do cache)`);
-      } else if (data.isFreePull) {
+      if (data.isFreePull) {
         toast.success(`${data.total || 0} leads encontrados — puxada grátis utilizada (${data.freePulls} restantes)`);
       } else {
         const execSec = data.executionTimeMs ? `em ${(data.executionTimeMs / 1000).toFixed(1)}s` : "";
@@ -732,18 +728,8 @@ export default function Prospeccao() {
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <MapPin className="h-5 w-5" /> Resultados ({results.length})
-                    {fromCache && (
-                      <Badge variant="outline" className="ml-2 gap-1 text-xs font-normal">
-                        <Database className="h-3 w-3" /> Cache {cachedAt ? `(${new Date(cachedAt).toLocaleDateString('pt-BR')})` : ''}
-                      </Badge>
-                    )}
                   </CardTitle>
                   <div className="flex items-center gap-2">
-                    {fromCache && (
-                      <Button variant="outline" size="sm" onClick={() => handleSearch(true)} disabled={loading} className="gap-1.5">
-                        <RefreshCw className="h-3.5 w-3.5" /> Nova busca
-                      </Button>
-                    )}
                   </div>
                 </div>
               </CardHeader>

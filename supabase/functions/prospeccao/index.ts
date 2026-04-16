@@ -602,27 +602,7 @@ Deno.serve(async (req) => {
       "contabilidade", "advocacia", "consultório", "distribuidora", "atacado",
     ];
 
-    // --- CACHE ---
-    if (!forceRefresh) {
-      const adminClient = createClient(supabaseUrl, serviceRoleKey);
-      const { data: cached } = await adminClient
-        .from("prospeccao_cache")
-        .select("results, total, created_at")
-        .eq("user_id", user.id)
-        .ilike("nicho", nichoTrimmed)
-        .ilike("estado", estadoTrimmed)
-        .ilike("cidade", cidadeTrimmed)
-        .eq("pais", pais)
-        .gt("expires_at", new Date().toISOString())
-        .maybeSingle();
-
-      if (cached) {
-        return new Response(JSON.stringify({
-          results: cached.results, total: cached.total,
-          fromCache: true, cachedAt: cached.created_at, creditsUsed: 0,
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-    }
+    // --- CACHE DISABLED — always fresh search ---
 
     // --- CREDIT / FREE PULL CHECK ---
     const adminClient2 = createClient(supabaseUrl, serviceRoleKey);
@@ -690,7 +670,7 @@ Deno.serve(async (req) => {
     // Use custom center from map if provided, otherwise geocode
     let cityGeoPromise: Promise<CityGeo | null>;
     if (customCenter && typeof customCenter.lat === "number" && typeof customCenter.lng === "number") {
-      const userRadius = typeof customRadiusKm === "number" ? Math.min(Math.max(customRadiusKm, 2), 50) : 12;
+      const userRadius = typeof customRadiusKm === "number" ? Math.max(customRadiusKm, 2) : 12;
       console.log(`[prospeccao] Using custom center: ${customCenter.lat.toFixed(4)},${customCenter.lng.toFixed(4)} | radius: ${userRadius}km`);
       cityGeoPromise = Promise.resolve({ center: { lat: customCenter.lat, lng: customCenter.lng }, radiusKm: userRadius });
     } else {
@@ -834,37 +814,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // --- CACHE SAVE ---
-    try {
-      const adminClient = createClient(supabaseUrl, serviceRoleKey);
-      const nichoLower = nichoTrimmed.toLowerCase();
-      const estadoLower = estadoTrimmed.toLowerCase();
-      const cidadeLower = cidadeTrimmed.toLowerCase();
-
-      // Delete existing cache entry first, then insert (onConflict doesn't support expression indexes)
-      await adminClient
-        .from("prospeccao_cache")
-        .delete()
-        .eq("user_id", user.id)
-        .ilike("nicho", nichoLower)
-        .ilike("estado", estadoLower)
-        .ilike("cidade", cidadeLower)
-        .eq("pais", pais);
-
-      await adminClient.from("prospeccao_cache").insert({
-        user_id: user.id,
-        nicho: nichoLower,
-        estado: estadoLower,
-        cidade: cidadeLower,
-        pais,
-        results, total: results.length,
-        created_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      });
-      console.log(`[prospeccao] Cache saved for "${nichoLower}" in "${cidadeLower}"`);
-    } catch (e) {
-      console.error("[prospeccao] Cache save error:", e);
-    }
+    // --- CACHE DISABLED ---
 
     return new Response(JSON.stringify({
       results, total: results.length, fromCache: false,
