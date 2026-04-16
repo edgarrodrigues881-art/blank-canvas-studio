@@ -878,7 +878,7 @@ function TemplateLoader({ userId, onSelect }: { userId?: string; onSelect: (cont
 
   useEffect(() => {
     if (!userId) return;
-    supabase.from("templates").select("id, name, content").eq("user_id", userId).eq("message_type", "text").order("created_at", { ascending: false }).limit(20)
+    supabase.from("templates").select("id, name, content").eq("user_id", userId).eq("type", "text").order("created_at", { ascending: false }).limit(20)
       .then(({ data }) => { setTemplates((data as any[]) || []); setLoading(false); });
   }, [userId]);
 
