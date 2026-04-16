@@ -944,6 +944,9 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
               <TemplateLoaderModal userId={user?.id} onSelect={(content) => { setMessageContent(content); setShowLoadTemplate(false); }} />
             </DialogContent>
           </Dialog>
+        </div>
+
+        {/* RIGHT — WhatsApp Preview */}
         <div className="lg:col-span-2">
           <div className="sticky top-6">
             <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
