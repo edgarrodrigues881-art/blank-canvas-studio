@@ -128,9 +128,9 @@ export default function Pipeline() {
   const isPerdido = (key: string) => key === "perdido";
 
   return (
-    <div className="h-full flex flex-col gap-4">
+    <div className="flex flex-col gap-4 h-[calc(100vh-6rem)] overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-xl font-semibold text-foreground tracking-tight">Pipeline de Vendas</h1>
           <p className="text-sm text-muted-foreground">
@@ -140,7 +140,7 @@ export default function Pipeline() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap shrink-0">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
           <Input
@@ -171,8 +171,8 @@ export default function Pipeline() {
       </div>
 
       {/* Kanban */}
-      <div className="overflow-x-auto flex-1 min-h-0 -mx-1 px-1">
-        <div className="inline-flex gap-3 min-w-full pb-4 h-full" style={{ minWidth: "1200px" }}>
+      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden -mx-1 px-1 pipeline-scroll">
+        <div className="inline-flex gap-3 h-full pb-2" style={{ minWidth: "1200px" }}>
           {STAGES.map((stage) => {
             const items = grouped[stage.key];
             const total = items.reduce((s, l) => s + (l.estimated_value || 0), 0);
@@ -182,7 +182,7 @@ export default function Pipeline() {
             return (
               <div
                 key={stage.key}
-                className={cn("flex flex-col shrink-0", lost ? "w-[180px]" : "w-[240px]")}
+                className={cn("flex flex-col shrink-0 h-full", lost ? "w-[180px]" : "w-[240px]")}
                 onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setOverStage(stage.key); }}
                 onDragLeave={() => setOverStage(null)}
                 onDrop={(e) => {
@@ -194,7 +194,7 @@ export default function Pipeline() {
                 }}
               >
                 {/* Column header */}
-                <div className={cn("px-2.5 mb-2", lost && "opacity-60")}>
+                <div className={cn("px-2.5 mb-2 shrink-0", lost && "opacity-60")}>
                   <div className="flex items-center gap-2">
                     <span className={cn("w-2 h-2 rounded-full shrink-0", stage.dot)} />
                     <span className="text-[12px] font-semibold text-foreground uppercase tracking-wider">
@@ -212,7 +212,7 @@ export default function Pipeline() {
                 {/* Column body */}
                 <div
                   className={cn(
-                    "flex-1 rounded-xl p-2 overflow-y-auto transition-all duration-200",
+                    "flex-1 min-h-0 rounded-xl p-2 overflow-y-auto transition-all duration-200 pipeline-column-scroll",
                     "bg-muted/15 border border-border/30",
                     lost && "opacity-50",
                     isOver && "bg-primary/[0.06] border-primary/30 shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.1)]"
