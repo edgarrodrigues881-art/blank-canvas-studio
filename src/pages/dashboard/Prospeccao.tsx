@@ -397,8 +397,7 @@ export default function Prospeccao() {
       }
       if (data?.error) throw new Error(data.error);
       setResults(data.results || []);
-      setFromCache(!!data.fromCache);
-      setCachedAt(data.cachedAt || null);
+      setFromCache(false);
       if (typeof data.balance === "number") {
         setCreditBalance(data.balance);
       }
@@ -731,11 +730,6 @@ export default function Prospeccao() {
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <MapPin className="h-5 w-5" /> Resultados ({results.length})
-                    {fromCache && (
-                      <Badge variant="outline" className="ml-2 gap-1 text-xs font-normal">
-                        <Database className="h-3 w-3" /> Cache {cachedAt ? `(${new Date(cachedAt).toLocaleDateString('pt-BR')})` : ''}
-                      </Badge>
-                    )}
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     {fromCache && (
