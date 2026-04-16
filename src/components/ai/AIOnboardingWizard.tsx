@@ -185,7 +185,7 @@ export const AIOnboardingWizard = ({ open, onComplete, onSkip, apiKey, aiModel }
                         : "border-border/50 hover:border-border hover:bg-muted/30"
                     }`}
                   >
-                    <span className="text-lg">{bt.icon}</span>
+                    <bt.icon className="h-5 w-5 text-primary" />
                     <p className="text-sm font-medium text-foreground mt-1">{bt.label}</p>
                   </button>
                 ))}
@@ -212,7 +212,7 @@ export const AIOnboardingWizard = ({ open, onComplete, onSkip, apiKey, aiModel }
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-2xl">{obj.icon}</span>
+                      <obj.icon className="h-6 w-6 text-primary" />
                       <div>
                         <p className="text-sm font-semibold text-foreground">{obj.label}</p>
                         <p className="text-xs text-muted-foreground">{obj.desc}</p>
@@ -243,7 +243,7 @@ export const AIOnboardingWizard = ({ open, onComplete, onSkip, apiKey, aiModel }
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <span className="text-2xl">{t.icon}</span>
+                      <t.icon className="h-6 w-6 text-primary shrink-0" />
                       <div>
                         <p className="text-sm font-semibold text-foreground">{t.label}</p>
                         <p className="text-xs text-muted-foreground italic mt-0.5">"{t.desc}"</p>
@@ -288,7 +288,7 @@ export const AIOnboardingWizard = ({ open, onComplete, onSkip, apiKey, aiModel }
           {step === 5 && (
             <div className="space-y-4">
               <div>
-                <h2 className="text-lg font-bold text-foreground">Tudo pronto! 🎉</h2>
+                <h2 className="text-lg font-bold text-foreground">Tudo pronto!</h2>
                 <p className="text-sm text-muted-foreground mt-1">Revise suas escolhas e ative a IA</p>
               </div>
               <div className="rounded-lg border border-border/50 bg-muted/20 p-4 space-y-2.5">
