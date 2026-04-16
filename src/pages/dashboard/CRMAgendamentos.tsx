@@ -15,12 +15,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Switch } from "@/components/ui/switch";
+
 import {
   CalendarClock, Plus, Search, Filter, Clock, Send, Pencil, Trash2,
   Play, AlertTriangle, CheckCircle2, Loader2, Phone, Smartphone,
   Link2, Calendar, User, X, UserPlus, ArrowLeft, Save, FileText,
-  Download, Variable, ExternalLink, MessageSquare, Reply, GripVertical
+  Download, Variable, ExternalLink, MessageSquare, Reply
 } from "lucide-react";
 
 /* ─── types ─── */
