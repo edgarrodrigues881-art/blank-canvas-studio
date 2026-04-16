@@ -855,11 +855,11 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
             )}
           </div>
 
-          {/* Modelos */}
+          {/* Templates de Mensagem */}
           <div className="rounded-xl border border-border/40 bg-card p-5 space-y-3">
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground">Modelos</h2>
+              <h2 className="text-sm font-semibold text-foreground">Templates de Mensagem</h2>
             </div>
 
             <div className="flex items-center gap-2">
@@ -913,12 +913,14 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                       <div className="bg-emerald-600/20 border border-emerald-500/20 rounded-xl rounded-tr-sm px-3.5 py-2.5 space-y-1.5">
                         <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">{previewMessage}</p>
 
-                        {hasButton && buttonText && (
-                          <div className="pt-1.5 border-t border-emerald-500/10">
-                            <div className="flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium text-primary cursor-pointer hover:underline">
-                              <ExternalLink className="w-3 h-3" />
-                              {buttonText}
-                            </div>
+                        {buttons.filter(b => b.text).length > 0 && (
+                          <div className="pt-1.5 border-t border-emerald-500/10 space-y-1">
+                            {buttons.filter(b => b.text).map((btn, i) => (
+                              <div key={i} className="flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium text-primary cursor-pointer hover:underline">
+                                {btn.type === "url" ? <ExternalLink className="w-3 h-3" /> : <Reply className="w-3 h-3" />}
+                                {btn.text}
+                              </div>
+                            ))}
                           </div>
                         )}
 
