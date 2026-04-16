@@ -834,17 +834,36 @@ const AISettings = () => {
         </Button>
       </div>
 
-      {/* Toggle principal + Status */}
-      <Card className={`transition-all duration-300 ${iaActive ? "border-primary/40 bg-primary/5 shadow-[0_0_20px_-5px_hsl(var(--primary)/0.15)]" : "border-border/50"}`}>
-        <CardContent className="py-4 px-5">
+      {/* Status Principal */}
+      <Card className={`transition-all duration-500 ${iaActive ? "border-primary/30 shadow-[0_0_30px_-8px_hsl(var(--primary)/0.12)]" : "border-border/40"}`}>
+        <CardContent className="py-5 px-5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`h-9 w-9 rounded-lg flex items-center justify-center transition-all duration-300 ${iaActive ? "bg-primary/15" : "bg-muted/50"}`}>
-                <Bot className={`h-5 w-5 transition-colors duration-300 ${iaActive ? "text-primary" : "text-muted-foreground"}`} strokeWidth={1.5} />
+            <div className="flex items-center gap-4">
+              <div className={`relative h-11 w-11 rounded-xl flex items-center justify-center transition-all duration-500 ${iaActive ? "bg-primary/10" : "bg-muted/40"}`}>
+                <Bot className={`h-5 w-5 transition-all duration-500 ${iaActive ? "text-primary" : "text-muted-foreground"}`} strokeWidth={1.5} />
+                {iaActive && apiKeyStatus === "valid" && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-card" />
+                  </span>
+                )}
               </div>
               <div>
-                <p className="font-semibold text-foreground text-sm">Assistente Ativo</p>
-                <p className="text-xs text-muted-foreground">Respostas automáticas habilitadas</p>
+                <div className="flex items-center gap-2.5">
+                  <p className="font-semibold text-foreground text-sm">{iaActive ? "Automação operando" : "Automação inativa"}</p>
+                  {iaActive && apiKeyStatus === "valid" && (
+                    <Badge variant="outline" className="text-[10px] px-2 py-0 border-emerald-500/30 text-emerald-400 font-medium">Ativo</Badge>
+                  )}
+                  {iaActive && apiKeyStatus !== "valid" && (
+                    <Badge variant="outline" className="text-[10px] px-2 py-0 border-amber-500/30 text-amber-400 font-medium">Pendente</Badge>
+                  )}
+                  {!iaActive && (
+                    <Badge variant="outline" className="text-[10px] px-2 py-0 border-border/50 text-muted-foreground font-medium">Inativo</Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {iaActive && apiKeyStatus === "valid" ? "Respondendo conversas automaticamente" : iaActive ? "Configure a chave de API para começar" : "Ative para automatizar seu atendimento"}
+                </p>
               </div>
             </div>
             <Switch checked={iaActive} onCheckedChange={async (checked) => {
@@ -852,10 +871,7 @@ const AISettings = () => {
               try {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) return;
-                const { error } = await supabase
-                  .from("ai_settings")
-                  .update({ ia_active: checked })
-                  .eq("user_id", user.id);
+                const { error } = await supabase.from("ai_settings").update({ ia_active: checked }).eq("user_id", user.id);
                 if (error) throw error;
                 toast.success(checked ? "Automação ativada" : "Automação desativada");
               } catch {
@@ -864,42 +880,37 @@ const AISettings = () => {
               }
             }} />
           </div>
+
           {iaActive && apiKeyStatus === "valid" && (
-            <div className="mt-3 pt-3 border-t border-primary/10 space-y-2 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-                  </span>
-                  <span className="text-xs font-medium text-emerald-400">Assistente ativo e respondendo</span>
+            <div className="mt-4 pt-4 border-t border-border/30 animate-fade-in">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg bg-muted/20 border border-border/30 p-3 text-center space-y-1">
+                  <span className="text-lg font-bold text-foreground">{aiMessagesToday}</span>
+                  <p className="text-[10px] text-muted-foreground font-medium">Respostas hoje</p>
+                </div>
+                <div className="rounded-lg bg-muted/20 border border-border/30 p-3 text-center space-y-1">
+                  <span className="text-lg font-bold text-foreground">{aiLeadsToday}</span>
+                  <p className="text-[10px] text-muted-foreground font-medium">Leads qualificados</p>
+                </div>
+                <div className="rounded-lg bg-muted/20 border border-border/30 p-3 text-center space-y-1">
+                  <span className="text-lg font-bold text-foreground">{aiActiveConvos}</span>
+                  <p className="text-[10px] text-muted-foreground font-medium">Conversas ativas</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 mt-3">
                 <div className="flex items-center gap-1.5">
-                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  <span className="text-[10px] text-muted-foreground">Online</span>
+                  <TrendingUp className="h-3 w-3 text-emerald-400" strokeWidth={2} />
+                  <span className="text-[10px] text-muted-foreground">Aumenta taxa de resposta</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Brain className="h-3 w-3 text-primary" strokeWidth={1.5} />
-                  <span className="text-[10px] text-muted-foreground">Aprendendo</span>
+                  <Timer className="h-3 w-3 text-primary" strokeWidth={2} />
+                  <span className="text-[10px] text-muted-foreground">Reduz tempo de atendimento</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Zap className="h-3 w-3 text-amber-400" strokeWidth={1.5} />
-                  <span className="text-[10px] text-muted-foreground">Respondendo</span>
-                </div>
-                <div className="ml-auto flex items-center gap-1.5 bg-primary/10 rounded-full px-2.5 py-1">
-                  <MessageSquare className="h-3 w-3 text-primary" strokeWidth={1.5} />
-                  <span className="text-[11px] font-bold text-primary">{aiMessagesToday}</span>
-                  <span className="text-[10px] text-muted-foreground">hoje</span>
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <Brain className="h-3 w-3 text-primary/60" strokeWidth={1.5} />
+                  <span className="text-[10px] text-muted-foreground/60">Aprendendo com interações</span>
                 </div>
               </div>
-            </div>
-          )}
-          {iaActive && apiKeyStatus !== "valid" && (
-            <div className="mt-3 pt-3 border-t border-border/30 flex items-center gap-2 animate-fade-in">
-              <Circle className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
-              <span className="text-xs font-medium text-amber-400">Configure a chave de API para ativar a automação</span>
             </div>
           )}
         </CardContent>
@@ -907,60 +918,19 @@ const AISettings = () => {
 
       {/* Just Activated Banner */}
       {justActivated && (
-        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 flex items-center gap-3 animate-fade-in">
-          <div className="h-10 w-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-            <Sparkles className="h-5 w-5 text-primary" strokeWidth={1.5} />
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 flex items-center gap-3 animate-fade-in">
+          <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400" strokeWidth={1.5} />
           </div>
           <div>
-             <p className="text-sm font-semibold text-foreground">Automação ativa e respondendo em tempo real</p>
-            <p className="text-xs text-muted-foreground">Suas conversas estão sendo otimizadas automaticamente</p>
+            <p className="text-sm font-semibold text-foreground">Automação ativa e operando</p>
+            <p className="text-xs text-muted-foreground">Conversas estão sendo qualificadas e respondidas automaticamente</p>
           </div>
         </div>
       )}
 
-      {/* Atividade do Assistente */}
-      {iaActive && (
-        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent transition-all duration-300">
-          <CardHeader className="pb-2 pt-4 px-5">
-            <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary" strokeWidth={1.5} />
-              <CardTitle className="text-sm font-semibold">Atividade da IA</CardTitle>
-              <span className="ml-auto text-[10px] text-muted-foreground flex items-center gap-1">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
-                </span>
-                Atualização em tempo real
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent className="px-5 pb-4 pt-0">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-lg bg-background/80 border border-border/50 p-3 text-center space-y-1">
-                <div className="flex items-center justify-center gap-1.5">
-                  <MessageSquare className="h-3.5 w-3.5 text-primary" strokeWidth={1.5} />
-                  <span className="text-lg font-bold text-foreground">{aiMessagesToday}</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground font-medium">Mensagens respondidas</p>
-              </div>
-              <div className="rounded-lg bg-background/80 border border-border/50 p-3 text-center space-y-1">
-                <div className="flex items-center justify-center gap-1.5">
-                  <Users className="h-3.5 w-3.5 text-primary" strokeWidth={1.5} />
-                  <span className="text-lg font-bold text-foreground">{aiLeadsToday}</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground font-medium">Leads atendidos</p>
-              </div>
-              <div className="rounded-lg bg-background/80 border border-border/50 p-3 text-center space-y-1">
-                <div className="flex items-center justify-center gap-1.5">
-                  <Zap className="h-3.5 w-3.5 text-primary" strokeWidth={1.5} />
-                  <span className="text-lg font-bold text-foreground">{aiActiveConvos}</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground font-medium">Conversas ativas</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
+
 
       {/* Simulador */}
       {iaActive && apiKeyStatus === "valid" && <AISimulator />}
