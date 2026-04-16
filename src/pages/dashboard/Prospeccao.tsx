@@ -407,9 +407,7 @@ export default function Prospeccao() {
       if (data.balance === undefined && data.freePulls === undefined) {
         loadCredits();
       }
-      if (data.fromCache) {
-        toast.success(`${data.total || 0} resultados (do cache)`);
-      } else if (data.isFreePull) {
+      if (data.isFreePull) {
         toast.success(`${data.total || 0} leads encontrados — puxada grátis utilizada (${data.freePulls} restantes)`);
       } else {
         const execSec = data.executionTimeMs ? `em ${(data.executionTimeMs / 1000).toFixed(1)}s` : "";
@@ -732,11 +730,6 @@ export default function Prospeccao() {
                     <MapPin className="h-5 w-5" /> Resultados ({results.length})
                   </CardTitle>
                   <div className="flex items-center gap-2">
-                    {fromCache && (
-                      <Button variant="outline" size="sm" onClick={() => handleSearch(true)} disabled={loading} className="gap-1.5">
-                        <RefreshCw className="h-3.5 w-3.5" /> Nova busca
-                      </Button>
-                    )}
                   </div>
                 </div>
               </CardHeader>
