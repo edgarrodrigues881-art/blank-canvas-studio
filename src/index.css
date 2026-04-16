@@ -644,3 +644,39 @@
   0% { --glow-angle: 0deg; }
   100% { --glow-angle: 360deg; }
 }
+
+/* Pipeline scrollbars */
+.pipeline-column-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.pipeline-column-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.pipeline-column-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--border) / 0.4);
+  border-radius: 9999px;
+}
+.pipeline-column-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--border) / 0.7);
+}
+.pipeline-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+.pipeline-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.pipeline-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--border) / 0.4);
+  border-radius: 9999px;
+}
+.pipeline-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--border) / 0.7);
+}
+.pipeline-column-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border) / 0.4) transparent;
+}
+.pipeline-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border) / 0.4) transparent;
+}
