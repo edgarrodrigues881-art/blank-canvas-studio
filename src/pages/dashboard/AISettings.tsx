@@ -43,9 +43,9 @@ interface ModePreset {
 
 const MODE_PRESETS: Record<AiMode, ModePreset> = {
   vendas: {
-    label: "Vendas Automáticas",
+     label: "Vendas Automáticas",
     icon: "Rocket",
-    desc: "IA focada em converter leads em clientes",
+    desc: "Foco em converter leads em clientes",
     recommended: true,
     objective: "vender",
     commStyle: "persuasivo",
@@ -60,12 +60,12 @@ const MODE_PRESETS: Record<AiMode, ModePreset> = {
       objecao: "Entendo! Mas olha, muitos clientes tinham essa mesma dúvida e hoje são super satisfeitos porque...",
       fechamento: "Vamos garantir o seu? Posso enviar o link agora mesmo!",
     },
-    preview: "A IA vai cumprimentar, descobrir a necessidade, apresentar a solução, contornar objeções e conduzir para o fechamento — tudo de forma natural e persuasiva.",
+    preview: "O assistente vai cumprimentar, descobrir a necessidade, apresentar a solução, contornar objeções e conduzir para o fechamento — de forma natural e persuasiva.",
   },
   atendimento: {
-    label: "Atendimento Inteligente",
+     label: "Atendimento Inteligente",
     icon: "MessageCircle",
-    desc: "IA que responde dúvidas e acolhe o cliente",
+    desc: "Respostas automáticas e acolhimento",
     objective: "atender",
     commStyle: "amigavel",
     insistence: 2,
@@ -79,12 +79,12 @@ const MODE_PRESETS: Record<AiMode, ModePreset> = {
       objecao: "Compreendo sua dúvida! Vou esclarecer isso para você...",
       fechamento: "Consegui te ajudar? Se tiver mais alguma dúvida, é só mandar!",
     },
-    preview: "A IA vai acolher o cliente, entender a necessidade com perguntas, fornecer informações claras e garantir que todas as dúvidas foram resolvidas.",
+    preview: "O assistente vai acolher o cliente, entender a necessidade com perguntas, fornecer informações claras e garantir que todas as dúvidas foram resolvidas.",
   },
   suporte: {
-    label: "Suporte ao Cliente",
+     label: "Suporte ao Cliente",
     icon: "Headphones",
-    desc: "IA técnica para resolver problemas",
+    desc: "Resolução técnica de problemas",
     objective: "suporte",
     commStyle: "tecnico",
     insistence: 1,
@@ -98,12 +98,12 @@ const MODE_PRESETS: Record<AiMode, ModePreset> = {
       objecao: "Entendo que é frustrante. Vamos tentar uma abordagem alternativa...",
       fechamento: "O problema foi resolvido? Se precisar de mais ajuda, estou aqui.",
     },
-    preview: "A IA vai diagnosticar o problema com perguntas técnicas, oferecer soluções passo a passo e verificar se o problema foi resolvido.",
+    preview: "O assistente vai diagnosticar o problema com perguntas técnicas, oferecer soluções passo a passo e verificar se o problema foi resolvido.",
   },
   agendamento: {
-    label: "Agendamento",
+     label: "Agendamento",
     icon: "Calendar",
-    desc: "IA focada em marcar horários",
+    desc: "Automação de horários e consultas",
     objective: "atender",
     commStyle: "direto",
     insistence: 3,
@@ -117,7 +117,7 @@ const MODE_PRESETS: Record<AiMode, ModePreset> = {
       objecao: "Se esse horário não funciona, posso verificar outras opções para você.",
       fechamento: "Perfeito! Seu agendamento está confirmado! Te envio um lembrete antes.",
     },
-    preview: "A IA vai perguntar o serviço desejado, verificar disponibilidade, confirmar o horário e enviar lembretes — tudo de forma objetiva.",
+    preview: "O assistente vai perguntar o serviço desejado, verificar disponibilidade, confirmar o horário e enviar lembretes — de forma objetiva.",
   },
 };
 
@@ -533,7 +533,7 @@ const AISettings = () => {
         max_response_length: maxResponseLength,
       };
       await supabase.from("ai_settings").upsert(payload, { onConflict: "user_id" });
-      toast.success("IA configurada e ativada com sucesso!");
+      toast.success("Automação configurada e ativada com sucesso!");
     } catch {
       toast.error("Erro ao salvar configurações");
     }
@@ -693,7 +693,7 @@ const AISettings = () => {
           : ""
       );
       setGeneratingPreview(false);
-      toast.success("Preview gerado! Base de conhecimento aplicada automaticamente.");
+      toast.success("Preview gerado! Base de conhecimento aplicada.");
     }, 800);
   };
 
