@@ -473,6 +473,76 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
   const [manualName, setManualName] = useState("");
   const [manualPhone, setManualPhone] = useState("");
 
+  const [messageContent, setMessageContent] = useState("");
+  const [hasButton, setHasButton] = useState(false);
+  const [buttonText, setButtonText] = useState("");
+  const [buttonLink, setButtonLink] = useState("");
+
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [deviceId, setDeviceId] = useState("");
+
+  const [templateName, setTemplateName] = useState("");
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [showLoadTemplate, setShowLoadTemplate] = useState(false);
+
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (editing) {
+      const dt = new Date(editing.scheduled_at);
+      setSelectedContact({ id: "", name: editing.contact_name, phone: editing.contact_phone, email: null, company: null });
+      setMessageContent(editing.message_content);
+      setDate(format(dt, "yyyy-MM-dd"));
+      setTime(format(dt, "HH:mm"));
+      setDeviceId(editing.device_id || "");
+    }
+  }, [editing]);
+
+  const searchContacts = useCallback(async (q: string) => {
+    if (!user || q.length < 2) { setSearchResults([]); return; }
+    setSearching(true);
+    const cleanQ = q.replace(/[^\w\s+]/g, "");
+    const { data } = await supabase.from("service_contacts").select("id, name, phone, email, company").eq("user_id", user.id).or(`name.ilike.%${cleanQ}%,phone.ilike.%${cleanQ}%`).limit(5);
+    setSearchResults((data as ServiceContact[]) || []);
+    setSearching(false);
+  }, [user]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (searchQuery.length >= 2) { searchContacts(searchQuery); setShowResults(true); }
+      else { setSearchResults([]); setShowResults(false); }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchQuery, searchContacts]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowResults(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const selectContact = (c: ServiceContact) => { setSelectedContact(c); setShowResults(false); setSearchQuery(""); };
+  const clearContact = () => { setSelectedContact(null); setSearchQuery(""); setManualName(""); setManualPhone(""); };
+
+  const applyManualContact = () => {
+    const phone = manualPhone.replace(/\D/g, "");
+    if (phone.length < 10) { toast.error("Telefone inválido"); return; }
+    const normalized = phone.startsWith("55") ? phone : `55${phone}`;
+    setSelectedContact({ id: "", name: manualName.trim() || normalized, phone: normalized, email: null, company: null });
+  };
+
+  const formatManualPhone = (raw: string) => {
+    let d = raw.replace(/\D/g, "");
+    if (d.length > 13) d = d.slice(0, 13);
+    if (!d.startsWith("55") && d.length > 0) d = "55" + d;
+    if (d.length <= 2) return `+${d}`;
+    if (d.length <= 4) return `+${d.slice(0,2)} ${d.slice(2)}`;
+    if (d.length <= 9) return `+${d.slice(0,2)} ${d.slice(2,4)} ${d.slice(4)}`;
+    if (d.length <= 12) return `+${d.slice(0,2)} ${d.slice(2,4)} ${d.slice(4,8)}-${d.slice(8)}`;
+    return `+${d.slice(0,2)} ${d.slice(2,4)} ${d.slice(4,9)}-${d.slice(9)}`;
+  };
+
   const insertVariable = (v: string) => {
     setMessageContent(prev => prev + `{${v}}`);
   };
