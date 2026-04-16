@@ -91,8 +91,16 @@ function hasLink(text: string) {
   return /https?:\/\/\S+/i.test(text);
 }
 
-function resolveVars(text: string, name: string): string {
-  return text.replace(/\{nome\}/gi, name || "Cliente");
+function resolveVars(text: string, contact: { name?: string; phone?: string; company?: string } | null): string {
+  const n = contact?.name || "Cliente";
+  const p = contact?.phone || "";
+  const c = contact?.company || "";
+  return text
+    .replace(/\{nome\}/gi, n)
+    .replace(/\{empresa\}/gi, c || "Empresa")
+    .replace(/\{telefone\}/gi, p ? formatPhone(p) : "")
+    .replace(/\{variavel1\}/gi, "{variavel1}")
+    .replace(/\{variavel2\}/gi, "{variavel2}");
 }
 
 /* ─── main ─── */
