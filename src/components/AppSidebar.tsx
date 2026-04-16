@@ -350,33 +350,62 @@ export function AppSidebar() {
         {/* ===== CRM MODE: show only CRM items ===== */}
         {isCRM && (
           <>
+            {/* OPERAÇÃO */}
             <SidebarGroup className="py-0 mt-1">
               {!collapsed && (
-                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
-                  CRM
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                  Operação
                 </SidebarGroupLabel>
               )}
               <SidebarGroupContent>
-                <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                  {renderNavItem({ title: "Dashboard", url: "/dashboard/crm", icon: LayoutDashboard, exact: true })}
+                  {renderNavItem({ title: "Conversas", url: "/dashboard/conversations", icon: MessageSquare })}
+                  {renderNavItem({ title: "Leads", url: "/dashboard/leads", icon: UserPlus })}
+                  {renderNavItem({ title: "Pipeline", url: "/dashboard/pipeline", icon: GitBranch })}
+                  {renderNavItem({ title: "Agendamentos", url: "/dashboard/crm-agendamentos", icon: CalendarClock })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            {/* INTELIGÊNCIA */}
+            <SidebarGroup className="py-0 mt-3">
+              {!collapsed && (
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                  Inteligência
+                </SidebarGroupLabel>
+              )}
+              {collapsed && <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />}
+              <SidebarGroupContent>
+                <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
                   {(() => {
                     const isUnlocked = user?.email === "edgarrodrigues881@gmail.com";
                     const lk = !isUnlocked;
                     return (
                       <>
-                        {renderNavItem({ title: "Dashboard", url: "/dashboard/crm", icon: LayoutDashboard, exact: true })}
-                        {renderNavItem({ title: "Conversas", url: "/dashboard/conversations", icon: MessageSquare })}
-                        {renderNavItem({ title: "Leads", url: "/dashboard/leads", icon: UserPlus })}
-                        {renderNavItem({ title: "Pipeline", url: "/dashboard/pipeline", icon: GitBranch })}
-                        {renderNavItem({ title: "Agendamentos", url: "/dashboard/crm-agendamentos", icon: CalendarClock })}
                         {renderNavItem({ title: "IA", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: lk })}
                         {renderNavItem({ title: "Relatórios", url: "/dashboard/crm-reports", icon: BarChart3, locked: lk })}
-                        {renderNavItem({ title: "Prospecção", url: "/dashboard/prospeccao", icon: Building2 })}
-                         {renderNavItem({ title: "Disparos", url: "/dashboard/crm-dispatches", icon: Send })}
-                         {renderNavItem({ title: "Campanhas", url: "/dashboard/crm-campaign-list", icon: Megaphone })}
-                         {renderNavItem({ title: "Modelos", url: "/dashboard/crm-templates", icon: FileText })}
                       </>
                     );
                   })()}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            {/* AQUISIÇÃO */}
+            <SidebarGroup className="py-0 mt-3">
+              {!collapsed && (
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                  Aquisição
+                </SidebarGroupLabel>
+              )}
+              {collapsed && <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />}
+              <SidebarGroupContent>
+                <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                  {renderNavItem({ title: "Prospecção", url: "/dashboard/prospeccao", icon: Building2 })}
+                  {renderNavItem({ title: "Disparos", url: "/dashboard/crm-dispatches", icon: Send })}
+                  {renderNavItem({ title: "Campanhas", url: "/dashboard/crm-campaign-list", icon: Megaphone })}
+                  {renderNavItem({ title: "Modelos", url: "/dashboard/crm-templates", icon: FileText })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
