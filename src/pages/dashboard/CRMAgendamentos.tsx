@@ -474,9 +474,9 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
   const [manualPhone, setManualPhone] = useState("");
 
   const [messageContent, setMessageContent] = useState("");
-  const [hasButton, setHasButton] = useState(false);
-  const [buttonText, setButtonText] = useState("");
-  const [buttonLink, setButtonLink] = useState("");
+  const [buttons, setButtons] = useState<Array<{ type: "url" | "reply"; text: string; value: string }>>([]);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
