@@ -82,7 +82,7 @@ export default function CRMReports() {
       if (!user) return [];
       const { data, error } = await supabase
         .from("conversations")
-        .select("id, created_at, first_reply_at, attending_status")
+        .select("id, created_at, attending_status, last_message_at")
         .eq("user_id", user.id)
         .gte("created_at", from)
         .lte("created_at", to)
