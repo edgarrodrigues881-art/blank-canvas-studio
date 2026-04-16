@@ -53,6 +53,7 @@ const STATUS_OPTIONS = [
   { value: "novo", label: "Novo Lead", dot: "bg-blue-500", badge: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
   { value: "respondeu", label: "Respondeu", dot: "bg-cyan-500", badge: "bg-cyan-500/15 text-cyan-400 border-cyan-500/20" },
   { value: "interessado", label: "Interessado", dot: "bg-amber-500", badge: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
+  { value: "agendado", label: "Agendado", dot: "bg-indigo-500", badge: "bg-indigo-500/15 text-indigo-400 border-indigo-500/20" },
   { value: "negociacao", label: "Negociação", dot: "bg-purple-500", badge: "bg-purple-500/15 text-purple-400 border-purple-500/20" },
   { value: "fechado", label: "Fechado", dot: "bg-emerald-500", badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
   { value: "perdido", label: "Perdido", dot: "bg-red-500", badge: "bg-red-500/15 text-red-400 border-red-500/20" },
