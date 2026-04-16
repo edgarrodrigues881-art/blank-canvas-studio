@@ -43,9 +43,9 @@ interface ModePreset {
 
 const MODE_PRESETS: Record<AiMode, ModePreset> = {
   vendas: {
-    label: "Vendas Automáticas",
+     label: "Vendas Automáticas",
     icon: "Rocket",
-    desc: "IA focada em converter leads em clientes",
+    desc: "Foco em converter leads em clientes",
     recommended: true,
     objective: "vender",
     commStyle: "persuasivo",
@@ -60,12 +60,12 @@ const MODE_PRESETS: Record<AiMode, ModePreset> = {
       objecao: "Entendo! Mas olha, muitos clientes tinham essa mesma dúvida e hoje são super satisfeitos porque...",
       fechamento: "Vamos garantir o seu? Posso enviar o link agora mesmo!",
     },
-    preview: "A IA vai cumprimentar, descobrir a necessidade, apresentar a solução, contornar objeções e conduzir para o fechamento — tudo de forma natural e persuasiva.",
+    preview: "O assistente vai cumprimentar, descobrir a necessidade, apresentar a solução, contornar objeções e conduzir para o fechamento — de forma natural e persuasiva.",
   },
   atendimento: {
-    label: "Atendimento Inteligente",
+     label: "Atendimento Inteligente",
     icon: "MessageCircle",
-    desc: "IA que responde dúvidas e acolhe o cliente",
+    desc: "Respostas automáticas e acolhimento",
     objective: "atender",
     commStyle: "amigavel",
     insistence: 2,
@@ -79,12 +79,12 @@ const MODE_PRESETS: Record<AiMode, ModePreset> = {
       objecao: "Compreendo sua dúvida! Vou esclarecer isso para você...",
       fechamento: "Consegui te ajudar? Se tiver mais alguma dúvida, é só mandar!",
     },
-    preview: "A IA vai acolher o cliente, entender a necessidade com perguntas, fornecer informações claras e garantir que todas as dúvidas foram resolvidas.",
+    preview: "O assistente vai acolher o cliente, entender a necessidade com perguntas, fornecer informações claras e garantir que todas as dúvidas foram resolvidas.",
   },
   suporte: {
-    label: "Suporte ao Cliente",
+     label: "Suporte ao Cliente",
     icon: "Headphones",
-    desc: "IA técnica para resolver problemas",
+    desc: "Resolução técnica de problemas",
     objective: "suporte",
     commStyle: "tecnico",
     insistence: 1,
@@ -98,12 +98,12 @@ const MODE_PRESETS: Record<AiMode, ModePreset> = {
       objecao: "Entendo que é frustrante. Vamos tentar uma abordagem alternativa...",
       fechamento: "O problema foi resolvido? Se precisar de mais ajuda, estou aqui.",
     },
-    preview: "A IA vai diagnosticar o problema com perguntas técnicas, oferecer soluções passo a passo e verificar se o problema foi resolvido.",
+    preview: "O assistente vai diagnosticar o problema com perguntas técnicas, oferecer soluções passo a passo e verificar se o problema foi resolvido.",
   },
   agendamento: {
-    label: "Agendamento",
+     label: "Agendamento",
     icon: "Calendar",
-    desc: "IA focada em marcar horários",
+    desc: "Automação de horários e consultas",
     objective: "atender",
     commStyle: "direto",
     insistence: 3,
@@ -117,7 +117,7 @@ const MODE_PRESETS: Record<AiMode, ModePreset> = {
       objecao: "Se esse horário não funciona, posso verificar outras opções para você.",
       fechamento: "Perfeito! Seu agendamento está confirmado! Te envio um lembrete antes.",
     },
-    preview: "A IA vai perguntar o serviço desejado, verificar disponibilidade, confirmar o horário e enviar lembretes — tudo de forma objetiva.",
+    preview: "O assistente vai perguntar o serviço desejado, verificar disponibilidade, confirmar o horário e enviar lembretes — de forma objetiva.",
   },
 };
 
@@ -533,7 +533,7 @@ const AISettings = () => {
         max_response_length: maxResponseLength,
       };
       await supabase.from("ai_settings").upsert(payload, { onConflict: "user_id" });
-      toast.success("IA configurada e ativada com sucesso!");
+      toast.success("Automação configurada e ativada com sucesso!");
     } catch {
       toast.error("Erro ao salvar configurações");
     }
@@ -693,7 +693,7 @@ const AISettings = () => {
           : ""
       );
       setGeneratingPreview(false);
-      toast.success("Preview gerado! Base de conhecimento aplicada automaticamente.");
+      toast.success("Preview gerado! Base de conhecimento aplicada.");
     }, 800);
   };
 
@@ -814,23 +814,23 @@ const AISettings = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-foreground">Sua IA de Atendimento e Vendas</h1>
+              <h1 className="text-xl font-bold text-foreground">Automação Inteligente</h1>
               {iaActive && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-xs font-medium text-primary">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
                   </span>
-                  IA ativa: pronta para responder
+                  Ativo
                 </span>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">Automatize conversas, responda clientes e aumente suas vendas no piloto automático</p>
+            <p className="text-sm text-muted-foreground">Respostas automáticas, conversão e atendimento otimizado</p>
           </div>
         </div>
         <Button size="sm" onClick={handleSave} disabled={saving || activating} className="gap-2 transition-all duration-200 hover:shadow-lg hover:scale-[1.02]">
           {activating ? <Loader2 className="h-4 w-4 animate-spin" /> : saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" strokeWidth={1.5} />}
-          {activating ? "Ativando IA..." : iaActive ? "Salvar Alterações" : "Ativar atendimento automático agora"}
+          {activating ? "Ativando..." : iaActive ? "Salvar Alterações" : "Ativar automação"}
         </Button>
       </div>
 
@@ -843,8 +843,8 @@ const AISettings = () => {
                 <Bot className={`h-5 w-5 transition-colors duration-300 ${iaActive ? "text-primary" : "text-muted-foreground"}`} strokeWidth={1.5} />
               </div>
               <div>
-                <p className="font-semibold text-foreground text-sm">IA Ativa</p>
-                <p className="text-xs text-muted-foreground">Respostas automáticas para seus clientes</p>
+                <p className="font-semibold text-foreground text-sm">Assistente Ativo</p>
+                <p className="text-xs text-muted-foreground">Respostas automáticas habilitadas</p>
               </div>
             </div>
             <Switch checked={iaActive} onCheckedChange={async (checked) => {
@@ -857,10 +857,10 @@ const AISettings = () => {
                   .update({ ia_active: checked })
                   .eq("user_id", user.id);
                 if (error) throw error;
-                toast.success(checked ? "IA ativada" : "IA desativada");
+                toast.success(checked ? "Automação ativada" : "Automação desativada");
               } catch {
                 setIaActive(!checked);
-                toast.error("Erro ao alterar status da IA");
+                toast.error("Erro ao alterar status");
               }
             }} />
           </div>
@@ -872,7 +872,7 @@ const AISettings = () => {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
                   </span>
-                  <span className="text-xs font-medium text-emerald-400">IA ativa e respondendo automaticamente</span>
+                  <span className="text-xs font-medium text-emerald-400">Assistente ativo e respondendo</span>
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -899,7 +899,7 @@ const AISettings = () => {
           {iaActive && apiKeyStatus !== "valid" && (
             <div className="mt-3 pt-3 border-t border-border/30 flex items-center gap-2 animate-fade-in">
               <Circle className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
-              <span className="text-xs font-medium text-amber-400">Configure a chave de API para ativar</span>
+              <span className="text-xs font-medium text-amber-400">Configure a chave de API para ativar a automação</span>
             </div>
           )}
         </CardContent>
@@ -912,13 +912,13 @@ const AISettings = () => {
             <Sparkles className="h-5 w-5 text-primary" strokeWidth={1.5} />
           </div>
           <div>
-            <p className="text-sm font-semibold text-foreground">IA está ativa e respondendo clientes em tempo real</p>
-            <p className="text-xs text-muted-foreground">Suas conversas agora são atendidas automaticamente com inteligência artificial</p>
+             <p className="text-sm font-semibold text-foreground">Automação ativa e respondendo em tempo real</p>
+            <p className="text-xs text-muted-foreground">Suas conversas estão sendo otimizadas automaticamente</p>
           </div>
         </div>
       )}
 
-      {/* Atividade da IA */}
+      {/* Atividade do Assistente */}
       {iaActive && (
         <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent transition-all duration-300">
           <CardHeader className="pb-2 pt-4 px-5">
@@ -962,16 +962,16 @@ const AISettings = () => {
         </Card>
       )}
 
-      {/* Simulador de IA */}
+      {/* Simulador */}
       {iaActive && apiKeyStatus === "valid" && <AISimulator />}
 
-      {/* Modo de Operação */}
+      {/* Modo de Operação do Assistente */}
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Rocket className="h-4 w-4 text-primary" strokeWidth={1.5} />
-              <CardTitle className="text-base">Escolha como sua IA deve operar</CardTitle>
+              <CardTitle className="text-base">Modo de Operação</CardTitle>
             </div>
             <div className="flex items-center gap-2">
               <Label htmlFor="advanced-toggle" className="text-xs text-muted-foreground cursor-pointer">Modo avançado</Label>
@@ -1016,7 +1016,7 @@ const AISettings = () => {
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2 animate-fade-in">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" strokeWidth={1.5} />
-                <p className="text-xs font-semibold text-primary">Como sua IA vai agir</p>
+                <p className="text-xs font-semibold text-primary">Comportamento aplicado</p>
               </div>
               <p className="text-sm text-foreground/80 leading-relaxed">{MODE_PRESETS[selectedMode].preview}</p>
               <div className="flex flex-wrap gap-1.5 mt-2">
@@ -1039,14 +1039,14 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
-      {/* Configuração da IA — API & Modelo */}
+      {/* Provedor e Modelo */}
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Key className="h-4 w-4 text-primary" strokeWidth={1.5} />
-            <CardTitle className="text-base">Configuração da IA</CardTitle>
-          </div>
-          <CardDescription>Conecte sua chave de API e escolha o modelo</CardDescription>
+             <CardTitle className="text-base">Provedor e Modelo</CardTitle>
+           </div>
+           <CardDescription>Conecte sua chave de API e escolha o modelo de linguagem</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -1106,7 +1106,7 @@ const AISettings = () => {
               {apiKeyStatus === "empty" && (
                 <div className="flex items-center gap-1.5 text-amber-400 text-xs">
                   <AlertTriangle className="h-3.5 w-3.5" />
-                  <span>A IA não funcionará sem uma chave válida</span>
+                  <span>A automação requer uma chave válida para funcionar</span>
                 </div>
               )}
             </div>
@@ -1167,23 +1167,23 @@ const AISettings = () => {
               <Input type="number" min={0} max={30} value={maxDelay} onChange={(e) => setMaxDelay(Number(e.target.value))} />
             </div>
           </div>
-          <p className="text-[10px] text-muted-foreground">A IA esperará entre {minDelay}s e {maxDelay}s antes de responder, para parecer mais natural</p>
+          <p className="text-[10px] text-muted-foreground">O assistente esperará entre {minDelay}s e {maxDelay}s antes de responder, simulando digitação humana</p>
         </CardContent>
       </Card>
 
-      {/* Comportamento da IA */}
+      {/* Comportamento do Assistente */}
       <Card className="transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Brain className="h-4 w-4 text-primary" strokeWidth={1.5} />
-            <CardTitle className="text-base">Comportamento da IA</CardTitle>
-          </div>
-          <CardDescription>Configure como a IA deve agir — o prompt é gerado automaticamente</CardDescription>
+             <CardTitle className="text-base">Comportamento e Estratégia</CardTitle>
+           </div>
+           <CardDescription>Defina o estilo de comunicação — o prompt é gerado automaticamente</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* Objetivo da IA */}
+           {/* Objetivo */}
           <div className="space-y-2">
-            <Label>Objetivo da IA</Label>
+            <Label>Objetivo principal</Label>
             <div className="grid grid-cols-3 gap-2">
               {[
                 { value: "vender", label: "Vender" },
@@ -1349,13 +1349,13 @@ const AISettings = () => {
             <Target className="h-4 w-4 text-primary" strokeWidth={1.5} />
             <CardTitle className="text-base">Fluxo de Conversão</CardTitle>
           </div>
-          <CardDescription>Configure as etapas que a IA segue para converter clientes</CardDescription>
+          <CardDescription>Defina as etapas do funil de conversão automática</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between pb-2">
             <div>
               <p className="text-sm font-medium text-foreground">Seguir fluxo automaticamente</p>
-              <p className="text-xs text-muted-foreground">IA detecta a intenção e avança nas etapas sozinha</p>
+              <p className="text-xs text-muted-foreground">Detecta a intenção do lead e avança nas etapas automaticamente</p>
             </div>
             <Switch checked={autoFlow} onCheckedChange={setAutoFlow} />
           </div>

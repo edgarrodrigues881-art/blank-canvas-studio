@@ -368,11 +368,11 @@ export function AppSidebar() {
               </SidebarGroupContent>
             </SidebarGroup>
 
-            {/* INTELIGÊNCIA */}
+             {/* AUTOMAÇÃO */}
             <SidebarGroup className="py-0 mt-3">
               {!collapsed && (
                 <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
-                  Inteligência
+                  Automação
                 </SidebarGroupLabel>
               )}
               {collapsed && <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />}
@@ -383,7 +383,7 @@ export function AppSidebar() {
                     const lk = !isUnlocked;
                     return (
                       <>
-                        {renderNavItem({ title: "IA", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: lk })}
+                        {renderNavItem({ title: "Assistente", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: lk })}
                         {renderNavItem({ title: "Relatórios", url: "/dashboard/crm-reports", icon: BarChart3, locked: lk })}
                       </>
                     );
