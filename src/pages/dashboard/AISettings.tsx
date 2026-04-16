@@ -18,6 +18,7 @@ import {
   FileText, File, Power, Target, Zap, Activity, Circle, Timer, MessageSquare,
   UserCheck, PhoneCall, LifeBuoy, Users, Flame, Snowflake, TrendingUp,
   Rocket, Calendar, Settings2, ChevronDown, ChevronUp,
+  Package, DollarSign, Star, HelpCircle, Search, Lightbulb, Shield
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
