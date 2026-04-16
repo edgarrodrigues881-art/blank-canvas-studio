@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -16,13 +16,14 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Search, Plus, Upload, Trash2, Pencil, X, Phone, Mail, Building2, DollarSign, Calendar, MapPin, FileText, User,
+  Search, Plus, Upload, Trash2, Pencil, Phone, Mail, Building2, DollarSign, Calendar, MapPin, FileText, User,
+  MessageSquare, Globe, Megaphone, Users, UserPlus, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPhone } from "@/utils/formatters";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 /* ── types ── */
 interface Lead {
@@ -52,30 +53,54 @@ interface Lead {
 }
 
 const STATUS_OPTIONS = [
-  { value: "novo", label: "Novo Lead", color: "bg-blue-100 text-blue-700 border-blue-200" },
-  { value: "respondeu", label: "Respondeu", color: "bg-cyan-100 text-cyan-700 border-cyan-200" },
-  { value: "interessado", label: "Interessado", color: "bg-amber-100 text-amber-700 border-amber-200" },
-  { value: "negociacao", label: "Negociação", color: "bg-purple-100 text-purple-700 border-purple-200" },
-  { value: "fechado", label: "Fechado", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  { value: "perdido", label: "Perdido", color: "bg-red-100 text-red-700 border-red-200" },
+  { value: "novo", label: "Novo Lead", dot: "bg-blue-500", badge: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
+  { value: "respondeu", label: "Respondeu", dot: "bg-cyan-500", badge: "bg-cyan-500/15 text-cyan-400 border-cyan-500/20" },
+  { value: "interessado", label: "Interessado", dot: "bg-amber-500", badge: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
+  { value: "negociacao", label: "Negociação", dot: "bg-purple-500", badge: "bg-purple-500/15 text-purple-400 border-purple-500/20" },
+  { value: "fechado", label: "Fechado", dot: "bg-emerald-500", badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
+  { value: "perdido", label: "Perdido", dot: "bg-red-500", badge: "bg-red-500/15 text-red-400 border-red-500/20" },
 ];
 
 const PRIORITY_OPTIONS = [
-  { value: "baixa", label: "Baixa", color: "bg-slate-100 text-slate-600 border-slate-200" },
-  { value: "media", label: "Média", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-  { value: "alta", label: "Alta", color: "bg-orange-100 text-orange-700 border-orange-200" },
-  { value: "urgente", label: "Urgente", color: "bg-red-100 text-red-700 border-red-200" },
+  { value: "baixa", label: "Baixa", color: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/15 dark:text-slate-400 dark:border-slate-500/20" },
+  { value: "media", label: "Média", color: "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-500/15 dark:text-yellow-400 dark:border-yellow-500/20" },
+  { value: "alta", label: "Alta", color: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/15 dark:text-orange-400 dark:border-orange-500/20" },
+  { value: "urgente", label: "Urgente", color: "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-400 dark:border-red-500/20" },
 ];
 
 const ORIGIN_OPTIONS = [
-  { value: "site", label: "Site" },
-  { value: "indicacao", label: "Indicação" },
-  { value: "google", label: "Google" },
-  { value: "redes_sociais", label: "Redes Sociais" },
-  { value: "evento", label: "Evento" },
-  { value: "campanha", label: "Campanha" },
-  { value: "manual", label: "Manual" },
+  { value: "site", label: "Site", icon: Globe },
+  { value: "indicacao", label: "Indicação", icon: UserPlus },
+  { value: "google", label: "Google", icon: Search },
+  { value: "redes_sociais", label: "Redes Sociais", icon: Users },
+  { value: "evento", label: "Evento", icon: Calendar },
+  { value: "campanha", label: "Campanha", icon: Megaphone },
+  { value: "manual", label: "Manual", icon: User },
 ];
+
+/* ── avatar colors based on name hash ── */
+const AVATAR_COLORS = [
+  "from-blue-500 to-blue-600",
+  "from-emerald-500 to-emerald-600",
+  "from-purple-500 to-purple-600",
+  "from-amber-500 to-amber-600",
+  "from-cyan-500 to-cyan-600",
+  "from-rose-500 to-rose-600",
+  "from-indigo-500 to-indigo-600",
+  "from-teal-500 to-teal-600",
+];
+
+function getAvatarColor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return (name[0] || "?").toUpperCase();
+}
 
 function getStatusConfig(status: string | null) {
   return STATUS_OPTIONS.find((s) => s.value === status) || STATUS_OPTIONS[0];
@@ -85,9 +110,22 @@ function getPriorityConfig(priority: string | null) {
   return PRIORITY_OPTIONS.find((p) => p.value === (priority || "media")) || PRIORITY_OPTIONS[1];
 }
 
+function getOriginConfig(origin: string | null) {
+  return ORIGIN_OPTIONS.find((o) => o.value === origin) || ORIGIN_OPTIONS[6];
+}
+
 function formatCurrency(value: number | null) {
   if (!value) return "—";
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+}
+
+function timeAgo(date: string | null) {
+  if (!date) return "—";
+  try {
+    return formatDistanceToNow(new Date(date), { addSuffix: true, locale: ptBR });
+  } catch {
+    return "—";
+  }
 }
 
 export default function Leads() {
@@ -126,12 +164,12 @@ export default function Leads() {
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
 
   /* ── derived ── */
-  const statusCounts = STATUS_OPTIONS.reduce((acc, s) => {
+  const statusCounts = useMemo(() => STATUS_OPTIONS.reduce((acc, s) => {
     acc[s.value] = leads.filter((l) => (l.pipeline_stage || "novo") === s.value).length;
     return acc;
-  }, {} as Record<string, number>);
+  }, {} as Record<string, number>), [leads]);
 
-  const filtered = leads.filter((l) => {
+  const filtered = useMemo(() => leads.filter((l) => {
     const s = search.toLowerCase();
     const matchSearch = !search ||
       l.name?.toLowerCase().includes(s) ||
@@ -143,7 +181,7 @@ export default function Leads() {
     const matchPriority = priorityFilter === "all" || (l.priority || "media") === priorityFilter;
     const matchOrigin = originFilter === "all" || l.origin === originFilter;
     return matchSearch && matchStatus && matchPriority && matchOrigin;
-  });
+  }), [leads, search, statusFilter, priorityFilter, originFilter]);
 
   /* ── CRUD ── */
   const openNew = () => {
@@ -260,36 +298,7 @@ export default function Leads() {
         </div>
       </div>
 
-      {/* Status Tabs */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setStatusFilter("all")}
-          className={cn(
-            "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
-            statusFilter === "all"
-              ? "bg-primary text-primary-foreground border-primary"
-              : "bg-card text-muted-foreground border-border hover:border-primary/40"
-          )}
-        >
-          Todos ({leads.length})
-        </button>
-        {STATUS_OPTIONS.map((s) => (
-          <button
-            key={s.value}
-            onClick={() => setStatusFilter(statusFilter === s.value ? "all" : s.value)}
-            className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
-              statusFilter === s.value
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-card text-muted-foreground border-border hover:border-primary/40"
-            )}
-          >
-            {s.label} ({statusCounts[s.value] || 0})
-          </button>
-        ))}
-      </div>
-
-      {/* Search & Filters */}
+      {/* Search & Filters row */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
@@ -300,8 +309,24 @@ export default function Leads() {
             className="pl-9 h-10 rounded-xl bg-muted/30 border-border/50"
           />
         </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[150px] h-10 rounded-xl bg-muted/30 border-border/50 text-xs">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os Status</SelectItem>
+            {STATUS_OPTIONS.map((s) => (
+              <SelectItem key={s.value} value={s.value}>
+                <span className="flex items-center gap-2">
+                  <span className={cn("w-2 h-2 rounded-full", s.dot)} />
+                  {s.label} ({statusCounts[s.value] || 0})
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-          <SelectTrigger className="w-[140px] h-10 rounded-xl bg-muted/30 border-border/50">
+          <SelectTrigger className="w-[140px] h-10 rounded-xl bg-muted/30 border-border/50 text-xs">
             <SelectValue placeholder="Prioridade" />
           </SelectTrigger>
           <SelectContent>
@@ -312,7 +337,7 @@ export default function Leads() {
           </SelectContent>
         </Select>
         <Select value={originFilter} onValueChange={setOriginFilter}>
-          <SelectTrigger className="w-[140px] h-10 rounded-xl bg-muted/30 border-border/50">
+          <SelectTrigger className="w-[140px] h-10 rounded-xl bg-muted/30 border-border/50 text-xs">
             <SelectValue placeholder="Origem" />
           </SelectTrigger>
           <SelectContent>
@@ -325,75 +350,110 @@ export default function Leads() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="rounded-xl border border-border/60 bg-card overflow-hidden shadow-sm">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/20">
-              <TableHead className="font-semibold text-[11px] uppercase tracking-wider">Lead / Empresa</TableHead>
-              <TableHead className="font-semibold text-[11px] uppercase tracking-wider">Contato</TableHead>
-              <TableHead className="font-semibold text-[11px] uppercase tracking-wider hidden lg:table-cell">Interesse</TableHead>
-              <TableHead className="font-semibold text-[11px] uppercase tracking-wider hidden xl:table-cell">Valor Est.</TableHead>
-              <TableHead className="font-semibold text-[11px] uppercase tracking-wider hidden md:table-cell">Prioridade</TableHead>
-              <TableHead className="font-semibold text-[11px] uppercase tracking-wider">Status</TableHead>
-              <TableHead className="font-semibold text-[11px] uppercase tracking-wider hidden lg:table-cell">Responsável</TableHead>
-              <TableHead className="font-semibold text-[11px] uppercase tracking-wider hidden md:table-cell">Entrada</TableHead>
+            <TableRow className="bg-muted/30 hover:bg-muted/30">
+              <TableHead className="font-semibold text-[11px] uppercase tracking-wider text-muted-foreground/70 py-3">Lead</TableHead>
+              <TableHead className="font-semibold text-[11px] uppercase tracking-wider text-muted-foreground/70 py-3">Contato</TableHead>
+              <TableHead className="font-semibold text-[11px] uppercase tracking-wider text-muted-foreground/70 py-3">Status</TableHead>
+              <TableHead className="font-semibold text-[11px] uppercase tracking-wider text-muted-foreground/70 py-3 hidden md:table-cell">Origem</TableHead>
+              <TableHead className="font-semibold text-[11px] uppercase tracking-wider text-muted-foreground/70 py-3 hidden lg:table-cell">Última Interação</TableHead>
+              <TableHead className="font-semibold text-[11px] uppercase tracking-wider text-muted-foreground/70 py-3 hidden xl:table-cell">Responsável</TableHead>
+              <TableHead className="font-semibold text-[11px] uppercase tracking-wider text-muted-foreground/70 py-3 hidden xl:table-cell">Valor Est.</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-12 text-muted-foreground">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-16 text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-12 text-muted-foreground">Nenhum lead encontrado</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-16 text-muted-foreground">Nenhum lead encontrado</TableCell></TableRow>
             ) : (
               filtered.map((lead) => {
                 const statusCfg = getStatusConfig(lead.pipeline_stage);
-                const priorityCfg = getPriorityConfig(lead.priority);
-                const originLabel = ORIGIN_OPTIONS.find((o) => o.value === lead.origin)?.label || lead.origin;
+                const originCfg = getOriginConfig(lead.origin);
+                const OriginIcon = originCfg.icon;
                 return (
                   <TableRow
                     key={lead.id}
-                    className="cursor-pointer hover:bg-muted/30 transition-colors"
+                    className="cursor-pointer transition-all duration-150 hover:bg-muted/40 group border-b border-border/30"
                     onClick={() => { setDetailLead(lead); setDetailTab("info"); }}
                   >
-                    <TableCell>
+                    {/* Lead + Avatar */}
+                    <TableCell className="py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
-                          {(lead.name || "?")[0].toUpperCase()}
+                        <div className={cn(
+                          "w-9 h-9 rounded-full bg-gradient-to-br flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm",
+                          getAvatarColor(lead.name || "?")
+                        )}>
+                          {getInitials(lead.name || "?")}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">{lead.name || "Sem nome"}</p>
-                          <p className="text-[11px] text-muted-foreground truncate">{lead.company || "—"}</p>
+                          <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                            {lead.name || "Sem nome"}
+                          </p>
+                          {lead.company && (
+                            <p className="text-[11px] text-muted-foreground/60 truncate flex items-center gap-1">
+                              <Building2 className="w-3 h-3" />
+                              {lead.company}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <p className="text-xs text-foreground">{formatPhone(lead.phone)}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">{lead.email || "—"}</p>
+
+                    {/* Contato */}
+                    <TableCell className="py-3">
+                      <div className="space-y-0.5">
+                        <p className="text-xs text-foreground/80 flex items-center gap-1.5">
+                          <Phone className="w-3 h-3 text-muted-foreground/50" />
+                          {formatPhone(lead.phone)}
+                        </p>
+                        {lead.email && (
+                          <p className="text-[11px] text-muted-foreground/50 truncate max-w-[180px]">{lead.email}</p>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <p className="text-xs text-foreground">{lead.interest || "—"}</p>
-                      <p className="text-[11px] text-muted-foreground">{originLabel}</p>
-                    </TableCell>
-                    <TableCell className="hidden xl:table-cell">
-                      <span className="text-xs font-medium text-foreground">{formatCurrency(lead.estimated_value)}</span>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <Badge variant="outline" className={cn("text-[10px] font-medium rounded-md", priorityCfg.color)}>
-                        {priorityCfg.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={cn("text-[10px] font-medium rounded-md", statusCfg.color)}>
+
+                    {/* Status */}
+                    <TableCell className="py-3">
+                      <Badge variant="outline" className={cn("text-[10px] font-medium rounded-full border px-2.5 py-0.5", statusCfg.badge)}>
+                        <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5 inline-block", statusCfg.dot)} />
                         {statusCfg.label}
                       </Badge>
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <span className="text-xs text-muted-foreground">{lead.responsible || "—"}</span>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <span className="text-xs text-muted-foreground">
-                        {lead.created_at ? format(new Date(lead.created_at), "dd/MM/yyyy") : "—"}
+
+                    {/* Origem */}
+                    <TableCell className="py-3 hidden md:table-cell">
+                      <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                        <OriginIcon className="w-3.5 h-3.5 text-muted-foreground/50" />
+                        {originCfg.label}
                       </span>
+                    </TableCell>
+
+                    {/* Última Interação */}
+                    <TableCell className="py-3 hidden lg:table-cell">
+                      <span className="text-xs text-muted-foreground/70 flex items-center gap-1.5">
+                        <Clock className="w-3 h-3" />
+                        {timeAgo(lead.last_message_at || lead.created_at)}
+                      </span>
+                    </TableCell>
+
+                    {/* Responsável */}
+                    <TableCell className="py-3 hidden xl:table-cell">
+                      {lead.responsible ? (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <User className="w-3 h-3 text-muted-foreground/50" />
+                          {lead.responsible}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/30">—</span>
+                      )}
+                    </TableCell>
+
+                    {/* Valor */}
+                    <TableCell className="py-3 hidden xl:table-cell">
+                      <span className="text-xs font-medium text-foreground/70">{formatCurrency(lead.estimated_value)}</span>
                     </TableCell>
                   </TableRow>
                 );
@@ -414,8 +474,11 @@ export default function Leads() {
                 {/* Header */}
                 <div className="flex items-start justify-between p-6 pb-4 border-b border-border">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
-                      {(detailLead.name || "?")[0].toUpperCase()}
+                    <div className={cn(
+                      "w-12 h-12 rounded-full bg-gradient-to-br flex items-center justify-center text-lg font-bold text-white shadow-sm",
+                      getAvatarColor(detailLead.name || "?")
+                    )}>
+                      {getInitials(detailLead.name || "?")}
                     </div>
                     <div>
                       <h2 className="text-lg font-bold text-foreground">{detailLead.name}</h2>
@@ -423,7 +486,8 @@ export default function Leads() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <Badge variant="outline" className={cn("text-xs font-medium rounded-md", statusCfg.color)}>
+                    <Badge variant="outline" className={cn("text-xs font-medium rounded-full", statusCfg.badge)}>
+                      <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5 inline-block", statusCfg.dot)} />
                       {statusCfg.label}
                     </Badge>
                     <Badge variant="outline" className={cn("text-[10px] font-medium rounded-md", priorityCfg.color)}>
@@ -483,7 +547,6 @@ export default function Leads() {
                 <div className="px-6 pb-6">
                   {detailTab === "info" && (
                     <div className="space-y-6">
-                      {/* Contact & Company */}
                       <div className="grid grid-cols-2 gap-x-8 gap-y-3">
                         <div>
                           <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-2">Contato</p>
@@ -494,7 +557,7 @@ export default function Leads() {
                               <span className="font-medium">{formatPhone(detailLead.phone)}</span>
                             </div>
                             <div className="flex items-center gap-2 text-sm">
-                              <Phone className="w-3.5 h-3.5 text-muted-foreground" />
+                              <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
                               <span className="text-muted-foreground">WhatsApp:</span>
                               <span className="font-medium">{formatPhone(detailLead.phone)}</span>
                             </div>
@@ -527,7 +590,6 @@ export default function Leads() {
                         </div>
                       </div>
 
-                      {/* Deal & History */}
                       <div className="grid grid-cols-2 gap-x-8 gap-y-3">
                         <div>
                           <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-2">Negócio</p>
@@ -572,17 +634,16 @@ export default function Leads() {
                               </span>
                             </div>
                             <div className="flex items-center gap-2 text-sm">
-                              <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                              <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                               <span className="text-muted-foreground">Último contato:</span>
                               <span className="font-medium">
-                                {detailLead.last_message_at ? format(new Date(detailLead.last_message_at), "dd/MM/yyyy") : "—"}
+                                {timeAgo(detailLead.last_message_at)}
                               </span>
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      {/* Description */}
                       {detailLead.description && (
                         <div>
                           <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-2">Descrição da Necessidade</p>
@@ -590,7 +651,6 @@ export default function Leads() {
                         </div>
                       )}
 
-                      {/* Notes */}
                       {detailLead.notes && (
                         <div>
                           <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-2">Observações</p>
