@@ -36,7 +36,6 @@ import {
   validateCarouselCards,
 } from "@/components/campaigns/carousel-types";
 
-const ALLOWED_EMAIL = "edgarrodrigues881@gmail.com";
 const STORAGE_KEY = "group-dispatch-draft";
 
 type DispatchType = "text" | "buttons" | "carousel";
@@ -196,7 +195,7 @@ export default function GroupCarouselDispatch() {
 
   const { data: savedTemplates = [] } = useTemplates();
   const { data: carouselTemplates = [] } = useCarouselTemplates();
-  const isAllowed = user?.email === ALLOWED_EMAIL;
+  const isAllowed = !!user;
 
   const applyImportedTextTemplate = useCallback((template: any) => {
     const normalizedTemplate = normalizeComposerMessage({
