@@ -87,26 +87,32 @@ export function useConversationRealtime({
             return;
           }
 
-          setArchivedConversations((prev) => prev.filter((c) => c.id !== row.id));
-          setConversations((prev) => {
-            const exists = prev.some((c) => c.id === row.id);
-            const isSelectedConversation = row.id === selectedConvIdRef.current;
-            const selectedConversation = prev.find((c) => c.id === selectedConvIdRef.current);
-            const selectedKey = selectedConversation ? getConversationContactKey(selectedConversation) : "";
-            const rowKey = getConversationContactKey(row);
-            const shouldKeepRead = Boolean(selectedKey && rowKey && selectedKey === rowKey);
+          // Coalesce rapid bursts: keep the latest payload per conversation id
+          pendingConvUpdatesRef.current.set(row.id, row);
 
-            if (!exists) {
-              return upsertConversationInState(prev, {
-                ...row,
-                unread_count: isSelectedConversation || shouldKeepRead ? 0 : row.unread_count,
-              });
-            }
+          if (debounceTimerRef.current !== null) return;
+          debounceTimerRef.current = window.setTimeout(() => {
+            debounceTimerRef.current = null;
+            const updates = Array.from(pendingConvUpdatesRef.current.values());
+            pendingConvUpdatesRef.current.clear();
+            if (updates.length === 0) return;
 
-            return sortConversations(
-              prev.map((c) => {
-                if (c.id !== row.id) return c;
+            const updateById = new Map(updates.map((u) => [u.id, u]));
 
+            setArchivedConversations((prev) => prev.filter((c) => !updateById.has(c.id)));
+            setConversations((prev) => {
+              const selectedId = selectedConvIdRef.current;
+              const selectedConversation = prev.find((c) => c.id === selectedId);
+              const selectedKey = selectedConversation ? getConversationContactKey(selectedConversation) : "";
+
+              const existingIds = new Set(prev.map((c) => c.id));
+              let next = prev.map((c) => {
+                const row = updateById.get(c.id);
+                if (!row) return c;
+
+                const isSelectedConversation = c.id === selectedId;
+                const rowKey = getConversationContactKey(row);
+                const shouldKeepRead = Boolean(selectedKey && rowKey && selectedKey === rowKey);
                 const sentRecently =
                   c.last_message_direction === "sent" &&
                   Date.now() - new Date(c.last_message_at || 0).getTime() < 2 * 60 * 1000;
@@ -129,15 +135,41 @@ export function useConversationRealtime({
                   last_message_status: row.last_message_status ?? c.last_message_status,
                   status: row.status ?? c.status,
                 };
-              })
-            );
-          });
+              });
+
+              // Insert any rows that weren't already in state (rare for UPDATE but defensive)
+              for (const row of updates) {
+                if (existingIds.has(row.id)) continue;
+                const isSelectedConversation = row.id === selectedId;
+                const rowKey = getConversationContactKey(row);
+                const shouldKeepRead = Boolean(selectedKey && rowKey && selectedKey === rowKey);
+                next = upsertConversationInState(next, {
+                  ...row,
+                  unread_count: isSelectedConversation || shouldKeepRead ? 0 : row.unread_count,
+                });
+              }
+
+              // Only re-sort if any last_message_at actually changed
+              const needsSort = updates.some((u) => u.last_message_at);
+              return needsSort ? sortConversations(next) : next;
+            });
+          }, DEBOUNCE_MS);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        realtimeConnectedRef.current = status === "SUBSCRIBED";
+      });
 
-    return () => { supabase.removeChannel(channel); };
-  }, [user, upsertConversationInState, sortConversations, getConversationContactKey, setConversations, setArchivedConversations, selectedConvIdRef, isOwnDevice]);
+    return () => {
+      if (debounceTimerRef.current !== null) {
+        window.clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      pendingConvUpdatesRef.current.clear();
+      realtimeConnectedRef.current = false;
+      supabase.removeChannel(channel);
+    };
+  }, [user, upsertConversationInState, sortConversations, getConversationContactKey, setConversations, setArchivedConversations, selectedConvIdRef, realtimeConnectedRef, isOwnDevice]);
 
   // Real-time — messages table
   useEffect(() => {
