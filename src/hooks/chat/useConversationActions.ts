@@ -179,16 +179,19 @@ export function useConversationActions({
       }).then((r) => r.json()),
     ]);
 
-    // Persist last_message on conversations table so the chat list reflects the
-    // outbound message even after refresh / on other devices. The webhook ignores
-    // "wasSentByApi" events, so without this UPDATE the row would never bump.
-    supabase.from("conversations").update({
-      last_message: content.substring(0, 500),
-      last_message_at: now,
-      updated_at: now,
-    } as any).eq("id", conversationId).then(() => {});
-
     const dbMsg = dbResult.status === "fulfilled" && !dbResult.value.error ? dbResult.value.data : null;
+
+    // Persist last_message on conversations table so the chat list reflects the
+    // outbound message even after refresh / on other devices. Done AFTER message
+    // insert (single write, deterministic) and only if message actually persisted.
+    if (dbMsg) {
+      supabase.from("conversations").update({
+        last_message: content.substring(0, 500),
+        last_message_at: now,
+        updated_at: now,
+        unread_count: 0,
+      } as any).eq("id", conversationId).then(() => {});
+    }
     if (dbMsg) {
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: dbMsg.id } : m));
     }
