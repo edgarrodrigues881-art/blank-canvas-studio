@@ -755,20 +755,13 @@ Deno.serve(async (req) => {
       if (!needsReset) {
         return { valid: true, status: "disconnected", rawStatus: "disconnected" };
       }
-      // Single pass: logout + disconnect in parallel, then one quick check
+      // Fire-and-forget logout + disconnect — no need to wait for provider response
+      // The /instance/connect call below will handle any residual session
       await Promise.all([
-        uazapi(instanceUrl, "/instance/logout", instanceToken, "POST", undefined, { timeoutMs: 4000, retries: 0 }),
-        uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 4000, retries: 0 }),
+        uazapi(instanceUrl, "/instance/logout", instanceToken, "POST", undefined, { timeoutMs: 2500, retries: 0 }).catch(() => null),
+        uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 2500, retries: 0 }).catch(() => null),
       ]);
-      await sleep(600);
-      const latest = await checkStatus(3000);
-      // Only retry if still connected
-      if (isConfirmedConnected(latest)) {
-        await uazapi(instanceUrl, "/instance/logout", instanceToken, "POST", undefined, { timeoutMs: 4000, retries: 0 });
-        await sleep(500);
-        return await checkStatus(3000);
-      }
-      return latest;
+      return { valid: true, status: "disconnected", rawStatus: "disconnected" };
     };
 
     // ════════════════════════════════════════════════════════════════════
@@ -921,7 +914,8 @@ Deno.serve(async (req) => {
 
       while (tokenAttempt < MAX_TOKEN_RETRIES) {
         tokenAttempt++;
-        connectRes = await uazapi(instanceUrl, "/instance/connect", currentToken, "POST", {}, { timeoutMs: 10000, retries: 1 });
+        // Faster connect: 6s timeout, no internal retry — outer loop handles 401, polling handles missing QR
+        connectRes = await uazapi(instanceUrl, "/instance/connect", currentToken, "POST", {}, { timeoutMs: 6000, retries: 0 });
 
         if (connectRes.status !== 401) break; // Success or non-token error — exit loop
 
@@ -1046,12 +1040,13 @@ Deno.serve(async (req) => {
 
       let qr = connState.qrcode || connInst.qrcode || connectRes.data?.qrcode;
 
-      // CRITICAL FIX: Poll for QR with more attempts and longer delays
-      // Uazapi sometimes takes 5-8 seconds to generate QR after connect
+      // CRITICAL FIX: Poll for QR with aggressive early attempts (UAZAPI usually has QR ready in 1-3s)
+      // Schedule: 250ms, 500ms, 800ms, 1500ms, 2000ms, 2000ms = max 7s extra wait
       if (!qr) {
-        for (let attempt = 0; attempt < 4 && !qr; attempt++) {
-          await new Promise(r => setTimeout(r, 500));
-          const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 3000, retries: 0 });
+        const pollDelays = [250, 500, 800, 1500, 2000, 2000];
+        for (let attempt = 0; attempt < pollDelays.length && !qr; attempt++) {
+          await new Promise(r => setTimeout(r, pollDelays[attempt]));
+          const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 2500, retries: 0 });
           const pi = poll.data?.instance || poll.data || {};
           const pollState = normalizeProviderConnectionState(poll.data);
           qr = pollState.qrcode || pi.qrcode || poll.data?.qrcode;
