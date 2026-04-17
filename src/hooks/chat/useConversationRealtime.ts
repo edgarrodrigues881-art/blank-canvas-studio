@@ -6,6 +6,7 @@ interface UseConversationRealtimeParams {
   user: { id: string } | null;
   conversationsRef: React.MutableRefObject<RealConversation[]>;
   selectedConvIdRef: React.MutableRefObject<string | null>;
+  realtimeConnectedRef: React.MutableRefObject<boolean>;
   setConversations: React.Dispatch<React.SetStateAction<RealConversation[]>>;
   setArchivedConversations: React.Dispatch<React.SetStateAction<RealConversation[]>>;
   setMessages: React.Dispatch<React.SetStateAction<RealMessage[]>>;
