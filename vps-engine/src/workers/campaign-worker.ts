@@ -890,6 +890,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
   let pauseAfter = Math.round(randomBetween(pauseEveryMin, pauseEveryMax));
   let heartbeatCounter = 0;
   let sequentialIndex = 0;
+  // Track sends in this worker run — first send must be immediate (no delay)
+  let sendsInThisRun = resumeState.instanceMsgCount > 0 ? 1 : 0;
 
   while (isRunningRef.value) {
     // 1. Check campaign status
