@@ -48,6 +48,9 @@ export function useConversationSync() {
   const selectedConvIdRef = useRef(selectedConvId);
   useEffect(() => { selectedConvIdRef.current = selectedConvId; }, [selectedConvId]);
 
+  // Tracks realtime connection health — flipped by useConversationRealtime
+  const realtimeConnectedRef = useRef(false);
+
   // Cache device_id → name so realtime rows (without join) get a name
   const deviceNameCache = useRef<Map<string, string>>(new Map());
 
