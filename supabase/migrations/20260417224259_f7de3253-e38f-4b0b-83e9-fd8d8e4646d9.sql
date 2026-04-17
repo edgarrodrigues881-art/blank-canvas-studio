@@ -1,0 +1,1 @@
+UPDATE public.devices SET status='Disconnected', updated_at=now() WHERE id='c6e1fb5a-2a82-48fa-93cb-5de24855e871';
