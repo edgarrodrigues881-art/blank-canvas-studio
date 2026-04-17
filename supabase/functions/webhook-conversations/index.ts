@@ -210,13 +210,17 @@ Deno.serve(async (req) => {
     console.log(`Device matched: ${device.name} (${device.id})`);
 
     // ── Handle message events ──
-    // Skip only messages sent by our own API (not phone-sent messages)
-    if (isApiSentMessage(body)) {
-      console.log("Skipping wasSentByApi");
-      return json({ ok: true, skipped: "sent_by_api" });
+    // Note: messages sent via our API (campaigns, chat, etc.) MUST be persisted
+    // as direction='sent' so they appear in the CRM conversation thread.
+    // The downstream `fromMe` branch handles them correctly (autosave/warmup
+    // detection runs there too). Previously we early-returned on wasSentByApi
+    // which caused outgoing campaign/chat messages to never show up in the CRM.
+    const sentByApi = isApiSentMessage(body);
+    if (sentByApi) {
+      console.log("Persisting wasSentByApi message as outgoing");
     }
 
-    // Also skip status/receipt updates that aren't actual messages
+    // Skip status/receipt updates that aren't actual messages
     const eventType = (body.event || body.EventType || body.type || "").toString().toLowerCase();
     if (eventType.includes("status") || eventType.includes("ack") || eventType.includes("receipt") || eventType.includes("presence")) {
       return json({ ok: true, skipped: "status_event" });
