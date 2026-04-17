@@ -106,6 +106,7 @@ export function useConversations() {
     markConversationGroupAsRead: actions.markConversationGroupAsRead,
     updateStatus: actions.updateStatus,
     isOwnDevice: sync.isOwnDevice,
+    fetchConversations: sync.fetchConversations,
   });
 
   const selectedConversation = sync.selectedConvId

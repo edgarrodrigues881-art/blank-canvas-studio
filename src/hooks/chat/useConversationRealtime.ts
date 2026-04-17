@@ -1,6 +1,9 @@
-import { useEffect, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useCallback, useRef } from "react";
+import { useConversationListRealtime } from "./useConversationListRealtime";
+import { useMessagesRealtime } from "./useMessagesRealtime";
+import { useTabSync } from "./useTabSync";
 import type { RealConversation, RealMessage } from "./useConversations";
+import type { ConversationRow, TabSyncEvent } from "./realtime-types";
 
 interface UseConversationRealtimeParams {
   user: { id: string } | null;
@@ -10,18 +13,26 @@ interface UseConversationRealtimeParams {
   setConversations: React.Dispatch<React.SetStateAction<RealConversation[]>>;
   setArchivedConversations: React.Dispatch<React.SetStateAction<RealConversation[]>>;
   setMessages: React.Dispatch<React.SetStateAction<RealMessage[]>>;
-  upsertConversationInState: (items: RealConversation[], row: any) => RealConversation[];
+  upsertConversationInState: (items: RealConversation[], row: ConversationRow) => RealConversation[];
   sortConversations: (items: RealConversation[]) => RealConversation[];
   getConversationContactKey: (conv: { phone?: string | null; remote_jid?: string | null }) => string;
   getConversationIdsForSameContact: (convId: string) => string[];
   markConversationGroupAsRead: (convId: string) => Promise<void>;
   updateStatus: (convId: string, newStatus: string) => Promise<void>;
   isOwnDevice: (phone: string | null | undefined) => boolean;
+  fetchConversations: () => Promise<void> | void;
 }
 
 /**
- * useConversationRealtime
- * Manages Supabase real-time subscriptions for conversations and messages.
+ * useConversationRealtime — orchestrator
+ * Composes the three realtime concerns:
+ *  1. Conversation list channel (debounced UPDATEs)
+ *  2. Messages channel (immediate INSERT/UPDATE)
+ *  3. Cross-tab BroadcastChannel sync
+ *
+ * Cross-tab strategy: when another tab tells us the DB state already moved
+ * on, we trigger a single light refetch instead of relying on each tab's
+ * own realtime subscription. This avoids N tabs × N events redundancy.
  */
 export function useConversationRealtime({
   user,
@@ -38,275 +49,46 @@ export function useConversationRealtime({
   markConversationGroupAsRead,
   updateStatus,
   isOwnDevice,
+  fetchConversations,
 }: UseConversationRealtimeParams) {
+  // Coalesce cross-tab notifications into a single refetch per ~250ms
+  const tabRefetchTimerRef = useRef<number | null>(null);
 
-  // ─── Debounce buffer for conversation UPDATE events ───
-  // Coalesces rapid bursts (e.g. webhook updating last_message + unread + status)
-  // into a single state apply per ~150ms.
-  const pendingConvUpdatesRef = useRef<Map<string, any>>(new Map());
-  const debounceTimerRef = useRef<number | null>(null);
-  const DEBOUNCE_MS = 150;
+  const handleTabEvent = useCallback((event: TabSyncEvent) => {
+    if (event.type !== "conv-updated" && event.type !== "msg-inserted") return;
+    if (tabRefetchTimerRef.current !== null) return;
+    tabRefetchTimerRef.current = window.setTimeout(() => {
+      tabRefetchTimerRef.current = null;
+      void fetchConversations();
+    }, 250);
+  }, [fetchConversations]);
 
-  // Real-time — conversations table
-  useEffect(() => {
-    if (!user) return;
+  const { notifyTabs } = useTabSync(user?.id ?? null, handleTabEvent);
 
-    const isInternalConversation = (row: any) =>
-      isOwnDevice(row.phone) || isOwnDevice(row.remote_jid?.split("@")[0]);
+  useConversationListRealtime({
+    user,
+    selectedConvIdRef,
+    realtimeConnectedRef,
+    setConversations,
+    setArchivedConversations,
+    upsertConversationInState,
+    sortConversations,
+    getConversationContactKey,
+    isOwnDevice,
+    notifyTabs,
+  });
 
-    const moveRowToArchived = (row: any) => {
-      if (row.status !== "archived") {
-        supabase.from("conversations").update({ status: "archived" } as any).eq("id", row.id).then(() => {});
-      }
-      setConversations((prev) => prev.filter((c) => c.id !== row.id));
-      setArchivedConversations((prev) => upsertConversationInState(prev.filter((c) => c.id !== row.id), { ...row, status: "archived" }));
-    };
-
-    const channel = supabase
-      .channel(`conv-list-rt-${Date.now()}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          const row = payload.new as any;
-          if (isInternalConversation(row) || row.status === "archived") {
-            moveRowToArchived(row);
-            return;
-          }
-          setArchivedConversations((prev) => prev.filter((c) => c.id !== row.id));
-          setConversations((prev) => upsertConversationInState(prev.filter((c) => c.id !== row.id), row));
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "conversations", filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          const row = payload.new as any;
-          if (isInternalConversation(row) || row.status === "archived") {
-            moveRowToArchived(row);
-            return;
-          }
-
-          // Coalesce rapid bursts: keep the latest payload per conversation id
-          pendingConvUpdatesRef.current.set(row.id, row);
-
-          if (debounceTimerRef.current !== null) return;
-          debounceTimerRef.current = window.setTimeout(() => {
-            debounceTimerRef.current = null;
-            const updates = Array.from(pendingConvUpdatesRef.current.values());
-            pendingConvUpdatesRef.current.clear();
-            if (updates.length === 0) return;
-
-            const updateById = new Map(updates.map((u) => [u.id, u]));
-
-            setArchivedConversations((prev) => prev.filter((c) => !updateById.has(c.id)));
-            setConversations((prev) => {
-              const selectedId = selectedConvIdRef.current;
-              const selectedConversation = prev.find((c) => c.id === selectedId);
-              const selectedKey = selectedConversation ? getConversationContactKey(selectedConversation) : "";
-
-              const existingIds = new Set(prev.map((c) => c.id));
-              let next = prev.map((c) => {
-                const row = updateById.get(c.id);
-                if (!row) return c;
-
-                const isSelectedConversation = c.id === selectedId;
-                const rowKey = getConversationContactKey(row);
-                const shouldKeepRead = Boolean(selectedKey && rowKey && selectedKey === rowKey);
-                const sentRecently =
-                  c.last_message_direction === "sent" &&
-                  Date.now() - new Date(c.last_message_at || 0).getTime() < 2 * 60 * 1000;
-                const preserveUnreadFromOwnSend = sentRecently && (row.unread_count ?? 0) > (c.unread_count ?? 0);
-                const keepUnreadZero = isSelectedConversation || shouldKeepRead || preserveUnreadFromOwnSend;
-
-                return {
-                  ...c,
-                  last_message: row.last_message ?? c.last_message,
-                  last_message_at: row.last_message_at ?? c.last_message_at,
-                  unread_count: keepUnreadZero ? 0 : (row.unread_count ?? c.unread_count),
-                  name: row.name ?? c.name,
-                  avatar_url: row.avatar_url ?? c.avatar_url,
-                  attending_status: row.attending_status ?? c.attending_status,
-                  tags: row.tags ?? c.tags,
-                  category: row.category ?? c.category,
-                  notes: row.notes ?? c.notes,
-                  updated_at: row.updated_at ?? c.updated_at,
-                  last_message_direction: row.last_message_direction ?? c.last_message_direction,
-                  last_message_status: row.last_message_status ?? c.last_message_status,
-                  status: row.status ?? c.status,
-                };
-              });
-
-              // Insert any rows that weren't already in state (rare for UPDATE but defensive)
-              for (const row of updates) {
-                if (existingIds.has(row.id)) continue;
-                const isSelectedConversation = row.id === selectedId;
-                const rowKey = getConversationContactKey(row);
-                const shouldKeepRead = Boolean(selectedKey && rowKey && selectedKey === rowKey);
-                next = upsertConversationInState(next, {
-                  ...row,
-                  unread_count: isSelectedConversation || shouldKeepRead ? 0 : row.unread_count,
-                });
-              }
-
-              // Only re-sort if any last_message_at actually changed
-              const needsSort = updates.some((u) => u.last_message_at);
-              return needsSort ? sortConversations(next) : next;
-            });
-          }, DEBOUNCE_MS);
-        }
-      )
-      .subscribe((status) => {
-        realtimeConnectedRef.current = status === "SUBSCRIBED";
-      });
-
-    return () => {
-      if (debounceTimerRef.current !== null) {
-        window.clearTimeout(debounceTimerRef.current);
-        debounceTimerRef.current = null;
-      }
-      pendingConvUpdatesRef.current.clear();
-      realtimeConnectedRef.current = false;
-      supabase.removeChannel(channel);
-    };
-  }, [user, upsertConversationInState, sortConversations, getConversationContactKey, setConversations, setArchivedConversations, selectedConvIdRef, realtimeConnectedRef, isOwnDevice]);
-
-  // Real-time — messages table
-  useEffect(() => {
-    if (!user) return;
-
-    const notifAudio = new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoGAACAgICAgICAgICAgICBgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/v/+/v38+/r5+Pf29fTz8vHw7+7t7Ovq6ejn5uXk4+Lh4N/e3dzb2tnY19bV1NPS0dDPzs3My8rJyMfGxcTDwsHAv769vLu6ubm4t7a1tLOysbCvrq2sq6qpqKempaSjoqGgn56dnJuamZiXlpWUk5KRkI+OjYyLiomIh4aFhIOCgYCAgA==");
-    notifAudio.volume = 0.3;
-
-    const channel = supabase
-      .channel(`conv-msgs-rt-${Date.now()}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "conversation_messages", filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          const newMsg = payload.new as RealMessage & { origin?: string };
-          const selectedId = selectedConvIdRef.current;
-          const isOpenConversation = Boolean(
-            selectedId && (
-              newMsg.conversation_id === selectedId ||
-              getConversationIdsForSameContact(selectedId).includes(newMsg.conversation_id)
-            )
-          );
-
-          setConversations((prev) => {
-            const target = prev.find((c) => c.id === newMsg.conversation_id);
-            if (!target) {
-              // Conversation not yet in local state (likely brand-new chat
-              // created by the webhook for an outbound message sent from the
-              // user's phone). Fetch it so it appears in the CRM list.
-              supabase
-                .from("conversations")
-                .select("*, devices!conversations_device_id_fkey(name)")
-                .eq("id", newMsg.conversation_id)
-                .maybeSingle()
-                .then(({ data }) => {
-                  if (data) {
-                    setConversations((cur) =>
-                      sortConversations(upsertConversationInState(cur, data))
-                    );
-                  }
-                });
-              return prev;
-            }
-
-            const nextUnreadCount = newMsg.direction === "received"
-              ? (isOpenConversation ? 0 : (target.unread_count ?? 0) + 1)
-              : 0;
-
-            return sortConversations(
-              prev.map((c) =>
-                c.id === newMsg.conversation_id
-                  ? {
-                      ...c,
-                      last_message: newMsg.content ?? c.last_message,
-                      last_message_at: newMsg.created_at ?? c.last_message_at,
-                      unread_count: nextUnreadCount,
-                      last_message_direction: newMsg.direction,
-                      last_message_status: newMsg.status ?? c.last_message_status,
-                    }
-                  : c
-              )
-            );
-          });
-
-          if (isOpenConversation) {
-            const deviceName = conversationsRef.current.find((c) => c.id === newMsg.conversation_id)?.deviceName;
-            const enrichedMsg = { ...newMsg, deviceName };
-
-            setMessages((prev) => {
-              if (prev.some((m) => m.id === enrichedMsg.id)) return prev;
-              if (enrichedMsg.direction === "sent") {
-                const newTime = new Date(enrichedMsg.created_at).getTime();
-                const isDuplicate = prev.some((m) =>
-                  m.direction === "sent" &&
-                  m.content === enrichedMsg.content &&
-                  m.conversation_id === enrichedMsg.conversation_id &&
-                  Math.abs(new Date(m.created_at).getTime() - newTime) < 30000
-                );
-                if (isDuplicate) {
-                  return prev.map((m) =>
-                    m.direction === "sent" &&
-                    m.content === enrichedMsg.content &&
-                    m.conversation_id === enrichedMsg.conversation_id &&
-                    Math.abs(new Date(m.created_at).getTime() - newTime) < 30000
-                      ? { ...m, id: enrichedMsg.id, status: enrichedMsg.status || m.status }
-                      : m
-                  );
-                }
-              }
-              return [...prev, enrichedMsg];
-            });
-          }
-
-          if (newMsg.direction === "received") {
-            if (!isOpenConversation) {
-              notifAudio.currentTime = 0;
-              notifAudio.play().catch(() => {});
-
-              if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-                const conv = conversationsRef.current.find((c) => c.id === newMsg.conversation_id);
-                const title = conv?.name || "Nova mensagem";
-                const body = newMsg.content?.substring(0, 100) || "📩 Nova mensagem recebida";
-                try {
-                  new Notification(title, {
-                    body,
-                    icon: conv?.avatar_url || "/placeholder.svg",
-                    tag: `msg-${newMsg.conversation_id}`,
-                    silent: true,
-                  });
-                } catch {}
-              }
-            } else {
-              void markConversationGroupAsRead(newMsg.conversation_id);
-            }
-
-            const conv = conversationsRef.current.find((c) => c.id === newMsg.conversation_id);
-            if (conv && (conv.attending_status === "nova" || conv.attending_status === "aguardando")) {
-              updateStatus(newMsg.conversation_id, "em_atendimento");
-            }
-          }
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "conversation_messages", filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          const updated = payload.new as RealMessage;
-          const selectedId = selectedConvIdRef.current;
-          if (selectedId && (updated.conversation_id === selectedId || getConversationIdsForSameContact(selectedId).includes(updated.conversation_id))) {
-            setMessages((prev) =>
-              prev.map((m) => (m.id === updated.id ? { ...m, ...updated, direction: updated.direction as "sent" | "received" } : m))
-            );
-          }
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [user, updateStatus, getConversationIdsForSameContact, markConversationGroupAsRead, conversationsRef, selectedConvIdRef, setMessages, setConversations, sortConversations]);
+  useMessagesRealtime({
+    user,
+    conversationsRef,
+    selectedConvIdRef,
+    setConversations,
+    setMessages,
+    upsertConversationInState,
+    sortConversations,
+    getConversationIdsForSameContact,
+    markConversationGroupAsRead,
+    updateStatus,
+    notifyTabs,
+  });
 }
