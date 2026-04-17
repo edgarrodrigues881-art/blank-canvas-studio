@@ -890,6 +890,8 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
   let pauseAfter = Math.round(randomBetween(pauseEveryMin, pauseEveryMax));
   let heartbeatCounter = 0;
   let sequentialIndex = 0;
+  // Track sends in this worker run — first send must be immediate (no delay)
+  let sendsInThisRun = resumeState.instanceMsgCount > 0 ? 1 : 0;
 
   while (isRunningRef.value) {
     // 1. Check campaign status
@@ -1077,6 +1079,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       await sb.from("campaign_contacts").update({ status: "sent", sent_at: nowIso(), error_message: null, device_id: device.id }).eq("id", contact.id);
       instanceMsgCount++;
       msgsSincePause++;
+      sendsInThisRun++;
     } else {
       const translated = translateErrorMessage(sendError);
       await sb.from("campaign_contacts").update({ status: "failed", error_message: translated, device_id: device.id }).eq("id", contact.id);
@@ -1132,6 +1135,11 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     }
 
     // 13. Normal delay (random within configured range) — split into chunks to detect pause faster
+    // First send of a fresh campaign run goes out immediately; delay only applies between sends.
+    if (sendsInThisRun <= 1) {
+      log.info(`Campaign ${campaignId.slice(0, 8)}: first send of run — skipping pre-delay`);
+      continue;
+    }
     const delayMs = Math.round(randomBetween(minDelayMs, maxDelayMs));
     log.info(`Campaign ${campaignId.slice(0, 8)}: delay ${(delayMs / 1000).toFixed(1)}s (range ${(minDelayMs / 1000).toFixed(0)}-${(maxDelayMs / 1000).toFixed(0)}s)`);
     // Sleep in 3s chunks, checking for pause/cancel between chunks
