@@ -154,7 +154,24 @@ export function useConversationRealtime({
 
           setConversations((prev) => {
             const target = prev.find((c) => c.id === newMsg.conversation_id);
-            if (!target) return prev;
+            if (!target) {
+              // Conversation not yet in local state (likely brand-new chat
+              // created by the webhook for an outbound message sent from the
+              // user's phone). Fetch it so it appears in the CRM list.
+              supabase
+                .from("conversations")
+                .select("*, devices!conversations_device_id_fkey(name)")
+                .eq("id", newMsg.conversation_id)
+                .maybeSingle()
+                .then(({ data }) => {
+                  if (data) {
+                    setConversations((cur) =>
+                      sortConversations(upsertConversationInState(cur, data))
+                    );
+                  }
+                });
+              return prev;
+            }
 
             const nextUnreadCount = newMsg.direction === "received"
               ? (isOpenConversation ? 0 : (target.unread_count ?? 0) + 1)
