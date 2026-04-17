@@ -27,6 +27,7 @@ export function useConversationRealtime({
   user,
   conversationsRef,
   selectedConvIdRef,
+  realtimeConnectedRef,
   setConversations,
   setArchivedConversations,
   setMessages,
@@ -38,6 +39,13 @@ export function useConversationRealtime({
   updateStatus,
   isOwnDevice,
 }: UseConversationRealtimeParams) {
+
+  // ─── Debounce buffer for conversation UPDATE events ───
+  // Coalesces rapid bursts (e.g. webhook updating last_message + unread + status)
+  // into a single state apply per ~150ms.
+  const pendingConvUpdatesRef = useRef<Map<string, any>>(new Map());
+  const debounceTimerRef = useRef<number | null>(null);
+  const DEBOUNCE_MS = 150;
 
   // Real-time — conversations table
   useEffect(() => {
