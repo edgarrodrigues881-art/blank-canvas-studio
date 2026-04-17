@@ -378,16 +378,8 @@ export function AppSidebar() {
               {collapsed && <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />}
               <SidebarGroupContent>
                 <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-                  {(() => {
-                    const isUnlocked = user?.email === "edgarrodrigues881@gmail.com";
-                    const lk = !isUnlocked;
-                    return (
-                      <>
-                        {renderNavItem({ title: "Assistente", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: lk })}
-                        {renderNavItem({ title: "Relatórios", url: "/dashboard/crm-reports", icon: BarChart3, locked: lk })}
-                      </>
-                    );
-                  })()}
+                  {renderNavItem({ title: "Assistente", url: "/dashboard/ai-settings", icon: BotMessageSquare })}
+                  {renderNavItem({ title: "Relatórios", url: "/dashboard/crm-reports", icon: BarChart3 })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
