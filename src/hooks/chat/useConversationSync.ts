@@ -361,19 +361,23 @@ export function useConversationSync() {
     }
   }, [user, fetchConversations, projectId]);
 
-  // ─── Light polling fallback ───
+  // ─── Conditional polling fallback (only when realtime is disconnected) ───
   useEffect(() => {
     if (!user) return;
     let isActive = true;
 
     const interval = window.setInterval(() => {
-      if (isActive && document.visibilityState === "visible") {
-        fetchConversations();
-      }
-    }, 30000);
+      if (!isActive) return;
+      if (document.visibilityState !== "visible") return;
+      // Only poll when realtime is NOT connected — realtime handles updates otherwise
+      if (realtimeConnectedRef.current) return;
+      fetchConversations();
+    }, 120000); // 2 minutes
 
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") fetchConversations();
+      if (document.visibilityState === "visible" && !realtimeConnectedRef.current) {
+        fetchConversations();
+      }
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
