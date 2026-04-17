@@ -898,8 +898,26 @@ Deno.serve(async (req) => {
       let connectRes: any = null;
 
       const preCheck = await checkStatus(3000);
-      const needsReset = isConfirmedConnected(preCheck) || !!preCheck.qrcode || body.forceReconnect;
-      console.log(`[evolution-connect] qr-pre: status="${preCheck.rawStatus || preCheck.status}" needsReset=${needsReset} forceReconnect=${!!body.forceReconnect}`);
+      // Recoverable disconnect reasons that need a clean session reset before generating a fresh QR/code.
+      // Without this, the provider keeps a stale session and the new QR expires immediately ("QR Code timeout" loop).
+      const lastDisconnectReason = String(
+        preCheck.rawData?.instance?.lastDisconnectReason
+        || preCheck.rawData?.lastDisconnectReason
+        || ""
+      ).toLowerCase();
+      const recoverableDisconnect = lastDisconnectReason.includes("qr code timeout")
+        || lastDisconnectReason.includes("timeout")
+        || lastDisconnectReason.includes("connection closed")
+        || lastDisconnectReason.includes("stream errored")
+        || lastDisconnectReason.includes("logged out");
+      // If the device was previously stuck in loading/pairing in our DB, the user is retrying — force a clean reset.
+      const wasStuckConnecting = deviceStatus === "loading" || deviceStatus === "pairing";
+      const needsReset = isConfirmedConnected(preCheck)
+        || !!preCheck.qrcode
+        || body.forceReconnect
+        || recoverableDisconnect
+        || wasStuckConnecting;
+      console.log(`[evolution-connect] qr-pre: status="${preCheck.rawStatus || preCheck.status}" needsReset=${needsReset} forceReconnect=${!!body.forceReconnect} lastDisconnectReason="${lastDisconnectReason}" wasStuckConnecting=${wasStuckConnecting}`);
       
       if (needsReset) {
         const clearedState = await clearProviderSessionForQr(true);
