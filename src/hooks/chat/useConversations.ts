@@ -95,6 +95,7 @@ export function useConversations() {
     user: sync.user,
     conversationsRef: sync.conversationsRef,
     selectedConvIdRef: sync.selectedConvIdRef,
+    realtimeConnectedRef: sync.realtimeConnectedRef,
     setConversations: sync.setConversations,
     setArchivedConversations: sync.setArchivedConversations,
     setMessages: sync.setMessages,
