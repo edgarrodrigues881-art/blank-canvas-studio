@@ -329,15 +329,8 @@ Deno.serve(async (req) => {
       return json({ error: "Failed to upsert conversation" }, 500);
     }
 
-    if (!fromMe) {
-      const { data: cur } = await admin.from("conversations").select("unread_count").eq("id", conversationId).single();
-      await admin.from("conversations").update({ unread_count: (cur?.unread_count || 0) + 1 }).eq("id", conversationId);
-    } else {
-      // User replied from phone — clear unread since they've seen the chat
-      await admin.from("conversations").update({ unread_count: 0 }).eq("id", conversationId);
-    }
-
-    // Check for duplicate before inserting
+    // ── Idempotency check FIRST (before any counter mutation) ──
+    // Prevents duplicate webhooks from inflating unread_count or last_message.
     if (waId) {
       const { data: existing } = await admin.from("conversation_messages")
         .select("id").eq("whatsapp_message_id", waId).maybeSingle();
@@ -345,6 +338,15 @@ Deno.serve(async (req) => {
         console.log(`Duplicate message skipped: ${waId}`);
         return json({ ok: true, skipped: "duplicate" });
       }
+    }
+
+    if (!fromMe) {
+      // Atomic increment to avoid race conditions when multiple messages arrive concurrently
+      const { error: incErr } = await admin.rpc("increment_unread", { p_conv_id: conversationId });
+      if (incErr) console.error("increment_unread error:", incErr);
+    } else {
+      // User replied from phone — clear unread since they've seen the chat
+      await admin.from("conversations").update({ unread_count: 0 }).eq("id", conversationId);
     }
 
     // Persist incoming media to Supabase Storage (decrypt if needed)

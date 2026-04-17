@@ -6405,6 +6405,7 @@ export type Database = {
         Args: { _campaign_id: string }
         Returns: undefined
       }
+      increment_unread: { Args: { p_conv_id: string }; Returns: undefined }
       increment_warmup_budget: {
         Args: {
           p_cycle_id: string
