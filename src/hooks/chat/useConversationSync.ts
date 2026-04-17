@@ -404,6 +404,7 @@ export function useConversationSync() {
     // Refs
     conversationsRef,
     selectedConvIdRef,
+    realtimeConnectedRef,
     projectId,
     // Helpers
     mapConversationRow,
