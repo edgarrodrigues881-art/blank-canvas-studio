@@ -507,7 +507,7 @@ export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onIm
       return (
         <div>
           <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} allMessages={allMessages} />
-          <video src={msg.mediaUrl} controls className="rounded-xl max-w-full max-h-[320px] cursor-pointer shadow-md" />
+          <VideoPlayer src={msg.mediaUrl} />
           {msg.content && !isMediaPlaceholder(msg.content) && (
             <FormattedText text={msg.content} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5" />
           )}
