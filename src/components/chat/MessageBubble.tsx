@@ -209,22 +209,34 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
 
   return (
     <div className="flex items-center gap-2 min-w-[220px] max-w-[320px]">
-      <audio ref={onRef} src={src} preload="auto" />
+      <audio
+        ref={onRef}
+        src={src}
+        preload="metadata"
+        playsInline
+        // @ts-ignore - webkit attribute for iOS inline playback
+        webkit-playsinline="true"
+        crossOrigin="anonymous"
+      />
 
       {/* Avatar / Play button */}
       <button
         onClick={toggle}
+        type="button"
+        aria-label={playing ? "Pausar áudio" : "Reproduzir áudio"}
         className={cn(
-          "w-11 h-11 rounded-full flex items-center justify-center shrink-0 relative overflow-hidden transition-all",
+          "w-11 h-11 rounded-full flex items-center justify-center shrink-0 relative overflow-hidden transition-all touch-manipulation",
           isSent
             ? "bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground"
             : "bg-primary/15 hover:bg-primary/25 text-primary"
         )}
       >
-        <Mic className={cn("w-5 h-5 absolute opacity-30", playing && "hidden")} />
-        {playing
-          ? <Pause className="w-4 h-4 relative z-10" />
-          : <Play className="w-4 h-4 ml-0.5 relative z-10" />
+        <Mic className={cn("w-5 h-5 absolute opacity-30", (playing || loading) && "hidden")} />
+        {loading
+          ? <Loader2 className="w-4 h-4 relative z-10 animate-spin" />
+          : playing
+            ? <Pause className="w-4 h-4 relative z-10" />
+            : <Play className="w-4 h-4 ml-0.5 relative z-10" />
         }
       </button>
 
