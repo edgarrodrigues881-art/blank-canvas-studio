@@ -279,6 +279,51 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
   );
 }
 
+/* ─── Video Player (mobile-friendly) ─── */
+
+function VideoPlayer({ src }: { src: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const instanceId = useRef(Math.random().toString(36).slice(2));
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const onOtherPlay = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.id !== instanceId.current && videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+      }
+    };
+    window.addEventListener(AUDIO_PLAY_EVENT, onOtherPlay);
+    return () => window.removeEventListener(AUDIO_PLAY_EVENT, onOtherPlay);
+  }, []);
+
+  const handlePlay = useCallback(() => {
+    window.dispatchEvent(new CustomEvent(AUDIO_PLAY_EVENT, { detail: { id: instanceId.current } }));
+    setError(false);
+  }, []);
+
+  const handleError = useCallback(() => setError(true), []);
+
+  return (
+    <div className="relative">
+      <video
+        ref={videoRef}
+        src={src}
+        controls
+        playsInline
+        {...({ "webkit-playsinline": "true" } as Record<string, string>)}
+        preload="metadata"
+        onPlay={handlePlay}
+        onError={handleError}
+        className="rounded-xl max-w-full max-h-[320px] cursor-pointer shadow-md touch-manipulation"
+      />
+      {error && (
+        <div className="text-[11px] text-destructive mt-1">Não foi possível reproduzir o vídeo</div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Sub-components ─── */
 
 function StatusIcon({ status }: { status?: string }) {
@@ -507,7 +552,7 @@ export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onIm
       return (
         <div>
           <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} allMessages={allMessages} />
-          <video src={msg.mediaUrl} controls className="rounded-xl max-w-full max-h-[320px] cursor-pointer shadow-md" />
+          <VideoPlayer src={msg.mediaUrl} />
           {msg.content && !isMediaPlaceholder(msg.content) && (
             <FormattedText text={msg.content} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5" />
           )}
