@@ -911,7 +911,8 @@ Deno.serve(async (req) => {
         || lastDisconnectReason.includes("stream errored")
         || lastDisconnectReason.includes("logged out");
       // If the device was previously stuck in loading/pairing in our DB, the user is retrying — force a clean reset.
-      const wasStuckConnecting = deviceStatus === "loading" || deviceStatus === "pairing";
+      const currentDeviceStatus = String(device?.status || "").toLowerCase().trim();
+      const wasStuckConnecting = currentDeviceStatus === "loading" || currentDeviceStatus === "pairing";
       const needsReset = isConfirmedConnected(preCheck)
         || !!preCheck.qrcode
         || body.forceReconnect
