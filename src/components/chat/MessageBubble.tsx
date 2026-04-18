@@ -104,10 +104,16 @@ function generateWaveformBars(count: number, seed: string): number[] {
 
 /* ─── Audio Player (WhatsApp-style) ─── */
 
+// Global event so only one audio plays at a time across the chat
+const AUDIO_PLAY_EVENT = "chat-audio-play";
+
 function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number; isSent: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const rafRef = useRef<number>(0);
+  const instanceId = useRef<string>(Math.random().toString(36).slice(2));
   const [playing, setPlaying] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [totalDuration, setTotalDuration] = useState(duration || 0);
@@ -127,16 +133,59 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
     }
   }, []);
 
-  const toggle = () => {
+  // Pause this player when another audio starts playing
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail !== instanceId.current && audioRef.current && !audioRef.current.paused) {
+        audioRef.current.pause();
+      }
+    };
+    window.addEventListener(AUDIO_PLAY_EVENT, handler);
+    return () => window.removeEventListener(AUDIO_PLAY_EVENT, handler);
+  }, []);
+
+  const toggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     const audio = audioRef.current;
-    if (!audio) return;
-    if (playing) audio.pause(); else audio.play();
-    setPlaying(!playing);
+    if (!audio || loading) return;
+
+    if (!audio.paused) {
+      audio.pause();
+      setPlaying(false);
+      return;
+    }
+
+    // Notify other players to stop BEFORE calling play (synchronous)
+    window.dispatchEvent(new CustomEvent(AUDIO_PLAY_EVENT, { detail: instanceId.current }));
+
+    setError(null);
+    setLoading(true);
+
+    // Call .play() synchronously inside the user gesture (critical for mobile)
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.then === "function") {
+      playPromise
+        .then(() => {
+          setPlaying(true);
+          setLoading(false);
+        })
+        .catch((err) => {
+          console.error("[AudioPlayer] play failed:", err);
+          setError("Não foi possível reproduzir o áudio");
+          setPlaying(false);
+          setLoading(false);
+        });
+    } else {
+      setPlaying(true);
+      setLoading(false);
+    }
   };
 
   const seek = (e: React.MouseEvent<HTMLDivElement>) => {
     const audio = audioRef.current;
-    if (!audio || !audio.duration) return;
+    if (!audio || !audio.duration || !isFinite(audio.duration)) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     audio.currentTime = ratio * audio.duration;
@@ -147,10 +196,13 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
   const onRef = useCallback((el: HTMLAudioElement | null) => {
     (audioRef as React.MutableRefObject<HTMLAudioElement | null>).current = el;
     if (!el) return;
-    el.onplay = () => { rafRef.current = requestAnimationFrame(updateProgress); };
-    el.onpause = () => { cancelAnimationFrame(rafRef.current); };
+    el.onplay = () => { setPlaying(true); setLoading(false); rafRef.current = requestAnimationFrame(updateProgress); };
+    el.onpause = () => { setPlaying(false); cancelAnimationFrame(rafRef.current); };
     el.onended = () => { cancelAnimationFrame(rafRef.current); setPlaying(false); setProgress(0); setCurrentTime(0); };
     el.onloadedmetadata = () => { if (el.duration && isFinite(el.duration)) setTotalDuration(el.duration); };
+    el.onwaiting = () => setLoading(true);
+    el.oncanplay = () => setLoading(false);
+    el.onerror = () => { setLoading(false); setPlaying(false); setError("Erro ao carregar áudio"); };
   }, [updateProgress]);
 
   const playedBars = Math.floor((progress / 100) * waveformBars.length);
