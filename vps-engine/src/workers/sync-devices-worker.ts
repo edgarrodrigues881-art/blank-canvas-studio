@@ -127,25 +127,47 @@ export async function syncDevicesTick() {
         const wasDisconnected = previousStatus === "disconnected";
 
         if (state.state === "disconnected" && wasReady) {
-          // Double-check
-          try {
-            const confirmRes = await fetchWithTimeout(`${baseUrl}/instance/status?t=${Date.now()}`, {
-              method: "GET",
-              headers: { token: device.uazapi_token, Accept: "application/json", "Cache-Control": "no-cache" },
-            }, 3500);
-            if (confirmRes.ok) {
+          // Triple-check tolerante: 2 confirmações espaçadas (5s + 10s)
+          // para evitar falsos alarmes em blips curtos do provedor (502, timeouts).
+          // Se QUALQUER confirmação retornar não-disconnected (incluindo erro de rede),
+          // o evento é descartado.
+          let confirmedDisconnects = 0;
+          const checkDelays = [5000, 10000]; // total ~15s de janela de tolerância
+
+          for (const delayMs of checkDelays) {
+            await new Promise(r => setTimeout(r, delayMs));
+            try {
+              const confirmRes = await fetchWithTimeout(`${baseUrl}/instance/status?t=${Date.now()}`, {
+                method: "GET",
+                headers: { token: device.uazapi_token, Accept: "application/json", "Cache-Control": "no-cache" },
+              }, 5000);
+              if (!confirmRes.ok) {
+                // 502/5xx do provedor = blip, NÃO conta como desconexão
+                log.info(`[tolerant] "${device.name}" check ${delayMs}ms returned ${confirmRes.status} — treating as transient, abort`);
+                return;
+              }
               const confirmData = await confirmRes.json();
               const confirmState = normalizeProviderState(confirmData);
-              if (confirmState.state !== "disconnected") return;
+              if (confirmState.state !== "disconnected") {
+                log.info(`[tolerant] "${device.name}" recovered after ${delayMs}ms (state=${confirmState.state}) — abort`);
+                return;
+              }
+              confirmedDisconnects++;
+            } catch (e: any) {
+              // Erro de rede = blip do provedor, NÃO marca como desconectado
+              log.info(`[tolerant] "${device.name}" check error ${delayMs}ms (${e?.message || "unknown"}) — treating as transient, abort`);
+              return;
             }
-          } catch { return; }
+          }
 
-          // Strike system: instant — single confirmed double-check
+          if (confirmedDisconnects < checkDelays.length) return;
+
+          // 3 leituras "disconnected" consecutivas em ~15s — desconexão real
           await db.from("operation_logs").insert({
             user_id: device.user_id,
             device_id: device.id,
             event: "cron_disconnect_strike",
-            details: `[vps] Desconexão confirmada "${device.name}" (double-check passed)`,
+            details: `[vps] Desconexão confirmada "${device.name}" (3 checks em 15s)`,
           });
 
           {
