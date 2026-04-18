@@ -269,6 +269,11 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
             </span>
           )}
         </div>
+        {error && (
+          <div className={cn("text-[10px] mt-0.5", isSent ? "text-primary-foreground/80" : "text-destructive")}>
+            {error}
+          </div>
+        )}
       </div>
     </div>
   );
