@@ -311,8 +311,7 @@ function VideoPlayer({ src }: { src: string }) {
         src={src}
         controls
         playsInline
-        // @ts-expect-error iOS legacy attribute
-        webkit-playsinline="true"
+        {...({ "webkit-playsinline": "true" } as Record<string, string>)}
         preload="metadata"
         onPlay={handlePlay}
         onError={handleError}
