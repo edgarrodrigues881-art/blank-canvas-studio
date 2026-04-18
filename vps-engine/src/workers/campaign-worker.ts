@@ -1111,22 +1111,29 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       log.info(`Campaign ${campaignId.slice(0, 8)}: rotated ${prevName} → ${nextName} (after ${messagesPerInstance} msgs)`);
     }
 
-    // 12. Block pause — sleep in chunks to detect pause/cancel faster
+    // 12. Block pause — sleep in chunks to detect pause/cancel/device-change faster
     if (msgsSincePause >= pauseAfter) {
       const pauseMs = randomBetween(pauseDurMinMs, pauseDurMaxMs);
-      log.info(`Campaign ${campaignId.slice(0, 8)}: block pause ${Math.round(pauseMs / 1000)}s`);
+      const pauseStartedAt = Date.now();
+      log.info(`Campaign ${campaignId.slice(0, 8)}: block pause ${Math.round(pauseMs / 1000)}s [t=${pauseStartedAt}]`);
       msgsSincePause = 0;
       pauseAfter = Math.round(randomBetween(pauseEveryMin, pauseEveryMax));
       let remainingPause = pauseMs;
       let pauseAborted = false;
+      const initialDeviceIds = allDevices.map((d: any) => d.id).sort().join(",");
       while (remainingPause > 0 && isRunningRef.value) {
-        const chunk = Math.min(remainingPause, 3000);
+        const chunk = Math.min(remainingPause, 1500);
         await sleep(chunk);
         remainingPause -= chunk;
-        const { data: pauseCheck } = await sb.from("campaigns").select("status").eq("id", campaignId).single();
+        const { data: pauseCheck } = await sb.from("campaigns").select("status, device_id, device_ids").eq("id", campaignId).single();
         if (!pauseCheck || !["running"].includes(pauseCheck.status)) {
-          log.info(`Campaign ${campaignId.slice(0, 8)}: detected ${pauseCheck?.status} during block pause — stopping`);
+          log.info(`Campaign ${campaignId.slice(0, 8)}: detected ${pauseCheck?.status} during block pause — stopping [elapsed=${Date.now() - pauseStartedAt}ms]`);
           pauseAborted = true;
+          break;
+        }
+        const newIds = getCampaignDeviceIds(pauseCheck).sort().join(",");
+        if (newIds !== initialDeviceIds) {
+          log.info(`Campaign ${campaignId.slice(0, 8)}: device pool changed during block pause — aborting pause [elapsed=${Date.now() - pauseStartedAt}ms]`);
           break;
         }
       }
@@ -1134,25 +1141,30 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       continue;
     }
 
-    // 13. Normal delay (random within configured range) — split into chunks to detect pause faster
-    // First send of a fresh campaign run goes out immediately; delay only applies between sends.
+    // 13. Normal delay (random within configured range) — split into chunks to detect pause/device-change faster
     if (sendsInThisRun <= 1) {
       log.info(`Campaign ${campaignId.slice(0, 8)}: first send of run — skipping pre-delay`);
       continue;
     }
     const delayMs = Math.round(randomBetween(minDelayMs, maxDelayMs));
-    log.info(`Campaign ${campaignId.slice(0, 8)}: delay ${(delayMs / 1000).toFixed(1)}s (range ${(minDelayMs / 1000).toFixed(0)}-${(maxDelayMs / 1000).toFixed(0)}s)`);
-    // Sleep in 3s chunks, checking for pause/cancel between chunks
+    const delayStartedAt = Date.now();
+    log.info(`Campaign ${campaignId.slice(0, 8)}: delay ${(delayMs / 1000).toFixed(1)}s (range ${(minDelayMs / 1000).toFixed(0)}-${(maxDelayMs / 1000).toFixed(0)}s) [t=${delayStartedAt}]`);
     let remainingDelay = delayMs;
+    const initialDeviceIdsDelay = allDevices.map((d: any) => d.id).sort().join(",");
     while (remainingDelay > 0 && isRunningRef.value) {
-      const chunk = Math.min(remainingDelay, 3000);
+      const chunk = Math.min(remainingDelay, 1500);
       await sleep(chunk);
       remainingDelay -= chunk;
       if (remainingDelay > 0) {
-        const { data: midCheck } = await sb.from("campaigns").select("status").eq("id", campaignId).single();
+        const { data: midCheck } = await sb.from("campaigns").select("status, device_id, device_ids").eq("id", campaignId).single();
         if (!midCheck || !["running"].includes(midCheck.status)) {
-          log.info(`Campaign ${campaignId.slice(0, 8)}: detected ${midCheck?.status} during delay — stopping`);
+          log.info(`Campaign ${campaignId.slice(0, 8)}: detected ${midCheck?.status} during delay — stopping [elapsed=${Date.now() - delayStartedAt}ms]`);
           remainingDelay = 0;
+          break;
+        }
+        const newIds = getCampaignDeviceIds(midCheck).sort().join(",");
+        if (newIds !== initialDeviceIdsDelay) {
+          log.info(`Campaign ${campaignId.slice(0, 8)}: device pool changed during delay — aborting delay [elapsed=${Date.now() - delayStartedAt}ms]`);
           break;
         }
       }
