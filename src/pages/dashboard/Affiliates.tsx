@@ -27,17 +27,27 @@ export default function Affiliates() {
   const navigate = useNavigate();
   const { session } = useAuth();
   const { planState, isBlocked } = usePlanGate();
+  const planActive = !isBlocked;
 
   const referralCode = useMemo(() => {
+    if (!planActive) return "";
     const id = session?.user?.id ?? "";
     return id ? id.slice(0, 8).toUpperCase() : "";
-  }, [session]);
+  }, [session, planActive]);
 
+  // Real URL only computed when plan is active — logical restriction, not just visual.
   const referralUrl = useMemo(() => {
-    if (!referralCode) return "";
+    if (!planActive || !referralCode) return "";
     const base = typeof window !== "undefined" ? window.location.origin : "";
     return `${base}/?ref=${referralCode}`;
-  }, [referralCode]);
+  }, [referralCode, planActive]);
+
+  const maskedUrl = useMemo(() => {
+    const base = typeof window !== "undefined" ? window.location.origin : "https://dgcontingencia.com";
+    return `${base}/?ref=••••••••`;
+  }, []);
+
+  const displayUrl = planActive ? referralUrl : maskedUrl;
 
   // Placeholder values — replace with real data when backend exists
   const stats = { totalEarned: 0, activeReferrals: 0, conversions: 0 };
@@ -45,7 +55,7 @@ export default function Affiliates() {
 
   const [copying, setCopying] = useState(false);
   const handleCopy = async () => {
-    if (!referralUrl) return;
+    if (!planActive || !referralUrl) return;
     setCopying(true);
     try {
       await navigator.clipboard.writeText(referralUrl);
@@ -62,7 +72,7 @@ export default function Affiliates() {
     : "";
 
   const openWhatsApp = () => {
-    if (!shareMessage) return;
+    if (!planActive || !shareMessage) return;
     window.open(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`, "_blank", "noopener,noreferrer");
   };
 
