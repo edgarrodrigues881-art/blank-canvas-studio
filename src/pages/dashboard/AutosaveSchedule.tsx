@@ -277,7 +277,7 @@ export default function AutosaveSchedule() {
                             s.max_limit_per_instance,
                             s.initial_limit_per_instance + s.days_executed * s.daily_increment
                           );
-                          return `${cur}/${s.max_limit_per_instance} msgs/chip · dia ${s.days_executed + 1}`;
+                          return `${cur}/${s.max_limit_per_instance} envios/chip · ${s.messages_per_instance || 1} msg(s)/contato · dia ${s.days_executed + 1}`;
                         })()}
                       </span>
                     </div>
