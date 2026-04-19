@@ -578,20 +578,6 @@ const FooterSection = () => (
   </footer>
 );
 
-// ─── Support Float ───
-const SupportFloat = () => (
-  <a
-    href="https://wa.me/5562994192500?text=Ol%C3%A1%2C%20vim%20do%20site%20da%20DG%20Conting%C3%AAncia%20PRO%20e%20preciso%20de%20suporte."
-    target="_blank"
-    rel="noopener noreferrer"
-    className="fixed bottom-6 right-6 z-50 flex items-center gap-2 h-11 px-4 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 text-white/80 hover:text-white transition-all duration-200 ease-out backdrop-blur-md shadow-lg shadow-black/30"
-    aria-label="Suporte"
-  >
-    <MessageCircle className="w-4 h-4" />
-    <span className="text-sm font-medium">Suporte</span>
-  </a>
-);
-
 // ─── Main ───
 const Landing = () => {
   useEffect(() => { prefetchRoutes(); }, []);
