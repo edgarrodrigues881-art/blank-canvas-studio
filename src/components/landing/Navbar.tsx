@@ -43,12 +43,6 @@ const Navbar = () => {
           >
             Suporte
           </a>
-          <button
-            onClick={() => document.getElementById("comunidade")?.scrollIntoView({ behavior: "smooth" })}
-            className="text-sm font-semibold text-amber-400 hover:text-amber-300 transition-colors border border-amber-500/30 rounded-full px-4 py-1.5 bg-amber-500/10 hover:bg-amber-500/15"
-          >
-            ⭐ Comunidade
-          </button>
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
