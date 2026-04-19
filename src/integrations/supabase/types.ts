@@ -1007,6 +1007,10 @@ export type Database = {
           messages_per_instance: number
           min_delay_seconds: number
           name: string
+          pause_duration_max: number
+          pause_duration_min: number
+          pause_every_max: number
+          pause_every_min: number
           scheduled_at: string | null
           started_at: string | null
           status: string
@@ -1035,6 +1039,10 @@ export type Database = {
           messages_per_instance?: number
           min_delay_seconds?: number
           name?: string
+          pause_duration_max?: number
+          pause_duration_min?: number
+          pause_every_max?: number
+          pause_every_min?: number
           scheduled_at?: string | null
           started_at?: string | null
           status?: string
@@ -1063,6 +1071,10 @@ export type Database = {
           messages_per_instance?: number
           min_delay_seconds?: number
           name?: string
+          pause_duration_max?: number
+          pause_duration_min?: number
+          pause_every_max?: number
+          pause_every_min?: number
           scheduled_at?: string | null
           started_at?: string | null
           status?: string
