@@ -155,9 +155,9 @@ export default function Affiliates() {
           <Crown className="w-6 h-6 text-emerald-400" strokeWidth={1.8} />
         </div>
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Programa de Afiliados</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Ganhe com a DG Contingência</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Indique e ganhe comissões recorrentes
+            Indique e receba comissões automáticas por 3 meses
           </p>
         </div>
       </div>
@@ -202,8 +202,9 @@ export default function Affiliates() {
       <Card className="border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.04] to-transparent">
         <CardHeader>
           <CardTitle className="text-base sm:text-lg">Seu link de indicação</CardTitle>
+          <p className="text-xs text-muted-foreground">Compartilhe e comece a ganhar agora</p>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="flex-1 px-3.5 py-2.5 rounded-[10px] bg-muted/40 border border-border font-mono text-xs sm:text-sm text-foreground/90 truncate">
               {referralUrl || "Carregando..."}
@@ -213,32 +214,24 @@ export default function Affiliates() {
                 <Copy className="w-4 h-4" />
                 {copying ? "Copiado" : "Copiar link"}
               </Button>
-
-              {isMobile && typeof navigator !== "undefined" && "share" in navigator ? (
-                <Button onClick={handleNativeShare} disabled={!referralUrl}
-                  className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold">
-                  <Share2 className="w-4 h-4" />
-                  Compartilhar
-                </Button>
-              ) : (
-                <>
-                  <Button onClick={openWhatsApp} disabled={!referralUrl}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold">
-                    <MessageCircle className="w-4 h-4" />
-                    WhatsApp
-                  </Button>
-                  <Button onClick={openTelegram} variant="outline" disabled={!referralUrl}
-                    className="border-sky-500/30 text-sky-300 hover:bg-sky-500/10 hover:text-sky-200">
-                    <Send className="w-4 h-4" />
-                    Telegram
-                  </Button>
-                </>
-              )}
+              <Button onClick={openWhatsApp} disabled={!referralUrl}
+                className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold">
+                <MessageCircle className="w-4 h-4" />
+                Enviar no WhatsApp
+              </Button>
             </div>
           </div>
-          <p className="text-[11px] text-muted-foreground">
-            Compartilhe esse link. Cada cliente que assinar pelo seu link gera comissão por 3 meses.
-          </p>
+
+          {/* Message preview */}
+          <div className="rounded-[10px] border border-border bg-muted/20 p-3">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold mb-1.5">
+              Mensagem que será enviada
+            </div>
+            <p className="text-xs sm:text-sm text-foreground/85 leading-relaxed">
+              Olha essa ferramenta que estou usando pra automação 👇{" "}
+              <span className="text-emerald-400 break-all">{referralUrl || "..."}</span>
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -247,24 +240,24 @@ export default function Affiliates() {
         <CardHeader>
           <CardTitle className="text-base sm:text-lg">Você ganha</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {COMMISSION_TIERS.map((t, i) => (
+            {COMMISSION_TIERS.map((t) => (
               <div
                 key={t.month}
                 className="relative rounded-xl border border-border bg-card p-5 hover:border-emerald-500/40 transition-colors"
               >
-                <div className="flex items-center justify-between mb-3">
-                  <Badge variant="outline" className="text-[10px] border-border bg-background/50">
-                    {t.month}
-                  </Badge>
-                  <span className="text-[10px] text-muted-foreground">#{i + 1}</span>
-                </div>
+                <Badge variant="outline" className="text-[10px] border-border bg-background/50 mb-3">
+                  {t.month}
+                </Badge>
                 <div className="text-3xl font-bold text-emerald-400">{t.percent}%</div>
                 <div className="text-xs text-muted-foreground mt-1">{t.desc}</div>
               </div>
             ))}
           </div>
+          <p className="text-center text-sm text-muted-foreground pt-1">
+            Quanto mais você indica, mais você ganha.
+          </p>
         </CardContent>
       </Card>
 
