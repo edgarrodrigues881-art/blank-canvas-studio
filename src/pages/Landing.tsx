@@ -17,11 +17,11 @@ const prefetchRoutes = () => {
   else setTimeout(load, 2000);
 };
 
-// ─── Animation — premium, subtle, Linear-style ───
+// ─── Animation — premium, subtle, Linear-style (normalized) ───
 const easeOut = [0.16, 1, 0.3, 1] as const;
-const fadeUp = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: easeOut } } };
-const fadeScale = { hidden: { opacity: 0, scale: 0.98 }, visible: { opacity: 1, scale: 1, transition: { duration: 0.45, ease: easeOut } } };
-const stagger = { visible: { transition: { staggerChildren: 0.07, delayChildren: 0.05 } } };
+const fadeUp = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: easeOut } } };
+const fadeScale = { hidden: { opacity: 0, scale: 0.98 }, visible: { opacity: 1, scale: 1, transition: { duration: 0.4, ease: easeOut } } };
+const stagger = { visible: { transition: { staggerChildren: 0.05, delayChildren: 0.03 } } };
 
 // ─── Background — single soft gradient, almost flat ───
 const Background = () => (
