@@ -584,7 +584,7 @@ export default function AutosaveSchedule() {
                     if (!isNaN(n)) setMsgsPerInstance(Math.max(1, n));
                   }}
                 />
-                <p className="text-[11px] text-muted-foreground/80 mt-1.5">Quantas mensagens cada chip envia para o mesmo contato antes de avançar.</p>
+                <p className="text-[11px] text-muted-foreground/80 mt-1.5">Quantidade de mensagens enviadas para cada número.</p>
               </div>
 
               <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-3">
