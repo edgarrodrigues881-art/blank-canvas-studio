@@ -266,6 +266,7 @@ export function useNotifications() {
     loading,
     markAsRead,
     markAllAsRead,
+    deleteOne,
     clearAll,
     systemNotificationsCount: notifications.filter((n) => !n.synthetic).length,
   };
