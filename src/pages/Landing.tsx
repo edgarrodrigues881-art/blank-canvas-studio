@@ -537,19 +537,22 @@ const FinalCTA = () => {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.08)_0%,transparent_60%)] pointer-events-none" />
         <div className="relative">
           <h2 className="text-[2rem] md:text-[2.75rem] lg:text-[3.25rem] font-semibold text-white tracking-[-0.025em] leading-[1.05] mb-5 max-w-2xl mx-auto">
-            Pronto para operar com controle total?
+            Pronto para escalar seu WhatsApp com controle?
           </h2>
-          <p className="text-[15px] text-white/50 mb-10 max-w-md mx-auto leading-[1.6]">
-            Crie sua conta em segundos. Sem fidelidade, sem contratos longos.
+          <p className="text-[15px] text-white/55 mb-10 max-w-md mx-auto leading-[1.6]">
+            Comece agora e gerencie toda sua operação em um só lugar.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="bg-white/95 hover:bg-white text-black text-[13px] font-medium px-5 h-10 rounded-[10px] gap-1.5 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_4px_16px_-4px_rgba(0,0,0,0.4)]">
-              Começar grátis <ArrowRight className="w-3.5 h-3.5" />
+            <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="bg-white hover:bg-white text-black text-[13px] font-semibold px-6 h-11 rounded-[10px] gap-1.5 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_8px_24px_-6px_rgba(255,255,255,0.18)] hover:scale-[1.02] transition-all duration-200">
+              Começar agora <ArrowRight className="w-3.5 h-3.5" />
             </Button>
-            <Button size="lg" variant="ghost" onClick={() => document.getElementById("planos")?.scrollIntoView({ behavior: "smooth" })} className="bg-transparent text-white/65 hover:text-white hover:bg-transparent text-[13px] font-medium px-2 h-10">
-              Ver planos →
+            <Button size="lg" variant="ghost" onClick={() => document.getElementById("uso")?.scrollIntoView({ behavior: "smooth" })} className="bg-transparent text-white/65 hover:text-white hover:bg-transparent text-[13px] font-medium px-3 h-11">
+              Ver como funciona →
             </Button>
           </div>
+          <p className="text-[12px] text-white/35 mt-6">
+            Sem contrato. Cancele quando quiser.
+          </p>
         </div>
       </motion.div>
     </Section>
