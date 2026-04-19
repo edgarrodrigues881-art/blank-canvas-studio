@@ -85,13 +85,6 @@ const Hero = () => {
       <div className="max-w-[1320px] mx-auto relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-6 items-center">
           <motion.div initial="hidden" animate="visible" variants={stagger} className="lg:col-span-6 text-center lg:text-left">
-            <motion.div variants={fadeUp}>
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] text-[11px] font-medium text-emerald-300/90 mb-7 backdrop-blur-md">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Operando 1.000+ chips em tempo real
-              </span>
-            </motion.div>
-
             <motion.h1 variants={fadeUp} className="text-[2.75rem] sm:text-5xl md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.0] tracking-[-0.04em] mb-7">
               Pare de perder números no WhatsApp.<br />
               <span className="text-white/55">Escale com controle total.</span>
