@@ -215,12 +215,16 @@ const Features = () => (
     </div>
     <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }} variants={stagger} className="grid grid-cols-1 md:grid-cols-3 gap-x-10 gap-y-14">
       {features.map((f) => (
-        <motion.div key={f.title} variants={fadeUp}>
-          <div className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-5">
-            <f.icon className="w-4 h-4 text-white/70" />
+        <motion.div
+          key={f.title}
+          variants={fadeUp}
+          className="group p-5 -m-5 rounded-xl border border-transparent hover:border-white/[0.06] hover:bg-white/[0.02] hover:-translate-y-1 transition-all duration-200 ease-out"
+        >
+          <div className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-5 group-hover:border-white/[0.12] group-hover:bg-white/[0.06] transition-colors duration-200">
+            <f.icon className="w-4 h-4 text-white/70 group-hover:text-white transition-colors duration-200" />
           </div>
           <h3 className="text-[15px] font-semibold text-white mb-2 tracking-tight">{f.title}</h3>
-          <p className="text-[13px] text-white/45 leading-[1.6]">{f.desc}</p>
+          <p className="text-[13px] text-white/45 leading-[1.6] group-hover:text-white/60 transition-colors duration-200">{f.desc}</p>
         </motion.div>
       ))}
     </motion.div>
