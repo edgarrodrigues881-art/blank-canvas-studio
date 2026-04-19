@@ -178,6 +178,19 @@ export function useNotifications() {
     setUnreadCount((c) => Math.max(0, c - 1));
   }, []);
 
+  // Delete single
+  const deleteOne = useCallback(async (id: string) => {
+    if (id.startsWith("activity-")) return;
+    await supabase.from("notifications").delete().eq("id", id);
+    setNotifications((prev) => {
+      const next = prev.filter((n) => n.id !== id);
+      setUnreadCount(next.filter((n) => !n.read).length);
+      return next;
+    });
+    globalKnownIds.delete(id);
+    globalToastedIds.delete(id);
+  }, []);
+
   // Mark all as read
   const markAllAsRead = useCallback(async () => {
     if (!user) return;
