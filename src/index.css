@@ -299,10 +299,12 @@
   html, body, #root {
     overflow-x: hidden;
     max-width: 100vw;
+    /* Body inherits html background to avoid theme-mismatch flashes between routes */
+    background-color: transparent;
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply text-foreground antialiased;
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     font-weight: 400;
   }
