@@ -725,7 +725,10 @@ Deno.serve(async (req) => {
     let newBalance = currentBalance;
     let freePullsAfter = freePulls;
 
-    if (isFreePull) {
+    if (results.length === 0) {
+      // No leads found — do not charge credits or consume free pull
+      console.log(`[prospeccao] NO RESULTS — skipping debit and free pull consumption`);
+    } else if (isFreePull) {
       // Consume a free pull instead of credits
       const debitAdmin = createClient(supabaseUrl, serviceRoleKey);
       const { data: pullResult } = await debitAdmin.rpc("use_free_pull", { p_user_id: user.id });
