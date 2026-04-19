@@ -80,59 +80,57 @@ const SectionSub = ({ children }: { children: React.ReactNode }) => (
   <p className="text-sm md:text-base text-white/45 max-w-2xl leading-relaxed font-medium mx-auto">{children}</p>
 );
 
-// ─── 1. Hero (Linear-inspired, left-aligned with floating mockup) ───
+// ─── 1. Hero (Linear-inspired, minimal & calm) ───
 const Hero = () => {
   const navigate = useNavigate();
   return (
-    <section className="relative pt-36 md:pt-48 pb-28 md:pb-40 px-6 overflow-hidden">
-      {/* Ambient glow accents — refined blue/violet */}
+    <section className="relative pt-44 md:pt-56 pb-32 md:pb-44 px-6 overflow-hidden">
+      {/* Background — almost flat with one whisper-soft gradient */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden>
-        <div className="absolute top-[-15%] left-[-10%] w-[720px] h-[720px] rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.12)_0%,transparent_60%)] blur-[120px]" />
-        <div className="absolute top-[10%] right-[-20%] w-[820px] h-[820px] rounded-full bg-[radial-gradient(circle,rgba(139,92,246,0.10)_0%,transparent_60%)] blur-[120px]" />
-        <div className="absolute top-[35%] left-[8%] w-[480px] h-[380px] rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.07)_0%,transparent_70%)] blur-[100px]" />
-        <div className="absolute bottom-[-10%] left-1/2 -translate-x-1/2 w-[900px] h-[400px] bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.06)_0%,transparent_70%)] blur-[100px]" />
+        <div className="absolute top-[-20%] left-[10%] w-[900px] h-[600px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.05)_0%,transparent_65%)] blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[5%] w-[700px] h-[500px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.035)_0%,transparent_70%)] blur-[120px]" />
       </div>
 
-      {/* Outer container — slight left bias on large screens */}
-      <div className="max-w-[1240px] mx-auto relative z-10 lg:pl-4 xl:pl-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-12 items-center">
+      {/* Outer container — biased left */}
+      <div className="max-w-[1280px] mx-auto relative z-10 lg:pl-2 xl:pl-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-20 lg:gap-10 items-center">
           {/* Left: Copy */}
           <motion.div
             initial="hidden"
             animate="visible"
             variants={stagger}
-            className="lg:col-span-6 text-center lg:text-left"
+            className="lg:col-span-7 text-center lg:text-left"
           >
             <motion.div variants={fadeUp}>
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/[0.08] bg-white/[0.025] text-[11px] font-medium text-white/50 mb-9 backdrop-blur-md">
-                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))] animate-pulse" />
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/[0.07] bg-white/[0.02] text-[11px] font-medium text-white/55 mb-10 backdrop-blur-md">
+                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
                 Novo · Plataforma 2.0
               </span>
             </motion.div>
 
             <motion.h1
               variants={fadeUp}
-              className="text-[3.25rem] sm:text-6xl md:text-[4.5rem] lg:text-[5rem] xl:text-[5.5rem] font-semibold text-white leading-[0.94] tracking-[-0.045em] mb-8"
+              className="text-[2.75rem] sm:text-5xl md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.5rem] font-semibold text-white leading-[1.02] tracking-[-0.035em] mb-10"
             >
               The WhatsApp<br />operating system<br />
-              <span className="text-white/35">for serious teams.</span>
+              <span className="text-white/55">for serious teams.</span>
             </motion.h1>
 
             <motion.p
               variants={fadeUp}
-              className="text-[15px] md:text-base text-white/40 max-w-[420px] mx-auto lg:mx-0 mb-12 leading-[1.6]"
+              className="text-[15px] md:text-[16px] text-white/55 max-w-[440px] mx-auto lg:mx-0 mb-12 leading-[1.65]"
             >
               Aquecimento, disparo e monitoramento em uma única plataforma. Projetada para escala.
             </motion.p>
 
             <motion.div
               variants={fadeUp}
-              className="flex flex-col sm:flex-row items-center lg:items-start lg:justify-start justify-center gap-2.5"
+              className="flex flex-col sm:flex-row items-center lg:items-start lg:justify-start justify-center gap-5"
             >
               <Button
                 size="lg"
                 onClick={() => navigate("/auth?mode=signup")}
-                className="bg-white hover:bg-white text-black text-[13px] font-semibold px-5 h-10 rounded-[10px] gap-1.5 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_1px_0_0_rgba(255,255,255,0.4)_inset,0_10px_40px_-10px_rgba(255,255,255,0.35)] transition-all duration-200 hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_1px_0_0_rgba(255,255,255,0.5)_inset,0_14px_48px_-10px_rgba(255,255,255,0.45)] hover:-translate-y-px"
+                className="bg-white/95 hover:bg-white text-black text-[13px] font-medium px-5 h-10 rounded-[10px] gap-1.5 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_4px_16px_-4px_rgba(0,0,0,0.4)] transition-all duration-200"
               >
                 Começar grátis <ArrowRight className="w-3.5 h-3.5" />
               </Button>
@@ -140,45 +138,42 @@ const Hero = () => {
                 size="lg"
                 variant="ghost"
                 onClick={() => document.getElementById("planos")?.scrollIntoView({ behavior: "smooth" })}
-                className="bg-transparent text-white/70 hover:text-white hover:bg-white/[0.04] text-[13px] font-medium px-5 h-10 rounded-[10px] transition-colors duration-200"
+                className="bg-transparent text-white/65 hover:text-white hover:bg-transparent text-[13px] font-medium px-2 h-10 rounded-[10px] transition-colors duration-200"
               >
                 Ver planos →
               </Button>
             </motion.div>
           </motion.div>
 
-          {/* Right: Floating product mockup */}
+          {/* Right: Floating product mockup — softer, dimmed, supportive */}
           <motion.div
-            initial={{ opacity: 0, y: 40, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.25 }}
-            className="lg:col-span-6 relative lg:scale-110 lg:-mr-8 xl:-mr-16 origin-left"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
+            className="lg:col-span-5 relative lg:mt-16 lg:translate-x-4 xl:translate-x-8"
           >
-            <div className="relative group">
-              {/* Outer halo glow */}
-              <div className="absolute -inset-16 bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.22)_0%,rgba(99,102,241,0.1)_35%,transparent_70%)] blur-3xl pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity duration-700" />
-
-              {/* Inner soft glow */}
-              <div className="absolute -inset-4 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.04)_0%,transparent_60%)] blur-xl pointer-events-none" />
+            <div className="relative">
+              {/* Single very subtle halo */}
+              <div className="absolute -inset-10 bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.07)_0%,transparent_65%)] blur-3xl pointer-events-none" />
 
               {/* Mockup frame */}
-              <div className="relative rounded-xl border border-white/[0.07] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_50px_120px_-30px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.04),0_0_60px_-20px_rgba(139,92,246,0.25)] transition-transform duration-700 group-hover:-translate-y-1">
-                <div className="bg-white/[0.02] px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
+              <div className="relative rounded-xl border border-white/[0.06] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.03)]">
+                <div className="bg-white/[0.015] px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-white/[0.1]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-white/[0.1]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-white/[0.1]" />
                   <span className="ml-3 text-[10px] text-white/25 font-medium tracking-wide">DG Contingência PRO</span>
                 </div>
                 <img
                   src={dashboardPreview}
                   alt="Painel DG Contingência PRO"
-                  className="w-full h-auto block"
+                  className="w-full h-auto block opacity-80"
                   loading="eager"
+                  style={{ filter: "brightness(0.85) contrast(0.92) saturate(0.9)" }}
                 />
+                {/* Dim overlay to push it back visually */}
+                <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(11,11,13,0.15)_0%,rgba(11,11,13,0.35)_100%)] pointer-events-none" />
               </div>
-
-              {/* Floating reflection edge */}
-              <div className="absolute inset-x-16 -bottom-px h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
             </div>
           </motion.div>
         </div>
