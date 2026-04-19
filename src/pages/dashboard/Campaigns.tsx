@@ -588,26 +588,9 @@ const Campaigns = () => {
 
 
 
-  // Estimated send time calculation
-  const estimatedTime = useMemo(() => {
-    const count = validContacts.length;
-    if (count === 0) return null;
-    const avgDelay = (minDelay + maxDelay) / 2;
-    const avgPauseEvery = (pauseEveryMin + pauseEveryMax) / 2;
-    const avgPauseDur = (pauseDurationMin + pauseDurationMax) / 2;
-    const numPauses = avgPauseEvery > 0 ? Math.floor(count / avgPauseEvery) : 0;
-    const deviceCount = Math.max(selectedDevices.length, 1);
-    const contactsPerDevice = Math.ceil(count / deviceCount);
-    const totalSeconds = (contactsPerDevice * avgDelay) + (numPauses * avgPauseDur / deviceCount);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const days = Math.floor(hours / 24);
-    const remainingHours = hours % 24;
-    if (days > 0) return `${days}d ${remainingHours}h ${minutes}min`;
-    if (hours > 0) return `${hours}h ${minutes}min`;
-    if (minutes > 0) return `${minutes}min`;
-    return `< 1min`;
-  }, [validContacts.length, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, selectedDevices.length]);
+  // NOTE: "Tempo Estimado" foi removido. O controle de envio agora é
+  // baseado exclusivamente em quantidade máxima de mensagens por instância
+  // (messagesPerInstance), sem cálculos de tempo em background.
 
   // Detected variables
   const detectedVars = useMemo(() => {
@@ -2503,22 +2486,33 @@ const Campaigns = () => {
                 </div>
               </SurfaceCard>
 
-              {/* Projeção de Envio */}
-              <SurfaceCard className="relative p-5 flex flex-col items-center justify-center text-center overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-accent/[0.06] to-transparent pointer-events-none" />
-                <div className="relative z-10 flex flex-col items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center">
-                    <Timer className="w-5 h-5 text-accent-foreground/70" />
+              {/* Limite por Instância — substitui Tempo Estimado */}
+              <SurfaceCard className="relative p-5 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.05] to-transparent pointer-events-none" />
+                <div className="relative z-10 space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                      <Smartphone className="w-4 h-4 text-violet-400" />
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-bold text-foreground">Limite por instância</p>
+                      <p className="text-[10px] text-muted-foreground/50">Máx. de mensagens por chip</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider font-semibold mb-1.5">Tempo estimado</p>
-                    <p className="text-3xl font-black text-foreground tabular-nums tracking-tight">
-                      {estimatedTime ? `≈ ${estimatedTime}` : "—"}
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={5000}
+                      value={messagesPerInstance || 50}
+                      onChange={e => setMessagesPerInstance(Math.max(1, parseInt(e.target.value) || 50))}
+                      className="h-10 text-base font-bold tabular-nums bg-background/50 border-border/30 w-24 text-center"
+                    />
+                    <span className="text-[11px] text-muted-foreground/60">msgs / instância</span>
                   </div>
-                  {validContacts.length > 0 && (
-                    <p className="text-[10px] text-muted-foreground/40">{validContacts.length} contato{validContacts.length !== 1 ? "s" : ""} • {selectedDevices.length || 1} instância{(selectedDevices.length || 1) !== 1 ? "s" : ""}</p>
-                  )}
+                  <p className="text-[10px] text-muted-foreground/40 leading-relaxed">
+                    Cada instância envia no máximo <span className="font-semibold text-foreground/70 tabular-nums">{messagesPerInstance || 50}</span> mensagens. O envio é controlado por quantidade — sem limite por tempo.
+                  </p>
                 </div>
               </SurfaceCard>
 
@@ -2705,7 +2699,7 @@ const Campaigns = () => {
                     {[
                       { label: "Contatos", value: String(validContacts.length), icon: Users, accent: "text-primary" },
                       { label: "Instâncias", value: String(selectedDevicesData.length || 0), icon: Smartphone, accent: "text-emerald-400" },
-                      { label: "Tempo", value: estimatedTime || "—", icon: Timer, accent: "text-amber-400" },
+                      { label: "Limite/Instância", value: `${messagesPerInstance || 50} msgs`, icon: RefreshCw, accent: "text-violet-400" },
                     ].map(item => (
                       <div key={item.label} className="text-center p-4 rounded-xl bg-card border border-border/15">
                         <item.icon className={cn("w-4 h-4 mx-auto mb-2", item.accent)} />
