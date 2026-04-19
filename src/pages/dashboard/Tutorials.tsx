@@ -10,7 +10,7 @@ interface Tutorial {
   id: string;
   title: string;
   description: string;
-  videoUrl: string;
+  videoUrl: string | null;
   duration: string;
   category: string;
   steps?: string[];
