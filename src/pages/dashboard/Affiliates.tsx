@@ -7,11 +7,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  DollarSign, Users, TrendingUp, Copy, Share2, Crown, Sparkles, Lock,
+  DollarSign, Users, TrendingUp, Copy, Share2, Crown, Sparkles, Lock, Send, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { usePlanGate } from "@/hooks/usePlanGate";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const COMMISSION_TIERS = [
   { month: "1º mês", percent: 30, label: "Primeiro mês", desc: "Maior comissão na entrada" },
@@ -27,6 +28,7 @@ export default function Affiliates() {
   const navigate = useNavigate();
   const { session } = useAuth();
   const { planState, isBlocked } = usePlanGate();
+  const isMobile = useIsMobile();
 
   const referralCode = useMemo(() => {
     const id = session?.user?.id ?? "";
@@ -57,19 +59,30 @@ export default function Affiliates() {
     }
   };
 
-  const handleShare = async () => {
+  const shareMessage = referralUrl
+    ? `Olha essa ferramenta que estou usando 👇 ${referralUrl}`
+    : "";
+
+  const handleNativeShare = async () => {
     if (!referralUrl) return;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "DG Contingência Pro",
-          text: "Conheça a DG Contingência Pro — automação para WhatsApp.",
-          url: referralUrl,
-        });
-      } catch { /* user cancelled */ }
-    } else {
-      handleCopy();
-    }
+    try {
+      await navigator.share({
+        title: "DG Contingência Pro",
+        text: shareMessage,
+        url: referralUrl,
+      });
+    } catch { /* user cancelled */ }
+  };
+
+  const openWhatsApp = () => {
+    if (!shareMessage) return;
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`, "_blank", "noopener,noreferrer");
+  };
+
+  const openTelegram = () => {
+    if (!referralUrl) return;
+    const url = `https://t.me/share/url?url=${encodeURIComponent(referralUrl)}&text=${encodeURIComponent("Olha essa ferramenta que estou usando 👇")}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   // ───────────────────── BLOCKED VIEW ─────────────────────
