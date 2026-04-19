@@ -706,10 +706,10 @@
    Landing, Auth, Welcome and Onboarding pages are NOT affected.
    ============================================================ */
 .app-root {
-  /* Background layers */
-  --app-bg-base: 220 20% 5%;
-  --app-bg-container: 220 20% 7%;
-  --app-bg-card: 220 16% 10%;
+  /* Background layers — neutral dark gray, no glow */
+  --app-bg-base: 213 20% 9%;        /* #11161C */
+  --app-bg-container: 213 28% 6%;   /* #0B0F14 */
+  --app-bg-card: 215 21% 11%;       /* #161B22 */
 
   /* Borders */
   --app-border-subtle: 0 0% 100% / 0.04;
@@ -719,7 +719,7 @@
   --app-text-primary: 220 14% 91%;
   --app-text-secondary: 220 9% 65%;
 
-  /* Accent */
+  /* Accent (used only on opt-in primitives, never as bg glow) */
   --app-accent: 142 71% 45%;
   --app-accent-hover: 142 71% 50%;
 
@@ -744,12 +744,10 @@
   --app-shadow-lg: 0 12px 32px -12px rgba(16,24,40,0.10);
 }
 
-/* Subtle radial depth on the app background */
+/* Clean flat background — no gradients, no glow */
 .app-root {
   background-color: hsl(var(--app-bg-base));
-  background-image:
-    radial-gradient(1200px 600px at 0% 0%, hsl(var(--app-accent) / 0.05), transparent 60%),
-    radial-gradient(900px 500px at 100% 100%, hsl(var(--app-accent) / 0.04), transparent 60%);
+  background-image: none;
   color: hsl(var(--app-text-primary));
 }
 
