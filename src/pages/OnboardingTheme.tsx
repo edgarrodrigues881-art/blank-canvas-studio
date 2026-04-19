@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
@@ -9,18 +9,33 @@ type ThemeChoice = "dark" | "light";
 const OnboardingTheme = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { setTheme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
   const redirectTo = searchParams.get("to") || "/dashboard";
-  const [selected, setSelected] = useState<ThemeChoice>("dark");
+  const [selected, setSelected] = useState<ThemeChoice>(
+    (resolvedTheme as ThemeChoice) || "dark"
+  );
+
+  // Sync with the actual resolved theme once next-themes hydrates
+  useEffect(() => {
+    if (resolvedTheme === "light" || resolvedTheme === "dark") {
+      setSelected(resolvedTheme);
+    }
+  }, [resolvedTheme]);
 
   const handleSelect = (choice: ThemeChoice) => {
     setSelected(choice);
-    // Apply immediately so user sees a hint of feedback
+    // Apply theme instantly: next-themes updates localStorage + html class
     setTheme(choice);
+    // Defensive: ensure class is applied immediately even before next-themes flushes
+    const root = document.documentElement;
+    root.classList.remove("light", "dark");
+    root.classList.add(choice);
+    try {
+      localStorage.setItem("theme", choice);
+    } catch {}
   };
 
   const handleContinue = () => {
-    setTheme(selected);
     navigate(redirectTo, { replace: true });
   };
 
