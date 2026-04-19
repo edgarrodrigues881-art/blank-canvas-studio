@@ -10,6 +10,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 // Lazy load DashboardLayout to avoid eagerly pulling in heavy deps (notifications, sidebar, icons)
 const DashboardLayout = lazy(() => import("@/components/DashboardLayout"));
+import ThemeTransition from "@/components/ThemeTransition";
 
 // Lazy pages with preload support
 const lazyWithPreload = (factory: () => Promise<any>) => {
@@ -144,7 +145,7 @@ const queryClient = new QueryClient({
 });
 
 const Loading = memo(() => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
+  <div className="min-h-screen flex items-center justify-center bg-transparent">
     <div className="flex flex-col items-center gap-4 animate-fade-in">
       <div className="relative w-10 h-10">
         <div className="absolute inset-0 rounded-full border-2 border-primary/30" />
@@ -202,6 +203,7 @@ function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={true}>
+      <ThemeTransition />
       <TooltipProvider>
         <BrowserRouter>
           <AuthProvider>
