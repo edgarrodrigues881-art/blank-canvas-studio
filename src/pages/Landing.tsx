@@ -41,7 +41,7 @@ const Navbar = () => {
       <div className="max-w-[1200px] mx-auto flex items-center justify-between h-14 px-6">
         <div className="flex items-center gap-2.5 min-w-0">
           <img src={logo} alt="DG" width={28} height={28} className="rounded-md flex-shrink-0" />
-          <span className="hidden sm:inline text-[13px] font-semibold text-white tracking-tight whitespace-nowrap">DG Contingência Pro</span>
+          <span className="hidden lg:inline text-[13px] font-semibold text-white tracking-tight whitespace-nowrap">DG Contingência Pro</span>
         </div>
         <nav className="hidden md:flex items-center gap-7">
           {[["produto", "Produto"], ["recursos", "Recursos"], ["planos", "Planos"], ["faq", "FAQ"]].map(([id, label]) => (
