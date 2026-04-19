@@ -95,6 +95,9 @@ export function useCreateAutosaveSchedule() {
       min_delay_seconds: number;
       max_delay_seconds: number;
       messages_per_instance: number;
+      initial_limit_per_instance: number;
+      daily_increment: number;
+      max_limit_per_instance: number;
     }) => {
       const { data, error } = await supabase
         .from("autosave_schedules" as any)
