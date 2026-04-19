@@ -312,8 +312,8 @@ export default function AutosaveSchedule() {
           <div className="p-12 text-center">
             <CalendarIcon className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-sm text-muted-foreground">Nenhum agendamento criado</p>
-            <Button variant="ghost" size="sm" className="mt-3" onClick={() => setCreateOpen(true)}>
-              <Plus className="w-4 h-4 mr-1" /> Criar primeiro agendamento
+            <Button variant="default" size="sm" className="mt-3 gap-2" onClick={() => setCreateOpen(true)}>
+              <Plus className="w-4 h-4" /> Criar agendamento automático
             </Button>
           </div>
         ) : (
