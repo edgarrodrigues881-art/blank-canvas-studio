@@ -86,6 +86,9 @@ export default function AutosaveSchedule() {
   const [minDelay, setMinDelay] = useState(15);
   const [maxDelay, setMaxDelay] = useState(60);
   const [msgsPerInstance, setMsgsPerInstance] = useState(0);
+  const [initialLimit, setInitialLimit] = useState(20);
+  const [dailyIncrement, setDailyIncrement] = useState(5);
+  const [maxLimit, setMaxLimit] = useState(100);
 
   const resetForm = () => {
     setName("Agendamento Auto Save");
@@ -95,6 +98,9 @@ export default function AutosaveSchedule() {
     setMinDelay(15);
     setMaxDelay(60);
     setMsgsPerInstance(0);
+    setInitialLimit(20);
+    setDailyIncrement(5);
+    setMaxLimit(100);
   };
 
   const toggleWeekday = (day: number) => {
@@ -120,6 +126,10 @@ export default function AutosaveSchedule() {
       toast.error("Horário inválido");
       return;
     }
+    if (maxLimit < initialLimit) {
+      toast.error("Limite máximo deve ser ≥ limite inicial");
+      return;
+    }
 
     try {
       await createMut.mutateAsync({
@@ -130,6 +140,9 @@ export default function AutosaveSchedule() {
         min_delay_seconds: minDelay,
         max_delay_seconds: maxDelay,
         messages_per_instance: msgsPerInstance,
+        initial_limit_per_instance: Math.max(1, initialLimit),
+        daily_increment: Math.max(0, dailyIncrement),
+        max_limit_per_instance: Math.max(initialLimit, maxLimit),
       });
       toast.success("Agendamento recorrente criado");
       setCreateOpen(false);
@@ -247,8 +260,15 @@ export default function AutosaveSchedule() {
                         <Activity className="w-3 h-3" />
                         {s.total_sent} enviadas{s.total_failed > 0 && ` · ${s.total_failed} falhas`}
                       </span>
-                      <span className="text-muted-foreground/60">
-                        {s.messages_per_instance > 0 ? `${s.messages_per_instance} msgs/chip` : "ilimitado"}
+                      <span className="flex items-center gap-1 text-emerald-400/80">
+                        <Activity className="w-3 h-3" />
+                        {(() => {
+                          const cur = Math.min(
+                            s.max_limit_per_instance,
+                            s.initial_limit_per_instance + s.days_executed * s.daily_increment
+                          );
+                          return `${cur}/${s.max_limit_per_instance} msgs/chip · dia ${s.days_executed + 1}`;
+                        })()}
                       </span>
                     </div>
                     {s.last_error && (
@@ -420,6 +440,48 @@ export default function AutosaveSchedule() {
               </div>
             </div>
 
+            {/* Progressão automática */}
+            <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-semibold uppercase tracking-wider">Progressão automática</span>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Limite inicial</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={initialLimit}
+                    onChange={(e) => setInitialLimit(Math.max(1, parseInt(e.target.value) || 1))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Incremento/dia</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={dailyIncrement}
+                    onChange={(e) => setDailyIncrement(Math.max(0, parseInt(e.target.value) || 0))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Limite máximo</Label>
+                  <Input
+                    type="number"
+                    min={initialLimit}
+                    value={maxLimit}
+                    onChange={(e) => setMaxLimit(Math.max(initialLimit, parseInt(e.target.value) || initialLimit))}
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground/80">
+                Cada chip começa enviando <span className="text-foreground font-medium">{initialLimit}</span> msgs/dia,
+                aumentando <span className="text-foreground font-medium">+{dailyIncrement}</span> a cada dia executado,
+                até o teto de <span className="text-foreground font-medium">{maxLimit}</span>.
+              </p>
+            </div>
+
             <div className="rounded-md bg-primary/5 border border-primary/20 p-3">
               <p className="text-[11px] text-muted-foreground leading-relaxed">
                 <Repeat className="w-3 h-3 inline mr-1 text-primary" />
@@ -427,8 +489,7 @@ export default function AutosaveSchedule() {
                 {selectedWeekdays.length > 0
                   ? `${weekdaysLabel(selectedWeekdays)} às ${timeOfDay}`
                   : "selecione os dias"}
-                . Cada chip enviará mensagens curtas para os {autosaveCount} contatos Auto Save.
-                Deixe "Msgs/chip" vazio para envio ilimitado.
+                . Base Auto Save com {autosaveCount} contatos. O campo "Msgs/chip" é um teto absoluto opcional (vazio = sem teto extra).
               </p>
             </div>
 
