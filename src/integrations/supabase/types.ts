@@ -935,6 +935,116 @@ export type Database = {
           },
         ]
       }
+      autosave_schedule_logs: {
+        Row: {
+          contact_name: string | null
+          contact_phone: string
+          created_at: string
+          device_id: string
+          device_name: string | null
+          error_message: string | null
+          id: string
+          message_content: string
+          schedule_id: string
+          sent_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          contact_name?: string | null
+          contact_phone: string
+          created_at?: string
+          device_id: string
+          device_name?: string | null
+          error_message?: string | null
+          id?: string
+          message_content: string
+          schedule_id: string
+          sent_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          contact_name?: string | null
+          contact_phone?: string
+          created_at?: string
+          device_id?: string
+          device_name?: string | null
+          error_message?: string | null
+          id?: string
+          message_content?: string
+          schedule_id?: string
+          sent_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "autosave_schedule_logs_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "autosave_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      autosave_schedules: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          device_ids: Json
+          id: string
+          last_error: string | null
+          max_delay_seconds: number
+          messages_per_instance: number
+          min_delay_seconds: number
+          name: string
+          scheduled_at: string
+          started_at: string | null
+          status: string
+          total_failed: number
+          total_sent: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          device_ids?: Json
+          id?: string
+          last_error?: string | null
+          max_delay_seconds?: number
+          messages_per_instance?: number
+          min_delay_seconds?: number
+          name?: string
+          scheduled_at: string
+          started_at?: string | null
+          status?: string
+          total_failed?: number
+          total_sent?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          device_ids?: Json
+          id?: string
+          last_error?: string | null
+          max_delay_seconds?: number
+          messages_per_instance?: number
+          min_delay_seconds?: number
+          name?: string
+          scheduled_at?: string
+          started_at?: string | null
+          status?: string
+          total_failed?: number
+          total_sent?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       campaign_contacts: {
         Row: {
           campaign_id: string
