@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Calendar as CalendarIcon, Plus, Play, Pause, Trash2, Save, Smartphone, Activity, CheckCircle2, AlertCircle, Clock, Repeat } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Play, Pause, Trash2, Save, Smartphone, Activity, CheckCircle2, AlertCircle, Clock, Repeat, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -756,7 +756,12 @@ export default function AutosaveSchedule() {
 
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-              <Button className="flex-1" onClick={handleCreate} disabled={createMut.isPending}>
+              <Button
+                className="flex-[1.5] bg-emerald-500 hover:bg-emerald-600 text-white font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all gap-2"
+                onClick={handleCreate}
+                disabled={createMut.isPending}
+              >
+                <Rocket className="w-4 h-4" />
                 {createMut.isPending ? "Criando..." : "Criar Agendamento"}
               </Button>
             </div>
