@@ -74,7 +74,7 @@ serve(async (req) => {
           ...messages,
         ],
         temperature: (settings?.creativity || 50) / 100,
-        max_tokens: 300,
+        max_tokens: 500,
       }),
     });
 
