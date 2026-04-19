@@ -992,11 +992,15 @@ export type Database = {
         Row: {
           completed_at: string | null
           created_at: string
+          daily_increment: number
+          days_executed: number
           device_ids: Json
           id: string
+          initial_limit_per_instance: number
           last_error: string | null
           last_run_date: string | null
           max_delay_seconds: number
+          max_limit_per_instance: number
           messages_per_instance: number
           min_delay_seconds: number
           name: string
@@ -1013,11 +1017,15 @@ export type Database = {
         Insert: {
           completed_at?: string | null
           created_at?: string
+          daily_increment?: number
+          days_executed?: number
           device_ids?: Json
           id?: string
+          initial_limit_per_instance?: number
           last_error?: string | null
           last_run_date?: string | null
           max_delay_seconds?: number
+          max_limit_per_instance?: number
           messages_per_instance?: number
           min_delay_seconds?: number
           name?: string
@@ -1034,11 +1042,15 @@ export type Database = {
         Update: {
           completed_at?: string | null
           created_at?: string
+          daily_increment?: number
+          days_executed?: number
           device_ids?: Json
           id?: string
+          initial_limit_per_instance?: number
           last_error?: string | null
           last_run_date?: string | null
           max_delay_seconds?: number
+          max_limit_per_instance?: number
           messages_per_instance?: number
           min_delay_seconds?: number
           name?: string
