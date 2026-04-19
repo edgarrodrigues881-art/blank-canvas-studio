@@ -472,106 +472,104 @@ export default function AutosaveSchedule() {
           </DialogHeader>
 
           <div className="space-y-5 pt-2">
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Nome</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">
-                Instâncias ({selectedDevices.length} selecionadas)
-              </Label>
-              <Card className="p-2 max-h-44 overflow-y-auto">
-                {devices.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center p-3">Nenhuma instância encontrada</p>
-                ) : (
-                  <div className="space-y-1">
-                    {devices.map((d: any) => {
-                      const isOnline = ["Ready", "Connected", "authenticated", "open"].includes(d.status);
-                      const isSel = selectedDevices.includes(d.id);
-                      return (
-                        <button
-                          key={d.id}
-                          type="button"
-                          onClick={() =>
-                            setSelectedDevices((prev) =>
-                              prev.includes(d.id) ? prev.filter((x) => x !== d.id) : [...prev, d.id]
-                            )
-                          }
-                          className={cn(
-                            "w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-sm transition-colors",
-                            isSel ? "bg-primary/10 text-foreground" : "hover:bg-muted/40 text-muted-foreground"
-                          )}
-                        >
-                          <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-emerald-500" : "bg-muted-foreground/40")} />
-                          <span className="flex-1 truncate">{d.name || d.number || "—"}</span>
-                          {isSel && <CheckCircle2 className="w-4 h-4 text-primary" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </Card>
-            </div>
-
-            {/* Weekly recurring config */}
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">
-                Dias da semana ({selectedWeekdays.length} selecionados)
-              </Label>
-              <div className="grid grid-cols-7 gap-1.5">
-                {WEEKDAYS.map((w) => {
-                  const isSel = selectedWeekdays.includes(w.value);
-                  return (
-                    <button
-                      key={w.value}
-                      type="button"
-                      onClick={() => toggleWeekday(w.value)}
-                      className={cn(
-                        "py-2.5 rounded-md text-xs font-medium transition-colors border",
-                        isSel
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50"
-                      )}
-                      title={w.long}
-                    >
-                      {w.short}
-                    </button>
-                  );
-                })}
+            {/* ============ BLOCO 1: BÁSICO ============ */}
+            <section className="rounded-lg border border-border/60 bg-card/40 p-4 space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-border/40">
+                <span className="w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center">1</span>
+                <h3 className="text-sm font-semibold">Básico</h3>
+                <span className="text-[11px] text-muted-foreground ml-auto">Identificação e quando executar</span>
               </div>
-              <div className="flex gap-2 mt-2">
-                <button
-                  type="button"
-                  className="text-[11px] text-muted-foreground hover:text-primary"
-                  onClick={() => setSelectedWeekdays([1, 2, 3, 4, 5])}
-                >
-                  Seg a Sex
-                </button>
-                <span className="text-[11px] text-muted-foreground/30">·</span>
-                <button
-                  type="button"
-                  className="text-[11px] text-muted-foreground hover:text-primary"
-                  onClick={() => setSelectedWeekdays([0, 1, 2, 3, 4, 5, 6])}
-                >
-                  Todos
-                </button>
-                <span className="text-[11px] text-muted-foreground/30">·</span>
-                <button
-                  type="button"
-                  className="text-[11px] text-muted-foreground hover:text-primary"
-                  onClick={() => setSelectedWeekdays([])}
-                >
-                  Limpar
-                </button>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Nome</Label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">
+                  Instâncias ({selectedDevices.length} selecionadas)
+                </Label>
+                <Card className="p-2 max-h-44 overflow-y-auto">
+                  {devices.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center p-3">Nenhuma instância encontrada</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {devices.map((d: any) => {
+                        const isOnline = ["Ready", "Connected", "authenticated", "open"].includes(d.status);
+                        const isSel = selectedDevices.includes(d.id);
+                        return (
+                          <button
+                            key={d.id}
+                            type="button"
+                            onClick={() =>
+                              setSelectedDevices((prev) =>
+                                prev.includes(d.id) ? prev.filter((x) => x !== d.id) : [...prev, d.id]
+                              )
+                            }
+                            className={cn(
+                              "w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-sm transition-colors",
+                              isSel ? "bg-primary/10 text-foreground" : "hover:bg-muted/40 text-muted-foreground"
+                            )}
+                          >
+                            <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-emerald-500" : "bg-muted-foreground/40")} />
+                            <span className="flex-1 truncate">{d.name || d.number || "—"}</span>
+                            {isSel && <CheckCircle2 className="w-4 h-4 text-primary" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Card>
+              </div>
+
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">
+                  Dias da semana ({selectedWeekdays.length} selecionados)
+                </Label>
+                <div className="grid grid-cols-7 gap-1.5">
+                  {WEEKDAYS.map((w) => {
+                    const isSel = selectedWeekdays.includes(w.value);
+                    return (
+                      <button
+                        key={w.value}
+                        type="button"
+                        onClick={() => toggleWeekday(w.value)}
+                        className={cn(
+                          "py-2.5 rounded-md text-xs font-medium transition-colors border",
+                          isSel
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50"
+                        )}
+                        title={w.long}
+                      >
+                        {w.short}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <button type="button" className="text-[11px] text-muted-foreground hover:text-primary" onClick={() => setSelectedWeekdays([1, 2, 3, 4, 5])}>Seg a Sex</button>
+                  <span className="text-[11px] text-muted-foreground/30">·</span>
+                  <button type="button" className="text-[11px] text-muted-foreground hover:text-primary" onClick={() => setSelectedWeekdays([0, 1, 2, 3, 4, 5, 6])}>Todos</button>
+                  <span className="text-[11px] text-muted-foreground/30">·</span>
+                  <button type="button" className="text-[11px] text-muted-foreground hover:text-primary" onClick={() => setSelectedWeekdays([])}>Limpar</button>
+                </div>
+              </div>
+
               <div>
                 <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Horário</Label>
                 <Input type="time" value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value)} />
               </div>
+            </section>
+
+            {/* ============ BLOCO 2: ENVIO ============ */}
+            <section className="rounded-lg border border-border/60 bg-card/40 p-4 space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-border/40">
+                <span className="w-6 h-6 rounded-full bg-blue-500/15 text-blue-400 text-xs font-bold flex items-center justify-center">2</span>
+                <h3 className="text-sm font-semibold">Envio</h3>
+                <span className="text-[11px] text-muted-foreground ml-auto">Como cada instância dispara</span>
+              </div>
+
               <div>
                 <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Mensagens por contato</Label>
                 <Input
@@ -586,101 +584,109 @@ export default function AutosaveSchedule() {
                     if (!isNaN(n)) setMsgsPerInstance(Math.max(1, n));
                   }}
                 />
+                <p className="text-[11px] text-muted-foreground/80 mt-1.5">Quantas mensagens cada chip envia para o mesmo contato antes de avançar.</p>
               </div>
-            </div>
 
-            {/* Pausa entre lotes (por instância) */}
-            <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-3">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-blue-400" />
-                <span className="text-xs font-semibold uppercase tracking-wider">Intervalo e pausa (por instância)</span>
+              <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-blue-400" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Intervalo entre mensagens</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Mín (s)</Label>
+                    <Input
+                      type="number"
+                      min={5}
+                      value={minDelay}
+                      onChange={(e) => setMinDelay(Math.max(5, parseInt(e.target.value) || 5))}
+                      onBlur={() => { if (maxDelay < minDelay) setMaxDelay(minDelay); }}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Máx (s)</Label>
+                    <Input
+                      type="number"
+                      min={minDelay}
+                      value={maxDelay}
+                      onChange={(e) => setMaxDelay(Math.max(minDelay, parseInt(e.target.value) || minDelay))}
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground/80">Aleatório entre <span className="text-foreground font-medium">{minDelay}–{maxDelay}s</span> entre cada envio.</p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Intervalo entre msgs mín (s)</Label>
-                  <Input
-                    type="number"
-                    min={5}
-                    value={minDelay}
-                    onChange={(e) => setMinDelay(Math.max(5, parseInt(e.target.value) || 5))}
-                    onBlur={() => { if (maxDelay < minDelay) setMaxDelay(minDelay); }}
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Intervalo entre msgs máx (s)</Label>
-                  <Input
-                    type="number"
-                    min={minDelay}
-                    value={maxDelay}
-                    onChange={(e) => setMaxDelay(Math.max(minDelay, parseInt(e.target.value) || minDelay))}
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (mín)</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={pauseEveryMin || ""}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      const n = v === "" ? 1 : parseInt(v, 10);
-                      if (!isNaN(n)) setPauseEveryMin(Math.max(1, n));
-                    }}
-                    onBlur={() => { if (pauseEveryMax < pauseEveryMin) setPauseEveryMax(pauseEveryMin); }}
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (máx)</Label>
-                  <Input
-                    type="number"
-                    min={pauseEveryMin}
-                    value={pauseEveryMax || ""}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      const n = v === "" ? pauseEveryMin : parseInt(v, 10);
-                      if (!isNaN(n)) setPauseEveryMax(Math.max(pauseEveryMin, n));
-                    }}
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração da pausa mín (s)</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={pauseDurationMin || ""}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      const n = v === "" ? 1 : parseInt(v, 10);
-                      if (!isNaN(n)) setPauseDurationMin(Math.max(1, n));
-                    }}
-                    onBlur={() => { if (pauseDurationMax < pauseDurationMin) setPauseDurationMax(pauseDurationMin); }}
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração da pausa máx (s)</Label>
-                  <Input
-                    type="number"
-                    min={pauseDurationMin}
-                    value={pauseDurationMax || ""}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      const n = v === "" ? pauseDurationMin : parseInt(v, 10);
-                      if (!isNaN(n)) setPauseDurationMax(Math.max(pauseDurationMin, n));
-                    }}
-                  />
-                </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground/80">
-                Intervalo entre cada msg: <span className="text-foreground font-medium">{minDelay}–{maxDelay}s</span> aleatório.
-                Cada chip envia entre <span className="text-foreground font-medium">{pauseEveryMin}–{pauseEveryMax}</span> mensagens
-                e então pausa por <span className="text-foreground font-medium">{pauseDurationMin}–{pauseDurationMax}s</span>.
-              </p>
-            </div>
 
-            <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-3">
-              <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-emerald-400" />
-                <span className="text-xs font-semibold uppercase tracking-wider">Progressão automática</span>
+              <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Pause className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Pausa entre lotes</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (mín)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={pauseEveryMin || ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const n = v === "" ? 1 : parseInt(v, 10);
+                        if (!isNaN(n)) setPauseEveryMin(Math.max(1, n));
+                      }}
+                      onBlur={() => { if (pauseEveryMax < pauseEveryMin) setPauseEveryMax(pauseEveryMin); }}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (máx)</Label>
+                    <Input
+                      type="number"
+                      min={pauseEveryMin}
+                      value={pauseEveryMax || ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const n = v === "" ? pauseEveryMin : parseInt(v, 10);
+                        if (!isNaN(n)) setPauseEveryMax(Math.max(pauseEveryMin, n));
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração mín (s)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={pauseDurationMin || ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const n = v === "" ? 1 : parseInt(v, 10);
+                        if (!isNaN(n)) setPauseDurationMin(Math.max(1, n));
+                      }}
+                      onBlur={() => { if (pauseDurationMax < pauseDurationMin) setPauseDurationMax(pauseDurationMin); }}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração máx (s)</Label>
+                    <Input
+                      type="number"
+                      min={pauseDurationMin}
+                      value={pauseDurationMax || ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const n = v === "" ? pauseDurationMin : parseInt(v, 10);
+                        if (!isNaN(n)) setPauseDurationMax(Math.max(pauseDurationMin, n));
+                      }}
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground/80">A cada <span className="text-foreground font-medium">{pauseEveryMin}–{pauseEveryMax}</span> mensagens, pausa por <span className="text-foreground font-medium">{pauseDurationMin}–{pauseDurationMax}s</span>.</p>
+              </div>
+            </section>
+
+            {/* ============ BLOCO 3: CRESCIMENTO ============ */}
+            <section className="rounded-lg border border-border/60 bg-card/40 p-4 space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-border/40">
+                <span className="w-6 h-6 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-bold flex items-center justify-center">3</span>
+                <h3 className="text-sm font-semibold">Crescimento</h3>
+                <span className="text-[11px] text-muted-foreground ml-auto">Progressão automática diária</span>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
@@ -736,7 +742,7 @@ export default function AutosaveSchedule() {
                 e aumenta automaticamente <span className="text-foreground font-medium">+{typeof dailyIncrement === "number" ? dailyIncrement : "—"}</span> por dia
                 até o limite máximo de <span className="text-foreground font-medium">{typeof maxLimit === "number" ? maxLimit : "—"}</span>.
               </p>
-            </div>
+            </section>
 
             <div className="rounded-md bg-primary/5 border border-primary/20 p-3">
               <p className="text-[11px] text-muted-foreground leading-relaxed">
