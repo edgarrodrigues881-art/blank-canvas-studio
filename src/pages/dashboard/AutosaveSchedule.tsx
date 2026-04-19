@@ -744,16 +744,15 @@ export default function AutosaveSchedule() {
               </p>
             </section>
 
-            <div className="rounded-md bg-primary/5 border border-primary/20 p-3">
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                <Repeat className="w-3 h-3 inline mr-1 text-primary" />
-                <span className="text-foreground font-medium">Execução recorrente:</span>{" "}
+            <p className="text-[10px] text-muted-foreground/60 leading-relaxed px-1 flex items-start gap-1.5">
+              <Repeat className="w-2.5 h-2.5 mt-0.5 shrink-0 opacity-60" />
+              <span>
                 {selectedWeekdays.length > 0
                   ? `${weekdaysLabel(selectedWeekdays)} às ${timeOfDay}`
                   : "selecione os dias"}
-                . Base Auto Save com {autosaveCount} contatos. Cada instância envia <span className="text-foreground font-medium">{msgsPerInstance}</span> mensagem{msgsPerInstance !== 1 ? "s" : ""} por contato (respeitando intervalo e pausas). O limite diário por instância é definido pela progressão automática.
-              </p>
-            </div>
+                {" · "}{autosaveCount} contatos · {msgsPerInstance} msg/contato · limite diário pela progressão automática.
+              </span>
+            </p>
 
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setCreateOpen(false)}>Cancelar</Button>
