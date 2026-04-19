@@ -2520,6 +2520,16 @@ const Campaigns = () => {
                     />
                     <span className="text-[11px] text-muted-foreground/60">msgs / instância</span>
                   </div>
+                  {messagesPerInstance > 55 ? (
+                    <p className="text-[10px] text-destructive leading-relaxed flex items-start gap-1.5">
+                      <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                      <span>Acima de 55 msgs/instância o WhatsApp corre risco de restrição ou banimento.</span>
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground/40 leading-relaxed">
+                      Define quantas mensagens cada chip envia antes de pausar. Deixe vazio para ilimitado.
+                    </p>
+                  )}
                 </div>
               </SurfaceCard>
 
