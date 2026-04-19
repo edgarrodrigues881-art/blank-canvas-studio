@@ -91,12 +91,12 @@ const Hero = () => {
             </motion.div>
 
             <motion.h1 variants={fadeUp} className="text-[2.75rem] sm:text-5xl md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.0] tracking-[-0.04em] mb-7">
-              Pare de perder chips.<br />
-              <span className="text-white/55">Escale com controle.</span>
+              Stop losing WhatsApp numbers.<br />
+              <span className="text-white/55">Scale with full control.</span>
             </motion.h1>
 
             <motion.p variants={fadeUp} className="text-[16px] md:text-[17px] text-white/60 max-w-[500px] mx-auto lg:mx-0 mb-9 leading-[1.55]">
-              Aqueça, dispare e monitore dezenas de números numa só plataforma — sem bans, sem caos, sem perder receita.
+              Avoid bans, manage multiple chips safely, and scale your operation without chaos.
             </motion.p>
 
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center lg:items-start lg:justify-start justify-center gap-3">
