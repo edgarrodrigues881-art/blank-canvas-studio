@@ -261,7 +261,7 @@ const UseCase = () => (
         </motion.ol>
       </motion.div>
 
-      <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.3 }} transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }} className="lg:col-span-7 relative">
+      <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.4, ease: easeOut }} className="lg:col-span-7 relative">
         <div className="absolute -inset-8 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.06)_0%,transparent_70%)] blur-3xl pointer-events-none" />
         <div className="relative rounded-xl border border-white/[0.06] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)]">
           <div className="bg-white/[0.015] px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-1.5">
