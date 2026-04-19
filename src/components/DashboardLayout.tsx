@@ -96,10 +96,6 @@ const DashboardLayoutInner = ({ children }: DashboardLayoutProps) => {
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Voltar</span>
                 </button>
-                <div className="flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-semibold">
-                  <Headset className="w-3.5 h-3.5" />
-                  CRM ativo
-                </div>
               </div>
             )}
 
