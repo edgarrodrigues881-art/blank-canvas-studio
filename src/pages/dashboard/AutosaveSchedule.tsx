@@ -50,17 +50,38 @@ export default function AutosaveSchedule() {
   const [createOpen, setCreateOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
 
-  const { data: autosaveCount = 0 } = useQuery({
-    queryKey: ["autosave_count", user?.id],
+  const { data: contactStats = { total: 0, valid: 0, invalid: 0 } } = useQuery({
+    queryKey: ["autosave_contact_stats", user?.id],
     queryFn: async () => {
-      if (!user) return 0;
-      const { count } = await supabase
-        .from("warmup_autosave_contacts" as any)
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id);
-      return count || 0;
+      if (!user) return { total: 0, valid: 0, invalid: 0 };
+      const [{ count: total }, { count: valid }] = await Promise.all([
+        supabase.from("warmup_autosave_contacts" as any).select("id", { count: "exact", head: true }).eq("user_id", user.id),
+        supabase.from("warmup_autosave_contacts" as any).select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("is_active", true),
+      ]);
+      const t = total || 0;
+      const v = valid || 0;
+      return { total: t, valid: v, invalid: Math.max(0, t - v) };
     },
     enabled: !!user,
+  });
+  const autosaveCount = contactStats.total;
+
+  // Resumo do dia: agregados a partir dos logs
+  const todayISO = format(new Date(), "yyyy-MM-dd");
+  const { data: todayLogStats = { invalid: 0, failed: 0, limit_reached: 0 } } = useQuery({
+    queryKey: ["autosave_today_log_stats", user?.id, todayISO],
+    queryFn: async () => {
+      if (!user) return { invalid: 0, failed: 0, limit_reached: 0 };
+      const startISO = `${todayISO}T00:00:00.000Z`;
+      const [inv, fail, lim] = await Promise.all([
+        supabase.from("autosave_schedule_logs" as any).select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "invalid_number").gte("sent_at", startISO),
+        supabase.from("autosave_schedule_logs" as any).select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "failed").gte("sent_at", startISO),
+        supabase.from("autosave_schedule_logs" as any).select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "limit_reached").gte("sent_at", startISO),
+      ]);
+      return { invalid: inv.count || 0, failed: fail.count || 0, limit_reached: lim.count || 0 };
+    },
+    enabled: !!user,
+    refetchInterval: 10_000,
   });
 
   const { data: devices = [] } = useQuery({
