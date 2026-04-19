@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -86,9 +87,10 @@ export default function AutosaveSchedule() {
   const [minDelay, setMinDelay] = useState(15);
   const [maxDelay, setMaxDelay] = useState(60);
   const [msgsPerInstance, setMsgsPerInstance] = useState(0);
-  const [initialLimit, setInitialLimit] = useState(20);
-  const [dailyIncrement, setDailyIncrement] = useState(5);
-  const [maxLimit, setMaxLimit] = useState(100);
+  const [progressionEnabled, setProgressionEnabled] = useState(false);
+  const [initialLimit, setInitialLimit] = useState<number | "">("");
+  const [dailyIncrement, setDailyIncrement] = useState<number | "">("");
+  const [maxLimit, setMaxLimit] = useState<number | "">("");
 
   const resetForm = () => {
     setName("Agendamento Auto Save");
@@ -98,9 +100,10 @@ export default function AutosaveSchedule() {
     setMinDelay(15);
     setMaxDelay(60);
     setMsgsPerInstance(0);
-    setInitialLimit(20);
-    setDailyIncrement(5);
-    setMaxLimit(100);
+    setProgressionEnabled(false);
+    setInitialLimit("");
+    setDailyIncrement("");
+    setMaxLimit("");
   };
 
   const toggleWeekday = (day: number) => {
@@ -126,9 +129,19 @@ export default function AutosaveSchedule() {
       toast.error("Horário inválido");
       return;
     }
-    if (maxLimit < initialLimit) {
-      toast.error("Limite máximo deve ser ≥ limite inicial");
-      return;
+    // Progressão: validar APENAS se ativada
+    let payloadProgression: { initial_limit_per_instance: number; daily_increment: number; max_limit_per_instance: number };
+    if (progressionEnabled) {
+      const ini = typeof initialLimit === "number" ? initialLimit : NaN;
+      const inc = typeof dailyIncrement === "number" ? dailyIncrement : NaN;
+      const mx = typeof maxLimit === "number" ? maxLimit : NaN;
+      if (!Number.isFinite(ini) || ini < 0) return toast.error("Limite inicial deve ser ≥ 0");
+      if (!Number.isFinite(inc) || inc < 0) return toast.error("Incremento diário deve ser ≥ 0");
+      if (!Number.isFinite(mx) || mx < ini) return toast.error("Limite máximo deve ser ≥ limite inicial");
+      payloadProgression = { initial_limit_per_instance: ini, daily_increment: inc, max_limit_per_instance: mx };
+    } else {
+      // Convenção: 0/0/0 = progressão desativada (worker usa apenas messages_per_instance)
+      payloadProgression = { initial_limit_per_instance: 0, daily_increment: 0, max_limit_per_instance: 0 };
     }
 
     try {
@@ -140,9 +153,7 @@ export default function AutosaveSchedule() {
         min_delay_seconds: minDelay,
         max_delay_seconds: maxDelay,
         messages_per_instance: msgsPerInstance,
-        initial_limit_per_instance: Math.max(1, initialLimit),
-        daily_increment: Math.max(0, dailyIncrement),
-        max_limit_per_instance: Math.max(initialLimit, maxLimit),
+        ...payloadProgression,
       });
       toast.success("Agendamento recorrente criado");
       setCreateOpen(false);
@@ -260,16 +271,23 @@ export default function AutosaveSchedule() {
                         <Activity className="w-3 h-3" />
                         {s.total_sent} enviadas{s.total_failed > 0 && ` · ${s.total_failed} falhas`}
                       </span>
-                      <span className="flex items-center gap-1 text-emerald-400/80">
-                        <Activity className="w-3 h-3" />
-                        {(() => {
-                          const cur = Math.min(
-                            s.max_limit_per_instance,
-                            s.initial_limit_per_instance + s.days_executed * s.daily_increment
-                          );
-                          return `${cur}/${s.max_limit_per_instance} msgs/chip · dia ${s.days_executed + 1}`;
-                        })()}
-                      </span>
+                      {(s.max_limit_per_instance > 0 || s.daily_increment > 0 || s.initial_limit_per_instance > 0) ? (
+                        <span className="flex items-center gap-1 text-emerald-400/80">
+                          <Activity className="w-3 h-3" />
+                          {(() => {
+                            const cur = Math.min(
+                              s.max_limit_per_instance,
+                              s.initial_limit_per_instance + s.days_executed * s.daily_increment
+                            );
+                            return `${cur}/${s.max_limit_per_instance} msgs/chip · dia ${s.days_executed + 1}`;
+                          })()}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <Activity className="w-3 h-3" />
+                          {s.messages_per_instance > 0 ? `${s.messages_per_instance} msgs/chip (fixo)` : "sem teto"}
+                        </span>
+                      )}
                     </div>
                     {s.last_error && (
                       <p className="text-[11px] text-destructive mt-1">⚠ {s.last_error}</p>
@@ -440,20 +458,36 @@ export default function AutosaveSchedule() {
               </div>
             </div>
 
-            {/* Progressão automática */}
+            {/* Progressão automática (opcional) */}
             <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-3">
-              <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-emerald-400" />
-                <span className="text-xs font-semibold uppercase tracking-wider">Progressão automática</span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Progressão automática</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground">
+                    {progressionEnabled ? "Ativada" : "Desativada"}
+                  </span>
+                  <Switch checked={progressionEnabled} onCheckedChange={setProgressionEnabled} />
+                </div>
               </div>
+
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Limite inicial</Label>
                   <Input
                     type="number"
-                    min={1}
+                    min={0}
+                    disabled={!progressionEnabled}
                     value={initialLimit}
-                    onChange={(e) => setInitialLimit(Math.max(1, parseInt(e.target.value) || 1))}
+                    placeholder="ex: 20"
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "") return setInitialLimit("");
+                      const n = parseInt(v, 10);
+                      if (!isNaN(n) && n >= 0) setInitialLimit(n);
+                    }}
                   />
                 </div>
                 <div>
@@ -461,24 +495,45 @@ export default function AutosaveSchedule() {
                   <Input
                     type="number"
                     min={0}
+                    disabled={!progressionEnabled}
                     value={dailyIncrement}
-                    onChange={(e) => setDailyIncrement(Math.max(0, parseInt(e.target.value) || 0))}
+                    placeholder="ex: 5"
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "") return setDailyIncrement("");
+                      const n = parseInt(v, 10);
+                      if (!isNaN(n) && n >= 0) setDailyIncrement(n);
+                    }}
                   />
                 </div>
                 <div>
                   <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Limite máximo</Label>
                   <Input
                     type="number"
-                    min={initialLimit}
+                    min={0}
+                    disabled={!progressionEnabled}
                     value={maxLimit}
-                    onChange={(e) => setMaxLimit(Math.max(initialLimit, parseInt(e.target.value) || initialLimit))}
+                    placeholder="ex: 100"
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "") return setMaxLimit("");
+                      const n = parseInt(v, 10);
+                      if (!isNaN(n) && n >= 0) setMaxLimit(n);
+                    }}
                   />
                 </div>
               </div>
+
               <p className="text-[11px] text-muted-foreground/80">
-                Cada chip começa enviando <span className="text-foreground font-medium">{initialLimit}</span> msgs/dia,
-                aumentando <span className="text-foreground font-medium">+{dailyIncrement}</span> a cada dia executado,
-                até o teto de <span className="text-foreground font-medium">{maxLimit}</span>.
+                {progressionEnabled ? (
+                  <>
+                    Cada chip começa enviando <span className="text-foreground font-medium">{typeof initialLimit === "number" ? initialLimit : "—"}</span> msgs/dia,
+                    aumentando <span className="text-foreground font-medium">+{typeof dailyIncrement === "number" ? dailyIncrement : "—"}</span> por dia executado,
+                    até o teto de <span className="text-foreground font-medium">{typeof maxLimit === "number" ? maxLimit : "—"}</span>.
+                  </>
+                ) : (
+                  <>Sem progressão. O sistema usará apenas o valor fixo de <span className="text-foreground font-medium">"Msgs/chip"</span> definido acima.</>
+                )}
               </p>
             </div>
 
