@@ -493,7 +493,7 @@ const CommunitySection = () => (
         </motion.div>
       </motion.div>
 
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true, amount: 0.3 }} transition={{ duration: 0.8 }} className="lg:col-span-6 flex justify-center">
+      <motion.div initial={{ opacity: 0, scale: 0.98 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.4, ease: easeOut }} className="lg:col-span-6 flex justify-center">
         <div className="relative">
           <div className="absolute -inset-12 bg-[radial-gradient(circle,rgba(245,158,11,0.1)_0%,transparent_65%)] blur-3xl" />
           <div className="relative w-[200px] h-[200px] rounded-2xl overflow-hidden border border-amber-500/20 bg-[hsl(222,22%,7%)]">
