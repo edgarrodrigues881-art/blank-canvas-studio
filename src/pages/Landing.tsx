@@ -138,25 +138,38 @@ const Hero = () => {
   );
 };
 
-// ─── 2. Stats (social proof) ───
-const stats = [
-  { value: "1.000+", label: "Chips em operação" },
-  { value: "50M+", label: "Mensagens entregues" },
-  { value: "99.9%", label: "Estabilidade média" },
-  { value: "24/7", label: "Suporte ativo" },
+// ─── 2. Trust (product-focused) ───
+const trustPoints = [
+  "Gerenciamento de múltiplos chips em um só lugar",
+  "Monitoramento contínuo das instâncias",
+  "Controle de envio para reduzir bloqueios",
 ];
 
 const Stats = () => (
-  <section className="py-16 md:py-20 px-6 border-y border-white/[0.04]">
-    <div className="max-w-[1200px] mx-auto">
-      <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-white/35 text-center mb-10">Confiado por equipes que escalam</p>
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} variants={stagger} className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-4">
-        {stats.map((s) => (
-          <motion.div key={s.label} variants={fadeUp} className="text-center">
-            <div className="text-[2rem] md:text-[2.5rem] font-semibold text-white tracking-[-0.03em] leading-none mb-2">{s.value}</div>
-            <div className="text-[12px] text-white/40 font-medium">{s.label}</div>
-          </motion.div>
-        ))}
+  <section className="py-20 md:py-24 px-6 border-y border-white/[0.04]">
+    <div className="max-w-[1100px] mx-auto">
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={stagger}
+        className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start"
+      >
+        <motion.h2
+          variants={fadeUp}
+          className="lg:col-span-5 text-[1.75rem] md:text-[2rem] font-semibold text-white tracking-[-0.03em] leading-[1.1]"
+        >
+          Controle real da <span className="text-white/45">sua operação.</span>
+        </motion.h2>
+
+        <motion.ul variants={fadeUp} className="lg:col-span-7 space-y-5">
+          {trustPoints.map((point) => (
+            <li key={point} className="flex items-start gap-3 text-[15px] text-white/70 leading-[1.55]">
+              <span className="mt-[9px] w-1 h-1 rounded-full bg-white/40 flex-shrink-0" />
+              <span>{point}</span>
+            </li>
+          ))}
+        </motion.ul>
       </motion.div>
     </div>
   </section>
