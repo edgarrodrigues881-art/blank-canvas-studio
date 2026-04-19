@@ -89,7 +89,7 @@ export default function AutosaveSchedule() {
   const [pauseEveryMax, setPauseEveryMax] = useState(20);
   const [pauseDurationMin, setPauseDurationMin] = useState(30);
   const [pauseDurationMax, setPauseDurationMax] = useState(120);
-  const [msgsPerInstance, setMsgsPerInstance] = useState(0);
+  const [msgsPerInstance, setMsgsPerInstance] = useState(1);
   const [initialLimit, setInitialLimit] = useState<number | "">(20);
   const [dailyIncrement, setDailyIncrement] = useState<number | "">(5);
   const [maxLimit, setMaxLimit] = useState<number | "">(100);
@@ -101,7 +101,7 @@ export default function AutosaveSchedule() {
     setTimeOfDay("13:00");
     setMinDelay(15);
     setMaxDelay(60);
-    setMsgsPerInstance(0);
+    setMsgsPerInstance(1);
     setInitialLimit(20);
     setDailyIncrement(5);
     setMaxLimit(100);
@@ -426,17 +426,17 @@ export default function AutosaveSchedule() {
                 <Input type="time" value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value)} />
               </div>
               <div>
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Msgs/chip (teto opcional)</Label>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Mensagens por contato</Label>
                 <Input
                   type="number"
-                  min={0}
-                  value={msgsPerInstance === 0 ? "" : msgsPerInstance}
-                  placeholder="∞"
+                  min={1}
+                  value={msgsPerInstance || ""}
+                  placeholder="ex: 3"
                   onChange={(e) => {
                     const v = e.target.value;
-                    if (v === "") return setMsgsPerInstance(0);
+                    if (v === "") return setMsgsPerInstance(1);
                     const n = parseInt(v, 10);
-                    if (!isNaN(n)) setMsgsPerInstance(Math.max(0, n));
+                    if (!isNaN(n)) setMsgsPerInstance(Math.max(1, n));
                   }}
                 />
               </div>
@@ -598,7 +598,7 @@ export default function AutosaveSchedule() {
                 {selectedWeekdays.length > 0
                   ? `${weekdaysLabel(selectedWeekdays)} às ${timeOfDay}`
                   : "selecione os dias"}
-                . Base Auto Save com {autosaveCount} contatos. O campo "Msgs/chip" é um teto absoluto opcional (vazio = sem teto extra).
+                . Base Auto Save com {autosaveCount} contatos. Cada instância envia <span className="text-foreground font-medium">{msgsPerInstance}</span> mensagem{msgsPerInstance !== 1 ? "s" : ""} por contato (respeitando intervalo e pausas). O limite diário por instância é definido pela progressão automática.
               </p>
             </div>
 
