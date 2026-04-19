@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import {
   Zap, Shield, BarChart3, Smartphone, Settings,
@@ -35,7 +36,9 @@ const Background = () => (
 // ─── Navbar ───
 const Navbar = () => {
   const navigate = useNavigate();
+  const { session } = useAuth();
   const scroll = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  const goToApp = () => navigate(session ? "/app" : "/login");
 
   return (
     <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-[hsl(222,22%,5%)]/80 border-b border-white/[0.05]">
@@ -51,8 +54,12 @@ const Navbar = () => {
           <button onClick={() => scroll("comunidade")} className="text-[13px] text-amber-400/80 hover:text-amber-300 transition-colors">Comunidade</button>
         </nav>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/auth")} className="text-[13px] font-medium text-white/60 hover:text-white hover:bg-white/[0.04] h-8 px-3">Acessar sistema</Button>
-          <Button size="sm" onClick={() => navigate("/auth?mode=signup")} className="text-[12px] font-medium bg-white/95 hover:bg-white text-black h-8 px-3.5 rounded-md shadow-none">Começar grátis</Button>
+          <Button variant="ghost" size="sm" onClick={goToApp} className="text-[13px] font-medium text-white/60 hover:text-white hover:bg-white/[0.04] h-8 px-3">
+            {session ? "Ir para o app" : "Acessar sistema"}
+          </Button>
+          {!session && (
+            <Button size="sm" onClick={() => navigate("/auth?mode=signup")} className="text-[12px] font-medium bg-white/95 hover:bg-white text-black h-8 px-3.5 rounded-md shadow-none">Começar grátis</Button>
+          )}
         </div>
       </div>
     </header>

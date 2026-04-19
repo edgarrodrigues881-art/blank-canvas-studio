@@ -192,9 +192,10 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
+  // Auth pages remain public-only (signed-in users skip them)
   const { user, loading } = useAuth();
   if (loading) return <Loading />;
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user) return <Navigate to="/app" replace />;
   return <>{children}</>;
 }
 
@@ -206,11 +207,15 @@ const App = () => (
           <AuthProvider>
             <Suspense fallback={<Loading />}>
               <Routes>
-                {/* Public */}
-                <Route path="/" element={<PublicOnlyRoute><Landing /></PublicOnlyRoute>} />
+                {/* Public — landing is always accessible, even when authenticated */}
+                <Route path="/" element={<Landing />} />
                 <Route path="/auth" element={<PublicOnlyRoute><Auth /></PublicOnlyRoute>} />
+                <Route path="/login" element={<PublicOnlyRoute><Auth /></PublicOnlyRoute>} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/install-backoffice" element={<InstallBackoffice />} />
+
+                {/* /app alias → dashboard home */}
+                <Route path="/app" element={<Navigate to="/dashboard" replace />} />
                 
                 <Route path="/welcome" element={<ProtectedRoute><WelcomeSplash /></ProtectedRoute>} />
                 <Route path="/onboarding/theme" element={<ProtectedRoute><OnboardingTheme /></ProtectedRoute>} />
