@@ -42,6 +42,7 @@ import {
   Link2,
   PlayCircle,
   GraduationCap,
+  DollarSign,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
