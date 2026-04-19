@@ -86,6 +86,9 @@ export default function AutosaveSchedule() {
   const [minDelay, setMinDelay] = useState(15);
   const [maxDelay, setMaxDelay] = useState(60);
   const [msgsPerInstance, setMsgsPerInstance] = useState(0);
+  const [initialLimit, setInitialLimit] = useState(20);
+  const [dailyIncrement, setDailyIncrement] = useState(5);
+  const [maxLimit, setMaxLimit] = useState(100);
 
   const resetForm = () => {
     setName("Agendamento Auto Save");
@@ -95,6 +98,9 @@ export default function AutosaveSchedule() {
     setMinDelay(15);
     setMaxDelay(60);
     setMsgsPerInstance(0);
+    setInitialLimit(20);
+    setDailyIncrement(5);
+    setMaxLimit(100);
   };
 
   const toggleWeekday = (day: number) => {
@@ -120,6 +126,10 @@ export default function AutosaveSchedule() {
       toast.error("Horário inválido");
       return;
     }
+    if (maxLimit < initialLimit) {
+      toast.error("Limite máximo deve ser ≥ limite inicial");
+      return;
+    }
 
     try {
       await createMut.mutateAsync({
@@ -130,6 +140,9 @@ export default function AutosaveSchedule() {
         min_delay_seconds: minDelay,
         max_delay_seconds: maxDelay,
         messages_per_instance: msgsPerInstance,
+        initial_limit_per_instance: Math.max(1, initialLimit),
+        daily_increment: Math.max(0, dailyIncrement),
+        max_limit_per_instance: Math.max(initialLimit, maxLimit),
       });
       toast.success("Agendamento recorrente criado");
       setCreateOpen(false);
