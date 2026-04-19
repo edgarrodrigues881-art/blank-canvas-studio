@@ -91,12 +91,12 @@ const Hero = () => {
             </motion.div>
 
             <motion.h1 variants={fadeUp} className="text-[2.75rem] sm:text-5xl md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.0] tracking-[-0.04em] mb-7">
-              Escale seu WhatsApp<br />
-              <span className="text-white/55">sem tomar ban.</span>
+              Pare de perder chips.<br />
+              <span className="text-white/55">Escale com controle.</span>
             </motion.h1>
 
             <motion.p variants={fadeUp} className="text-[16px] md:text-[17px] text-white/60 max-w-[500px] mx-auto lg:mx-0 mb-9 leading-[1.55]">
-              Gerencie dezenas de números, aqueça chips automaticamente e dispare em massa com a segurança que sua operação precisa.
+              Aqueça, dispare e monitore dezenas de números numa só plataforma — sem bans, sem caos, sem perder receita.
             </motion.p>
 
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center lg:items-start lg:justify-start justify-center gap-3">
