@@ -22,6 +22,7 @@ const Landing = lazyWithPreload(() => import("@/pages/Landing"));
 const Auth = lazyWithPreload(() => import("@/pages/Auth"));
 const ResetPassword = lazyWithPreload(() => import("@/pages/ResetPassword"));
 const WelcomeSplash = lazyWithPreload(() => import("@/pages/WelcomeSplash"));
+const OnboardingTheme = lazyWithPreload(() => import("@/pages/OnboardingTheme"));
 const NotFound = lazyWithPreload(() => import("@/pages/NotFound"));
 const BackOffice = lazyWithPreload(() => import("@/pages/BackOffice"));
 const InstallBackoffice = lazyWithPreload(() => import("@/pages/InstallBackoffice"));
@@ -212,6 +213,7 @@ const App = () => (
                 <Route path="/install-backoffice" element={<InstallBackoffice />} />
                 
                 <Route path="/welcome" element={<ProtectedRoute><WelcomeSplash /></ProtectedRoute>} />
+                <Route path="/onboarding/theme" element={<ProtectedRoute><OnboardingTheme /></ProtectedRoute>} />
 
                 {/* Dashboard */}
                 <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><DashboardHome /></DashboardLayout></ProtectedRoute>} />
