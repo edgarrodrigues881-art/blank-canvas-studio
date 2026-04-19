@@ -717,7 +717,7 @@ const Campaigns = () => {
       pause_duration_max: pauseDurationMax,
       device_id: selectedDevices[0],
       device_ids: selectedDevices,
-      messages_per_instance: messagesPerInstance > 0 ? messagesPerInstance : 50,
+      messages_per_instance: messagesPerInstance > 0 ? messagesPerInstance : 0,
       pause_on_disconnect: pauseOnDisconnect,
     }, {
       onSuccess: (newCampaign) => {
