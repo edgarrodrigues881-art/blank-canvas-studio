@@ -1294,69 +1294,80 @@ const WarmupInstances = () => {
             {/* Inner content wrapper */}
             <div className="relative z-10">
               {/* Logo + Header */}
-              <div className="flex flex-col items-center pt-7 pb-4 px-6">
+              <div className="flex flex-col items-center pt-7 pb-5 px-6">
                 <div className="relative mb-4">
-                  <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-teal-500/20 via-amber-500/10 to-teal-500/15 blur-lg pointer-events-none" />
+                  <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-teal-500/25 via-emerald-500/10 to-teal-500/20 blur-lg pointer-events-none" />
                   <img
                     src={dgLogoNew}
                     alt="DG Logo"
-                    className="relative w-16 h-16 rounded-2xl shadow-lg ring-1 ring-white/10"
+                    className="relative w-14 h-14 rounded-2xl shadow-lg ring-1 ring-white/10"
                   />
                 </div>
-                <h2 className="text-base font-bold text-white tracking-tight text-center">Orientações antes de começar</h2>
-                <p className="text-xs text-white/40 mt-1 text-center">Leia com atenção para garantir a segurança do seu chip.</p>
+                <span className="text-[10px] font-medium uppercase tracking-wider text-teal-400/70 mb-1.5">Passo 1 de 3</span>
+                <h2 className="text-lg font-bold text-white tracking-tight text-center">Antes de conectar seu chip</h2>
+                <p className="text-xs text-white/45 mt-1 text-center">Siga estes passos para evitar bloqueios</p>
               </div>
 
-              {/* Divider */}
-              <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mx-6" />
-
               {/* Body */}
-              <div className="px-6 py-5 space-y-4">
-                <div className="space-y-3 text-[13px] text-white/55 leading-relaxed">
-                  <p>
-                    Antes de conectar o chip ao QR Code, realize ao menos uma <strong className="text-white/90 font-medium">interação manual</strong> no aparelho — como enviar uma mensagem ou fazer uma ligação.
-                  </p>
-                  <p>
-                    Essa etapa inicial reduz significativamente o risco de <strong className="text-white/90 font-medium">restrições durante o aquecimento</strong>.
-                  </p>
+              <div className="px-6 pb-5 space-y-5">
+                {/* Bullet steps */}
+                <div className="space-y-2.5">
+                  {[
+                    { icon: MessageSquare, text: "Faça 1 ação manual no WhatsApp (mensagem ou ligação)" },
+                    { icon: Clock, text: "Aguarde alguns minutos antes de conectar" },
+                    { icon: Shield, text: "Evite múltiplas conexões ao mesmo tempo" },
+                  ].map((step, i) => (
+                    <div key={i} className="flex items-start gap-3 rounded-xl bg-white/[0.03] backdrop-blur-sm border border-white/[0.05] px-3.5 py-3 transition-colors hover:bg-white/[0.05] hover:border-teal-500/20">
+                      <div className="w-7 h-7 rounded-lg bg-teal-500/10 flex items-center justify-center shrink-0 ring-1 ring-teal-500/20">
+                        <step.icon className="w-3.5 h-3.5 text-teal-400" />
+                      </div>
+                      <p className="text-[13px] text-white/75 leading-relaxed pt-0.5">{step.text}</p>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3.5 flex items-start gap-3">
-                  <Shield className="w-4 h-4 text-teal-400/80 mt-0.5 shrink-0" />
-                  <p className="text-xs text-white/45 leading-relaxed">
-                    <strong className="text-white/75 font-medium">Termo de uso</strong> — Esta ferramenta auxilia no processo de aquecimento. O usuário é responsável por seguir as boas práticas recomendadas e pela utilização adequada dos recursos disponibilizados.
-                  </p>
-                </div>
+                {/* Collapsible terms */}
+                <Collapsible>
+                  <CollapsibleTrigger className="group flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors">
+                    <span>Ver termos de uso</span>
+                    <ChevronDown className="w-3 h-3 transition-transform group-data-[state=open]:rotate-180" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
+                    <p className="text-xs text-white/45 leading-relaxed pt-2.5">
+                      Esta ferramenta auxilia no processo de aquecimento. O usuário é responsável por seguir as boas práticas recomendadas e pela utilização adequada dos recursos disponibilizados.
+                    </p>
+                  </CollapsibleContent>
+                </Collapsible>
 
                 {/* Checkboxes */}
-                <div className="space-y-3 pt-1">
-                  <div className="flex items-start gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3 cursor-pointer transition-colors hover:bg-white/[0.05]" onClick={() => setAgreedResponsibility(!agreedResponsibility)}>
-                    <Checkbox id="agreeResponsibility" checked={agreedResponsibility} onCheckedChange={(v) => setAgreedResponsibility(!!v)} className="mt-0.5 border-white/20 data-[state=checked]:bg-teal-500 data-[state=checked]:border-teal-500" />
-                    <label htmlFor="agreeResponsibility" className="text-[13px] text-white/50 cursor-pointer select-none leading-relaxed">
-                      Li e concordo com as orientações de uso responsável.
+                <div className="space-y-2.5">
+                  <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setAgreedResponsibility(!agreedResponsibility)}>
+                    <Checkbox id="agreeResponsibility" checked={agreedResponsibility} onCheckedChange={(v) => setAgreedResponsibility(!!v)} className="border-white/25 data-[state=checked]:bg-teal-500 data-[state=checked]:border-teal-500" />
+                    <label htmlFor="agreeResponsibility" className="text-[13px] text-white/70 cursor-pointer select-none">
+                      Li e concordo com as orientações
                     </label>
                   </div>
-
-                  <div className="flex items-center gap-2 pl-1">
+                  <div className="flex items-center gap-2 pl-0.5">
                     <Checkbox id="dontShowAgainV2" checked={dontShowAgain} onCheckedChange={(v) => setDontShowAgain(!!v)} className="border-white/15 data-[state=checked]:bg-teal-500/80 data-[state=checked]:border-teal-500/80" />
-                    <label htmlFor="dontShowAgainV2" className="text-xs text-white/30 cursor-pointer select-none">Não mostrar novamente</label>
+                    <label htmlFor="dontShowAgainV2" className="text-xs text-white/35 cursor-pointer select-none">Não mostrar novamente</label>
                   </div>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="px-6 pb-6">
+              <div className="px-6 pb-6 space-y-2">
                 <Button
-                  className="w-full h-11 text-sm font-semibold rounded-xl transition-all duration-300 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white shadow-lg shadow-teal-500/20 disabled:opacity-40 disabled:shadow-none"
+                  className="w-full h-11 text-sm font-semibold rounded-xl transition-all duration-300 bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-500 hover:from-emerald-500 hover:via-teal-400 hover:to-emerald-400 text-white shadow-lg shadow-teal-500/30 hover:shadow-teal-400/40 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:shadow-none disabled:hover:scale-100"
                   disabled={!agreedResponsibility}
                   onClick={() => {
                     if (dontShowAgain) localStorage.setItem(WARNING_DISMISS_KEY, "true");
                     setShowWarning(false);
                   }}
                 >
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Entendi e continuar
+                  <Shield className="w-4 h-4 mr-2" />
+                  Continuar com segurança
                 </Button>
+                <p className="text-[11px] text-white/35 text-center">Leva menos de 1 minuto</p>
               </div>
             </div>
           </div>
