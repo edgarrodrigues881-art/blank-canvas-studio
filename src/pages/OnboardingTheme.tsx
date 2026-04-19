@@ -71,7 +71,6 @@ const OnboardingTheme = () => {
         >
           <ThemeCard
             label="Escuro"
-            recommended
             selected={selected === "dark"}
             onClick={() => handleSelect("dark")}
             preview={<DarkPreview />}
@@ -89,7 +88,7 @@ const OnboardingTheme = () => {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.4 }}
           onClick={handleContinue}
-          className="mt-12 sm:mt-14 px-10 py-3 rounded-full bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+          className="mt-12 sm:mt-14 px-10 py-3 rounded-full bg-primary text-primary-foreground text-sm font-semibold shadow-[0_8px_24px_-8px_hsl(var(--primary)/0.5)] hover:opacity-95 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
         >
           Continuar
         </motion.button>
@@ -100,21 +99,20 @@ const OnboardingTheme = () => {
 
 interface ThemeCardProps {
   label: string;
-  recommended?: boolean;
   selected: boolean;
   onClick: () => void;
   preview: React.ReactNode;
 }
 
-const ThemeCard = ({ label, recommended, selected, onClick, preview }: ThemeCardProps) => {
+const ThemeCard = ({ label, selected, onClick, preview }: ThemeCardProps) => {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`group relative rounded-2xl p-3 transition-all duration-300 text-left ${
+      className={`group relative rounded-2xl p-3 text-left transition-all duration-300 hover:-translate-y-0.5 ${
         selected
-          ? "bg-foreground/[0.04] ring-1 ring-emerald-500/40 shadow-[0_0_0_4px_rgba(16,185,129,0.08),0_20px_40px_-20px_rgba(16,185,129,0.25)]"
-          : "bg-foreground/[0.02] ring-1 ring-foreground/[0.06] hover:ring-foreground/[0.14] hover:bg-foreground/[0.035]"
+          ? "bg-card ring-1 ring-emerald-500/40 shadow-[0_0_0_4px_rgba(16,185,129,0.08),0_20px_40px_-20px_rgba(16,185,129,0.25)]"
+          : "bg-card/60 ring-1 ring-border hover:ring-foreground/20 hover:shadow-[0_10px_30px_-10px_hsl(var(--foreground)/0.15)]"
       }`}
     >
       {/* Preview area */}
@@ -124,14 +122,7 @@ const ThemeCard = ({ label, recommended, selected, onClick, preview }: ThemeCard
 
       {/* Footer */}
       <div className="flex items-center justify-between px-1 pt-3 pb-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground/85">{label}</span>
-          {recommended && (
-            <span className="text-[10px] tracking-wide uppercase text-emerald-500 font-semibold">
-              Recomendado
-            </span>
-          )}
-        </div>
+        <span className="text-sm font-medium text-foreground/85">{label}</span>
         <span
           className={`flex items-center justify-center w-5 h-5 rounded-full transition-all ${
             selected
