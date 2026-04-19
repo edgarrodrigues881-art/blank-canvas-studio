@@ -386,10 +386,31 @@ export default function AutosaveSchedule() {
         {isLoading ? (
           <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>
         ) : schedules.length === 0 ? (
-          <div className="p-12 text-center">
-            <CalendarIcon className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">Nenhum agendamento criado</p>
-            <Button variant="default" size="sm" className="mt-3 gap-2" onClick={() => setCreateOpen(true)}>
+          <div className="p-10 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <CalendarIcon className="w-7 h-7 text-primary" />
+            </div>
+            <p className="text-sm text-foreground font-medium">
+              Crie um agendamento para iniciar o aquecimento automático entre seus chips.
+            </p>
+            <div className="mt-5 max-w-md mx-auto grid grid-cols-3 gap-3 text-left">
+              {[
+                { n: 1, t: "Escolha instâncias", icon: Smartphone },
+                { n: 2, t: "Defina dias e horário", icon: Clock },
+                { n: 3, t: "Configure envio", icon: Activity },
+              ].map((step) => (
+                <div key={step.n} className="rounded-lg border border-border/50 bg-muted/20 p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[11px] font-bold flex items-center justify-center">
+                      {step.n}
+                    </span>
+                    <step.icon className="w-3.5 h-3.5 text-muted-foreground" />
+                  </div>
+                  <p className="text-xs text-foreground/80">{step.t}</p>
+                </div>
+              ))}
+            </div>
+            <Button variant="default" size="sm" className="mt-6 gap-2" onClick={() => setCreateOpen(true)}>
               <Plus className="w-4 h-4" /> Criar agendamento automático
             </Button>
           </div>
