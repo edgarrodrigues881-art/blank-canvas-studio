@@ -39,11 +39,8 @@ const ThemeTransition = () => {
       className="pointer-events-none fixed inset-0 z-[2147483646]"
       style={{
         opacity: active ? 1 : 0,
-        transition: "opacity 380ms ease",
-        backdropFilter: active ? "blur(6px)" : "blur(0px)",
-        WebkitBackdropFilter: active ? "blur(6px)" : "blur(0px)",
-        background:
-          "radial-gradient(ellipse at center, rgba(120,120,120,0.18), rgba(0,0,0,0.10) 70%)",
+        transition: "opacity 300ms ease",
+        background: "hsl(var(--background) / 0.08)",
       }}
     />
   );
