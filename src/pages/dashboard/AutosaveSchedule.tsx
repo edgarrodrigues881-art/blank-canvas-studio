@@ -215,9 +215,45 @@ export default function AutosaveSchedule() {
             Aquecimento recorrente entre seus chips usando contatos Auto Save — executa nos dias e horário definidos
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" /> Novo Agendamento
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {schedules.some((s) => s.status === "scheduled" || s.status === "paused") && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+              onClick={() => {
+                const targets = schedules.filter((s) => s.status === "scheduled" || s.status === "paused");
+                if (!targets.length) return;
+                if (!confirm(`Iniciar/retomar ${targets.length} agendamento(s)?`)) return;
+                targets.forEach((s) =>
+                  triggerMut.mutate({ id: s.id, action: s.status === "paused" ? "resume" : "start" })
+                );
+                toast.success(`${targets.length} agendamento(s) iniciados`);
+              }}
+            >
+              <Play className="w-4 h-4" /> Iniciar todos
+            </Button>
+          )}
+          {schedules.some((s) => s.status === "running") && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+              onClick={() => {
+                const targets = schedules.filter((s) => s.status === "running");
+                if (!targets.length) return;
+                if (!confirm(`Pausar ${targets.length} agendamento(s) em execução?`)) return;
+                targets.forEach((s) => triggerMut.mutate({ id: s.id, action: "pause" }));
+                toast.success(`${targets.length} agendamento(s) pausados`);
+              }}
+            >
+              <Pause className="w-4 h-4" /> Pausar todos
+            </Button>
+          )}
+          <Button onClick={() => setCreateOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" /> Novo Agendamento
+          </Button>
+        </div>
       </div>
 
       {/* Status global + resumo do dia */}
