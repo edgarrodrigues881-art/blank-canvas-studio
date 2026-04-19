@@ -230,24 +230,29 @@ const UseCase = () => (
   <Section id="uso">
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-12 items-center">
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} variants={stagger} className="lg:col-span-5">
-        <motion.div variants={fadeUp}><Eyebrow>Caso de uso</Eyebrow></motion.div>
+        <motion.div variants={fadeUp}><Eyebrow>Como funciona</Eyebrow></motion.div>
         <motion.div variants={fadeUp}>
-          <SectionTitle className="mb-6 text-[1.75rem] md:text-[2.25rem] lg:text-[2.5rem]">
-            De 1 a 100+ chips, sem perder o controle.
+          <SectionTitle className="mb-8 text-[1.75rem] md:text-[2.25rem] lg:text-[2.5rem]">
+            Como funciona na prática.
           </SectionTitle>
         </motion.div>
-        <motion.div variants={fadeUp}>
-          <SectionSub className="mb-8 max-w-md">
-            Painel único para gerenciar dezenas de instâncias. Receba alertas, monitore entregas e mantenha tudo organizado mesmo em alta escala.
-          </SectionSub>
-        </motion.div>
-        <motion.ul variants={fadeUp} className="space-y-3">
-          {["Visão consolidada de todas as instâncias", "Distribuição automática entre chips", "Pausas e intervalos programados"].map((item) => (
-            <li key={item} className="flex items-start gap-2.5 text-[13px] text-white/60">
-              <CheckCircle2 className="w-4 h-4 text-white/40 flex-shrink-0 mt-0.5" />{item}
+        <motion.ol variants={fadeUp} className="space-y-7">
+          {[
+            { n: "1", title: "Conecte seus chips", desc: "Adicione e organize múltiplos números em um só lugar." },
+            { n: "2", title: "Configure sua operação", desc: "Defina intervalos, limites e regras de envio." },
+            { n: "3", title: "Escale com segurança", desc: "Acompanhe tudo em tempo real e reduza riscos de bloqueio." },
+          ].map((step) => (
+            <li key={step.n} className="flex gap-4">
+              <span className="flex-shrink-0 w-7 h-7 rounded-full border border-white/[0.1] bg-white/[0.03] flex items-center justify-center text-[12px] font-medium text-white/65">
+                {step.n}
+              </span>
+              <div className="pt-0.5">
+                <h3 className="text-[14px] font-semibold text-white mb-1.5 tracking-tight">{step.title}</h3>
+                <p className="text-[13px] text-white/55 leading-[1.55]">{step.desc}</p>
+              </div>
             </li>
           ))}
-        </motion.ul>
+        </motion.ol>
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.3 }} transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }} className="lg:col-span-7 relative">
