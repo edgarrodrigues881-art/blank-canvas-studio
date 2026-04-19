@@ -48,8 +48,8 @@ const Navbar = () => {
           <button onClick={() => scroll("comunidade")} className="text-[13px] text-amber-400/80 hover:text-amber-300 transition-colors">Comunidade</button>
         </nav>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/auth")} className="text-[13px] font-medium text-white/60 hover:text-white hover:bg-white/[0.04] h-8 px-3">Entrar</Button>
-          <Button size="sm" onClick={() => navigate("/auth?mode=signup")} className="text-[12px] font-medium bg-white/95 hover:bg-white text-black h-8 px-3.5 rounded-md shadow-none">Criar conta</Button>
+          <Button variant="ghost" size="sm" onClick={() => navigate("/auth")} className="text-[13px] font-medium text-white/60 hover:text-white hover:bg-white/[0.04] h-8 px-3">Acessar sistema</Button>
+          <Button size="sm" onClick={() => navigate("/auth?mode=signup")} className="text-[12px] font-medium bg-white/95 hover:bg-white text-black h-8 px-3.5 rounded-md shadow-none">Começar grátis</Button>
         </div>
       </div>
     </header>
@@ -101,16 +101,16 @@ const Hero = () => {
 
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center lg:items-start lg:justify-start justify-center gap-3">
               <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="bg-white hover:bg-white text-black text-[14px] font-semibold px-7 h-12 rounded-[10px] gap-2 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_8px_32px_-4px_rgba(255,255,255,0.15)] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_12px_40px_-4px_rgba(255,255,255,0.25)] hover:scale-[1.02] transition-all duration-200">
-                Começar grátis <ArrowRight className="w-4 h-4" />
+                Começar agora <ArrowRight className="w-4 h-4" />
               </Button>
-              <Button size="lg" variant="ghost" onClick={() => document.getElementById("planos")?.scrollIntoView({ behavior: "smooth" })} className="bg-transparent text-white/70 hover:text-white hover:bg-white/[0.04] text-[14px] font-medium px-4 h-12 rounded-[10px]">
-                Ver planos →
+              <Button size="lg" variant="ghost" onClick={() => document.getElementById("uso")?.scrollIntoView({ behavior: "smooth" })} className="bg-transparent text-white/70 hover:text-white hover:bg-white/[0.04] text-[14px] font-medium px-4 h-12 rounded-[10px]">
+                Ver como funciona →
               </Button>
             </motion.div>
 
             <motion.p variants={fadeUp} className="text-[12px] text-white/40 mt-5 flex items-center justify-center lg:justify-start gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/70" />
-              Teste grátis por 7 dias · Sem cartão de crédito
+              Acesso imediato · Sem cartão · Sem contrato
             </motion.p>
           </motion.div>
 
@@ -196,12 +196,12 @@ const Product = () => (
 
 // ─── 4. Features (3 colunas) ───
 const features = [
-  { icon: Zap, title: "Envio otimizado", desc: "Intervalos inteligentes mantêm suas instâncias saudáveis durante campanhas." },
-  { icon: Shield, title: "Aquecimento automático", desc: "Warmup progressivo em fases controladas para amadurecer cada chip." },
-  { icon: BarChart3, title: "Métricas em tempo real", desc: "Acompanhe entregas, falhas e desempenho de cada instância no painel." },
-  { icon: Smartphone, title: "Múltiplas instâncias", desc: "Conecte e controle dezenas de chips simultaneamente em um único ambiente." },
-  { icon: Layers, title: "Campanhas em massa", desc: "Distribuição entre instâncias com pausas e intervalos programados." },
-  { icon: Lock, title: "Alertas no WhatsApp", desc: "Notificações de desconexões, falhas e status direto no seu WhatsApp." },
+  { icon: Zap, title: "Envio com intervalos", desc: "Pausas e ritmos automáticos para manter as instâncias ativas durante campanhas." },
+  { icon: Shield, title: "Aquecimento automático", desc: "Amadurecimento gradual de cada chip antes do uso em volume." },
+  { icon: BarChart3, title: "Métricas em tempo real", desc: "Veja entregas, falhas e desempenho de cada instância no painel." },
+  { icon: Smartphone, title: "Múltiplas instâncias", desc: "Conecte e controle dezenas de chips em um único ambiente." },
+  { icon: Layers, title: "Disparo em massa", desc: "Distribua mensagens entre instâncias com pausas programadas." },
+  { icon: Lock, title: "Alertas no WhatsApp", desc: "Receba avisos de desconexão, falhas e status direto no seu WhatsApp." },
 ];
 
 const Features = () => (
