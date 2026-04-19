@@ -390,9 +390,6 @@ export default function AutosaveSchedule() {
                 </div>
               ))}
             </div>
-            <Button variant="default" size="sm" className="mt-6 gap-2" onClick={() => setCreateOpen(true)}>
-              <Plus className="w-4 h-4" /> Criar agendamento automático
-            </Button>
           </div>
         ) : (
           <div className="divide-y divide-border/40">
