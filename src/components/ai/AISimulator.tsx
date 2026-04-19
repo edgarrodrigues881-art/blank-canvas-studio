@@ -503,44 +503,50 @@ export function AISimulator() {
                 </button>
               </div>
             ) : (
-              <div className="absolute bottom-0 left-0 right-0 flex items-center gap-2 bg-[#ECE5DD] px-2 py-2">
-                <div className="flex flex-1 items-center gap-2 rounded-full bg-white px-3 py-2 shadow-sm">
-                  <Smile className="h-5 w-5 text-neutral-500 shrink-0" strokeWidth={2} />
+              <div className="absolute bottom-0 left-0 right-0 flex items-end gap-1.5 bg-[#ECE5DD] px-2 py-2">
+                <div className="flex flex-1 items-center gap-0.5 rounded-full bg-white pl-1.5 pr-1 py-1 shadow-sm">
+                  <button
+                    type="button"
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 transition-colors shrink-0"
+                    title="Emoji"
+                  >
+                    <Smile className="h-[22px] w-[22px]" strokeWidth={1.8} />
+                  </button>
                   <input
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
                     placeholder="Mensagem"
-                    className="flex-1 bg-transparent text-[14px] text-neutral-900 placeholder:text-neutral-400 focus:outline-none min-w-0"
+                    className="flex-1 bg-transparent text-[14.5px] text-neutral-900 placeholder:text-neutral-400 focus:outline-none min-w-0 px-1 py-1.5"
                     disabled={loading}
                   />
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-neutral-500 hover:text-neutral-700 shrink-0"
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 transition-colors shrink-0"
                     title="Anexar arquivo"
                   >
-                    <Paperclip className="h-5 w-5 rotate-45" strokeWidth={2} />
+                    <Paperclip className="h-[20px] w-[20px] -rotate-45" strokeWidth={1.8} />
                   </button>
                   <button
                     onClick={() => imageInputRef.current?.click()}
-                    className="text-neutral-500 hover:text-neutral-700 shrink-0"
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 transition-colors shrink-0"
                     title="Anexar imagem"
                   >
-                    <ImageIcon className="h-5 w-5" strokeWidth={2} />
+                    <ImageIcon className="h-[20px] w-[20px]" strokeWidth={1.8} />
                   </button>
                 </div>
                 <button
                   onClick={hasInputContent ? sendMessage : startRecording}
                   disabled={loading}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#075E54] text-white shadow-md transition-transform active:scale-95 disabled:opacity-60"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#075E54] text-white shadow-md hover:bg-[#0a6b5f] transition-all active:scale-95 disabled:opacity-60"
                   title={hasInputContent ? "Enviar" : "Gravar áudio"}
                 >
                   {loading ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
                   ) : hasInputContent ? (
-                    <Send className="h-[18px] w-[18px]" strokeWidth={2.5} />
+                    <Send className="h-[19px] w-[19px] -ml-0.5" strokeWidth={2.2} />
                   ) : (
-                    <Mic className="h-5 w-5" strokeWidth={2} />
+                    <Mic className="h-[22px] w-[22px]" strokeWidth={1.8} />
                   )}
                 </button>
               </div>
