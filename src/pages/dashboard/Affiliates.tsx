@@ -7,11 +7,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  DollarSign, Users, TrendingUp, Copy, Share2, Crown, Sparkles, Lock,
+  DollarSign, Users, TrendingUp, Copy, Share2, Crown, Sparkles, Lock, Send, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { usePlanGate } from "@/hooks/usePlanGate";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const COMMISSION_TIERS = [
   { month: "1º mês", percent: 30, label: "Primeiro mês", desc: "Maior comissão na entrada" },
@@ -27,6 +28,7 @@ export default function Affiliates() {
   const navigate = useNavigate();
   const { session } = useAuth();
   const { planState, isBlocked } = usePlanGate();
+  const isMobile = useIsMobile();
 
   const referralCode = useMemo(() => {
     const id = session?.user?.id ?? "";
@@ -57,19 +59,30 @@ export default function Affiliates() {
     }
   };
 
-  const handleShare = async () => {
+  const shareMessage = referralUrl
+    ? `Olha essa ferramenta que estou usando 👇 ${referralUrl}`
+    : "";
+
+  const handleNativeShare = async () => {
     if (!referralUrl) return;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "DG Contingência Pro",
-          text: "Conheça a DG Contingência Pro — automação para WhatsApp.",
-          url: referralUrl,
-        });
-      } catch { /* user cancelled */ }
-    } else {
-      handleCopy();
-    }
+    try {
+      await navigator.share({
+        title: "DG Contingência Pro",
+        text: shareMessage,
+        url: referralUrl,
+      });
+    } catch { /* user cancelled */ }
+  };
+
+  const openWhatsApp = () => {
+    if (!shareMessage) return;
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`, "_blank", "noopener,noreferrer");
+  };
+
+  const openTelegram = () => {
+    if (!referralUrl) return;
+    const url = `https://t.me/share/url?url=${encodeURIComponent(referralUrl)}&text=${encodeURIComponent("Olha essa ferramenta que estou usando 👇")}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   // ───────────────────── BLOCKED VIEW ─────────────────────
@@ -195,16 +208,32 @@ export default function Affiliates() {
             <div className="flex-1 px-3.5 py-2.5 rounded-[10px] bg-muted/40 border border-border font-mono text-xs sm:text-sm text-foreground/90 truncate">
               {referralUrl || "Carregando..."}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button onClick={handleCopy} variant="outline" disabled={!referralUrl || copying}>
                 <Copy className="w-4 h-4" />
                 {copying ? "Copiado" : "Copiar link"}
               </Button>
-              <Button onClick={handleShare} disabled={!referralUrl}
-                className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold">
-                <Share2 className="w-4 h-4" />
-                Compartilhar
-              </Button>
+
+              {isMobile && typeof navigator !== "undefined" && "share" in navigator ? (
+                <Button onClick={handleNativeShare} disabled={!referralUrl}
+                  className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold">
+                  <Share2 className="w-4 h-4" />
+                  Compartilhar
+                </Button>
+              ) : (
+                <>
+                  <Button onClick={openWhatsApp} disabled={!referralUrl}
+                    className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold">
+                    <MessageCircle className="w-4 h-4" />
+                    WhatsApp
+                  </Button>
+                  <Button onClick={openTelegram} variant="outline" disabled={!referralUrl}
+                    className="border-sky-500/30 text-sky-300 hover:bg-sky-500/10 hover:text-sky-200">
+                    <Send className="w-4 h-4" />
+                    Telegram
+                  </Button>
+                </>
+              )}
             </div>
           </div>
           <p className="text-[11px] text-muted-foreground">
