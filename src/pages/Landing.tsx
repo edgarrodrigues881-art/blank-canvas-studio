@@ -488,9 +488,14 @@ const CommunitySection = () => (
 
       <motion.div initial={{ opacity: 0, scale: 0.98 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.4, ease: easeOut }} className="lg:col-span-6 flex justify-center">
         <div className="relative">
-          <div className="absolute -inset-12 bg-[radial-gradient(circle,rgba(245,158,11,0.1)_0%,transparent_65%)] blur-3xl" />
-          <div className="relative w-[200px] h-[200px] rounded-2xl overflow-hidden border border-amber-500/20 bg-[hsl(222,22%,7%)]">
-            <img src={logo} alt="DG Contingência PRO" className="w-full h-full object-cover" />
+          {/* Outer ambient golden bloom */}
+          <div className="absolute -inset-24 bg-[radial-gradient(circle,rgba(251,191,36,0.18)_0%,rgba(245,158,11,0.08)_40%,transparent_70%)] blur-3xl pointer-events-none" />
+          {/* Mid warm halo */}
+          <div className="absolute -inset-12 bg-[radial-gradient(circle,rgba(252,211,77,0.22)_0%,transparent_60%)] blur-2xl pointer-events-none" />
+          {/* Tight inner glow */}
+          <div className="absolute -inset-4 bg-[radial-gradient(circle,rgba(253,224,71,0.18)_0%,transparent_70%)] blur-xl pointer-events-none" />
+          <div className="relative w-[200px] h-[200px] rounded-2xl overflow-hidden border border-amber-400/30 bg-[hsl(222,22%,7%)] shadow-[0_0_0_1px_rgba(251,191,36,0.08),0_20px_60px_-15px_rgba(251,191,36,0.35),0_8px_24px_-8px_rgba(0,0,0,0.6)]">
+            <img src={logo} alt="DG Contingência Pro" className="w-full h-full object-cover" />
           </div>
         </div>
       </motion.div>
