@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo-new.png";
 import dashboardPreview from "@/assets/dashboard-preview-landing.png";
+import heroCrmMockup from "@/assets/hero-crm-mockup.png";
 
 // ─── Prefetch ───
 const prefetchRoutes = () => {
@@ -109,21 +110,20 @@ const Hero = () => {
             </motion.p>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.45, ease: easeOut, delay: 0.1 }} className="lg:col-span-6 relative w-full max-w-[420px] md:max-w-[640px] mx-auto lg:mx-0 lg:ml-auto">
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0, scale: 1.02 }}
+            transition={{ duration: 0.4, ease: easeOut, delay: 0.1 }}
+            className="lg:col-span-6 relative w-full max-w-[420px] md:max-w-[600px] mx-auto lg:mx-0 lg:ml-auto"
+          >
             <div className="relative">
-              {/* Premium multi-layer glow */}
-              <div className="absolute -inset-20 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.18)_0%,transparent_60%)] blur-3xl pointer-events-none" />
-              <div className="absolute -inset-16 bg-[radial-gradient(ellipse_at_60%_40%,rgba(139,92,246,0.12)_0%,transparent_65%)] blur-2xl pointer-events-none" />
-              <div className="absolute -bottom-10 inset-x-10 h-32 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.6)_0%,transparent_70%)] blur-2xl pointer-events-none" />
+              {/* Subtle ambient glow blending with dark bg */}
+              <div className="absolute -inset-16 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.14)_0%,transparent_65%)] blur-3xl pointer-events-none" />
+              <div className="absolute -inset-10 bg-[radial-gradient(ellipse_at_60%_40%,rgba(139,92,246,0.08)_0%,transparent_70%)] blur-2xl pointer-events-none" />
+              <div className="absolute -bottom-8 inset-x-8 h-24 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.55)_0%,transparent_70%)] blur-2xl pointer-events-none" />
 
-              <div className="group relative rounded-xl border border-white/[0.08] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_50px_120px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.04),0_0_80px_-20px_rgba(99,102,241,0.25)] transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_60px_140px_-20px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.06),0_0_100px_-20px_rgba(99,102,241,0.35)]">
-                <div className="bg-white/[0.02] px-4 py-2.5 border-b border-white/[0.05] flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
-                  <span className="ml-3 text-[10px] text-white/35 font-medium tracking-wide">DG Contingência Pro</span>
-                </div>
-                <img src={dashboardPreview} alt="Painel DG Contingência" className="w-full h-auto block transition-transform duration-300 ease-out group-hover:scale-[1.015]" loading="eager" />
+              <div className="relative rounded-[18px] overflow-hidden border border-white/[0.08] bg-[hsl(222,22%,7%)] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.75),0_0_0_1px_rgba(255,255,255,0.04),0_0_60px_-20px_rgba(99,102,241,0.22)]">
+                <img src={heroCrmMockup} alt="Painel CRM DG Contingência Pro" className="w-full h-auto block" loading="eager" />
               </div>
             </div>
           </motion.div>
