@@ -491,7 +491,7 @@ export default function AutosaveSchedule() {
                   />
                 </div>
                 <div>
-                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Incremento/dia</Label>
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Aumento por dia</Label>
                   <Input
                     type="number"
                     min={0}
