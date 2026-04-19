@@ -327,6 +327,7 @@ export function AppSidebar() {
                       navigate("/dashboard");
                     } else {
                       setWorkspace("crm");
+                      navigate("/dashboard/crm");
                     }
                   }}
                   className={cn(
