@@ -11,6 +11,10 @@ export interface AutosaveSchedule {
   time_of_day: string;
   min_delay_seconds: number;
   max_delay_seconds: number;
+  pause_every_min: number;
+  pause_every_max: number;
+  pause_duration_min: number;
+  pause_duration_max: number;
   messages_per_instance: number;
   initial_limit_per_instance: number;
   daily_increment: number;
