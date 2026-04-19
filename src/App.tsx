@@ -86,6 +86,7 @@ const Tutorials = lazyWithPreload(() => import("@/pages/dashboard/Tutorials"));
 const CrmDispatches = lazyWithPreload(() => import("@/pages/dashboard/CrmDispatches"));
 const CrmCampaignList = lazyWithPreload(() => import("@/pages/dashboard/CrmCampaignList"));
 const CrmTemplates = lazyWithPreload(() => import("@/pages/dashboard/CrmTemplates"));
+const CrmLearning = lazyWithPreload(() => import("@/pages/dashboard/CrmLearning"));
 
 // Backoffice pages
 const BOCampaigns = lazyWithPreload(() => import("@/pages/backoffice/BOCampaigns"));
@@ -290,6 +291,7 @@ const App = () => (
                 <Route path="/dashboard/crm-dispatches" element={<ProtectedRoute><DashboardLayout><CrmDispatches /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm-campaign-list" element={<ProtectedRoute><DashboardLayout><CrmCampaignList /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm-templates" element={<ProtectedRoute><DashboardLayout><CrmTemplates /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/crm-learning" element={<ProtectedRoute><DashboardLayout><CrmLearning /></DashboardLayout></ProtectedRoute>} />
 
                 {/* Backoffice — BackOffice.tsx manages its own auth + admin login internally */}
                 <Route path="/backoffice" element={<BackOffice />} />
