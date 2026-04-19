@@ -1,0 +1,123 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+
+export interface AutosaveSchedule {
+  id: string;
+  user_id: string;
+  name: string;
+  device_ids: string[];
+  scheduled_at: string;
+  min_delay_seconds: number;
+  max_delay_seconds: number;
+  messages_per_instance: number;
+  status: "scheduled" | "running" | "completed" | "paused" | "failed";
+  total_sent: number;
+  total_failed: number;
+  started_at: string | null;
+  completed_at: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AutosaveScheduleLog {
+  id: string;
+  schedule_id: string;
+  device_id: string;
+  device_name: string | null;
+  contact_phone: string;
+  contact_name: string | null;
+  message_content: string;
+  status: string;
+  error_message: string | null;
+  sent_at: string;
+}
+
+export function useAutosaveSchedules() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["autosave_schedules", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("autosave_schedules" as any)
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as unknown as AutosaveSchedule[];
+    },
+    enabled: !!user,
+    refetchInterval: 5_000,
+  });
+}
+
+export function useAutosaveScheduleLogs(scheduleId: string | null) {
+  return useQuery({
+    queryKey: ["autosave_schedule_logs", scheduleId],
+    queryFn: async () => {
+      if (!scheduleId) return [];
+      const { data, error } = await supabase
+        .from("autosave_schedule_logs" as any)
+        .select("*")
+        .eq("schedule_id", scheduleId)
+        .order("sent_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return (data || []) as unknown as AutosaveScheduleLog[];
+    },
+    enabled: !!scheduleId,
+    refetchInterval: 4_000,
+  });
+}
+
+export function useCreateAutosaveSchedule() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (input: {
+      name: string;
+      device_ids: string[];
+      scheduled_at: string;
+      min_delay_seconds: number;
+      max_delay_seconds: number;
+      messages_per_instance: number;
+    }) => {
+      const { data, error } = await supabase
+        .from("autosave_schedules" as any)
+        .insert({ ...input, user_id: user!.id, status: "scheduled" })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["autosave_schedules"] }),
+  });
+}
+
+export function useDeleteAutosaveSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("autosave_schedules" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["autosave_schedules"] }),
+  });
+}
+
+export function useTriggerAutosaveSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, action }: { id: string; action: "start" | "pause" | "resume" | "stop" }) => {
+      const { data, error } = await supabase.functions.invoke("autosave-schedule", {
+        body: { schedule_id: id, action },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["autosave_schedules"] }),
+  });
+}

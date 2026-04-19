@@ -1,0 +1,433 @@
+import { useState, useMemo } from "react";
+import { Calendar as CalendarIcon, Plus, Play, Pause, Trash2, Save, Smartphone, Users, X, Activity, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import {
+  useAutosaveSchedules,
+  useCreateAutosaveSchedule,
+  useDeleteAutosaveSchedule,
+  useTriggerAutosaveSchedule,
+  useAutosaveScheduleLogs,
+} from "@/hooks/useAutosaveSchedules";
+
+export default function AutosaveSchedule() {
+  const { user } = useAuth();
+  const { data: schedules = [], isLoading } = useAutosaveSchedules();
+  const createMut = useCreateAutosaveSchedule();
+  const deleteMut = useDeleteAutosaveSchedule();
+  const triggerMut = useTriggerAutosaveSchedule();
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
+
+  // Auto Save contacts count
+  const { data: autosaveCount = 0 } = useQuery({
+    queryKey: ["autosave_count", user?.id],
+    queryFn: async () => {
+      if (!user) return 0;
+      const { count } = await supabase
+        .from("warmup_autosave_contacts" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id);
+      return count || 0;
+    },
+    enabled: !!user,
+  });
+
+  // Devices online
+  const { data: devices = [] } = useQuery({
+    queryKey: ["devices_for_autosave_schedule", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data } = await supabase
+        .from("devices")
+        .select("id, name, number, status")
+        .eq("user_id", user.id)
+        .neq("login_type", "report_wa")
+        .order("created_at");
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  // Form state
+  const [name, setName] = useState("Agendamento Auto Save");
+  const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(new Date());
+  const [scheduledTime, setScheduledTime] = useState("09:00");
+  const [minDelay, setMinDelay] = useState(15);
+  const [maxDelay, setMaxDelay] = useState(60);
+  const [msgsPerInstance, setMsgsPerInstance] = useState(0);
+
+  const resetForm = () => {
+    setName("Agendamento Auto Save");
+    setSelectedDevices([]);
+    setScheduledDate(new Date());
+    setScheduledTime("09:00");
+    setMinDelay(15);
+    setMaxDelay(60);
+    setMsgsPerInstance(0);
+  };
+
+  const handleCreate = async () => {
+    if (selectedDevices.length === 0) {
+      toast.error("Selecione ao menos uma instância");
+      return;
+    }
+    if (autosaveCount === 0) {
+      toast.error("Nenhum contato Auto Save cadastrado");
+      return;
+    }
+    if (!scheduledDate) {
+      toast.error("Selecione uma data");
+      return;
+    }
+    const [hh, mm] = scheduledTime.split(":");
+    const dt = new Date(scheduledDate);
+    dt.setHours(Number(hh), Number(mm), 0, 0);
+
+    try {
+      await createMut.mutateAsync({
+        name: name.trim() || "Agendamento Auto Save",
+        device_ids: selectedDevices,
+        scheduled_at: dt.toISOString(),
+        min_delay_seconds: minDelay,
+        max_delay_seconds: maxDelay,
+        messages_per_instance: msgsPerInstance,
+      });
+      toast.success("Agendamento criado com sucesso");
+      setCreateOpen(false);
+      resetForm();
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao criar");
+    }
+  };
+
+  const statusBadge = (s: string) => {
+    const map: Record<string, { label: string; cls: string; icon: any }> = {
+      scheduled: { label: "Agendado", cls: "bg-blue-500/10 text-blue-400 border-blue-500/30", icon: Clock },
+      running: { label: "Em execução", cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30", icon: Activity },
+      paused: { label: "Pausado", cls: "bg-amber-500/10 text-amber-400 border-amber-500/30", icon: Pause },
+      completed: { label: "Concluído", cls: "bg-muted text-muted-foreground border-border", icon: CheckCircle2 },
+      failed: { label: "Falhou", cls: "bg-destructive/10 text-destructive border-destructive/30", icon: AlertCircle },
+    };
+    const v = map[s] || map.scheduled;
+    const Icon = v.icon;
+    return (
+      <Badge variant="outline" className={cn("gap-1.5 text-[11px]", v.cls)}>
+        <Icon className="w-3 h-3" />{v.label}
+      </Badge>
+    );
+  };
+
+  return (
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <CalendarIcon className="w-5 h-5 text-primary" />
+            </div>
+            Agendamento Auto Save
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1.5 ml-[52px]">
+            Aquecimento automatizado entre seus chips usando contatos da base Auto Save
+          </p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)} className="gap-2">
+          <Plus className="w-4 h-4" /> Novo Agendamento
+        </Button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <Card className="p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+            <Save className="w-5 h-5 text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Contatos Auto Save</p>
+            <p className="text-xl font-bold">{autosaveCount}</p>
+          </div>
+        </Card>
+        <Card className="p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+            <Smartphone className="w-5 h-5 text-blue-400" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Instâncias disponíveis</p>
+            <p className="text-xl font-bold">{devices.length}</p>
+          </div>
+        </Card>
+        <Card className="p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center">
+            <CalendarIcon className="w-5 h-5 text-violet-400" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Agendamentos</p>
+            <p className="text-xl font-bold">{schedules.length}</p>
+          </div>
+        </Card>
+      </div>
+
+      {/* Schedules list */}
+      <Card className="overflow-hidden">
+        <div className="p-4 border-b border-border/40 flex items-center justify-between">
+          <h2 className="font-semibold">Meus agendamentos</h2>
+          <span className="text-xs text-muted-foreground">{schedules.length} total</span>
+        </div>
+
+        {isLoading ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>
+        ) : schedules.length === 0 ? (
+          <div className="p-12 text-center">
+            <CalendarIcon className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">Nenhum agendamento criado</p>
+            <Button variant="ghost" size="sm" className="mt-3" onClick={() => setCreateOpen(true)}>
+              <Plus className="w-4 h-4 mr-1" /> Criar primeiro agendamento
+            </Button>
+          </div>
+        ) : (
+          <div className="divide-y divide-border/40">
+            {schedules.map((s) => (
+              <div key={s.id} className="p-4 hover:bg-muted/20 transition-colors">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <h3 className="font-medium truncate">{s.name}</h3>
+                      {statusBadge(s.status)}
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <CalendarIcon className="w-3 h-3" />
+                        {format(new Date(s.scheduled_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Smartphone className="w-3 h-3" />
+                        {s.device_ids.length} chip{s.device_ids.length !== 1 ? "s" : ""}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Activity className="w-3 h-3" />
+                        {s.total_sent} enviadas{s.total_failed > 0 && ` · ${s.total_failed} falhas`}
+                      </span>
+                      <span className="text-muted-foreground/60">
+                        {s.messages_per_instance > 0 ? `${s.messages_per_instance} msgs/chip` : "ilimitado"}
+                      </span>
+                    </div>
+                    {s.last_error && (
+                      <p className="text-[11px] text-destructive mt-1">⚠ {s.last_error}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => setDetailId(s.id)}>Logs</Button>
+                    {(s.status === "scheduled" || s.status === "paused") && (
+                      <Button size="sm" variant="ghost" onClick={() => triggerMut.mutate({ id: s.id, action: s.status === "paused" ? "resume" : "start" })}>
+                        <Play className="w-4 h-4" />
+                      </Button>
+                    )}
+                    {s.status === "running" && (
+                      <Button size="sm" variant="ghost" onClick={() => triggerMut.mutate({ id: s.id, action: "pause" })}>
+                        <Pause className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => {
+                        if (confirm("Deletar este agendamento?")) deleteMut.mutate(s.id);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Create Dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarIcon className="w-5 h-5 text-primary" /> Novo Agendamento Auto Save
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5 pt-2">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Nome</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">
+                Instâncias ({selectedDevices.length} selecionadas)
+              </Label>
+              <Card className="p-2 max-h-44 overflow-y-auto">
+                {devices.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center p-3">Nenhuma instância encontrada</p>
+                ) : (
+                  <div className="space-y-1">
+                    {devices.map((d: any) => {
+                      const isOnline = ["Ready", "Connected", "authenticated", "open"].includes(d.status);
+                      const isSel = selectedDevices.includes(d.id);
+                      return (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() =>
+                            setSelectedDevices((prev) =>
+                              prev.includes(d.id) ? prev.filter((x) => x !== d.id) : [...prev, d.id]
+                            )
+                          }
+                          className={cn(
+                            "w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-sm transition-colors",
+                            isSel ? "bg-primary/10 text-foreground" : "hover:bg-muted/40 text-muted-foreground"
+                          )}
+                        >
+                          <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-emerald-500" : "bg-muted-foreground/40")} />
+                          <span className="flex-1 truncate">{d.name || d.number || "—"}</span>
+                          {isSel && <CheckCircle2 className="w-4 h-4 text-primary" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Data</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start font-normal", !scheduledDate && "text-muted-foreground")}>
+                      <CalendarIcon className="w-4 h-4 mr-2" />
+                      {scheduledDate ? format(scheduledDate, "dd/MM/yyyy", { locale: ptBR }) : "Selecionar"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={scheduledDate}
+                      onSelect={setScheduledDate}
+                      disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                      locale={ptBR}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Hora</Label>
+                <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Delay mín (s)</Label>
+                <Input type="number" min={5} value={minDelay} onChange={(e) => setMinDelay(Math.max(5, parseInt(e.target.value) || 5))} />
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Delay máx (s)</Label>
+                <Input type="number" min={minDelay} value={maxDelay} onChange={(e) => setMaxDelay(Math.max(minDelay, parseInt(e.target.value) || minDelay))} />
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Msgs/chip</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={msgsPerInstance === 0 ? "" : msgsPerInstance}
+                  placeholder="∞"
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "") return setMsgsPerInstance(0);
+                    const n = parseInt(v, 10);
+                    if (!isNaN(n)) setMsgsPerInstance(Math.max(0, n));
+                  }}
+                />
+              </div>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground/60">
+              Cada chip enviará mensagens curtas de aquecimento para os {autosaveCount} contatos da sua base Auto Save.
+              Deixe "Msgs/chip" vazio para envio ilimitado.
+            </p>
+
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+              <Button className="flex-1" onClick={handleCreate} disabled={createMut.isPending}>
+                {createMut.isPending ? "Criando..." : "Criar Agendamento"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Logs Dialog */}
+      <LogsDialog scheduleId={detailId} onClose={() => setDetailId(null)} />
+    </div>
+  );
+}
+
+function LogsDialog({ scheduleId, onClose }: { scheduleId: string | null; onClose: () => void }) {
+  const { data: logs = [] } = useAutosaveScheduleLogs(scheduleId);
+  return (
+    <Dialog open={!!scheduleId} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Logs do agendamento</DialogTitle>
+        </DialogHeader>
+        {logs.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">Nenhum envio registrado ainda</p>
+        ) : (
+          <div className="divide-y divide-border/40">
+            {logs.map((l) => (
+              <div key={l.id} className="py-2.5 text-sm">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[10px]",
+                      l.status === "sent" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-destructive/10 text-destructive border-destructive/30"
+                    )}
+                  >
+                    {l.status === "sent" ? "Enviado" : "Falha"}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {l.device_name || "—"} → {l.contact_name || l.contact_phone}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                    {format(new Date(l.sent_at), "dd/MM HH:mm:ss", { locale: ptBR })}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground/80 line-clamp-2">{l.message_content}</p>
+                {l.error_message && <p className="text-[11px] text-destructive mt-1">⚠ {l.error_message}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
