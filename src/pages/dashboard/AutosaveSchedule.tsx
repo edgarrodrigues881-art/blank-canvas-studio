@@ -527,9 +527,9 @@ export default function AutosaveSchedule() {
               <p className="text-[11px] text-muted-foreground/80">
                 {progressionEnabled ? (
                   <>
-                    Cada chip começa enviando <span className="text-foreground font-medium">{typeof initialLimit === "number" ? initialLimit : "—"}</span> msgs/dia,
-                    aumentando <span className="text-foreground font-medium">+{typeof dailyIncrement === "number" ? dailyIncrement : "—"}</span> por dia executado,
-                    até o teto de <span className="text-foreground font-medium">{typeof maxLimit === "number" ? maxLimit : "—"}</span>.
+                    Cada chip começa enviando <span className="text-foreground font-medium">{typeof initialLimit === "number" ? initialLimit : "—"}</span> msgs/dia
+                    e aumenta <span className="text-foreground font-medium">+{typeof dailyIncrement === "number" ? dailyIncrement : "—"}</span> mensagens por dia executado,
+                    até o limite de <span className="text-foreground font-medium">{typeof maxLimit === "number" ? maxLimit : "—"}</span>.
                   </>
                 ) : (
                   <>Sem progressão. O sistema usará apenas o valor fixo de <span className="text-foreground font-medium">"Msgs/chip"</span> definido acima.</>
