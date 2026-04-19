@@ -17,11 +17,11 @@ const prefetchRoutes = () => {
   else setTimeout(load, 2000);
 };
 
-// ─── Animation — premium, subtle, Linear-style ───
+// ─── Animation — premium, subtle, Linear-style (normalized) ───
 const easeOut = [0.16, 1, 0.3, 1] as const;
-const fadeUp = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: easeOut } } };
-const fadeScale = { hidden: { opacity: 0, scale: 0.98 }, visible: { opacity: 1, scale: 1, transition: { duration: 0.45, ease: easeOut } } };
-const stagger = { visible: { transition: { staggerChildren: 0.07, delayChildren: 0.05 } } };
+const fadeUp = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: easeOut } } };
+const fadeScale = { hidden: { opacity: 0, scale: 0.98 }, visible: { opacity: 1, scale: 1, transition: { duration: 0.4, ease: easeOut } } };
+const stagger = { visible: { transition: { staggerChildren: 0.05, delayChildren: 0.03 } } };
 
 // ─── Background — single soft gradient, almost flat ───
 const Background = () => (
@@ -116,21 +116,21 @@ const Hero = () => {
             </motion.p>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.7, ease: easeOut, delay: 0.15 }} className="lg:col-span-6 relative lg:-mr-20 xl:-mr-32 lg:scale-[1.15] xl:scale-[1.2] origin-left">
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.45, ease: easeOut, delay: 0.1 }} className="lg:col-span-6 relative lg:-mr-20 xl:-mr-32 lg:scale-[1.15] xl:scale-[1.2] origin-left">
             <div className="relative">
               {/* Premium multi-layer glow */}
               <div className="absolute -inset-20 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.18)_0%,transparent_60%)] blur-3xl pointer-events-none" />
               <div className="absolute -inset-16 bg-[radial-gradient(ellipse_at_60%_40%,rgba(139,92,246,0.12)_0%,transparent_65%)] blur-2xl pointer-events-none" />
               <div className="absolute -bottom-10 inset-x-10 h-32 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.6)_0%,transparent_70%)] blur-2xl pointer-events-none" />
 
-              <div className="group relative rounded-xl border border-white/[0.08] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_50px_120px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.04),0_0_80px_-20px_rgba(99,102,241,0.25)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_60px_140px_-20px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.06),0_0_100px_-20px_rgba(99,102,241,0.35)]">
+              <div className="group relative rounded-xl border border-white/[0.08] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_50px_120px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.04),0_0_80px_-20px_rgba(99,102,241,0.25)] transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_60px_140px_-20px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.06),0_0_100px_-20px_rgba(99,102,241,0.35)]">
                 <div className="bg-white/[0.02] px-4 py-2.5 border-b border-white/[0.05] flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
                   <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
                   <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
                   <span className="ml-3 text-[10px] text-white/35 font-medium tracking-wide">DG Contingência PRO</span>
                 </div>
-                <img src={dashboardPreview} alt="Painel DG Contingência" className="w-full h-auto block transition-transform duration-500 ease-out group-hover:scale-[1.015]" loading="eager" />
+                <img src={dashboardPreview} alt="Painel DG Contingência" className="w-full h-auto block transition-transform duration-300 ease-out group-hover:scale-[1.015]" loading="eager" />
               </div>
             </div>
           </motion.div>
@@ -261,7 +261,7 @@ const UseCase = () => (
         </motion.ol>
       </motion.div>
 
-      <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.3 }} transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }} className="lg:col-span-7 relative">
+      <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.4, ease: easeOut }} className="lg:col-span-7 relative">
         <div className="absolute -inset-8 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.06)_0%,transparent_70%)] blur-3xl pointer-events-none" />
         <div className="relative rounded-xl border border-white/[0.06] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)]">
           <div className="bg-white/[0.015] px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-1.5">
@@ -493,7 +493,7 @@ const CommunitySection = () => (
         </motion.div>
       </motion.div>
 
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true, amount: 0.3 }} transition={{ duration: 0.8 }} className="lg:col-span-6 flex justify-center">
+      <motion.div initial={{ opacity: 0, scale: 0.98 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.4, ease: easeOut }} className="lg:col-span-6 flex justify-center">
         <div className="relative">
           <div className="absolute -inset-12 bg-[radial-gradient(circle,rgba(245,158,11,0.1)_0%,transparent_65%)] blur-3xl" />
           <div className="relative w-[200px] h-[200px] rounded-2xl overflow-hidden border border-amber-500/20 bg-[hsl(222,22%,7%)]">
@@ -539,7 +539,7 @@ const FinalCTA = () => {
   const navigate = useNavigate();
   return (
     <Section>
-      <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.3 }} transition={{ duration: 0.6 }} className="relative max-w-4xl mx-auto text-center py-20 md:py-28 px-6 rounded-2xl border border-white/[0.06] bg-white/[0.015] overflow-hidden">
+      <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.4, ease: easeOut }} className="relative max-w-4xl mx-auto text-center py-20 md:py-28 px-6 rounded-2xl border border-white/[0.06] bg-white/[0.015] overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.08)_0%,transparent_60%)] pointer-events-none" />
         <div className="relative">
           <h2 className="text-[2rem] md:text-[2.75rem] lg:text-[3.25rem] font-semibold text-white tracking-[-0.025em] leading-[1.05] mb-5 max-w-2xl mx-auto">
