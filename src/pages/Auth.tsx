@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, ArrowLeft, User, Phone, Mail, Lock, HelpCircle, MessageCircle, BookOpen } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft, User, Phone, Mail, Lock, MessageCircle, BookOpen } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -366,6 +366,48 @@ const Auth = () => {
                 style={{ borderColor: "rgba(255,255,255,0.05)" }}>
                 {isLogin ? "Criar conta gratuita" : "Fazer login"}
               </button>
+
+              {/* Subtle support link */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="mt-4 text-[12px] text-white/30 hover:text-white/55 transition-colors font-normal"
+                  >
+                    Precisa de ajuda? <span className="underline underline-offset-2 decoration-white/15">Falar com suporte</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  side="top"
+                  align="center"
+                  sideOffset={8}
+                  className="w-56 p-1.5 rounded-xl border-white/[0.08] bg-[rgba(18,18,22,0.95)] backdrop-blur-xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)]"
+                >
+                  <p className="px-2.5 pt-1.5 pb-1 text-[10px] uppercase tracking-wider text-white/30 font-semibold text-left">Como podemos ajudar?</p>
+                  <a
+                    href="https://wa.me/5562994192500?text=Ol%C3%A1%2C%20vim%20do%20site%20da%20DG%20Conting%C3%AAncia%20PRO%20e%20preciso%20de%20suporte."
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-white/75 hover:text-white hover:bg-white/[0.05] transition-colors"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5 text-white/45" strokeWidth={1.75} />
+                    WhatsApp
+                  </a>
+                  <a
+                    href="mailto:suporte@dgcontingenciapro.com.br"
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-white/75 hover:text-white hover:bg-white/[0.05] transition-colors"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-white/45" strokeWidth={1.75} />
+                    E-mail
+                  </a>
+                  <a
+                    href="/#faq"
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-white/75 hover:text-white hover:bg-white/[0.05] transition-colors"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 text-white/45" strokeWidth={1.75} />
+                    Perguntas frequentes
+                  </a>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </motion.div>
@@ -377,48 +419,6 @@ const Auth = () => {
         </motion.p>
       </div>
 
-      {/* Subtle support menu */}
-      <Popover>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            aria-label="Suporte"
-            className="fixed bottom-5 right-5 z-50 h-9 w-9 rounded-full flex items-center justify-center bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-white/50 hover:text-white/80 backdrop-blur-md transition-colors"
-          >
-            <HelpCircle className="w-4 h-4" strokeWidth={1.75} />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          side="top"
-          align="end"
-          sideOffset={10}
-          className="w-56 p-1.5 rounded-xl border-white/[0.08] bg-[rgba(18,18,22,0.92)] backdrop-blur-xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)]"
-        >
-          <p className="px-2.5 pt-1.5 pb-1 text-[10px] uppercase tracking-wider text-white/30 font-semibold">Precisa de ajuda?</p>
-          <a
-            href="https://wa.me/5562994192500?text=Ol%C3%A1%2C%20vim%20do%20site%20da%20DG%20Conting%C3%AAncia%20PRO%20e%20preciso%20de%20suporte."
-            target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-white/75 hover:text-white hover:bg-white/[0.05] transition-colors"
-          >
-            <MessageCircle className="w-3.5 h-3.5 text-white/45" strokeWidth={1.75} />
-            WhatsApp
-          </a>
-          <a
-            href="mailto:suporte@dgcontingenciapro.com.br"
-            className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-white/75 hover:text-white hover:bg-white/[0.05] transition-colors"
-          >
-            <Mail className="w-3.5 h-3.5 text-white/45" strokeWidth={1.75} />
-            E-mail
-          </a>
-          <a
-            href="/#faq"
-            className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-white/75 hover:text-white hover:bg-white/[0.05] transition-colors"
-          >
-            <BookOpen className="w-3.5 h-3.5 text-white/45" strokeWidth={1.75} />
-            Perguntas frequentes
-          </a>
-        </PopoverContent>
-      </Popover>
     </div>
   );
 };
