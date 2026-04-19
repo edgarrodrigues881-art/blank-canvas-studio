@@ -161,13 +161,13 @@ const Stats = () => (
           variants={fadeUp}
           className="lg:col-span-5 text-[1.75rem] md:text-[2rem] font-semibold text-white tracking-[-0.03em] leading-[1.1]"
         >
-          Controle real da <span className="text-white/45">sua operação.</span>
+          Controle real da <span className="text-white/70">sua operação.</span>
         </motion.h2>
 
         <motion.ul variants={fadeUp} className="lg:col-span-7 space-y-5">
           {trustPoints.map((point) => (
-            <li key={point} className="flex items-start gap-3 text-[15px] text-white/70 leading-[1.55]">
-              <span className="mt-[9px] w-1 h-1 rounded-full bg-white/40 flex-shrink-0" />
+            <li key={point} className="flex items-start gap-3 text-[15px] text-white/90 leading-[1.55]">
+              <span className="mt-[9px] w-1.5 h-1.5 rounded-full bg-white/70 flex-shrink-0" />
               <span>{point}</span>
             </li>
           ))}
