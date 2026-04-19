@@ -3,11 +3,10 @@ import { useLocation } from "react-router-dom";
 import { PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TutorialModal } from "@/components/TutorialModal";
-import { getTutorialForRoute } from "@/lib/tutorials";
+import { getTutorialForRoute, type TutorialItem } from "@/lib/tutorials";
+import { getCrmTutorialForRoute } from "@/lib/crmTutorials";
 
 interface Props {
-  /** Override automatic route detection */
-  tutorialId?: string;
   size?: "sm" | "default";
   variant?: "outline" | "ghost" | "default";
   className?: string;
@@ -15,13 +14,18 @@ interface Props {
 
 /**
  * Contextual button that opens the tutorial relevant to the current page.
- * Renders nothing when no tutorial is registered for the current route.
+ * Auto-detects CRM vs general tutorials by route. Renders nothing if none registered.
  */
-export const HowToUseButton = ({ tutorialId, size = "sm", variant = "outline", className }: Props) => {
+export const HowToUseButton = ({ size = "sm", variant = "outline", className }: Props) => {
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
-  const tutorial = getTutorialForRoute(pathname);
-  const target = tutorialId ? null : tutorial;
+
+  const crm = getCrmTutorialForRoute(pathname);
+  const general = getTutorialForRoute(pathname);
+  const target: TutorialItem | null = crm
+    ? { id: crm.id, title: crm.title, subtitle: crm.subtitle, category: "Conexões", videoUrl: crm.videoUrl }
+    : general || null;
+
   if (!target) return null;
   return (
     <>
