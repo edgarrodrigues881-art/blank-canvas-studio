@@ -370,10 +370,10 @@ const Plans = () => {
 
   const renderCard = (p: typeof allPlans[0]) => (
     <motion.div key={p.name} variants={fadeUp}
-      className={`relative rounded-xl border transition-all duration-300 flex flex-col h-full p-5 ${
+      className={`relative rounded-xl border transition-all duration-200 ease-out flex flex-col h-full p-5 hover:-translate-y-1 ${
         p.popular
-          ? "border-white/[0.22] bg-white/[0.05] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_8px_40px_-12px_rgba(255,255,255,0.08)]"
-          : "border-white/[0.06] bg-white/[0.015] hover:border-white/[0.12] hover:bg-white/[0.03]"
+          ? "border-white/[0.22] bg-white/[0.05] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_8px_40px_-12px_rgba(255,255,255,0.08)] hover:border-white/[0.3] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_12px_50px_-12px_rgba(255,255,255,0.12)]"
+          : "border-white/[0.06] bg-white/[0.015] hover:border-white/[0.14] hover:bg-white/[0.035]"
       }`}
     >
       {p.popular && (
