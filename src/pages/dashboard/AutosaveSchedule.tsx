@@ -50,17 +50,38 @@ export default function AutosaveSchedule() {
   const [createOpen, setCreateOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
 
-  const { data: autosaveCount = 0 } = useQuery({
-    queryKey: ["autosave_count", user?.id],
+  const { data: contactStats = { total: 0, valid: 0, invalid: 0 } } = useQuery({
+    queryKey: ["autosave_contact_stats", user?.id],
     queryFn: async () => {
-      if (!user) return 0;
-      const { count } = await supabase
-        .from("warmup_autosave_contacts" as any)
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id);
-      return count || 0;
+      if (!user) return { total: 0, valid: 0, invalid: 0 };
+      const [{ count: total }, { count: valid }] = await Promise.all([
+        supabase.from("warmup_autosave_contacts" as any).select("id", { count: "exact", head: true }).eq("user_id", user.id),
+        supabase.from("warmup_autosave_contacts" as any).select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("is_active", true),
+      ]);
+      const t = total || 0;
+      const v = valid || 0;
+      return { total: t, valid: v, invalid: Math.max(0, t - v) };
     },
     enabled: !!user,
+  });
+  const autosaveCount = contactStats.total;
+
+  // Resumo do dia: agregados a partir dos logs
+  const todayISO = format(new Date(), "yyyy-MM-dd");
+  const { data: todayLogStats = { invalid: 0, failed: 0, limit_reached: 0 } } = useQuery({
+    queryKey: ["autosave_today_log_stats", user?.id, todayISO],
+    queryFn: async () => {
+      if (!user) return { invalid: 0, failed: 0, limit_reached: 0 };
+      const startISO = `${todayISO}T00:00:00.000Z`;
+      const [inv, fail, lim] = await Promise.all([
+        supabase.from("autosave_schedule_logs" as any).select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "invalid_number").gte("sent_at", startISO),
+        supabase.from("autosave_schedule_logs" as any).select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "failed").gte("sent_at", startISO),
+        supabase.from("autosave_schedule_logs" as any).select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "limit_reached").gte("sent_at", startISO),
+      ]);
+      return { invalid: inv.count || 0, failed: fail.count || 0, limit_reached: lim.count || 0 };
+    },
+    enabled: !!user,
+    refetchInterval: 10_000,
   });
 
   const { data: devices = [] } = useQuery({
@@ -194,9 +215,45 @@ export default function AutosaveSchedule() {
             Aquecimento recorrente entre seus chips usando contatos Auto Save — executa nos dias e horário definidos
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" /> Novo Agendamento
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {schedules.some((s) => s.status === "scheduled" || s.status === "paused") && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+              onClick={() => {
+                const targets = schedules.filter((s) => s.status === "scheduled" || s.status === "paused");
+                if (!targets.length) return;
+                if (!confirm(`Iniciar/retomar ${targets.length} agendamento(s)?`)) return;
+                targets.forEach((s) =>
+                  triggerMut.mutate({ id: s.id, action: s.status === "paused" ? "resume" : "start" })
+                );
+                toast.success(`${targets.length} agendamento(s) iniciados`);
+              }}
+            >
+              <Play className="w-4 h-4" /> Iniciar todos
+            </Button>
+          )}
+          {schedules.some((s) => s.status === "running") && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+              onClick={() => {
+                const targets = schedules.filter((s) => s.status === "running");
+                if (!targets.length) return;
+                if (!confirm(`Pausar ${targets.length} agendamento(s) em execução?`)) return;
+                targets.forEach((s) => triggerMut.mutate({ id: s.id, action: "pause" }));
+                toast.success(`${targets.length} agendamento(s) pausados`);
+              }}
+            >
+              <Pause className="w-4 h-4" /> Pausar todos
+            </Button>
+          )}
+          <Button onClick={() => setCreateOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" /> Novo Agendamento
+          </Button>
+        </div>
       </div>
 
       {/* Status global + resumo do dia */}
@@ -262,7 +319,11 @@ export default function AutosaveSchedule() {
                 <div className="min-w-0">
                   <p className="text-xs text-muted-foreground">Próxima execução</p>
                   <p className="text-base font-semibold truncate">
-                    {nextRun ? format(nextRun, "EEE dd/MM 'às' HH:mm", { locale: ptBR }) : "—"}
+                    {nextRun
+                      ? format(nextRun, "EEE dd/MM 'às' HH:mm", { locale: ptBR })
+                      : activeCount === 0
+                        ? <span className="text-muted-foreground font-normal text-sm">Nenhum agendamento ativo</span>
+                        : "Sem horário válido"}
                   </p>
                 </div>
               </Card>
@@ -286,8 +347,24 @@ export default function AutosaveSchedule() {
                   <p className="text-lg font-bold text-blue-400">{activeInstancesToday}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Contatos disponíveis</p>
-                  <p className="text-lg font-bold text-violet-400">{autosaveCount}</p>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Falhas de envio</p>
+                  <p className="text-lg font-bold text-destructive">{todayLogStats.failed}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Números inválidos</p>
+                  <p className="text-lg font-bold text-amber-400">{todayLogStats.invalid}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Pausadas por limite</p>
+                  <p className="text-lg font-bold text-orange-400">{todayLogStats.limit_reached}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Contatos válidos</p>
+                  <p className="text-lg font-bold text-emerald-400">{contactStats.valid}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Contatos inválidos</p>
+                  <p className="text-lg font-bold text-destructive">{contactStats.invalid}</p>
                 </div>
                 <div>
                   <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Instâncias conectadas</p>
@@ -309,10 +386,31 @@ export default function AutosaveSchedule() {
         {isLoading ? (
           <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>
         ) : schedules.length === 0 ? (
-          <div className="p-12 text-center">
-            <CalendarIcon className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">Nenhum agendamento criado</p>
-            <Button variant="default" size="sm" className="mt-3 gap-2" onClick={() => setCreateOpen(true)}>
+          <div className="p-10 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <CalendarIcon className="w-7 h-7 text-primary" />
+            </div>
+            <p className="text-sm text-foreground font-medium">
+              Crie um agendamento para iniciar o aquecimento automático entre seus chips.
+            </p>
+            <div className="mt-5 max-w-md mx-auto grid grid-cols-3 gap-3 text-left">
+              {[
+                { n: 1, t: "Escolha instâncias", icon: Smartphone },
+                { n: 2, t: "Defina dias e horário", icon: Clock },
+                { n: 3, t: "Configure envio", icon: Activity },
+              ].map((step) => (
+                <div key={step.n} className="rounded-lg border border-border/50 bg-muted/20 p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[11px] font-bold flex items-center justify-center">
+                      {step.n}
+                    </span>
+                    <step.icon className="w-3.5 h-3.5 text-muted-foreground" />
+                  </div>
+                  <p className="text-xs text-foreground/80">{step.t}</p>
+                </div>
+              ))}
+            </div>
+            <Button variant="default" size="sm" className="mt-6 gap-2" onClick={() => setCreateOpen(true)}>
               <Plus className="w-4 h-4" /> Criar agendamento automático
             </Button>
           </div>
