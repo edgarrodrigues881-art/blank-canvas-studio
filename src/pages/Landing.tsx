@@ -80,40 +80,103 @@ const SectionSub = ({ children }: { children: React.ReactNode }) => (
   <p className="text-sm md:text-base text-white/45 max-w-2xl leading-relaxed font-medium mx-auto">{children}</p>
 );
 
-// ─── 1. Hero ───
+// ─── 1. Hero (Linear-inspired, left-aligned with floating mockup) ───
 const Hero = () => {
   const navigate = useNavigate();
   return (
-    <section className="relative pt-28 md:pt-40 pb-14 md:pb-20 px-5 text-center overflow-hidden">
-      {/* Radial glow behind title */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] pointer-events-none" aria-hidden>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.12)_0%,transparent_70%)]" />
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[400px] h-[300px] bg-[hsl(var(--primary))]/8 rounded-full blur-[100px]" />
+    <section className="relative pt-32 md:pt-40 pb-20 md:pb-28 px-5 overflow-hidden">
+      {/* Ambient glow accents — subtle blue/violet */}
+      <div className="absolute inset-0 pointer-events-none" aria-hidden>
+        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.10)_0%,transparent_60%)] blur-3xl" />
+        <div className="absolute top-[20%] right-[-15%] w-[700px] h-[700px] rounded-full bg-[radial-gradient(circle,rgba(139,92,246,0.08)_0%,transparent_60%)] blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 w-[500px] h-[400px] rounded-full bg-[radial-gradient(circle,hsl(var(--primary)/0.06)_0%,transparent_70%)] blur-3xl" />
       </div>
+
       <div className="max-w-6xl mx-auto relative z-10">
-        <motion.div initial="hidden" animate="visible" variants={stagger}>
-          <motion.div variants={fadeUp}>
-            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/[0.04] text-[11px] font-semibold text-white/60 mb-8">
-              <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))] animate-pulse" />
-              Gestão profissional de WhatsApp
-            </span>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
+          {/* Left: Copy */}
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={stagger}
+            className="lg:col-span-6 text-center lg:text-left"
+          >
+            <motion.div variants={fadeUp}>
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/[0.03] text-[11px] font-medium text-white/55 mb-7 backdrop-blur-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))] animate-pulse" />
+                Novo · Plataforma 2.0
+              </span>
+            </motion.div>
+
+            <motion.h1
+              variants={fadeUp}
+              className="text-[2.75rem] sm:text-5xl md:text-6xl lg:text-[4.25rem] font-semibold text-white leading-[0.98] tracking-[-0.035em] mb-6"
+            >
+              The WhatsApp<br />operating system<br />
+              <span className="text-white/45">for serious teams.</span>
+            </motion.h1>
+
+            <motion.p
+              variants={fadeUp}
+              className="text-base md:text-[17px] text-white/45 max-w-md mx-auto lg:mx-0 mb-9 leading-relaxed"
+            >
+              Aquecimento, disparo e monitoramento em uma única plataforma. Projetada para escala.
+            </motion.p>
+
+            <motion.div
+              variants={fadeUp}
+              className="flex flex-col sm:flex-row items-center lg:items-start lg:justify-start justify-center gap-3"
+            >
+              <Button
+                size="lg"
+                onClick={() => navigate("/auth?mode=signup")}
+                className="bg-white hover:bg-white/90 text-black text-[13px] font-semibold px-6 h-11 rounded-lg gap-1.5 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_8px_32px_-8px_rgba(255,255,255,0.2)]"
+              >
+                Começar grátis <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => document.getElementById("planos")?.scrollIntoView({ behavior: "smooth" })}
+                className="bg-transparent border-white/10 text-white/75 hover:text-white hover:bg-white/[0.04] hover:border-white/20 text-[13px] font-semibold px-6 h-11 rounded-lg"
+              >
+                Ver planos
+              </Button>
+            </motion.div>
           </motion.div>
-          <motion.h1 variants={fadeUp} className="text-4xl sm:text-5xl md:text-7xl font-extrabold text-white tracking-tight leading-[1.08] mb-6 max-w-4xl mx-auto">
-            Opere múltiplos chips com{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[hsl(var(--primary))] to-emerald-300">controle total</span>
-          </motion.h1>
-          <motion.p variants={fadeUp} className="text-base sm:text-lg md:text-xl text-white/40 max-w-xl mx-auto mb-10 leading-relaxed font-medium">
-            Aquecimento, disparo e monitoramento em uma única plataforma. Escale com organização e reduza riscos.
-          </motion.p>
-          <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-white text-sm font-semibold px-8 h-12 gap-2 shadow-lg shadow-[hsl(var(--primary))]/20">
-              Começar agora <ArrowRight className="w-4 h-4" />
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => document.getElementById("planos")?.scrollIntoView({ behavior: "smooth" })} className="bg-transparent border-white/10 text-white/70 hover:text-white hover:bg-white/5 text-sm font-semibold px-8 h-12">
-              Ver planos
-            </Button>
+
+          {/* Right: Floating product mockup */}
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.7, ease: "easeOut", delay: 0.2 }}
+            className="lg:col-span-6 relative"
+          >
+            <div className="relative">
+              {/* Glow halo */}
+              <div className="absolute -inset-8 bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.18)_0%,rgba(99,102,241,0.08)_40%,transparent_70%)] blur-2xl pointer-events-none" />
+
+              {/* Mockup frame */}
+              <div className="relative rounded-xl border border-white/[0.08] overflow-hidden shadow-[0_30px_80px_-20px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.04)] bg-[hsl(222,22%,7%)]">
+                <div className="bg-white/[0.025] px-3.5 py-2 border-b border-white/[0.05] flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
+                  <span className="ml-2.5 text-[10px] text-white/30 font-medium tracking-wide">DG Contingência PRO</span>
+                </div>
+                <img
+                  src={dashboardPreview}
+                  alt="Painel DG Contingência PRO"
+                  className="w-full h-auto block"
+                  loading="eager"
+                />
+              </div>
+
+              {/* Floating reflection edge */}
+              <div className="absolute inset-x-10 -bottom-px h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+            </div>
           </motion.div>
-        </motion.div>
+        </div>
       </div>
     </section>
   );
