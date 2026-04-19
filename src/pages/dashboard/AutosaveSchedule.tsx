@@ -260,8 +260,15 @@ export default function AutosaveSchedule() {
                         <Activity className="w-3 h-3" />
                         {s.total_sent} enviadas{s.total_failed > 0 && ` · ${s.total_failed} falhas`}
                       </span>
-                      <span className="text-muted-foreground/60">
-                        {s.messages_per_instance > 0 ? `${s.messages_per_instance} msgs/chip` : "ilimitado"}
+                      <span className="flex items-center gap-1 text-emerald-400/80">
+                        <Activity className="w-3 h-3" />
+                        {(() => {
+                          const cur = Math.min(
+                            s.max_limit_per_instance,
+                            s.initial_limit_per_instance + s.days_executed * s.daily_increment
+                          );
+                          return `${cur}/${s.max_limit_per_instance} msgs/chip · dia ${s.days_executed + 1}`;
+                        })()}
                       </span>
                     </div>
                     {s.last_error && (
