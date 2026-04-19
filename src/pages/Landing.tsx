@@ -101,7 +101,7 @@ const Hero = () => {
               Evite banimentos, gerencie múltiplos chips com segurança e escale sua operação sem caos.
             </motion.p>
 
-            <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center lg:items-start lg:justify-start justify-center gap-3">
+            <motion.div variants={fadeScale} className="flex flex-col sm:flex-row items-center lg:items-start lg:justify-start justify-center gap-3">
               <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="bg-white hover:bg-white text-black text-[14px] font-semibold px-7 h-12 rounded-[10px] gap-2 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_8px_32px_-4px_rgba(255,255,255,0.15)] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_12px_40px_-4px_rgba(255,255,255,0.25)] hover:scale-[1.02] transition-all duration-200">
                 Começar agora <ArrowRight className="w-4 h-4" />
               </Button>
