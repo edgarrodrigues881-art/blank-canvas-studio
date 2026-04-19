@@ -319,7 +319,11 @@ export default function AutosaveSchedule() {
                 <div className="min-w-0">
                   <p className="text-xs text-muted-foreground">Próxima execução</p>
                   <p className="text-base font-semibold truncate">
-                    {nextRun ? format(nextRun, "EEE dd/MM 'às' HH:mm", { locale: ptBR }) : "—"}
+                    {nextRun
+                      ? format(nextRun, "EEE dd/MM 'às' HH:mm", { locale: ptBR })
+                      : activeCount === 0
+                        ? <span className="text-muted-foreground font-normal text-sm">Nenhum agendamento ativo</span>
+                        : "Sem horário válido"}
                   </p>
                 </div>
               </Card>
@@ -343,8 +347,24 @@ export default function AutosaveSchedule() {
                   <p className="text-lg font-bold text-blue-400">{activeInstancesToday}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Contatos disponíveis</p>
-                  <p className="text-lg font-bold text-violet-400">{autosaveCount}</p>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Falhas de envio</p>
+                  <p className="text-lg font-bold text-destructive">{todayLogStats.failed}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Números inválidos</p>
+                  <p className="text-lg font-bold text-amber-400">{todayLogStats.invalid}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Pausadas por limite</p>
+                  <p className="text-lg font-bold text-orange-400">{todayLogStats.limit_reached}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Contatos válidos</p>
+                  <p className="text-lg font-bold text-emerald-400">{contactStats.valid}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Contatos inválidos</p>
+                  <p className="text-lg font-bold text-destructive">{contactStats.invalid}</p>
                 </div>
                 <div>
                   <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Instâncias conectadas</p>
