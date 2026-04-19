@@ -79,48 +79,56 @@ const SectionSub = ({ children, className = "" }: { children: React.ReactNode; c
 const Hero = () => {
   const navigate = useNavigate();
   return (
-    <section className="relative pt-44 md:pt-56 pb-32 md:pb-44 px-6 overflow-hidden">
-      <div className="max-w-[1280px] mx-auto relative z-10 lg:pl-2 xl:pl-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-20 lg:gap-10 items-center">
-          <motion.div initial="hidden" animate="visible" variants={stagger} className="lg:col-span-7 text-center lg:text-left">
+    <section className="relative pt-28 md:pt-32 pb-24 md:pb-32 px-6 overflow-hidden">
+      <div className="max-w-[1320px] mx-auto relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-6 items-center">
+          <motion.div initial="hidden" animate="visible" variants={stagger} className="lg:col-span-6 text-center lg:text-left">
             <motion.div variants={fadeUp}>
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/[0.07] bg-white/[0.02] text-[11px] font-medium text-white/55 mb-10 backdrop-blur-md">
-                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--primary))]" />
-                Novo · Plataforma 2.0
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] text-[11px] font-medium text-emerald-300/90 mb-7 backdrop-blur-md">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Operando 1.000+ chips em tempo real
               </span>
             </motion.div>
 
-            <motion.h1 variants={fadeUp} className="text-[2.75rem] sm:text-5xl md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.5rem] font-semibold text-white leading-[1.02] tracking-[-0.035em] mb-10">
-              The WhatsApp<br />operating system<br />
-              <span className="text-white/55">for serious teams.</span>
+            <motion.h1 variants={fadeUp} className="text-[2.75rem] sm:text-5xl md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.0] tracking-[-0.04em] mb-7">
+              Escale seu WhatsApp<br />
+              <span className="text-white/55">sem tomar ban.</span>
             </motion.h1>
 
-            <motion.p variants={fadeUp} className="text-[15px] md:text-[16px] text-white/55 max-w-[440px] mx-auto lg:mx-0 mb-12 leading-[1.65]">
-              Aquecimento, disparo e monitoramento em uma única plataforma. Projetada para escala.
+            <motion.p variants={fadeUp} className="text-[16px] md:text-[17px] text-white/60 max-w-[500px] mx-auto lg:mx-0 mb-9 leading-[1.55]">
+              Gerencie dezenas de números, aqueça chips automaticamente e dispare em massa com a segurança que sua operação precisa.
             </motion.p>
 
-            <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center lg:items-start lg:justify-start justify-center gap-5">
-              <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="bg-white/95 hover:bg-white text-black text-[13px] font-medium px-5 h-10 rounded-[10px] gap-1.5 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_4px_16px_-4px_rgba(0,0,0,0.4)] transition-all duration-200">
-                Começar grátis <ArrowRight className="w-3.5 h-3.5" />
+            <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center lg:items-start lg:justify-start justify-center gap-3">
+              <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="bg-white hover:bg-white text-black text-[14px] font-semibold px-7 h-12 rounded-[10px] gap-2 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_8px_32px_-4px_rgba(255,255,255,0.15)] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_12px_40px_-4px_rgba(255,255,255,0.25)] hover:scale-[1.02] transition-all duration-200">
+                Começar grátis <ArrowRight className="w-4 h-4" />
               </Button>
-              <Button size="lg" variant="ghost" onClick={() => document.getElementById("planos")?.scrollIntoView({ behavior: "smooth" })} className="bg-transparent text-white/65 hover:text-white hover:bg-transparent text-[13px] font-medium px-2 h-10 rounded-[10px]">
+              <Button size="lg" variant="ghost" onClick={() => document.getElementById("planos")?.scrollIntoView({ behavior: "smooth" })} className="bg-transparent text-white/70 hover:text-white hover:bg-white/[0.04] text-[14px] font-medium px-4 h-12 rounded-[10px]">
                 Ver planos →
               </Button>
             </motion.div>
+
+            <motion.p variants={fadeUp} className="text-[12px] text-white/40 mt-5 flex items-center justify-center lg:justify-start gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/70" />
+              Teste grátis por 7 dias · Sem cartão de crédito
+            </motion.p>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.3 }} className="lg:col-span-5 relative lg:mt-16 lg:translate-x-4 xl:translate-x-8">
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }} className="lg:col-span-6 relative lg:-mr-20 xl:-mr-32 lg:scale-[1.15] xl:scale-[1.2] origin-left">
             <div className="relative">
-              <div className="absolute -inset-10 bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.07)_0%,transparent_65%)] blur-3xl pointer-events-none" />
-              <div className="relative rounded-xl border border-white/[0.06] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.03)]">
-                <div className="bg-white/[0.015] px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-white/[0.1]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-white/[0.1]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-white/[0.1]" />
-                  <span className="ml-3 text-[10px] text-white/25 font-medium tracking-wide">DG Contingência PRO</span>
+              {/* Premium multi-layer glow */}
+              <div className="absolute -inset-20 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.18)_0%,transparent_60%)] blur-3xl pointer-events-none" />
+              <div className="absolute -inset-16 bg-[radial-gradient(ellipse_at_60%_40%,rgba(139,92,246,0.12)_0%,transparent_65%)] blur-2xl pointer-events-none" />
+              <div className="absolute -bottom-10 inset-x-10 h-32 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.6)_0%,transparent_70%)] blur-2xl pointer-events-none" />
+
+              <div className="relative rounded-xl border border-white/[0.08] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_50px_120px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.04),0_0_80px_-20px_rgba(99,102,241,0.25)]">
+                <div className="bg-white/[0.02] px-4 py-2.5 border-b border-white/[0.05] flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
+                  <span className="ml-3 text-[10px] text-white/35 font-medium tracking-wide">DG Contingência PRO</span>
                 </div>
-                <img src={dashboardPreview} alt="Painel" className="w-full h-auto block opacity-80" loading="eager" style={{ filter: "brightness(0.85) contrast(0.92) saturate(0.9)" }} />
-                <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(11,11,13,0.15)_0%,rgba(11,11,13,0.35)_100%)] pointer-events-none" />
+                <img src={dashboardPreview} alt="Painel DG Contingência" className="w-full h-auto block" loading="eager" />
               </div>
             </div>
           </motion.div>
