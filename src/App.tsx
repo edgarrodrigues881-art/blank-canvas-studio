@@ -49,6 +49,7 @@ const WelcomeAutomation = lazyWithPreload(() => import("@/pages/dashboard/Welcom
 const GroupJoinComingSoon = lazyWithPreload(() => import("@/pages/dashboard/GroupJoinComingSoon"));
 const ChipConversation = lazyWithPreload(() => import("@/pages/dashboard/ChipConversation"));
 const ChipConversationComingSoon = lazyWithPreload(() => import("@/pages/dashboard/ChipConversationComingSoon"));
+const AutosaveSchedule = lazyWithPreload(() => import("@/pages/dashboard/AutosaveSchedule"));
 const AutoReplyList = lazyWithPreload(() => import("@/pages/dashboard/AutoReplyList"));
 const AutoReply = lazyWithPreload(() => import("@/pages/dashboard/AutoReply"));
 const AutoReplyComingSoon = lazyWithPreload(() => import("@/pages/dashboard/AutoReplyComingSoon"));
@@ -253,6 +254,7 @@ const App = () => (
                 <Route path="/dashboard/mass-inject" element={<ProtectedRoute><DashboardLayout><MassGroupInject /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/welcome" element={<ProtectedRoute><DashboardLayout><WelcomeAutomation /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/chip-conversation" element={<ProtectedRoute><DashboardLayout><ChipConversation /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/autosave-schedule" element={<ProtectedRoute><DashboardLayout><AutosaveSchedule /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/auto-reply" element={<ProtectedRoute><DashboardLayout><AutoReplyList /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/auto-reply/:id" element={<ProtectedRoute><DashboardLayout><AutoReply /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/autoreply" element={<ProtectedRoute><DashboardLayout><AutoReplyList /></DashboardLayout></ProtectedRoute>} />
