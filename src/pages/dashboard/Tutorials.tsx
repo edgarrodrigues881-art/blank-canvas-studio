@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { PlayCircle, Search, Clock, ArrowRight, CheckCircle2, Circle, Sparkles, Rocket, Send, Flame, Zap } from "lucide-react";
+import { PlayCircle, Search, Clock, ArrowRight, CheckCircle2, Circle, Sparkles, Rocket, Send, Flame, Zap, Hourglass } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -144,6 +144,7 @@ export default function TutorialsPage() {
   };
 
   const handleWatch = (t: Tutorial) => {
+    if (!t.videoUrl) return;
     markWatched(t.id);
     window.open(t.videoUrl, "_blank");
   };
@@ -208,16 +209,27 @@ export default function TutorialsPage() {
             <div className="grid md:grid-cols-2 gap-0">
               {/* Thumbnail */}
               <div
-                className="relative aspect-video md:aspect-auto md:min-h-[280px] bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center cursor-pointer group overflow-hidden"
+                className={`relative aspect-video md:aspect-auto md:min-h-[280px] bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group overflow-hidden ${featured.videoUrl ? "cursor-pointer" : "cursor-default"}`}
                 onClick={() => handleWatch(featured)}
               >
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_hsl(var(--primary)/0.15),_transparent_70%)]" />
-                <div className="relative w-20 h-20 rounded-full bg-primary/20 backdrop-blur-sm flex items-center justify-center ring-1 ring-primary/30 group-hover:scale-110 transition-transform">
-                  <PlayCircle className="w-10 h-10 text-primary" />
-                </div>
-                <Badge className="absolute top-3 right-3 bg-background/80 backdrop-blur text-foreground border-border/50 gap-1">
-                  <Clock className="w-3 h-3" /> {featured.duration}
-                </Badge>
+                {featured.videoUrl ? (
+                  <>
+                    <div className="relative w-20 h-20 rounded-full bg-primary/20 backdrop-blur-sm flex items-center justify-center ring-1 ring-primary/30 group-hover:scale-110 transition-transform">
+                      <PlayCircle className="w-10 h-10 text-primary" />
+                    </div>
+                    <Badge className="absolute top-3 right-3 bg-background/80 backdrop-blur text-foreground border-border/50 gap-1">
+                      <Clock className="w-3 h-3" /> {featured.duration}
+                    </Badge>
+                  </>
+                ) : (
+                  <div className="relative flex flex-col items-center gap-2 text-muted-foreground/60">
+                    <div className="w-16 h-16 rounded-full bg-muted/40 flex items-center justify-center ring-1 ring-border/40">
+                      <Hourglass className="w-7 h-7" />
+                    </div>
+                    <span className="text-xs font-medium">Aula em breve</span>
+                  </div>
+                )}
               </div>
               {/* Content */}
               <CardContent className="p-6 flex flex-col justify-center space-y-4">
@@ -237,8 +249,8 @@ export default function TutorialsPage() {
                   </ul>
                 )}
                 <div className="flex flex-wrap gap-2 pt-1">
-                  <Button onClick={() => handleWatch(featured)} className="gap-1.5">
-                    <PlayCircle className="w-4 h-4" /> Começar agora
+                  <Button onClick={() => handleWatch(featured)} disabled={!featured.videoUrl} className="gap-1.5">
+                    {featured.videoUrl ? <><PlayCircle className="w-4 h-4" /> Começar agora</> : <><Hourglass className="w-4 h-4" /> Em breve</>}
                   </Button>
                   {featured.featurePath && (
                     <Button variant="outline" onClick={() => navigate(featured.featurePath!)} className="gap-1.5">
@@ -272,15 +284,24 @@ export default function TutorialsPage() {
                   <Card key={t.id} className="group bg-card border-border/60 hover:border-primary/30 transition-all overflow-hidden flex flex-col">
                     {/* Thumb */}
                     <div
-                      className="relative aspect-video bg-gradient-to-br from-muted to-muted/40 flex items-center justify-center cursor-pointer overflow-hidden"
+                      className={`relative aspect-video bg-gradient-to-br from-muted to-muted/40 flex items-center justify-center overflow-hidden ${t.videoUrl ? "cursor-pointer" : "cursor-default"}`}
                       onClick={() => handleWatch(t)}
                     >
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-                      <PlayCircle className="relative w-12 h-12 text-white/90 group-hover:scale-110 group-hover:text-primary transition-all" />
-                      <Badge className="absolute top-2 right-2 bg-black/60 text-white text-[10px] border-0 gap-1 backdrop-blur">
-                        <Clock className="w-2.5 h-2.5" /> {t.duration}
-                      </Badge>
-                      {isWatched && (
+                      {t.videoUrl ? (
+                        <>
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                          <PlayCircle className="relative w-12 h-12 text-white/90 group-hover:scale-110 group-hover:text-primary transition-all" />
+                          <Badge className="absolute top-2 right-2 bg-black/60 text-white text-[10px] border-0 gap-1 backdrop-blur">
+                            <Clock className="w-2.5 h-2.5" /> {t.duration}
+                          </Badge>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center gap-1.5 text-muted-foreground/55">
+                          <Hourglass className="w-8 h-8" />
+                          <span className="text-[11px] font-medium">Aula em breve</span>
+                        </div>
+                      )}
+                      {isWatched && t.videoUrl && (
                         <Badge className="absolute top-2 left-2 bg-emerald-500/90 text-white text-[10px] border-0 gap-1">
                           <CheckCircle2 className="w-2.5 h-2.5" /> Visto
                         </Badge>
@@ -296,7 +317,7 @@ export default function TutorialsPage() {
                         <ul className="space-y-1 pt-1 border-t border-border/30">
                           {t.steps.map((s, i) => (
                             <li key={i} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                              {isWatched ? (
+                              {isWatched && t.videoUrl ? (
                                 <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
                               ) : (
                                 <Circle className="w-3 h-3 text-muted-foreground/40 shrink-0" />
@@ -307,8 +328,8 @@ export default function TutorialsPage() {
                         </ul>
                       )}
                       <div className="flex gap-2 mt-auto pt-2">
-                        <Button size="sm" onClick={() => handleWatch(t)} className="flex-1 h-8 text-xs gap-1">
-                          <PlayCircle className="w-3.5 h-3.5" /> Assistir
+                        <Button size="sm" onClick={() => handleWatch(t)} disabled={!t.videoUrl} className="flex-1 h-8 text-xs gap-1">
+                          {t.videoUrl ? <><PlayCircle className="w-3.5 h-3.5" /> Assistir</> : <><Hourglass className="w-3.5 h-3.5" /> Em breve</>}
                         </Button>
                         {t.featurePath && (
                           <Button size="sm" variant="outline" onClick={() => navigate(t.featurePath!)} className="h-8 text-xs gap-1 px-2.5" title="Ir para essa função">
