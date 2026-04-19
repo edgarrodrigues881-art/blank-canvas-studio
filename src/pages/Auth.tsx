@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, ArrowLeft, User, Phone, Mail, Lock, HelpCircle, MessageCircle, BookOpen } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft, User, Phone, Mail, Lock, MessageCircle, BookOpen } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
