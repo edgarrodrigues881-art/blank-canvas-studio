@@ -161,14 +161,21 @@ const Auth = () => {
     }
   };
 
-  const inputClass = "w-full h-12 px-4 rounded-xl text-sm text-white/90 placeholder:text-white/25 outline-none transition-all duration-200 bg-white/[0.035] border border-white/[0.07] focus:border-emerald-500/30 focus:bg-white/[0.05] focus:ring-1 focus:ring-emerald-500/15";
+  const inputClass = "w-full h-12 px-4 rounded-xl text-sm text-white/95 placeholder:text-white/30 outline-none transition-all duration-200 bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.12] focus:border-emerald-400/40 focus:bg-white/[0.06] focus:ring-2 focus:ring-emerald-500/20 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.06)]";
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-5 py-10 relative overflow-hidden" style={{ background: "#0c0c0c" }}>
-      {/* Soft ambient glow */}
+    <div className="min-h-screen flex items-center justify-center px-5 py-10 relative overflow-hidden" style={{ background: "#0a0a0c" }}>
+      {/* Premium ambient gradients */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-[0.04]"
-          style={{ background: "radial-gradient(circle, #34d399, transparent 70%)" }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[820px] h-[820px] rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(52,211,153,0.10) 0%, transparent 65%)", filter: "blur(20px)" }} />
+        <div className="absolute top-[15%] left-[15%] w-[480px] h-[480px] rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 70%)", filter: "blur(40px)" }} />
+        <div className="absolute bottom-[10%] right-[12%] w-[420px] h-[420px] rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%)", filter: "blur(40px)" }} />
+        {/* Subtle grain/noise via faint dot grid */}
+        <div className="absolute inset-0 opacity-[0.025]"
+          style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.6) 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
       </div>
 
       {/* Back button */}
@@ -189,13 +196,16 @@ const Auth = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
-          className="w-full rounded-3xl overflow-hidden backdrop-blur-sm"
+          className="w-full rounded-3xl overflow-hidden backdrop-blur-2xl relative"
           style={{
-            background: "linear-gradient(180deg, rgba(20,20,22,0.92) 0%, rgba(14,14,16,0.96) 100%)",
-            border: "1px solid rgba(255,255,255,0.05)",
-            boxShadow: "0 0 0 1px rgba(255,255,255,0.02), 0 32px 80px -20px rgba(0,0,0,0.6)",
+            background: "linear-gradient(180deg, rgba(22,22,26,0.78) 0%, rgba(12,12,15,0.88) 100%)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 1px 0 0 rgba(255,255,255,0.06) inset, 0 50px 120px -30px rgba(0,0,0,0.85), 0 0 80px -30px rgba(52,211,153,0.12)",
           }}
         >
+          {/* Top highlight border */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+
           <div className="px-9 pt-10 pb-10">
             {/* Logo */}
             <motion.div
@@ -204,13 +214,17 @@ const Auth = () => {
               transition={{ duration: 0.5, delay: 0.1 }}
               className="flex flex-col items-center mb-8"
             >
-              <div className="w-16 h-16 rounded-2xl overflow-hidden mb-4 ring-1 ring-white/[0.06]" style={{
-                boxShadow: "0 0 30px rgba(52,211,153,0.08)",
-              }}>
-                <img src={logo} alt="DG Contingência Pro" className="w-full h-full object-cover" />
+              <div className="relative mb-4">
+                {/* Logo glow */}
+                <div className="absolute inset-0 -m-4 rounded-full pointer-events-none"
+                  style={{ background: "radial-gradient(circle, rgba(52,211,153,0.28) 0%, transparent 70%)", filter: "blur(20px)" }} />
+                <div className="relative w-20 h-20 rounded-2xl overflow-hidden ring-1 ring-white/[0.1]"
+                  style={{ boxShadow: "0 10px 40px -10px rgba(52,211,153,0.35), inset 0 1px 0 0 rgba(255,255,255,0.1)" }}>
+                  <img src={logo} alt="DG Contingência Pro" className="w-full h-full object-cover" />
+                </div>
               </div>
-              <h1 className="text-[20px] font-semibold text-white/90 tracking-tight"><span style={{ color: "#2d8c3c" }}>DG</span> Contingência <span style={{ color: "#2d8c3c" }}>Pro</span></h1>
-              <p className="text-[13px] text-white/25 mt-1 font-light">
+              <h1 className="text-[20px] font-semibold text-white/95 tracking-tight"><span style={{ color: "#34d399" }}>DG</span> Contingência <span style={{ color: "#34d399" }}>Pro</span></h1>
+              <p className="text-[13px] text-white/35 mt-1 font-light">
                 {isLogin ? "Entre na sua conta" : "Crie sua conta"}
               </p>
             </motion.div>
@@ -293,17 +307,20 @@ const Auth = () => {
               {/* Submit */}
               <motion.div variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }} className="pt-1.5">
                 <button type="submit" disabled={loading}
-                  className="w-full h-12 rounded-xl text-[14px] font-semibold text-white transition-all duration-200 hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none"
+                  className="w-full h-12 rounded-xl text-[14px] font-semibold text-white transition-all duration-300 ease-out hover:scale-[1.02] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden group"
                   style={{
-                    background: "linear-gradient(135deg, rgba(52,211,153,0.2) 0%, rgba(52,211,153,0.08) 100%)",
-                    border: "1px solid rgba(52,211,153,0.15)",
-                    boxShadow: "0 0 20px -8px rgba(52,211,153,0.15)",
+                    background: "linear-gradient(135deg, rgba(52,211,153,0.35) 0%, rgba(16,185,129,0.18) 100%)",
+                    border: "1px solid rgba(52,211,153,0.28)",
+                    boxShadow: "0 0 30px -8px rgba(52,211,153,0.45), inset 0 1px 0 0 rgba(255,255,255,0.12)",
                   }}>
-                  {loading ? (
-                    <div className="h-4 w-4 mx-auto animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    isLogin ? "Entrar" : "Criar conta"
-                  )}
+                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out" />
+                  <span className="relative">
+                    {loading ? (
+                      <div className="h-4 w-4 mx-auto animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : (
+                      isLogin ? "Entrar" : "Criar conta"
+                    )}
+                  </span>
                 </button>
               </motion.div>
 
