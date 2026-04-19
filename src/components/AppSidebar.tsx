@@ -659,6 +659,7 @@ export function AppSidebar() {
                       </SidebarMenuItem>
                     );
                   })()}
+                  {renderNavItem({ title: "Afiliados", url: "/dashboard/affiliates", icon: DollarSign })}
                   {renderNavItem({ title: "Comunidade", url: "/dashboard/community", icon: UsersRound })}
                   {renderNavItem({ title: "Tutoriais", url: "/dashboard/tutorials", icon: PlayCircle })}
                   {renderNavItem({ title: "Ajuda", url: "/dashboard/custom-module", icon: HelpCircle })}
