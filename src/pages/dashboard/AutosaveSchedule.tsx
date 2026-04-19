@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Calendar as CalendarIcon, Plus, Play, Pause, Trash2, Save, Smartphone, Activity, CheckCircle2, AlertCircle, Clock, Repeat } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Play, Pause, Trash2, Save, Smartphone, Activity, CheckCircle2, AlertCircle, Clock, Repeat, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
