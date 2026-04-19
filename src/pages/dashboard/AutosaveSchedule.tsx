@@ -466,7 +466,75 @@ export default function AutosaveSchedule() {
               </div>
             </div>
 
-            {/* Progressão automática (opcional) */}
+            {/* Pausa entre lotes (por instância) */}
+            <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-blue-400" />
+                <span className="text-xs font-semibold uppercase tracking-wider">Pausa entre lotes (por instância)</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (mín)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={pauseEveryMin || ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      const n = v === "" ? 1 : parseInt(v, 10);
+                      if (!isNaN(n)) setPauseEveryMin(Math.max(1, n));
+                    }}
+                    onBlur={() => { if (pauseEveryMax < pauseEveryMin) setPauseEveryMax(pauseEveryMin); }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (máx)</Label>
+                  <Input
+                    type="number"
+                    min={pauseEveryMin}
+                    value={pauseEveryMax || ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      const n = v === "" ? pauseEveryMin : parseInt(v, 10);
+                      if (!isNaN(n)) setPauseEveryMax(Math.max(pauseEveryMin, n));
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração da pausa mín (s)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={pauseDurationMin || ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      const n = v === "" ? 1 : parseInt(v, 10);
+                      if (!isNaN(n)) setPauseDurationMin(Math.max(1, n));
+                    }}
+                    onBlur={() => { if (pauseDurationMax < pauseDurationMin) setPauseDurationMax(pauseDurationMin); }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração da pausa máx (s)</Label>
+                  <Input
+                    type="number"
+                    min={pauseDurationMin}
+                    value={pauseDurationMax || ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      const n = v === "" ? pauseDurationMin : parseInt(v, 10);
+                      if (!isNaN(n)) setPauseDurationMax(Math.max(pauseDurationMin, n));
+                    }}
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground/80">
+                Cada chip envia entre <span className="text-foreground font-medium">{pauseEveryMin}–{pauseEveryMax}</span> mensagens
+                e então pausa por <span className="text-foreground font-medium">{pauseDurationMin}–{pauseDurationMax}s</span>.
+                Intervalo entre cada msg: <span className="text-foreground font-medium">{minDelay}–{maxDelay}s</span> aleatório.
+              </p>
+            </div>
+
             <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
