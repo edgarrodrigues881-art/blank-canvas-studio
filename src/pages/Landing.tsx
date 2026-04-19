@@ -60,56 +60,56 @@ const Navbar = () => {
 
 // ─── Section wrapper ───
 const Section = ({ id, children, className = "" }: { id?: string; children: React.ReactNode; className?: string }) => (
-  <section id={id} className={`py-24 md:py-32 px-6 ${className}`}>
+  <section id={id} className={`py-14 md:py-32 px-5 md:px-6 ${className}`}>
     <div className="max-w-[1200px] mx-auto">{children}</div>
   </section>
 );
 
 const Eyebrow = ({ children }: { children: React.ReactNode }) => (
-  <span className="inline-block text-[11px] font-medium uppercase tracking-[0.18em] text-white/45 mb-5">{children}</span>
+  <span className="inline-block text-[11px] font-medium uppercase tracking-[0.18em] text-white/45 mb-4 md:mb-5">{children}</span>
 );
 
 const SectionTitle = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-  <h2 className={`text-[2rem] md:text-[2.75rem] lg:text-[3.25rem] font-semibold text-white tracking-[-0.025em] leading-[1.05] ${className}`}>{children}</h2>
+  <h2 className={`text-[1.875rem] md:text-[2.75rem] lg:text-[3.25rem] font-semibold text-white tracking-[-0.025em] leading-[1.1] md:leading-[1.05] ${className}`}>{children}</h2>
 );
 
 const SectionSub = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-  <p className={`text-[15px] md:text-base text-white/50 leading-[1.6] ${className}`}>{children}</p>
+  <p className={`text-[15px] md:text-base text-white/65 md:text-white/50 leading-[1.55] md:leading-[1.6] ${className}`}>{children}</p>
 );
 
 // ─── 1. Hero ───
 const Hero = () => {
   const navigate = useNavigate();
   return (
-    <section className="relative pt-28 md:pt-32 pb-24 md:pb-32 px-6 overflow-hidden">
+    <section className="relative pt-24 md:pt-32 pb-12 md:pb-32 px-5 md:px-6 overflow-hidden">
       <div className="max-w-[1320px] mx-auto relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-6 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6 items-center">
           <motion.div initial="hidden" animate="visible" variants={stagger} className="lg:col-span-6 text-center lg:text-left">
-            <motion.h1 variants={fadeUp} className="text-[2.75rem] sm:text-5xl md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.0] tracking-[-0.04em] mb-7">
+            <motion.h1 variants={fadeUp} className="text-[2.25rem] sm:text-5xl md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.05] md:leading-[1.0] tracking-[-0.035em] md:tracking-[-0.04em] mb-5 md:mb-7">
               Pare de perder números no WhatsApp.<br />
               <span className="text-white/55">Escale com controle total.</span>
             </motion.h1>
 
-            <motion.p variants={fadeUp} className="text-[16px] md:text-[17px] text-white/60 max-w-[500px] mx-auto lg:mx-0 mb-9 leading-[1.55]">
+            <motion.p variants={fadeUp} className="text-[15px] md:text-[17px] text-white/65 md:text-white/60 max-w-[500px] mx-auto lg:mx-0 mb-6 md:mb-9 leading-[1.5] md:leading-[1.55]">
               Evite banimentos, gerencie múltiplos chips com segurança e escale sua operação sem caos.
             </motion.p>
 
-            <motion.div variants={fadeScale} className="flex flex-col sm:flex-row items-center lg:items-start lg:justify-start justify-center gap-3">
-              <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="bg-white hover:bg-white text-black text-[14px] font-semibold px-7 h-12 rounded-[10px] gap-2 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_8px_32px_-4px_rgba(255,255,255,0.15)] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_12px_40px_-4px_rgba(255,255,255,0.25)] hover:scale-[1.02] transition-all duration-200">
+            <motion.div variants={fadeScale} className="flex flex-col sm:flex-row items-center lg:items-start lg:justify-start justify-center gap-2.5 md:gap-3">
+              <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="w-full sm:w-auto bg-white hover:bg-white text-black text-[14px] font-semibold px-7 h-12 rounded-[10px] gap-2 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_8px_32px_-4px_rgba(255,255,255,0.15)] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_12px_40px_-4px_rgba(255,255,255,0.25)] hover:scale-[1.02] transition-all duration-200">
                 Começar agora <ArrowRight className="w-4 h-4" />
               </Button>
-              <Button size="lg" variant="ghost" onClick={() => document.getElementById("uso")?.scrollIntoView({ behavior: "smooth" })} className="bg-transparent text-white/70 hover:text-white hover:bg-white/[0.04] text-[14px] font-medium px-4 h-12 rounded-[10px]">
+              <Button size="lg" variant="ghost" onClick={() => document.getElementById("uso")?.scrollIntoView({ behavior: "smooth" })} className="w-full sm:w-auto bg-transparent text-white/70 hover:text-white hover:bg-white/[0.04] text-[14px] font-medium px-4 h-12 rounded-[10px]">
                 Ver como funciona →
               </Button>
             </motion.div>
 
-            <motion.p variants={fadeUp} className="text-[12px] text-white/40 mt-5 flex items-center justify-center lg:justify-start gap-1.5">
+            <motion.p variants={fadeUp} className="text-[12px] text-white/45 md:text-white/40 mt-4 md:mt-5 flex items-center justify-center lg:justify-start gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/70" />
               Acesso imediato · Sem cartão · Sem contrato
             </motion.p>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.45, ease: easeOut, delay: 0.1 }} className="lg:col-span-6 relative w-full max-w-[640px] mx-auto lg:mx-0 lg:ml-auto">
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.45, ease: easeOut, delay: 0.1 }} className="lg:col-span-6 relative w-full max-w-[420px] md:max-w-[640px] mx-auto lg:mx-0 lg:ml-auto">
             <div className="relative">
               {/* Premium multi-layer glow */}
               <div className="absolute -inset-20 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.18)_0%,transparent_60%)] blur-3xl pointer-events-none" />
@@ -141,25 +141,25 @@ const trustPoints = [
 ];
 
 const Stats = () => (
-  <section className="py-20 md:py-24 px-6 border-y border-white/[0.04]">
+  <section className="py-12 md:py-24 px-5 md:px-6 border-y border-white/[0.04]">
     <div className="max-w-[1100px] mx-auto">
       <motion.div
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.3 }}
         variants={stagger}
-        className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start"
+        className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-16 items-start"
       >
         <motion.h2
           variants={fadeUp}
-          className="lg:col-span-5 text-[1.75rem] md:text-[2rem] font-semibold text-white tracking-[-0.03em] leading-[1.1]"
+          className="lg:col-span-5 text-[1.625rem] md:text-[2rem] font-semibold text-white tracking-[-0.03em] leading-[1.15] md:leading-[1.1]"
         >
           Controle real da <span className="text-white/70">sua operação.</span>
         </motion.h2>
 
-        <motion.ul variants={fadeUp} className="lg:col-span-7 space-y-5">
+        <motion.ul variants={fadeUp} className="lg:col-span-7 space-y-3.5 md:space-y-5">
           {trustPoints.map((point) => (
-            <li key={point} className="flex items-start gap-3 text-[15px] text-white/90 leading-[1.55]">
+            <li key={point} className="flex items-start gap-3 text-[15px] text-white/85 md:text-white/90 leading-[1.5] md:leading-[1.55]">
               <span className="mt-[9px] w-1.5 h-1.5 rounded-full bg-white/70 flex-shrink-0" />
               <span>{point}</span>
             </li>
@@ -201,23 +201,23 @@ const features = [
 
 const Features = () => (
   <Section id="recursos">
-    <div className="max-w-3xl mb-16">
+    <div className="max-w-3xl mb-10 md:mb-16">
       <Eyebrow>Recursos</Eyebrow>
-      <SectionTitle className="mb-6">Construído para quem leva a operação a sério.</SectionTitle>
+      <SectionTitle className="mb-4 md:mb-6">Construído para quem leva a operação a sério.</SectionTitle>
       <SectionSub>Cada recurso pensado para reduzir risco e dar previsibilidade.</SectionSub>
     </div>
-    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }} variants={stagger} className="grid grid-cols-1 md:grid-cols-3 gap-x-10 gap-y-14">
+    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }} variants={stagger} className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-x-10 md:gap-y-14">
       {features.map((f) => (
         <motion.div
           key={f.title}
           variants={fadeUp}
-          className="group p-5 -m-5 rounded-xl border border-transparent hover:border-white/[0.06] hover:bg-white/[0.02] hover:-translate-y-1 transition-all duration-200 ease-out"
+          className="group p-5 md:-m-5 rounded-xl border border-white/[0.05] md:border-transparent bg-white/[0.015] md:bg-transparent hover:border-white/[0.1] md:hover:border-white/[0.06] hover:bg-white/[0.03] md:hover:bg-white/[0.02] md:hover:-translate-y-1 transition-all duration-200 ease-out"
         >
-          <div className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-5 group-hover:border-white/[0.12] group-hover:bg-white/[0.06] transition-colors duration-200">
+          <div className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4 md:mb-5 group-hover:border-white/[0.12] group-hover:bg-white/[0.06] transition-colors duration-200">
             <f.icon className="w-4 h-4 text-white/70 group-hover:text-white transition-colors duration-200" />
           </div>
-          <h3 className="text-[15px] font-semibold text-white mb-2 tracking-tight">{f.title}</h3>
-          <p className="text-[13px] text-white/45 leading-[1.6] group-hover:text-white/60 transition-colors duration-200">{f.desc}</p>
+          <h3 className="text-[15px] font-semibold text-white mb-1.5 md:mb-2 tracking-tight">{f.title}</h3>
+          <p className="text-[13px] text-white/55 md:text-white/45 leading-[1.55] md:leading-[1.6] group-hover:text-white/65 md:group-hover:text-white/60 transition-colors duration-200">{f.desc}</p>
         </motion.div>
       ))}
     </motion.div>
@@ -227,15 +227,15 @@ const Features = () => (
 // ─── 5. Use case (left text + right mockup) ───
 const UseCase = () => (
   <Section id="uso">
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-12 items-center">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-16 lg:gap-12 items-center">
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} variants={stagger} className="lg:col-span-5">
         <motion.div variants={fadeUp}><Eyebrow>Como funciona</Eyebrow></motion.div>
         <motion.div variants={fadeUp}>
-          <SectionTitle className="mb-8 text-[1.75rem] md:text-[2.25rem] lg:text-[2.5rem]">
+          <SectionTitle className="mb-6 md:mb-8 text-[1.625rem] md:text-[2.25rem] lg:text-[2.5rem]">
             Como funciona na prática.
           </SectionTitle>
         </motion.div>
-        <motion.ol variants={fadeUp} className="space-y-7">
+        <motion.ol variants={fadeUp} className="space-y-5 md:space-y-7">
           {[
             { n: "1", title: "Conecte seus chips", desc: "Adicione e organize múltiplos números em um só lugar." },
             { n: "2", title: "Configure sua operação", desc: "Defina intervalos, limites e regras de envio." },
@@ -419,15 +419,15 @@ const Plans = () => {
 
   return (
     <Section id="planos">
-      <div className="max-w-3xl mb-14">
+      <div className="max-w-3xl mb-8 md:mb-14">
         <Eyebrow>Planos</Eyebrow>
-        <SectionTitle className="mb-6">Escolha o plano que acompanha sua escala.</SectionTitle>
+        <SectionTitle className="mb-4 md:mb-6">Escolha o plano que acompanha sua escala.</SectionTitle>
         <SectionSub>Acesso completo em todos os planos. Muda apenas a capacidade e o nível de suporte.</SectionSub>
       </div>
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }} variants={stagger} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }} variants={stagger} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {allPlans.map(renderCard)}
       </motion.div>
-      <p className="text-center text-[12px] text-white/35 mt-10">
+      <p className="text-center text-[12px] text-white/40 md:text-white/35 mt-8 md:mt-10">
         Sem contrato. Cancele quando quiser.
       </p>
     </Section>
@@ -444,20 +444,20 @@ const communityBenefits = [
 
 const CommunitySection = () => (
   <Section id="comunidade">
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} variants={stagger} className="lg:col-span-6">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-12 items-center">
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} variants={stagger} className="lg:col-span-6 order-2 lg:order-1">
         <motion.div variants={fadeUp}><Eyebrow>Comunidade</Eyebrow></motion.div>
         <motion.div variants={fadeUp}>
-          <SectionTitle className="mb-6">
+          <SectionTitle className="mb-4 md:mb-6">
             Faça parte do <span className="text-amber-400/90">grupo oficial.</span>
           </SectionTitle>
         </motion.div>
         <motion.div variants={fadeUp}>
-          <SectionSub className="mb-8 max-w-md">
+          <SectionSub className="mb-6 md:mb-8 max-w-md">
             Receba atualizações, melhorias, correções e avisos importantes da plataforma em primeira mão.
           </SectionSub>
         </motion.div>
-        <motion.ul variants={fadeUp} className="space-y-3 mb-10">
+        <motion.ul variants={fadeUp} className="space-y-2.5 md:space-y-3 mb-6 md:mb-10">
           {communityBenefits.map((b) => (
             <li key={b.title} className="flex items-center gap-3 text-[13px] text-white/65">
               <b.icon className="w-4 h-4 text-amber-400/70" />
@@ -486,13 +486,11 @@ const CommunitySection = () => (
         </motion.div>
       </motion.div>
 
-      <motion.div initial={{ opacity: 0, scale: 0.98 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.4, ease: easeOut }} className="lg:col-span-6 flex justify-center">
+      <motion.div initial={{ opacity: 0, scale: 0.98 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.4, ease: easeOut }} className="lg:col-span-6 flex justify-center order-1 lg:order-2">
         <div className="relative">
-          {/* Soft metallic ambient — restrained, warm gold */}
           <div className="absolute -inset-10 bg-[radial-gradient(circle_at_50%_45%,rgba(202,138,4,0.18)_0%,rgba(161,98,7,0.06)_45%,transparent_70%)] blur-2xl pointer-events-none" />
-          {/* Tight directional sheen from top-left */}
           <div className="absolute -inset-2 bg-[radial-gradient(ellipse_at_30%_25%,rgba(234,179,8,0.14)_0%,transparent_55%)] blur-md pointer-events-none" />
-          <div className="relative w-[200px] h-[200px] rounded-2xl overflow-hidden border border-amber-500/25 bg-[hsl(222,22%,7%)] shadow-[0_1px_0_0_rgba(253,224,71,0.08)_inset,0_0_0_1px_rgba(202,138,4,0.12),0_18px_40px_-18px_rgba(120,53,15,0.55),0_6px_16px_-6px_rgba(0,0,0,0.6)]">
+          <div className="relative w-[140px] h-[140px] md:w-[200px] md:h-[200px] rounded-2xl overflow-hidden border border-amber-500/25 bg-[hsl(222,22%,7%)] shadow-[0_1px_0_0_rgba(253,224,71,0.08)_inset,0_0_0_1px_rgba(202,138,4,0.12),0_18px_40px_-18px_rgba(120,53,15,0.55),0_6px_16px_-6px_rgba(0,0,0,0.6)]">
             <img src={logo} alt="DG Contingência Pro" className="w-full h-full object-cover" />
           </div>
         </div>
@@ -512,18 +510,18 @@ const faqs = [
 
 const FAQ = () => (
   <Section id="faq">
-    <div className="max-w-3xl mb-12">
+    <div className="max-w-3xl mb-8 md:mb-12">
       <Eyebrow>Perguntas frequentes</Eyebrow>
       <SectionTitle>Tudo que você precisa saber.</SectionTitle>
     </div>
     <div className="max-w-3xl border-t border-white/[0.05]">
       {faqs.map((f) => (
         <details key={f.q} className="group border-b border-white/[0.05]">
-          <summary className="flex items-center justify-between py-5 cursor-pointer text-[14px] font-medium text-white/85 hover:text-white transition-colors list-none">
-            {f.q}
-            <ChevronDown className="w-4 h-4 text-white/30 group-open:rotate-180 transition-transform" />
+          <summary className="flex items-start gap-4 justify-between py-4 md:py-5 cursor-pointer text-[14px] font-medium text-white/85 hover:text-white transition-colors list-none">
+            <span className="flex-1">{f.q}</span>
+            <ChevronDown className="w-4 h-4 mt-0.5 flex-shrink-0 text-white/30 group-open:rotate-180 transition-transform" />
           </summary>
-          <p className="pb-5 text-[13px] text-white/45 leading-[1.65] max-w-2xl">{f.a}</p>
+          <p className="pb-4 md:pb-5 text-[13px] text-white/55 md:text-white/45 leading-[1.6] md:leading-[1.65] max-w-2xl">{f.a}</p>
         </details>
       ))}
     </div>
@@ -535,24 +533,24 @@ const FinalCTA = () => {
   const navigate = useNavigate();
   return (
     <Section>
-      <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.4, ease: easeOut }} className="relative max-w-4xl mx-auto text-center py-20 md:py-28 px-6 rounded-2xl border border-white/[0.06] bg-white/[0.015] overflow-hidden">
+      <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.4, ease: easeOut }} className="relative max-w-4xl mx-auto text-center py-12 md:py-28 px-5 md:px-6 rounded-2xl border border-white/[0.06] bg-white/[0.015] overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.08)_0%,transparent_60%)] pointer-events-none" />
         <div className="relative">
-          <h2 className="text-[2rem] md:text-[2.75rem] lg:text-[3.25rem] font-semibold text-white tracking-[-0.025em] leading-[1.05] mb-5 max-w-2xl mx-auto">
+          <h2 className="text-[1.75rem] md:text-[2.75rem] lg:text-[3.25rem] font-semibold text-white tracking-[-0.025em] leading-[1.1] md:leading-[1.05] mb-4 md:mb-5 max-w-2xl mx-auto">
             Pronto para escalar seu WhatsApp com controle?
           </h2>
-          <p className="text-[15px] text-white/55 mb-10 max-w-md mx-auto leading-[1.6]">
+          <p className="text-[15px] text-white/65 md:text-white/55 mb-7 md:mb-10 max-w-md mx-auto leading-[1.55] md:leading-[1.6]">
             Comece agora e gerencie toda sua operação em um só lugar.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="bg-white hover:bg-white text-black text-[13px] font-semibold px-6 h-11 rounded-[10px] gap-1.5 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_8px_24px_-6px_rgba(255,255,255,0.18)] hover:scale-[1.02] transition-all duration-200">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4">
+            <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="w-full sm:w-auto bg-white hover:bg-white text-black text-[13px] font-semibold px-6 h-11 rounded-[10px] gap-1.5 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_8px_24px_-6px_rgba(255,255,255,0.18)] hover:scale-[1.02] transition-all duration-200">
               Começar agora <ArrowRight className="w-3.5 h-3.5" />
             </Button>
-            <Button size="lg" variant="ghost" onClick={() => document.getElementById("uso")?.scrollIntoView({ behavior: "smooth" })} className="bg-transparent text-white/65 hover:text-white hover:bg-transparent text-[13px] font-medium px-3 h-11">
+            <Button size="lg" variant="ghost" onClick={() => document.getElementById("uso")?.scrollIntoView({ behavior: "smooth" })} className="w-full sm:w-auto bg-transparent text-white/65 hover:text-white hover:bg-transparent text-[13px] font-medium px-3 h-11">
               Ver como funciona →
             </Button>
           </div>
-          <p className="text-[12px] text-white/35 mt-6">
+          <p className="text-[12px] text-white/40 md:text-white/35 mt-5 md:mt-6">
             Sem contrato. Cancele quando quiser.
           </p>
         </div>
