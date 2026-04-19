@@ -337,38 +337,18 @@ export default function AutosaveSchedule() {
                   {format(new Date(), "EEEE, dd/MM", { locale: ptBR })}
                 </span>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center py-2">
                   <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Mensagens enviadas</p>
-                  <p className="text-lg font-bold text-emerald-400">{sentToday}</p>
+                  <p className="text-3xl font-bold text-emerald-400 mt-1">{sentToday}</p>
                 </div>
-                <div>
+                <div className="text-center py-2 md:border-x border-border/40">
                   <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Instâncias ativas</p>
-                  <p className="text-lg font-bold text-blue-400">{activeInstancesToday}</p>
+                  <p className="text-3xl font-bold text-blue-400 mt-1">{activeInstancesToday}</p>
                 </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Falhas de envio</p>
-                  <p className="text-lg font-bold text-destructive">{todayLogStats.failed}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Números inválidos</p>
-                  <p className="text-lg font-bold text-amber-400">{todayLogStats.invalid}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Pausadas por limite</p>
-                  <p className="text-lg font-bold text-orange-400">{todayLogStats.limit_reached}</p>
-                </div>
-                <div>
+                <div className="text-center py-2">
                   <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Contatos válidos</p>
-                  <p className="text-lg font-bold text-emerald-400">{contactStats.valid}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Contatos inválidos</p>
-                  <p className="text-lg font-bold text-destructive">{contactStats.invalid}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Instâncias conectadas</p>
-                  <p className="text-lg font-bold">{devices.length}</p>
+                  <p className="text-3xl font-bold text-violet-400 mt-1">{contactStats.valid}</p>
                 </div>
               </div>
             </Card>
