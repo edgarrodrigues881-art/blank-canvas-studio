@@ -8,7 +8,8 @@ const Footer = () => (
         <span className="text-sm font-medium text-white">DG Contingência Pro</span>
       </div>
       <p className="text-xs text-white/40 text-center max-w-xl leading-relaxed">
-{`      `}</p>
+        A performance da operação depende da estratégia aplicada pelo usuário. A plataforma fornece infraestrutura e ferramentas de gestão.
+      </p>
       <p className="text-xs text-white/30">
         © {new Date().getFullYear()} DG Contingência Pro. Todos os direitos reservados.
       </p>
