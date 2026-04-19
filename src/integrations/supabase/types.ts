@@ -995,17 +995,20 @@ export type Database = {
           device_ids: Json
           id: string
           last_error: string | null
+          last_run_date: string | null
           max_delay_seconds: number
           messages_per_instance: number
           min_delay_seconds: number
           name: string
-          scheduled_at: string
+          scheduled_at: string | null
           started_at: string | null
           status: string
+          time_of_day: string
           total_failed: number
           total_sent: number
           updated_at: string
           user_id: string
+          weekdays: Json
         }
         Insert: {
           completed_at?: string | null
@@ -1013,17 +1016,20 @@ export type Database = {
           device_ids?: Json
           id?: string
           last_error?: string | null
+          last_run_date?: string | null
           max_delay_seconds?: number
           messages_per_instance?: number
           min_delay_seconds?: number
           name?: string
-          scheduled_at: string
+          scheduled_at?: string | null
           started_at?: string | null
           status?: string
+          time_of_day?: string
           total_failed?: number
           total_sent?: number
           updated_at?: string
           user_id: string
+          weekdays?: Json
         }
         Update: {
           completed_at?: string | null
@@ -1031,17 +1037,20 @@ export type Database = {
           device_ids?: Json
           id?: string
           last_error?: string | null
+          last_run_date?: string | null
           max_delay_seconds?: number
           messages_per_instance?: number
           min_delay_seconds?: number
           name?: string
-          scheduled_at?: string
+          scheduled_at?: string | null
           started_at?: string | null
           status?: string
+          time_of_day?: string
           total_failed?: number
           total_sent?: number
           updated_at?: string
           user_id?: string
+          weekdays?: Json
         }
         Relationships: []
       }

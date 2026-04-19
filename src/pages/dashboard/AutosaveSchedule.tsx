@@ -1,13 +1,11 @@
-import { useState, useMemo } from "react";
-import { Calendar as CalendarIcon, Plus, Play, Pause, Trash2, Save, Smartphone, Users, X, Activity, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { useState } from "react";
+import { Calendar as CalendarIcon, Plus, Play, Pause, Trash2, Save, Smartphone, Activity, CheckCircle2, AlertCircle, Clock, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -23,6 +21,25 @@ import {
   useAutosaveScheduleLogs,
 } from "@/hooks/useAutosaveSchedules";
 
+const WEEKDAYS = [
+  { value: 1, short: "Seg", long: "Segunda" },
+  { value: 2, short: "Ter", long: "Terça" },
+  { value: 3, short: "Qua", long: "Quarta" },
+  { value: 4, short: "Qui", long: "Quinta" },
+  { value: 5, short: "Sex", long: "Sexta" },
+  { value: 6, short: "Sáb", long: "Sábado" },
+  { value: 0, short: "Dom", long: "Domingo" },
+];
+
+function weekdaysLabel(days: number[]): string {
+  if (!days || days.length === 0) return "Nenhum dia";
+  if (days.length === 7) return "Todos os dias";
+  const weekdaysSet = [1, 2, 3, 4, 5];
+  const sorted = [...days].sort();
+  if (sorted.length === 5 && weekdaysSet.every((d) => sorted.includes(d))) return "Seg a Sex";
+  return WEEKDAYS.filter((w) => days.includes(w.value)).map((w) => w.short).join(", ");
+}
+
 export default function AutosaveSchedule() {
   const { user } = useAuth();
   const { data: schedules = [], isLoading } = useAutosaveSchedules();
@@ -33,7 +50,6 @@ export default function AutosaveSchedule() {
   const [createOpen, setCreateOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
 
-  // Auto Save contacts count
   const { data: autosaveCount = 0 } = useQuery({
     queryKey: ["autosave_count", user?.id],
     queryFn: async () => {
@@ -47,7 +63,6 @@ export default function AutosaveSchedule() {
     enabled: !!user,
   });
 
-  // Devices online
   const { data: devices = [] } = useQuery({
     queryKey: ["devices_for_autosave_schedule", user?.id],
     queryFn: async () => {
@@ -66,8 +81,8 @@ export default function AutosaveSchedule() {
   // Form state
   const [name, setName] = useState("Agendamento Auto Save");
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
-  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(new Date());
-  const [scheduledTime, setScheduledTime] = useState("09:00");
+  const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [timeOfDay, setTimeOfDay] = useState("13:00");
   const [minDelay, setMinDelay] = useState(15);
   const [maxDelay, setMaxDelay] = useState(60);
   const [msgsPerInstance, setMsgsPerInstance] = useState(0);
@@ -75,11 +90,17 @@ export default function AutosaveSchedule() {
   const resetForm = () => {
     setName("Agendamento Auto Save");
     setSelectedDevices([]);
-    setScheduledDate(new Date());
-    setScheduledTime("09:00");
+    setSelectedWeekdays([1, 2, 3, 4, 5]);
+    setTimeOfDay("13:00");
     setMinDelay(15);
     setMaxDelay(60);
     setMsgsPerInstance(0);
+  };
+
+  const toggleWeekday = (day: number) => {
+    setSelectedWeekdays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
   };
 
   const handleCreate = async () => {
@@ -87,28 +108,30 @@ export default function AutosaveSchedule() {
       toast.error("Selecione ao menos uma instância");
       return;
     }
+    if (selectedWeekdays.length === 0) {
+      toast.error("Selecione ao menos um dia da semana");
+      return;
+    }
     if (autosaveCount === 0) {
       toast.error("Nenhum contato Auto Save cadastrado");
       return;
     }
-    if (!scheduledDate) {
-      toast.error("Selecione uma data");
+    if (!/^\d{2}:\d{2}$/.test(timeOfDay)) {
+      toast.error("Horário inválido");
       return;
     }
-    const [hh, mm] = scheduledTime.split(":");
-    const dt = new Date(scheduledDate);
-    dt.setHours(Number(hh), Number(mm), 0, 0);
 
     try {
       await createMut.mutateAsync({
         name: name.trim() || "Agendamento Auto Save",
         device_ids: selectedDevices,
-        scheduled_at: dt.toISOString(),
+        weekdays: selectedWeekdays,
+        time_of_day: timeOfDay,
         min_delay_seconds: minDelay,
         max_delay_seconds: maxDelay,
         messages_per_instance: msgsPerInstance,
       });
-      toast.success("Agendamento criado com sucesso");
+      toast.success("Agendamento recorrente criado");
       setCreateOpen(false);
       resetForm();
     } catch (e: any) {
@@ -145,7 +168,7 @@ export default function AutosaveSchedule() {
             Agendamento Auto Save
           </h1>
           <p className="text-sm text-muted-foreground mt-1.5 ml-[52px]">
-            Aquecimento automatizado entre seus chips usando contatos da base Auto Save
+            Aquecimento recorrente entre seus chips usando contatos Auto Save — executa nos dias e horário definidos
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)} className="gap-2">
@@ -175,10 +198,10 @@ export default function AutosaveSchedule() {
         </Card>
         <Card className="p-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center">
-            <CalendarIcon className="w-5 h-5 text-violet-400" />
+            <Repeat className="w-5 h-5 text-violet-400" />
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Agendamentos</p>
+            <p className="text-xs text-muted-foreground">Agendamentos ativos</p>
             <p className="text-xl font-bold">{schedules.length}</p>
           </div>
         </Card>
@@ -213,8 +236,8 @@ export default function AutosaveSchedule() {
                     </div>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
                       <span className="flex items-center gap-1">
-                        <CalendarIcon className="w-3 h-3" />
-                        {format(new Date(s.scheduled_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        <Repeat className="w-3 h-3" />
+                        {weekdaysLabel(s.weekdays)} às {s.time_of_day}
                       </span>
                       <span className="flex items-center gap-1">
                         <Smartphone className="w-3 h-3" />
@@ -234,7 +257,7 @@ export default function AutosaveSchedule() {
                   </div>
                   <div className="flex items-center gap-1">
                     <Button size="sm" variant="ghost" onClick={() => setDetailId(s.id)}>Logs</Button>
-                    {(s.status === "scheduled" || s.status === "paused") && (
+                    {(s.status === "scheduled" || s.status === "paused" || s.status === "completed") && (
                       <Button size="sm" variant="ghost" onClick={() => triggerMut.mutate({ id: s.id, action: s.status === "paused" ? "resume" : "start" })}>
                         <Play className="w-4 h-4" />
                       </Button>
@@ -314,36 +337,64 @@ export default function AutosaveSchedule() {
               </Card>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Data</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start font-normal", !scheduledDate && "text-muted-foreground")}>
-                      <CalendarIcon className="w-4 h-4 mr-2" />
-                      {scheduledDate ? format(scheduledDate, "dd/MM/yyyy", { locale: ptBR }) : "Selecionar"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={scheduledDate}
-                      onSelect={setScheduledDate}
-                      disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                      locale={ptBR}
-                    />
-                  </PopoverContent>
-                </Popover>
+            {/* Weekly recurring config */}
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">
+                Dias da semana ({selectedWeekdays.length} selecionados)
+              </Label>
+              <div className="grid grid-cols-7 gap-1.5">
+                {WEEKDAYS.map((w) => {
+                  const isSel = selectedWeekdays.includes(w.value);
+                  return (
+                    <button
+                      key={w.value}
+                      type="button"
+                      onClick={() => toggleWeekday(w.value)}
+                      className={cn(
+                        "py-2.5 rounded-md text-xs font-medium transition-colors border",
+                        isSel
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50"
+                      )}
+                      title={w.long}
+                    >
+                      {w.short}
+                    </button>
+                  );
+                })}
               </div>
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Hora</Label>
-                <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} />
+              <div className="flex gap-2 mt-2">
+                <button
+                  type="button"
+                  className="text-[11px] text-muted-foreground hover:text-primary"
+                  onClick={() => setSelectedWeekdays([1, 2, 3, 4, 5])}
+                >
+                  Seg a Sex
+                </button>
+                <span className="text-[11px] text-muted-foreground/30">·</span>
+                <button
+                  type="button"
+                  className="text-[11px] text-muted-foreground hover:text-primary"
+                  onClick={() => setSelectedWeekdays([0, 1, 2, 3, 4, 5, 6])}
+                >
+                  Todos
+                </button>
+                <span className="text-[11px] text-muted-foreground/30">·</span>
+                <button
+                  type="button"
+                  className="text-[11px] text-muted-foreground hover:text-primary"
+                  onClick={() => setSelectedWeekdays([])}
+                >
+                  Limpar
+                </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-4 gap-3">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Horário</Label>
+                <Input type="time" value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value)} />
+              </div>
               <div>
                 <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Delay mín (s)</Label>
                 <Input type="number" min={5} value={minDelay} onChange={(e) => setMinDelay(Math.max(5, parseInt(e.target.value) || 5))} />
@@ -369,10 +420,17 @@ export default function AutosaveSchedule() {
               </div>
             </div>
 
-            <p className="text-[11px] text-muted-foreground/60">
-              Cada chip enviará mensagens curtas de aquecimento para os {autosaveCount} contatos da sua base Auto Save.
-              Deixe "Msgs/chip" vazio para envio ilimitado.
-            </p>
+            <div className="rounded-md bg-primary/5 border border-primary/20 p-3">
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                <Repeat className="w-3 h-3 inline mr-1 text-primary" />
+                <span className="text-foreground font-medium">Execução recorrente:</span>{" "}
+                {selectedWeekdays.length > 0
+                  ? `${weekdaysLabel(selectedWeekdays)} às ${timeOfDay}`
+                  : "selecione os dias"}
+                . Cada chip enviará mensagens curtas para os {autosaveCount} contatos Auto Save.
+                Deixe "Msgs/chip" vazio para envio ilimitado.
+              </p>
+            </div>
 
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setCreateOpen(false)}>Cancelar</Button>
@@ -384,7 +442,6 @@ export default function AutosaveSchedule() {
         </DialogContent>
       </Dialog>
 
-      {/* Logs Dialog */}
       <LogsDialog scheduleId={detailId} onClose={() => setDetailId(null)} />
     </div>
   );
