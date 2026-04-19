@@ -58,29 +58,12 @@ export default function Affiliates() {
   };
 
   const shareMessage = referralUrl
-    ? `Olha essa ferramenta que estou usando 👇 ${referralUrl}`
+    ? `Olha essa ferramenta que estou usando pra automação 👇 ${referralUrl}`
     : "";
-
-  const handleNativeShare = async () => {
-    if (!referralUrl) return;
-    try {
-      await navigator.share({
-        title: "DG Contingência Pro",
-        text: shareMessage,
-        url: referralUrl,
-      });
-    } catch { /* user cancelled */ }
-  };
 
   const openWhatsApp = () => {
     if (!shareMessage) return;
     window.open(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`, "_blank", "noopener,noreferrer");
-  };
-
-  const openTelegram = () => {
-    if (!referralUrl) return;
-    const url = `https://t.me/share/url?url=${encodeURIComponent(referralUrl)}&text=${encodeURIComponent("Olha essa ferramenta que estou usando 👇")}`;
-    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   // ───────────────────── BLOCKED VIEW ─────────────────────
