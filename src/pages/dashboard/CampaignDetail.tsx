@@ -30,6 +30,7 @@ import { splitStoredMessageContent } from "@/lib/campaign-message";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { InstanceLimitPanel } from "@/components/campaigns/InstanceLimitPanel";
 
 /* ── Status configs ─────────────────────────────────────────── */
 const statusConfig: Record<string, { label: string; dotClass: string; badgeClass: string }> = {
@@ -933,6 +934,19 @@ const CampaignDetail = () => {
         <StatCard label="Falhas" value={stats.failed} icon={XCircle} colorClass="bg-destructive/10 text-destructive" />
       </div>
 
+      {/* ── Per-instance live counters ───────────────────────────── */}
+      {campaign && (
+        <InstanceLimitPanel
+          campaignId={campaign.id}
+          campaignStatus={campaign.status}
+          deviceIds={(() => {
+            const ids = Array.isArray(campaign.device_ids) ? (campaign.device_ids as string[]) : [];
+            if (ids.length > 0) return ids;
+            return campaign.device_id ? [campaign.device_id] : [];
+          })()}
+          limitPerInstance={campaign.messages_per_instance ?? 0}
+        />
+      )}
 
       {/* ── Delay Config (collapsible) ───────────────────────────── */}
       <div className="rounded-xl border border-border/30 bg-card/50 overflow-hidden">
