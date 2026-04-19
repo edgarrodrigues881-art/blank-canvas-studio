@@ -202,17 +202,6 @@ export default function Affiliates() {
               </Button>
             </div>
           </div>
-
-          {/* Message preview */}
-          <div className="rounded-[10px] border border-border bg-muted/20 p-3">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold mb-1.5">
-              Mensagem que será enviada
-            </div>
-            <p className="text-xs sm:text-sm text-foreground/85 leading-relaxed">
-              Olha essa ferramenta que estou usando pra automação 👇{" "}
-              <span className="text-emerald-400 break-all">{referralUrl || "..."}</span>
-            </p>
-          </div>
         </CardContent>
       </Card>
 
