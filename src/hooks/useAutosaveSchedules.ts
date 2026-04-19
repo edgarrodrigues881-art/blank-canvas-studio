@@ -7,7 +7,8 @@ export interface AutosaveSchedule {
   user_id: string;
   name: string;
   device_ids: string[];
-  scheduled_at: string;
+  weekdays: number[];
+  time_of_day: string;
   min_delay_seconds: number;
   max_delay_seconds: number;
   messages_per_instance: number;
@@ -16,6 +17,7 @@ export interface AutosaveSchedule {
   total_failed: number;
   started_at: string | null;
   completed_at: string | null;
+  last_run_date: string | null;
   last_error: string | null;
   created_at: string;
   updated_at: string;
@@ -47,7 +49,11 @@ export function useAutosaveSchedules() {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data || []) as unknown as AutosaveSchedule[];
+      return (data || []).map((r: any) => ({
+        ...r,
+        weekdays: Array.isArray(r.weekdays) ? r.weekdays : [],
+        device_ids: Array.isArray(r.device_ids) ? r.device_ids : [],
+      })) as unknown as AutosaveSchedule[];
     },
     enabled: !!user,
     refetchInterval: 5_000,
@@ -80,7 +86,8 @@ export function useCreateAutosaveSchedule() {
     mutationFn: async (input: {
       name: string;
       device_ids: string[];
-      scheduled_at: string;
+      weekdays: number[];
+      time_of_day: string;
       min_delay_seconds: number;
       max_delay_seconds: number;
       messages_per_instance: number;
