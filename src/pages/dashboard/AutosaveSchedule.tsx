@@ -756,7 +756,12 @@ export default function AutosaveSchedule() {
 
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-              <Button className="flex-1" onClick={handleCreate} disabled={createMut.isPending}>
+              <Button
+                className="flex-[1.5] bg-emerald-500 hover:bg-emerald-600 text-white font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all gap-2"
+                onClick={handleCreate}
+                disabled={createMut.isPending}
+              >
+                <Rocket className="w-4 h-4" />
                 {createMut.isPending ? "Criando..." : "Criar Agendamento"}
               </Button>
             </div>
