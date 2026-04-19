@@ -23,7 +23,9 @@ import {
   QrCode, Key, Shield, Ban, CheckCircle2, XCircle,
   Smartphone, RefreshCw, Lock, Target, Timer, Zap,
   FolderOpen, Tag, Users, ArrowLeft, ArrowRight, MoreHorizontal,
+  MessageSquare, Clock, ChevronDown,
 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
