@@ -307,17 +307,20 @@ const Auth = () => {
               {/* Submit */}
               <motion.div variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }} className="pt-1.5">
                 <button type="submit" disabled={loading}
-                  className="w-full h-12 rounded-xl text-[14px] font-semibold text-white transition-all duration-200 hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none"
+                  className="w-full h-12 rounded-xl text-[14px] font-semibold text-white transition-all duration-300 ease-out hover:scale-[1.02] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden group"
                   style={{
-                    background: "linear-gradient(135deg, rgba(52,211,153,0.2) 0%, rgba(52,211,153,0.08) 100%)",
-                    border: "1px solid rgba(52,211,153,0.15)",
-                    boxShadow: "0 0 20px -8px rgba(52,211,153,0.15)",
+                    background: "linear-gradient(135deg, rgba(52,211,153,0.35) 0%, rgba(16,185,129,0.18) 100%)",
+                    border: "1px solid rgba(52,211,153,0.28)",
+                    boxShadow: "0 0 30px -8px rgba(52,211,153,0.45), inset 0 1px 0 0 rgba(255,255,255,0.12)",
                   }}>
-                  {loading ? (
-                    <div className="h-4 w-4 mx-auto animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    isLogin ? "Entrar" : "Criar conta"
-                  )}
+                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out" />
+                  <span className="relative">
+                    {loading ? (
+                      <div className="h-4 w-4 mx-auto animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : (
+                      isLogin ? "Entrar" : "Criar conta"
+                    )}
+                  </span>
                 </button>
               </motion.div>
 
