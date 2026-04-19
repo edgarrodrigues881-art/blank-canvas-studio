@@ -539,7 +539,7 @@ const FinalCTA = () => {
   const navigate = useNavigate();
   return (
     <Section>
-      <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.3 }} transition={{ duration: 0.6 }} className="relative max-w-4xl mx-auto text-center py-20 md:py-28 px-6 rounded-2xl border border-white/[0.06] bg-white/[0.015] overflow-hidden">
+      <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.4, ease: easeOut }} className="relative max-w-4xl mx-auto text-center py-20 md:py-28 px-6 rounded-2xl border border-white/[0.06] bg-white/[0.015] overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.08)_0%,transparent_60%)] pointer-events-none" />
         <div className="relative">
           <h2 className="text-[2rem] md:text-[2.75rem] lg:text-[3.25rem] font-semibold text-white tracking-[-0.025em] leading-[1.05] mb-5 max-w-2xl mx-auto">
