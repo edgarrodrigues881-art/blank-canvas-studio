@@ -18,6 +18,31 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="DG Pro" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Pre-paint theme + base background — runs before React renders to avoid any flash -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem("theme"); // next-themes default key
+          var system = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          var resolved = saved === "light" || saved === "dark" ? saved : (saved === "system" ? system : "dark");
+          var root = document.documentElement;
+          root.classList.remove("light", "dark");
+          root.classList.add(resolved);
+          root.style.colorScheme = resolved;
+          var bg = resolved === "light" ? "#F5F7FA" : "#0b0f14";
+          root.style.backgroundColor = bg;
+          // body may not exist yet — set when ready
+          if (document.body) document.body.style.backgroundColor = bg;
+          else document.addEventListener("DOMContentLoaded", function () { document.body.style.backgroundColor = bg; });
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute("content", bg);
+        } catch (e) { /* noop */ }
+      })();
+    </script>
+    <style>
+      html, body, #root { background-color: #0b0f14; }
+      html.light, html.light body, html.light #root { background-color: #F5F7FA; }
+    </style>
     <script>
       (() => {
         const isBackofficePath =
