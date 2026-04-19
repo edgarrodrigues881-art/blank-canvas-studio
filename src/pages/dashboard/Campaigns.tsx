@@ -2504,15 +2504,22 @@ const Campaigns = () => {
                       type="number"
                       min={1}
                       max={5000}
-                      value={messagesPerInstance || 50}
-                      onChange={e => setMessagesPerInstance(Math.max(1, parseInt(e.target.value) || 50))}
-                      className="h-10 text-base font-bold tabular-nums bg-background/50 border-border/30 w-24 text-center"
+                      value={messagesPerInstance === 0 ? "" : messagesPerInstance}
+                      onChange={e => {
+                        const v = e.target.value;
+                        if (v === "") { setMessagesPerInstance(0); return; }
+                        const n = parseInt(v, 10);
+                        if (!isNaN(n)) setMessagesPerInstance(Math.min(5000, Math.max(1, n)));
+                      }}
+                      className={cn(
+                        "h-10 text-base font-bold tabular-nums bg-background/50 w-24 text-center transition-colors",
+                        messagesPerInstance > 55
+                          ? "border-destructive/60 text-destructive focus-visible:ring-destructive/40"
+                          : "border-border/30",
+                      )}
                     />
                     <span className="text-[11px] text-muted-foreground/60">msgs / instância</span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground/40 leading-relaxed">
-                    Cada instância envia no máximo <span className="font-semibold text-foreground/70 tabular-nums">{messagesPerInstance || 50}</span> mensagens. O envio é controlado por quantidade — sem limite por tempo.
-                  </p>
                 </div>
               </SurfaceCard>
 
