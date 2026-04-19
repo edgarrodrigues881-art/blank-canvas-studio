@@ -288,6 +288,7 @@ export function AppSidebar() {
   useEffect(() => {
     const isCRMRoute = CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
     if (isCRMRoute && !isCRM) setWorkspace("crm");
+    else if (!isCRMRoute && isCRM) setWorkspace("automacao");
   }, [location.pathname]);
 
   return (
