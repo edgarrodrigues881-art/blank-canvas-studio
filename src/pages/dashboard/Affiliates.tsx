@@ -130,26 +130,55 @@ export default function Affiliates() {
       {/* Referral link */}
       <Card className="border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.04] to-transparent">
         <CardHeader>
-          <CardTitle className="text-base sm:text-lg">Seu link de indicação</CardTitle>
-          <p className="text-xs text-muted-foreground">Compartilhe e comece a ganhar agora</p>
+          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+            Seu link de indicação
+            {!planActive && (
+              <Badge variant="outline" className="border-amber-500/30 text-amber-400 bg-amber-500/5 text-[10px]">
+                <Lock className="w-3 h-3 mr-1" /> Bloqueado
+              </Badge>
+            )}
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            {planActive ? "Compartilhe e comece a ganhar agora" : "Disponível apenas para clientes com plano ativo"}
+          </p>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           <div className="flex flex-col sm:flex-row gap-2">
-            <div className="flex-1 px-3.5 py-2.5 rounded-[10px] bg-muted/40 border border-border font-mono text-xs sm:text-sm text-foreground/90 truncate">
-              {referralUrl || "Carregando..."}
+            <div className={`flex-1 px-3.5 py-2.5 rounded-[10px] bg-muted/40 border border-border font-mono text-xs sm:text-sm truncate ${planActive ? "text-foreground/90" : "text-muted-foreground/60 select-none"}`}>
+              {planActive ? (referralUrl || "Carregando...") : displayUrl}
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={handleCopy} variant="outline" disabled={!referralUrl || copying}>
+              <Button onClick={handleCopy} variant="outline" disabled={!planActive || !referralUrl || copying}>
                 <Copy className="w-4 h-4" />
                 {copying ? "Copiado" : "Copiar link"}
               </Button>
-              <Button onClick={openWhatsApp} disabled={!referralUrl}
-                className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold">
+              <Button onClick={openWhatsApp} disabled={!planActive || !referralUrl}
+                className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold disabled:bg-muted disabled:text-muted-foreground">
                 <MessageCircle className="w-4 h-4" />
                 Enviar no WhatsApp
               </Button>
             </div>
           </div>
+
+          {!planActive && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-[10px] border border-emerald-500/20 bg-emerald-500/[0.04] px-3.5 py-3">
+              <p className="text-xs sm:text-sm text-foreground/85">
+                {planState === "expired"
+                  ? "Seu plano expirou. Renove para liberar seu link de indicação."
+                  : planState === "suspended"
+                    ? "Sua conta está suspensa. Entre em contato com o suporte."
+                    : "Ative seu plano para liberar seu link de indicação"}
+              </p>
+              <Button
+                size="sm"
+                onClick={() => navigate("/dashboard/my-plan")}
+                className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold shrink-0"
+              >
+                <Sparkles className="w-3.5 h-3.5 mr-1" />
+                Ativar plano
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
