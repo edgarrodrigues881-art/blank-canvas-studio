@@ -87,9 +87,10 @@ export default function AutosaveSchedule() {
   const [minDelay, setMinDelay] = useState(15);
   const [maxDelay, setMaxDelay] = useState(60);
   const [msgsPerInstance, setMsgsPerInstance] = useState(0);
-  const [initialLimit, setInitialLimit] = useState(20);
-  const [dailyIncrement, setDailyIncrement] = useState(5);
-  const [maxLimit, setMaxLimit] = useState(100);
+  const [progressionEnabled, setProgressionEnabled] = useState(false);
+  const [initialLimit, setInitialLimit] = useState<number | "">("");
+  const [dailyIncrement, setDailyIncrement] = useState<number | "">("");
+  const [maxLimit, setMaxLimit] = useState<number | "">("");
 
   const resetForm = () => {
     setName("Agendamento Auto Save");
@@ -99,9 +100,10 @@ export default function AutosaveSchedule() {
     setMinDelay(15);
     setMaxDelay(60);
     setMsgsPerInstance(0);
-    setInitialLimit(20);
-    setDailyIncrement(5);
-    setMaxLimit(100);
+    setProgressionEnabled(false);
+    setInitialLimit("");
+    setDailyIncrement("");
+    setMaxLimit("");
   };
 
   const toggleWeekday = (day: number) => {
