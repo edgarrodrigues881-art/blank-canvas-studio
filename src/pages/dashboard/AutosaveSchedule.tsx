@@ -156,6 +156,10 @@ export default function AutosaveSchedule() {
         time_of_day: timeOfDay,
         min_delay_seconds: minDelay,
         max_delay_seconds: maxDelay,
+        pause_every_min: pauseEveryMin,
+        pause_every_max: pauseEveryMax,
+        pause_duration_min: pauseDurationMin,
+        pause_duration_max: pauseDurationMax,
         messages_per_instance: msgsPerInstance,
         ...payloadProgression,
       });
