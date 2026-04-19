@@ -101,16 +101,16 @@ const Hero = () => {
 
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center lg:items-start lg:justify-start justify-center gap-3">
               <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="bg-white hover:bg-white text-black text-[14px] font-semibold px-7 h-12 rounded-[10px] gap-2 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_8px_32px_-4px_rgba(255,255,255,0.15)] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_12px_40px_-4px_rgba(255,255,255,0.25)] hover:scale-[1.02] transition-all duration-200">
-                Começar grátis <ArrowRight className="w-4 h-4" />
+                Começar agora <ArrowRight className="w-4 h-4" />
               </Button>
-              <Button size="lg" variant="ghost" onClick={() => document.getElementById("planos")?.scrollIntoView({ behavior: "smooth" })} className="bg-transparent text-white/70 hover:text-white hover:bg-white/[0.04] text-[14px] font-medium px-4 h-12 rounded-[10px]">
-                Ver planos →
+              <Button size="lg" variant="ghost" onClick={() => document.getElementById("uso")?.scrollIntoView({ behavior: "smooth" })} className="bg-transparent text-white/70 hover:text-white hover:bg-white/[0.04] text-[14px] font-medium px-4 h-12 rounded-[10px]">
+                Ver como funciona →
               </Button>
             </motion.div>
 
             <motion.p variants={fadeUp} className="text-[12px] text-white/40 mt-5 flex items-center justify-center lg:justify-start gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/70" />
-              Teste grátis por 7 dias · Sem cartão de crédito
+              Acesso imediato · Sem cartão · Sem contrato
             </motion.p>
           </motion.div>
 
