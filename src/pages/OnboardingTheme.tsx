@@ -71,7 +71,6 @@ const OnboardingTheme = () => {
         >
           <ThemeCard
             label="Escuro"
-            recommended
             selected={selected === "dark"}
             onClick={() => handleSelect("dark")}
             preview={<DarkPreview />}
@@ -89,7 +88,7 @@ const OnboardingTheme = () => {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.4 }}
           onClick={handleContinue}
-          className="mt-12 sm:mt-14 px-10 py-3 rounded-full bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+          className="mt-12 sm:mt-14 px-10 py-3 rounded-full bg-primary text-primary-foreground text-sm font-semibold shadow-[0_8px_24px_-8px_hsl(var(--primary)/0.5)] hover:opacity-95 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
         >
           Continuar
         </motion.button>
