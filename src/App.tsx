@@ -145,13 +145,16 @@ const queryClient = new QueryClient({
 });
 
 const Loading = memo(() => (
-  <div className="min-h-screen flex items-center justify-center bg-transparent">
+  <div
+    className="min-h-screen flex items-center justify-center"
+    style={{ background: "transparent" }}
+  >
     <div className="flex flex-col items-center gap-4 animate-fade-in">
       <div className="relative w-10 h-10">
-        <div className="absolute inset-0 rounded-full border-2 border-primary/30" />
-        <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-primary animate-spin" />
+        <div className="absolute inset-0 rounded-full border-2 border-white/15" />
+        <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-white/70 animate-spin" />
       </div>
-      <span className="text-xs text-muted-foreground font-medium">Carregando...</span>
+      <span className="text-xs text-white/40 font-medium">Carregando...</span>
     </div>
   </div>
 ));
