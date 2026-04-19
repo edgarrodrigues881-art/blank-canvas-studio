@@ -140,7 +140,7 @@ const Notifications = () => {
       </div>
 
       {/* Notification list */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         {loading ? (
           <Card className="border-border/50">
             <CardContent className="py-12 text-center text-muted-foreground text-sm">
@@ -166,31 +166,33 @@ const Notifications = () => {
             return (
               <Card
                 key={n.id}
-                className={`group border-border/50 transition-all duration-150 hover:border-border ${
-                  !n.read ? "bg-muted/20 border-l-2 border-l-emerald-500" : "opacity-70 hover:opacity-100"
+                className={`group border-border/40 bg-card/60 backdrop-blur-sm shadow-sm transition-colors duration-150 hover:bg-card hover:border-border ${
+                  !n.read ? "border-l-2 border-l-emerald-500/70" : "opacity-75 hover:opacity-100"
                 }`}
               >
-                <CardContent className="p-4 flex items-start gap-4">
-                  <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
-                    <Icon className={`w-5 h-5 ${color}`} />
+                <CardContent className="p-5 flex items-start gap-4">
+                  <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center shrink-0 mt-0.5`}>
+                    <Icon className={`w-[18px] h-[18px] ${color} opacity-80`} strokeWidth={1.75} />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className={`text-sm flex items-center gap-2 ${!n.read ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
-                        <span className="truncate">{n.title}</span>
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {!n.read && (
+                          <span className="w-1.5 h-1.5 bg-emerald-500/80 rounded-full shrink-0" aria-hidden />
+                        )}
+                        <h3 className={`text-[15px] leading-tight truncate ${!n.read ? "font-semibold text-foreground" : "font-medium text-foreground/85"}`}>
+                          {n.title}
+                        </h3>
                         {n.count > 1 && (
-                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground shrink-0">
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-muted/70 text-muted-foreground shrink-0">
                             ×{n.count}
                           </span>
                         )}
-                      </p>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {!n.read && <span className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_6px_hsl(var(--primary))]" />}
                       </div>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>
-                    <div className="flex items-center justify-between gap-2 mt-1.5">
-                      <p className="text-[10px] text-muted-foreground/60">
+                    <p className="text-[13px] text-muted-foreground/85 leading-relaxed line-clamp-2">{n.message}</p>
+                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                      <p className="text-[11px] text-muted-foreground/55">
                         {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: ptBR })}
                       </p>
                       {canAct && (
