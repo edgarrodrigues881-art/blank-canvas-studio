@@ -267,20 +267,91 @@ const UseCase = () => (
 );
 
 // ─── 6. Plans (mantido, redesenhado clean) ───
-const standardPlanFeatures = [
-  "Todas as funcionalidades inclusas",
-  "Mesmo nível de suporte",
-  "Monitoramento em tempo real",
-  "Infraestrutura completa",
-];
-
 const allPlans = [
-  { name: "Essencial", instances: 5, price: "99,99", popular: false, subtitle: "Ideal para começar.", cta: "Começar", features: [...standardPlanFeatures], whatsappLine: "Relatórios via WhatsApp", whatsappIncluded: false },
-  { name: "Start", instances: 10, price: "187,99", popular: false, subtitle: "Mais capacidade.", cta: "Começar", features: [...standardPlanFeatures], whatsappLine: "Relatórios via WhatsApp", whatsappIncluded: false },
-  { name: "Pro", instances: 30, price: "397,99", popular: true, subtitle: "Em crescimento.", cta: "Escalar", features: [...standardPlanFeatures], whatsappLine: "Relatórios via WhatsApp incluso", whatsappIncluded: true },
-  { name: "Scale", instances: 50, price: "597,99", popular: false, subtitle: "Múltiplas instâncias.", cta: "Escalar", features: [...standardPlanFeatures], whatsappLine: "Relatórios via WhatsApp incluso", whatsappIncluded: true },
-  { name: "Elite", instances: 100, price: "1.097,99", popular: false, subtitle: "Alta capacidade.", cta: "Contratar", features: [...standardPlanFeatures], whatsappLine: "Relatórios via WhatsApp incluso", whatsappIncluded: true },
-  { name: "Custom", instances: 200, price: null, popular: false, subtitle: "Grande escala.", cta: "Consultar", features: [...standardPlanFeatures], whatsappLine: "Relatórios via WhatsApp incluso", whatsappIncluded: true },
+  {
+    name: "Essencial",
+    tagline: "Para começar",
+    instances: 5,
+    price: "99,99",
+    popular: false,
+    cta: "Testar o sistema",
+    benefits: [
+      "Até 5 chips simultâneos",
+      "Suporte por e-mail",
+      "Aquecimento e disparo inclusos",
+    ],
+    whatsappIncluded: false,
+  },
+  {
+    name: "Start",
+    tagline: "Operação inicial",
+    instances: 10,
+    price: "187,99",
+    popular: false,
+    cta: "Começar agora",
+    benefits: [
+      "Até 10 chips simultâneos",
+      "Suporte por e-mail",
+      "Monitoramento em tempo real",
+    ],
+    whatsappIncluded: false,
+  },
+  {
+    name: "Pro",
+    tagline: "Mais escolhido",
+    instances: 30,
+    price: "397,99",
+    popular: true,
+    cta: "Começar agora",
+    benefits: [
+      "Até 30 chips simultâneos",
+      "Suporte prioritário no WhatsApp",
+      "Relatórios e alertas via WhatsApp",
+    ],
+    whatsappIncluded: true,
+  },
+  {
+    name: "Scale",
+    tagline: "Operação em escala",
+    instances: 50,
+    price: "597,99",
+    popular: false,
+    cta: "Começar agora",
+    benefits: [
+      "Até 50 chips simultâneos",
+      "Suporte prioritário no WhatsApp",
+      "Relatórios e alertas via WhatsApp",
+    ],
+    whatsappIncluded: true,
+  },
+  {
+    name: "Elite",
+    tagline: "Alta capacidade",
+    instances: 100,
+    price: "1.097,99",
+    popular: false,
+    cta: "Começar agora",
+    benefits: [
+      "Até 100 chips simultâneos",
+      "Suporte prioritário dedicado",
+      "Relatórios e alertas via WhatsApp",
+    ],
+    whatsappIncluded: true,
+  },
+  {
+    name: "Custom",
+    tagline: "Grande escala",
+    instances: 200,
+    price: null,
+    popular: false,
+    cta: "Falar com vendas",
+    benefits: [
+      "200+ chips simultâneos",
+      "Suporte dedicado por gerente",
+      "Infraestrutura sob medida",
+    ],
+    whatsappIncluded: true,
+  },
 ];
 
 const Plans = () => {
@@ -290,17 +361,17 @@ const Plans = () => {
     <motion.div key={p.name} variants={fadeUp}
       className={`relative rounded-xl border transition-all duration-300 flex flex-col h-full p-5 ${
         p.popular
-          ? "border-white/[0.18] bg-white/[0.04]"
+          ? "border-white/[0.22] bg-white/[0.05] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_8px_40px_-12px_rgba(255,255,255,0.08)]"
           : "border-white/[0.06] bg-white/[0.015] hover:border-white/[0.12] hover:bg-white/[0.03]"
       }`}
     >
       {p.popular && (
         <span className="absolute -top-2.5 left-5 text-[9px] font-semibold uppercase tracking-wider bg-white text-black px-2 py-0.5 rounded-full">
-          Recomendado
+          Mais escolhido
         </span>
       )}
       <h3 className="text-[14px] font-semibold text-white mb-1">{p.name}</h3>
-      <p className="text-[11px] text-white/35 mb-4">{p.name === "Custom" ? "200+ instâncias" : `até ${p.instances} instâncias`}</p>
+      <p className="text-[11px] text-white/35 mb-4">{p.tagline}</p>
 
       <div className="flex items-baseline gap-0.5 mb-5">
         {p.price ? (
@@ -316,19 +387,12 @@ const Plans = () => {
       </div>
 
       <ul className="space-y-2 mb-5 flex-1">
-        {p.features.map((item) => (
-          <li key={item} className="flex items-start gap-2 text-[12px] text-white/55">
-            <CheckCircle2 className="w-3 h-3 text-white/30 flex-shrink-0 mt-1" />{item}
+        {p.benefits.map((item) => (
+          <li key={item} className="flex items-start gap-2 text-[12px] text-white/60 leading-[1.45]">
+            <CheckCircle2 className="w-3 h-3 text-white/35 flex-shrink-0 mt-[3px]" />
+            <span>{item}</span>
           </li>
         ))}
-        <li className={`flex items-start gap-2 text-[12px] ${p.whatsappIncluded ? "text-white/55" : "text-white/25"}`}>
-          {p.whatsappIncluded ? (
-            <CheckCircle2 className="w-3 h-3 text-white/30 flex-shrink-0 mt-1" />
-          ) : (
-            <span className="w-3 h-3 flex-shrink-0 mt-1 flex items-center justify-center text-white/15 text-[9px]">✕</span>
-          )}
-          {p.whatsappLine}
-        </li>
       </ul>
 
       <Button onClick={() => {
@@ -340,7 +404,7 @@ const Plans = () => {
       }}
         className={`w-full text-[12px] font-medium h-9 mt-auto rounded-md shadow-none ${
           p.popular
-            ? "bg-white/95 hover:bg-white text-black"
+            ? "bg-white hover:bg-white text-black"
             : "bg-white/[0.04] hover:bg-white/[0.08] text-white border border-white/[0.06]"
         }`}
       >
@@ -354,11 +418,14 @@ const Plans = () => {
       <div className="max-w-3xl mb-14">
         <Eyebrow>Planos</Eyebrow>
         <SectionTitle className="mb-6">Escolha o plano que acompanha sua escala.</SectionTitle>
-        <SectionSub>Acesso completo em todos os planos. Muda apenas a quantidade de instâncias.</SectionSub>
+        <SectionSub>Acesso completo em todos os planos. Muda apenas a capacidade e o nível de suporte.</SectionSub>
       </div>
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }} variants={stagger} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {allPlans.map(renderCard)}
       </motion.div>
+      <p className="text-center text-[12px] text-white/35 mt-10">
+        Sem contrato. Cancele quando quiser.
+      </p>
     </Section>
   );
 };
