@@ -99,21 +99,20 @@ const OnboardingTheme = () => {
 
 interface ThemeCardProps {
   label: string;
-  recommended?: boolean;
   selected: boolean;
   onClick: () => void;
   preview: React.ReactNode;
 }
 
-const ThemeCard = ({ label, recommended, selected, onClick, preview }: ThemeCardProps) => {
+const ThemeCard = ({ label, selected, onClick, preview }: ThemeCardProps) => {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`group relative rounded-2xl p-3 transition-all duration-300 text-left ${
+      className={`group relative rounded-2xl p-3 text-left transition-all duration-300 hover:-translate-y-0.5 ${
         selected
-          ? "bg-foreground/[0.04] ring-1 ring-emerald-500/40 shadow-[0_0_0_4px_rgba(16,185,129,0.08),0_20px_40px_-20px_rgba(16,185,129,0.25)]"
-          : "bg-foreground/[0.02] ring-1 ring-foreground/[0.06] hover:ring-foreground/[0.14] hover:bg-foreground/[0.035]"
+          ? "bg-card ring-1 ring-emerald-500/40 shadow-[0_0_0_4px_rgba(16,185,129,0.08),0_20px_40px_-20px_rgba(16,185,129,0.25)]"
+          : "bg-card/60 ring-1 ring-border hover:ring-foreground/20 hover:shadow-[0_10px_30px_-10px_hsl(var(--foreground)/0.15)]"
       }`}
     >
       {/* Preview area */}
@@ -123,14 +122,7 @@ const ThemeCard = ({ label, recommended, selected, onClick, preview }: ThemeCard
 
       {/* Footer */}
       <div className="flex items-center justify-between px-1 pt-3 pb-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground/85">{label}</span>
-          {recommended && (
-            <span className="text-[10px] tracking-wide uppercase text-emerald-500 font-semibold">
-              Recomendado
-            </span>
-          )}
-        </div>
+        <span className="text-sm font-medium text-foreground/85">{label}</span>
         <span
           className={`flex items-center justify-center w-5 h-5 rounded-full transition-all ${
             selected
