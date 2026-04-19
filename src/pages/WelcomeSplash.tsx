@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import logo from "@/assets/dg-contingencia-pro-logo.jpeg";
+
+const MIN_DURATION_MS = 4300;
+const MAX_DURATION_MS = 8000; // hard cap so we never get stuck
 
 const WelcomeSplash = () => {
   const navigate = useNavigate();
@@ -9,16 +12,54 @@ const WelcomeSplash = () => {
   const redirectTo = searchParams.get("to") || "/dashboard";
   const [phase, setPhase] = useState(0);
 
+  const minReached = useRef(false);
+  const dataReady = useRef(false);
+  const navigated = useRef(false);
+
   useEffect(() => {
+    const tryNavigate = () => {
+      if (navigated.current) return;
+      if (minReached.current && dataReady.current) {
+        navigated.current = true;
+        setPhase(4); // trigger exit animation
+        setTimeout(() => {
+          navigate(`/onboarding/theme?to=${encodeURIComponent(redirectTo)}`, { replace: true });
+        }, 500);
+      }
+    };
+
     const t1 = setTimeout(() => setPhase(1), 300);
     const t2 = setTimeout(() => setPhase(2), 800);
     const t3 = setTimeout(() => setPhase(3), 1300);
-    const t4 = setTimeout(() => setPhase(4), 4300);
-    const t5 = setTimeout(
-      () => navigate(`/onboarding/theme?to=${encodeURIComponent(redirectTo)}`, { replace: true }),
-      4800
-    );
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); };
+
+    // Preload destination chunks in parallel with the welcome animation
+    Promise.all([
+      import("@/pages/OnboardingTheme").catch(() => null),
+      import("@/pages/dashboard/DashboardHome").catch(() => null),
+    ]).then(() => {
+      dataReady.current = true;
+      tryNavigate();
+    });
+
+    const minTimer = setTimeout(() => {
+      minReached.current = true;
+      tryNavigate();
+    }, MIN_DURATION_MS);
+
+    // Hard cap so we never block the user indefinitely
+    const maxTimer = setTimeout(() => {
+      dataReady.current = true;
+      minReached.current = true;
+      tryNavigate();
+    }, MAX_DURATION_MS);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(minTimer);
+      clearTimeout(maxTimer);
+    };
   }, [navigate, redirectTo]);
 
   return (
