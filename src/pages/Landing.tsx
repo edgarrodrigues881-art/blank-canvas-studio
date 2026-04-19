@@ -598,7 +598,7 @@ const Landing = () => {
         <FinalCTA />
         <FooterSection />
       </div>
-      <SupportFloat />
+      
     </div>
   );
 };
