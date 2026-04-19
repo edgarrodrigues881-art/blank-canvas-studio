@@ -17,9 +17,11 @@ const prefetchRoutes = () => {
   else setTimeout(load, 2000);
 };
 
-// ─── Animation ───
-const fadeUp = { hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } } };
-const stagger = { visible: { transition: { staggerChildren: 0.06 } } };
+// ─── Animation — premium, subtle, Linear-style ───
+const easeOut = [0.16, 1, 0.3, 1] as const;
+const fadeUp = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: easeOut } } };
+const fadeScale = { hidden: { opacity: 0, scale: 0.98 }, visible: { opacity: 1, scale: 1, transition: { duration: 0.45, ease: easeOut } } };
+const stagger = { visible: { transition: { staggerChildren: 0.07, delayChildren: 0.05 } } };
 
 // ─── Background — single soft gradient, almost flat ───
 const Background = () => (
@@ -99,7 +101,7 @@ const Hero = () => {
               Evite banimentos, gerencie múltiplos chips com segurança e escale sua operação sem caos.
             </motion.p>
 
-            <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center lg:items-start lg:justify-start justify-center gap-3">
+            <motion.div variants={fadeScale} className="flex flex-col sm:flex-row items-center lg:items-start lg:justify-start justify-center gap-3">
               <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="bg-white hover:bg-white text-black text-[14px] font-semibold px-7 h-12 rounded-[10px] gap-2 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_8px_32px_-4px_rgba(255,255,255,0.15)] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_12px_40px_-4px_rgba(255,255,255,0.25)] hover:scale-[1.02] transition-all duration-200">
                 Começar agora <ArrowRight className="w-4 h-4" />
               </Button>
@@ -114,7 +116,7 @@ const Hero = () => {
             </motion.p>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }} className="lg:col-span-6 relative lg:-mr-20 xl:-mr-32 lg:scale-[1.15] xl:scale-[1.2] origin-left">
+          <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.7, ease: easeOut, delay: 0.15 }} className="lg:col-span-6 relative lg:-mr-20 xl:-mr-32 lg:scale-[1.15] xl:scale-[1.2] origin-left">
             <div className="relative">
               {/* Premium multi-layer glow */}
               <div className="absolute -inset-20 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.18)_0%,transparent_60%)] blur-3xl pointer-events-none" />
