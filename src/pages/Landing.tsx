@@ -138,14 +138,66 @@ const Hero = () => {
                   <span className="absolute left-1/2 -translate-x-1/2 text-[10px] text-white/40 font-medium tracking-wide">DG Contingência Pro — CRM</span>
                 </div>
 
-                {/* Screen content */}
-                <div className="relative">
-                  <img src={heroCrmMockup} alt="Painel CRM DG Contingência Pro" className="w-full h-auto block" loading="eager" />
-                  {/* Glass reflection sweep */}
-                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0)_28%,rgba(255,255,255,0)_70%,rgba(255,255,255,0.025)_100%)]" />
-                  {/* Inner screen depth shadow */}
-                  <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_40px_rgba(0,0,0,0.45)]" />
+                {/* Screen content — real UI for crisp rendering */}
+                <div className="relative bg-[hsl(222,22%,8%)] p-4 md:p-5">
+                  <div className="mb-4">
+                    <h3 className="text-white text-[15px] font-semibold tracking-tight">CRM — Visão geral</h3>
+                    <p className="text-white/40 text-[11px] mt-0.5">Performance dos últimos 7 dias</p>
+                  </div>
+
+                  {/* KPI cards */}
+                  <div className="grid grid-cols-3 gap-2.5 mb-4">
+                    {[
+                      { label: "Total de Leads", value: "2.847", delta: "+12,4%", color: "text-emerald-400" },
+                      { label: "Conversas", value: "1.293", delta: "+8,1%", color: "text-indigo-400" },
+                      { label: "Oportunidades", value: "412", delta: "+24,6%", color: "text-amber-400" },
+                    ].map((k) => (
+                      <div key={k.label} className="rounded-[10px] border border-white/[0.06] bg-white/[0.02] p-2.5">
+                        <p className="text-[9.5px] text-white/45 font-medium uppercase tracking-wider">{k.label}</p>
+                        <p className="text-white text-[18px] font-semibold mt-1 tabular-nums tracking-tight">{k.value}</p>
+                        <p className={`text-[10px] mt-0.5 font-medium ${k.color}`}>{k.delta}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Chart card */}
+                  <div className="rounded-[10px] border border-white/[0.06] bg-white/[0.02] p-3">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="text-white text-[12px] font-semibold">Leads por dia</p>
+                        <p className="text-white/40 text-[10px]">Últimos 7 dias</p>
+                      </div>
+                      <span className="text-[9.5px] text-emerald-400 font-medium px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20">+18,2%</span>
+                    </div>
+
+                    {/* SVG chart — vector = perfectly sharp */}
+                    <svg viewBox="0 0 320 110" className="w-full h-[110px]" preserveAspectRatio="none">
+                      <defs>
+                        <linearGradient id="heroChartFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="rgb(99,102,241)" stopOpacity="0.35" />
+                          <stop offset="100%" stopColor="rgb(99,102,241)" stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+                      {[20, 40, 60, 80].map((y) => (
+                        <line key={y} x1="0" y1={y} x2="320" y2={y} stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+                      ))}
+                      <path d="M0,78 L53,62 L107,70 L160,42 L213,52 L267,28 L320,22 L320,110 L0,110 Z" fill="url(#heroChartFill)" />
+                      <path d="M0,78 L53,62 L107,70 L160,42 L213,52 L267,28 L320,22" fill="none" stroke="rgb(129,140,248)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                      {[[0,78],[53,62],[107,70],[160,42],[213,52],[267,28],[320,22]].map(([x,y],i) => (
+                        <circle key={i} cx={x} cy={y} r="2.5" fill="rgb(129,140,248)" stroke="hsl(222,22%,8%)" strokeWidth="1.5" />
+                      ))}
+                    </svg>
+
+                    <div className="flex justify-between mt-2 px-0.5">
+                      {["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"].map((d) => (
+                        <span key={d} className="text-[9px] text-white/35 font-medium">{d}</span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
+
+                {/* Subtle glass reflection — kept very faint to not blur content */}
+                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0)_30%)]" />
               </div>
             </div>
           </motion.div>
