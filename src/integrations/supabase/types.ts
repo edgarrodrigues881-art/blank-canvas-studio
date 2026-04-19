@@ -991,7 +991,9 @@ export type Database = {
       autosave_schedules: {
         Row: {
           completed_at: string | null
+          contact_cursor: Json
           created_at: string
+          current_cycle_used_contacts: Json
           daily_increment: number
           days_executed: number
           device_ids: Json
@@ -999,6 +1001,7 @@ export type Database = {
           initial_limit_per_instance: number
           last_error: string | null
           last_run_date: string | null
+          last_used_contact_per_device: Json
           max_delay_seconds: number
           max_limit_per_instance: number
           messages_per_instance: number
@@ -1016,7 +1019,9 @@ export type Database = {
         }
         Insert: {
           completed_at?: string | null
+          contact_cursor?: Json
           created_at?: string
+          current_cycle_used_contacts?: Json
           daily_increment?: number
           days_executed?: number
           device_ids?: Json
@@ -1024,6 +1029,7 @@ export type Database = {
           initial_limit_per_instance?: number
           last_error?: string | null
           last_run_date?: string | null
+          last_used_contact_per_device?: Json
           max_delay_seconds?: number
           max_limit_per_instance?: number
           messages_per_instance?: number
@@ -1041,7 +1047,9 @@ export type Database = {
         }
         Update: {
           completed_at?: string | null
+          contact_cursor?: Json
           created_at?: string
+          current_cycle_used_contacts?: Json
           daily_increment?: number
           days_executed?: number
           device_ids?: Json
@@ -1049,6 +1057,7 @@ export type Database = {
           initial_limit_per_instance?: number
           last_error?: string | null
           last_run_date?: string | null
+          last_used_contact_per_device?: Json
           max_delay_seconds?: number
           max_limit_per_instance?: number
           messages_per_instance?: number
