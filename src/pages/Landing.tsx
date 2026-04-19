@@ -196,12 +196,12 @@ const Product = () => (
 
 // ─── 4. Features (3 colunas) ───
 const features = [
-  { icon: Zap, title: "Envio otimizado", desc: "Intervalos inteligentes mantêm suas instâncias saudáveis durante campanhas." },
-  { icon: Shield, title: "Aquecimento automático", desc: "Warmup progressivo em fases controladas para amadurecer cada chip." },
-  { icon: BarChart3, title: "Métricas em tempo real", desc: "Acompanhe entregas, falhas e desempenho de cada instância no painel." },
-  { icon: Smartphone, title: "Múltiplas instâncias", desc: "Conecte e controle dezenas de chips simultaneamente em um único ambiente." },
-  { icon: Layers, title: "Campanhas em massa", desc: "Distribuição entre instâncias com pausas e intervalos programados." },
-  { icon: Lock, title: "Alertas no WhatsApp", desc: "Notificações de desconexões, falhas e status direto no seu WhatsApp." },
+  { icon: Zap, title: "Envio com intervalos", desc: "Pausas e ritmos automáticos para manter as instâncias ativas durante campanhas." },
+  { icon: Shield, title: "Aquecimento automático", desc: "Amadurecimento gradual de cada chip antes do uso em volume." },
+  { icon: BarChart3, title: "Métricas em tempo real", desc: "Veja entregas, falhas e desempenho de cada instância no painel." },
+  { icon: Smartphone, title: "Múltiplas instâncias", desc: "Conecte e controle dezenas de chips em um único ambiente." },
+  { icon: Layers, title: "Disparo em massa", desc: "Distribua mensagens entre instâncias com pausas programadas." },
+  { icon: Lock, title: "Alertas no WhatsApp", desc: "Receba avisos de desconexão, falhas e status direto no seu WhatsApp." },
 ];
 
 const Features = () => (
