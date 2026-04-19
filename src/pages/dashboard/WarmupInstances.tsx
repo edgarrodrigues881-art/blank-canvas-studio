@@ -1341,16 +1341,16 @@ const WarmupInstances = () => {
 
                 {/* Checkboxes */}
                 <div className="space-y-2.5">
-                  <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setAgreedResponsibility(!agreedResponsibility)}>
+                  <label htmlFor="agreeResponsibility" className="flex items-center gap-2.5 cursor-pointer select-none">
                     <Checkbox id="agreeResponsibility" checked={agreedResponsibility} onCheckedChange={(v) => setAgreedResponsibility(!!v)} className="border-white/25 data-[state=checked]:bg-teal-500 data-[state=checked]:border-teal-500" />
-                    <label htmlFor="agreeResponsibility" className="text-[13px] text-white/70 cursor-pointer select-none">
+                    <span className="text-[13px] text-white/70 leading-none">
                       Li e concordo com as orientações
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-2 pl-0.5">
+                    </span>
+                  </label>
+                  <label htmlFor="dontShowAgainV2" className="flex items-center gap-2.5 cursor-pointer select-none pl-0.5">
                     <Checkbox id="dontShowAgainV2" checked={dontShowAgain} onCheckedChange={(v) => setDontShowAgain(!!v)} className="border-white/15 data-[state=checked]:bg-teal-500/80 data-[state=checked]:border-teal-500/80" />
-                    <label htmlFor="dontShowAgainV2" className="text-xs text-white/35 cursor-pointer select-none">Não mostrar novamente</label>
-                  </div>
+                    <span className="text-xs text-white/35 leading-none">Não mostrar novamente</span>
+                  </label>
                 </div>
               </div>
 
