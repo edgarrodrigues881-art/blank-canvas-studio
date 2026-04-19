@@ -199,36 +199,105 @@ export default function AutosaveSchedule() {
         </Button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Card className="p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-            <Save className="w-5 h-5 text-emerald-400" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Contatos Auto Save</p>
-            <p className="text-xl font-bold">{autosaveCount}</p>
-          </div>
-        </Card>
-        <Card className="p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
-            <Smartphone className="w-5 h-5 text-blue-400" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Instâncias disponíveis</p>
-            <p className="text-xl font-bold">{devices.length}</p>
-          </div>
-        </Card>
-        <Card className="p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center">
-            <Repeat className="w-5 h-5 text-violet-400" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Agendamentos ativos</p>
-            <p className="text-xl font-bold">{schedules.length}</p>
-          </div>
-        </Card>
-      </div>
+      {/* Status global + resumo do dia */}
+      {(() => {
+        const activeCount = schedules.filter((s) => s.status === "scheduled" || s.status === "running").length;
+        const runningCount = schedules.filter((s) => s.status === "running").length;
+        const todayStr = format(new Date(), "yyyy-MM-dd");
+
+        const now = new Date();
+        const todayDow = now.getDay();
+        const upcoming = schedules
+          .filter((s) => s.status === "scheduled" || s.status === "running")
+          .map((s) => {
+            const [h, m] = (s.time_of_day || "00:00").split(":").map(Number);
+            const days: number[] = Array.isArray(s.weekdays) ? s.weekdays : [];
+            for (let offset = 0; offset < 8; offset++) {
+              const dow = (todayDow + offset) % 7;
+              if (!days.includes(dow)) continue;
+              const dt = new Date(now);
+              dt.setDate(dt.getDate() + offset);
+              dt.setHours(h, m, 0, 0);
+              if (dt > now) return dt;
+            }
+            return null;
+          })
+          .filter(Boolean) as Date[];
+        const nextRun = upcoming.sort((a, b) => a.getTime() - b.getTime())[0];
+
+        const sentToday = schedules
+          .filter((s) => s.last_run_date === todayStr)
+          .reduce((sum, s) => sum + (s.total_sent || 0), 0);
+        const activeInstancesToday = new Set(
+          schedules
+            .filter((s) => s.status === "running")
+            .flatMap((s) => (Array.isArray(s.device_ids) ? s.device_ids : []))
+        ).size;
+
+        return (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <Card className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                  <Repeat className="w-5 h-5 text-violet-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Agendamentos ativos</p>
+                  <p className="text-xl font-bold">{activeCount}</p>
+                </div>
+              </Card>
+              <Card className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                  <Activity className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Em execução agora</p>
+                  <p className="text-xl font-bold">{runningCount}</p>
+                </div>
+              </Card>
+              <Card className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-blue-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Próxima execução</p>
+                  <p className="text-base font-semibold truncate">
+                    {nextRun ? format(nextRun, "EEE dd/MM 'às' HH:mm", { locale: ptBR }) : "—"}
+                  </p>
+                </div>
+              </Card>
+            </div>
+
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <CalendarIcon className="w-4 h-4 text-primary" />
+                <h2 className="text-sm font-semibold">Resumo de hoje</h2>
+                <span className="text-[11px] text-muted-foreground ml-auto">
+                  {format(new Date(), "EEEE, dd/MM", { locale: ptBR })}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Mensagens enviadas</p>
+                  <p className="text-lg font-bold text-emerald-400">{sentToday}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Instâncias ativas</p>
+                  <p className="text-lg font-bold text-blue-400">{activeInstancesToday}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Contatos disponíveis</p>
+                  <p className="text-lg font-bold text-violet-400">{autosaveCount}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Instâncias conectadas</p>
+                  <p className="text-lg font-bold">{devices.length}</p>
+                </div>
+              </div>
+            </Card>
+          </>
+        );
+      })()}
 
       {/* Schedules list */}
       <Card className="overflow-hidden">
@@ -243,8 +312,8 @@ export default function AutosaveSchedule() {
           <div className="p-12 text-center">
             <CalendarIcon className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-sm text-muted-foreground">Nenhum agendamento criado</p>
-            <Button variant="ghost" size="sm" className="mt-3" onClick={() => setCreateOpen(true)}>
-              <Plus className="w-4 h-4 mr-1" /> Criar primeiro agendamento
+            <Button variant="default" size="sm" className="mt-3 gap-2" onClick={() => setCreateOpen(true)}>
+              <Plus className="w-4 h-4" /> Criar agendamento automático
             </Button>
           </div>
         ) : (
