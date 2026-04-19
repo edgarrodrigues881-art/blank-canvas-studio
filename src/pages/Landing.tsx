@@ -123,7 +123,7 @@ const Hero = () => {
               <div className="absolute -inset-16 bg-[radial-gradient(ellipse_at_60%_40%,rgba(139,92,246,0.12)_0%,transparent_65%)] blur-2xl pointer-events-none" />
               <div className="absolute -bottom-10 inset-x-10 h-32 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.6)_0%,transparent_70%)] blur-2xl pointer-events-none" />
 
-              <div className="relative rounded-xl border border-white/[0.08] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_50px_120px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.04),0_0_80px_-20px_rgba(99,102,241,0.25)]">
+              <div className="group relative rounded-xl border border-white/[0.08] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_50px_120px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.04),0_0_80px_-20px_rgba(99,102,241,0.25)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_60px_140px_-20px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.06),0_0_100px_-20px_rgba(99,102,241,0.35)]">
                 <div className="bg-white/[0.02] px-4 py-2.5 border-b border-white/[0.05] flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
                   <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
