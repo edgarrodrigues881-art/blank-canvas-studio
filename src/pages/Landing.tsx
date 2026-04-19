@@ -490,6 +490,31 @@ const CommunitySection = () => (
         <div className="relative">
           <div className="absolute -inset-10 bg-[radial-gradient(circle_at_50%_45%,rgba(202,138,4,0.18)_0%,rgba(161,98,7,0.06)_45%,transparent_70%)] blur-2xl pointer-events-none" />
           <div className="absolute -inset-2 bg-[radial-gradient(ellipse_at_30%_25%,rgba(234,179,8,0.14)_0%,transparent_55%)] blur-md pointer-events-none" />
+          {/* Gold particles */}
+          <div className="absolute -inset-12 pointer-events-none overflow-hidden">
+            {Array.from({ length: 16 }).map((_, i) => (
+              <motion.span
+                key={i}
+                className="absolute w-1 h-1 rounded-full bg-amber-400"
+                style={{
+                  left: `${10 + Math.random() * 80}%`,
+                  top: `${10 + Math.random() * 80}%`,
+                }}
+                animate={{
+                  y: [0, -18 - Math.random() * 25, 0],
+                  x: [0, (Math.random() - 0.5) * 16, 0],
+                  opacity: [0.05, 0.4 + Math.random() * 0.3, 0.05],
+                  scale: [0.4, 1 + Math.random() * 0.5, 0.4],
+                }}
+                transition={{
+                  duration: 3 + Math.random() * 3,
+                  repeat: Infinity,
+                  delay: Math.random() * 3,
+                  ease: "easeInOut",
+                }}
+              />
+            ))}
+          </div>
           <div className="relative w-[140px] h-[140px] md:w-[200px] md:h-[200px] rounded-2xl overflow-hidden border border-amber-500/25 bg-[hsl(222,22%,7%)] shadow-[0_1px_0_0_rgba(253,224,71,0.08)_inset,0_0_0_1px_rgba(202,138,4,0.12),0_18px_40px_-18px_rgba(120,53,15,0.55),0_6px_16px_-6px_rgba(0,0,0,0.6)]">
             <img src={logo} alt="DG Contingência Pro" className="w-full h-full object-cover" />
           </div>
