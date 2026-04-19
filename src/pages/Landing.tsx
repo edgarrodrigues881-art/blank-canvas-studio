@@ -444,7 +444,7 @@ const communityBenefits = [
 
 const CommunitySection = () => (
   <Section id="comunidade">
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-12 items-center">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 md:gap-4 lg:gap-12 items-center">
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} variants={stagger} className="lg:col-span-6 order-2 lg:order-1">
         <motion.div variants={fadeUp}><Eyebrow>Comunidade</Eyebrow></motion.div>
         <motion.div variants={fadeUp}>
