@@ -128,7 +128,7 @@ const Hero = () => {
                   <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
                   <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
                   <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
-                  <span className="ml-3 text-[10px] text-white/35 font-medium tracking-wide">DG Contingência PRO</span>
+                  <span className="ml-3 text-[10px] text-white/35 font-medium tracking-wide">DG Contingência Pro</span>
                 </div>
                 <img src={dashboardPreview} alt="Painel DG Contingência" className="w-full h-auto block transition-transform duration-300 ease-out group-hover:scale-[1.015]" loading="eager" />
               </div>
