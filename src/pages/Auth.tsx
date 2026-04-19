@@ -165,17 +165,28 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-5 py-10 relative overflow-hidden" style={{ background: "#0a0a0c" }}>
-      {/* Premium ambient gradients */}
+      {/* Organic ambient gradients — offset, asymmetric */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[820px] h-[820px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(52,211,153,0.10) 0%, transparent 65%)", filter: "blur(20px)" }} />
-        <div className="absolute top-[15%] left-[15%] w-[480px] h-[480px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 70%)", filter: "blur(40px)" }} />
-        <div className="absolute bottom-[10%] right-[12%] w-[420px] h-[420px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%)", filter: "blur(40px)" }} />
-        {/* Subtle grain/noise via faint dot grid */}
-        <div className="absolute inset-0 opacity-[0.025]"
-          style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.6) 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
+        {/* Primary emerald glow — top-left, off-center */}
+        <div className="absolute -top-[12%] -left-[8%] w-[780px] h-[780px] rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(52,211,153,0.13) 0%, transparent 60%)", filter: "blur(60px)" }} />
+        {/* Cool blue accent — bottom-right */}
+        <div className="absolute -bottom-[18%] -right-[10%] w-[680px] h-[680px] rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(59,130,246,0.10) 0%, transparent 65%)", filter: "blur(70px)" }} />
+        {/* Subtle teal mid-layer for depth */}
+        <div className="absolute top-[55%] left-[60%] w-[420px] h-[420px] rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(20,184,166,0.06) 0%, transparent 70%)", filter: "blur(50px)" }} />
+        {/* Vignette to anchor the card */}
+        <div className="absolute inset-0"
+          style={{ background: "radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.55) 100%)" }} />
+        {/* SVG grain — true noise texture */}
+        <svg className="absolute inset-0 w-full h-full opacity-[0.05] mix-blend-overlay" xmlns="http://www.w3.org/2000/svg">
+          <filter id="authNoise">
+            <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" />
+            <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.7 0" />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#authNoise)" />
+        </svg>
       </div>
 
       {/* Back button */}
@@ -184,7 +195,7 @@ const Auth = () => {
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
         onClick={() => navigate("/")}
-        className="absolute top-6 left-6 z-20 flex items-center gap-1.5 text-xs font-medium text-white/25 hover:text-white/50 transition-colors group"
+        className="absolute top-6 left-6 z-20 flex items-center gap-1.5 text-xs font-medium text-white/30 hover:text-white/60 transition-colors group"
       >
         <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
         Voltar
@@ -198,13 +209,16 @@ const Auth = () => {
           transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
           className="w-full rounded-3xl overflow-hidden backdrop-blur-2xl relative"
           style={{
-            background: "linear-gradient(180deg, rgba(22,22,26,0.78) 0%, rgba(12,12,15,0.88) 100%)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 1px 0 0 rgba(255,255,255,0.06) inset, 0 50px 120px -30px rgba(0,0,0,0.85), 0 0 80px -30px rgba(52,211,153,0.12)",
+            background: "linear-gradient(180deg, rgba(26,26,30,0.72) 0%, rgba(14,14,18,0.86) 100%)",
+            border: "1px solid rgba(255,255,255,0.09)",
+            boxShadow: "0 0 0 1px rgba(255,255,255,0.04), 0 1px 0 0 rgba(255,255,255,0.08) inset, 0 -1px 0 0 rgba(255,255,255,0.02) inset, 0 60px 140px -30px rgba(0,0,0,0.9), 0 0 100px -40px rgba(52,211,153,0.14)",
           }}
         >
-          {/* Top highlight border */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+          {/* Top highlight — brighter for visible edge */}
+          <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+          {/* Soft side highlights */}
+          <div className="pointer-events-none absolute inset-y-10 left-0 w-px bg-gradient-to-b from-transparent via-white/[0.08] to-transparent" />
+          <div className="pointer-events-none absolute inset-y-10 right-0 w-px bg-gradient-to-b from-transparent via-white/[0.08] to-transparent" />
 
           <div className="px-9 pt-10 pb-10">
             {/* Logo */}
@@ -212,19 +226,21 @@ const Auth = () => {
               initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="flex flex-col items-center mb-8"
+              className="flex flex-col items-center mb-9"
             >
-              <div className="relative mb-4">
-                {/* Logo glow */}
-                <div className="absolute inset-0 -m-4 rounded-full pointer-events-none"
-                  style={{ background: "radial-gradient(circle, rgba(52,211,153,0.28) 0%, transparent 70%)", filter: "blur(20px)" }} />
-                <div className="relative w-20 h-20 rounded-2xl overflow-hidden ring-1 ring-white/[0.1]"
-                  style={{ boxShadow: "0 10px 40px -10px rgba(52,211,153,0.35), inset 0 1px 0 0 rgba(255,255,255,0.1)" }}>
+              <div className="relative mb-5">
+                {/* Focused logo glow — tight, behind logo only */}
+                <div className="absolute inset-0 -m-6 rounded-full pointer-events-none"
+                  style={{ background: "radial-gradient(circle, rgba(52,211,153,0.38) 0%, rgba(52,211,153,0.08) 40%, transparent 70%)", filter: "blur(24px)" }} />
+                <div className="relative w-[92px] h-[92px] rounded-2xl overflow-hidden ring-1 ring-white/[0.12]"
+                  style={{ boxShadow: "0 12px 48px -10px rgba(52,211,153,0.45), inset 0 1px 0 0 rgba(255,255,255,0.12)" }}>
                   <img src={logo} alt="DG Contingência Pro" className="w-full h-full object-cover" />
                 </div>
               </div>
-              <h1 className="text-[20px] font-semibold text-white/95 tracking-tight"><span style={{ color: "#34d399" }}>DG</span> Contingência <span style={{ color: "#34d399" }}>Pro</span></h1>
-              <p className="text-[13px] text-white/35 mt-1 font-light">
+              <h1 className="text-[21px] font-semibold text-white tracking-tight">
+                <span style={{ color: "#34d399" }}>DG</span> Contingência <span style={{ color: "#34d399" }}>Pro</span>
+              </h1>
+              <p className="text-[13px] text-white/55 mt-1.5 font-normal tracking-tight">
                 {isLogin ? "Entre na sua conta" : "Crie sua conta"}
               </p>
             </motion.div>
