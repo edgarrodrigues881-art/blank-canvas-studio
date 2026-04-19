@@ -14,7 +14,10 @@ const WelcomeSplash = () => {
     const t2 = setTimeout(() => setPhase(2), 800);
     const t3 = setTimeout(() => setPhase(3), 1300);
     const t4 = setTimeout(() => setPhase(4), 4300);
-    const t5 = setTimeout(() => navigate(redirectTo, { replace: true }), 4800);
+    const t5 = setTimeout(
+      () => navigate(`/onboarding/theme?to=${encodeURIComponent(redirectTo)}`, { replace: true }),
+      4800
+    );
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); };
   }, [navigate, redirectTo]);
 
