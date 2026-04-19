@@ -123,14 +123,14 @@ const Hero = () => {
               <div className="absolute -inset-16 bg-[radial-gradient(ellipse_at_60%_40%,rgba(139,92,246,0.12)_0%,transparent_65%)] blur-2xl pointer-events-none" />
               <div className="absolute -bottom-10 inset-x-10 h-32 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.6)_0%,transparent_70%)] blur-2xl pointer-events-none" />
 
-              <div className="relative rounded-xl border border-white/[0.08] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_50px_120px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.04),0_0_80px_-20px_rgba(99,102,241,0.25)]">
+              <div className="group relative rounded-xl border border-white/[0.08] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_50px_120px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.04),0_0_80px_-20px_rgba(99,102,241,0.25)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_60px_140px_-20px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.06),0_0_100px_-20px_rgba(99,102,241,0.35)]">
                 <div className="bg-white/[0.02] px-4 py-2.5 border-b border-white/[0.05] flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
                   <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
                   <span className="w-2.5 h-2.5 rounded-full bg-white/[0.12]" />
                   <span className="ml-3 text-[10px] text-white/35 font-medium tracking-wide">DG Contingência PRO</span>
                 </div>
-                <img src={dashboardPreview} alt="Painel DG Contingência" className="w-full h-auto block" loading="eager" />
+                <img src={dashboardPreview} alt="Painel DG Contingência" className="w-full h-auto block transition-transform duration-500 ease-out group-hover:scale-[1.015]" loading="eager" />
               </div>
             </div>
           </motion.div>
@@ -215,12 +215,16 @@ const Features = () => (
     </div>
     <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }} variants={stagger} className="grid grid-cols-1 md:grid-cols-3 gap-x-10 gap-y-14">
       {features.map((f) => (
-        <motion.div key={f.title} variants={fadeUp}>
-          <div className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-5">
-            <f.icon className="w-4 h-4 text-white/70" />
+        <motion.div
+          key={f.title}
+          variants={fadeUp}
+          className="group p-5 -m-5 rounded-xl border border-transparent hover:border-white/[0.06] hover:bg-white/[0.02] hover:-translate-y-1 transition-all duration-200 ease-out"
+        >
+          <div className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-5 group-hover:border-white/[0.12] group-hover:bg-white/[0.06] transition-colors duration-200">
+            <f.icon className="w-4 h-4 text-white/70 group-hover:text-white transition-colors duration-200" />
           </div>
           <h3 className="text-[15px] font-semibold text-white mb-2 tracking-tight">{f.title}</h3>
-          <p className="text-[13px] text-white/45 leading-[1.6]">{f.desc}</p>
+          <p className="text-[13px] text-white/45 leading-[1.6] group-hover:text-white/60 transition-colors duration-200">{f.desc}</p>
         </motion.div>
       ))}
     </motion.div>
@@ -366,10 +370,10 @@ const Plans = () => {
 
   const renderCard = (p: typeof allPlans[0]) => (
     <motion.div key={p.name} variants={fadeUp}
-      className={`relative rounded-xl border transition-all duration-300 flex flex-col h-full p-5 ${
+      className={`relative rounded-xl border transition-all duration-200 ease-out flex flex-col h-full p-5 hover:-translate-y-1 ${
         p.popular
-          ? "border-white/[0.22] bg-white/[0.05] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_8px_40px_-12px_rgba(255,255,255,0.08)]"
-          : "border-white/[0.06] bg-white/[0.015] hover:border-white/[0.12] hover:bg-white/[0.03]"
+          ? "border-white/[0.22] bg-white/[0.05] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_8px_40px_-12px_rgba(255,255,255,0.08)] hover:border-white/[0.3] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_12px_50px_-12px_rgba(255,255,255,0.12)]"
+          : "border-white/[0.06] bg-white/[0.015] hover:border-white/[0.14] hover:bg-white/[0.035]"
       }`}
     >
       {p.popular && (
