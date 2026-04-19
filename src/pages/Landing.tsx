@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo-new.png";
 import dashboardPreview from "@/assets/dashboard-preview-landing.png";
-
+import heroCrmMockup from "@/assets/hero-crm-mockup.png";
 
 // ─── Prefetch ───
 const prefetchRoutes = () => {
