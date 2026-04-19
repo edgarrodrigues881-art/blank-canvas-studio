@@ -700,3 +700,120 @@
 .quoted-highlight {
   animation: quoted-pulse 2s ease-out forwards;
 }
+/* ============================================================
+   App-scoped Design System
+   Applies ONLY to authenticated app (DashboardLayout).
+   Landing, Auth, Welcome and Onboarding pages are NOT affected.
+   ============================================================ */
+.app-root {
+  /* Background layers */
+  --app-bg-base: 220 20% 5%;
+  --app-bg-container: 220 20% 7%;
+  --app-bg-card: 220 16% 10%;
+
+  /* Borders */
+  --app-border-subtle: 0 0% 100% / 0.04;
+  --app-border-strong: 0 0% 100% / 0.08;
+
+  /* Text */
+  --app-text-primary: 220 14% 91%;
+  --app-text-secondary: 220 9% 65%;
+
+  /* Accent */
+  --app-accent: 142 71% 45%;
+  --app-accent-hover: 142 71% 50%;
+
+  /* Radii & shadows */
+  --app-radius: 12px;
+  --app-shadow-sm: 0 1px 2px rgba(0,0,0,0.25);
+  --app-shadow-md: 0 6px 18px -8px rgba(0,0,0,0.45);
+  --app-shadow-lg: 0 18px 40px -16px rgba(0,0,0,0.55);
+}
+
+/* Light theme overrides for app scope */
+:root:not(.dark) .app-root {
+  --app-bg-base: 220 14% 96%;
+  --app-bg-container: 0 0% 100%;
+  --app-bg-card: 0 0% 100%;
+  --app-border-subtle: 220 13% 91% / 1;
+  --app-border-strong: 220 13% 85% / 1;
+  --app-text-primary: 220 26% 14%;
+  --app-text-secondary: 220 9% 40%;
+  --app-shadow-sm: 0 1px 2px rgba(16,24,40,0.05);
+  --app-shadow-md: 0 4px 14px rgba(16,24,40,0.06);
+  --app-shadow-lg: 0 12px 32px -12px rgba(16,24,40,0.10);
+}
+
+/* Subtle radial depth on the app background */
+.app-root {
+  background-color: hsl(var(--app-bg-base));
+  background-image:
+    radial-gradient(1200px 600px at 0% 0%, hsl(var(--app-accent) / 0.05), transparent 60%),
+    radial-gradient(900px 500px at 100% 100%, hsl(var(--app-accent) / 0.04), transparent 60%);
+  color: hsl(var(--app-text-primary));
+}
+
+/* Scoped card primitive — opt-in via .ds-card */
+.app-root .ds-card {
+  background-color: hsl(var(--app-bg-card));
+  border: 1px solid hsl(var(--app-border-subtle));
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow-sm);
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+.app-root .ds-card:hover {
+  border-color: hsl(var(--app-border-strong));
+  box-shadow: var(--app-shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Scoped buttons */
+.app-root .ds-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.5rem;
+  padding: 0 0.95rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: transform 120ms ease, box-shadow 150ms ease, background-color 150ms ease, color 150ms ease, border-color 150ms ease, filter 150ms ease;
+  outline: none;
+}
+.app-root .ds-btn:focus-visible {
+  box-shadow: 0 0 0 2px hsl(var(--app-accent) / 0.45);
+}
+.app-root .ds-btn:active { transform: translateY(0.5px) scale(0.99); }
+
+.app-root .ds-btn-primary {
+  background-color: hsl(var(--app-accent));
+  color: #06210F;
+  box-shadow: 0 6px 18px -8px hsl(var(--app-accent) / 0.55);
+}
+.app-root .ds-btn-primary:hover { background-color: hsl(var(--app-accent-hover)); filter: brightness(1.03); }
+
+.app-root .ds-btn-secondary {
+  background-color: hsl(var(--app-bg-card));
+  color: hsl(var(--app-text-primary));
+  border: 1px solid hsl(var(--app-border-strong));
+}
+.app-root .ds-btn-secondary:hover { background-color: hsl(var(--app-bg-card) / 0.85); border-color: hsl(var(--app-accent) / 0.5); }
+
+/* Scoped input */
+.app-root .ds-input {
+  width: 100%;
+  height: 2.5rem;
+  padding: 0 0.75rem;
+  border-radius: 10px;
+  background-color: hsl(var(--app-bg-container));
+  color: hsl(var(--app-text-primary));
+  border: 1px solid hsl(var(--app-border-strong));
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+.app-root .ds-input::placeholder { color: hsl(var(--app-text-secondary)); }
+.app-root .ds-input:focus {
+  outline: none;
+  border-color: hsl(var(--app-accent) / 0.7);
+  box-shadow: 0 0 0 3px hsl(var(--app-accent) / 0.18);
+}

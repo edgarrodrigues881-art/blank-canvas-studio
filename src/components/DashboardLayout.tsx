@@ -79,7 +79,7 @@ const DashboardLayoutInner = ({ children }: DashboardLayoutProps) => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full overflow-hidden">
+      <div className="app-root min-h-screen flex w-full overflow-hidden">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-h-screen min-w-0">
           <header className="h-11 sm:h-14 border-b border-border bg-card shadow-sm flex items-center px-3 sm:px-4 shrink-0 gap-2 sm:gap-3">
