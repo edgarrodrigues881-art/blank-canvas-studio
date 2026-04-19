@@ -116,7 +116,7 @@ const Hero = () => {
             </motion.p>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.45, ease: easeOut, delay: 0.1 }} className="lg:col-span-6 relative lg:-mr-20 xl:-mr-32 lg:scale-[1.15] xl:scale-[1.2] origin-left">
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.45, ease: easeOut, delay: 0.1 }} className="lg:col-span-6 relative w-full max-w-[640px] mx-auto lg:mx-0 lg:ml-auto">
             <div className="relative">
               {/* Premium multi-layer glow */}
               <div className="absolute -inset-20 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.18)_0%,transparent_60%)] blur-3xl pointer-events-none" />
