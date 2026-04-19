@@ -86,6 +86,10 @@ export default function AutosaveSchedule() {
   const [timeOfDay, setTimeOfDay] = useState("13:00");
   const [minDelay, setMinDelay] = useState(15);
   const [maxDelay, setMaxDelay] = useState(60);
+  const [pauseEveryMin, setPauseEveryMin] = useState(10);
+  const [pauseEveryMax, setPauseEveryMax] = useState(20);
+  const [pauseDurationMin, setPauseDurationMin] = useState(30);
+  const [pauseDurationMax, setPauseDurationMax] = useState(120);
   const [msgsPerInstance, setMsgsPerInstance] = useState(0);
   const [progressionEnabled, setProgressionEnabled] = useState(false);
   const [initialLimit, setInitialLimit] = useState<number | "">("");
