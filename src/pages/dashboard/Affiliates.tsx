@@ -7,12 +7,11 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  DollarSign, Users, TrendingUp, Copy, Share2, Crown, Sparkles, Lock, Send, MessageCircle,
+  DollarSign, Users, TrendingUp, Copy, Crown, Sparkles, Lock, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { usePlanGate } from "@/hooks/usePlanGate";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 const COMMISSION_TIERS = [
   { month: "1º mês", percent: 30, label: "Primeiro mês", desc: "Maior comissão na entrada" },
@@ -28,7 +27,6 @@ export default function Affiliates() {
   const navigate = useNavigate();
   const { session } = useAuth();
   const { planState, isBlocked } = usePlanGate();
-  const isMobile = useIsMobile();
 
   const referralCode = useMemo(() => {
     const id = session?.user?.id ?? "";
