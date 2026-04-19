@@ -22,7 +22,7 @@ export const TutorialModal = ({ tutorial, open, onOpenChange }: Props) => {
       <DialogContent className="sm:max-w-2xl p-0 overflow-hidden bg-card border-border">
         <DialogHeader className="px-5 pt-5 pb-3">
           <DialogTitle className="text-base font-semibold">{tutorial.title}</DialogTitle>
-          <p className="text-xs text-muted-foreground">{tutorial.description}</p>
+          <p className="text-xs text-muted-foreground">{tutorial.subtitle}</p>
         </DialogHeader>
         <div className="aspect-video bg-muted/40 flex items-center justify-center">
           {open && tutorial.videoUrl ? (
