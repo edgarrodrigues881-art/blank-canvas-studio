@@ -39,9 +39,9 @@ const Navbar = () => {
   return (
     <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-[hsl(222,22%,5%)]/80 border-b border-white/[0.05]">
       <div className="max-w-[1200px] mx-auto flex items-center justify-between h-14 px-6">
-        <div className="flex items-center gap-2.5">
-          <img src={logo} alt="DG" width={28} height={28} className="rounded-md" />
-          <span className="text-[13px] font-semibold text-white tracking-tight">DG Contingência</span>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <img src={logo} alt="DG" width={28} height={28} className="rounded-md flex-shrink-0" />
+          <span className="hidden sm:inline text-[13px] font-semibold text-white tracking-tight whitespace-nowrap">DG Contingência Pro</span>
         </div>
         <nav className="hidden md:flex items-center gap-7">
           {[["produto", "Produto"], ["recursos", "Recursos"], ["planos", "Planos"], ["faq", "FAQ"]].map(([id, label]) => (
