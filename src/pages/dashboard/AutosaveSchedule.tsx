@@ -129,9 +129,19 @@ export default function AutosaveSchedule() {
       toast.error("Horário inválido");
       return;
     }
-    if (maxLimit < initialLimit) {
-      toast.error("Limite máximo deve ser ≥ limite inicial");
-      return;
+    // Progressão: validar APENAS se ativada
+    let payloadProgression: { initial_limit_per_instance: number; daily_increment: number; max_limit_per_instance: number };
+    if (progressionEnabled) {
+      const ini = typeof initialLimit === "number" ? initialLimit : NaN;
+      const inc = typeof dailyIncrement === "number" ? dailyIncrement : NaN;
+      const mx = typeof maxLimit === "number" ? maxLimit : NaN;
+      if (!Number.isFinite(ini) || ini < 0) return toast.error("Limite inicial deve ser ≥ 0");
+      if (!Number.isFinite(inc) || inc < 0) return toast.error("Incremento diário deve ser ≥ 0");
+      if (!Number.isFinite(mx) || mx < ini) return toast.error("Limite máximo deve ser ≥ limite inicial");
+      payloadProgression = { initial_limit_per_instance: ini, daily_increment: inc, max_limit_per_instance: mx };
+    } else {
+      // Convenção: 0/0/0 = progressão desativada (worker usa apenas messages_per_instance)
+      payloadProgression = { initial_limit_per_instance: 0, daily_increment: 0, max_limit_per_instance: 0 };
     }
 
     try {
@@ -143,9 +153,7 @@ export default function AutosaveSchedule() {
         min_delay_seconds: minDelay,
         max_delay_seconds: maxDelay,
         messages_per_instance: msgsPerInstance,
-        initial_limit_per_instance: Math.max(1, initialLimit),
-        daily_increment: Math.max(0, dailyIncrement),
-        max_limit_per_instance: Math.max(initialLimit, maxLimit),
+        ...payloadProgression,
       });
       toast.success("Agendamento recorrente criado");
       setCreateOpen(false);
