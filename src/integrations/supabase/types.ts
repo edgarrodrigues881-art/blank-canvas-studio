@@ -2120,6 +2120,116 @@ export type Database = {
           },
         ]
       }
+      contact_processing_campaigns: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          device_ids: Json
+          id: string
+          invalid_count: number
+          last_error: string | null
+          name: string | null
+          processed: number
+          started_at: string | null
+          status: Database["public"]["Enums"]["contact_campaign_status"]
+          total: number
+          type: Database["public"]["Enums"]["contact_campaign_type"]
+          updated_at: string
+          user_id: string
+          valid_count: number
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          device_ids?: Json
+          id?: string
+          invalid_count?: number
+          last_error?: string | null
+          name?: string | null
+          processed?: number
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["contact_campaign_status"]
+          total?: number
+          type: Database["public"]["Enums"]["contact_campaign_type"]
+          updated_at?: string
+          user_id: string
+          valid_count?: number
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          device_ids?: Json
+          id?: string
+          invalid_count?: number
+          last_error?: string | null
+          name?: string | null
+          processed?: number
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["contact_campaign_status"]
+          total?: number
+          type?: Database["public"]["Enums"]["contact_campaign_type"]
+          updated_at?: string
+          user_id?: string
+          valid_count?: number
+        }
+        Relationships: []
+      }
+      contact_processing_results: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          detected_type: string | null
+          device_id: string | null
+          error_message: string | null
+          id: string
+          jid: string | null
+          number: string | null
+          original: string
+          processed_at: string
+          status: string | null
+          user_id: string
+          valid: boolean
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          detected_type?: string | null
+          device_id?: string | null
+          error_message?: string | null
+          id?: string
+          jid?: string | null
+          number?: string | null
+          original: string
+          processed_at?: string
+          status?: string | null
+          user_id: string
+          valid?: boolean
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          detected_type?: string | null
+          device_id?: string | null
+          error_message?: string | null
+          id?: string
+          jid?: string | null
+          number?: string | null
+          original?: string
+          processed_at?: string
+          status?: string | null
+          user_id?: string
+          valid?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_processing_results_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "contact_processing_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           created_at: string
@@ -6613,6 +6723,13 @@ export type Database = {
         | "WARMUP_REPORT_24H"
         | "TEST_ALERT"
       app_role: "admin" | "moderator" | "user"
+      contact_campaign_status:
+        | "pending"
+        | "running"
+        | "completed"
+        | "failed"
+        | "cancelled"
+      contact_campaign_type: "verificacao" | "adicao"
       message_queue_status: "pending" | "sent" | "failed"
       message_queue_type:
         | "WELCOME"
@@ -6793,6 +6910,14 @@ export const Constants = {
         "TEST_ALERT",
       ],
       app_role: ["admin", "moderator", "user"],
+      contact_campaign_status: [
+        "pending",
+        "running",
+        "completed",
+        "failed",
+        "cancelled",
+      ],
+      contact_campaign_type: ["verificacao", "adicao"],
       message_queue_status: ["pending", "sent", "failed"],
       message_queue_type: [
         "WELCOME",
