@@ -856,15 +856,18 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       return;
     }
 
+    const liveWorkersRef = { value: initialDeviceIds.length };
+
     log.info(`Campaign ${campaignId.slice(0, 8)} launching ${initialDeviceIds.length} parallel device worker(s)`);
 
     // Run one parallel worker per device. They share the contact queue
     // (claim_next_mass_inject_contact uses FOR UPDATE SKIP LOCKED).
     await Promise.all(initialDeviceIds.map((did) =>
-      runDeviceWorker(sb, campaign, did, counterState, failedDeviceIds, stopAllRef, isRunningRef)
+      runDeviceWorker(sb, campaign, did, counterState, failedDeviceIds, stopAllRef, isRunningRef, liveWorkersRef)
         .catch((err: any) => {
           log.error(`Campaign ${campaignId.slice(0, 8)} device ${did.slice(0, 8)} worker error: ${err?.message || err}`);
-        }),
+        })
+        .finally(() => { liveWorkersRef.value -= 1; }),
     ));
 
     await flushCounters(sb, campaignId, counterState);
