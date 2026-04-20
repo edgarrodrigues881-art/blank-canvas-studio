@@ -119,9 +119,7 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
 }
 
 function buildHeaders(token: string, json = false): Record<string, string> {
-  const h: Record<string, string> = { token, Accept: "application/json", "Cache-Control": "no-cache" };
-  if (json) h["Content-Type"] = "application/json";
-  return h;
+  return buildUazapiHeaders(token, { json, context: "mass-inject-worker" });
 }
 
 async function readApiResponse(res: Response) {
