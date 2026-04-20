@@ -152,7 +152,7 @@ export default function LidConverter() {
 
       if (toResolve.length > 0) {
         const { data, error } = await supabase.functions.invoke("resolve-contact", {
-          body: { inputs: toResolve },
+          body: { inputs: toResolve, device_id: deviceId },
         });
         if (error) throw error;
         const results = Array.isArray(data?.results) ? data.results : [];
