@@ -1477,11 +1477,21 @@ async function runDeviceWorker(
         await ensureContactSaved(baseUrl, device.uazapi_token, phone);
         await sleep(randomBetween(500, 1500));
 
-        const doAdd = () => targetInfo.kind === "community_child"
-          ? addToGroup(baseUrl, device.uazapi_token, targetInfo.targetId, phone)
-          : addToGroup(baseUrl, device.uazapi_token, groupId, phone);
+        const effectiveGroupId = targetInfo.kind === "community_child" ? targetInfo.targetId : groupId;
+        const doAdd = async (label = "primary") => {
+          // MANDATORY pre-request log — proves the API is being called and with what.
+          log.info(
+            `sending_add_request label=${label} number=${phone} instance_id=${deviceId} group_id=${effectiveGroupId} endpoint=${baseUrl}/group/updateParticipants`,
+          );
+          const r = await addToGroup(baseUrl, device.uazapi_token, effectiveGroupId, phone);
+          // MANDATORY post-response log — full body (truncated) + status code.
+          log.info(
+            `add_response label=${label} number=${phone} instance_id=${deviceId} group_id=${effectiveGroupId} http=${r.httpStatus ?? "?"} ok=${r.ok} already=${r.alreadyExists} status=${r.failureStatus || (r.ok ? "success" : "failed")} body=${(r.rawResponse || "").slice(0, 500)}`,
+          );
+          return r;
+        };
 
-        result = await withDeadline(doAdd());
+        result = await withDeadline(doAdd("primary"));
 
         // ── Privacy handling: STRICT detection.
         // Only treat as privacy when the API explicitly says so. Generic
