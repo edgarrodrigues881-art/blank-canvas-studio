@@ -8,6 +8,7 @@ import { createLogger } from "../core/logger";
 
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
+import { inspectMassInjectTarget, type MassInjectTargetInfo } from "./mass-inject-target-utils";
 
 const log = createLogger("mass-inject");
 
@@ -71,8 +72,10 @@ type ConnectionCheckResult = {
 
 const participantCache = new Map<string, ParticipantCacheEntry>();
 const endpointCache = new Map<string, number>();
+const targetInfoCache = new Map<string, { info: MassInjectTargetInfo; checkedAt: number }>();
 const PARTICIPANT_CACHE_TTL_MS = 30 * 60_000; // 30 min — trust cache heavily during a campaign
 const PARTICIPANT_FAILURE_CACHE_TTL_MS = 10 * 60_000; // 10 min — even failed lookups shouldn't retry often
+const TARGET_INFO_CACHE_TTL_MS = 10 * 60_000;
 const participantEndpointCache = new Map<string, number>(); // baseUrl → winning strategy index
 
 // ── Tracking ──
@@ -307,6 +310,18 @@ function rememberParticipantInCache(baseUrl: string, groupId: string, phone: str
 
   cached.fetchedAt = Date.now();
   participantCache.set(cacheKey, cached);
+}
+
+async function getMassInjectTargetInfo(baseUrl: string, token: string, groupId: string): Promise<MassInjectTargetInfo> {
+  const cacheKey = `${baseUrl}::${groupId}`;
+  const cached = targetInfoCache.get(cacheKey);
+  if (cached && Date.now() - cached.checkedAt < TARGET_INFO_CACHE_TTL_MS) {
+    return cached.info;
+  }
+
+  const info = await inspectMassInjectTarget(baseUrl, token, groupId);
+  targetInfoCache.set(cacheKey, { info, checkedAt: Date.now() });
+  return info;
 }
 
 // ── Connection check with confirmation ──
@@ -599,6 +614,21 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
   }
 
   return { ok: false, alreadyExists: false, detail: "Nenhum endpoint encontrado (405).", retryable: false, pauseCampaign: true, cooldownMs: 0, canTryOtherStrategy: false, failureStatus: "failed" };
+}
+
+async function addToCommunity(targetInfo: MassInjectTargetInfo): Promise<AddResult> {
+  return {
+    ok: false,
+    alreadyExists: false,
+    detail: targetInfo.kind === "community_root"
+      ? targetInfo.detail
+      : `Destino comunitário exige fluxo separado (${targetInfo.targetId}). Use grupo interno ou convite.`,
+    retryable: false,
+    pauseCampaign: false,
+    cooldownMs: 0,
+    canTryOtherStrategy: false,
+    failureStatus: "failed",
+  };
 }
 
 /** Check if the lowercase error message contains keywords that indicate a real failure even on 2xx */
@@ -982,6 +1012,40 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       const groupId = contact.target_group_id || freshCampaign.group_id;
       const phone = String(contact.phone).replace(/@.*/, "");
       const deviceNumber = String(device.number || "").replace(/\D/g, "");
+      const targetInfo = await getMassInjectTargetInfo(baseUrl, device.uazapi_token, groupId);
+
+      if (targetInfo.kind === "community_root") {
+        const result = await addToCommunity(targetInfo);
+        await sb.from("mass_inject_contacts").update({
+          status: result.failureStatus || "failed",
+          error_message: result.detail,
+          processed_at: nowIso(),
+          device_used: device.name || device.id,
+        }).eq("id", contact.id);
+        updateCountersLocal(counterState, result.failureStatus || "failed");
+        contactsSinceFlush++;
+        batchFailed++;
+        deviceCriticalErrors.delete(deviceId);
+        log.warn(`Campaign ${campaignId.slice(0, 8)}: community root blocked target=${groupId} contact=${phone} detail=${result.detail}`);
+        await sleep(1000);
+        continue;
+      }
+
+      if (targetInfo.kind === "invalid") {
+        await sb.from("mass_inject_contacts").update({
+          status: "invalid_group",
+          error_message: targetInfo.detail,
+          processed_at: nowIso(),
+          device_used: device.name || device.id,
+        }).eq("id", contact.id);
+        updateCountersLocal(counterState, "invalid_group");
+        contactsSinceFlush++;
+        batchFailed++;
+        log.warn(`Campaign ${campaignId.slice(0, 8)}: invalid target blocked=${groupId} contact=${phone} detail=${targetInfo.detail}`);
+        await sleep(1000);
+        continue;
+      }
+
       if (deviceNumber && buildPhoneFingerprints(phone).some(fp => buildPhoneFingerprints(deviceNumber).some(dfp => dfp === fp))) {
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: "Próprio número da instância (admin) — ignorado.", processed_at: nowIso(),
@@ -1043,7 +1107,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       }
       let result: Awaited<ReturnType<typeof addToGroup>>;
       try {
-        result = await addToGroup(baseUrl, device.uazapi_token, groupId, phone);
+        result = targetInfo.kind === "community_child"
+          ? await addToGroup(baseUrl, device.uazapi_token, targetInfo.targetId, phone)
+          : await addToGroup(baseUrl, device.uazapi_token, groupId, phone);
       } finally {
         DeviceLockManager.release(deviceId, actionLockId);
       }

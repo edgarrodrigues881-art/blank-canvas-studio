@@ -633,6 +633,73 @@ async function checkGroupAccess(baseUrl: string, token: string, groupId: string)
   return { accessible: null, invalid: false, detail: "Não foi possível confirmar acesso ao grupo." };
 }
 
+function detectCommunityTarget(group: any, fallbackGroupId: string) {
+  const targetId = String(group?.JID || group?.jid || group?.id || group?.groupJid || group?.chatId || fallbackGroupId || "").trim();
+  const parentGroupId = [group?.parentGroup, group?.parentGroupId, group?.parentJid, group?.linkedParent, group?.linked_parent, group?.communityParent, group?.communityId]
+    .map((value: any) => typeof value === "string" ? value.trim() : String(value?.JID || value?.jid || value?.id || "").trim())
+    .find((value: string) => value.endsWith("@g.us")) || null;
+  const isCommunityRoot = Boolean(
+    targetId.includes("@lid")
+    || group?.IsCommunity === true
+    || group?.isCommunity === true
+    || group?.is_community === true
+    || group?.IsParent === true
+    || group?.isParent === true
+    || [group?.groupType, group?.type, group?.chatType].some((value: any) => typeof value === "string" && value.toLowerCase().includes("community"))
+  );
+  return { isCommunityRoot, parentGroupId, targetId };
+}
+
+async function inspectGroupTarget(baseUrl: string, token: string, groupId: string) {
+  if (String(groupId || "").includes("@lid")) {
+    return {
+      kind: "community_root" as const,
+      detail: `Comunidade raiz detectada (${groupId}). Use o grupo interno da comunidade ou link de convite; adição direta foi bloqueada para evitar ban.`,
+      targetId: groupId,
+      parentGroupId: null,
+    };
+  }
+
+  const endpoints = [
+    { method: "POST", url: `${baseUrl}/group/info`, body: { groupJid: groupId } },
+    { method: "GET", url: `${baseUrl}/group/info?groupJid=${encodeURIComponent(groupId)}` },
+    { method: "POST", url: `${baseUrl}/chat/info`, body: { chatId: groupId } },
+  ];
+
+  for (const ep of endpoints) {
+    try {
+      const res = await fetchWithTimeout(ep.url, {
+        method: ep.method,
+        headers: ep.body ? buildHeaders(token, true) : buildHeaders(token),
+        ...(ep.body ? { body: JSON.stringify(ep.body) } : {}),
+      });
+      const { raw, body } = await readApiResponse(res);
+      const message = extractProviderMessage(body, raw).toLowerCase();
+      const group = body?.group || body?.data?.group || body?.data || body || {};
+      const meta = detectCommunityTarget(group, groupId);
+      if (meta.isCommunityRoot) {
+        return {
+          kind: "community_root" as const,
+          detail: `Comunidade raiz detectada (${meta.targetId}). Use o grupo interno vinculado ou um link de convite; adição direta foi bloqueada para evitar ban.`,
+          targetId: meta.targetId,
+          parentGroupId: meta.parentGroupId,
+        };
+      }
+      if (meta.parentGroupId) {
+        return { kind: "community_child" as const, detail: `Grupo interno da comunidade ${meta.parentGroupId}.`, targetId: meta.targetId, parentGroupId: meta.parentGroupId };
+      }
+      if (res.ok) {
+        return { kind: "group" as const, detail: "Grupo comum confirmado.", targetId: meta.targetId || groupId, parentGroupId: null };
+      }
+      if (message.includes("not found") || message.includes("invalid") || message.includes("does not exist")) {
+        return { kind: "invalid" as const, detail: `Grupo inválido ou sem acesso (${groupId}).`, targetId: groupId, parentGroupId: null };
+      }
+    } catch { /* continue */ }
+  }
+
+  return { kind: "group" as const, detail: "Metadados não confirmados; seguindo como grupo comum.", targetId: groupId, parentGroupId: null };
+}
+
 // UAZAPI groupUpdated error codes that mean SUCCESS
 const UAZAPI_SUCCESS_CODES = new Set([0, 200, 201]);
 // UAZAPI error codes that mean "already in group"
@@ -1096,6 +1163,23 @@ Deno.serve(async (req) => {
       const primaryDevice = await getDeviceCredentials(sb, deviceIds[0], user?.id || null, isAdmin);
       if (!primaryDevice) {
         return new Response(JSON.stringify({ error: "Instância não encontrada." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      for (const gt of groupTargets) {
+        const inspected = await inspectGroupTarget(primaryDevice.uazapi_base_url, primaryDevice.uazapi_token, gt.group_id);
+        if (inspected.kind === "community_root") {
+          return new Response(JSON.stringify({
+            error: inspected.detail,
+            code: "community_direct_add_not_supported",
+            targetId: inspected.targetId,
+            recommendation: inspected.parentGroupId
+              ? `Use o grupo interno vinculado (${inspected.parentGroupId}) ou envie um link de convite.`
+              : "Use um grupo interno da comunidade ou envie um link de convite.",
+          }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        if (inspected.kind === "invalid") {
+          return new Response(JSON.stringify({ error: inspected.detail, code: "invalid_group_target" }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
       }
 
       // ── PRE-CHECK: automatically detect contacts already in each target group ──
