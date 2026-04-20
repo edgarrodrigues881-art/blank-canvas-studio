@@ -1464,10 +1464,22 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   }, [importedContacts, importFilter]);
 
   const handleValidate = useCallback(async () => {
-    // 1. Coleta entradas brutas (números E LIDs/JIDs) — não filtra mais por classifyContacts.
+    // 1. Coleta entradas brutas e NORMALIZA antes de qualquer validação.
+    //    - Se contém "@lid" → preserva como LID (lowercase, sem espaços).
+    //    - Caso contrário → reduz a apenas dígitos (remove +, espaços, -, parênteses, etc).
+    const normalizeInput = (raw: string): string => {
+      const trimmed = String(raw || "").trim();
+      if (!trimmed) return "";
+      if (trimmed.toLowerCase().includes("@lid")) {
+        return trimmed.replace(/\s+/g, "").toLowerCase();
+      }
+      // Remove TUDO que não for dígito (+, espaços, -, (), etc.)
+      return trimmed.replace(/\D/g, "");
+    };
+
     const rawInputs = importedContacts
       .filter(c => c.classification !== "empty")
-      .map(c => c.raw.trim())
+      .map(c => normalizeInput(c.raw))
       .filter(Boolean);
 
     if (rawInputs.length === 0) return toast.error("Nenhum contato para processar");
