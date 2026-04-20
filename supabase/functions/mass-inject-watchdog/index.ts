@@ -11,9 +11,11 @@ const corsHeaders = {
 };
 
 // Thresholds
-const NO_PROGRESS_THRESHOLD_MS = 60_000;       // 60s without any contact update
-const STUCK_PROCESSING_THRESHOLD_MS = 180_000; // 3min stuck in 'processing'
-const IDLE_WORKER_THRESHOLD_MS = 90_000;       // worker hasn't claimed in 90s but queue exists
+const NO_PROGRESS_THRESHOLD_MS = 60_000;            // 60s without any contact update
+const STUCK_PROCESSING_THRESHOLD_MS = 180_000;      // 3min stuck in 'processing' (legacy)
+const IDLE_WORKER_THRESHOLD_MS = 90_000;            // worker hasn't claimed in 90s but queue exists
+const HARD_FAIL_PROCESSING_MS = 120_000;            // 2min: HARD FAIL — terminal failure
+const MAX_CONTACT_ATTEMPTS = 3;                     // matches worker — terminal cap
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
