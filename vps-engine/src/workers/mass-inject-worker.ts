@@ -1123,8 +1123,9 @@ async function runDeviceWorker(
           failedDeviceIds.delete(deviceId);
           continue;
         }
-        // Siblings still alive — exit this worker; they'll absorb the load
-        log.info(`Campaign ${campaignId.slice(0, 8)} device ${deviceId.slice(0, 8)} stepping out — ${liveWorkersRef.value - 1} sibling(s) absorbing load`);
+        // Siblings still alive — exit this worker; reassign MY pinned queue to them.
+        await reassignMyQueueToSiblings(sb, campaignId, deviceId, parseDeviceIds(freshCampaign.device_ids), failedDeviceIds);
+        log.info(`Campaign ${campaignId.slice(0, 8)} device ${deviceId.slice(0, 8)} stepping out — ${liveWorkersRef.value - 1} sibling(s) absorbing load (queue reassigned)`);
         break;
       }
 
