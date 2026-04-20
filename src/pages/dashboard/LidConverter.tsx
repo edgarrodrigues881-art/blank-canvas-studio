@@ -193,6 +193,81 @@ export default function LidConverter() {
     setRows([]);
   };
 
+  // Extrai tokens (números, JIDs, LIDs) de strings arbitrárias
+  const extractTokens = (text: string): string[] => {
+    const out: string[] = [];
+    const re = /(\d+@(?:s\.whatsapp\.net|c\.us|lid|g\.us))|(\+?\d[\d\s().-]{6,}\d)/gi;
+    const matches = text.match(re);
+    if (matches) {
+      for (const m of matches) {
+        const cleaned = m.includes("@") ? m.trim() : m.replace(/[\s().-]/g, "");
+        if (cleaned.length >= 6) out.push(cleaned);
+      }
+    }
+    return out;
+  };
+
+  const processCell = (cell: unknown, collected: string[]) => {
+    if (cell == null) return;
+    const s = String(cell).trim();
+    if (!s) return;
+    const tokens = extractTokens(s);
+    if (tokens.length > 0) collected.push(...tokens);
+    else {
+      const digits = s.replace(/\D/g, "");
+      if (digits.length >= 6) collected.push(digits);
+    }
+  };
+
+  const handleImportFile = async (file: File) => {
+    setImporting(true);
+    try {
+      const name = file.name.toLowerCase();
+      const isExcel = /\.xlsx?$/.test(name);
+      const collected: string[] = [];
+
+      if (isExcel) {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        for (const sheetName of wb.SheetNames) {
+          const sheet = wb.Sheets[sheetName];
+          const rowsData = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "" });
+          for (const row of rowsData) for (const cell of row) processCell(cell, collected);
+        }
+      } else {
+        const text = await file.text();
+        const lines = text.split(/\r?\n/);
+        for (const line of lines) {
+          const cells = line.split(/[,;\t]/);
+          for (const cell of cells) processCell(cell.replace(/^["']|["']$/g, ""), collected);
+        }
+      }
+
+      if (collected.length === 0) {
+        toast.error("Nenhum contato encontrado no arquivo.");
+        return;
+      }
+
+      // Mantém entradas existentes + dedup global
+      const existing = input.split(/[\n,;]+/).map((l) => l.trim()).filter(Boolean);
+      const seen = new Set<string>(existing);
+      const merged: string[] = [...existing];
+      let added = 0;
+      for (const c of collected) {
+        if (!seen.has(c)) { seen.add(c); merged.push(c); added++; }
+      }
+      setInput(merged.join("\n"));
+      const dup = collected.length - added;
+      toast.success(`${added} contatos importados${dup > 0 ? ` · ${dup} duplicados ignorados` : ""}`);
+    } catch (err) {
+      console.error("[lid-converter] import error", err);
+      toast.error("Falha ao ler arquivo.");
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   const validNumbers = useMemo(
     () => rows.filter((r) => r.valid && r.number !== "—").map((r) => r.number),
     [rows],
