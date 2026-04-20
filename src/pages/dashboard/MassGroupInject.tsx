@@ -11,7 +11,7 @@ import {
   FileText, BarChart3, UserPlus, ChevronRight, Globe,
   Clock, Pause, ArrowLeftRight, Settings2, Timer,
   StopCircle, AlertTriangle, TrendingUp, Plus, ArrowLeft,
-  Eye, Info, WifiOff, Link2, Hash, AlertCircle, Download, RotateCcw
+  Eye, Info, WifiOff, Link2, Hash, AlertCircle, Download, RotateCcw, Activity
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -624,15 +624,68 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     refetchOnWindowFocus: true,
   });
 
-  // Auto-refresh only while campaign is active
+  // Auto-refresh only while campaign is active (fallback when realtime is unavailable)
   useEffect(() => {
     if (!isActiveStatus(campaign?.status)) return;
     const id = setInterval(() => {
       if (!isFetchingCampaign) refetchCampaign();
       if (!isFetchingContacts) refetchContacts();
-    }, 2500);
+    }, 2000);
     return () => clearInterval(id);
   }, [campaign?.status, isFetchingCampaign, isFetchingContacts, refetchCampaign, refetchContacts]);
+
+  // ── Realtime subscription on contacts: instant UI updates per row change ──
+  // Each INSERT/UPDATE/DELETE on mass_inject_contacts for this campaign
+  // refreshes the local cache so per-instance + global counters stay live.
+  useEffect(() => {
+    if (!campaignId || !isActiveStatus(campaign?.status)) return;
+    const channel = supabase
+      .channel(`mass_inject_contacts:${campaignId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "mass_inject_contacts", filter: `campaign_id=eq.${campaignId}` },
+        () => { refetchContacts(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "mass_inject_campaigns", filter: `id=eq.${campaignId}` },
+        () => { refetchCampaign(); },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [campaignId, campaign?.status, refetchContacts, refetchCampaign]);
+
+  // ── Stuck-pending recovery: if a contact stays "processing" past STALE_PROCESSING_MS
+  //    OR the campaign has only "pending" contacts and no progress for >60s, nudge the
+  //    worker via the existing recover-stalled action. Never leave contacts frozen.
+  const lastRecoverNudgeAtRef = useRef(0);
+  useEffect(() => {
+    if (!campaignId || !isActiveStatus(campaign?.status)) return;
+    const id = setInterval(async () => {
+      const nowMs = Date.now();
+      if (nowMs - lastRecoverNudgeAtRef.current < 30_000) return; // throttle: 1 nudge / 30s
+      let stuckProcessing = false;
+      let pendingNow = 0;
+      let processedNow = 0;
+      for (const c of contacts as any[]) {
+        if (c.status === "completed" || c.status === "already_exists") processedNow++;
+        else if (isFailureStatus(c.status)) processedNow++;
+        if (ACTIVE_QUEUE_STATUSES.has(c.status)) pendingNow++;
+        if (c.status === "processing") {
+          const ts = c.processed_at ? new Date(c.processed_at).getTime() : 0;
+          if (ts > 0 && nowMs - ts > STALE_PROCESSING_MS) stuckProcessing = true;
+        }
+      }
+      const updatedAtMs = campaign?.updated_at ? new Date(campaign.updated_at).getTime() : nowMs;
+      const noProgressTooLong = pendingNow > 0 && processedNow === 0 && (nowMs - updatedAtMs) > 60_000;
+      if (!stuckProcessing && !noProgressTooLong) return;
+      lastRecoverNudgeAtRef.current = nowMs;
+      try {
+        await supabase.functions.invoke("mass-group-inject", { body: { action: "recover-stalled", campaignId } });
+      } catch { /* best-effort nudge — VPS auto-recovers anyway */ }
+    }, 15_000);
+    return () => clearInterval(id);
+  }, [campaignId, campaign?.status, campaign?.updated_at, contacts]);
 
   // Watchdog removed — VPS engine handles campaign processing now.
   // We only show a visual note if the campaign seems stalled.
@@ -899,19 +952,75 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     );
   }
 
+  // ── Global progress aggregation ──
+  // Tracks: total processed, success, failed, retrying, processing.
   const derivedCounts = contacts.reduce((acc: any, contact: any) => {
     if (contact.status === "completed") acc.success++;
     if (contact.status === "already_exists") acc.already++;
     if (isFailureStatus(contact.status)) acc.failed++;
     if (ACTIVE_QUEUE_STATUSES.has(contact.status)) acc.pending++;
+    if (contact.status === "retrying" || contact.status === "rate_limited") acc.retrying++;
+    if (contact.status === "processing") acc.processing++;
     return acc;
-  }, { success: 0, already: 0, failed: 0, pending: 0 });
+  }, { success: 0, already: 0, failed: 0, pending: 0, retrying: 0, processing: 0 });
 
   const hasContactSnapshot = contacts.length > 0;
   const successCount = hasContactSnapshot ? derivedCounts.success : (campaign.success_count || 0);
   const alreadyCount = hasContactSnapshot ? derivedCounts.already : (campaign.already_count || 0);
   const failedCount = hasContactSnapshot ? derivedCounts.failed : (campaign.fail_count || 0);
   const pendingCount = hasContactSnapshot ? derivedCounts.pending : contacts.filter((c: any) => ACTIVE_QUEUE_STATUSES.has(c.status)).length;
+  const retryingCount = derivedCounts.retrying;
+  const processingCount = derivedCounts.processing;
+  const processedCount = successCount + alreadyCount + failedCount;
+
+  // ── Per-instance breakdown ──
+  // Pivots contacts by `device_used` so each instance shows its own
+  // queue size, currently-processing contact, and current action.
+  // (Plain const — must NOT use useMemo here because we're past an early return.)
+  const perInstanceStats: Array<{
+    device: string;
+    total: number;
+    success: number;
+    failed: number;
+    retrying: number;
+    pending: number;
+    processing: number;
+    currentContact: string | null;
+    currentAction: "sending" | "cooldown" | "retrying" | "idle";
+    lastUpdate: number;
+  }> = (() => {
+    const map = new Map<string, any>();
+    for (const c of contacts as any[]) {
+      const key = c.device_used || "—";
+      let entry = map.get(key);
+      if (!entry) {
+        entry = { device: key, total: 0, success: 0, failed: 0, retrying: 0, pending: 0, processing: 0, currentContact: null, currentAction: "idle", lastUpdate: 0 };
+        map.set(key, entry);
+      }
+      entry.total++;
+      if (c.status === "completed" || c.status === "already_exists") entry.success++;
+      else if (isFailureStatus(c.status)) entry.failed++;
+      else if (c.status === "retrying" || c.status === "rate_limited") entry.retrying++;
+      else if (c.status === "processing") {
+        entry.processing++;
+        if (!entry.currentContact) {
+          entry.currentContact = c.phone;
+          entry.currentAction = "sending";
+        }
+      } else if (ACTIVE_QUEUE_STATUSES.has(c.status)) entry.pending++;
+      const ts = c.processed_at ? new Date(c.processed_at).getTime() : 0;
+      if (ts > entry.lastUpdate) entry.lastUpdate = ts;
+    }
+    for (const entry of map.values()) {
+      if (entry.currentAction === "idle") {
+        if (entry.retrying > 0 && entry.pending === 0) entry.currentAction = "cooldown";
+        else if (entry.retrying > 0) entry.currentAction = "retrying";
+      }
+    }
+    const arr = Array.from(map.values());
+    const realInstances = arr.filter(e => e.device !== "—");
+    return (realInstances.length > 0 ? realInstances : arr).sort((a, b) => b.total - a.total);
+  })();
 
   const canResume = (campaign.status === "paused" || campaign.status === "draft") && pendingCount > 0;
   const canPause = isRunning;
@@ -970,13 +1079,14 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
         </div>
       )}
 
-      {/* Stats bar — single row */}
-      <div className="grid grid-cols-5 gap-px bg-border/30 rounded-xl overflow-hidden border border-border/40">
+      {/* Stats bar — global tracking: total / success / already / pending / retrying / failed */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-px bg-border/30 rounded-xl overflow-hidden border border-border/40">
         {[
           { label: "Total", value: campaign.total_contacts, color: "text-foreground" },
           { label: "Adicionados", value: successCount, color: "text-emerald-500" },
           { label: "Já no grupo", value: alreadyCount, color: "text-blue-500" },
           { label: "Pendentes", value: pendingCount, color: "text-muted-foreground" },
+          { label: "Retentando", value: retryingCount, color: "text-amber-500" },
           { label: "Falhas", value: failedCount, color: "text-destructive" },
         ].map(s => (
           <div key={s.label} className="bg-card/90 px-4 py-3 text-center">
@@ -985,6 +1095,57 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
           </div>
         ))}
       </div>
+
+      {/* Per-instance breakdown — shows queue size, current contact, current action per device */}
+      {perInstanceStats.length > 0 && isRunning && (
+        <Card className="border-border/40 bg-card/80 overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-border/30 flex items-center gap-2">
+            <Activity className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-semibold text-foreground">Atividade por instância</span>
+            <Badge variant="outline" className="text-[9px] h-4 px-1.5 ml-auto">{perInstanceStats.length} ativa(s)</Badge>
+          </div>
+          <div className="divide-y divide-border/20">
+            {perInstanceStats.map((inst) => {
+              const remaining = inst.pending + inst.retrying + inst.processing;
+              const actionLabel =
+                inst.processing > 0 ? "Enviando"
+                : inst.currentAction === "cooldown" ? "Aguardando cooldown"
+                : inst.currentAction === "retrying" ? "Retentando"
+                : remaining > 0 ? "Aguardando"
+                : "Concluído";
+              const actionTone =
+                inst.processing > 0 ? "text-primary"
+                : inst.currentAction === "cooldown" ? "text-amber-500"
+                : inst.currentAction === "retrying" ? "text-amber-500"
+                : remaining > 0 ? "text-muted-foreground"
+                : "text-emerald-500";
+              const ActionIcon = inst.processing > 0 ? Loader2 : (inst.currentAction === "cooldown" || inst.currentAction === "retrying") ? Clock : remaining > 0 ? Loader2 : CheckCircle2;
+              return (
+                <div key={inst.device} className="px-4 py-2.5 flex items-center gap-3 text-xs">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-foreground truncate">{inst.device}</span>
+                      <span className={`flex items-center gap-1 text-[11px] font-medium ${actionTone}`}>
+                        <ActionIcon className={`w-3 h-3 ${inst.processing > 0 || (remaining > 0 && inst.currentAction === "idle") ? "animate-spin" : ""}`} />
+                        {actionLabel}
+                      </span>
+                    </div>
+                    {inst.currentContact && (
+                      <p className="text-[10px] text-muted-foreground/80 font-mono mt-0.5 truncate">→ {inst.currentContact}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground tabular-nums shrink-0">
+                    <span><span className="text-emerald-500 font-semibold">{inst.success}</span> ok</span>
+                    {inst.retrying > 0 && <span><span className="text-amber-500 font-semibold">{inst.retrying}</span> retry</span>}
+                    {inst.failed > 0 && <span><span className="text-destructive font-semibold">{inst.failed}</span> falha</span>}
+                    <span className="border-l border-border/40 pl-3"><span className="text-foreground font-semibold">{remaining}</span> na fila</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* Progress bar for active campaigns */}
       {isRunning && campaign.total_contacts > 0 && (() => {
