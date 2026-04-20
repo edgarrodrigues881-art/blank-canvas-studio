@@ -30,7 +30,8 @@ function detectType(input: string): ResolvedType | null {
   if (!value) return null;
   if (value.includes(LID_SUFFIX)) return "lid";
   if (value.includes(PRIVATE_JID_SUFFIX)) return "jid";
-  if (/^\d+$/.test(value)) return "number";
+  // Aceita qualquer string que contenha pelo menos um dígito — será normalizada para apenas dígitos.
+  if (/\d/.test(value)) return "number";
   return null;
 }
 
