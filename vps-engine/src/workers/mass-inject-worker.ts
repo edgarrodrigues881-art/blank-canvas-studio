@@ -582,11 +582,15 @@ function recordDeviceApiFailure(deviceId: string, errorDetail: string): boolean 
 function recordDeviceApiSuccess(deviceId: string) {
   const state = deviceConnectionState.get(deviceId);
   if (state) {
+    const wasDisconnected = state.status === "disconnected";
     state.consecutiveApiFailures = 0;
     state.status = "connected";
     state.confirmedDisconnectedAt = null;
     state.lastCheckedAt = Date.now();
     deviceConnectionState.set(deviceId, state);
+    if (wasDisconnected) {
+      log.info(`STATE CHANGE [recovered] device ${deviceId.slice(0, 8)} — successful API call confirmed instance is online.`);
+    }
   }
 }
 
