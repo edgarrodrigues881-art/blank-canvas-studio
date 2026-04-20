@@ -1011,28 +1011,10 @@ async function runDeviceWorker(
 
       if (!connResult.connected) {
         if (connResult.shouldSkipDevice) {
-          // Device confirmed disconnected — skip without consuming contact
+          // MY device confirmed disconnected — exit this worker so siblings absorb load.
           failedDeviceIds.set(deviceId, Date.now());
-
-          // Check if ALL devices are down
-          const allIds = parseDeviceIds(freshCampaign.device_ids);
-          const allDown = allIds.every(id => {
-            const s = deviceConnectionState.get(id);
-            return failedDeviceIds.has(id) || (s?.status === "disconnected");
-          });
-
-          if (allDown) {
-            await emitEvent(sb, campaignId, "all_sessions_dropped", "warning", "Todas as instâncias desconectadas. Aguardando reconexão...");
-            await sb.from("mass_inject_campaigns").update({
-              updated_at: nowIso(),
-              next_run_at: new Date(Date.now() + DEVICE_DISCONNECTED_RECHECK_MS).toISOString(),
-              pause_reason: "Aguardando reconexão das instâncias...",
-            }).eq("id", campaignId);
-            await sleep(DEVICE_DISCONNECTED_RECHECK_MS);
-            failedDeviceIds.clear();
-            continue;
-          }
-          continue; // try next device
+          log.info(`Campaign ${campaignId.slice(0, 8)}: device ${deviceId.slice(0, 8)} disconnected — releasing worker`);
+          break;
         }
         // Unknown status — proceed cautiously
       }
