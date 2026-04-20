@@ -195,10 +195,10 @@ const Auth = () => {
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
         onClick={() => navigate("/")}
-        className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20 flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium text-white/70 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md transition-all group"
+        aria-label="Voltar"
+        className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20 p-1.5 text-white/25 hover:text-white/60 transition-colors"
       >
-        <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-        Voltar
+        <ArrowLeft className="w-5 h-5" strokeWidth={1.5} />
       </motion.button>
 
       <div className="w-full max-w-[420px] flex flex-col items-center relative z-10">
