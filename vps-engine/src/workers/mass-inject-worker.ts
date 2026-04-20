@@ -1064,7 +1064,7 @@ async function runDeviceWorker(
         continue;
       }
 
-      // 5. Claim next contact
+      // 5. Claim next contact (DB enforces MAX_CONTACT_ATTEMPTS — capped retries)
       const { data: contact } = await sb.rpc("claim_next_mass_inject_contact", {
         p_campaign_id: campaignId,
         p_device_used: device.name || device.id,
@@ -1076,11 +1076,33 @@ async function runDeviceWorker(
         break;
       }
 
+      const currentAttempt = Number((contact as any).attempt_count || 1);
+      const isLastAttempt = currentAttempt >= MAX_CONTACT_ATTEMPTS;
+
+      // 5b. Validate JID BEFORE any API call. Invalid contacts are marked
+      //     immediately as failed and never re-claimed.
+      const normalized = normalizeContactJid(String(contact.phone || ""));
+      if (!normalized) {
+        await sb.from("mass_inject_contacts").update({
+          status: "failed",
+          error_message: "Contato inválido (sem JID válido) — ignorado.",
+          processed_at: nowIso(),
+          device_used: device.name || device.id,
+          attempt_count: MAX_CONTACT_ATTEMPTS, // never retry
+        } as any).eq("id", contact.id);
+        updateCountersLocal(counterState, "failed");
+        contactsSinceFlush++;
+        batchFailed++;
+        log.info(`Campaign ${campaignId.slice(0, 8)}: skipped invalid contact "${String(contact.phone || "").slice(0, 30)}"`);
+        await sleep(200);
+        continue;
+      }
+
       // processed_at will be set in the final status update below — skip redundant write here
 
       // 6. Skip own number (admin's device number — can't add yourself)
       const groupId = contact.target_group_id || freshCampaign.group_id;
-      const phone = String(contact.phone).replace(/@.*/, "");
+      const phone = normalized.phone;
       const deviceNumber = String(device.number || "").replace(/\D/g, "");
       const targetInfo = await getMassInjectTargetInfo(baseUrl, device.uazapi_token, groupId);
 
