@@ -743,8 +743,11 @@ function hasExplicitFailure(msg: string): boolean {
 
 function classifyFailure(msg: string, status: number, strategyIndex: number): AddResult {
   const base = { ok: false as const, alreadyExists: false, strategyIndex, canTryOtherStrategy: false };
-  if (msg.includes("rate-overlimit") || msg.includes("429") || msg.includes("too many") || status === 429)
-    return { ...base, detail: "Rate limit.", retryable: true, pauseCampaign: false, cooldownMs: 8000, failureStatus: "rate_limited" };
+  if (msg.includes("rate-overlimit") || msg.includes("rate limit") || msg.includes("ratelimit") || msg.includes("429") || msg.includes("too many") || status === 429) {
+    // Cooldown aleatório de 30–60s — evita bater na API durante o bloqueio
+    const cooldown = randomBetween(30_000, 60_000);
+    return { ...base, detail: `Rate limit detectado pela API. Cooldown de ${Math.round(cooldown / 1000)}s antes de retomar.`, retryable: true, pauseCampaign: false, cooldownMs: cooldown, failureStatus: "rate_limited" };
+  }
   if (msg.includes("websocket disconnected before info query") || msg.includes("connection reset") || msg.includes("socket hang up"))
     return { ...base, detail: "A integração interrompeu a consulta antes de concluir.", retryable: true, pauseCampaign: false, cooldownMs: 3000, canTryOtherStrategy: true, failureStatus: "api_temporary" };
   if (msg.includes("privacidade") || msg.includes("saved contacts") || msg.includes("contatos salvos") || msg.includes("only allows") || msg.includes("invite de contatos"))
