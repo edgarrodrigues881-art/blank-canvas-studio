@@ -1026,13 +1026,14 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
         </div>
       )}
 
-      {/* Stats bar — single row */}
-      <div className="grid grid-cols-5 gap-px bg-border/30 rounded-xl overflow-hidden border border-border/40">
+      {/* Stats bar — global tracking: total / success / already / pending / retrying / failed */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-px bg-border/30 rounded-xl overflow-hidden border border-border/40">
         {[
           { label: "Total", value: campaign.total_contacts, color: "text-foreground" },
           { label: "Adicionados", value: successCount, color: "text-emerald-500" },
           { label: "Já no grupo", value: alreadyCount, color: "text-blue-500" },
           { label: "Pendentes", value: pendingCount, color: "text-muted-foreground" },
+          { label: "Retentando", value: retryingCount, color: "text-amber-500" },
           { label: "Falhas", value: failedCount, color: "text-destructive" },
         ].map(s => (
           <div key={s.label} className="bg-card/90 px-4 py-3 text-center">
@@ -1041,6 +1042,57 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
           </div>
         ))}
       </div>
+
+      {/* Per-instance breakdown — shows queue size, current contact, current action per device */}
+      {perInstanceStats.length > 0 && isRunning && (
+        <Card className="border-border/40 bg-card/80 overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-border/30 flex items-center gap-2">
+            <Activity className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-semibold text-foreground">Atividade por instância</span>
+            <Badge variant="outline" className="text-[9px] h-4 px-1.5 ml-auto">{perInstanceStats.length} ativa(s)</Badge>
+          </div>
+          <div className="divide-y divide-border/20">
+            {perInstanceStats.map((inst) => {
+              const remaining = inst.pending + inst.retrying + inst.processing;
+              const actionLabel =
+                inst.processing > 0 ? "Enviando"
+                : inst.currentAction === "cooldown" ? "Aguardando cooldown"
+                : inst.currentAction === "retrying" ? "Retentando"
+                : remaining > 0 ? "Aguardando"
+                : "Concluído";
+              const actionTone =
+                inst.processing > 0 ? "text-primary"
+                : inst.currentAction === "cooldown" ? "text-amber-500"
+                : inst.currentAction === "retrying" ? "text-amber-500"
+                : remaining > 0 ? "text-muted-foreground"
+                : "text-emerald-500";
+              const ActionIcon = inst.processing > 0 ? Loader2 : (inst.currentAction === "cooldown" || inst.currentAction === "retrying") ? Clock : remaining > 0 ? Loader2 : CheckCircle2;
+              return (
+                <div key={inst.device} className="px-4 py-2.5 flex items-center gap-3 text-xs">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-foreground truncate">{inst.device}</span>
+                      <span className={`flex items-center gap-1 text-[11px] font-medium ${actionTone}`}>
+                        <ActionIcon className={`w-3 h-3 ${inst.processing > 0 || (remaining > 0 && inst.currentAction === "idle") ? "animate-spin" : ""}`} />
+                        {actionLabel}
+                      </span>
+                    </div>
+                    {inst.currentContact && (
+                      <p className="text-[10px] text-muted-foreground/80 font-mono mt-0.5 truncate">→ {inst.currentContact}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground tabular-nums shrink-0">
+                    <span><span className="text-emerald-500 font-semibold">{inst.success}</span> ok</span>
+                    {inst.retrying > 0 && <span><span className="text-amber-500 font-semibold">{inst.retrying}</span> retry</span>}
+                    {inst.failed > 0 && <span><span className="text-destructive font-semibold">{inst.failed}</span> falha</span>}
+                    <span className="border-l border-border/40 pl-3"><span className="text-foreground font-semibold">{remaining}</span> na fila</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* Progress bar for active campaigns */}
       {isRunning && campaign.total_contacts > 0 && (() => {
