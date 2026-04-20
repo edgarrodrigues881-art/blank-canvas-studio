@@ -39,7 +39,9 @@ export default function LidConverter() {
   const [input, setInput] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [tab, setTab] = useState<"convert" | "history">("convert");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // history
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
