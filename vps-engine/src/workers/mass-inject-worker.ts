@@ -1376,7 +1376,7 @@ async function runDeviceWorker(
         contactsSinceFlush++;
         batchFailed++;
         deviceCriticalErrors.delete(deviceId);
-        log.warn(`Campaign ${campaignId.slice(0, 8)}: community root blocked target=${groupId} contact=${phone} detail=${result.detail}`);
+        log.warn(`add_skipped reason=community_root number=${phone} instance_id=${deviceId} group_id=${groupId} detail="${(result.detail || "").slice(0, 120)}"`);
         await sleep(1000);
         continue;
       }
@@ -1391,12 +1391,13 @@ async function runDeviceWorker(
         updateCountersLocal(counterState, "invalid_group");
         contactsSinceFlush++;
         batchFailed++;
-        log.warn(`Campaign ${campaignId.slice(0, 8)}: invalid target blocked=${groupId} contact=${phone} detail=${targetInfo.detail}`);
+        log.warn(`add_skipped reason=invalid_group number=${phone} instance_id=${deviceId} group_id=${groupId} detail="${(targetInfo.detail || "").slice(0, 120)}"`);
         await sleep(1000);
         continue;
       }
 
       if (deviceNumber && buildPhoneFingerprints(phone).some(fp => buildPhoneFingerprints(deviceNumber).some(dfp => dfp === fp))) {
+        log.info(`add_skipped reason=own_device_number number=${phone} instance_id=${deviceId} group_id=${groupId}`);
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: "Próprio número da instância (admin) — ignorado.", processed_at: nowIso(),
         }).eq("id", contact.id);
@@ -1427,6 +1428,7 @@ async function runDeviceWorker(
         : (useCachedCheck ? cachedParticipants! : null);
 
       if (participantSnapshot?.confirmed && participantSetHasPhone(participantSnapshot.participants, phone)) {
+        log.info(`add_skipped reason=already_in_group number=${phone} instance_id=${deviceId} group_id=${groupId}`);
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: "Contato já participava do grupo.", processed_at: nowIso(),
         }).eq("id", contact.id);
@@ -1451,7 +1453,7 @@ async function runDeviceWorker(
       if (!lockAcquired) {
         // Device is busy with a conflicting heavy operation — revert contact to pending and skip
         await sb.from("mass_inject_contacts").update({ status: "pending", error_message: "Instância ocupada — reagendado.", device_used: null }).eq("id", contact.id);
-        log.info(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} busy — skipping contact ${phone}, will retry`);
+        log.info(`add_skipped reason=device_busy_lock number=${phone} instance_id=${deviceId} group_id=${groupId} — will retry`);
         await sleep(2000);
         continue;
       }
@@ -1477,11 +1479,21 @@ async function runDeviceWorker(
         await ensureContactSaved(baseUrl, device.uazapi_token, phone);
         await sleep(randomBetween(500, 1500));
 
-        const doAdd = () => targetInfo.kind === "community_child"
-          ? addToGroup(baseUrl, device.uazapi_token, targetInfo.targetId, phone)
-          : addToGroup(baseUrl, device.uazapi_token, groupId, phone);
+        const effectiveGroupId = targetInfo.kind === "community_child" ? targetInfo.targetId : groupId;
+        const doAdd = async (label = "primary") => {
+          // MANDATORY pre-request log — proves the API is being called and with what.
+          log.info(
+            `sending_add_request label=${label} number=${phone} instance_id=${deviceId} group_id=${effectiveGroupId} endpoint=${baseUrl}/group/updateParticipants`,
+          );
+          const r = await addToGroup(baseUrl, device.uazapi_token, effectiveGroupId, phone);
+          // MANDATORY post-response log — full body (truncated) + status code.
+          log.info(
+            `add_response label=${label} number=${phone} instance_id=${deviceId} group_id=${effectiveGroupId} http=${r.httpStatus ?? "?"} ok=${r.ok} already=${r.alreadyExists} status=${r.failureStatus || (r.ok ? "success" : "failed")} body=${(r.rawResponse || "").slice(0, 500)}`,
+          );
+          return r;
+        };
 
-        result = await withDeadline(doAdd());
+        result = await withDeadline(doAdd("primary"));
 
         // ── Privacy handling: STRICT detection.
         // Only treat as privacy when the API explicitly says so. Generic
@@ -1494,7 +1506,7 @@ async function runDeviceWorker(
           const saved = await ensureContactSaved(baseUrl, device.uazapi_token, phone, { force: true });
           if (saved) {
             await sleep(randomBetween(800, 1500));
-            result = await withDeadline(doAdd());
+            result = await withDeadline(doAdd("retry_after_privacy"));
           }
           if (isExplicitPrivacyError(result)) {
             log.warn(
@@ -1530,7 +1542,7 @@ async function runDeviceWorker(
           );
           await sleep(delay);
           try {
-            result = await withDeadline(doAdd());
+            result = await withDeadline(doAdd(`generic_retry_${attempt + 1}`));
           } catch (retryErr: any) {
             // Treat retry exceptions as transient unknown failure so the loop
             // can decide whether to keep retrying (it won't, after 2 tries).
