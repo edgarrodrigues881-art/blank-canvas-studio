@@ -1043,8 +1043,7 @@ async function runDeviceWorker(
       });
 
       if (!contact?.id) {
-        // No more contacts — finalize
-        await finalizeCampaign(sb, campaignId);
+        // Queue empty for me — exit. The orchestrator finalizes once all workers done.
         break;
       }
 
