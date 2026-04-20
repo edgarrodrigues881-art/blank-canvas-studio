@@ -923,19 +923,20 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
   // ── Per-instance breakdown ──
   // Pivots contacts by `device_used` so each instance shows its own
   // queue size, currently-processing contact, and current action.
-  const perInstanceStats = useMemo(() => {
-    const map = new Map<string, {
-      device: string;
-      total: number;
-      success: number;
-      failed: number;
-      retrying: number;
-      pending: number;
-      processing: number;
-      currentContact: string | null;
-      currentAction: "sending" | "cooldown" | "retrying" | "idle";
-      lastUpdate: number;
-    }>();
+  // (Plain const — must NOT use useMemo here because we're past an early return.)
+  const perInstanceStats: Array<{
+    device: string;
+    total: number;
+    success: number;
+    failed: number;
+    retrying: number;
+    pending: number;
+    processing: number;
+    currentContact: string | null;
+    currentAction: "sending" | "cooldown" | "retrying" | "idle";
+    lastUpdate: number;
+  }> = (() => {
+    const map = new Map<string, any>();
     for (const c of contacts as any[]) {
       const key = c.device_used || "—";
       let entry = map.get(key);
@@ -957,18 +958,16 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
       const ts = c.processed_at ? new Date(c.processed_at).getTime() : 0;
       if (ts > entry.lastUpdate) entry.lastUpdate = ts;
     }
-    // Refine current action when no contact is actively "processing"
     for (const entry of map.values()) {
       if (entry.currentAction === "idle") {
-        if (entry.retrying > 0) entry.currentAction = entry.retrying > 0 && entry.pending === 0 ? "cooldown" : "retrying";
-        else if (entry.pending > 0) entry.currentAction = "idle";
+        if (entry.retrying > 0 && entry.pending === 0) entry.currentAction = "cooldown";
+        else if (entry.retrying > 0) entry.currentAction = "retrying";
       }
     }
-    // Drop the "—" bucket if there are real instances
     const arr = Array.from(map.values());
     const realInstances = arr.filter(e => e.device !== "—");
     return (realInstances.length > 0 ? realInstances : arr).sort((a, b) => b.total - a.total);
-  }, [contacts]);
+  })();
 
   const canResume = (campaign.status === "paused" || campaign.status === "draft") && pendingCount > 0;
   const canPause = isRunning;
