@@ -6,8 +6,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-cron-secret",
+  "Access-Control-Allow-Headers": "content-type, x-internal-secret",
 };
 
 // Thresholds
@@ -20,19 +19,19 @@ const MAX_CONTACT_ATTEMPTS = 3;                     // matches worker — termin
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // Auth: cron secret OR service role
-  const cronSecret = req.headers.get("x-cron-secret");
-  const expectedSecret = Deno.env.get("INTERNAL_TICK_SECRET");
-  const authHeader = req.headers.get("Authorization") || "";
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+  // ── Auth: ONLY x-internal-secret matching WATCHDOG_SECRET ──
+  const provided = req.headers.get("x-internal-secret") || "";
+  const expected = Deno.env.get("WATCHDOG_SECRET") || "";
 
-  const ok =
-    (expectedSecret && cronSecret === expectedSecret) ||
-    authHeader === `Bearer ${serviceRoleKey}` ||
-    (anonKey && authHeader === `Bearer ${anonKey}`);
+  if (!expected) {
+    console.error("[watchdog] WATCHDOG_SECRET is not configured");
+    return new Response(JSON.stringify({ error: "server_misconfigured" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
-  if (!ok) {
+  if (provided !== expected) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -40,6 +39,7 @@ Deno.serve(async (req) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(supabaseUrl, serviceRoleKey);
 
   // ── Concurrency guard: dedicated advisory lock (single watchdog at a time) ──
