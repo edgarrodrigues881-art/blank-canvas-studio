@@ -11,9 +11,11 @@ const corsHeaders = {
 };
 
 // Thresholds
-const NO_PROGRESS_THRESHOLD_MS = 60_000;       // 60s without any contact update
-const STUCK_PROCESSING_THRESHOLD_MS = 180_000; // 3min stuck in 'processing'
-const IDLE_WORKER_THRESHOLD_MS = 90_000;       // worker hasn't claimed in 90s but queue exists
+const NO_PROGRESS_THRESHOLD_MS = 60_000;            // 60s without any contact update
+const STUCK_PROCESSING_THRESHOLD_MS = 180_000;      // 3min stuck in 'processing' (legacy)
+const IDLE_WORKER_THRESHOLD_MS = 90_000;            // worker hasn't claimed in 90s but queue exists
+const HARD_FAIL_PROCESSING_MS = 120_000;            // 2min: HARD FAIL — terminal failure
+const MAX_CONTACT_ATTEMPTS = 3;                     // matches worker — terminal cap
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -45,6 +47,8 @@ Deno.serve(async (req) => {
     campaigns_inspected: 0,
     stalled_detected: 0,
     contacts_recovered: 0,
+    contacts_hard_failed: 0,
+    contacts_capped_failed: 0,
     workers_restarted: 0,
     actions: [] as Array<Record<string, unknown>>,
   };
@@ -65,7 +69,88 @@ Deno.serve(async (req) => {
       const campaignId = campaign.id as string;
       const deviceIds: string[] = Array.isArray(campaign.device_ids) ? campaign.device_ids : [];
 
-      // ── 1. Recover contacts stuck in 'processing' (>3min) ──
+      // ── 1a. HARD FAIL: contacts processing >2min OR exceeded attempt cap ──
+      const hardFailCutoff = new Date(now - HARD_FAIL_PROCESSING_MS).toISOString();
+
+      // (a) Processing too long → terminal failure
+      const { data: hardFailContacts } = await sb
+        .from("mass_inject_contacts")
+        .select("id, assigned_device_id, processed_at, attempt_count")
+        .eq("campaign_id", campaignId)
+        .eq("status", "processing")
+        .lt("processed_at", hardFailCutoff);
+
+      if (hardFailContacts && hardFailContacts.length > 0) {
+        const ids = hardFailContacts.map((c: any) => c.id);
+        await sb
+          .from("mass_inject_contacts")
+          .update({
+            status: "failed",
+            error_message: "timeout",
+            processed_at: new Date().toISOString(),
+            next_retry_at: null,
+          })
+          .in("id", ids);
+
+        summary.contacts_hard_failed += ids.length;
+        summary.actions.push({
+          type: "contacts_hard_failed",
+          campaign_id: campaignId,
+          count: ids.length,
+          reason: "timeout",
+          message: `watchdog: ${ids.length} contact(s) marked failed (processing >2min)`,
+        });
+        console.log(
+          `[watchdog] HARD FAIL (timeout): campaign=${campaignId} count=${ids.length}`,
+        );
+      }
+
+      // (b) Exceeded attempt cap → terminal failure (anti infinite-loop guard)
+      const retryableStatuses = [
+        "pending",
+        "retrying",
+        "rate_limited",
+        "api_temporary",
+        "connection_unconfirmed",
+        "session_dropped",
+        "permission_unconfirmed",
+        "unknown_failure",
+        "timeout",
+      ];
+      const { data: cappedContacts } = await sb
+        .from("mass_inject_contacts")
+        .select("id, attempt_count, status")
+        .eq("campaign_id", campaignId)
+        .gte("attempt_count", MAX_CONTACT_ATTEMPTS)
+        .in("status", retryableStatuses);
+
+      if (cappedContacts && cappedContacts.length > 0) {
+        const ids = cappedContacts.map((c: any) => c.id);
+        await sb
+          .from("mass_inject_contacts")
+          .update({
+            status: "failed",
+            error_message: "max_attempts_exceeded",
+            processed_at: new Date().toISOString(),
+            next_retry_at: null,
+          })
+          .in("id", ids);
+
+        summary.contacts_capped_failed += ids.length;
+        summary.actions.push({
+          type: "contacts_capped_failed",
+          campaign_id: campaignId,
+          count: ids.length,
+          reason: "max_attempts_exceeded",
+          message: `watchdog: ${ids.length} contact(s) marked failed (≥${MAX_CONTACT_ATTEMPTS} attempts)`,
+        });
+        console.log(
+          `[watchdog] HARD FAIL (max attempts): campaign=${campaignId} count=${ids.length}`,
+        );
+      }
+
+      // ── 1b. Recover contacts stuck in 'processing' (>3min) — legacy soft recovery ──
+      // Only triggers for the narrow window (3min < age < hard-fail handled above ensures none remain)
       const stuckCutoff = new Date(now - STUCK_PROCESSING_THRESHOLD_MS).toISOString();
       const { data: stuckContacts } = await sb
         .from("mass_inject_contacts")
