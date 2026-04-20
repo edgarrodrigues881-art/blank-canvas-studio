@@ -37,12 +37,7 @@ export async function validateUazapiCredentials(
     return { status: "invalid", reason: "missing_base_url", httpStatus: null };
   }
 
-  const headers = {
-    token: cleanApiToken,
-    Accept: "application/json",
-    "Cache-Control": "no-cache",
-    Pragma: "no-cache",
-  };
+  const headers = buildUazapiHeaders(cleanApiToken, { context: "validateUazapiCredentials" });
 
   const endpoints = [
     `${cleanBaseUrl}/instance/status?t=${Date.now()}`,
