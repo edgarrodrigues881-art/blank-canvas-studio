@@ -609,6 +609,10 @@ interface AddResult {
   cooldownMs: number;
   strategyIndex?: number;
   canTryOtherStrategy?: boolean;
+  /** Raw API response body (truncated, for diagnostics on failure). */
+  rawResponse?: string;
+  /** HTTP status code of the last attempt, when known. */
+  httpStatus?: number;
   failureStatus?:
     | "rate_limited"
     | "api_temporary"
@@ -623,6 +627,20 @@ interface AddResult {
     | "timeout"
     | "unknown_failure"
     | "failed";
+}
+
+/**
+ * Strict privacy detector. We ONLY classify as a privacy restriction when the
+ * API explicitly says so (explicit privacy keyword in the body or detail).
+ * Generic failures — timeout, rate limit, "unknown error", connection drops —
+ * must NEVER be treated as privacy errors. HTTP 403 alone is also not enough,
+ * since several providers use 403 for unrelated permission issues (e.g. "not
+ * admin").
+ */
+function isExplicitPrivacyError(result: AddResult): boolean {
+  if (result.ok || result.alreadyExists) return false;
+  const haystack = `${result.detail || ""} ${result.rawResponse || ""}`.toLowerCase();
+  return /privacidade|saved contacts|contatos salvos|only allows.*contact|invite de contatos|only contacts can/.test(haystack);
 }
 
 function buildAddStrategies(baseUrl: string, groupId: string, phone: string) {
