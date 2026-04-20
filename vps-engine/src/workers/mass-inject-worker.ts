@@ -82,9 +82,9 @@ interface DeviceConnectionState {
 }
 const deviceConnectionState = new Map<string, DeviceConnectionState>();
 const DEVICE_CONNECTED_CACHE_MS = 30_000; // trust "connected" for 30s
-const DEVICE_DISCONNECTED_RECHECK_MS = 15_000; // re-check disconnected device every 15s
+const DEVICE_DISCONNECTED_RECHECK_MS = 10_000; // auto-recover: re-check disconnected device every 10s
 const DEVICE_DISCONNECT_AUTO_PAUSE_MS = 120_000; // auto-pause campaign if ALL devices disconnected for 2min
-const API_FAILURE_DISCONNECT_THRESHOLD = 3; // after 3 consecutive API failures, force connection re-check
+const API_FAILURE_DISCONNECT_THRESHOLD = 3; // after 3 consecutive REAL connection failures, force re-check
 
 // ── In-memory caches (persist across contacts within same campaign run) ──
 type ParticipantCacheEntry = {
