@@ -192,7 +192,7 @@ export async function uazapiSendText(
     try {
       const res = await fetch(`${baseUrl}${at.path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+        headers: buildUazapiHeaders(token, { json: true, context: "uazapiSend" }),
         body: JSON.stringify(at.body),
       });
       const raw = await res.text();
@@ -235,7 +235,7 @@ export async function uazapiSendImage(
 
   const res = await fetch(`${baseUrl}/send/media`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+    headers: buildUazapiHeaders(token, { json: true, context: "uazapiSend" }),
     body: JSON.stringify({ number, file: imageUrl, type: "image", caption: safeCaption }),
   });
   const raw = await res.text();
@@ -255,7 +255,7 @@ export async function uazapiSendSticker(
 
   const res = await fetch(`${baseUrl}/send/media`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+    headers: buildUazapiHeaders(token, { json: true, context: "uazapiSend" }),
     body: JSON.stringify({ number, file: imageUrl, type: "sticker" }),
   });
   const raw = await res.text();
@@ -283,7 +283,7 @@ export async function uazapiSendAudio(
     try {
       const res = await fetch(`${baseUrl}${at.path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+        headers: buildUazapiHeaders(token, { json: true, context: "uazapiSend" }),
         body: JSON.stringify(at.body),
       });
       const raw = await res.text();
@@ -316,7 +316,7 @@ export async function uazapiSendLocation(
     try {
       const res = await fetch(`${baseUrl}${at.path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+        headers: buildUazapiHeaders(token, { json: true, context: "uazapiSend" }),
         body: JSON.stringify(at.body),
       });
       const raw = await res.text();
@@ -346,7 +346,7 @@ export async function uazapiCheckPhone(
     try {
       const res = await fetch(ep.url, {
         method: "POST",
-        headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+        headers: buildUazapiHeaders(token, { json: true, context: "uazapiSend" }),
         body: JSON.stringify(ep.body),
       });
       if (res.status === 405 || res.status === 404 || !res.ok) continue;
@@ -377,7 +377,7 @@ export async function fetchLiveGroups(baseUrl: string, token: string): Promise<a
     try {
       const res = await fetch(ep, {
         method: "GET",
-        headers: { token, Accept: "application/json", "Cache-Control": "no-cache" },
+        headers: buildUazapiHeaders(token, { context: "fetchLiveGroups" }),
       });
       if (!res.ok) continue;
       const raw = await res.text();
