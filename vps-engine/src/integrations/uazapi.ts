@@ -4,6 +4,7 @@
 
 import { config } from "../core/config";
 import { canRequest, recordSuccess, recordFailure } from "../core/circuit-breaker";
+import { buildUazapiHeaders, assertUazapiToken } from "./uazapi-headers";
 
 export interface UazapiCredentialValidation {
   status: "valid" | "invalid" | "unknown";
