@@ -860,7 +860,7 @@ async function executeSessionTurn(
       });
       {
         const { error: budgetErr } = await db.rpc("increment_warmup_budget", { p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: false });
-        if (budgetErr) log.warn({ err: budgetErr.message, cycle_id: cycle.id }, "increment_warmup_budget failed (community)");
+        if (budgetErr) log.warn("increment_warmup_budget failed (community)", { err: budgetErr.message, cycle_id: cycle.id });
       }
     }
   }
