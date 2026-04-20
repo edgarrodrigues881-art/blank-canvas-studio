@@ -206,6 +206,7 @@ export default function LidConverter() {
   const handleClear = () => {
     setInput("");
     setRows([]);
+    try { localStorage.removeItem(LID_INPUT_STORAGE_KEY); } catch {}
   };
 
   // Extrai tokens (números, JIDs, LIDs) de strings arbitrárias
