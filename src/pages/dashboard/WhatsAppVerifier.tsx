@@ -39,6 +39,7 @@ export default function WhatsAppVerifier() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const location = useLocation();
+  const navigate = useNavigate();
   const [view, setView] = useState<ViewMode>("list");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [jobName, setJobName] = useState("");
