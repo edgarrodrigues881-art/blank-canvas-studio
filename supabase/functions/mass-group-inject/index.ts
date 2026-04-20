@@ -1165,6 +1165,23 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "Instância não encontrada." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      for (const gt of groupTargets) {
+        const inspected = await inspectGroupTarget(primaryDevice.uazapi_base_url, primaryDevice.uazapi_token, gt.group_id);
+        if (inspected.kind === "community_root") {
+          return new Response(JSON.stringify({
+            error: inspected.detail,
+            code: "community_direct_add_not_supported",
+            targetId: inspected.targetId,
+            recommendation: inspected.parentGroupId
+              ? `Use o grupo interno vinculado (${inspected.parentGroupId}) ou envie um link de convite.`
+              : "Use um grupo interno da comunidade ou envie um link de convite.",
+          }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        if (inspected.kind === "invalid") {
+          return new Response(JSON.stringify({ error: inspected.detail, code: "invalid_group_target" }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+
       // ── PRE-CHECK: automatically detect contacts already in each target group ──
       const groupParticipantsMap = new Map<string, Set<string>>();
       let preCheckSucceeded = false;
