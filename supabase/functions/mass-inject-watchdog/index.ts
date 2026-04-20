@@ -47,6 +47,8 @@ Deno.serve(async (req) => {
     campaigns_inspected: 0,
     stalled_detected: 0,
     contacts_recovered: 0,
+    contacts_hard_failed: 0,
+    contacts_capped_failed: 0,
     workers_restarted: 0,
     actions: [] as Array<Record<string, unknown>>,
   };
