@@ -1463,8 +1463,13 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   }, [importedContacts, importFilter]);
 
   const handleValidate = useCallback(async () => {
-    const validContacts = importedContacts.filter(c => c.classification === "valid").map(c => c.normalized);
-    if (validContacts.length === 0) return toast.error("Nenhum contato válido para processar");
+    // 1. Coleta entradas brutas (números E LIDs/JIDs) — não filtra mais por classifyContacts.
+    const rawInputs = importedContacts
+      .filter(c => c.classification !== "empty")
+      .map(c => c.raw.trim())
+      .filter(Boolean);
+
+    if (rawInputs.length === 0) return toast.error("Nenhum contato para processar");
     const activeGroupId = selectedGroups.length > 0 ? selectedGroups[0].jid : groupId;
     if (!activeGroupId) return toast.error("Selecione pelo menos um grupo de destino");
     if (selectedDeviceIds.length === 0) return toast.error("Selecione pelo menos uma instância");
@@ -1472,13 +1477,42 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
 
     setIsValidating(true);
     try {
+      // 2. Resolve LIDs / converte números → JID via backend (resolve-contact).
+      toast.info(`Resolvendo ${rawInputs.length} contato(s)...`);
+      const { data: resolveData, error: resolveError } = await supabase.functions.invoke("resolve-contact", {
+        body: { inputs: rawInputs, device_id: primaryDeviceId },
+      });
+      if (resolveError) throw resolveError;
+
+      const resolved: Array<{ original: string; type: string; jid: string | null; number: string | null; valid: boolean; error?: string }> =
+        Array.isArray(resolveData?.results) ? resolveData.results : [];
+
+      // 3. Filtra apenas os válidos e extrai o número (digits) para o validador.
+      const validResolved = resolved.filter(r => r.valid && r.number);
+      const invalidCount = resolved.length - validResolved.length;
+
+      if (validResolved.length === 0) {
+        toast.error("Nenhum contato válido após resolução. Verifique a lista.");
+        return;
+      }
+
+      // Alerta se a taxa de inválidos for muito alta (>50%).
+      if (invalidCount > 0 && invalidCount / resolved.length > 0.5) {
+        toast.warning(`${invalidCount} de ${resolved.length} contatos inválidos (${Math.round((invalidCount / resolved.length) * 100)}%). Revise a lista.`);
+      } else if (invalidCount > 0) {
+        toast.message(`${invalidCount} contato(s) inválido(s) ignorados.`);
+      }
+
+      // Dedup defensivo
+      const validContacts = Array.from(new Set(validResolved.map(r => r.number as string)));
+
       const { data, error } = await supabase.functions.invoke("mass-group-inject", { body: { action: "validate", contacts: validContacts } });
       if (error) throw error;
       setParticipantCheck(null);
       setValidationResult(data);
       setCompletedSteps(prev => new Set([...prev, "import"]));
       setStep("preview");
-      toast.success(`${data.validCount} contatos válidos encontrados`);
+      toast.success(`${data.validCount} contatos válidos prontos para envio`);
 
       // Auto-check participants in the first group
       if (data.valid?.length > 0 && primaryDeviceId && activeGroupId) {
