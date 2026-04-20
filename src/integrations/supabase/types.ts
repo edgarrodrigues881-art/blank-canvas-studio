@@ -6739,10 +6739,12 @@ export type Database = {
         Returns: boolean
       }
       release_provision_lock: { Args: { _user_id: string }; Returns: undefined }
+      release_watchdog_lock: { Args: never; Returns: boolean }
       try_acquire_mass_inject_run_lock: {
         Args: { p_campaign_id: string }
         Returns: boolean
       }
+      try_acquire_watchdog_lock: { Args: never; Returns: boolean }
       try_provision_lock: { Args: { _user_id: string }; Returns: boolean }
       upsert_service_contact: {
         Args: {
