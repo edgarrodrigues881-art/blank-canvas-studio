@@ -67,7 +67,7 @@ const OnboardingTheme = () => {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="grid grid-cols-2 gap-3 sm:gap-6 w-full"
+          className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 w-full"
         >
           <ThemeCard
             label="Escuro"
@@ -109,19 +109,19 @@ const ThemeCard = ({ label, selected, onClick, preview }: ThemeCardProps) => {
     <button
       type="button"
       onClick={onClick}
-      className={`group relative rounded-2xl p-3 text-left transition-all duration-300 hover:-translate-y-0.5 ${
+      className={`group relative rounded-2xl p-3 text-left transition-all duration-300 hover:-translate-y-0.5 flex md:flex-col items-center md:items-stretch gap-3 md:gap-0 ${
         selected
           ? "bg-card ring-1 ring-emerald-500/40 shadow-[0_0_0_4px_rgba(16,185,129,0.08),0_20px_40px_-20px_rgba(16,185,129,0.25)]"
           : "bg-card/60 ring-1 ring-border hover:ring-foreground/20 hover:shadow-[0_10px_30px_-10px_hsl(var(--foreground)/0.15)]"
       }`}
     >
       {/* Preview area */}
-      <div className="relative aspect-[16/10] rounded-xl overflow-hidden">
+      <div className="relative w-28 md:w-auto aspect-[16/10] rounded-xl overflow-hidden shrink-0">
         {preview}
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-1 pt-3 pb-1">
+      <div className="flex flex-1 items-center justify-between px-1 md:pt-3 md:pb-1">
         <span className="text-sm font-medium text-foreground/85">{label}</span>
         <span
           className={`flex items-center justify-center w-5 h-5 rounded-full transition-all ${
