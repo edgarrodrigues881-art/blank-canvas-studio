@@ -1337,11 +1337,12 @@ async function runDeviceWorker(
 
       // 5b. Validate JID BEFORE any API call. Invalid contacts are marked
       //     immediately as failed and never re-claimed.
-      const normalized = await normalizeContactJid(String(contact.phone || ""), baseUrl, device.uazapi_token);
+      const originalInput = String(contact.phone || "");
+      const normalized = await normalizeContactJid(originalInput, baseUrl, device.uazapi_token);
       if (!normalized) {
         await sb.from("mass_inject_contacts").update({
           status: "failed",
-          error_message: "Contato inválido (sem JID válido) — ignorado.",
+          error_message: "Contato inválido (entrada vazia ou formato não suportado) — ignorado.",
           processed_at: nowIso(),
           device_used: device.name || device.id,
           attempt_count: MAX_CONTACT_ATTEMPTS, // never retry
@@ -1349,10 +1350,11 @@ async function runDeviceWorker(
         updateCountersLocal(counterState, "failed");
         contactsSinceFlush++;
         batchFailed++;
-        log.info(`Campaign ${campaignId.slice(0, 8)}: skipped invalid contact "${String(contact.phone || "").slice(0, 30)}"`);
+        log.info(`Campaign ${campaignId.slice(0, 8)}: skipped invalid contact original_input="${originalInput.slice(0, 40)}" normalized_number="" reason=empty_or_unsupported`);
         await sleep(200);
         continue;
       }
+      log.info(`Campaign ${campaignId.slice(0, 8)}: contact_normalized original_input="${originalInput.slice(0, 40)}" normalized_number="${normalized.phone}" instance_id=${deviceId}`);
 
       // processed_at will be set in the final status update below — skip redundant write here
 
