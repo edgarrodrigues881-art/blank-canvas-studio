@@ -934,6 +934,41 @@ async function finalizeCampaign(sb: any, campaignId: string): Promise<boolean> {
   return true;
 }
 
+/**
+ * When a device worker exits early (disconnected / failed), redistribute its
+ * pinned queue to the still-alive siblings using round-robin. Keeps the campaign
+ * progressing without waiting for the dead device.
+ */
+async function reassignMyQueueToSiblings(
+  sb: any,
+  campaignId: string,
+  deadDeviceId: string,
+  campaignDeviceIds: string[],
+  failedDeviceIds: Map<string, number>,
+): Promise<void> {
+  try {
+    const alive = campaignDeviceIds.filter(
+      (id) => id !== deadDeviceId && !failedDeviceIds.has(id),
+    );
+    const { data: count, error } = await sb.rpc("reassign_mass_inject_contacts", {
+      p_campaign_id: campaignId,
+      p_dead_device_id: deadDeviceId,
+      p_alive_device_ids: alive,
+    });
+    if (error) {
+      log.warn(`Campaign ${campaignId.slice(0, 8)}: reassign RPC failed for dead device ${deadDeviceId.slice(0, 8)}. ${String(error.message || error)}`);
+      return;
+    }
+    if (Number(count || 0) > 0) {
+      log.info(
+        `Campaign ${campaignId.slice(0, 8)}: reassigned ${count} contact(s) from dead device ${deadDeviceId.slice(0, 8)} to ${alive.length} sibling(s)`,
+      );
+    }
+  } catch (e: any) {
+    log.warn(`Campaign ${campaignId.slice(0, 8)}: reassign crashed for dead device ${deadDeviceId.slice(0, 8)}. ${String(e?.message || e)}`);
+  }
+}
+
 // ══════════════════════════════════════════════════════════
 // MAIN WORKER: processes ONE campaign with PARALLEL device workers
 // Each device claims contacts independently from the shared queue
