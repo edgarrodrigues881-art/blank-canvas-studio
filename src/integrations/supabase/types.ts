@@ -3677,6 +3677,7 @@ export type Database = {
           device_used: string | null
           error_message: string | null
           id: string
+          next_retry_at: string | null
           phone: string
           processed_at: string | null
           status: string
@@ -3690,6 +3691,7 @@ export type Database = {
           device_used?: string | null
           error_message?: string | null
           id?: string
+          next_retry_at?: string | null
           phone: string
           processed_at?: string | null
           status?: string
@@ -3703,6 +3705,7 @@ export type Database = {
           device_used?: string | null
           error_message?: string | null
           id?: string
+          next_retry_at?: string | null
           phone?: string
           processed_at?: string | null
           status?: string
@@ -6534,6 +6537,7 @@ export type Database = {
           device_used: string | null
           error_message: string | null
           id: string
+          next_retry_at: string | null
           phone: string
           processed_at: string | null
           status: string

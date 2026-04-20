@@ -21,6 +21,7 @@ const MIN_DEVICE_SEND_INTERVAL_MS = 3_000;
 const MAX_DEVICE_SEND_INTERVAL_MS = 6_000;
 const RETRYABLE_STATUSES = [
   "pending",
+  "retrying",
   "rate_limited",
   "api_temporary",
   "connection_unconfirmed",
@@ -33,8 +34,11 @@ const DISCONNECT_CONFIRM_THRESHOLD = 2; // Must fail N consecutive checks before
 const CONNECTED_DEVICE_STATUSES = new Set(["connected", "ready", "active", "authenticated", "open", "online"]);
 // Critical errors that COUNT toward auto-pause threshold (per-device)
 const CRITICAL_FAILURE_STATUSES = new Set(["confirmed_no_admin", "invalid_group", "unauthorized"]);
-// Transient errors that do NOT count toward pause — just skip and continue
+// Transient errors that do NOT count toward pause — just skip and continue.
+// `retrying` is included so the smart-retry persisted state is treated as transient
+// when the contact is re-claimed (and so per-attempt cap downgrade still works).
 const TRANSIENT_FAILURE_STATUSES = new Set([
+  "retrying",
   "rate_limited",
   "api_temporary",
   "connection_unconfirmed",
@@ -48,10 +52,18 @@ const deviceCriticalErrors = new Map<string, number>();
 const DEVICE_CRITICAL_PAUSE_THRESHOLD = 4; // pause only after 4 consecutive critical errors on same device
 
 // ── Per-contact attempt cap (bounded retry) ──
-// Each contact gets at most 2 attempts total (1 initial + 1 retry). The DB function
-// `claim_next_mass_inject_contact` enforces this by refusing to re-claim contacts
-// whose attempt_count has already reached MAX_CONTACT_ATTEMPTS.
-const MAX_CONTACT_ATTEMPTS = 2;
+// Each contact gets at most 3 attempts total (1 initial + up to 2 retries). The DB
+// function `claim_next_mass_inject_contact` enforces this by refusing to re-claim
+// contacts whose attempt_count has already reached MAX_CONTACT_ATTEMPTS.
+const MAX_CONTACT_ATTEMPTS = 3;
+
+// ── Exponential backoff per retry attempt (transient errors only) ──
+// attempt_count after failure: 1 → 5s, 2 → 15s, 3 → 30s
+function backoffMsForAttempt(attemptCount: number): number {
+  if (attemptCount <= 1) return 5_000;
+  if (attemptCount === 2) return 15_000;
+  return 30_000;
+}
 
 // ── Consecutive add-failure circuit breaker (per worker) ──
 // If an instance produces this many consecutive add failures (any kind, not just
@@ -1299,8 +1311,8 @@ async function runDeviceWorker(
 
       if (result.ok) {
         await sb.from("mass_inject_contacts").update({
-          status: "completed", error_message: result.detail, processed_at: nowIso(),
-        }).eq("id", contact.id);
+          status: "completed", error_message: result.detail, processed_at: nowIso(), next_retry_at: null,
+        } as any).eq("id", contact.id);
         updateCountersLocal(counterState, "completed");
         contactsSinceFlush++;
         deviceCriticalErrors.delete(deviceId); // reset on success
@@ -1310,8 +1322,8 @@ async function runDeviceWorker(
         consecutiveAddFailures = 0;
       } else if (result.alreadyExists) {
         await sb.from("mass_inject_contacts").update({
-          status: "already_exists", error_message: result.detail, processed_at: nowIso(),
-        }).eq("id", contact.id);
+          status: "already_exists", error_message: result.detail, processed_at: nowIso(), next_retry_at: null,
+        } as any).eq("id", contact.id);
         updateCountersLocal(counterState, "already_exists");
         contactsSinceFlush++;
         rememberParticipantInCache(baseUrl, groupId, phone);
@@ -1336,16 +1348,17 @@ async function runDeviceWorker(
           log.warn(
             `Campaign ${campaignId.slice(0, 8)}: rate limited on device ${device.name || deviceId.slice(0, 8)} — cooldown started (${Math.round(cooldownMs / 1000)}s). Will retry automatically.`,
           );
-          // Revert contact (refund attempt) so it's retried after cooldown.
+          // Persist as `retrying` with backoff so the queue auto-resumes after cooldown.
+          // We refund the attempt so the rate-limit doesn't burn one of the 3 tries.
           await sb.from("mass_inject_contacts").update({
-            status: "pending",
-            error_message: `Rate limit — retrying after ${Math.round(cooldownMs / 1000)}s cooldown`,
+            status: "retrying",
+            error_message: `Rate limit — retry em ${Math.round(cooldownMs / 1000)}s`,
             device_used: null,
             attempt_count: Math.max(0, currentAttempt - 1),
+            next_retry_at: new Date(Date.now() + cooldownMs).toISOString(),
           } as any).eq("id", contact.id);
           // Mark this device as cooling down so siblings absorb load.
           failedDeviceIds.set(deviceId, Date.now() + cooldownMs);
-          // Local pause for this worker — keeps queue moving on other devices.
           log.info(`Campaign ${campaignId.slice(0, 8)}: retrying device ${device.name || deviceId.slice(0, 8)} after ${Math.round(cooldownMs / 1000)}s.`);
           await sleep(cooldownMs);
           consecutiveAddFailures = 0; // rate limit is not a hard failure
@@ -1381,14 +1394,28 @@ async function runDeviceWorker(
         // status is retryable-transient, downgrade to terminal "failed" so the
         // DB never re-claims it. This guarantees we never loop on the same
         // contact more than MAX_CONTACT_ATTEMPTS times.
-        if (isLastAttempt && TRANSIENT_FAILURE_STATUSES.has(failStatus)) {
+        const isTransient = TRANSIENT_FAILURE_STATUSES.has(failStatus);
+        let nextRetryAt: string | null = null;
+        if (isLastAttempt && isTransient) {
           failureDetail = `Limite de ${MAX_CONTACT_ATTEMPTS} tentativas atingido — ${failureDetail}`;
           failStatus = "failed";
+        } else if (isTransient) {
+          // Smart retry: schedule next attempt with exponential backoff.
+          const backoffMs = backoffMsForAttempt(currentAttempt);
+          nextRetryAt = new Date(Date.now() + backoffMs).toISOString();
+          failureDetail = `Tentativa ${currentAttempt}/${MAX_CONTACT_ATTEMPTS} — retry em ${Math.round(backoffMs / 1000)}s (${failureDetail})`;
+          failStatus = "retrying";
+          log.info(
+            `Campaign ${campaignId.slice(0, 8)}: contact ${phone} → retrying (attempt ${currentAttempt}/${MAX_CONTACT_ATTEMPTS}, backoff ${Math.round(backoffMs / 1000)}s)`,
+          );
         }
 
         await sb.from("mass_inject_contacts").update({
-          status: failStatus, error_message: failureDetail, processed_at: nowIso(),
-        }).eq("id", contact.id);
+          status: failStatus,
+          error_message: failureDetail,
+          processed_at: nowIso(),
+          next_retry_at: nextRetryAt,
+        } as any).eq("id", contact.id);
         updateCountersLocal(counterState, failStatus);
         contactsSinceFlush++;
         batchFailed++;
