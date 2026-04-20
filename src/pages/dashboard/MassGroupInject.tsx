@@ -664,13 +664,20 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     const id = setInterval(async () => {
       const nowMs = Date.now();
       if (nowMs - lastRecoverNudgeAtRef.current < 30_000) return; // throttle: 1 nudge / 30s
-      const stuckProcessing = contacts.some((c: any) => {
-        if (c.status !== "processing") return false;
-        const ts = c.processed_at ? new Date(c.processed_at).getTime() : 0;
-        return ts > 0 && nowMs - ts > STALE_PROCESSING_MS;
-      });
+      let stuckProcessing = false;
+      let pendingNow = 0;
+      let processedNow = 0;
+      for (const c of contacts as any[]) {
+        if (c.status === "completed" || c.status === "already_exists") processedNow++;
+        else if (isFailureStatus(c.status)) processedNow++;
+        if (ACTIVE_QUEUE_STATUSES.has(c.status)) pendingNow++;
+        if (c.status === "processing") {
+          const ts = c.processed_at ? new Date(c.processed_at).getTime() : 0;
+          if (ts > 0 && nowMs - ts > STALE_PROCESSING_MS) stuckProcessing = true;
+        }
+      }
       const updatedAtMs = campaign?.updated_at ? new Date(campaign.updated_at).getTime() : nowMs;
-      const noProgressTooLong = pendingCount > 0 && processedCount === 0 && (nowMs - updatedAtMs) > 60_000;
+      const noProgressTooLong = pendingNow > 0 && processedNow === 0 && (nowMs - updatedAtMs) > 60_000;
       if (!stuckProcessing && !noProgressTooLong) return;
       lastRecoverNudgeAtRef.current = nowMs;
       try {
@@ -678,7 +685,7 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
       } catch { /* best-effort nudge — VPS auto-recovers anyway */ }
     }, 15_000);
     return () => clearInterval(id);
-  }, [campaignId, campaign?.status, campaign?.updated_at, contacts, pendingCount, processedCount]);
+  }, [campaignId, campaign?.status, campaign?.updated_at, contacts]);
 
   // Watchdog removed — VPS engine handles campaign processing now.
   // We only show a visual note if the campaign seems stalled.
