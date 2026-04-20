@@ -947,48 +947,41 @@ async function runDeviceWorker(
       }
       const freshCampaign = cachedFreshCampaign;
 
-      // 2. Pick a device
-      const deviceId = pickDeviceId(freshCampaign, failedDeviceIds);
-      if (!deviceId) {
-        if (failedDeviceIds.size > 0) {
-          // Check if ALL devices have been disconnected for too long → auto-pause
-          const allIds = parseDeviceIds(freshCampaign.device_ids);
-          const allDisconnectedLong = allIds.every(id => {
-            const state = deviceConnectionState.get(id);
-            return state?.status === "disconnected" && state.confirmedDisconnectedAt
-              && (Date.now() - state.confirmedDisconnectedAt) > DEVICE_DISCONNECT_AUTO_PAUSE_MS;
-          });
-
-          if (allDisconnectedLong) {
+      // 2. This worker is pinned to myDeviceId. If MY device failed, exit
+      //    so siblings absorb my share (auto-redistribution). If I'm the LAST
+      //    one alive and I'm down, pause the campaign.
+      const deviceId = myDeviceId;
+      if (failedDeviceIds.has(deviceId)) {
+        const onlyMeLeft = liveWorkersRef.value <= 1;
+        if (onlyMeLeft) {
+          // Check if disconnected long enough → auto-pause
+          const myState = deviceConnectionState.get(deviceId);
+          const longDisconnected = myState?.status === "disconnected" && myState.confirmedDisconnectedAt
+            && (Date.now() - myState.confirmedDisconnectedAt) > DEVICE_DISCONNECT_AUTO_PAUSE_MS;
+          if (longDisconnected) {
             const elapsed = Math.round(DEVICE_DISCONNECT_AUTO_PAUSE_MS / 1000);
-            const reason = `Todas as instâncias desconectadas há mais de ${elapsed}s. Campanha pausada automaticamente.`;
+            const reason = `Última instância desconectada há mais de ${elapsed}s. Campanha pausada automaticamente.`;
             log.warn(`Campaign ${campaignId.slice(0, 8)}: ${reason}`);
             await sb.from("mass_inject_campaigns").update({
-              status: "paused", updated_at: nowIso(), next_run_at: null,
-              pause_reason: reason,
+              status: "paused", updated_at: nowIso(), next_run_at: null, pause_reason: reason,
             }).eq("id", campaignId);
             await emitEvent(sb, campaignId, "campaign_auto_paused_disconnect", "warning", reason);
+            stopAllRef.value = true;
             break;
           }
-
-          // Not long enough — wait and retry with progressive check
-          const waitMs = Math.min(DEVICE_RETRY_INTERVAL_MS * 2, 15_000); // wait 12-15s
+          // Wait briefly and retry — maybe device reconnects
+          const waitMs = Math.min(DEVICE_RETRY_INTERVAL_MS * 2, 15_000);
           await sb.from("mass_inject_campaigns").update({
             updated_at: nowIso(),
             next_run_at: new Date(Date.now() + waitMs).toISOString(),
             pause_reason: "Aguardando reconexão das instâncias...",
           }).eq("id", campaignId);
           await sleep(waitMs);
-          failedDeviceIds.clear(); // allow re-check on next iteration
+          failedDeviceIds.delete(deviceId);
           continue;
         }
-
-        log.warn(`Campaign ${campaignId.slice(0, 8)}: no devices available — pausing`);
-        await sb.from("mass_inject_campaigns").update({
-          status: "paused", updated_at: nowIso(), next_run_at: null,
-          pause_reason: "Nenhuma instância conectada e válida disponível. Conecte outra conta e retome.",
-        }).eq("id", campaignId);
-        await emitEvent(sb, campaignId, "campaign_failed_no_devices", "warning", "Nenhuma instância disponível.");
+        // Siblings still alive — exit this worker; they'll absorb the load
+        log.info(`Campaign ${campaignId.slice(0, 8)} device ${deviceId.slice(0, 8)} stepping out — ${liveWorkersRef.value - 1} sibling(s) absorbing load`);
         break;
       }
 
