@@ -1258,6 +1258,7 @@ async function runDeviceWorker(
             pause_reason: result.detail,
           }).eq("id", campaignId);
           await emitEvent(sb, campaignId, "campaign_paused", "warning", result.detail);
+          stopAllRef.value = true;
           break;
         }
 
