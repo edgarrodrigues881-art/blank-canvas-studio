@@ -78,13 +78,50 @@ export default function LidConverter() {
     [rows],
   );
 
+  const validJids = useMemo(
+    () => rows.filter((r) => r.valid && r.jid !== "—").map((r) => r.jid),
+    [rows],
+  );
+
+  const copyToClipboard = async (text: string): Promise<boolean> => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+      // Fallback
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+
   const handleCopyValid = async () => {
     if (validNumbers.length === 0) {
       toast.error("Nenhum número válido para copiar.");
       return;
     }
-    await navigator.clipboard.writeText(validNumbers.join("\n"));
-    toast.success(`${validNumbers.length} números copiados`);
+    const ok = await copyToClipboard(validNumbers.join("\n"));
+    if (ok) toast.success(`${validNumbers.length} números copiados`);
+    else toast.error("Falha ao copiar para a área de transferência");
+  };
+
+  const handleCopyValidJids = async () => {
+    if (validJids.length === 0) {
+      toast.error("Nenhum JID válido para copiar.");
+      return;
+    }
+    const ok = await copyToClipboard(validJids.join("\n"));
+    if (ok) toast.success(`${validJids.length} JIDs copiados`);
+    else toast.error("Falha ao copiar para a área de transferência");
   };
 
   const handleExport = () => {
