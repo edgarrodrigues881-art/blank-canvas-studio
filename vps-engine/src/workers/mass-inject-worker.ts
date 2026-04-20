@@ -1229,7 +1229,7 @@ async function runDeviceWorker(
           deviceCriticalErrors.set(deviceId, devErrors);
 
           if (devErrors >= DEVICE_CRITICAL_PAUSE_THRESHOLD) {
-            // Confirmed critical issue — pause campaign
+            // Confirmed critical issue — pause whole campaign (signal siblings to stop)
             const reason = `Pausada: ${devErrors} erros críticos consecutivos (${failStatus}: ${failureDetail}).`;
             log.warn(`Campaign ${campaignId.slice(0, 8)}: ${reason}`);
             await flushCounters(sb, campaignId, counterState);
@@ -1237,6 +1237,7 @@ async function runDeviceWorker(
               status: "paused", updated_at: nowIso(), next_run_at: null, pause_reason: reason,
             }).eq("id", campaignId);
             await emitEvent(sb, campaignId, "campaign_paused", "warning", reason);
+            stopAllRef.value = true;
             break;
           }
           // Not enough consecutive critical errors — continue with next contact
