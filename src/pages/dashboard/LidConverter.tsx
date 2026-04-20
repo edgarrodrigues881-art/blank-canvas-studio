@@ -78,13 +78,50 @@ export default function LidConverter() {
     [rows],
   );
 
+  const validJids = useMemo(
+    () => rows.filter((r) => r.valid && r.jid !== "—").map((r) => r.jid),
+    [rows],
+  );
+
+  const copyToClipboard = async (text: string): Promise<boolean> => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+      // Fallback
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+
   const handleCopyValid = async () => {
     if (validNumbers.length === 0) {
       toast.error("Nenhum número válido para copiar.");
       return;
     }
-    await navigator.clipboard.writeText(validNumbers.join("\n"));
-    toast.success(`${validNumbers.length} números copiados`);
+    const ok = await copyToClipboard(validNumbers.join("\n"));
+    if (ok) toast.success(`${validNumbers.length} números copiados`);
+    else toast.error("Falha ao copiar para a área de transferência");
+  };
+
+  const handleCopyValidJids = async () => {
+    if (validJids.length === 0) {
+      toast.error("Nenhum JID válido para copiar.");
+      return;
+    }
+    const ok = await copyToClipboard(validJids.join("\n"));
+    if (ok) toast.success(`${validJids.length} JIDs copiados`);
+    else toast.error("Falha ao copiar para a área de transferência");
   };
 
   const handleExport = () => {
@@ -162,32 +199,50 @@ export default function LidConverter() {
 
       {(loading || rows.length > 0) && (
         <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-3">
-            <div>
-              <CardTitle className="text-base">Resultados</CardTitle>
-              <CardDescription>
-                {loading ? (
-                  "Resolvendo contatos via backend..."
-                ) : (
-                  <>
-                    {stats.total} total ·{" "}
-                    <span className="text-emerald-500 font-medium">{stats.valid} válidos</span> ·{" "}
-                    <span className="text-destructive font-medium">{stats.invalid} inválidos</span>
-                    {stats.lid > 0 && <> · {stats.lid} LIDs</>}
-                  </>
-                )}
-              </CardDescription>
+          <CardHeader>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle className="text-base">Resultados</CardTitle>
+                <CardDescription>
+                  {loading ? "Resolvendo contatos via backend..." : "Resumo do processamento"}
+                </CardDescription>
+              </div>
+              {!loading && rows.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={handleCopyValid}>
+                    <Copy className="h-4 w-4" />
+                    Copiar números válidos ({validNumbers.length})
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleCopyValidJids}>
+                    <Copy className="h-4 w-4" />
+                    Copiar JIDs válidos ({validJids.length})
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleExport}>
+                    <Download className="h-4 w-4" />
+                    Exportar CSV
+                  </Button>
+                </div>
+              )}
             </div>
+
             {!loading && rows.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={handleCopyValid}>
-                  <Copy className="h-4 w-4" />
-                  Copiar válidos
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleExport}>
-                  <Download className="h-4 w-4" />
-                  Exportar
-                </Button>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
+                <div className="rounded-lg border bg-muted/30 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</div>
+                  <div className="text-lg font-semibold">{stats.total}</div>
+                </div>
+                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-emerald-600 dark:text-emerald-400">Válidos</div>
+                  <div className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">{stats.valid}</div>
+                </div>
+                <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-destructive">Inválidos</div>
+                  <div className="text-lg font-semibold text-destructive">{stats.invalid}</div>
+                </div>
+                <div className="rounded-lg border bg-muted/30 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">LIDs</div>
+                  <div className="text-lg font-semibold">{stats.lid}</div>
+                </div>
               </div>
             )}
           </CardHeader>
