@@ -122,6 +122,11 @@ export default function LidConverter() {
       return;
     }
 
+    if (!deviceId) {
+      toast.error("Selecione uma instância");
+      return;
+    }
+
     setLoading(true);
     try {
       // Skip já-validados (cache de campanhas anteriores) — busca números/jids/originals já marcados como válidos.
