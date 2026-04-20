@@ -267,44 +267,47 @@ async function resolveLidToJid(baseUrl: string, token: string, lid: string): Pro
 }
 
 /**
- * Validates and normalizes a contact identifier. Accepts ONLY:
- *   - plain phone numbers (10–15 digits, optional formatting)
- *   - LIDs (xxx@lid) — resolved via UAZAPI /chat/info
+ * Normalizes a contact identifier without country/format restrictions.
  *
- * REJECTS any JID input (@s.whatsapp.net) — JIDs must never come from the user;
- * they are produced internally from numbers or resolved from LIDs.
- *
- * Returns null when input is invalid, a group, broadcast, newsletter, an
- * unresolved LID, or when the user passed a JID directly.
+ * Rules:
+ *   - Accepts ANY international number (no "55"/Brazil assumption).
+ *   - Strips "+", spaces, "-", "(", ")" — keeps only digits.
+ *   - Does NOT add country code, does NOT add/remove the 9th digit, does NOT reformat.
+ *   - LIDs (xxx@lid) are resolved via UAZAPI /chat/info; the resolved digits are kept as-is.
+ *   - Rejects JIDs, groups, broadcasts and newsletters (those are not valid user inputs here).
+ *   - The API is the source of truth for "valid number" — we forward anything with digits.
  */
 async function normalizeContactJid(
   raw: string,
   baseUrl?: string,
   token?: string,
-): Promise<{ phone: string; jid: string } | null> {
-  const value = String(raw || "").trim().toLowerCase();
+): Promise<{ phone: string; jid: string; original: string } | null> {
+  const original = String(raw || "").trim();
+  const value = original.toLowerCase();
   if (!value) return null;
 
-  // Hard reject: JID inputs are not allowed.
+  // Hard reject: JID inputs are not allowed (must come from number or LID resolution).
   if (value.includes("@s.whatsapp.net") || value.includes("@c.us")) return null;
   // Hard reject: groups / broadcasts / newsletters.
   if (value.includes("@g.us") || value.includes("@broadcast") || value.includes("@newsletter")) return null;
 
-  // LID → resolve via API
+  // LID → resolve via API. Preserve resolved digits as-is (no length/country checks).
   if (value.includes("@lid")) {
     if (!baseUrl || !token) return null;
     const resolvedJid = await resolveLidToJid(baseUrl, token, value);
     if (!resolvedJid) return null;
     const digits = resolvedJid.split("@")[0].replace(/\D/g, "");
-    if (digits.length < 10 || digits.length > 15) return null;
-    return { phone: digits, jid: `${digits}@s.whatsapp.net` };
+    if (!digits) return null;
+    return { phone: digits, jid: `${digits}@s.whatsapp.net`, original };
   }
 
-  // Plain number path
-  if (/[a-z]/i.test(value)) return null; // any letters in non-LID input → invalid
+  // Plain number path — any letters in non-LID input is invalid
+  if (/[a-z]/i.test(value)) return null;
+  // Strip "+", spaces, "-", "(", ")" and any other non-digit char.
   const digits = value.replace(/\D/g, "");
-  if (digits.length < 10 || digits.length > 15) return null;
-  return { phone: digits, jid: `${digits}@s.whatsapp.net` };
+  // Minimal sanity: must contain at least one digit. No length cap (international support).
+  if (!digits) return null;
+  return { phone: digits, jid: `${digits}@s.whatsapp.net`, original };
 }
 
 // ── Participant fetching (with in-memory cache) ──
