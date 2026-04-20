@@ -1422,9 +1422,38 @@ async function runDeviceWorker(
       }
       let result: Awaited<ReturnType<typeof addToGroup>>;
       try {
-        result = targetInfo.kind === "community_child"
-          ? await addToGroup(baseUrl, device.uazapi_token, targetInfo.targetId, phone)
-          : await addToGroup(baseUrl, device.uazapi_token, groupId, phone);
+        // Pre-step: ensure contact exists in device's address book to bypass
+        // the "only saved contacts can invite" privacy restriction.
+        await ensureContactSaved(baseUrl, device.uazapi_token, phone);
+        await sleep(randomBetween(500, 1500));
+
+        const doAdd = () => targetInfo.kind === "community_child"
+          ? addToGroup(baseUrl, device.uazapi_token, targetInfo.targetId, phone)
+          : addToGroup(baseUrl, device.uazapi_token, groupId, phone);
+
+        result = await doAdd();
+
+        // If add failed with the privacy error, force-save the contact once
+        // more and retry exactly one time. Privacy is a user-level restriction
+        // (not an instance failure) and must NOT break the worker.
+        const isPrivacyBlock = !result.ok
+          && !result.alreadyExists
+          && /privacidade|saved contacts|contatos salvos|only allows|invite de contatos/i.test(result.detail);
+        if (isPrivacyBlock) {
+          log.warn(`retry_after_privacy: ${phone} on group ${groupId.slice(0, 15)} — forcing contact save and retrying once.`);
+          const saved = await ensureContactSaved(baseUrl, device.uazapi_token, phone, { force: true });
+          if (saved) {
+            await sleep(randomBetween(800, 1500));
+            result = await doAdd();
+          }
+          const stillPrivacy = !result.ok
+            && !result.alreadyExists
+            && /privacidade|saved contacts|contatos salvos|only allows|invite de contatos/i.test(result.detail);
+          if (stillPrivacy) {
+            log.warn(`privacy_blocked_final: ${phone} on group ${groupId.slice(0, 15)} — marking as failed (user-level privacy).`);
+            result = { ...result, retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "failed" };
+          }
+        }
       } finally {
         DeviceLockManager.release(deviceId, actionLockId);
       }
