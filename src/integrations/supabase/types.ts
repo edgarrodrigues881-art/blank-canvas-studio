@@ -3671,6 +3671,7 @@ export type Database = {
       }
       mass_inject_contacts: {
         Row: {
+          assigned_device_id: string | null
           attempt_count: number
           campaign_id: string
           created_at: string
@@ -3685,6 +3686,7 @@ export type Database = {
           target_group_name: string | null
         }
         Insert: {
+          assigned_device_id?: string | null
           attempt_count?: number
           campaign_id: string
           created_at?: string
@@ -3699,6 +3701,7 @@ export type Database = {
           target_group_name?: string | null
         }
         Update: {
+          assigned_device_id?: string | null
           attempt_count?: number
           campaign_id?: string
           created_at?: string
@@ -6531,6 +6534,36 @@ export type Database = {
           p_processing_message?: string
         }
         Returns: {
+          assigned_device_id: string | null
+          attempt_count: number
+          campaign_id: string
+          created_at: string
+          device_used: string | null
+          error_message: string | null
+          id: string
+          next_retry_at: string | null
+          phone: string
+          processed_at: string | null
+          status: string
+          target_group_id: string
+          target_group_name: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "mass_inject_contacts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      claim_next_mass_inject_contact_for_device: {
+        Args: {
+          p_campaign_id: string
+          p_device_id: string
+          p_device_used?: string
+          p_processing_message?: string
+        }
+        Returns: {
+          assigned_device_id: string | null
           attempt_count: number
           campaign_id: string
           created_at: string
@@ -6622,6 +6655,10 @@ export type Database = {
         }
         Returns: Json
       }
+      distribute_mass_inject_contacts: {
+        Args: { p_campaign_id: string; p_device_ids: string[] }
+        Returns: number
+      }
       get_community_pairs_target: {
         Args: { p_community_day: number }
         Returns: number[]
@@ -6685,6 +6722,14 @@ export type Database = {
         Returns: Json
       }
       mass_inject_lock_key: { Args: { p_campaign_id: string }; Returns: number }
+      reassign_mass_inject_contacts: {
+        Args: {
+          p_alive_device_ids: string[]
+          p_campaign_id: string
+          p_dead_device_id: string
+        }
+        Returns: number
+      }
       release_device_lock: {
         Args: { _campaign_id: string; _device_id: string }
         Returns: undefined

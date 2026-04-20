@@ -934,6 +934,41 @@ async function finalizeCampaign(sb: any, campaignId: string): Promise<boolean> {
   return true;
 }
 
+/**
+ * When a device worker exits early (disconnected / failed), redistribute its
+ * pinned queue to the still-alive siblings using round-robin. Keeps the campaign
+ * progressing without waiting for the dead device.
+ */
+async function reassignMyQueueToSiblings(
+  sb: any,
+  campaignId: string,
+  deadDeviceId: string,
+  campaignDeviceIds: string[],
+  failedDeviceIds: Map<string, number>,
+): Promise<void> {
+  try {
+    const alive = campaignDeviceIds.filter(
+      (id) => id !== deadDeviceId && !failedDeviceIds.has(id),
+    );
+    const { data: count, error } = await sb.rpc("reassign_mass_inject_contacts", {
+      p_campaign_id: campaignId,
+      p_dead_device_id: deadDeviceId,
+      p_alive_device_ids: alive,
+    });
+    if (error) {
+      log.warn(`Campaign ${campaignId.slice(0, 8)}: reassign RPC failed for dead device ${deadDeviceId.slice(0, 8)}. ${String(error.message || error)}`);
+      return;
+    }
+    if (Number(count || 0) > 0) {
+      log.info(
+        `Campaign ${campaignId.slice(0, 8)}: reassigned ${count} contact(s) from dead device ${deadDeviceId.slice(0, 8)} to ${alive.length} sibling(s)`,
+      );
+    }
+  } catch (e: any) {
+    log.warn(`Campaign ${campaignId.slice(0, 8)}: reassign crashed for dead device ${deadDeviceId.slice(0, 8)}. ${String(e?.message || e)}`);
+  }
+}
+
 // ══════════════════════════════════════════════════════════
 // MAIN WORKER: processes ONE campaign with PARALLEL device workers
 // Each device claims contacts independently from the shared queue
@@ -979,10 +1014,29 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
     const liveWorkersRef = { value: initialDeviceIds.length };
 
-    log.info(`Campaign ${campaignId.slice(0, 8)} launching ${initialDeviceIds.length} parallel device worker(s)`);
+    // Per-instance queue isolation: pre-distribute pending contacts across the
+    // device pool using round-robin. Each contact gets pinned to ONE device,
+    // so workers no longer compete for the same queue. Safe to call on every
+    // tick — only unassigned rows are touched.
+    try {
+      const { data: assignedCount, error: distErr } = await sb.rpc("distribute_mass_inject_contacts", {
+        p_campaign_id: campaignId,
+        p_device_ids: initialDeviceIds,
+      });
+      if (distErr) {
+        log.warn(`Campaign ${campaignId.slice(0, 8)}: distribute RPC failed — falling back to shared queue. ${String(distErr.message || distErr)}`);
+      } else if (Number(assignedCount || 0) > 0) {
+        log.info(`Campaign ${campaignId.slice(0, 8)}: distributed ${assignedCount} contact(s) round-robin across ${initialDeviceIds.length} instance(s)`);
+      }
+    } catch (e: any) {
+      log.warn(`Campaign ${campaignId.slice(0, 8)}: distribute RPC crashed — proceeding without pre-assignment. ${String(e?.message || e)}`);
+    }
 
-    // Run one parallel worker per device. They share the contact queue
-    // (claim_next_mass_inject_contact uses FOR UPDATE SKIP LOCKED).
+    log.info(`Campaign ${campaignId.slice(0, 8)} launching ${initialDeviceIds.length} parallel device worker(s) — per-instance isolated queues`);
+
+    // Run one parallel worker per device. Each worker only claims contacts
+    // assigned to its own device (or unassigned fallback). A failed instance
+    // never blocks siblings — its queue is reassigned via reassign_mass_inject_contacts.
     await Promise.all(initialDeviceIds.map((did) =>
       runDeviceWorker(sb, campaign, did, counterState, failedDeviceIds, stopAllRef, isRunningRef, liveWorkersRef)
         .catch((err: any) => {
@@ -1104,8 +1158,9 @@ async function runDeviceWorker(
           failedDeviceIds.delete(deviceId);
           continue;
         }
-        // Siblings still alive — exit this worker; they'll absorb the load
-        log.info(`Campaign ${campaignId.slice(0, 8)} device ${deviceId.slice(0, 8)} stepping out — ${liveWorkersRef.value - 1} sibling(s) absorbing load`);
+        // Siblings still alive — exit this worker; reassign MY pinned queue to them.
+        await reassignMyQueueToSiblings(sb, campaignId, deviceId, parseDeviceIds(freshCampaign.device_ids), failedDeviceIds);
+        log.info(`Campaign ${campaignId.slice(0, 8)} device ${deviceId.slice(0, 8)} stepping out — ${liveWorkersRef.value - 1} sibling(s) absorbing load (queue reassigned)`);
         break;
       }
 
@@ -1135,9 +1190,10 @@ async function runDeviceWorker(
 
       if (!connResult.connected) {
         if (connResult.shouldSkipDevice) {
-          // MY device confirmed disconnected — exit this worker so siblings absorb load.
+          // MY device confirmed disconnected — reassign my queue to siblings, then exit.
           failedDeviceIds.set(deviceId, Date.now());
-          log.info(`Campaign ${campaignId.slice(0, 8)}: device ${deviceId.slice(0, 8)} disconnected — releasing worker`);
+          await reassignMyQueueToSiblings(sb, campaignId, deviceId, parseDeviceIds(freshCampaign.device_ids), failedDeviceIds);
+          log.info(`Campaign ${campaignId.slice(0, 8)}: device ${deviceId.slice(0, 8)} disconnected — releasing worker (queue reassigned)`);
           break;
         }
         // Unknown status — proceed cautiously
@@ -1159,15 +1215,17 @@ async function runDeviceWorker(
         continue;
       }
 
-      // 5. Claim next contact (DB enforces MAX_CONTACT_ATTEMPTS — capped retries)
-      const { data: contact } = await sb.rpc("claim_next_mass_inject_contact", {
+      // 5. Claim next contact from MY OWN per-instance queue (isolation).
+      //    Falls back to unassigned contacts if my queue is empty.
+      const { data: contact } = await sb.rpc("claim_next_mass_inject_contact_for_device", {
         p_campaign_id: campaignId,
+        p_device_id: deviceId,
         p_device_used: device.name || device.id,
         p_processing_message: "Processando...",
       });
 
       if (!contact?.id) {
-        // Queue empty for me — exit. The orchestrator finalizes once all workers done.
+        // My queue is empty — exit. The orchestrator finalizes once all workers done.
         break;
       }
 
