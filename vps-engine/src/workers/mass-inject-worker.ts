@@ -15,7 +15,10 @@ const log = createLogger("mass-inject");
 
 const API_TIMEOUT_MS = 25_000;
 
+// Minimum spacing between two sends on the SAME device (per-instance serial queue).
+// User-facing config (min_delay/max_delay) selects 3–6s by default; this is the hard floor.
 const MIN_DEVICE_SEND_INTERVAL_MS = 3_000;
+const MAX_DEVICE_SEND_INTERVAL_MS = 6_000;
 const RETRYABLE_STATUSES = [
   "pending",
   "rate_limited",
