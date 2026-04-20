@@ -1155,9 +1155,10 @@ async function runDeviceWorker(
 
       if (!connResult.connected) {
         if (connResult.shouldSkipDevice) {
-          // MY device confirmed disconnected — exit this worker so siblings absorb load.
+          // MY device confirmed disconnected — reassign my queue to siblings, then exit.
           failedDeviceIds.set(deviceId, Date.now());
-          log.info(`Campaign ${campaignId.slice(0, 8)}: device ${deviceId.slice(0, 8)} disconnected — releasing worker`);
+          await reassignMyQueueToSiblings(sb, campaignId, deviceId, parseDeviceIds(freshCampaign.device_ids), failedDeviceIds);
+          log.info(`Campaign ${campaignId.slice(0, 8)}: device ${deviceId.slice(0, 8)} disconnected — releasing worker (queue reassigned)`);
           break;
         }
         // Unknown status — proceed cautiously
