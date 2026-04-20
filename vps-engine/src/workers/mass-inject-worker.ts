@@ -1504,7 +1504,7 @@ async function runDeviceWorker(
           const saved = await ensureContactSaved(baseUrl, device.uazapi_token, phone, { force: true });
           if (saved) {
             await sleep(randomBetween(800, 1500));
-            result = await withDeadline(doAdd());
+            result = await withDeadline(doAdd("retry_after_privacy"));
           }
           if (isExplicitPrivacyError(result)) {
             log.warn(
@@ -1540,7 +1540,7 @@ async function runDeviceWorker(
           );
           await sleep(delay);
           try {
-            result = await withDeadline(doAdd());
+            result = await withDeadline(doAdd(`generic_retry_${attempt + 1}`));
           } catch (retryErr: any) {
             // Treat retry exceptions as transient unknown failure so the loop
             // can decide whether to keep retrying (it won't, after 2 tries).
