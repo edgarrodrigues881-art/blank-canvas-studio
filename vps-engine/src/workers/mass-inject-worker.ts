@@ -9,6 +9,7 @@ import { createLogger } from "../core/logger";
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
 import { inspectMassInjectTarget, type MassInjectTargetInfo } from "./mass-inject-target-utils";
+import { buildUazapiHeaders } from "../integrations/uazapi-headers";
 
 const log = createLogger("mass-inject");
 
