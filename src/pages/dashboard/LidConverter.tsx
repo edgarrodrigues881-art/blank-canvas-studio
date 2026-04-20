@@ -47,24 +47,31 @@ export default function LidConverter() {
   const [tab, setTab] = useState<"convert" | "history">("convert");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Instâncias conectadas (obrigatório selecionar uma)
+  // Instâncias conectadas (obrigatório selecionar ao menos uma — suporta múltiplas em paralelo)
   const [devices, setDevices] = useState<Array<{ id: string; name: string | null; number: string | null; status: string | null }>>([]);
-  const [deviceId, setDeviceId] = useState<string>("");
+  const [deviceIds, setDeviceIds] = useState<string[]>([]);
+
+  // Progresso global do processamento paralelo
+  const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from("devices")
-        .select("id,name,number,status,login_type")
+        .select("id,name,number,status,login_type,created_at")
         .neq("login_type", "report_wa")
         .order("created_at", { ascending: false });
       const list = (data || []).filter((d: any) =>
         ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"].includes(String(d.status || ""))
       );
       setDevices(list as any);
-      if (list.length === 1) setDeviceId(list[0].id);
+      if (list.length === 1) setDeviceIds([list[0].id]);
     })();
   }, []);
+
+  const toggleDevice = (id: string) => {
+    setDeviceIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
 
   // Autosave do textarea (debounced para performance com listas grandes)
   useEffect(() => {
@@ -122,14 +129,15 @@ export default function LidConverter() {
       return;
     }
 
-    if (!deviceId) {
-      toast.error("Selecione uma instância");
+    if (deviceIds.length === 0) {
+      toast.error("Selecione ao menos uma instância");
       return;
     }
 
     setLoading(true);
+    setProgress({ done: 0, total: 0 });
     try {
-      // Skip já-validados (cache de campanhas anteriores) — busca números/jids/originals já marcados como válidos.
+      // Skip já-validados (cache de campanhas anteriores)
       const { data: alreadyData } = await supabase
         .from("contact_processing_results")
         .select("original,number,jid,valid,detected_type")
@@ -148,26 +156,68 @@ export default function LidConverter() {
       });
 
       const toResolve = allLines.filter((l) => !cached.has(l));
-      let resolvedRows: Row[] = [];
+      const resolvedMap = new Map<string, Row>();
+      setProgress({ done: 0, total: toResolve.length });
 
       if (toResolve.length > 0) {
-        const { data, error } = await supabase.functions.invoke("resolve-contact", {
-          body: { inputs: toResolve, device_id: deviceId },
-        });
-        if (error) throw error;
-        const results = Array.isArray(data?.results) ? data.results : [];
-        resolvedRows = results.map((r: any) => ({
-          original: String(r?.original ?? ""),
-          type: (r?.type as EntryType) ?? "number",
-          number: r?.number ? String(r.number) : "—",
-          jid: r?.jid ? String(r.jid) : "—",
-          valid: !!r?.valid,
-          error: r?.error,
-        }));
+        // Divide contatos em chunks por instância (round-robin)
+        const buckets: Record<string, string[]> = {};
+        deviceIds.forEach((id) => (buckets[id] = []));
+        toResolve.forEach((c, i) => buckets[deviceIds[i % deviceIds.length]].push(c));
+
+        // Fila de instâncias ativas para redistribuição em falha
+        const activeDevices = [...deviceIds];
+
+        const processChunk = async (devId: string, chunk: string[]): Promise<void> => {
+          if (chunk.length === 0) return;
+          try {
+            const { data, error } = await supabase.functions.invoke("resolve-contact", {
+              body: { inputs: chunk, device_id: devId },
+            });
+            if (error) throw error;
+            const results = Array.isArray(data?.results) ? data.results : [];
+            results.forEach((r: any) => {
+              const orig = String(r?.original ?? "");
+              resolvedMap.set(orig, {
+                original: orig,
+                type: (r?.type as EntryType) ?? "number",
+                number: r?.number ? String(r.number) : "—",
+                jid: r?.jid ? String(r.jid) : "—",
+                valid: !!r?.valid,
+                error: r?.error,
+              });
+            });
+            setProgress((p) => ({ ...p, done: p.done + chunk.length }));
+          } catch (err) {
+            console.warn(`[lid-converter] device ${devId} falhou, redistribuindo`, err);
+            // Remove instância com falha e redistribui contatos faltantes entre as demais
+            const idx = activeDevices.indexOf(devId);
+            if (idx >= 0) activeDevices.splice(idx, 1);
+            const pending = chunk.filter((c) => !resolvedMap.has(c));
+            if (activeDevices.length === 0 || pending.length === 0) {
+              // Marca falhas se não houver mais instâncias
+              pending.forEach((c) =>
+                resolvedMap.set(c, {
+                  original: c, type: "number", number: "—", jid: "—",
+                  valid: false, error: "Todas as instâncias falharam",
+                }),
+              );
+              setProgress((p) => ({ ...p, done: p.done + pending.length }));
+              return;
+            }
+            // Redistribui em sub-chunks pelos sobreviventes em paralelo
+            const sub: Record<string, string[]> = {};
+            activeDevices.forEach((id) => (sub[id] = []));
+            pending.forEach((c, i) => sub[activeDevices[i % activeDevices.length]].push(c));
+            await Promise.all(activeDevices.map((id) => processChunk(id, sub[id])));
+          }
+        };
+
+        await Promise.all(deviceIds.map((id) => processChunk(id, buckets[id])));
       }
 
       // Mantém ordem original
-      const merged: Row[] = allLines.map((l) => cached.get(l) || resolvedRows.find((r) => r.original === l) || {
+      const merged: Row[] = allLines.map((l) => cached.get(l) || resolvedMap.get(l) || {
         original: l, type: "number", number: "—", jid: "—", valid: false, error: "no_result",
       });
 
@@ -442,20 +492,40 @@ export default function LidConverter() {
             <CardContent className="space-y-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">
-                  Instância <span className="text-destructive">*</span>
+                  Instâncias <span className="text-destructive">*</span>
+                  {deviceIds.length > 0 && (
+                    <span className="ml-2 text-foreground">
+                      {deviceIds.length} selecionada{deviceIds.length > 1 ? "s" : ""} · processamento paralelo
+                    </span>
+                  )}
                 </label>
-                <Select value={deviceId} onValueChange={setDeviceId} disabled={loading}>
-                  <SelectTrigger className="w-full sm:w-[320px]">
-                    <SelectValue placeholder={devices.length === 0 ? "Nenhuma instância conectada" : "Selecione uma instância"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {devices.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>
-                        {d.name || "Instância"} {d.number ? `· ${d.number}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {devices.length === 0 ? (
+                  <div className="text-sm text-muted-foreground border rounded-md px-3 py-2">
+                    Nenhuma instância conectada
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2 border rounded-md p-2 max-h-40 overflow-y-auto">
+                    {devices.map((d) => {
+                      const active = deviceIds.includes(d.id);
+                      return (
+                        <button
+                          key={d.id}
+                          type="button"
+                          disabled={loading}
+                          onClick={() => toggleDevice(d.id)}
+                          className={`text-xs px-2.5 py-1.5 rounded-md border transition-colors ${
+                            active
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background hover:bg-muted border-border"
+                          }`}
+                        >
+                          {d.name || "Instância"}
+                          {d.number ? ` · ${d.number}` : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <Textarea
                 value={input}
@@ -465,8 +535,22 @@ export default function LidConverter() {
                 className="font-mono text-sm"
                 disabled={loading}
               />
+              {loading && progress.total > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Progresso global</span>
+                    <span>{progress.done} / {progress.total}</span>
+                  </div>
+                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary transition-all"
+                      style={{ width: `${Math.min(100, (progress.done / Math.max(1, progress.total)) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
-                <Button onClick={handleConvert} disabled={loading || !input.trim() || !deviceId}>
+                <Button onClick={handleConvert} disabled={loading || !input.trim() || deviceIds.length === 0}>
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
                   {loading ? "Processando..." : "Converter"}
                 </Button>
