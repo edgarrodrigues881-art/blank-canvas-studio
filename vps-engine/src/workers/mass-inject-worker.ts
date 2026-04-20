@@ -1435,23 +1435,31 @@ async function runDeviceWorker(
           continue;
         }
 
-        // Track API failures for connection state — ONLY real connection issues
-        // ever influence device-disconnected status. A normal "add failed" must
-        // never poison the device state. Rate limits are explicitly excluded above.
-        if (isConnectionIssue || isTimeout) {
+        // Track API failures for connection state — ONLY explicit connection
+        // issues ever influence device-disconnected status. Rate limits, timeouts,
+        // and queue delays are explicitly excluded — those are transient and the
+        // instance is still healthy.
+        if (isConnectionIssue) {
           const shouldForceRecheck = recordDeviceApiFailure(deviceId, failureDetail);
-          if (shouldForceRecheck && isConnectionIssue) {
-            // Connection issue confirmed by API failures — revert contact to pending (don't consume attempt)
-            await sb.from("mass_inject_contacts").update({
-              status: "pending",
-              error_message: `Aguardando reconexão: ${failureDetail}`,
-              device_used: null,
-              attempt_count: Math.max(0, currentAttempt - 1), // refund attempt
-            } as any).eq("id", contact.id);
-            failedDeviceIds.set(deviceId, Date.now());
-            batchFailed++;
-            // Don't count this as a campaign failure — device is the issue
-            continue;
+          if (shouldForceRecheck) {
+            // 3 consecutive REAL connection failures — validate via health check
+            // endpoint before marking device as offline. Revert contact to pending
+            // (don't consume an attempt) so it auto-resumes after recovery.
+            const health = await isInstanceConnected(deviceId, baseUrl, device.uazapi_token, true);
+            if (!health.connected) {
+              await sb.from("mass_inject_contacts").update({
+                status: "pending",
+                error_message: `Aguardando reconexão: ${failureDetail}`,
+                device_used: null,
+                attempt_count: Math.max(0, currentAttempt - 1), // refund attempt
+              } as any).eq("id", contact.id);
+              failedDeviceIds.set(deviceId, Date.now());
+              batchFailed++;
+              // Don't count this as a campaign failure — device is the issue
+              continue;
+            } else {
+              log.info(`Device ${deviceId.slice(0, 8)}: API failures recovered after health check — continuing.`);
+            }
           }
         }
 
