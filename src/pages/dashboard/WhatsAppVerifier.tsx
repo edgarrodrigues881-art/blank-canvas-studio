@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +39,7 @@ export default function WhatsAppVerifier() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const location = useLocation();
+  const navigate = useNavigate();
   const [view, setView] = useState<ViewMode>("list");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [jobName, setJobName] = useState("");
@@ -285,6 +286,21 @@ export default function WhatsAppVerifier() {
             </Button>
             <Button variant="outline" size="sm" onClick={() => { const header = "Número,Status,Detalhe\n"; const rows = jobResults.map((r: any) => `${r.phone},${r.status},${r.detail || ""}`).join("\n"); const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8" }); triggerDownload(blob, `verificacao_${j.name.replace(/\s+/g, "_")}.csv`); }}>
               <Download className="w-3.5 h-3.5 mr-1.5" /> Exportar Tudo
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              disabled={validResults.length === 0}
+              onClick={() => {
+                navigate("/dashboard/mass-inject", {
+                  state: {
+                    prefillContacts: validResults.map((r: any) => r.phone),
+                    prefillName: j.name,
+                  },
+                });
+              }}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> Usar na Adição em Massa ({validResults.length})
             </Button>
           </div>
         )}

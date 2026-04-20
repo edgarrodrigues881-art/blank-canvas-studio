@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -2218,10 +2219,27 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
 // MAIN ROUTER
 // ═══════════════════════════════════════════════════════════════
 export default function MassGroupInject() {
+  const location = useLocation();
   const [view, setView] = useState<View>("list");
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [prefillContacts, setPrefillContacts] = useState<string[] | undefined>();
   const [prefillName, setPrefillName] = useState<string | undefined>();
+  const didApplyNavState = useRef(false);
+
+  // Auto-fill from incoming navigation state (e.g. WhatsApp Verifier → "Usar na Adição em Massa")
+  useEffect(() => {
+    if (didApplyNavState.current) return;
+    const state = location.state as any;
+    const incomingPhones: string[] | undefined = state?.prefillContacts;
+    if (incomingPhones?.length) {
+      didApplyNavState.current = true;
+      setPrefillContacts(incomingPhones);
+      if (state?.prefillName) setPrefillName(state.prefillName);
+      setView("create");
+      // Clear the router state so a refresh doesn't re-trigger
+      window.history.replaceState({}, "");
+    }
+  }, [location.state]);
 
   const handleNewCampaignFromFailed = useCallback((phones: string[], sourceName: string) => {
     setPrefillContacts(phones);

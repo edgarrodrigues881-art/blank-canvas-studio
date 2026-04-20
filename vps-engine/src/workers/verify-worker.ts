@@ -269,6 +269,59 @@ async function processJob(jobId: string) {
       completed_at: new Date().toISOString(),
     }).eq("id", jobId);
 
+    // ── Persist into the unified contact-processing campaign history ──
+    // This makes verification jobs reusable from the "Adição em Massa" flow.
+    try {
+      const totalProcessed = successCount + noWaCount + errorCount;
+      const { data: cpCampaign } = await db
+        .from("contact_processing_campaigns")
+        .insert({
+          user_id: job.user_id,
+          type: "verificacao",
+          status: "completed",
+          name: job.name || `Verificação ${new Date().toISOString().slice(0, 10)}`,
+          total: job.total_phones || totalProcessed,
+          processed: totalProcessed,
+          valid_count: successCount,
+          invalid_count: noWaCount + errorCount,
+          device_ids: deviceIds,
+          completed_at: new Date().toISOString(),
+        } as any)
+        .select("id")
+        .single();
+
+      if (cpCampaign?.id) {
+        // Stream all results into contact_processing_results in chunks of 500
+        let offset = 0;
+        while (true) {
+          const { data: chunk } = await db
+            .from("verify_results")
+            .select("phone, status, detail")
+            .eq("job_id", jobId)
+            .order("created_at", { ascending: true })
+            .range(offset, offset + 499);
+          if (!chunk || chunk.length === 0) break;
+          const rows = chunk.map((r: any) => ({
+            campaign_id: cpCampaign.id,
+            user_id: job.user_id,
+            original: r.phone,
+            number: r.phone,
+            jid: r.status === "success" ? `${r.phone}@s.whatsapp.net` : null,
+            valid: r.status === "success",
+            detected_type: "number",
+            status: r.status,
+            error_message: r.status !== "success" ? (r.detail || null) : null,
+          }));
+          await db.from("contact_processing_results").insert(rows as any);
+          if (chunk.length < 500) break;
+          offset += 500;
+        }
+        log.info(`Job ${jobId.slice(0, 8)} mirrored to contact_processing_campaigns ${cpCampaign.id.slice(0, 8)}`);
+      }
+    } catch (mirrorErr: any) {
+      log.warn(`Job ${jobId.slice(0, 8)} mirror to campaigns failed: ${mirrorErr?.message || mirrorErr}`);
+    }
+
     log.info(`Job ${jobId.slice(0, 8)} completed: ${successCount} ok, ${noWaCount} no_wa, ${errorCount} err`);
   } catch (err: any) {
     log.error(`Job ${jobId.slice(0, 8)} error: ${err?.message}`);
