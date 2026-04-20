@@ -1344,16 +1344,17 @@ async function runDeviceWorker(
           log.warn(
             `Campaign ${campaignId.slice(0, 8)}: rate limited on device ${device.name || deviceId.slice(0, 8)} — cooldown started (${Math.round(cooldownMs / 1000)}s). Will retry automatically.`,
           );
-          // Revert contact (refund attempt) so it's retried after cooldown.
+          // Persist as `retrying` with backoff so the queue auto-resumes after cooldown.
+          // We refund the attempt so the rate-limit doesn't burn one of the 3 tries.
           await sb.from("mass_inject_contacts").update({
-            status: "pending",
-            error_message: `Rate limit — retrying after ${Math.round(cooldownMs / 1000)}s cooldown`,
+            status: "retrying",
+            error_message: `Rate limit — retry em ${Math.round(cooldownMs / 1000)}s`,
             device_used: null,
             attempt_count: Math.max(0, currentAttempt - 1),
+            next_retry_at: new Date(Date.now() + cooldownMs).toISOString(),
           } as any).eq("id", contact.id);
           // Mark this device as cooling down so siblings absorb load.
           failedDeviceIds.set(deviceId, Date.now() + cooldownMs);
-          // Local pause for this worker — keeps queue moving on other devices.
           log.info(`Campaign ${campaignId.slice(0, 8)}: retrying device ${device.name || deviceId.slice(0, 8)} after ${Math.round(cooldownMs / 1000)}s.`);
           await sleep(cooldownMs);
           consecutiveAddFailures = 0; // rate limit is not a hard failure
