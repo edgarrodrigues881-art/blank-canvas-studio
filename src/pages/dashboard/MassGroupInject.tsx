@@ -624,15 +624,61 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     refetchOnWindowFocus: true,
   });
 
-  // Auto-refresh only while campaign is active
+  // Auto-refresh only while campaign is active (fallback when realtime is unavailable)
   useEffect(() => {
     if (!isActiveStatus(campaign?.status)) return;
     const id = setInterval(() => {
       if (!isFetchingCampaign) refetchCampaign();
       if (!isFetchingContacts) refetchContacts();
-    }, 2500);
+    }, 2000);
     return () => clearInterval(id);
   }, [campaign?.status, isFetchingCampaign, isFetchingContacts, refetchCampaign, refetchContacts]);
+
+  // ── Realtime subscription on contacts: instant UI updates per row change ──
+  // Each INSERT/UPDATE/DELETE on mass_inject_contacts for this campaign
+  // refreshes the local cache so per-instance + global counters stay live.
+  useEffect(() => {
+    if (!campaignId || !isActiveStatus(campaign?.status)) return;
+    const channel = supabase
+      .channel(`mass_inject_contacts:${campaignId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "mass_inject_contacts", filter: `campaign_id=eq.${campaignId}` },
+        () => { refetchContacts(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "mass_inject_campaigns", filter: `id=eq.${campaignId}` },
+        () => { refetchCampaign(); },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [campaignId, campaign?.status, refetchContacts, refetchCampaign]);
+
+  // ── Stuck-pending recovery: if a contact stays "processing" past STALE_PROCESSING_MS
+  //    OR the campaign has only "pending" contacts and no progress for >60s, nudge the
+  //    worker via the existing recover-stalled action. Never leave contacts frozen.
+  const lastRecoverNudgeAtRef = useRef(0);
+  useEffect(() => {
+    if (!campaignId || !isActiveStatus(campaign?.status)) return;
+    const id = setInterval(async () => {
+      const nowMs = Date.now();
+      if (nowMs - lastRecoverNudgeAtRef.current < 30_000) return; // throttle: 1 nudge / 30s
+      const stuckProcessing = contacts.some((c: any) => {
+        if (c.status !== "processing") return false;
+        const ts = c.processed_at ? new Date(c.processed_at).getTime() : 0;
+        return ts > 0 && nowMs - ts > STALE_PROCESSING_MS;
+      });
+      const updatedAtMs = campaign?.updated_at ? new Date(campaign.updated_at).getTime() : nowMs;
+      const noProgressTooLong = pendingCount > 0 && processedCount === 0 && (nowMs - updatedAtMs) > 60_000;
+      if (!stuckProcessing && !noProgressTooLong) return;
+      lastRecoverNudgeAtRef.current = nowMs;
+      try {
+        await supabase.functions.invoke("mass-group-inject", { body: { action: "recover-stalled", campaignId } });
+      } catch { /* best-effort nudge — VPS auto-recovers anyway */ }
+    }, 15_000);
+    return () => clearInterval(id);
+  }, [campaignId, campaign?.status, campaign?.updated_at, contacts, pendingCount, processedCount]);
 
   // Watchdog removed — VPS engine handles campaign processing now.
   // We only show a visual note if the campaign seems stalled.
