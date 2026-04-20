@@ -1389,14 +1389,28 @@ async function runDeviceWorker(
         // status is retryable-transient, downgrade to terminal "failed" so the
         // DB never re-claims it. This guarantees we never loop on the same
         // contact more than MAX_CONTACT_ATTEMPTS times.
-        if (isLastAttempt && TRANSIENT_FAILURE_STATUSES.has(failStatus)) {
+        const isTransient = TRANSIENT_FAILURE_STATUSES.has(failStatus);
+        let nextRetryAt: string | null = null;
+        if (isLastAttempt && isTransient) {
           failureDetail = `Limite de ${MAX_CONTACT_ATTEMPTS} tentativas atingido — ${failureDetail}`;
           failStatus = "failed";
+        } else if (isTransient) {
+          // Smart retry: schedule next attempt with exponential backoff.
+          const backoffMs = backoffMsForAttempt(currentAttempt);
+          nextRetryAt = new Date(Date.now() + backoffMs).toISOString();
+          failureDetail = `Tentativa ${currentAttempt}/${MAX_CONTACT_ATTEMPTS} — retry em ${Math.round(backoffMs / 1000)}s (${failureDetail})`;
+          failStatus = "retrying";
+          log.info(
+            `Campaign ${campaignId.slice(0, 8)}: contact ${phone} → retrying (attempt ${currentAttempt}/${MAX_CONTACT_ATTEMPTS}, backoff ${Math.round(backoffMs / 1000)}s)`,
+          );
         }
 
         await sb.from("mass_inject_contacts").update({
-          status: failStatus, error_message: failureDetail, processed_at: nowIso(),
-        }).eq("id", contact.id);
+          status: failStatus,
+          error_message: failureDetail,
+          processed_at: nowIso(),
+          next_retry_at: nextRetryAt,
+        } as any).eq("id", contact.id);
         updateCountersLocal(counterState, failStatus);
         contactsSinceFlush++;
         batchFailed++;
