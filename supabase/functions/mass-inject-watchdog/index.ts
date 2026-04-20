@@ -369,5 +369,12 @@ Deno.serve(async (req) => {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  } finally {
+    // Always release the advisory lock so the next 30s tick can run.
+    try {
+      await sb.rpc("release_watchdog_lock");
+    } catch (e: any) {
+      console.error("[watchdog] failed to release lock:", e?.message);
+    }
   }
 });
