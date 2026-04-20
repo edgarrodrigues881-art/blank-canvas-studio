@@ -1320,7 +1320,7 @@ async function runDeviceWorker(
         consecutiveAddFailures = 0;
       } else {
         // Classify retryable vs permanent failure
-        isRateLimit = detailLower.includes("rate limit") || result.cooldownMs >= 30000;
+        isRateLimit = (result.failureStatus === "rate_limited") || detailLower.includes("rate limit") || detailLower.includes("rate-overlimit") || detailLower.includes("too many");
         isTimeout = detailLower.includes("timeout");
         isConnectionIssue = detailLower.includes("desconectada") || detailLower.includes("socket") || detailLower.includes("disconnected");
         failureDetail = result.detail;
@@ -1328,9 +1328,33 @@ async function runDeviceWorker(
           ? (isRateLimit ? "rate_limited" : isTimeout ? "timeout" : isConnectionIssue ? "connection_unconfirmed" : "api_temporary")
           : "failed");
 
+        // ── Rate limit: NEVER mark device disconnected. Pause this device for the
+        //    full cooldown (30–60s), revert contact to pending so the queue
+        //    automatically resumes after cooldown, and continue with siblings.
+        if (isRateLimit) {
+          const cooldownMs = Math.max(result.cooldownMs || 0, randomBetween(30_000, 60_000));
+          log.warn(
+            `Campaign ${campaignId.slice(0, 8)}: rate limited on device ${device.name || deviceId.slice(0, 8)} — cooldown started (${Math.round(cooldownMs / 1000)}s). Will retry automatically.`,
+          );
+          // Revert contact (refund attempt) so it's retried after cooldown.
+          await sb.from("mass_inject_contacts").update({
+            status: "pending",
+            error_message: `Rate limit — retrying after ${Math.round(cooldownMs / 1000)}s cooldown`,
+            device_used: null,
+            attempt_count: Math.max(0, currentAttempt - 1),
+          } as any).eq("id", contact.id);
+          // Mark this device as cooling down so siblings absorb load.
+          failedDeviceIds.set(deviceId, Date.now() + cooldownMs);
+          // Local pause for this worker — keeps queue moving on other devices.
+          log.info(`Campaign ${campaignId.slice(0, 8)}: retrying device ${device.name || deviceId.slice(0, 8)} after ${Math.round(cooldownMs / 1000)}s.`);
+          await sleep(cooldownMs);
+          consecutiveAddFailures = 0; // rate limit is not a hard failure
+          continue;
+        }
+
         // Track API failures for connection state — ONLY real connection issues
         // ever influence device-disconnected status. A normal "add failed" must
-        // never poison the device state.
+        // never poison the device state. Rate limits are explicitly excluded above.
         if (isConnectionIssue || isTimeout) {
           const shouldForceRecheck = recordDeviceApiFailure(deviceId, failureDetail);
           if (shouldForceRecheck && isConnectionIssue) {
