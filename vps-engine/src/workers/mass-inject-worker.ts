@@ -814,10 +814,13 @@ async function finalizeCampaign(sb: any, campaignId: string): Promise<boolean> {
 }
 
 // ══════════════════════════════════════════════════════════
-// MAIN WORKER: processes ONE campaign in batches of BATCH_SIZE contacts
-// After each batch, yields execution so the next tick can rebalance.
+// MAIN WORKER: processes ONE campaign with PARALLEL device workers
+// Each device claims contacts independently from the shared queue
+// (claim_next_mass_inject_contact uses FOR UPDATE SKIP LOCKED).
+// → More devices = automatic acceleration
+// → Failed device = remaining workers absorb the load (auto-redistribution)
 // ══════════════════════════════════════════════════════════
-const BATCH_SIZE = 10; // contacts per batch — keeps execution short
+const BATCH_SIZE = 10; // contacts per device-worker per batch
 async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value: boolean }) {
   const campaignId = campaign.id;
   const counterState = {
