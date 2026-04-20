@@ -1738,6 +1738,17 @@ async function runDeviceWorker(
         } catch { /* non-critical */ }
       }
 
+      // Per-contact structured log: start, end, applied delay, result
+      const outcome = result.ok
+        ? "added"
+        : result.alreadyExists
+          ? "already_in_group"
+          : (failStatus || "failed");
+      log.info(
+        `contact_processed campaign=${campaignId.slice(0, 8)} device=${(device.name || deviceId).toString().slice(0, 16)} phone=${phone} start_time=${startIso} end_time=${endIso} elapsed_ms=${elapsedMs} delay_applied_ms=${delayMs} result=${outcome} detail="${result.detail.slice(0, 120).replace(/"/g, "'")}"`,
+      );
+
+      // Always await the inter-contact delay so per-instance pacing is respected.
       await sleep(delayMs);
       batchProcessed++;
     }
