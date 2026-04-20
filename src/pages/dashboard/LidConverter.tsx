@@ -47,6 +47,25 @@ export default function LidConverter() {
   const [tab, setTab] = useState<"convert" | "history">("convert");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Instâncias conectadas (obrigatório selecionar uma)
+  const [devices, setDevices] = useState<Array<{ id: string; name: string | null; number: string | null; status: string | null }>>([]);
+  const [deviceId, setDeviceId] = useState<string>("");
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("devices")
+        .select("id,name,number,status,login_type")
+        .neq("login_type", "report_wa")
+        .order("created_at", { ascending: false });
+      const list = (data || []).filter((d: any) =>
+        ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"].includes(String(d.status || ""))
+      );
+      setDevices(list as any);
+      if (list.length === 1) setDeviceId(list[0].id);
+    })();
+  }, []);
+
   // Autosave do textarea (debounced para performance com listas grandes)
   useEffect(() => {
     const t = setTimeout(() => {
@@ -103,6 +122,11 @@ export default function LidConverter() {
       return;
     }
 
+    if (!deviceId) {
+      toast.error("Selecione uma instância");
+      return;
+    }
+
     setLoading(true);
     try {
       // Skip já-validados (cache de campanhas anteriores) — busca números/jids/originals já marcados como válidos.
@@ -128,7 +152,7 @@ export default function LidConverter() {
 
       if (toResolve.length > 0) {
         const { data, error } = await supabase.functions.invoke("resolve-contact", {
-          body: { inputs: toResolve },
+          body: { inputs: toResolve, device_id: deviceId },
         });
         if (error) throw error;
         const results = Array.isArray(data?.results) ? data.results : [];
@@ -416,6 +440,23 @@ export default function LidConverter() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Instância <span className="text-destructive">*</span>
+                </label>
+                <Select value={deviceId} onValueChange={setDeviceId} disabled={loading}>
+                  <SelectTrigger className="w-full sm:w-[320px]">
+                    <SelectValue placeholder={devices.length === 0 ? "Nenhuma instância conectada" : "Selecione uma instância"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {devices.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name || "Instância"} {d.number ? `· ${d.number}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -425,7 +466,7 @@ export default function LidConverter() {
                 disabled={loading}
               />
               <div className="flex flex-wrap gap-2">
-                <Button onClick={handleConvert} disabled={loading || !input.trim()}>
+                <Button onClick={handleConvert} disabled={loading || !input.trim() || !deviceId}>
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
                   {loading ? "Processando..." : "Converter"}
                 </Button>
