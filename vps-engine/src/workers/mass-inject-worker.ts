@@ -1159,7 +1159,7 @@ async function runDeviceWorker(
 
       // 5b. Validate JID BEFORE any API call. Invalid contacts are marked
       //     immediately as failed and never re-claimed.
-      const normalized = normalizeContactJid(String(contact.phone || ""));
+      const normalized = await normalizeContactJid(String(contact.phone || ""), baseUrl, device.uazapi_token);
       if (!normalized) {
         await sb.from("mass_inject_contacts").update({
           status: "failed",
