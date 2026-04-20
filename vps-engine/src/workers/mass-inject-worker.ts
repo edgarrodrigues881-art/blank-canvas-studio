@@ -17,8 +17,12 @@ const API_TIMEOUT_MS = 25_000;
 
 // Minimum spacing between two sends on the SAME device (per-instance serial queue).
 // User-facing config (min_delay/max_delay) selects 3–6s by default; this is the hard floor.
-const MIN_DEVICE_SEND_INTERVAL_MS = 3_000;
-const MAX_DEVICE_SEND_INTERVAL_MS = 6_000;
+const MIN_DEVICE_SEND_INTERVAL_MS = 5_000;
+const MAX_DEVICE_SEND_INTERVAL_MS = 8_000;
+// Hard ceiling for a single add attempt — if the API hangs longer than this we
+// abandon the contact (mark as timeout/failed) and move on so the queue never
+// gets stuck on one row.
+const PER_CONTACT_MAX_PROCESSING_MS = 60_000;
 const RETRYABLE_STATUSES = [
   "pending",
   "retrying",
@@ -1421,7 +1425,22 @@ async function runDeviceWorker(
         continue;
       }
       let result: Awaited<ReturnType<typeof addToGroup>>;
+      const contactStartedAt = Date.now();
+      const startIso = new Date(contactStartedAt).toISOString();
       try {
+        // Per-contact hard timeout: never let a single attempt block the queue
+        // for more than PER_CONTACT_MAX_PROCESSING_MS. If the underlying API
+        // hangs, we abandon the contact as `timeout` and move on.
+        const withDeadline = <T>(p: Promise<T>): Promise<T> => Promise.race([
+          p,
+          new Promise<T>((_, reject) =>
+            setTimeout(
+              () => reject(new Error(`per_contact_timeout:${PER_CONTACT_MAX_PROCESSING_MS}ms`)),
+              PER_CONTACT_MAX_PROCESSING_MS,
+            ),
+          ),
+        ]);
+
         // Pre-step: ensure contact exists in device's address book to bypass
         // the "only saved contacts can invite" privacy restriction.
         await ensureContactSaved(baseUrl, device.uazapi_token, phone);
@@ -1431,7 +1450,7 @@ async function runDeviceWorker(
           ? addToGroup(baseUrl, device.uazapi_token, targetInfo.targetId, phone)
           : addToGroup(baseUrl, device.uazapi_token, groupId, phone);
 
-        result = await doAdd();
+        result = await withDeadline(doAdd());
 
         // If add failed with the privacy error, force-save the contact once
         // more and retry exactly one time. Privacy is a user-level restriction
@@ -1444,7 +1463,7 @@ async function runDeviceWorker(
           const saved = await ensureContactSaved(baseUrl, device.uazapi_token, phone, { force: true });
           if (saved) {
             await sleep(randomBetween(800, 1500));
-            result = await doAdd();
+            result = await withDeadline(doAdd());
           }
           const stillPrivacy = !result.ok
             && !result.alreadyExists
@@ -1454,9 +1473,27 @@ async function runDeviceWorker(
             result = { ...result, retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "failed" };
           }
         }
+      } catch (timeoutErr: any) {
+        // Catches per-contact deadline. We synthesize a failed AddResult so the
+        // queue ALWAYS advances — the contact is marked failed and we move on.
+        const msg = String(timeoutErr?.message || timeoutErr || "timeout");
+        log.warn(`per_contact_timeout: ${phone} on group ${groupId.slice(0, 15)} after ${PER_CONTACT_MAX_PROCESSING_MS}ms — auto-failing and continuing.`);
+        result = {
+          ok: false,
+          alreadyExists: false,
+          detail: `Tempo máximo de processamento (${Math.round(PER_CONTACT_MAX_PROCESSING_MS / 1000)}s) excedido — contato abandonado. ${msg.slice(0, 80)}`,
+          retryable: false,
+          pauseCampaign: false,
+          cooldownMs: 0,
+          failureStatus: "timeout",
+          canTryOtherStrategy: false,
+        };
       } finally {
         DeviceLockManager.release(deviceId, actionLockId);
       }
+      const contactEndedAt = Date.now();
+      const endIso = new Date(contactEndedAt).toISOString();
+      const elapsedMs = contactEndedAt - contactStartedAt;
 
       // Pre-classify failure type (needed for delay logic below)
       const detailLower = result.detail.toLowerCase();
@@ -1701,6 +1738,17 @@ async function runDeviceWorker(
         } catch { /* non-critical */ }
       }
 
+      // Per-contact structured log: start, end, applied delay, result
+      const outcome = result.ok
+        ? "added"
+        : result.alreadyExists
+          ? "already_in_group"
+          : (failStatus || "failed");
+      log.info(
+        `contact_processed campaign=${campaignId.slice(0, 8)} device=${(device.name || deviceId).toString().slice(0, 16)} phone=${phone} start_time=${startIso} end_time=${endIso} elapsed_ms=${elapsedMs} delay_applied_ms=${delayMs} result=${outcome} detail="${result.detail.slice(0, 120).replace(/"/g, "'")}"`,
+      );
+
+      // Always await the inter-contact delay so per-instance pacing is respected.
       await sleep(delayMs);
       batchProcessed++;
     }
@@ -1747,8 +1795,9 @@ async function runDeviceWorker(
 export async function massInjectTick(isRunningRef: { value: boolean }) {
   const db = getDb();
 
-  // 1. Reset stale processing contacts (including rows without processed_at)
-  const staleThreshold = new Date(Date.now() - 3 * 60_000).toISOString();
+  // 1. Reset stale processing contacts (90s — slightly above PER_CONTACT_MAX_PROCESSING_MS
+  //    so any row left in `processing` after a worker crash is requeued promptly).
+  const staleThreshold = new Date(Date.now() - 90_000).toISOString();
   await db.from("mass_inject_contacts")
     .update({ status: "pending", error_message: "Reprocessando (timeout VPS).", device_used: null } as any)
     .eq("status", "processing")
