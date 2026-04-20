@@ -1470,12 +1470,12 @@ async function runDeviceWorker(
 
       let delayMs: number;
       if (wasTransient) {
-        // Transient failure — don't waste user's configured delay, just short pause
-        delayMs = isRateLimit ? Math.min(result.cooldownMs || 5000, 8000) : randomBetween(2000, 4000);
+        // Transient failure (non rate-limit; rate-limit is handled above with continue)
+        delayMs = randomBetween(MIN_DEVICE_SEND_INTERVAL_MS, MAX_DEVICE_SEND_INTERVAL_MS);
       } else {
-        // Success or permanent failure — apply user-configured delay
-        const minDelay = Number(freshCampaign.min_delay ?? 0);
-        const maxDelay = Math.max(Number(freshCampaign.max_delay ?? 0), minDelay);
+        // Success or permanent failure — apply user-configured delay, but enforce 3–6s floor.
+        const minDelay = Math.max(Number(freshCampaign.min_delay ?? 0), MIN_DEVICE_SEND_INTERVAL_MS / 1000);
+        const maxDelay = Math.max(Number(freshCampaign.max_delay ?? 0), Math.max(minDelay, MAX_DEVICE_SEND_INTERVAL_MS / 1000));
         delayMs = minDelay === maxDelay ? minDelay * 1000 : randomBetween(minDelay * 1000, maxDelay * 1000);
       }
 
