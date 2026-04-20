@@ -129,14 +129,15 @@ export default function LidConverter() {
       return;
     }
 
-    if (!deviceId) {
-      toast.error("Selecione uma instância");
+    if (deviceIds.length === 0) {
+      toast.error("Selecione ao menos uma instância");
       return;
     }
 
     setLoading(true);
+    setProgress({ done: 0, total: 0 });
     try {
-      // Skip já-validados (cache de campanhas anteriores) — busca números/jids/originals já marcados como válidos.
+      // Skip já-validados (cache de campanhas anteriores)
       const { data: alreadyData } = await supabase
         .from("contact_processing_results")
         .select("original,number,jid,valid,detected_type")
@@ -155,26 +156,68 @@ export default function LidConverter() {
       });
 
       const toResolve = allLines.filter((l) => !cached.has(l));
-      let resolvedRows: Row[] = [];
+      const resolvedMap = new Map<string, Row>();
+      setProgress({ done: 0, total: toResolve.length });
 
       if (toResolve.length > 0) {
-        const { data, error } = await supabase.functions.invoke("resolve-contact", {
-          body: { inputs: toResolve, device_id: deviceId },
-        });
-        if (error) throw error;
-        const results = Array.isArray(data?.results) ? data.results : [];
-        resolvedRows = results.map((r: any) => ({
-          original: String(r?.original ?? ""),
-          type: (r?.type as EntryType) ?? "number",
-          number: r?.number ? String(r.number) : "—",
-          jid: r?.jid ? String(r.jid) : "—",
-          valid: !!r?.valid,
-          error: r?.error,
-        }));
+        // Divide contatos em chunks por instância (round-robin)
+        const buckets: Record<string, string[]> = {};
+        deviceIds.forEach((id) => (buckets[id] = []));
+        toResolve.forEach((c, i) => buckets[deviceIds[i % deviceIds.length]].push(c));
+
+        // Fila de instâncias ativas para redistribuição em falha
+        const activeDevices = [...deviceIds];
+
+        const processChunk = async (devId: string, chunk: string[]): Promise<void> => {
+          if (chunk.length === 0) return;
+          try {
+            const { data, error } = await supabase.functions.invoke("resolve-contact", {
+              body: { inputs: chunk, device_id: devId },
+            });
+            if (error) throw error;
+            const results = Array.isArray(data?.results) ? data.results : [];
+            results.forEach((r: any) => {
+              const orig = String(r?.original ?? "");
+              resolvedMap.set(orig, {
+                original: orig,
+                type: (r?.type as EntryType) ?? "number",
+                number: r?.number ? String(r.number) : "—",
+                jid: r?.jid ? String(r.jid) : "—",
+                valid: !!r?.valid,
+                error: r?.error,
+              });
+            });
+            setProgress((p) => ({ ...p, done: p.done + chunk.length }));
+          } catch (err) {
+            console.warn(`[lid-converter] device ${devId} falhou, redistribuindo`, err);
+            // Remove instância com falha e redistribui contatos faltantes entre as demais
+            const idx = activeDevices.indexOf(devId);
+            if (idx >= 0) activeDevices.splice(idx, 1);
+            const pending = chunk.filter((c) => !resolvedMap.has(c));
+            if (activeDevices.length === 0 || pending.length === 0) {
+              // Marca falhas se não houver mais instâncias
+              pending.forEach((c) =>
+                resolvedMap.set(c, {
+                  original: c, type: "number", number: "—", jid: "—",
+                  valid: false, error: "Todas as instâncias falharam",
+                }),
+              );
+              setProgress((p) => ({ ...p, done: p.done + pending.length }));
+              return;
+            }
+            // Redistribui em sub-chunks pelos sobreviventes em paralelo
+            const sub: Record<string, string[]> = {};
+            activeDevices.forEach((id) => (sub[id] = []));
+            pending.forEach((c, i) => sub[activeDevices[i % activeDevices.length]].push(c));
+            await Promise.all(activeDevices.map((id) => processChunk(id, sub[id])));
+          }
+        };
+
+        await Promise.all(deviceIds.map((id) => processChunk(id, buckets[id])));
       }
 
       // Mantém ordem original
-      const merged: Row[] = allLines.map((l) => cached.get(l) || resolvedRows.find((r) => r.original === l) || {
+      const merged: Row[] = allLines.map((l) => cached.get(l) || resolvedMap.get(l) || {
         original: l, type: "number", number: "—", jid: "—", valid: false, error: "no_result",
       });
 
