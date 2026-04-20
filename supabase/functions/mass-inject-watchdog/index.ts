@@ -42,6 +42,43 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const sb = createClient(supabaseUrl, serviceRoleKey);
 
+  // ── Concurrency guard: global advisory lock (single watchdog at a time) ──
+  // Key 0x7AFE_DA60 = "safedog" — arbitrary but stable. Auto-released on session end.
+  const LOCK_KEY = 2063989344;
+  const { data: lockRow, error: lockErr } = await sb.rpc("pg_try_advisory_lock", { key: LOCK_KEY })
+    .then((r) => ({ data: r.data, error: r.error }))
+    .catch((e) => ({ data: null, error: e }));
+
+  // Fallback: call via raw SQL if RPC wrapper not present
+  let acquired: boolean | null = null;
+  if (!lockErr && typeof lockRow === "boolean") {
+    acquired = lockRow;
+  } else {
+    const { data, error } = await sb
+      .from("_watchdog_lock_probe") // dummy — we use the SQL path below
+      .select("id")
+      .limit(0);
+    // ignore — we'll use the supabase-js .rpc with a custom SQL function if available
+    void data;
+    void error;
+  }
+
+  // Last resort: use the existing mass_inject advisory helper as a global lock
+  if (acquired === null) {
+    const { data: gotLock } = await sb.rpc("try_acquire_mass_inject_run_lock", {
+      p_campaign_id: "00000000-0000-0000-0000-00000000dead",
+    });
+    acquired = gotLock === true;
+  }
+
+  if (!acquired) {
+    console.log("[watchdog] skipped: another instance already running");
+    return new Response(
+      JSON.stringify({ skipped: true, reason: "already_running", at: new Date().toISOString() }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
   const summary = {
     triggered_at: new Date().toISOString(),
     campaigns_inspected: 0,
