@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
-type EntryType = "LID" | "JID" | "Numero" | "Invalido";
+type EntryType = "lid" | "jid" | "number";
 
 interface Row {
   original: string;
@@ -15,69 +16,7 @@ interface Row {
   number: string;
   jid: string;
   valid: boolean;
-}
-
-const PRIVATE_JID_SUFFIX = "@s.whatsapp.net";
-const LID_SUFFIX = "@lid";
-const GROUP_SUFFIX = "@g.us";
-
-function onlyDigits(value: string): string {
-  return String(value || "").replace(/\D/g, "");
-}
-
-function classify(raw: string): { type: EntryType; digits: string } {
-  const value = String(raw || "").trim();
-  if (!value) return { type: "Invalido", digits: "" };
-
-  if (value.toLowerCase().endsWith(LID_SUFFIX)) {
-    return { type: "LID", digits: onlyDigits(value.split("@")[0]) };
-  }
-  if (value.toLowerCase().endsWith(PRIVATE_JID_SUFFIX) || value.toLowerCase().endsWith(GROUP_SUFFIX)) {
-    return { type: "JID", digits: onlyDigits(value.split("@")[0]) };
-  }
-  if (value.includes("@")) {
-    return { type: "Invalido", digits: onlyDigits(value.split("@")[0]) };
-  }
-  const digits = onlyDigits(value);
-  return { type: digits ? "Numero" : "Invalido", digits };
-}
-
-function isValidDigits(digits: string): boolean {
-  // Aceita números de 10 a 15 dígitos (E.164-ish), padrão internacional
-  return digits.length >= 10 && digits.length <= 15;
-}
-
-function convertLine(raw: string): Row {
-  const { type, digits } = classify(raw);
-
-  // LID não carrega o número real do WhatsApp — não é convertível para um número válido
-  if (type === "LID") {
-    return {
-      original: raw,
-      type: "LID",
-      number: digits || "—",
-      jid: digits ? `${digits}${PRIVATE_JID_SUFFIX}` : "—",
-      valid: false,
-    };
-  }
-
-  if (type === "Invalido" || !isValidDigits(digits)) {
-    return {
-      original: raw,
-      type: type === "Invalido" ? "Invalido" : type,
-      number: digits || "—",
-      jid: "—",
-      valid: false,
-    };
-  }
-
-  return {
-    original: raw,
-    type,
-    number: digits,
-    jid: `${digits}${PRIVATE_JID_SUFFIX}`,
-    valid: true,
-  };
+  error?: string;
 }
 
 export default function LidConverter() {
@@ -85,30 +24,45 @@ export default function LidConverter() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const handleConvert = () => {
+  const handleConvert = async () => {
+    const lines = Array.from(
+      new Set(
+        input
+          .split(/[\n,;]+/)
+          .map((l) => l.trim())
+          .filter(Boolean),
+      ),
+    );
+
+    if (lines.length === 0) {
+      toast.error("Cole ao menos um contato.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const lines = input
-        .split(/[\n,;]+/)
-        .map((l) => l.trim())
-        .filter(Boolean);
+      const { data, error } = await supabase.functions.invoke("resolve-contact", {
+        body: { inputs: lines },
+      });
 
-      if (lines.length === 0) {
-        toast.error("Cole ao menos um contato.");
-        return;
-      }
+      if (error) throw error;
 
-      const seen = new Set<string>();
-      const result: Row[] = [];
-      for (const line of lines) {
-        const row = convertLine(line);
-        const key = `${row.type}:${row.original}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        result.push(row);
-      }
-      setRows(result);
-      toast.success(`${result.length} entradas processadas`);
+      const results = Array.isArray(data?.results) ? data.results : [];
+      const mapped: Row[] = results.map((r: any) => ({
+        original: String(r?.original ?? ""),
+        type: (r?.type as EntryType) ?? "number",
+        number: r?.number ? String(r.number) : "—",
+        jid: r?.jid ? String(r.jid) : "—",
+        valid: !!r?.valid,
+        error: r?.error,
+      }));
+
+      setRows(mapped);
+      const validCount = mapped.filter((m) => m.valid).length;
+      toast.success(`${mapped.length} processados · ${validCount} válidos`);
+    } catch (err) {
+      console.error("[lid-converter] convert error", err);
+      toast.error(err instanceof Error ? err.message : "Falha ao processar contatos");
     } finally {
       setLoading(false);
     }
@@ -119,7 +73,10 @@ export default function LidConverter() {
     setRows([]);
   };
 
-  const validNumbers = useMemo(() => rows.filter((r) => r.valid).map((r) => r.number), [rows]);
+  const validNumbers = useMemo(
+    () => rows.filter((r) => r.valid && r.number !== "—").map((r) => r.number),
+    [rows],
+  );
 
   const handleCopyValid = async () => {
     if (validNumbers.length === 0) {
@@ -155,7 +112,7 @@ export default function LidConverter() {
   const stats = useMemo(() => {
     const total = rows.length;
     const valid = rows.filter((r) => r.valid).length;
-    const lid = rows.filter((r) => r.type === "LID").length;
+    const lid = rows.filter((r) => r.type === "lid").length;
     return { total, valid, invalid: total - valid, lid };
   }, [rows]);
 
@@ -188,13 +145,14 @@ export default function LidConverter() {
             placeholder={`5511999998888\n5511988887777@s.whatsapp.net\n123456789@lid`}
             rows={8}
             className="font-mono text-sm"
+            disabled={loading}
           />
           <div className="flex flex-wrap gap-2">
             <Button onClick={handleConvert} disabled={loading || !input.trim()}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
-              Converter
+              {loading ? "Processando..." : "Converter"}
             </Button>
-            <Button variant="outline" onClick={handleClear} disabled={!input && rows.length === 0}>
+            <Button variant="outline" onClick={handleClear} disabled={loading || (!input && rows.length === 0)}>
               <Eraser className="h-4 w-4" />
               Limpar
             </Button>
@@ -202,74 +160,97 @@ export default function LidConverter() {
         </CardContent>
       </Card>
 
-      {rows.length > 0 && (
+      {(loading || rows.length > 0) && (
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div>
               <CardTitle className="text-base">Resultados</CardTitle>
               <CardDescription>
-                {stats.total} total · <span className="text-emerald-500 font-medium">{stats.valid} válidos</span> ·{" "}
-                <span className="text-destructive font-medium">{stats.invalid} inválidos</span>
-                {stats.lid > 0 && <> · {stats.lid} LIDs (não convertíveis)</>}
+                {loading ? (
+                  "Resolvendo contatos via backend..."
+                ) : (
+                  <>
+                    {stats.total} total ·{" "}
+                    <span className="text-emerald-500 font-medium">{stats.valid} válidos</span> ·{" "}
+                    <span className="text-destructive font-medium">{stats.invalid} inválidos</span>
+                    {stats.lid > 0 && <> · {stats.lid} LIDs</>}
+                  </>
+                )}
               </CardDescription>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={handleCopyValid}>
-                <Copy className="h-4 w-4" />
-                Copiar válidos
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleExport}>
-                <Download className="h-4 w-4" />
-                Exportar
-              </Button>
-            </div>
+            {!loading && rows.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={handleCopyValid}>
+                  <Copy className="h-4 w-4" />
+                  Copiar válidos
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleExport}>
+                  <Download className="h-4 w-4" />
+                  Exportar
+                </Button>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
-            <div className="rounded-lg border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Original</TableHead>
-                    <TableHead className="w-[100px]">Tipo</TableHead>
-                    <TableHead>Número</TableHead>
-                    <TableHead>JID</TableHead>
-                    <TableHead className="w-[110px]">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((r, i) => (
-                    <TableRow key={`${r.original}-${i}`}>
-                      <TableCell className="font-mono text-xs break-all max-w-[200px]">{r.original}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={r.type === "LID" ? "destructive" : r.type === "Invalido" ? "outline" : "secondary"}
-                          className="text-[10px]"
-                        >
-                          {r.type === "Numero" ? "Número" : r.type === "Invalido" ? "Inválido" : r.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">{r.number}</TableCell>
-                      <TableCell className="font-mono text-xs break-all max-w-[220px]">{r.jid}</TableCell>
-                      <TableCell>
-                        {r.valid ? (
-                          <Badge className="bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/30">
-                            Válido
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-destructive border-destructive/40">
-                            Inválido
-                          </Badge>
-                        )}
-                      </TableCell>
+            {loading ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                <span className="text-sm">Resolvendo via Uazapi...</span>
+              </div>
+            ) : (
+              <div className="rounded-lg border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Original</TableHead>
+                      <TableHead className="w-[100px]">Tipo</TableHead>
+                      <TableHead>Número</TableHead>
+                      <TableHead>JID</TableHead>
+                      <TableHead className="w-[110px]">Status</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            {stats.lid > 0 && (
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((r, i) => (
+                      <TableRow
+                        key={`${r.original}-${i}`}
+                        className={r.valid ? "bg-emerald-500/[0.04]" : "bg-destructive/[0.04]"}
+                      >
+                        <TableCell className="font-mono text-xs break-all max-w-[200px]">{r.original}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={r.type === "lid" ? "destructive" : "secondary"}
+                            className="text-[10px] uppercase"
+                          >
+                            {r.type === "number" ? "Número" : r.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{r.number}</TableCell>
+                        <TableCell className="font-mono text-xs break-all max-w-[220px]">{r.jid}</TableCell>
+                        <TableCell>
+                          {r.valid ? (
+                            <Badge className="bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/30">
+                              Válido
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-destructive border-destructive/40"
+                              title={r.error}
+                            >
+                              Inválido
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            {!loading && stats.lid > 0 && (
               <p className="text-xs text-muted-foreground mt-3">
-                ⚠️ Identificadores <strong>@lid</strong> são opacos e não permitem recuperar o número real do WhatsApp diretamente.
-                Eles são marcados como inválidos para envio.
+                ⚠️ Identificadores <strong>@lid</strong> são resolvidos via Uazapi quando há uma instância conectada.
+                Se não houver, ficam marcados como inválidos.
               </p>
             )}
           </CardContent>
