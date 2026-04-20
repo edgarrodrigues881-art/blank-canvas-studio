@@ -440,6 +440,23 @@ export default function LidConverter() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Instância <span className="text-destructive">*</span>
+                </label>
+                <Select value={deviceId} onValueChange={setDeviceId} disabled={loading}>
+                  <SelectTrigger className="w-full sm:w-[320px]">
+                    <SelectValue placeholder={devices.length === 0 ? "Nenhuma instância conectada" : "Selecione uma instância"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {devices.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name || "Instância"} {d.number ? `· ${d.number}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -449,7 +466,7 @@ export default function LidConverter() {
                 disabled={loading}
               />
               <div className="flex flex-wrap gap-2">
-                <Button onClick={handleConvert} disabled={loading || !input.trim()}>
+                <Button onClick={handleConvert} disabled={loading || !input.trim() || !deviceId}>
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
                   {loading ? "Processando..." : "Converter"}
                 </Button>
