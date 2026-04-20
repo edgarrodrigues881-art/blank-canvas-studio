@@ -43,6 +43,18 @@ const TRANSIENT_FAILURE_STATUSES = new Set([
 const deviceCriticalErrors = new Map<string, number>();
 const DEVICE_CRITICAL_PAUSE_THRESHOLD = 4; // pause only after 4 consecutive critical errors on same device
 
+// ── Per-contact attempt cap (bounded retry) ──
+// Each contact gets at most 2 attempts total (1 initial + 1 retry). The DB function
+// `claim_next_mass_inject_contact` enforces this by refusing to re-claim contacts
+// whose attempt_count has already reached MAX_CONTACT_ATTEMPTS.
+const MAX_CONTACT_ATTEMPTS = 2;
+
+// ── Consecutive add-failure circuit breaker (per worker) ──
+// If an instance produces this many consecutive add failures (any kind, not just
+// critical) we stop this worker so siblings can absorb the load and the campaign
+// is not stuck spinning on the same broken state.
+const MAX_CONSECUTIVE_ADD_FAILURES = 5;
+
 const DEVICE_RETRY_INTERVAL_MS = 6_000; // 6s — fast retry, don't block
 
 // ── Per-device connection state (persists across contacts) ──
