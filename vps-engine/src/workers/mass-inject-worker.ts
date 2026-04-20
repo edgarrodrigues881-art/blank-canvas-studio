@@ -979,10 +979,29 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
     const liveWorkersRef = { value: initialDeviceIds.length };
 
-    log.info(`Campaign ${campaignId.slice(0, 8)} launching ${initialDeviceIds.length} parallel device worker(s)`);
+    // Per-instance queue isolation: pre-distribute pending contacts across the
+    // device pool using round-robin. Each contact gets pinned to ONE device,
+    // so workers no longer compete for the same queue. Safe to call on every
+    // tick — only unassigned rows are touched.
+    try {
+      const { data: assignedCount, error: distErr } = await sb.rpc("distribute_mass_inject_contacts", {
+        p_campaign_id: campaignId,
+        p_device_ids: initialDeviceIds,
+      });
+      if (distErr) {
+        log.warn(`Campaign ${campaignId.slice(0, 8)}: distribute RPC failed — falling back to shared queue. ${String(distErr.message || distErr)}`);
+      } else if (Number(assignedCount || 0) > 0) {
+        log.info(`Campaign ${campaignId.slice(0, 8)}: distributed ${assignedCount} contact(s) round-robin across ${initialDeviceIds.length} instance(s)`);
+      }
+    } catch (e: any) {
+      log.warn(`Campaign ${campaignId.slice(0, 8)}: distribute RPC crashed — proceeding without pre-assignment. ${String(e?.message || e)}`);
+    }
 
-    // Run one parallel worker per device. They share the contact queue
-    // (claim_next_mass_inject_contact uses FOR UPDATE SKIP LOCKED).
+    log.info(`Campaign ${campaignId.slice(0, 8)} launching ${initialDeviceIds.length} parallel device worker(s) — per-instance isolated queues`);
+
+    // Run one parallel worker per device. Each worker only claims contacts
+    // assigned to its own device (or unassigned fallback). A failed instance
+    // never blocks siblings — its queue is reassigned via reassign_mass_inject_contacts.
     await Promise.all(initialDeviceIds.map((did) =>
       runDeviceWorker(sb, campaign, did, counterState, failedDeviceIds, stopAllRef, isRunningRef, liveWorkersRef)
         .catch((err: any) => {
