@@ -823,6 +823,11 @@ async function finalizeCampaign(sb: any, campaignId: string): Promise<boolean> {
 const BATCH_SIZE = 10; // contacts per device-worker per batch
 async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value: boolean }) {
   const campaignId = campaign.id;
+  const slotLabel = `mass-inject:${campaignId.slice(0, 8)}`;
+  await acquireGlobalSlot(slotLabel);
+  activeCampaignIds.add(campaignId);
+
+  // Shared counter state across all device workers of this campaign
   const counterState = {
     success_count: Number(campaign.success_count || 0),
     already_count: Number(campaign.already_count || 0),
@@ -832,32 +837,87 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     consecutive_failures: Number(campaign.consecutive_failures || 0),
     dirty: false,
   };
-  let contactsSinceFlush = 0;
+  const failedDeviceIds = new Map<string, number>();
+  const stopAllRef = { value: false };
 
-  const slotLabel = `mass-inject:${campaignId.slice(0, 8)}`;
-  await acquireGlobalSlot(slotLabel);
-  activeCampaignIds.add(campaignId);
-  log.info(`Processing campaign ${campaignId.slice(0, 8)}: group=${campaign.group_id}, contacts=${campaign.total_items || "?"}`);
   try {
-    // Mark as processing
     if (campaign.status === "queued") {
       await sb.from("mass_inject_campaigns").update({ status: "processing", updated_at: nowIso() }).eq("id", campaignId);
       await emitEvent(sb, campaignId, "campaign_started", "info");
     }
 
-    const failedDeviceIds = new Map<string, number>();
+    const initialDeviceIds = parseDeviceIds(campaign.device_ids);
+    if (initialDeviceIds.length === 0) {
+      log.warn(`Campaign ${campaignId.slice(0, 8)}: no devices configured — pausing`);
+      await sb.from("mass_inject_campaigns").update({
+        status: "paused", updated_at: nowIso(), next_run_at: null,
+        pause_reason: "Nenhuma instância configurada para esta campanha.",
+      }).eq("id", campaignId);
+      return;
+    }
 
-    let contactsInLoop = 0;
-    let cachedFreshCampaign: any = null;
-    let batchProcessed = 0;
-    let noNumberWarned = false; // log "no number" only once per campaign run
-    // Batch summary counters (for reduced logging)
-    let batchAdded = 0;
-    let batchAlready = 0;
-    let batchFailed = 0;
-    let batchSkipped = 0;
+    log.info(`Campaign ${campaignId.slice(0, 8)} launching ${initialDeviceIds.length} parallel device worker(s)`);
 
-    while (isRunningRef.value && batchProcessed < BATCH_SIZE) {
+    // Run one parallel worker per device. They share the contact queue
+    // (claim_next_mass_inject_contact uses FOR UPDATE SKIP LOCKED).
+    await Promise.all(initialDeviceIds.map((did) =>
+      runDeviceWorker(sb, campaign, did, counterState, failedDeviceIds, stopAllRef, isRunningRef)
+        .catch((err: any) => {
+          log.error(`Campaign ${campaignId.slice(0, 8)} device ${did.slice(0, 8)} worker error: ${err?.message || err}`);
+        }),
+    ));
+
+    await flushCounters(sb, campaignId, counterState);
+    if (!stopAllRef.value) {
+      await finalizeCampaign(sb, campaignId);
+    }
+  } catch (err: any) {
+    const errMessage = String(err?.message || err || "Erro interno desconhecido");
+    log.error(`Campaign ${campaignId.slice(0, 8)} crashed`, { error: errMessage, stack: err?.stack });
+    try {
+      await sb.from("mass_inject_contacts")
+        .update({ status: "pending", error_message: "Reprocessando após falha interna do worker.", device_used: null } as any)
+        .eq("campaign_id", campaignId)
+        .eq("status", "processing");
+      await sb.from("mass_inject_campaigns").update({
+        status: "paused", updated_at: nowIso(), next_run_at: null,
+        pause_reason: `Erro interno no motor VPS: ${errMessage.substring(0, 180)}`,
+      }).eq("id", campaignId).in("status", ["queued", "processing"]);
+      await emitEvent(sb, campaignId, "campaign_worker_crash", "error", `Erro interno no motor VPS: ${errMessage.substring(0, 220)}`);
+    } catch (recoveryErr: any) {
+      log.error(`Campaign ${campaignId.slice(0, 8)} crash recovery failed`, { error: String(recoveryErr?.message || recoveryErr || "Erro na recuperação") });
+    }
+  } finally {
+    activeCampaignIds.delete(campaignId);
+    releaseGlobalSlot(slotLabel);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// DEVICE WORKER: pinned to ONE specific device. Runs in parallel
+// with siblings; redistributes load when others fail.
+// ══════════════════════════════════════════════════════════
+async function runDeviceWorker(
+  sb: any,
+  campaign: any,
+  myDeviceId: string,
+  counterState: any,
+  failedDeviceIds: Map<string, number>,
+  stopAllRef: { value: boolean },
+  isRunningRef: { value: boolean },
+) {
+  const campaignId = campaign.id;
+  let contactsSinceFlush = 0;
+  let contactsInLoop = 0;
+  let cachedFreshCampaign: any = null;
+  let batchProcessed = 0;
+  let noNumberWarned = false;
+  let batchAdded = 0;
+  let batchAlready = 0;
+  let batchFailed = 0;
+  let batchSkipped = 0;
+
+    while (isRunningRef.value && !stopAllRef.value && batchProcessed < BATCH_SIZE) {
       // Clear stale device failures
       const now = Date.now();
       for (const [did, ts] of failedDeviceIds) {
