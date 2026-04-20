@@ -82,9 +82,9 @@ interface DeviceConnectionState {
 }
 const deviceConnectionState = new Map<string, DeviceConnectionState>();
 const DEVICE_CONNECTED_CACHE_MS = 30_000; // trust "connected" for 30s
-const DEVICE_DISCONNECTED_RECHECK_MS = 15_000; // re-check disconnected device every 15s
+const DEVICE_DISCONNECTED_RECHECK_MS = 10_000; // auto-recover: re-check disconnected device every 10s
 const DEVICE_DISCONNECT_AUTO_PAUSE_MS = 120_000; // auto-pause campaign if ALL devices disconnected for 2min
-const API_FAILURE_DISCONNECT_THRESHOLD = 3; // after 3 consecutive API failures, force connection re-check
+const API_FAILURE_DISCONNECT_THRESHOLD = 3; // after 3 consecutive REAL connection failures, force re-check
 
 // ── In-memory caches (persist across contacts within same campaign run) ──
 type ParticipantCacheEntry = {
@@ -519,23 +519,31 @@ async function isInstanceConnected(
   const result = await isDeviceConnected(baseUrl, token);
 
   if (result.connected === true) {
+    const wasDisconnected = state?.status === "disconnected";
     deviceConnectionState.set(deviceId, {
       status: "connected",
       lastCheckedAt: now,
       confirmedDisconnectedAt: null,
       consecutiveApiFailures: 0,
     });
+    if (wasDisconnected) {
+      log.info(`STATE CHANGE [recovered] device ${deviceId.slice(0, 8)} — health check OK, instance back online.`);
+    }
     return { connected: true, detail: result.detail, shouldSkipDevice: false };
   }
 
   if (result.connected === false) {
     const prevState = deviceConnectionState.get(deviceId);
+    const wasConnected = prevState?.status !== "disconnected";
     deviceConnectionState.set(deviceId, {
       status: "disconnected",
       lastCheckedAt: now,
       confirmedDisconnectedAt: prevState?.confirmedDisconnectedAt || now,
       consecutiveApiFailures: prevState?.consecutiveApiFailures || 0,
     });
+    if (wasConnected) {
+      log.warn(`STATE CHANGE [disconnected] device ${deviceId.slice(0, 8)} — reason: ${result.detail}`);
+    }
     return { connected: false, detail: result.detail, shouldSkipDevice: true };
   }
 
@@ -574,11 +582,15 @@ function recordDeviceApiFailure(deviceId: string, errorDetail: string): boolean 
 function recordDeviceApiSuccess(deviceId: string) {
   const state = deviceConnectionState.get(deviceId);
   if (state) {
+    const wasDisconnected = state.status === "disconnected";
     state.consecutiveApiFailures = 0;
     state.status = "connected";
     state.confirmedDisconnectedAt = null;
     state.lastCheckedAt = Date.now();
     deviceConnectionState.set(deviceId, state);
+    if (wasDisconnected) {
+      log.info(`STATE CHANGE [recovered] device ${deviceId.slice(0, 8)} — successful API call confirmed instance is online.`);
+    }
   }
 }
 
@@ -1423,23 +1435,31 @@ async function runDeviceWorker(
           continue;
         }
 
-        // Track API failures for connection state — ONLY real connection issues
-        // ever influence device-disconnected status. A normal "add failed" must
-        // never poison the device state. Rate limits are explicitly excluded above.
-        if (isConnectionIssue || isTimeout) {
+        // Track API failures for connection state — ONLY explicit connection
+        // issues ever influence device-disconnected status. Rate limits, timeouts,
+        // and queue delays are explicitly excluded — those are transient and the
+        // instance is still healthy.
+        if (isConnectionIssue) {
           const shouldForceRecheck = recordDeviceApiFailure(deviceId, failureDetail);
-          if (shouldForceRecheck && isConnectionIssue) {
-            // Connection issue confirmed by API failures — revert contact to pending (don't consume attempt)
-            await sb.from("mass_inject_contacts").update({
-              status: "pending",
-              error_message: `Aguardando reconexão: ${failureDetail}`,
-              device_used: null,
-              attempt_count: Math.max(0, currentAttempt - 1), // refund attempt
-            } as any).eq("id", contact.id);
-            failedDeviceIds.set(deviceId, Date.now());
-            batchFailed++;
-            // Don't count this as a campaign failure — device is the issue
-            continue;
+          if (shouldForceRecheck) {
+            // 3 consecutive REAL connection failures — validate via health check
+            // endpoint before marking device as offline. Revert contact to pending
+            // (don't consume an attempt) so it auto-resumes after recovery.
+            const health = await isInstanceConnected(deviceId, baseUrl, device.uazapi_token, true);
+            if (!health.connected) {
+              await sb.from("mass_inject_contacts").update({
+                status: "pending",
+                error_message: `Aguardando reconexão: ${failureDetail}`,
+                device_used: null,
+                attempt_count: Math.max(0, currentAttempt - 1), // refund attempt
+              } as any).eq("id", contact.id);
+              failedDeviceIds.set(deviceId, Date.now());
+              batchFailed++;
+              // Don't count this as a campaign failure — device is the issue
+              continue;
+            } else {
+              log.info(`Device ${deviceId.slice(0, 8)}: API failures recovered after health check — continuing.`);
+            }
           }
         }
 
